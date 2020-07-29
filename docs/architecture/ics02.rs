@@ -88,7 +88,7 @@ trait ClientProver {
         sequence: u64,
     ) -> (Vec<u8>, Proof);
 
-    fn queryAndProvePacketAcknowledgement(
+    fn query_and_prove_packet_acknowledgement(
         port_identifier: PortIdentifier,
         channel_identifier: ChannelIdentifier,
         height: Height,
@@ -96,7 +96,7 @@ trait ClientProver {
         sequence: u64,
     ) -> (Vec<u8>, Proof);
 
-    fn queryAndProvePacketAcknowledgementAbsence(
+    fn query_and_prove_packet_acknowledgement_absence(
         port_identifier: PortIdentifier,
         channel_identifier: ChannelIdentifier,
         height: Height,
@@ -104,7 +104,7 @@ trait ClientProver {
         sequence: u64,
     ) -> Proof;
 
-    fn queryAndProveNextSequenceRecv(
+    fn query_and_prove_next_sequence_recv(
         port_identifier: PortIdentifier,
         channel_identifier: ChannelIdentifier,
         height: Height,
@@ -151,3 +151,4 @@ fn submit_misbehaviour_to_client(client_id: Identifier, evidence: Vec<u8>) -> Re
 
     client_type.check_misbehaviour_and_update_state(client_state, evidence)
 }
+
