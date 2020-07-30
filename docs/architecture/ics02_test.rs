@@ -8,7 +8,8 @@ trait ClientHandler<C>
 where
     C: Chain,
 {
-    fn get_client_type(&self, client_identifier: ClientIdentifier) -> Option<C::ClientType>;
+    fn get_client_state(&self, client_id: ClientIdentifier) -> Option<C::ClientState>;
+    fn get_client_type(&self, client_id: ClientIdentifier) -> Option<C::ClientType>;
 }
 
 pub struct MockClientHandler<C: Chain> {
@@ -20,11 +21,11 @@ impl<C> ClientHandler<C> for MockClientHandler<C>
 where
     C: Chain,
 {
-    fn get_client_state(&self, client_identifier: ClientIdentifier) -> Option<C::ClientState> {
+    fn get_client_state(&self, client_id: ClientIdentifier) -> Option<C::ClientState> {
         self.client_state.clone()
     }
 
-    fn get_client_type(&self, client_identifier: ClientIdentifier) -> Option<C::ClientType> {
+    fn get_client_type(&self, client_id: ClientIdentifier) -> Option<C::ClientType> {
         self.client_type.clone()
     }
 }
@@ -92,7 +93,10 @@ pub struct UpdateClientResult<C: Chain> {
     consensus_state: C::ConsensusState,
 }
 
-fn update_client<C>(msg: MsgUpdateClient<C>, handler: impl ClientHandler<C>) -> Result<(), Error>
+fn update_client<C>(
+    msg: MsgUpdateClient<C>,
+    handler: impl ClientHandler<C>,
+) -> Result<UpdateClientResult, Error>
 where
     C: Chain,
 {
