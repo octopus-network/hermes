@@ -28,9 +28,15 @@ where
     fn get_client_type(&self, client_id: ClientIdentifier) -> Option<C::ClientType> {
         self.client_type.clone()
     }
+
+    fn query_consensus_state(
+        &self,
+        client_id: ClientIdentifier,
+        height: Height,
+    ) -> Option<C::ConsensusState>;
 }
 
-struct CreateClientResult<C> {
+struct CreateClientResult<C: Chain> {
     client_type: C::ClientType,
     client_state: C::ClientState,
 }
@@ -38,7 +44,7 @@ struct CreateClientResult<C> {
 fn create_client<C>(
     msg: MsgCreateClient<C>,
     handler: impl ClientHandler<C>,
-) -> Result<CreateClientResult, Error>
+) -> Result<CreateClientResult<C>, Error>
 where
     C: Chain,
 {
