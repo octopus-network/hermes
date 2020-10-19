@@ -178,7 +178,7 @@ impl Order {
     /// Yields the Order as a string
     pub fn as_string(&self) -> &'static str {
         match self {
-            Self::None => "UNINITIALIZED",
+            Self::None => "NONE_UNSPECIFIED",
             Self::Unordered => "UNORDERED",
             Self::Ordered => "ORDERED",
         }
@@ -200,9 +200,9 @@ impl FromStr for Order {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "UNINITIALIZED" => Ok(Self::None),
-            "UNORDERED" => Ok(Self::Unordered),
-            "ORDERED" => Ok(Self::Ordered),
+            "ORDER_NONE_UNSPECIFIED" => Ok(Self::None),
+            "ORDER_UNORDERED" => Ok(Self::Unordered),
+            "ORDER_ORDERED" => Ok(Self::Ordered),
             _ => fail!(error::Kind::UnknownOrderType, s),
         }
     }

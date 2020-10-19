@@ -38,7 +38,6 @@ pub enum IBCEvent {
     SendPacketChannel(ChannelEvents::SendPacket),
     ReceivePacketChannel(ChannelEvents::ReceivePacket),
     AcknowledgePacketChannel(ChannelEvents::AcknowledgePacket),
-    CleanupPacketChannel(ChannelEvents::CleanupPacket),
     TimeoutPacketChannel(ChannelEvents::TimeoutPacket),
 
     TimeoutTransfer(TransferEvents::Timeout),
@@ -192,7 +191,7 @@ pub fn build_event(object: RawObject) -> Result<IBCEvent, BoxError> {
         // send_packet
         "transfer" => Ok(IBCEvent::from(ChannelEvents::SendPacket::try_from(object)?)),
         // recv_packet
-        "ics04/opaque" => Ok(IBCEvent::from(ChannelEvents::ReceivePacket::try_from(
+        "recv_packet" => Ok(IBCEvent::from(ChannelEvents::ReceivePacket::try_from(
             object,
         )?)),
         // acknowledge_packet
@@ -211,11 +210,6 @@ pub fn build_event(object: RawObject) -> Result<IBCEvent, BoxError> {
         )?)),
         //timeout_packet
         "ics04/timeout" => Ok(IBCEvent::from(ChannelEvents::TimeoutPacket::try_from(
-            object,
-        )?)),
-
-        // TODO not clear what the message.action for this is
-        "cleanup_packet" => Ok(IBCEvent::from(ChannelEvents::CleanupPacket::try_from(
             object,
         )?)),
 

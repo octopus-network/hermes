@@ -5,6 +5,7 @@ use crate::ics02_client::client_type::ClientType;
 use crate::ics24_host::identifier::ClientId;
 use anomaly::BoxError;
 
+use crate::ics02_client::height::Height;
 use serde_derive::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use tendermint::block;
@@ -34,6 +35,7 @@ pub struct CreateClient {
     pub height: block::Height,
     pub client_id: ClientId,
     pub client_type: ClientType,
+    pub consensus_height: Height,
 }
 
 impl TryFrom<RawObject> for CreateClient {
@@ -43,6 +45,7 @@ impl TryFrom<RawObject> for CreateClient {
             height: obj.height,
             client_id: attribute!(obj, "create_client.client_id"),
             client_type: attribute!(obj, "create_client.client_type"),
+            consensus_height: attribute!(obj, "create_client.consensus_height"),
         })
     }
 }
@@ -59,6 +62,7 @@ pub struct UpdateClient {
     pub height: block::Height,
     pub client_id: ClientId,
     pub client_type: ClientType,
+    pub consensus_height: Height,
 }
 
 impl TryFrom<RawObject> for UpdateClient {
@@ -68,6 +72,7 @@ impl TryFrom<RawObject> for UpdateClient {
             height: obj.height,
             client_id: attribute!(obj, "update_client.client_id"),
             client_type: attribute!(obj, "update_client.client_type"),
+            consensus_height: attribute!(obj, "update_client.consensus_height"),
         })
     }
 }

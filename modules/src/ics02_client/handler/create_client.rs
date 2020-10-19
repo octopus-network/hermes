@@ -142,6 +142,11 @@ mod tests {
 
     #[test]
     fn test_create_client_ok_multiple() {
+        let hstr = "0-7".to_string();
+        let _height = Height::new(0, 7);
+        let h2 = Height::from_str(hstr.as_str());
+        assert!(h2.is_ok());
+        assert_eq!(h2.unwrap(), _height);
         let existing_client_id = ClientId::from_str("existingmockclient").unwrap();
         let signer = get_dummy_account_id();
         let height = Height::new(0, 80);

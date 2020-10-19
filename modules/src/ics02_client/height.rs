@@ -1,10 +1,12 @@
 use serde_derive::{Deserialize, Serialize};
 use std::{cmp::Ordering, convert::TryFrom};
+//use tracing::warn;
 
 use tendermint_proto::DomainType;
 
 use crate::ics02_client::error::{Error, Kind};
 use ibc_proto::ibc::core::client::v1::Height as RawHeight;
+use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Height {
@@ -112,11 +114,24 @@ impl From<Height> for RawHeight {
 
 impl std::fmt::Display for Height {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(
-            f,
-            "epoch: {}, height: {}",
-            self.version_number, self.version_height
-        )
+        write!(f, "{}-{}", self.version_number, self.version_height)
+    }
+}
+
+/// The consensus height in the IBC raw events is expected to be formatted as:
+/// {version_number}-{version_height}
+impl FromStr for Height {
+    type Err = anomaly::Error<Kind>;
+
+    fn from_str(str: &str) -> Result<Self, Self::Err> {
+        use regex::Regex;
+
+        let re = Regex::new(r"(?P<version>\d+)-(?P<height>\d+)").unwrap();
+        let res = re.captures(str).ok_or_else(|| Kind::InvalidHeightResult)?;
+        Ok(Height::new(
+            res["version"].parse().unwrap(),
+            res["height"].parse().unwrap(),
+        ))
     }
 }
 

@@ -1,6 +1,8 @@
 //! Types for the IBC events emitted from Tendermint Websocket by the channels module.
 use crate::attribute;
 use crate::events::{IBCEvent, RawObject};
+use crate::ics02_client::height::Height;
+use crate::ics04_channel::channel::Order;
 use crate::ics24_host::identifier::{ChannelId, ConnectionId, PortId};
 use anomaly::BoxError;
 use serde_derive::{Deserialize, Serialize};
@@ -11,10 +13,10 @@ use tendermint::block;
 pub struct OpenInit {
     pub height: block::Height,
     pub port_id: PortId,
-    pub connection_id: ConnectionId,
     pub channel_id: ChannelId,
     pub counterparty_port_id: PortId,
     pub counterparty_channel_id: ChannelId,
+    pub connection_id: ConnectionId,
 }
 
 impl TryFrom<RawObject> for OpenInit {
@@ -23,10 +25,10 @@ impl TryFrom<RawObject> for OpenInit {
         Ok(OpenInit {
             height: obj.height,
             port_id: attribute!(obj, "channel_open_init.port_id"),
-            connection_id: attribute!(obj, "channel_open_init.connection_id"),
             channel_id: attribute!(obj, "channel_open_init.channel_id"),
             counterparty_port_id: attribute!(obj, "channel_open_init.counterparty_port_id"),
             counterparty_channel_id: attribute!(obj, "channel_open_init.counterparty_channel_id"),
+            connection_id: attribute!(obj, "channel_open_init.connection_id"),
         })
     }
 }
@@ -41,10 +43,10 @@ impl From<OpenInit> for IBCEvent {
 pub struct OpenTry {
     pub height: block::Height,
     pub port_id: PortId,
-    pub connection_id: ConnectionId,
     pub channel_id: ChannelId,
     pub counterparty_port_id: PortId,
     pub counterparty_channel_id: ChannelId,
+    pub connection_id: ConnectionId,
 }
 
 impl TryFrom<RawObject> for OpenTry {
@@ -53,10 +55,10 @@ impl TryFrom<RawObject> for OpenTry {
         Ok(OpenTry {
             height: obj.height,
             port_id: attribute!(obj, "channel_open_try.port_id"),
-            connection_id: attribute!(obj, "channel_open_try.connection_id"),
             channel_id: attribute!(obj, "channel_open_try.channel_id"),
             counterparty_port_id: attribute!(obj, "channel_open_try.counterparty_port_id"),
             counterparty_channel_id: attribute!(obj, "channel_open_try.counterparty_channel_id"),
+            connection_id: attribute!(obj, "channel_open_try.connection_id"),
         })
     }
 }
@@ -72,6 +74,9 @@ pub struct OpenAck {
     pub height: block::Height,
     pub port_id: PortId,
     pub channel_id: ChannelId,
+    pub counterparty_port_id: PortId,
+    pub counterparty_channel_id: ChannelId,
+    pub connection_id: ConnectionId,
 }
 
 impl TryFrom<RawObject> for OpenAck {
@@ -81,6 +86,9 @@ impl TryFrom<RawObject> for OpenAck {
             height: obj.height,
             port_id: attribute!(obj, "channel_open_ack.port_id"),
             channel_id: attribute!(obj, "channel_open_ack.channel_id"),
+            counterparty_port_id: attribute!(obj, "channel_open_ack.counterparty_port_id"),
+            counterparty_channel_id: attribute!(obj, "channel_open_ack.counterparty_channel_id"),
+            connection_id: attribute!(obj, "channel_open_ack.connection_id"),
         })
     }
 }
@@ -96,6 +104,9 @@ pub struct OpenConfirm {
     pub height: block::Height,
     pub port_id: PortId,
     pub channel_id: ChannelId,
+    pub counterparty_port_id: PortId,
+    pub counterparty_channel_id: ChannelId,
+    pub connection_id: ConnectionId,
 }
 
 impl TryFrom<RawObject> for OpenConfirm {
@@ -105,6 +116,12 @@ impl TryFrom<RawObject> for OpenConfirm {
             height: obj.height,
             port_id: attribute!(obj, "channel_open_confirm.port_id"),
             channel_id: attribute!(obj, "channel_open_confirm.channel_id"),
+            counterparty_port_id: attribute!(obj, "channel_open_confirm.counterparty_port_id"),
+            counterparty_channel_id: attribute!(
+                obj,
+                "channel_open_confirm.counterparty_channel_id"
+            ),
+            connection_id: attribute!(obj, "channel_open_confirm.connection_id"),
         })
     }
 }
@@ -120,6 +137,9 @@ pub struct CloseInit {
     pub height: block::Height,
     pub port_id: PortId,
     pub channel_id: ChannelId,
+    pub counterparty_port_id: PortId,
+    pub counterparty_channel_id: ChannelId,
+    pub connection_id: ConnectionId,
 }
 
 impl TryFrom<RawObject> for CloseInit {
@@ -129,6 +149,9 @@ impl TryFrom<RawObject> for CloseInit {
             height: obj.height,
             port_id: attribute!(obj, "channel_close_init.port_id"),
             channel_id: attribute!(obj, "channel_close_init.channel_id"),
+            counterparty_port_id: attribute!(obj, "channel_close_init.counterparty_port_id"),
+            counterparty_channel_id: attribute!(obj, "channel_close_init.counterparty_channel_id"),
+            connection_id: attribute!(obj, "channel_close_init.connection_id"),
         })
     }
 }
@@ -144,6 +167,9 @@ pub struct CloseConfirm {
     pub height: block::Height,
     pub port_id: PortId,
     pub channel_id: ChannelId,
+    pub counterparty_port_id: PortId,
+    pub counterparty_channel_id: ChannelId,
+    pub connection_id: ConnectionId,
 }
 
 impl TryFrom<RawObject> for CloseConfirm {
@@ -153,6 +179,12 @@ impl TryFrom<RawObject> for CloseConfirm {
             height: obj.height,
             port_id: attribute!(obj, "channel_close_confirm.port_id"),
             channel_id: attribute!(obj, "channel_close_confirm.channel_id"),
+            counterparty_port_id: attribute!(obj, "channel_close_confirm.counterparty_port_id"),
+            counterparty_channel_id: attribute!(
+                obj,
+                "channel_close_confirm.counterparty_channel_id"
+            ),
+            connection_id: attribute!(obj, "channel_close_confirm.connection_id"),
         })
     }
 }
@@ -166,13 +198,15 @@ impl From<CloseConfirm> for IBCEvent {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct SendPacket {
     pub height: block::Height,
+    pub packet_data: Vec<u8>,
+    pub packet_timeout_height: Height,
+    pub packet_timeout_timestamp: u64,
+    pub packet_sequence: u64,
     pub packet_src_port: PortId,
     pub packet_src_channel: ChannelId,
     pub packet_dst_port: PortId,
     pub packet_dst_channel: ChannelId,
-    pub packet_sequence: u64,
-    pub packet_timeout_height: u64,
-    pub packet_timeout_stamp: u64,
+    pub packet_channel_ordering: Order,
 }
 
 impl TryFrom<RawObject> for SendPacket {
@@ -186,7 +220,15 @@ impl TryFrom<RawObject> for SendPacket {
             packet_dst_channel: attribute!(obj, "send_packet.packet_dst_channel"),
             packet_sequence: attribute!(obj, "send_packet.packet_sequence"),
             packet_timeout_height: attribute!(obj, "send_packet.packet_timeout_height"),
-            packet_timeout_stamp: attribute!(obj, "send_packet.packet_timeout_timestamp"),
+            packet_timeout_timestamp: attribute!(obj, "send_packet.packet_timeout_timestamp"),
+            packet_channel_ordering: attribute!(obj, "send_packet.packet_channel_ordering"),
+            packet_data: obj
+                .events
+                .get("send_packet.packet_data")
+                .ok_or("send_packet.packet_data")?[obj.idx]
+                .as_str()
+                .as_bytes()
+                .to_vec(),
         })
     }
 }
@@ -200,14 +242,15 @@ impl From<SendPacket> for IBCEvent {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ReceivePacket {
     pub height: block::Height,
+    pub packet_data: Vec<u8>,
+    pub packet_timeout_height: Height,
+    pub packet_timeout_timestamp: u64,
+    pub packet_sequence: u64,
     pub packet_src_port: PortId,
     pub packet_src_channel: ChannelId,
     pub packet_dst_port: PortId,
     pub packet_dst_channel: ChannelId,
-    pub packet_sequence: u64,
-    pub packet_timeout_height: u64,
-    pub packet_timeout_stamp: u64,
-    pub packet_ack: String,
+    pub packet_channel_ordering: Order,
 }
 
 impl TryFrom<RawObject> for ReceivePacket {
@@ -221,8 +264,15 @@ impl TryFrom<RawObject> for ReceivePacket {
             packet_dst_channel: attribute!(obj, "recv_packet.packet_dst_channel"),
             packet_sequence: attribute!(obj, "recv_packet.packet_sequence"),
             packet_timeout_height: attribute!(obj, "recv_packet.packet_timeout_height"),
-            packet_timeout_stamp: attribute!(obj, "recv_packet.packet_timeout_timestamp"),
-            packet_ack: attribute!(obj, "recv_packet.packet_ack"),
+            packet_timeout_timestamp: attribute!(obj, "recv_packet.packet_timeout_timestamp"),
+            packet_channel_ordering: attribute!(obj, "recv_packet.packet_channel_ordering"),
+            packet_data: obj
+                .events
+                .get("recv_packet.packet_data")
+                .ok_or("recv_packet.packet_data")?[obj.idx]
+                .as_str()
+                .as_bytes()
+                .to_vec(),
         })
     }
 }
@@ -236,13 +286,14 @@ impl From<ReceivePacket> for IBCEvent {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct AcknowledgePacket {
     pub height: block::Height,
+    pub packet_timeout_height: Height,
+    pub packet_timeout_timestamp: u64,
+    pub packet_sequence: u64,
     pub packet_src_port: PortId,
     pub packet_src_channel: ChannelId,
     pub packet_dst_port: PortId,
     pub packet_dst_channel: ChannelId,
-    pub packet_sequence: u64,
-    pub packet_timeout_height: u64,
-    pub packet_timeout_stamp: u64,
+    pub packet_channel_ordering: Order,
 }
 
 impl TryFrom<RawObject> for AcknowledgePacket {
@@ -256,7 +307,11 @@ impl TryFrom<RawObject> for AcknowledgePacket {
             packet_dst_channel: attribute!(obj, "acknowledge_packet.packet_dst_channel"),
             packet_sequence: attribute!(obj, "acknowledge_packet.packet_sequence"),
             packet_timeout_height: attribute!(obj, "acknowledge_packet.packet_timeout_height"),
-            packet_timeout_stamp: attribute!(obj, "acknowledge_packet.packet_timeout_timestamp"),
+            packet_timeout_timestamp: attribute!(
+                obj,
+                "acknowledge_packet.packet_timeout_timestamp"
+            ),
+            packet_channel_ordering: attribute!(obj, "acknowledge_packet.packet_channel_ordering"),
         })
     }
 }
@@ -268,49 +323,16 @@ impl From<AcknowledgePacket> for IBCEvent {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct CleanupPacket {
-    pub height: block::Height,
-    pub packet_src_port: PortId,
-    pub packet_src_channel: ChannelId,
-    pub packet_dst_port: PortId,
-    pub packet_dst_channel: ChannelId,
-    pub packet_sequence: u64,
-    pub packet_timeout_height: u64,
-    pub packet_timeout_stamp: u64,
-}
-
-impl TryFrom<RawObject> for CleanupPacket {
-    type Error = BoxError;
-    fn try_from(obj: RawObject) -> Result<Self, Self::Error> {
-        Ok(CleanupPacket {
-            height: obj.height,
-            packet_src_port: attribute!(obj, "cleanup_packet.packet_src_port"),
-            packet_src_channel: attribute!(obj, "cleanup_packet.packet_src_channel"),
-            packet_dst_port: attribute!(obj, "cleanup_packet.packet_dst_port"),
-            packet_dst_channel: attribute!(obj, "cleanup_packet.packet_dst_channel"),
-            packet_sequence: attribute!(obj, "cleanup_packet.packet_sequence"),
-            packet_timeout_height: attribute!(obj, "cleanup_packet.packet_timeout_height"),
-            packet_timeout_stamp: attribute!(obj, "cleanup_packet.packet_timeout_timestamp"),
-        })
-    }
-}
-
-impl From<CleanupPacket> for IBCEvent {
-    fn from(v: CleanupPacket) -> Self {
-        IBCEvent::CleanupPacketChannel(v)
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TimeoutPacket {
     pub height: block::Height,
+    pub packet_timeout_height: Height,
+    pub packet_timeout_timestamp: u64,
+    pub packet_sequence: u64,
     pub packet_src_port: PortId,
     pub packet_src_channel: ChannelId,
     pub packet_dst_port: PortId,
     pub packet_dst_channel: ChannelId,
-    pub packet_sequence: u64,
-    pub packet_timeout_height: u64,
-    pub packet_timeout_stamp: u64,
+    pub packet_channel_ordering: Order,
 }
 
 impl TryFrom<RawObject> for TimeoutPacket {
@@ -324,7 +346,8 @@ impl TryFrom<RawObject> for TimeoutPacket {
             packet_dst_channel: attribute!(obj, "timeout_packet.packet_dst_channel"),
             packet_sequence: attribute!(obj, "timeout_packet.packet_sequence"),
             packet_timeout_height: attribute!(obj, "timeout_packet.packet_timeout_height"),
-            packet_timeout_stamp: attribute!(obj, "timeout_packet.packet_timeout_timestamp"),
+            packet_timeout_timestamp: attribute!(obj, "timeout_packet.packet_timeout_timestamp"),
+            packet_channel_ordering: attribute!(obj, "timeout_packet.packet_channel_ordering"),
         })
     }
 }

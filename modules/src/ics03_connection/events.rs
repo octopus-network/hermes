@@ -10,9 +10,10 @@ use tendermint::block;
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OpenInit {
     pub height: block::Height,
-    pub connection_id: ConnectionId,
     pub client_id: ClientId,
+    pub connection_id: ConnectionId,
     pub counterparty_client_id: ClientId,
+    pub counterparty_connection_id: ConnectionId,
 }
 
 impl TryFrom<RawObject> for OpenInit {
@@ -20,9 +21,13 @@ impl TryFrom<RawObject> for OpenInit {
     fn try_from(obj: RawObject) -> Result<Self, Self::Error> {
         Ok(OpenInit {
             height: obj.height,
-            connection_id: attribute!(obj, "connection_open_init.connection_id"),
             client_id: attribute!(obj, "connection_open_init.client_id"),
+            connection_id: attribute!(obj, "connection_open_init.connection_id"),
             counterparty_client_id: attribute!(obj, "connection_open_init.counterparty_client_id"),
+            counterparty_connection_id: attribute!(
+                obj,
+                "connection_open_init.counterparty_connection_id"
+            ),
         })
     }
 }
@@ -36,9 +41,10 @@ impl From<OpenInit> for IBCEvent {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OpenTry {
     pub height: block::Height,
-    pub connection_id: ConnectionId,
     pub client_id: ClientId,
+    pub connection_id: ConnectionId,
     pub counterparty_client_id: ClientId,
+    pub counterparty_connection_id: ConnectionId,
 }
 
 impl TryFrom<RawObject> for OpenTry {
@@ -46,9 +52,13 @@ impl TryFrom<RawObject> for OpenTry {
     fn try_from(obj: RawObject) -> Result<Self, Self::Error> {
         Ok(OpenTry {
             height: obj.height,
-            connection_id: attribute!(obj, "connection_open_try.connection_id"),
             client_id: attribute!(obj, "connection_open_try.client_id"),
+            connection_id: attribute!(obj, "connection_open_try.connection_id"),
             counterparty_client_id: attribute!(obj, "connection_open_try.counterparty_client_id"),
+            counterparty_connection_id: attribute!(
+                obj,
+                "connection_open_try.counterparty_connection_id"
+            ),
         })
     }
 }
@@ -62,7 +72,10 @@ impl From<OpenTry> for IBCEvent {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OpenAck {
     pub height: block::Height,
+    pub client_id: ClientId,
     pub connection_id: ConnectionId,
+    pub counterparty_client_id: ClientId,
+    pub counterparty_connection_id: ConnectionId,
 }
 
 impl TryFrom<RawObject> for OpenAck {
@@ -70,7 +83,13 @@ impl TryFrom<RawObject> for OpenAck {
     fn try_from(obj: RawObject) -> Result<Self, Self::Error> {
         Ok(OpenAck {
             height: obj.height,
+            client_id: attribute!(obj, "connection_open_ack.client_id"),
             connection_id: attribute!(obj, "connection_open_ack.connection_id"),
+            counterparty_client_id: attribute!(obj, "connection_open_ack.counterparty_client_id"),
+            counterparty_connection_id: attribute!(
+                obj,
+                "connection_open_ack.counterparty_connection_id"
+            ),
         })
     }
 }
@@ -84,7 +103,10 @@ impl From<OpenAck> for IBCEvent {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OpenConfirm {
     pub height: block::Height,
+    pub client_id: ClientId,
     pub connection_id: ConnectionId,
+    pub counterparty_client_id: ClientId,
+    pub counterparty_connection_id: ConnectionId,
 }
 
 impl TryFrom<RawObject> for OpenConfirm {
@@ -92,7 +114,16 @@ impl TryFrom<RawObject> for OpenConfirm {
     fn try_from(obj: RawObject) -> Result<Self, Self::Error> {
         Ok(OpenConfirm {
             height: obj.height,
+            client_id: attribute!(obj, "connection_open_confirm.client_id"),
             connection_id: attribute!(obj, "connection_open_confirm.connection_id"),
+            counterparty_client_id: attribute!(
+                obj,
+                "connection_open_confirm.counterparty_client_id"
+            ),
+            counterparty_connection_id: attribute!(
+                obj,
+                "connection_open_confirm.counterparty_connection_id"
+            ),
         })
     }
 }
