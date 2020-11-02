@@ -11,6 +11,7 @@ mod light;
 mod listen;
 mod query;
 mod start;
+mod start_client_updates;
 mod tx;
 mod v0;
 mod version;
@@ -18,6 +19,7 @@ mod version;
 use self::{
     config::ConfigCmd, keys::KeysCmd, light::LightCmd, listen::ListenCmd, query::QueryCmd,
     start::StartCmd, tx::TxCmd, v0::V0Cmd, version::VersionCmd,
+    start_client_updates::StartClientUpdatesCmd,
 };
 
 use crate::config::Config;
@@ -41,6 +43,10 @@ pub enum CliCmd {
     /// The `start` subcommand
     #[options(help = "start the relayer")]
     Start(StartCmd),
+
+    /// The `start client udpates` subcommand
+    #[options(help = "start the relayer")]
+    StartClientUpdates(StartClientUpdatesCmd),
 
     /// The `listen` subcommand
     #[options(help = "listen to IBC events")]
