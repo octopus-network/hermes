@@ -16,3 +16,8 @@ tendermint = { git = "https://github.com/informalsystems/tendermint-rs", branch 
 tendermint-rpc = { git = "https://github.com/informalsystems/tendermint-rs", branch = "master" }
 tendermint-proto = { git = "https://github.com/informalsystems/tendermint-rs", branch = "master" }
 tendermint-light-client = { git = "https://github.com/informalsystems/tendermint-rs", branch = "master" }
+
+tonic = { git = "https://github.com/romac/tonic", branch = "romac/hyper-0.14-dev" }
+prost = { git = "https://github.com/danburkert/prost", branch = "master" }
+prost-types = { git = "https://github.com/danburkert/prost", branch = "master" }
+prost-build = { git = "https://github.com/danburkert/prost", branch = "master" }
