@@ -5,6 +5,7 @@ use serde_derive::{Deserialize, Serialize};
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum ClientType {
     Tendermint = 1,
+    GRANDPA = 2,
 
     #[cfg(any(test, feature = "mocks"))]
     Mock = 9999,
@@ -15,6 +16,7 @@ impl ClientType {
     pub fn as_string(&self) -> &'static str {
         match self {
             Self::Tendermint => "07-tendermint",
+            Self::GRANDPA => "10-grandpa",
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock => "mock",
@@ -28,6 +30,7 @@ impl std::str::FromStr for ClientType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "07-tendermint" => Ok(Self::Tendermint),
+            "10-grandpa" => Ok(Self::GRANDPA),
 
             #[cfg(any(test, feature = "mocks"))]
             "mock" => Ok(Self::Mock),

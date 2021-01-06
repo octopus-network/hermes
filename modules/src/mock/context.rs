@@ -169,7 +169,11 @@ impl MockContext {
 
                 // Return the tuple.
                 (Some(client_state), consensus_state)
-            }
+            },
+            ClientType::GRANDPA => (
+                Some(MockClientState(MockHeader(client_state_height)).into()),
+                MockConsensusState(MockHeader(cs_height)).into(),
+            ),
         };
         let consensus_states = vec![(cs_height, consensus_state)].into_iter().collect();
 

@@ -13,6 +13,10 @@ use crate::ics07_tendermint::client_def::TendermintClient;
 use crate::ics07_tendermint::client_state::ClientState as TendermintClientState;
 use crate::ics07_tendermint::consensus_state::ConsensusState as TendermintConsensusState;
 use crate::ics07_tendermint::header::Header as TendermintHeader;
+use crate::ics10_grandpa::client_def::GRANDPAClient;
+use crate::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
+use crate::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
+use crate::ics10_grandpa::header::Header as GRANDPAHeader;
 use crate::ics23_commitment::commitment::{CommitmentPrefix, CommitmentProofBytes, CommitmentRoot};
 use crate::ics24_host::identifier::{ClientId, ConnectionId};
 use crate::Height;
@@ -25,9 +29,12 @@ use crate::mock::{
 };
 
 pub const TENDERMINT_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.tendermint.v1.ClientState";
+pub const GRANDPA_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.ClientState";
 pub const TENDERMINT_CONSENSUS_STATE_TYPE_URL: &str =
     "/ibc.lightclients.tendermint.v1.ConsensusState";
+pub const GRANDPA_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.ConsensusState";
 pub const TENDERMINT_HEADER_TYPE_URL: &str = "/ibc.lightclients.tendermint.v1.Header";
+pub const GRANDPA_HEADER_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Header";
 
 pub const MOCK_CLIENT_STATE_TYPE_URL: &str = "/ibc.mock.ClientState";
 pub const MOCK_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.mock.ConsensusState";
@@ -93,6 +100,7 @@ pub trait ClientDef: Clone {
 #[allow(clippy::large_enum_variant)]
 pub enum AnyHeader {
     Tendermint(TendermintHeader),
+    GRANDPA(GRANDPAHeader),
 
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockHeader),
@@ -102,6 +110,7 @@ impl Header for AnyHeader {
     fn client_type(&self) -> ClientType {
         match self {
             Self::Tendermint(header) => header.client_type(),
+            Self::GRANDPA(header) => header.client_type(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(header) => header.client_type(),
@@ -111,6 +120,7 @@ impl Header for AnyHeader {
     fn height(&self) -> Height {
         match self {
             Self::Tendermint(header) => header.height(),
+            Self::GRANDPA(header) => header.height(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(header) => header.height(),
@@ -133,6 +143,10 @@ impl TryFrom<Any> for AnyHeader {
                 TendermintHeader::decode_vec(&raw.value)
                     .map_err(|e| Kind::InvalidRawHeader.context(e))?,
             )),
+            GRANDPA_HEADER_TYPE_URL => Ok(AnyHeader::GRANDPA(
+                GRANDPAHeader::decode_vec(&raw.value)
+                    .map_err(|e| Kind::InvalidRawHeader.context(e))?,
+            )),
 
             #[cfg(any(test, feature = "mocks"))]
             MOCK_HEADER_TYPE_URL => Ok(AnyHeader::Mock(
@@ -152,6 +166,10 @@ impl From<AnyHeader> for Any {
                 type_url: TENDERMINT_HEADER_TYPE_URL.to_string(),
                 value: header.encode_vec().unwrap(),
             },
+            AnyHeader::GRANDPA(header) => Any {
+                type_url: GRANDPA_HEADER_TYPE_URL.to_string(),
+                value: header.encode_vec().unwrap(),
+            },
             #[cfg(any(test, feature = "mocks"))]
             AnyHeader::Mock(header) => Any {
                 type_url: MOCK_HEADER_TYPE_URL.to_string(),
@@ -164,6 +182,7 @@ impl From<AnyHeader> for Any {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AnyClientState {
     Tendermint(TendermintClientState),
+    GRANDPA(GRANDPAClientState),
 
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockClientState),
@@ -173,6 +192,7 @@ impl AnyClientState {
     pub fn latest_height(&self) -> Height {
         match self {
             Self::Tendermint(tm_state) => tm_state.latest_height(),
+            Self::GRANDPA(state) => state.latest_height(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(mock_state) => mock_state.latest_height(),
@@ -181,6 +201,7 @@ impl AnyClientState {
     pub fn client_type(&self) -> ClientType {
         match self {
             Self::Tendermint(state) => state.client_type(),
+            Self::GRANDPA(state) => state.client_type(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(state) => state.client_type(),
@@ -200,6 +221,10 @@ impl TryFrom<Any> for AnyClientState {
                 TendermintClientState::decode_vec(&raw.value)
                     .map_err(|e| Kind::InvalidRawClientState.context(e))?,
             )),
+            GRANDPA_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::GRANDPA(
+                GRANDPAClientState::decode_vec(&raw.value)
+                    .map_err(|e| Kind::InvalidRawClientState.context(e))?,
+            )),
 
             #[cfg(any(test, feature = "mocks"))]
             MOCK_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Mock(
@@ -217,6 +242,10 @@ impl From<AnyClientState> for Any {
         match value {
             AnyClientState::Tendermint(value) => Any {
                 type_url: TENDERMINT_CLIENT_STATE_TYPE_URL.to_string(),
+                value: value.encode_vec().unwrap(),
+            },
+            AnyClientState::GRANDPA(value) => Any {
+                type_url: GRANDPA_CLIENT_STATE_TYPE_URL.to_string(),
                 value: value.encode_vec().unwrap(),
             },
             #[cfg(any(test, feature = "mocks"))]
@@ -244,6 +273,7 @@ impl ClientState for AnyClientState {
     fn is_frozen(&self) -> bool {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.is_frozen(),
+            AnyClientState::GRANDPA(state) => state.is_frozen(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.is_frozen(),
@@ -258,6 +288,7 @@ impl ClientState for AnyClientState {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AnyConsensusState {
     Tendermint(TendermintConsensusState),
+    GRANDPA(GRANDPAConsensusState),
 
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockConsensusState),
@@ -267,6 +298,7 @@ impl AnyConsensusState {
     pub fn client_type(&self) -> ClientType {
         match self {
             AnyConsensusState::Tendermint(_cs) => ClientType::Tendermint,
+            AnyConsensusState::GRANDPA(_cs) => ClientType::GRANDPA,
 
             #[cfg(any(test, feature = "mocks"))]
             AnyConsensusState::Mock(_cs) => ClientType::Mock,
@@ -283,6 +315,10 @@ impl TryFrom<Any> for AnyConsensusState {
         match value.type_url.as_str() {
             TENDERMINT_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Tendermint(
                 TendermintConsensusState::decode_vec(&value.value)
+                    .map_err(|e| Kind::InvalidRawConsensusState.context(e))?,
+            )),
+            GRANDPA_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::GRANDPA(
+                GRANDPAConsensusState::decode_vec(&value.value)
                     .map_err(|e| Kind::InvalidRawConsensusState.context(e))?,
             )),
 
@@ -302,6 +338,10 @@ impl From<AnyConsensusState> for Any {
         match value {
             AnyConsensusState::Tendermint(value) => Any {
                 type_url: TENDERMINT_CONSENSUS_STATE_TYPE_URL.to_string(),
+                value: value.encode_vec().unwrap(),
+            },
+            AnyConsensusState::GRANDPA(value) => Any {
+                type_url: GRANDPA_CONSENSUS_STATE_TYPE_URL.to_string(),
                 value: value.encode_vec().unwrap(),
             },
             #[cfg(any(test, feature = "mocks"))]
@@ -334,6 +374,7 @@ impl ConsensusState for AnyConsensusState {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AnyClient {
     Tendermint(TendermintClient),
+    GRANDPA(GRANDPAClient),
 
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockClient),
@@ -343,6 +384,7 @@ impl AnyClient {
     pub fn from_client_type(client_type: ClientType) -> AnyClient {
         match client_type {
             ClientType::Tendermint => Self::Tendermint(TendermintClient),
+            ClientType::GRANDPA => Self::GRANDPA(GRANDPAClient),
 
             #[cfg(any(test, feature = "mocks"))]
             ClientType::Mock => Self::Mock(MockClient),
@@ -376,6 +418,21 @@ impl ClientDef for AnyClient {
                 Ok((
                     AnyClientState::Tendermint(new_state),
                     AnyConsensusState::Tendermint(new_consensus),
+                ))
+            }
+            Self::GRANDPA(client) => {
+                let (client_state, header) = downcast!(
+                    client_state => AnyClientState::GRANDPA,
+                    header => AnyHeader::GRANDPA,
+                )
+                .ok_or_else(|| Kind::ClientArgsTypeMismatch(ClientType::GRANDPA))?;
+
+                let (new_state, new_consensus) =
+                    client.check_header_and_update_state(client_state, header)?;
+
+                Ok((
+                    AnyClientState::GRANDPA(new_state),
+                    AnyConsensusState::GRANDPA(new_consensus),
                 ))
             }
 
@@ -414,6 +471,22 @@ impl ClientDef for AnyClient {
                     client_state => AnyClientState::Tendermint
                 )
                 .ok_or_else(|| Kind::ClientArgsTypeMismatch(ClientType::Tendermint))?;
+
+                client.verify_client_consensus_state(
+                    client_state,
+                    height,
+                    prefix,
+                    proof,
+                    client_id,
+                    consensus_height,
+                    expected_consensus_state,
+                )
+            }
+            Self::GRANDPA(client) => {
+                let client_state = downcast!(
+                    client_state => AnyClientState::GRANDPA
+                )
+                .ok_or_else(|| Kind::ClientArgsTypeMismatch(ClientType::GRANDPA))?;
 
                 client.verify_client_consensus_state(
                     client_state,
@@ -469,6 +542,19 @@ impl ClientDef for AnyClient {
                     expected_connection_end,
                 )
             }
+            Self::GRANDPA(client) => {
+                let client_state = downcast!(client_state => AnyClientState::GRANDPA)
+                    .ok_or_else(|| Kind::ClientArgsTypeMismatch(ClientType::GRANDPA))?;
+
+                client.verify_connection_state(
+                    client_state,
+                    height,
+                    prefix,
+                    proof,
+                    connection_id,
+                    expected_connection_end,
+                )
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -503,6 +589,22 @@ impl ClientDef for AnyClient {
                     client_state => AnyClientState::Tendermint
                 )
                 .ok_or_else(|| Kind::ClientArgsTypeMismatch(ClientType::Tendermint))?;
+
+                client.verify_client_full_state(
+                    client_state,
+                    height,
+                    root,
+                    prefix,
+                    client_id,
+                    proof,
+                    client_state_on_counterparty,
+                )
+            }
+            Self::GRANDPA(client) => {
+                let client_state = downcast!(
+                    client_state => AnyClientState::GRANDPA
+                )
+                .ok_or_else(|| Kind::ClientArgsTypeMismatch(ClientType::GRANDPA))?;
 
                 client.verify_client_full_state(
                     client_state,

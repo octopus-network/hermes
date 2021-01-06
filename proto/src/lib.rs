@@ -122,6 +122,11 @@ pub mod ibc {
                 include!("prost/ibc.lightclients.tendermint.v1.rs");
             }
         }
+        pub mod grandpa {
+            pub mod v1 {
+                include!("prost/ibc.lightclients.grandpa.v1.rs");
+            }
+        }
     }
     pub mod mock {
         include!("prost/ibc.mock.rs");
