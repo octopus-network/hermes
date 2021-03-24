@@ -1,0 +1,367 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Installation - Hermes (IBC Relayer CLI) Documentation</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><li class="part-title">Hermes</li><li class="spacer"></li><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="relayer.html"><strong aria-hidden="true">1.1.</strong> What is Hermes?</a></li></ol></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">2.</strong> Features</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="feature_matrix.html"><strong aria-hidden="true">2.1.</strong> Feature matrix</a></li></ol></li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">3.</strong> Getting Started</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="pre_requisites.html"><strong aria-hidden="true">3.1.</strong> Pre-requisites</a></li><li class="chapter-item expanded "><a href="installation.html" class="active"><strong aria-hidden="true">3.2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="config.html"><strong aria-hidden="true">3.3.</strong> Configuration</a></li></ol></li><li class="chapter-item expanded "><a href="tutorials.html"><strong aria-hidden="true">4.</strong> Tutorials</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="two_chains.html"><strong aria-hidden="true">4.1.</strong> Two local chains</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="gaia.html"><strong aria-hidden="true">4.1.1.</strong> Install Gaia</a></li><li class="chapter-item expanded "><a href="local_chains.html"><strong aria-hidden="true">4.1.2.</strong> Start the local chains</a></li><li class="chapter-item expanded "><a href="tutorial_raw.html"><strong aria-hidden="true">4.1.3.</strong> Connect the chains using raw transactions</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="tutorial_client_raw.html"><strong aria-hidden="true">4.1.3.1.</strong> Configure clients</a></li><li class="chapter-item expanded "><a href="tutorial_conn_raw.html"><strong aria-hidden="true">4.1.3.2.</strong> Connection handshake</a></li><li class="chapter-item expanded "><a href="tutorial_chan_open_raw.html"><strong aria-hidden="true">4.1.3.3.</strong> Channel handshake</a></li><li class="chapter-item expanded "><a href="tutorial_packet_raw.html"><strong aria-hidden="true">4.1.3.4.</strong> Relay packets</a></li></ol></li><li class="chapter-item expanded "><a href="tutorial_relay_paths.html"><strong aria-hidden="true">4.1.4.</strong> Connect the chains using relay paths</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="tutorial_set_new_path.html"><strong aria-hidden="true">4.1.4.1.</strong> New path</a></li><li class="chapter-item expanded "><a href="tutorial_relay_existing_path.html"><strong aria-hidden="true">4.1.4.2.</strong> Packet relaying on existing path</a></li><li class="chapter-item expanded "><a href="tutorial_relay_new_path.html"><strong aria-hidden="true">4.1.4.3.</strong> Packet relaying on new path</a></li><li class="chapter-item expanded "><a href="tutorial_relay_two_paths.html"><strong aria-hidden="true">4.1.4.4.</strong> Concurrent packet relaying on multiple paths</a></li></ol></li></ol></li></ol></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Commands Reference</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">5.1.</strong> Keys</a></li><li class="chapter-item expanded "><a href="light_clients.html"><strong aria-hidden="true">5.2.</strong> Light clients</a></li><li class="chapter-item expanded "><a href="relayer_loop.html"><strong aria-hidden="true">5.3.</strong> Path setup and streaming</a></li><li class="chapter-item expanded "><a href="transactions.html"><strong aria-hidden="true">5.4.</strong> Raw transactions</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="tx_client.html"><strong aria-hidden="true">5.4.1.</strong> Client</a></li><li class="chapter-item expanded "><a href="tx_connection.html"><strong aria-hidden="true">5.4.2.</strong> Connection</a></li><li class="chapter-item expanded "><a href="tx_channel_open.html"><strong aria-hidden="true">5.4.3.</strong> Channel Open</a></li><li class="chapter-item expanded "><a href="tx_channel_close.html"><strong aria-hidden="true">5.4.4.</strong> Channel Close</a></li><li class="chapter-item expanded "><a href="tx_packet.html"><strong aria-hidden="true">5.4.5.</strong> Packet</a></li></ol></li><li class="chapter-item expanded "><a href="queries.html"><strong aria-hidden="true">5.5.</strong> Queries</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="query_client.html"><strong aria-hidden="true">5.5.1.</strong> Client</a></li><li class="chapter-item expanded "><a href="query_connection.html"><strong aria-hidden="true">5.5.2.</strong> Connection</a></li><li class="chapter-item expanded "><a href="query_channel.html"><strong aria-hidden="true">5.5.3.</strong> Channel</a></li><li class="chapter-item expanded "><a href="query_packet.html"><strong aria-hidden="true">5.5.4.</strong> Packet</a></li></ol></li><li class="chapter-item expanded "><a href="listen.html"><strong aria-hidden="true">5.6.</strong> Listen mode</a></li></ol></li><li class="chapter-item expanded "><a href="help.html"><strong aria-hidden="true">6.</strong> Help</a></li><li class="chapter-item expanded "><a href="glossary.html"><strong aria-hidden="true">7.</strong> Glossary</a></li><li class="spacer"></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">Hermes (IBC Relayer CLI) Documentation</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#install-the-relayer" id="install-the-relayer">Install the relayer</a></h1>
+<p>There are two main approaches for obtaining Hermes:</p>
+<ol>
+<li>
+<p>Installation:</p>
+<ol>
+<li>If you are running on a Unix machine (Linux/MacOS), then the simplest
+option is to <a href="#Install-by-downloading">download the latest binary</a>.</li>
+<li>You can also install via <a href="#install-via-cargo">Cargo</a>.</li>
+</ol>
+</li>
+<li>
+<p>Alternatively, <a href="#build-from-source">build Hermes directly from source</a>.</p>
+</li>
+</ol>
+<h2><a class="header" href="#install-by-downloading" id="install-by-downloading">Install by downloading</a></h2>
+<p>Simply head to the GitHub <a href="https://github.com/informalsystems/ibc-rs/releases">Releases</a> page and download the latest
+version of Hermes binary matching your platform:</p>
+<ul>
+<li>MacOS: <code>hermes-v0.1.1-x86_64-apple-darwin.tar.gz</code> (or .zip),</li>
+<li>Linux: <code>hermes-v0.1.1-x86_64-unknown-linux-gnu.tar.gz</code> (or .zip).</li>
+</ul>
+<p>The step-by-step instruction below should carry you through the whole process:</p>
+<ol>
+<li>
+<p>Make the directory where we'll place the binary:</p>
+<pre><code class="language-shell">mkdir -p $HOME/.hermes/bin
+</code></pre>
+</li>
+<li>
+<p>Extract the binary archive:</p>
+<pre><code class="language-shell">tar -C $HOME/.hermes/bin/ -vxzf $ARCHIVE_NAME
+</code></pre>
+</li>
+<li>
+<p>Update your path, by adding this line in your <code>.bashrc</code> or <code>.zshrc</code> shell
+configuration file:</p>
+<pre><code class="language-shell">export PATH=&quot;$HOME/.hermes/bin:$PATH&quot;
+</code></pre>
+</li>
+</ol>
+<blockquote>
+<p>NOTE: The binary may be initially prevented from running if you're
+on MacOS.
+See the <a href="https://support.apple.com/en-gb/HT202491">&quot;Open Anyway&quot; instructions from this support forum</a>
+if that is the case.</p>
+</blockquote>
+<p>You should now be able to run Hermes by invoking the <code>hermes</code> executable.</p>
+<pre><code class="language-shell">hermes version
+</code></pre>
+<pre><code>hermes 0.1.1
+</code></pre>
+<h2><a class="header" href="#install-via-cargo" id="install-via-cargo">Install via Cargo</a></h2>
+<blockquote>
+<p>NOTE: This approach assumes you have installed all
+the <a href="./pre_requisites.html">pre-requisites</a> on your machine.</p>
+</blockquote>
+<p>Hermes is packaged in the <code>ibc-relayer-cli</code> Rust crate.
+To install the latest release of Hermes, run the following command in a terminal:</p>
+<pre><code class="language-shell">cargo install ibc-relayer-cli --bin hermes --locked
+</code></pre>
+<p>This will download and build the crate <code>ibc-relayer-cli</code>, and install the 
+<code>hermes</code> binary in <code>$HOME/.cargo/bin</code>.</p>
+<blockquote>
+<p>If you have not installed Rust and Cargo via <a href="https://rustup.rs">rustup.rs</a>, you may need to
+add the <code>$HOME/.cargo/bin</code> directory to your <code>PATH</code> environment variable.
+For most shells, this can be done by adding the following line to your
+<code>.bashrc</code> or <code>.zshrc</code> configuration file:</p>
+<pre><code class="language-shell">export PATH=&quot;$HOME/.cargo/bin:$PATH&quot;
+</code></pre>
+</blockquote>
+<p>You should now be able to run Hermes by invoking the <code>hermes</code> executable.</p>
+<pre><code class="language-shell">hermes version
+</code></pre>
+<pre><code>hermes 0.1.1
+</code></pre>
+<h2><a class="header" href="#build-from-source" id="build-from-source">Build from source</a></h2>
+<h3><a class="header" href="#clone-the-repository" id="clone-the-repository">Clone the repository</a></h3>
+<p>Open a terminal and clone the following <code>ibc-rs</code> repository:</p>
+<pre><code class="language-shell">git clone https://github.com/informalsystems/ibc-rs.git`
+</code></pre>
+<p>Change to the repository directory</p>
+<pre><code class="language-shell">cd ibc-rs
+</code></pre>
+<h3><a class="header" href="#checkout-the-latest-release" id="checkout-the-latest-release">Checkout the latest release</a></h3>
+<p>Go to the <a href="https://github.com/informalsystems/ibc-rs/releases">ibc-rs releases</a> page to see what is the most recent release.</p>
+<p>Then checkout the release, for example if the most recent release is <code>v0.1.1</code> then execute the command:</p>
+<pre><code class="language-shell">git checkout v0.1.1
+</code></pre>
+<h3><a class="header" href="#building-with-cargo-build" id="building-with-cargo-build">Building with <code>cargo build</code></a></h3>
+<p>This command builds all the crates from the <a href="https://github.com/informalsystems/ibc-rs"><strong><code>ibc-rs</code></strong></a> repository, namely: the <a href="https://github.com/informalsystems/ibc-rs/tree/master/modules"><strong><code>ibc</code></strong></a> modules crate, <a href="https://github.com/informalsystems/ibc-rs/tree/master/relayer"><strong><code>ibc-relayer</code></strong></a> crate, <a href="https://github.com/informalsystems/ibc-rs/tree/master/proto"><strong><code>ibc-proto</code></strong></a> crate, and the <a href="https://github.com/informalsystems/ibc-rs/tree/master/relayer-cli"><strong><code>ibc-relayer-cli</code></strong></a> crate.
+The last of these crates contains the <code>hermes</code> binary.</p>
+<pre><code class="language-shell">cargo build --release --bin hermes
+</code></pre>
+<p>If the build is successful, the <code>hermes</code> executable will be located in the following location:</p>
+<pre><code class="language-shell">./target/release/hermes
+</code></pre>
+<p><strong>Troubleshooting</strong>:
+In case the <code>cargo build</code> command above fails, as a first course of action we
+recommend trying to run the same command with the additional <code>locked</code> flag:</p>
+<pre><code class="language-shell">cargo build --release --bin hermes --locked
+</code></pre>
+<h3><a class="header" href="#running-for-the-first-time" id="running-for-the-first-time">Running for the first time</a></h3>
+<p>If you run the <code>hermes</code> without any additional parameters you should see the usage and help information:</p>
+<pre><code class="language-shell">./target/release/hermes
+</code></pre>
+<pre><code>hermes 0.1.1
+Informal Systems &lt;hello@informal.systems&gt;
+
+USAGE:
+    hermes &lt;SUBCOMMAND&gt;
+
+SUBCOMMANDS:
+    help       Get usage information
+    keys       Manage keys in the relayer for each chain
+    light      Basic functionality for managing the light clients
+    start      Start the relayer
+    channel    Channel functionality for managing channels
+    query      Query state from chain
+    tx         Create and send IBC transactions
+    listen     Listen to and display IBC events emitted by a chain
+    version    Display version information
+</code></pre>
+<h3><a class="header" href="#creating-an-alias-for-the-executable" id="creating-an-alias-for-the-executable">Creating an alias for the executable</a></h3>
+<p>It might be easier to create an alias for <code>hermes</code> so you can just run it by specifying the executable name instead of the whole path. In order to create an alias execute the following command:</p>
+<pre><code class="language-shell">alias hermes='cargo run --release --bin hermes --'
+</code></pre>
+<h3><a class="header" href="#next-steps" id="next-steps">Next Steps</a></h3>
+<p>Go to the <a href="./config.html"><code>Configuration</code></a> section to learn how to create a configuration file to be used by Hermes.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="pre_requisites.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="config.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="pre_requisites.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="config.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+        <script type="text/javascript" src="mermaid.min.js"></script>
+        
+        <script type="text/javascript" src="mermaid-init.js"></script>
+        
+
+        
+
+    </body>
+</html>
