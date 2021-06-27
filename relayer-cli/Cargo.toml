@@ -28,7 +28,7 @@ ibc-proto     = { version = "0.8.1", path = "../proto" }
 ibc-telemetry = { version = "0.5.0", path = "../telemetry", optional = true }
 
 anomaly = "0.2.0"
-gumdrop = { version = "0.7", features = ["default_expr"] }
+gumdrop = { version = "0.8", features = ["default_expr"] }
 serde = { version = "1", features = ["serde_derive"] }
 thiserror = "1"
 tokio = { version = "1.0", features = ["full"] }
