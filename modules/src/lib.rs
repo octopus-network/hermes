@@ -31,7 +31,7 @@ pub mod ics02_client;
 pub mod ics03_connection;
 pub mod ics04_channel;
 pub mod ics07_tendermint;
-pub mod ics10_grandpa;
+// pub mod ics10_grandpa;
 pub mod ics18_relayer;
 pub mod ics23_commitment;
 pub mod ics24_host;
