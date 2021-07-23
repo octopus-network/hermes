@@ -1,6 +1,6 @@
 #![allow(clippy::large_enum_variant)]
 #![deny(
-    warnings,
+    // warnings,
     // missing_docs,
     trivial_casts,
     trivial_numeric_casts,
@@ -44,6 +44,7 @@ pub mod ics03_connection;
 pub mod ics04_channel;
 pub mod ics05_port;
 pub mod ics07_tendermint;
+pub mod ics10_grandpa;
 pub mod ics18_relayer;
 pub mod ics23_commitment;
 pub mod ics24_host;

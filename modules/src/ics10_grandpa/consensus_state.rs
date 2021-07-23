@@ -1,0 +1,78 @@
+use std::convert::{TryFrom, TryInto};
+
+use serde::Serialize;
+
+// use tendermint mock as grandpa
+// use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as RawConsensusState;
+
+use crate::ics02_client::client_consensus::AnyConsensusState;
+use crate::ics02_client::client_type::ClientType;
+use crate::ics10_grandpa::error::{Error, Kind};
+use crate::ics23_commitment::commitment::CommitmentRoot;
+
+use crate::ics10_grandpa::header::Header;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ConsensusState{
+    pub root: CommitmentRoot,
+}
+
+
+impl ConsensusState {
+    pub fn new(root: CommitmentRoot) -> Self {
+        Self{
+            root
+        }
+    }
+}
+
+// impl Protobuf<RawConsensusState> for ConsensusState {}
+
+impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
+    fn client_type(&self) -> ClientType {
+        unimplemented!()
+    }
+
+    fn root(&self) -> &CommitmentRoot {
+        &self.root
+    }
+
+    fn validate_basic(&self) -> Result<(), Box<dyn std::error::Error>> {
+        unimplemented!()
+    }
+
+    fn wrap_any(self) -> AnyConsensusState {
+        unimplemented!()
+    }
+}
+
+//
+// impl TryFrom<RawConsensusState> for ConsensusState {
+//     type Error = Error;
+//
+//     fn try_from(raw: RawConsensusState) -> Result<Self, Self::Error> {
+//         unimplemented!()
+//     }
+// }
+//
+// impl From<ConsensusState> for RawConsensusState {
+//     fn from(value: ConsensusState) -> Self {
+//         unimplemented!()
+//     }
+// }
+
+// impl From<tendermint::block::Header> for ConsensusState {
+//     fn from(header: tendermint::block::Header) -> Self {
+//         unimplemented!()
+//     }
+// }
+
+impl From<Header> for ConsensusState {
+    fn from(header: Header) -> Self {
+        unimplemented!()
+    }
+}
+
+#[test]
+mod tests {
+}
