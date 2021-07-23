@@ -52,3 +52,8 @@ impl std::fmt::Display for Misbehaviour {
         unimplemented!()
     }
 }
+
+#[test]
+mod test {
+
+}

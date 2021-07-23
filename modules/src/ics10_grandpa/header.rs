@@ -47,3 +47,8 @@ impl crate::ics02_client::header::Header for Header {
 //         unimplemented!()
 //     }
 // }
+
+#[test]
+mod test {
+
+}
