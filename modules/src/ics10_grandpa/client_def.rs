@@ -40,7 +40,7 @@ impl ClientDef for GrandpaClient {
         _consensus_height: Height,
         _expected_consensus_state: &AnyConsensusState,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
+        todo!()
     }
 
     fn verify_connection_state(
@@ -52,7 +52,7 @@ impl ClientDef for GrandpaClient {
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Box<dyn std::error::Error>> {
-       unimplemented!()
+       todo!()
     }
 
     fn verify_channel_state(
@@ -65,7 +65,7 @@ impl ClientDef for GrandpaClient {
         _channel_id: &ChannelId,
         _expected_channel_end: &ChannelEnd,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
+        todo!()
     }
 
     fn verify_client_full_state(
@@ -78,7 +78,7 @@ impl ClientDef for GrandpaClient {
         _proof: &CommitmentProofBytes,
         _expected_client_state: &AnyClientState,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
+        todo!()
     }
 
     fn verify_packet_data(
@@ -91,7 +91,7 @@ impl ClientDef for GrandpaClient {
         _seq: &Sequence,
         _data: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
+        todo!()
     }
 
     fn verify_packet_acknowledgement(
@@ -104,7 +104,7 @@ impl ClientDef for GrandpaClient {
         _seq: &Sequence,
         _data: Vec<u8>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
+        todo!()
     }
 
     fn verify_next_sequence_recv(
@@ -116,7 +116,7 @@ impl ClientDef for GrandpaClient {
         _channel_id: &ChannelId,
         _seq: &Sequence,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
+        todo!()
     }
 
     fn verify_packet_receipt_absence(
@@ -128,7 +128,7 @@ impl ClientDef for GrandpaClient {
         _channel_id: &ChannelId,
         _seq: &Sequence,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
+        todo!()
     }
 
     fn verify_upgrade_and_update_state(
@@ -138,6 +138,6 @@ impl ClientDef for GrandpaClient {
         _proof_upgrade_client: MerkleProof,
         _proof_upgrade_consensus_state: MerkleProof,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Box<dyn std::error::Error>> {
-        unimplemented!()
+        todo!()
     }
 }

@@ -27,7 +27,7 @@ impl crate::ics02_client::misbehaviour::Misbehaviour for Misbehaviour {
     }
 
     fn wrap_any(self) -> AnyMisbehaviour {
-        unimplemented!()
+        AnyMisbehaviour::Grandpa(self)
     }
 }
 
@@ -51,9 +51,4 @@ impl std::fmt::Display for Misbehaviour {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         unimplemented!()
     }
-}
-
-#[test]
-mod test {
-
 }

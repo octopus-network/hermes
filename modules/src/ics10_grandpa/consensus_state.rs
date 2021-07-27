@@ -30,7 +30,7 @@ impl ConsensusState {
 
 impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
     fn client_type(&self) -> ClientType {
-        unimplemented!()
+        ClientType::Grandpa
     }
 
     fn root(&self) -> &CommitmentRoot {
@@ -42,7 +42,7 @@ impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
     }
 
     fn wrap_any(self) -> AnyConsensusState {
-        unimplemented!()
+        AnyConsensusState::Grandpa(self)
     }
 }
 
@@ -61,8 +61,8 @@ impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
 //     }
 // }
 
-// impl From<tendermint::block::Header> for ConsensusState {
-//     fn from(header: tendermint::block::Header) -> Self {
+// impl From<grandpa::block::Header> for ConsensusState {
+//     fn from(header: grandpa::block::Header) -> Self {
 //         unimplemented!()
 //     }
 // }
@@ -71,8 +71,4 @@ impl From<Header> for ConsensusState {
     fn from(header: Header) -> Self {
         unimplemented!()
     }
-}
-
-#[test]
-mod tests {
 }

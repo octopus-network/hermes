@@ -5,6 +5,7 @@ use tendermint_proto::Protobuf;
 
 use crate::ics02_client::error::{Error, Kind};
 use crate::ics07_tendermint::misbehaviour::Misbehaviour as TmMisbehaviour;
+use crate::ics10_grandpa::misbehaviour::Misbehaviour as  GpMisbehaviour;
 
 #[cfg(any(test, feature = "mocks"))]
 use crate::mock::misbehaviour::Misbehaviour as MockMisbehaviour;
@@ -34,6 +35,7 @@ pub trait Misbehaviour: Clone + std::fmt::Debug + Send + Sync {
 #[allow(clippy::large_enum_variant)]
 pub enum AnyMisbehaviour {
     Tendermint(TmMisbehaviour),
+    Grandpa(GpMisbehaviour),
 
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockMisbehaviour),

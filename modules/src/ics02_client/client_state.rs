@@ -11,6 +11,7 @@ use ibc_proto::ibc::core::client::v1::IdentifiedClientState;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics02_client::error::{Error, Kind};
 use crate::ics07_tendermint::client_state;
+use crate::ics10_grandpa;
 use crate::ics24_host::error::ValidationError;
 use crate::ics24_host::identifier::{ChainId, ClientId};
 #[cfg(any(test, feature = "mocks"))]
@@ -44,6 +45,8 @@ pub trait ClientState: Clone + std::fmt::Debug + Send + Sync {
 pub enum AnyClientState {
     Tendermint(client_state::ClientState),
 
+    Grandpa(ics10_grandpa::client_state::ClientState),
+
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockClientState),
 }
@@ -53,6 +56,8 @@ impl AnyClientState {
         match self {
             Self::Tendermint(tm_state) => tm_state.latest_height(),
 
+            Self::Grandpa(tm_state) => tm_state.latest_height(),
+
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(mock_state) => mock_state.latest_height(),
         }
@@ -61,6 +66,8 @@ impl AnyClientState {
     pub fn client_type(&self) -> ClientType {
         match self {
             Self::Tendermint(state) => state.client_type(),
+
+            Self::Grandpa(state) => state.client_type(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(state) => state.client_type(),

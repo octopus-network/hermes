@@ -12,16 +12,22 @@ use crate::Height;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState{
+    pub chain_id: ChainId,
     pub latest_height: Height,
     pub frozen_height: Height,
 }
 
 impl ClientState {
-    fn new(latest_height: Height, frozen_height: Height) -> Result<Self, Error> {
+    fn new(chain_id: ChainId, latest_height: Height, frozen_height: Height) -> Result<Self, Error> {
         Ok(Self{
+            chain_id,
             latest_height,
             frozen_height,
         })
+    }
+
+    pub fn latest_height(&self) -> Height {
+        self.latest_height
     }
 }
 
@@ -29,11 +35,11 @@ impl ClientState {
 
 impl crate::ics02_client::client_state::ClientState for ClientState {
     fn chain_id(&self) -> ChainId {
-        unimplemented!()
+        self.chain_id.clone()
     }
 
     fn client_type(&self) -> ClientType {
-        unimplemented!()
+        ClientType::Grandpa
     }
 
     fn latest_height(&self) -> Height {
@@ -46,7 +52,7 @@ impl crate::ics02_client::client_state::ClientState for ClientState {
     }
 
     fn wrap_any(self) -> AnyClientState {
-        unimplemented!()
+        AnyClientState::Grandpa(self)
     }
 }
 
@@ -63,8 +69,3 @@ impl crate::ics02_client::client_state::ClientState for ClientState {
 //         unimplemented!()
 //     }
 // }
-
-#[test]
-mod tests {
-
-}

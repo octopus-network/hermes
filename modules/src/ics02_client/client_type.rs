@@ -8,6 +8,7 @@ use super::error;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum ClientType {
     Tendermint = 1,
+    Grandpa,
 
     #[cfg(any(test, feature = "mocks"))]
     Mock = 9999,

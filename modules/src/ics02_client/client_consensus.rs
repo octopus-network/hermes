@@ -13,6 +13,7 @@ use crate::ics02_client::client_type::ClientType;
 use crate::ics02_client::error::{Error, Kind};
 use crate::ics02_client::height::Height;
 use crate::ics07_tendermint::consensus_state;
+use crate::ics10_grandpa;
 use crate::ics23_commitment::commitment::CommitmentRoot;
 use crate::ics24_host::identifier::ClientId;
 use crate::timestamp::Timestamp;
@@ -45,6 +46,7 @@ pub trait ConsensusState: Clone + std::fmt::Debug + Send + Sync {
 #[serde(tag = "type")]
 pub enum AnyConsensusState {
     Tendermint(consensus_state::ConsensusState),
+    Grandpa(ics10_grandpa::consensus_state::ConsensusState),
 
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockConsensusState),

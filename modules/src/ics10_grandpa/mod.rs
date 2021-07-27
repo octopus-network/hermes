@@ -1,6 +1,6 @@
-mod client_def;
-mod client_state;
-mod consensus_state;
-mod error;
-mod header;
-mod misbehaviour;
+pub mod client_def;
+pub mod client_state;
+pub mod consensus_state;
+pub mod error;
+pub mod header;
+pub mod misbehaviour;
