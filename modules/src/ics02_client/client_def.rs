@@ -10,6 +10,7 @@ use crate::ics03_connection::connection::ConnectionEnd;
 use crate::ics04_channel::channel::ChannelEnd;
 use crate::ics04_channel::packet::Sequence;
 use crate::ics07_tendermint::client_def::TendermintClient;
+use crate::ics10_grandpa::client_def::GrandpaClient;
 use crate::ics23_commitment::commitment::{CommitmentPrefix, CommitmentProofBytes, CommitmentRoot};
 use crate::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
 use crate::Height;
@@ -147,6 +148,7 @@ pub trait ClientDef: Clone {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AnyClient {
     Tendermint(TendermintClient),
+    Grandpa(GrandpaClient),
 
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockClient),
@@ -156,6 +158,7 @@ impl AnyClient {
     pub fn from_client_type(client_type: ClientType) -> AnyClient {
         match client_type {
             ClientType::Tendermint => Self::Tendermint(TendermintClient),
+            ClientType::Grandpa => Self::Grandpa(GrandpaClient),
 
             #[cfg(any(test, feature = "mocks"))]
             ClientType::Mock => Self::Mock(MockClient),
@@ -191,6 +194,7 @@ impl ClientDef for AnyClient {
                     AnyConsensusState::Tendermint(new_consensus),
                 ))
             }
+            Self::Grandpa(client) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -239,6 +243,8 @@ impl ClientDef for AnyClient {
                 )
             }
 
+            Self::Grandpa(client) => unimplemented!(),
+
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
                 let client_state = downcast!(
@@ -282,6 +288,7 @@ impl ClientDef for AnyClient {
                     expected_connection_end,
                 )
             }
+            Self::Grandpa(client) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -325,6 +332,7 @@ impl ClientDef for AnyClient {
                     expected_channel_end,
                 )
             }
+            Self::Grandpa(client) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -371,6 +379,7 @@ impl ClientDef for AnyClient {
                     client_state_on_counterparty,
                 )
             }
+            Self::Grandpa(client) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -418,6 +427,7 @@ impl ClientDef for AnyClient {
                     commitment,
                 )
             }
+            Self::Grandpa(client) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -466,6 +476,7 @@ impl ClientDef for AnyClient {
                     ack,
                 )
             }
+            Self::Grandpa(client) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -513,6 +524,8 @@ impl ClientDef for AnyClient {
                 )
             }
 
+            Self::Grandpa(client) => unimplemented!(),
+
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
                 let client_state = downcast!(
@@ -556,6 +569,7 @@ impl ClientDef for AnyClient {
                     seq,
                 )
             }
+            Self::Grandpa(client) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -603,6 +617,7 @@ impl ClientDef for AnyClient {
                     AnyConsensusState::Tendermint(new_consensus),
                 ))
             }
+            Self::Grandpa(client) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {

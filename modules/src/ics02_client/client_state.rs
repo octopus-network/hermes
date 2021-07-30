@@ -12,6 +12,7 @@ use ibc_proto::ibc::core::client::v1::IdentifiedClientState;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics02_client::error::Error;
 use crate::ics07_tendermint::client_state;
+use crate::ics10_grandpa;
 use crate::ics24_host::error::ValidationError;
 use crate::ics24_host::identifier::{ChainId, ClientId};
 #[cfg(any(test, feature = "mocks"))]
@@ -45,6 +46,8 @@ pub trait ClientState: Clone + std::fmt::Debug + Send + Sync {
 pub enum AnyClientState {
     Tendermint(client_state::ClientState),
 
+    Grandpa(ics10_grandpa::client_state::ClientState),
+
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockClientState),
 }
@@ -54,6 +57,8 @@ impl AnyClientState {
         match self {
             Self::Tendermint(tm_state) => tm_state.latest_height(),
 
+            Self::Grandpa(tm_state) => tm_state.latest_height(),
+
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(mock_state) => mock_state.latest_height(),
         }
@@ -62,6 +67,7 @@ impl AnyClientState {
     pub fn trust_threshold(&self) -> Option<TrustThresholdFraction> {
         match self {
             AnyClientState::Tendermint(state) => Some(state.trust_level),
+            AnyClientState::Grandpa(state) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(_) => None,
@@ -72,6 +78,8 @@ impl AnyClientState {
         match self {
             Self::Tendermint(state) => state.client_type(),
 
+            Self::Grandpa(state) => state.client_type(),
+
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(state) => state.client_type(),
         }
@@ -80,6 +88,7 @@ impl AnyClientState {
     pub fn refresh_period(&self) -> Option<Duration> {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.refresh_time(),
+            AnyClientState::Grandpa(_tm_state) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.refresh_time(),
@@ -89,6 +98,7 @@ impl AnyClientState {
     pub fn expired(&self, elapsed_since_latest: Duration) -> bool {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.expired(elapsed_since_latest),
+            AnyClientState::Grandpa(_tm_state) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.expired(elapsed_since_latest),
@@ -129,6 +139,9 @@ impl From<AnyClientState> for Any {
                     .encode_vec()
                     .expect("encoding to `Any` from `AnyClientState::Tendermint`"),
             },
+
+            AnyClientState::Grandpa(value) => unimplemented!(),
+
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(value) => Any {
                 type_url: MOCK_CLIENT_STATE_TYPE_URL.to_string(),
@@ -144,6 +157,7 @@ impl ClientState for AnyClientState {
     fn chain_id(&self) -> ChainId {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.chain_id(),
+            AnyClientState::Grandpa(_tm_state) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.chain_id(),
@@ -161,6 +175,7 @@ impl ClientState for AnyClientState {
     fn is_frozen(&self) -> bool {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.is_frozen(),
+            AnyClientState::Grandpa(_tm_state) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.is_frozen(),

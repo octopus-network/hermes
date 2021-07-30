@@ -223,6 +223,7 @@ impl MockContext {
                 // Return the tuple.
                 (Some(client_state), consensus_state)
             }
+            ClientType::Grandpa => unimplemented!(),
         };
         let consensus_states = vec![(cs_height, consensus_state)].into_iter().collect();
 

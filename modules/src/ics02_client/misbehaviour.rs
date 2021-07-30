@@ -5,6 +5,7 @@ use tendermint_proto::Protobuf;
 
 use crate::ics02_client::error::Error;
 use crate::ics07_tendermint::misbehaviour::Misbehaviour as TmMisbehaviour;
+use crate::ics10_grandpa::misbehaviour::Misbehaviour as  GpMisbehaviour;
 
 #[cfg(any(test, feature = "mocks"))]
 use crate::mock::misbehaviour::Misbehaviour as MockMisbehaviour;
@@ -34,6 +35,7 @@ pub trait Misbehaviour: Clone + std::fmt::Debug + Send + Sync {
 #[allow(clippy::large_enum_variant)]
 pub enum AnyMisbehaviour {
     Tendermint(TmMisbehaviour),
+    Grandpa(GpMisbehaviour),
 
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockMisbehaviour),
@@ -43,6 +45,7 @@ impl Misbehaviour for AnyMisbehaviour {
     fn client_id(&self) -> &ClientId {
         match self {
             Self::Tendermint(misbehaviour) => misbehaviour.client_id(),
+            Self::Grandpa(misbehaviour) => misbehaviour.client_id(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(misbehaviour) => misbehaviour.client_id(),
@@ -52,6 +55,7 @@ impl Misbehaviour for AnyMisbehaviour {
     fn height(&self) -> Height {
         match self {
             Self::Tendermint(misbehaviour) => misbehaviour.height(),
+            Self::Grandpa(misbehaviour ) => misbehaviour.height(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(misbehaviour) => misbehaviour.height(),
@@ -92,6 +96,7 @@ impl From<AnyMisbehaviour> for Any {
                     .encode_vec()
                     .expect("encoding to `Any` from `AnyMisbehavior::Tendermint`"),
             },
+            AnyMisbehaviour::Grandpa(misbehaviour) => unimplemented!(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyMisbehaviour::Mock(misbehaviour) => Any {
@@ -108,6 +113,7 @@ impl std::fmt::Display for AnyMisbehaviour {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
             AnyMisbehaviour::Tendermint(tm) => write!(f, "{}", tm),
+            AnyMisbehaviour::Grandpa(tm) => write!(f, "{}", tm),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyMisbehaviour::Mock(mock) => write!(f, "{:?}", mock),
