@@ -5,7 +5,7 @@ use std::convert::{TryInto, TryFrom};
 use serde::{Serialize, Deserialize};
 use crate::ics02_client::client_type::ClientType;
 use crate::ics02_client::header::AnyHeader;
-use crate::ics10_grandpa::error::{Error, Kind};
+use crate::ics10_grandpa::error::Error;
 use crate::ics24_host::identifier::ChainId;
 use crate::Height;
 

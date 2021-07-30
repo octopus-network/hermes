@@ -4,7 +4,7 @@ use std::convert::{TryFrom, TryInto};
 // use ibc_proto::ibc::lightclients::tendermint::v1::ClientState as RawClientState;
 
 use serde::{Deserialize, Serialize};
-use crate::ics10_grandpa::error::{Error, Kind};
+use crate::ics10_grandpa::error::Error;
 use crate::ics02_client::client_state::AnyClientState;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics24_host::identifier::ChainId;

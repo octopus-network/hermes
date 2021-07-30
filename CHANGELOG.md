@@ -1,35 +1,118 @@
-# Changelog
+# CHANGELOG
 
-## Unreleased
+## v0.6.1
+*July 22nd, 2021*
+
+This minor release mainly improves the reliability of the relayer
+by ensuring that pending packets are cleared on start,
+and that Hermes can recover from the WebSocket subscriptions
+being closed under its feet by Tendermint.
+
+Upgrading from version `0.6.0` to `0.6.1` requires no explicit steps.
+
+> **WARNING:** Due to a regression ([#1229]), the `upgrade client`,
+> `tx raw upgrade-clients`, and `tx raw upgrade-chain` commands have
+> been temporarily disabled in this version.
+> These commands will be re-enabled in the next version.
+
+### FEATURES
+
+- [ibc]
+  - Enable `pub` access to verification methods of ICS 03 & 04 ([#1198])
+  - Add `ics26_routing::handler::decode` function ([#1194])
+  - Add a pseudo root to `MockConsensusState` ([#1215])
+
+### IMPROVEMENTS
+
+- [ibc-relayer-cli]
+  - Add CLI git hash ([#1094])
+  - Fix unwraps in `packet query` CLIs ([#1114])
+
+### BUG FIXES
+
+- [ibc]
+  - Fix stack overflow in `MockHeader` implementation ([#1192])
+  - Align `as_str` and `from_str` behavior in `ClientType` ([#1192])
+
+- [ibc-relayer]
+  - Ensure pending packets are cleared on start ([#1200])
+  - Recover from missed RPC events after WebSocket subscription is closed by Tendermint ([#1196])
+
+
+[#1094]: https://github.com/informalsystems/ibc-rs/issues/1094
+[#1114]: https://github.com/informalsystems/ibc-rs/issues/1114
+[#1192]: https://github.com/informalsystems/ibc-rs/issues/1192
+[#1194]: https://github.com/informalsystems/ibc-rs/issues/1194
+[#1196]: https://github.com/informalsystems/ibc-rs/issues/1196
+[#1198]: https://github.com/informalsystems/ibc-rs/issues/1198
+[#1200]: https://github.com/informalsystems/ibc-rs/issues/1200
+[#1215]: https://github.com/informalsystems/ibc-rs/issues/1215
+[#1229]: https://github.com/informalsystems/ibc-rs/issues/1229
+
+
+## v0.6.0
+*July 12th, 2021*
+
 
 Many thanks to Fraccaroli Gianmarco (@Fraccaman) for helping us improve the
 reliability of Hermes ([#697]).
 
-__! Configuration file changes:__
-The Hermes config.toml configuration file has went through a few revisions
-in this release. The changes are as follows:
-- Added inline documentation for all options.
-- Added a filtering mechanism to allow packet relaying only on
-  specific channels. Consequently, there are two new options in the
-  configuration file:
-    1. A global `filter` parameter to enable or disable filtering globally.
-    2. A per-chain `.filters` option that expects a list of channel and
-       port identifiers, so that packet relaying will be restricted to this
-       list for the corresponding chain.
-- Added a packet clearing configuration option, to parametrize the frequency
-  at which Hermes will clear pending packets. This is a global option, called
-  `clear_packets_interval`, which applies to all chains in the configuration.
+This release includes two major features to Hermes: (1) support for reloading
+the chains from the configuration file at runtime, and (2) a filtering mechanism
+to restrict Hermes activity based on predefined parameters (e.g., packet relaying
+on certain ports and channels exclusively, and ignoring activity for clients
+that have non-standard trust threshold).
 
-Note that both the `filter` and `clear_packets_interval` features apply
-only to Hermes passive relaying mode (command `hermes start`), and will
-not affect the other commands.
+In addition to these two, we have also added a health checkup mechanism, plus new
+`config validate` and `query channel ends` CLIs.
+
+### Upgrading from 0.5.0 to 0.6.0
+
+When upgrading from Hermes v0.5.0 to v0.6.0, the most important
+point to watch out for is the configuration file.
+The Hermes config.toml configuration file has went through a few revisions,
+with the changes described below.
+
+#### Added inline documentation for all options.
+
+Please have a look around the [config.toml](./config.toml) directly.
+
+#### Added a packet filtering mechanism based on channel/port identifiers
+
+This feature will restrict the channels on which Hermes relays packets.
+There are two new options in the configuration file:
+
+1. A global `filter` parameter to enable or disable filtering globally.
+2. A per-chain `.filters` option that expects a `policy` (either `allow` or
+   `deny`) plus a list of channel and
+   port identifiers. If policy is `allow`, then packet relaying will be restricted to this
+   list for the corresponding chain. If the policy is `deny`, then any packets
+   from this list will be ignored.
+
+#### Added filtering based on client state
+
+The global `filter` option additionally enables filtering of all activities
+based on client state trust threshold. If enabled, Hermes will ignore all
+activity for clients that have a trust threshold different than `1/3`.
+
+#### Added a packet clearing configuration option
+
+This will enable the parametrization of the frequency
+at which Hermes will clear pending packets. This is a global option, called
+`clear_packets_interval`, which applies to all chains in the configuration.
+
+
+The full list of changes is described below.
 
 ### FEATURES
+
 - [ibc-relayer]
   - The chains configuration can be reloaded by sending the Hermes process a `SIGHUP` signal ([#1117])
+  - Added support for filtering based on client state trust threshold ([#1165])
 
 - [ibc-relayer-cli]
   - Added `config validate` CLI to Hermes ([#600])
+  - Added filtering capability to deny or allow for specific channels ([#1140], [#1141], [#69])
   - Added basic channel filter ([#1140])
   - Added `query channel ends` CLI command ([#1062])
   - Added a health checkup mechanism for Hermes ([#697, #1057])
@@ -48,6 +131,7 @@ not affect the other commands.
   - Fix for schedule refreshing bug ([#1143])
 
 
+[#69]: https://github.com/informalsystems/ibc-rs/issues/69
 [#600]: https://github.com/informalsystems/ibc-rs/issues/600
 [#697]: https://github.com/informalsystems/ibc-rs/issues/697
 [#1062]: https://github.com/informalsystems/ibc-rs/issues/1062
@@ -57,7 +141,9 @@ not affect the other commands.
 [#1124]: https://github.com/informalsystems/ibc-rs/issues/1124
 [#1127]: https://github.com/informalsystems/ibc-rs/issues/1127
 [#1140]: https://github.com/informalsystems/ibc-rs/issues/1140
+[#1141]: https://github.com/informalsystems/ibc-rs/issues/1141
 [#1143]: https://github.com/informalsystems/ibc-rs/issues/1143
+[#1165]: https://github.com/informalsystems/ibc-rs/issues/1165
 
 
 ## v0.5.0

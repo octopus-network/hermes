@@ -2,6 +2,7 @@ use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
 use crate::ics02_client::client_consensus::AnyConsensusState;
 use crate::ics02_client::client_def::ClientDef;
+use crate::ics02_client::error::Error;
 use crate::ics02_client::client_state::AnyClientState;
 use crate::ics03_connection::connection::ConnectionEnd;
 use crate::ics04_channel::channel::ChannelEnd;
@@ -26,7 +27,7 @@ impl ClientDef for GrandpaClient {
         &self,
         client_state: Self::ClientState,
         header: Self::Header,
-    ) -> Result<(Self::ClientState, Self::ConsensusState), Box<dyn std::error::Error>> {
+    ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
         unimplemented!()
     }
 
@@ -39,7 +40,7 @@ impl ClientDef for GrandpaClient {
         _client_id: &ClientId,
         _consensus_height: Height,
         _expected_consensus_state: &AnyConsensusState,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Error> {
         todo!()
     }
 
@@ -51,7 +52,7 @@ impl ClientDef for GrandpaClient {
         _proof: &CommitmentProofBytes,
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Error> {
        todo!()
     }
 
@@ -64,7 +65,7 @@ impl ClientDef for GrandpaClient {
         _port_id: &PortId,
         _channel_id: &ChannelId,
         _expected_channel_end: &ChannelEnd,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Error> {
         todo!()
     }
 
@@ -77,7 +78,7 @@ impl ClientDef for GrandpaClient {
         _client_id: &ClientId,
         _proof: &CommitmentProofBytes,
         _expected_client_state: &AnyClientState,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Error> {
         todo!()
     }
 
@@ -90,7 +91,7 @@ impl ClientDef for GrandpaClient {
         _channel_id: &ChannelId,
         _seq: &Sequence,
         _data: String,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Error> {
         todo!()
     }
 
@@ -103,7 +104,7 @@ impl ClientDef for GrandpaClient {
         _channel_id: &ChannelId,
         _seq: &Sequence,
         _data: Vec<u8>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Error> {
         todo!()
     }
 
@@ -115,7 +116,7 @@ impl ClientDef for GrandpaClient {
         _port_id: &PortId,
         _channel_id: &ChannelId,
         _seq: &Sequence,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Error> {
         todo!()
     }
 
@@ -127,7 +128,7 @@ impl ClientDef for GrandpaClient {
         _port_id: &PortId,
         _channel_id: &ChannelId,
         _seq: &Sequence,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Error> {
         todo!()
     }
 
@@ -137,7 +138,7 @@ impl ClientDef for GrandpaClient {
         _consensus_state: &Self::ConsensusState,
         _proof_upgrade_client: MerkleProof,
         _proof_upgrade_consensus_state: MerkleProof,
-    ) -> Result<(Self::ClientState, Self::ConsensusState), Box<dyn std::error::Error>> {
+    ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
         todo!()
     }
 }
