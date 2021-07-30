@@ -19,6 +19,7 @@ impl ClientType {
     pub fn as_string(&self) -> &'static str {
         match self {
             Self::Tendermint => "07-tendermint",
+            Self::Grandpa => "10-grandpa",
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock => "9999-mock",
@@ -38,6 +39,7 @@ impl std::str::FromStr for ClientType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "07-tendermint" => Ok(Self::Tendermint),
+            "10-grandpa" => Ok(Self::Grandpa),
 
             #[cfg(any(test, feature = "mocks"))]
             "mock" => Ok(Self::Mock),

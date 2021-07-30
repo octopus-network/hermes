@@ -169,6 +169,7 @@ impl ClientId {
     pub fn prefix(client_type: ClientType) -> &'static str {
         match client_type {
             ClientType::Tendermint => ClientType::Tendermint.as_string(),
+            ClientType::Grandpa => ClientType::Grandpa.as_string(),
 
             #[cfg(any(test, feature = "mocks"))]
             ClientType::Mock => ClientType::Mock.as_string(),

@@ -60,6 +60,10 @@ impl AnyConsensusState {
                 Timestamp::from_datetime(date)
             }
 
+            Self::Grandpa(cs_state) => {
+                unimplemented!()
+            }
+
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(mock_state) => mock_state.timestamp(),
         }
@@ -68,6 +72,7 @@ impl AnyConsensusState {
     pub fn client_type(&self) -> ClientType {
         match self {
             AnyConsensusState::Tendermint(_cs) => ClientType::Tendermint,
+            AnyConsensusState::Grandpa(_cs) => ClientType::Grandpa,
 
             #[cfg(any(test, feature = "mocks"))]
             AnyConsensusState::Mock(_cs) => ClientType::Mock,
@@ -108,6 +113,9 @@ impl From<AnyConsensusState> for Any {
                 value: value
                     .encode_vec()
                     .expect("encoding to `Any` from `AnyConsensusState::Tendermint`"),
+            },
+            AnyConsensusState::Grandpa(value) =>  {
+                unimplemented!()
             },
             #[cfg(any(test, feature = "mocks"))]
             AnyConsensusState::Mock(value) => Any {
