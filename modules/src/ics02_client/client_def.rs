@@ -1,4 +1,4 @@
-    use ibc_proto::ibc::core::commitment::v1::MerkleProof;
+use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
 use crate::downcast;
 use crate::ics02_client::client_consensus::{AnyConsensusState, ConsensusState};
