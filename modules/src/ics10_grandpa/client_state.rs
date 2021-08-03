@@ -14,7 +14,7 @@ use crate::Height;
 pub struct ClientState;
 
 impl ClientState {
-    fn new() -> Result<Self, Error> {
+    pub fn new() -> Result<Self, Error> {
         Ok(ClientState)
     }
 
