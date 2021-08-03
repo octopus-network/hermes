@@ -11,23 +11,15 @@ use crate::ics24_host::identifier::ChainId;
 use crate::Height;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClientState{
-    pub chain_id: ChainId,
-    pub latest_height: Height,
-    pub frozen_height: Height,
-}
+pub struct ClientState;
 
 impl ClientState {
-    fn new(chain_id: ChainId, latest_height: Height, frozen_height: Height) -> Result<Self, Error> {
-        Ok(Self{
-            chain_id,
-            latest_height,
-            frozen_height,
-        })
+    fn new() -> Result<Self, Error> {
+        Ok(ClientState)
     }
 
     pub fn latest_height(&self) -> Height {
-        self.latest_height
+        unimplemented!()
     }
 }
 
@@ -35,7 +27,7 @@ impl ClientState {
 
 impl crate::ics02_client::client_state::ClientState for ClientState {
     fn chain_id(&self) -> ChainId {
-        self.chain_id.clone()
+        unimplemented!()
     }
 
     fn client_type(&self) -> ClientType {
@@ -43,12 +35,12 @@ impl crate::ics02_client::client_state::ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        self.latest_height
+        unimplemented!()
     }
 
     fn is_frozen(&self) -> bool {
         // If 'frozen_height' is set to a non-zero value, then the client state is frozen.
-        !self.frozen_height.is_zero()
+        unimplemented!()
     }
 
     fn wrap_any(self) -> AnyClientState {

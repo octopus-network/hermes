@@ -14,16 +14,12 @@ use crate::ics23_commitment::commitment::CommitmentRoot;
 use crate::ics10_grandpa::header::Header;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct ConsensusState{
-    pub root: CommitmentRoot,
-}
+pub struct ConsensusState;
 
 
 impl ConsensusState {
     pub fn new(root: CommitmentRoot) -> Self {
-        Self{
-            root
-        }
+        ConsensusState
     }
 }
 
@@ -37,7 +33,7 @@ impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
     }
 
     fn root(&self) -> &CommitmentRoot {
-        &self.root
+        unimplemented!()
     }
 
     fn validate_basic(&self) -> Result<(), Self::Error> {
