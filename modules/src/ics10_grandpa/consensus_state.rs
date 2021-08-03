@@ -18,7 +18,7 @@ pub struct ConsensusState;
 
 
 impl ConsensusState {
-    pub fn new(root: CommitmentRoot) -> Self {
+    pub fn new() -> Self {
         ConsensusState
     }
 }
