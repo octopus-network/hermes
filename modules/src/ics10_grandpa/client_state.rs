@@ -12,15 +12,19 @@ use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClientState {}
+pub struct ClientState {
+    pub latest_height: Height,
+}
 
 impl ClientState {
-    pub fn new() -> Result<Self, Error> {
-        Ok(ClientState {})
+    pub fn new(latest_height: Height) -> Result<Self, Error> {
+        Ok(ClientState {
+            latest_height,
+        })
     }
 
     pub fn latest_height(&self) -> Height {
-        unimplemented!()
+        self.latest_height
     }
 }
 
@@ -36,7 +40,7 @@ impl crate::ics02_client::client_state::ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        unimplemented!()
+        self.latest_height
     }
 
     fn is_frozen(&self) -> bool {
@@ -52,13 +56,19 @@ impl crate::ics02_client::client_state::ClientState for ClientState {
 impl TryFrom<RawClientState> for ClientState {
     type Error = Error;
 
-    fn try_from(_raw: RawClientState) -> Result<Self, Self::Error> {
-        Ok(ClientState {})
+    fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
+        Ok(ClientState {
+            latest_height: raw.latest_height
+                .ok_or_else(Error::missing_latest_height)?
+                .into(),
+        })
     }
 }
 
 impl From<ClientState> for RawClientState {
-    fn from(_value: ClientState) -> Self {
-        Self {}
+    fn from(value: ClientState) -> Self {
+        Self {
+            latest_height: Some(value.latest_height.into()),
+        }
     }
 }

@@ -8,5 +8,8 @@ define_error! {
         Decode
             [ TraceError<prost::DecodeError> ]
             | _ | { "decode error" },
+
+        MissingLatestHeight
+            | _ | { "missing latest height" },
     }
 }

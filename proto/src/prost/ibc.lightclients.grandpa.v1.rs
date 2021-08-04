@@ -2,6 +2,8 @@
 /// and a possible frozen height.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ClientState{
+    #[prost(message, optional, tag = "1")]
+    pub latest_height: ::core::option::Option<super::super::super::core::client::v1::Height>,
 }
 
 /// ConsensusState defines the consensus state from Tendermint.
