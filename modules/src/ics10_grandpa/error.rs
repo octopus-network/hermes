@@ -19,5 +19,8 @@ define_error! {
         InvalidChainIdentifier
             [ ValidationError ]
             | _ | { "Invalid chain identifier" },
+
+        MissingFrozenHeight
+            | _ | { "missing frozen height" },
     }
 }

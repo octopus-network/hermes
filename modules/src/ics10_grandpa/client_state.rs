@@ -16,13 +16,15 @@ use tendermint_proto::Protobuf;
 pub struct ClientState {
     pub chain_id: ChainId,
     pub latest_height: Height,
+    pub frozen_height: Height,
 }
 
 impl ClientState {
-    pub fn new(chain_id: ChainId, latest_height: Height) -> Result<Self, Error> {
+    pub fn new(chain_id: ChainId, latest_height: Height, frozen_height: Height) -> Result<Self, Error> {
         Ok(ClientState {
             chain_id,
             latest_height,
+            frozen_height,
         })
     }
 
@@ -48,7 +50,7 @@ impl crate::ics02_client::client_state::ClientState for ClientState {
 
     fn is_frozen(&self) -> bool {
         // If 'frozen_height' is set to a non-zero value, then the client state is frozen.
-        unimplemented!()
+        !self.frozen_height.is_zero()
     }
 
     fn wrap_any(self) -> AnyClientState {
@@ -66,6 +68,10 @@ impl TryFrom<RawClientState> for ClientState {
             latest_height: raw.latest_height
                 .ok_or_else(Error::missing_latest_height)?
                 .into(),
+            frozen_height: raw
+                .frozen_height
+                .ok_or_else(Error::missing_frozen_height)?
+                .into(),
         })
     }
 }
@@ -75,6 +81,7 @@ impl From<ClientState> for RawClientState {
         Self {
             chain_id: value.chain_id.to_string(),
             latest_height: Some(value.latest_height.into()),
+            frozen_height: Some(value.frozen_height.into()),
         }
     }
 }

@@ -6,6 +6,8 @@ pub struct ClientState{
     pub chain_id: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "2")]
     pub latest_height: ::core::option::Option<super::super::super::core::client::v1::Height>,
+    #[prost(message, optional, tag = "3")]
+    pub frozen_height: ::core::option::Option<super::super::super::core::client::v1::Height>,
 }
 
 /// ConsensusState defines the consensus state from Tendermint.
