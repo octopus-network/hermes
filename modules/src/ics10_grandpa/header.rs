@@ -13,11 +13,19 @@ use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
-pub struct Header {}
+pub struct Header {
+    pub height: u64,
+}
 
 impl std::fmt::Debug for Header {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(f, " Header {{...}}")
+    }
+}
+
+impl Header {
+    pub fn height(&self) -> Height {
+        Height::new(0, self.height)
     }
 }
 
@@ -27,7 +35,7 @@ impl crate::ics02_client::header::Header for Header {
     }
 
     fn height(&self) -> Height {
-        unimplemented!()
+        self.height()
     }
 
     fn wrap_any(self) -> AnyHeader {
@@ -40,8 +48,13 @@ impl Protobuf<RawHeader> for Header {}
 impl TryFrom<RawHeader> for Header {
     type Error = Error;
 
-    fn try_from(_raw: RawHeader) -> Result<Self, Self::Error> {
-        Ok(Header {})
+    fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
+        Ok(Header {
+            height: raw
+                .height
+                .ok_or_else(Error::missing_height)?
+                .revision_height,
+        })
     }
 }
 
@@ -50,7 +63,9 @@ pub fn decode_header<B: Buf>(buf: B) -> Result<Header, Error> {
 }
 
 impl From<Header> for RawHeader {
-    fn from(_value: Header) -> Self {
-        Self {}
+    fn from(value: Header) -> Self {
+        Self {
+            height: Some(Height::new(0, value.height).into()),
+        }
     }
 }

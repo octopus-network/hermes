@@ -11,5 +11,13 @@ define_error! {
 
         MissingLatestHeight
             | _ | { "missing latest height" },
+
+        MissingHeight
+            | _ | { "missing height" },
+
+        Infallible
+            { reason: String }
+            [ DisplayOnly<std::convert::Infallible> ]
+            | _ | { "invalid header, failed basic validation" },
     }
 }

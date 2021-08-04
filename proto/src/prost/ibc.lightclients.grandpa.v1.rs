@@ -31,6 +31,8 @@ pub struct Misbehaviour{
 /// trusted validator set at the TrustedHeight.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Header{
+    #[prost(message, optional, tag="1")]
+    pub height: ::core::option::Option<super::super::super::core::client::v1::Height>,
 }
 
 /// Fraction defines the protobuf message type for tmmath.Fraction that only supports positive values.
