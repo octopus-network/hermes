@@ -4,5 +4,9 @@ define_error! {
     Error{
         Dummy
             |_| { format_args!("dummy error") },
+
+        Decode
+            [ TraceError<prost::DecodeError> ]
+            | _ | { "decode error" },
     }
 }

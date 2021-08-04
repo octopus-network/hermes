@@ -25,6 +25,9 @@ use crate::mock::client_state::MockConsensusState;
 pub const TENDERMINT_CONSENSUS_STATE_TYPE_URL: &str =
     "/ibc.lightclients.tendermint.v1.ConsensusState";
 
+pub const GRANDPA_CONSENSUS_STATE_TYPE_URL: &str =
+    "/ibc.lightclients.grandpa.v1.ConsensusState";
+
 pub const MOCK_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.mock.ConsensusState";
 
 pub trait ConsensusState: Clone + std::fmt::Debug + Send + Sync {
@@ -95,6 +98,11 @@ impl TryFrom<Any> for AnyConsensusState {
                     .map_err(Error::decode_raw_client_state)?,
             )),
 
+            GRANDPA_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Grandpa(
+                crate::ics10_grandpa::consensus_state::ConsensusState::decode_vec(&value.value)
+                    .map_err(Error::decode_raw_client_state)?,
+            )),
+
             #[cfg(any(test, feature = "mocks"))]
             MOCK_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Mock(
                 MockConsensusState::decode_vec(&value.value)
@@ -115,8 +123,11 @@ impl From<AnyConsensusState> for Any {
                     .encode_vec()
                     .expect("encoding to `Any` from `AnyConsensusState::Tendermint`"),
             },
-            AnyConsensusState::Grandpa(value) =>  {
-                unimplemented!()
+            AnyConsensusState::Grandpa(value) => Any {
+                type_url: GRANDPA_CONSENSUS_STATE_TYPE_URL.to_string(),
+                value: value
+                    .encode_vec()
+                    .expect("encoding to 'Any' from 'AnyConsensusState::Grandpa'"),
             },
             #[cfg(any(test, feature = "mocks"))]
             AnyConsensusState::Mock(value) => Any {

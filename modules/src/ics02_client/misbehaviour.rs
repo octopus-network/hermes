@@ -16,6 +16,7 @@ use crate::Height;
 use super::header::AnyHeader;
 
 pub const TENDERMINT_MISBEHAVIOR_TYPE_URL: &str = "/ibc.lightclients.tendermint.v1.Misbehaviour";
+pub const GRANDPA_MISBEHAVIOR_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Misbehaviour";
 
 #[cfg(any(test, feature = "mocks"))]
 pub const MOCK_MISBEHAVIOUR_TYPE_URL: &str = "/ibc.mock.Misbehavior";
@@ -77,6 +78,9 @@ impl TryFrom<Any> for AnyMisbehaviour {
             TENDERMINT_MISBEHAVIOR_TYPE_URL => Ok(AnyMisbehaviour::Tendermint(
                 TmMisbehaviour::decode_vec(&raw.value).map_err(Error::decode_raw_misbehaviour)?,
             )),
+            GRANDPA_MISBEHAVIOR_TYPE_URL => Ok(AnyMisbehaviour::Grandpa(
+                    GpMisbehaviour::decode_vec(&raw.value).map_err(Error::decode_raw_misbehaviour)?,
+            )),
 
             #[cfg(any(test, feature = "mocks"))]
             MOCK_MISBEHAVIOUR_TYPE_URL => Ok(AnyMisbehaviour::Mock(
@@ -96,7 +100,12 @@ impl From<AnyMisbehaviour> for Any {
                     .encode_vec()
                     .expect("encoding to `Any` from `AnyMisbehavior::Tendermint`"),
             },
-            AnyMisbehaviour::Grandpa(misbehaviour) => unimplemented!(),
+            AnyMisbehaviour::Grandpa(misbehaviour) => Any {
+                type_url: GRANDPA_MISBEHAVIOR_TYPE_URL.to_string(),
+                value: misbehaviour
+                    .encode_vec()
+                    .expect("encoding to 'Any' from 'AnyMisbehavior::Grandpa'"),
+            },
 
             #[cfg(any(test, feature = "mocks"))]
             AnyMisbehaviour::Mock(misbehaviour) => Any {

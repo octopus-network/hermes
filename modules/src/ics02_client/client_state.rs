@@ -20,6 +20,8 @@ use crate::mock::client_state::MockClientState;
 use crate::Height;
 
 pub const TENDERMINT_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.tendermint.v1.ClientState";
+pub const GRANDPA_CLIENT_STATE_TYPE_URL: &str = "/ibc.ligheclients.grandpa.v1.ClientState";
+
 pub const MOCK_CLIENT_STATE_TYPE_URL: &str = "/ibc.mock.ClientState";
 
 #[dyn_clonable::clonable]
@@ -140,7 +142,12 @@ impl From<AnyClientState> for Any {
                     .expect("encoding to `Any` from `AnyClientState::Tendermint`"),
             },
 
-            AnyClientState::Grandpa(value) => unimplemented!(),
+            AnyClientState::Grandpa(value) =>  Any {
+                type_url: GRANDPA_CLIENT_STATE_TYPE_URL.to_string(),
+                value: value
+                    .encode_vec()
+                    .expect("encoding to `Any` from `AnyClientState::Grandpa`"),
+            },
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(value) => Any {

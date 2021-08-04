@@ -1,5 +1,6 @@
 use crate::ics02_client::client_type::ClientType;
 use crate::ics07_tendermint::error::Error as Ics07Error;
+use crate::ics10_grandpa::error::Error as Ics10Error;
 use crate::ics23_commitment::error::Error as Ics23Error;
 use crate::ics24_host::error::ValidationError;
 use crate::ics24_host::identifier::ClientId;
@@ -156,6 +157,10 @@ define_error! {
         Tendermint
             [ Ics07Error ]
             | _ | { "tendermint error" },
+
+        Grandpa
+            [ Ics10Error ]
+            | _ | { "grandpa error" },
 
         InvalidPacketTimestamp
             [ TraceError<TryFromIntError> ]

@@ -1,7 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 
 // mock grandpa as tendermint
-// use ibc_proto::ibc::lightclients::tendermint::v1::ClientState as RawClientState;
+use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawClientState;
 
 use serde::{Deserialize, Serialize};
 use crate::ics10_grandpa::error::Error;
@@ -9,6 +9,7 @@ use crate::ics02_client::client_state::AnyClientState;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics24_host::identifier::ChainId;
 use crate::Height;
+use tendermint_proto::Protobuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState;
@@ -23,7 +24,7 @@ impl ClientState {
     }
 }
 
-// impl Protobuf<RawClientState> for ClientState {}
+impl Protobuf<RawClientState> for ClientState {}
 
 impl crate::ics02_client::client_state::ClientState for ClientState {
     fn chain_id(&self) -> ChainId {
@@ -48,16 +49,16 @@ impl crate::ics02_client::client_state::ClientState for ClientState {
     }
 }
 
-// impl TryFrom<RawClientState> for ClientState {
-//     type Error = Error;
-//
-//     fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
-//        unimplemented!()
-//     }
-// }
-//
-// impl From<ClientState> for RawClientState {
-//     fn from(value: ClientState) -> Self {
-//         unimplemented!()
-//     }
-// }
+impl TryFrom<RawClientState> for ClientState {
+    type Error = Error;
+
+    fn try_from(_raw: RawClientState) -> Result<Self, Self::Error> {
+       Ok(ClientState)
+    }
+}
+
+impl From<ClientState> for RawClientState {
+    fn from(_value: ClientState) -> Self {
+        Self
+    }
+}
