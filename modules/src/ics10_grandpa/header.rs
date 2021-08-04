@@ -13,7 +13,7 @@ use crate::Height;
 use tendermint_proto::Protobuf;
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
-pub struct Header;
+pub struct Header{}
 
 impl std::fmt::Debug for Header {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -41,7 +41,7 @@ impl TryFrom<RawHeader> for Header {
     type Error = Error;
 
     fn try_from(_raw: RawHeader) -> Result<Self, Self::Error> {
-        Ok(Header)
+        Ok(Header{})
     }
 }
 
@@ -52,6 +52,6 @@ pub fn decode_header<B: Buf>(buf: B) -> Result<Header, Error> {
 
 impl From<Header> for RawHeader {
     fn from(_value: Header) -> Self {
-        Self
+        Self{}
     }
 }

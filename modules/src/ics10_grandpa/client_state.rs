@@ -12,11 +12,11 @@ use crate::Height;
 use tendermint_proto::Protobuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClientState;
+pub struct ClientState{}
 
 impl ClientState {
     pub fn new() -> Result<Self, Error> {
-        Ok(ClientState)
+        Ok(ClientState{})
     }
 
     pub fn latest_height(&self) -> Height {
@@ -53,12 +53,12 @@ impl TryFrom<RawClientState> for ClientState {
     type Error = Error;
 
     fn try_from(_raw: RawClientState) -> Result<Self, Self::Error> {
-       Ok(ClientState)
+       Ok(ClientState{})
     }
 }
 
 impl From<ClientState> for RawClientState {
     fn from(_value: ClientState) -> Self {
-        Self
+        Self{}
     }
 }

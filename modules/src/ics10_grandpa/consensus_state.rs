@@ -14,12 +14,12 @@ use crate::ics10_grandpa::header::Header;
 use tendermint_proto::Protobuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct ConsensusState;
+pub struct ConsensusState{}
 
 
 impl ConsensusState {
     pub fn new() -> Self {
-        Self
+        Self{}
     }
 }
 
@@ -50,13 +50,13 @@ impl TryFrom<RawConsensusState> for ConsensusState {
     type Error = Error;
 
     fn try_from(_raw: RawConsensusState) -> Result<Self, Self::Error> {
-        Ok(ConsensusState)
+        Ok(ConsensusState{})
     }
 }
 
 impl From<ConsensusState> for RawConsensusState {
     fn from(_value: ConsensusState) -> Self {
-        Self
+        Self{}
     }
 }
 
@@ -68,6 +68,6 @@ impl From<ConsensusState> for RawConsensusState {
 
 impl From<Header> for ConsensusState {
     fn from(_header: Header) -> Self {
-        Self
+        Self{}
     }
 }

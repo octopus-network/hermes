@@ -10,7 +10,7 @@ use crate::Height;
 use tendermint_proto::Protobuf;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Misbehaviour;
+pub struct Misbehaviour{}
 
 impl crate::ics02_client::misbehaviour::Misbehaviour for Misbehaviour {
     fn client_id(&self) -> &ClientId {
@@ -32,13 +32,13 @@ impl TryFrom<RawMisbehaviour> for Misbehaviour {
     type Error = Error;
 
     fn try_from(raw: RawMisbehaviour) -> Result<Self, Self::Error> {
-       Ok(Misbehaviour)
+       Ok(Misbehaviour{})
     }
 }
 
 impl From<Misbehaviour> for RawMisbehaviour {
     fn from(value: Misbehaviour) -> Self {
-        Self
+        Self{}
     }
 }
 
