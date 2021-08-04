@@ -2,7 +2,9 @@
 /// and a possible frozen height.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ClientState{
-    #[prost(message, optional, tag = "1")]
+    #[prost(string, tag = "1")]
+    pub chain_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
     pub latest_height: ::core::option::Option<super::super::super::core::client::v1::Height>,
 }
 

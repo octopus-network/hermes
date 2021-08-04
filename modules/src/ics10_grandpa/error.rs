@@ -1,4 +1,5 @@
 use flex_error::{define_error, DisplayOnly, TraceError};
+use crate::ics24_host::error::ValidationError;
 
 define_error! {
     Error{
@@ -15,9 +16,8 @@ define_error! {
         MissingHeight
             | _ | { "missing height" },
 
-        Infallible
-            { reason: String }
-            [ DisplayOnly<std::convert::Infallible> ]
-            | _ | { "invalid header, failed basic validation" },
+        InvalidChainIdentifier
+            [ ValidationError ]
+            | _ | { "Invalid chain identifier" },
     }
 }
