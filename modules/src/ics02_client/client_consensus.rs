@@ -129,6 +129,7 @@ impl From<AnyConsensusState> for Any {
                     .encode_vec()
                     .expect("encoding to 'Any' from 'AnyConsensusState::Grandpa'"),
             },
+
             #[cfg(any(test, feature = "mocks"))]
             AnyConsensusState::Mock(value) => Any {
                 type_url: MOCK_CONSENSUS_STATE_TYPE_URL.to_string(),

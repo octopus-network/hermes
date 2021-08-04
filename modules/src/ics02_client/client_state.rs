@@ -47,7 +47,6 @@ pub trait ClientState: Clone + std::fmt::Debug + Send + Sync {
 #[serde(tag = "type")]
 pub enum AnyClientState {
     Tendermint(client_state::ClientState),
-
     Grandpa(ics10_grandpa::client_state::ClientState),
 
     #[cfg(any(test, feature = "mocks"))]
@@ -58,7 +57,6 @@ impl AnyClientState {
     pub fn latest_height(&self) -> Height {
         match self {
             Self::Tendermint(tm_state) => tm_state.latest_height(),
-
             Self::Grandpa(tm_state) => tm_state.latest_height(),
 
             #[cfg(any(test, feature = "mocks"))]
@@ -79,7 +77,6 @@ impl AnyClientState {
     pub fn client_type(&self) -> ClientType {
         match self {
             Self::Tendermint(state) => state.client_type(),
-
             Self::Grandpa(state) => state.client_type(),
 
             #[cfg(any(test, feature = "mocks"))]
@@ -119,6 +116,11 @@ impl TryFrom<Any> for AnyClientState {
 
             TENDERMINT_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Tendermint(
                 client_state::ClientState::decode_vec(&raw.value)
+                    .map_err(Error::decode_raw_client_state)?,
+            )),
+
+            GRANDPA_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Grandpa(
+                crate::ics10_grandpa::client_state::ClientState::decode_vec(&raw.value)
                     .map_err(Error::decode_raw_client_state)?,
             )),
 

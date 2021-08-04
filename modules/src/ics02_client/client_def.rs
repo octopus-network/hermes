@@ -193,7 +193,7 @@ impl ClientDef for AnyClient {
                     AnyClientState::Tendermint(new_state),
                     AnyConsensusState::Tendermint(new_consensus),
                 ))
-            }
+            },
             Self::Grandpa(client) => {
                 let (client_state, header) = downcast!(
                     client_state => AnyClientState::Grandpa,
@@ -254,7 +254,7 @@ impl ClientDef for AnyClient {
                     consensus_height,
                     expected_consensus_state,
                 )
-            }
+            },
 
             Self::Grandpa(client) => {
                 let client_state = downcast!(
@@ -314,7 +314,7 @@ impl ClientDef for AnyClient {
                     connection_id,
                     expected_connection_end,
                 )
-            }
+            },
             Self::Grandpa(client) => {
                 let client_state = downcast!(client_state => AnyClientState::Grandpa)
                     .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
@@ -370,7 +370,7 @@ impl ClientDef for AnyClient {
                     channel_id,
                     expected_channel_end,
                 )
-            }
+            },
             Self::Grandpa(client) => {
                 let client_state = downcast!(client_state => AnyClientState::Grandpa)
                     .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
@@ -430,7 +430,7 @@ impl ClientDef for AnyClient {
                     proof,
                     client_state_on_counterparty,
                 )
-            }
+            },
             Self::Grandpa(client) => {
                 let client_state = downcast!(
                     client_state => AnyClientState::Grandpa
@@ -493,7 +493,7 @@ impl ClientDef for AnyClient {
                     seq,
                     commitment,
                 )
-            }
+            },
             Self::Grandpa(client) => {
                 let client_state = downcast!(
                     client_state => AnyClientState::Grandpa
@@ -557,7 +557,7 @@ impl ClientDef for AnyClient {
                     seq,
                     ack,
                 )
-            }
+            },
             Self::Grandpa(client) => {
                 let client_state = downcast!(
                     client_state => AnyClientState::Grandpa
@@ -619,7 +619,7 @@ impl ClientDef for AnyClient {
                     channel_id,
                     seq,
                 )
-            }
+            },
 
             Self::Grandpa(client) => {
                 let client_state = downcast!(
@@ -679,7 +679,7 @@ impl ClientDef for AnyClient {
                     channel_id,
                     seq,
                 )
-            }
+            },
             Self::Grandpa(client) => {
                 let client_state = downcast!(
                     client_state => AnyClientState::Grandpa
@@ -741,7 +741,7 @@ impl ClientDef for AnyClient {
                     AnyClientState::Tendermint(new_state),
                     AnyConsensusState::Tendermint(new_consensus),
                 ))
-            }
+            },
             Self::Grandpa(client) => {
                 let (client_state, consensus_state) = downcast!(
                     client_state => AnyClientState::Grandpa,
