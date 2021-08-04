@@ -193,12 +193,13 @@ impl ClientDef for AnyClient {
                     AnyClientState::Tendermint(new_state),
                     AnyConsensusState::Tendermint(new_consensus),
                 ))
-            },
+            }
             Self::Grandpa(client) => {
                 let (client_state, header) = downcast!(
                     client_state => AnyClientState::Grandpa,
                     header => AnyHeader::Grandpa,
-                ).ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
+                )
+                .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 let (new_state, new_consensus) =
                     client.check_header_and_update_state(client_state, header)?;
@@ -207,7 +208,7 @@ impl ClientDef for AnyClient {
                     AnyClientState::Grandpa(new_state),
                     AnyConsensusState::Grandpa(new_consensus),
                 ))
-            },
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -254,12 +255,13 @@ impl ClientDef for AnyClient {
                     consensus_height,
                     expected_consensus_state,
                 )
-            },
+            }
 
             Self::Grandpa(client) => {
                 let client_state = downcast!(
                     client_state => AnyClientState::Grandpa
-                ).ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
+                )
+                .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 client.verify_client_consensus_state(
                     client_state,
@@ -268,9 +270,9 @@ impl ClientDef for AnyClient {
                     proof,
                     client_id,
                     consensus_height,
-                    expected_consensus_state
+                    expected_consensus_state,
                 )
-            },
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -314,7 +316,7 @@ impl ClientDef for AnyClient {
                     connection_id,
                     expected_connection_end,
                 )
-            },
+            }
             Self::Grandpa(client) => {
                 let client_state = downcast!(client_state => AnyClientState::Grandpa)
                     .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
@@ -327,7 +329,7 @@ impl ClientDef for AnyClient {
                     connection_id,
                     expected_connection_end,
                 )
-            },
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -370,7 +372,7 @@ impl ClientDef for AnyClient {
                     channel_id,
                     expected_channel_end,
                 )
-            },
+            }
             Self::Grandpa(client) => {
                 let client_state = downcast!(client_state => AnyClientState::Grandpa)
                     .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
@@ -384,7 +386,7 @@ impl ClientDef for AnyClient {
                     channel_id,
                     expected_channel_end,
                 )
-            },
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -430,12 +432,12 @@ impl ClientDef for AnyClient {
                     proof,
                     client_state_on_counterparty,
                 )
-            },
+            }
             Self::Grandpa(client) => {
                 let client_state = downcast!(
                     client_state => AnyClientState::Grandpa
                 )
-                    .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
+                .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 client.verify_client_full_state(
                     client_state,
@@ -446,7 +448,7 @@ impl ClientDef for AnyClient {
                     proof,
                     client_state_on_counterparty,
                 )
-            },
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -493,12 +495,12 @@ impl ClientDef for AnyClient {
                     seq,
                     commitment,
                 )
-            },
+            }
             Self::Grandpa(client) => {
                 let client_state = downcast!(
                     client_state => AnyClientState::Grandpa
                 )
-                    .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
+                .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 client.verify_packet_data(
                     client_state,
@@ -509,7 +511,7 @@ impl ClientDef for AnyClient {
                     seq,
                     commitment,
                 )
-            },
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -557,12 +559,12 @@ impl ClientDef for AnyClient {
                     seq,
                     ack,
                 )
-            },
+            }
             Self::Grandpa(client) => {
                 let client_state = downcast!(
                     client_state => AnyClientState::Grandpa
                 )
-                    .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
+                .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 client.verify_packet_acknowledgement(
                     client_state,
@@ -573,7 +575,7 @@ impl ClientDef for AnyClient {
                     seq,
                     ack,
                 )
-            },
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -619,13 +621,13 @@ impl ClientDef for AnyClient {
                     channel_id,
                     seq,
                 )
-            },
+            }
 
             Self::Grandpa(client) => {
                 let client_state = downcast!(
                     client_state => AnyClientState::Grandpa
                 )
-                    .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
+                .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 client.verify_next_sequence_recv(
                     client_state,
@@ -635,7 +637,7 @@ impl ClientDef for AnyClient {
                     channel_id,
                     seq,
                 )
-            },
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -679,12 +681,12 @@ impl ClientDef for AnyClient {
                     channel_id,
                     seq,
                 )
-            },
+            }
             Self::Grandpa(client) => {
                 let client_state = downcast!(
                     client_state => AnyClientState::Grandpa
                 )
-                    .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
+                .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 client.verify_packet_receipt_absence(
                     client_state,
@@ -694,7 +696,7 @@ impl ClientDef for AnyClient {
                     channel_id,
                     seq,
                 )
-            },
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {
@@ -741,13 +743,13 @@ impl ClientDef for AnyClient {
                     AnyClientState::Tendermint(new_state),
                     AnyConsensusState::Tendermint(new_consensus),
                 ))
-            },
+            }
             Self::Grandpa(client) => {
                 let (client_state, consensus_state) = downcast!(
                     client_state => AnyClientState::Grandpa,
                     consensus_state => AnyConsensusState::Grandpa,
                 )
-                    .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
+                .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 let (new_state, new_consensus) = client.verify_upgrade_and_update_state(
                     client_state,
@@ -760,7 +762,7 @@ impl ClientDef for AnyClient {
                     AnyClientState::Grandpa(new_state),
                     AnyConsensusState::Grandpa(new_consensus),
                 ))
-            },
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(client) => {

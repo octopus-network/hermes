@@ -25,8 +25,7 @@ use crate::mock::client_state::MockConsensusState;
 pub const TENDERMINT_CONSENSUS_STATE_TYPE_URL: &str =
     "/ibc.lightclients.tendermint.v1.ConsensusState";
 
-pub const GRANDPA_CONSENSUS_STATE_TYPE_URL: &str =
-    "/ibc.lightclients.grandpa.v1.ConsensusState";
+pub const GRANDPA_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.ConsensusState";
 
 pub const MOCK_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.mock.ConsensusState";
 

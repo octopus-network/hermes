@@ -144,7 +144,7 @@ impl From<AnyClientState> for Any {
                     .expect("encoding to `Any` from `AnyClientState::Tendermint`"),
             },
 
-            AnyClientState::Grandpa(value) =>  Any {
+            AnyClientState::Grandpa(value) => Any {
                 type_url: GRANDPA_CLIENT_STATE_TYPE_URL.to_string(),
                 value: value
                     .encode_vec()

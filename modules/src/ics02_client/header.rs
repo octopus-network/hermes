@@ -76,12 +76,13 @@ impl TryFrom<Any> for AnyHeader {
                 let val = decode_header(raw.value.deref()).map_err(Error::tendermint)?;
 
                 Ok(AnyHeader::Tendermint(val))
-            },
+            }
             GRANDPA_HEADER_TYPE_URL => {
-                let val = crate::ics10_grandpa::header::decode_header(raw.value.deref()).map_err(Error::grandpa)?;
+                let val = crate::ics10_grandpa::header::decode_header(raw.value.deref())
+                    .map_err(Error::grandpa)?;
 
                 Ok(AnyHeader::Grandpa(val))
-            },
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             MOCK_HEADER_TYPE_URL => Ok(AnyHeader::Mock(

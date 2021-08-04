@@ -3,20 +3,20 @@ use std::convert::{TryFrom, TryInto};
 // mock grandpa as tendermint
 use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawClientState;
 
-use serde::{Deserialize, Serialize};
-use crate::ics10_grandpa::error::Error;
 use crate::ics02_client::client_state::AnyClientState;
 use crate::ics02_client::client_type::ClientType;
+use crate::ics10_grandpa::error::Error;
 use crate::ics24_host::identifier::ChainId;
 use crate::Height;
+use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClientState{}
+pub struct ClientState {}
 
 impl ClientState {
     pub fn new() -> Result<Self, Error> {
-        Ok(ClientState{})
+        Ok(ClientState {})
     }
 
     pub fn latest_height(&self) -> Height {
@@ -53,12 +53,12 @@ impl TryFrom<RawClientState> for ClientState {
     type Error = Error;
 
     fn try_from(_raw: RawClientState) -> Result<Self, Self::Error> {
-       Ok(ClientState{})
+        Ok(ClientState {})
     }
 }
 
 impl From<ClientState> for RawClientState {
     fn from(_value: ClientState) -> Self {
-        Self{}
+        Self {}
     }
 }

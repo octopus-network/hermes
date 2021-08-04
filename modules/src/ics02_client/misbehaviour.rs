@@ -5,7 +5,7 @@ use tendermint_proto::Protobuf;
 
 use crate::ics02_client::error::Error;
 use crate::ics07_tendermint::misbehaviour::Misbehaviour as TmMisbehaviour;
-use crate::ics10_grandpa::misbehaviour::Misbehaviour as  GpMisbehaviour;
+use crate::ics10_grandpa::misbehaviour::Misbehaviour as GpMisbehaviour;
 
 #[cfg(any(test, feature = "mocks"))]
 use crate::mock::misbehaviour::Misbehaviour as MockMisbehaviour;
@@ -56,7 +56,7 @@ impl Misbehaviour for AnyMisbehaviour {
     fn height(&self) -> Height {
         match self {
             Self::Tendermint(misbehaviour) => misbehaviour.height(),
-            Self::Grandpa(misbehaviour ) => misbehaviour.height(),
+            Self::Grandpa(misbehaviour) => misbehaviour.height(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(misbehaviour) => misbehaviour.height(),
@@ -79,7 +79,7 @@ impl TryFrom<Any> for AnyMisbehaviour {
                 TmMisbehaviour::decode_vec(&raw.value).map_err(Error::decode_raw_misbehaviour)?,
             )),
             GRANDPA_MISBEHAVIOR_TYPE_URL => Ok(AnyMisbehaviour::Grandpa(
-                    GpMisbehaviour::decode_vec(&raw.value).map_err(Error::decode_raw_misbehaviour)?,
+                GpMisbehaviour::decode_vec(&raw.value).map_err(Error::decode_raw_misbehaviour)?,
             )),
 
             #[cfg(any(test, feature = "mocks"))]

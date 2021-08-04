@@ -1,19 +1,19 @@
-use std::convert::{TryInto, TryFrom};
+use std::convert::{TryFrom, TryInto};
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Header as RawHeader;
 
-use bytes::Buf;
-use prost::Message;
-use serde::{Serialize, Deserialize};
 use crate::ics02_client::client_type::ClientType;
 use crate::ics02_client::header::AnyHeader;
 use crate::ics10_grandpa::error::Error;
 use crate::ics24_host::identifier::ChainId;
 use crate::Height;
+use bytes::Buf;
+use prost::Message;
+use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
-pub struct Header{}
+pub struct Header {}
 
 impl std::fmt::Debug for Header {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -41,10 +41,9 @@ impl TryFrom<RawHeader> for Header {
     type Error = Error;
 
     fn try_from(_raw: RawHeader) -> Result<Self, Self::Error> {
-        Ok(Header{})
+        Ok(Header {})
     }
 }
-
 
 pub fn decode_header<B: Buf>(buf: B) -> Result<Header, Error> {
     RawHeader::decode(buf).map_err(Error::decode)?.try_into()
@@ -52,6 +51,6 @@ pub fn decode_header<B: Buf>(buf: B) -> Result<Header, Error> {
 
 impl From<Header> for RawHeader {
     fn from(_value: Header) -> Self {
-        Self{}
+        Self {}
     }
 }

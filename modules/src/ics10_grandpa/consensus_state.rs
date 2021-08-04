@@ -1,5 +1,5 @@
-use std::convert::{TryFrom, TryInto};
 use std::convert::Infallible;
+use std::convert::{TryFrom, TryInto};
 
 use serde::Serialize;
 
@@ -9,17 +9,16 @@ use ibc_proto::ibc::lightclients::grandpa::v1::ConsensusState as RawConsensusSta
 use crate::ics02_client::client_consensus::AnyConsensusState;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics10_grandpa::error::Error;
-use crate::ics23_commitment::commitment::CommitmentRoot;
 use crate::ics10_grandpa::header::Header;
+use crate::ics23_commitment::commitment::CommitmentRoot;
 use tendermint_proto::Protobuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct ConsensusState{}
-
+pub struct ConsensusState {}
 
 impl ConsensusState {
     pub fn new() -> Self {
-        Self{}
+        Self {}
     }
 }
 
@@ -45,18 +44,17 @@ impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
     }
 }
 
-
 impl TryFrom<RawConsensusState> for ConsensusState {
     type Error = Error;
 
     fn try_from(_raw: RawConsensusState) -> Result<Self, Self::Error> {
-        Ok(ConsensusState{})
+        Ok(ConsensusState {})
     }
 }
 
 impl From<ConsensusState> for RawConsensusState {
     fn from(_value: ConsensusState) -> Self {
-        Self{}
+        Self {}
     }
 }
 
@@ -68,6 +66,6 @@ impl From<ConsensusState> for RawConsensusState {
 
 impl From<Header> for ConsensusState {
     fn from(_header: Header) -> Self {
-        Self{}
+        Self {}
     }
 }
