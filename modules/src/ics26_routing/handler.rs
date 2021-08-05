@@ -20,7 +20,6 @@ pub fn deliver<Ctx>(ctx: &mut Ctx, messages: Vec<Any>) -> Result<Vec<IbcEvent>, 
 where
     Ctx: Ics26Context,
 {
-    println!("in deliver");
     // Create a clone, which will store each intermediary stage of applying txs.
     let mut ctx_interim = ctx.clone();
 
@@ -30,7 +29,6 @@ where
     for any_msg in messages {
         // Decode the proto message into a domain message, creating an ICS26 envelope.
         let envelope = decode(any_msg)?;
-        println!("envelope after");
 
         // Process the envelope, and accumulate any events that were generated.
         let mut output = dispatch(&mut ctx_interim, envelope)?;
