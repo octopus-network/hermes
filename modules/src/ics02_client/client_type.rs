@@ -24,7 +24,6 @@ impl ClientType {
     /// Yields the identifier of this client type as a string
     pub fn as_str(&self) -> &'static str {
         match self {
-
             Self::Tendermint => Self::TENDERMINT_STR,
             Self::Grandpa => Self::GRANDPA_STR,
 

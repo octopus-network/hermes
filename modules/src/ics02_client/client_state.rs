@@ -20,6 +20,8 @@ use crate::mock::client_state::MockClientState;
 use crate::Height;
 
 pub const TENDERMINT_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.tendermint.v1.ClientState";
+pub const GRANDPA_CLIENT_STATE_TYPE_URL: &str = "/ibc.ligheclients.grandpa.v1.ClientState";
+
 pub const MOCK_CLIENT_STATE_TYPE_URL: &str = "/ibc.mock.ClientState";
 
 #[dyn_clonable::clonable]
@@ -45,7 +47,6 @@ pub trait ClientState: Clone + std::fmt::Debug + Send + Sync {
 #[serde(tag = "type")]
 pub enum AnyClientState {
     Tendermint(client_state::ClientState),
-
     Grandpa(ics10_grandpa::client_state::ClientState),
 
     #[cfg(any(test, feature = "mocks"))]
@@ -56,7 +57,6 @@ impl AnyClientState {
     pub fn latest_height(&self) -> Height {
         match self {
             Self::Tendermint(tm_state) => tm_state.latest_height(),
-
             Self::Grandpa(tm_state) => tm_state.latest_height(),
 
             #[cfg(any(test, feature = "mocks"))]
@@ -77,7 +77,6 @@ impl AnyClientState {
     pub fn client_type(&self) -> ClientType {
         match self {
             Self::Tendermint(state) => state.client_type(),
-
             Self::Grandpa(state) => state.client_type(),
 
             #[cfg(any(test, feature = "mocks"))]
@@ -120,6 +119,11 @@ impl TryFrom<Any> for AnyClientState {
                     .map_err(Error::decode_raw_client_state)?,
             )),
 
+            GRANDPA_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Grandpa(
+                crate::ics10_grandpa::client_state::ClientState::decode_vec(&raw.value)
+                    .map_err(Error::decode_raw_client_state)?,
+            )),
+
             #[cfg(any(test, feature = "mocks"))]
             MOCK_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Mock(
                 MockClientState::decode_vec(&raw.value).map_err(Error::decode_raw_client_state)?,
@@ -140,7 +144,12 @@ impl From<AnyClientState> for Any {
                     .expect("encoding to `Any` from `AnyClientState::Tendermint`"),
             },
 
-            AnyClientState::Grandpa(value) => unimplemented!(),
+            AnyClientState::Grandpa(value) => Any {
+                type_url: GRANDPA_CLIENT_STATE_TYPE_URL.to_string(),
+                value: value
+                    .encode_vec()
+                    .expect("encoding to `Any` from `AnyClientState::Grandpa`"),
+            },
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(value) => Any {
@@ -157,7 +166,7 @@ impl ClientState for AnyClientState {
     fn chain_id(&self) -> ChainId {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.chain_id(),
-            AnyClientState::Grandpa(_tm_state) => unimplemented!(),
+            AnyClientState::Grandpa( tm_state) => tm_state.chain_id(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.chain_id(),
@@ -175,7 +184,7 @@ impl ClientState for AnyClientState {
     fn is_frozen(&self) -> bool {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.is_frozen(),
-            AnyClientState::Grandpa(_tm_state) => unimplemented!(),
+            AnyClientState::Grandpa( tm_state) => tm_state.is_frozen(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.is_frozen(),

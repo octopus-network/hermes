@@ -106,7 +106,7 @@ impl Default for Attributes {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct OpenInit(Attributes);
+pub struct OpenInit(pub Attributes);
 
 impl OpenInit {
     pub fn attributes(&self) -> &Attributes {

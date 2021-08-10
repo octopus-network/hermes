@@ -4,6 +4,7 @@ use std::ops::Deref;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics02_client::error::Error;
 use crate::ics07_tendermint::header::{decode_header, Header as TendermintHeader};
+use crate::ics10_grandpa::header::Header as GrandpaHeader;
 #[cfg(any(test, feature = "mocks"))]
 use crate::mock::header::MockHeader;
 use crate::Height;
@@ -12,6 +13,7 @@ use serde_derive::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
 
 pub const TENDERMINT_HEADER_TYPE_URL: &str = "/ibc.lightclients.tendermint.v1.Header";
+pub const GRANDPA_HEADER_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Header";
 pub const MOCK_HEADER_TYPE_URL: &str = "/ibc.mock.Header";
 
 /// Abstract of consensus state update information
@@ -31,6 +33,7 @@ pub trait Header: Clone + std::fmt::Debug + Send + Sync {
 #[allow(clippy::large_enum_variant)]
 pub enum AnyHeader {
     Tendermint(TendermintHeader),
+    Grandpa(GrandpaHeader),
 
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockHeader),
@@ -40,6 +43,7 @@ impl Header for AnyHeader {
     fn client_type(&self) -> ClientType {
         match self {
             Self::Tendermint(header) => header.client_type(),
+            Self::Grandpa(header) => header.client_type(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(header) => header.client_type(),
@@ -49,6 +53,7 @@ impl Header for AnyHeader {
     fn height(&self) -> Height {
         match self {
             Self::Tendermint(header) => header.height(),
+            Self::Grandpa(header) => header.height(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(header) => header.height(),
@@ -72,6 +77,12 @@ impl TryFrom<Any> for AnyHeader {
 
                 Ok(AnyHeader::Tendermint(val))
             }
+            GRANDPA_HEADER_TYPE_URL => {
+                let val = crate::ics10_grandpa::header::decode_header(raw.value.deref())
+                    .map_err(Error::grandpa)?;
+
+                Ok(AnyHeader::Grandpa(val))
+            }
 
             #[cfg(any(test, feature = "mocks"))]
             MOCK_HEADER_TYPE_URL => Ok(AnyHeader::Mock(
@@ -92,6 +103,13 @@ impl From<AnyHeader> for Any {
                     .encode_vec()
                     .expect("encoding to `Any` from `AnyHeader::Tendermint`"),
             },
+            AnyHeader::Grandpa(header) => Any {
+                type_url: GRANDPA_HEADER_TYPE_URL.to_string(),
+                value: header
+                    .encode_vec()
+                    .expect("encoding to 'Any' from 'AnyHeader::Grandpa'"),
+            },
+
             #[cfg(any(test, feature = "mocks"))]
             AnyHeader::Mock(header) => Any {
                 type_url: MOCK_HEADER_TYPE_URL.to_string(),

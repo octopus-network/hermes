@@ -26,6 +26,16 @@ pub struct MsgConnectionOpenInit {
 }
 
 impl MsgConnectionOpenInit {
+    pub fn new(client_id: ClientId, counterparty: Counterparty, version: Version, delay_period: Duration, signer: Signer) -> Self {
+        Self {
+            client_id,
+            counterparty,
+            version,
+            delay_period,
+            signer
+        }
+    }
+
     /// Getter: borrow the `client_id` from this message.
     pub fn client_id(&self) -> &ClientId {
         &self.client_id
