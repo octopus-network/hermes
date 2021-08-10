@@ -28,7 +28,11 @@ impl ClientDef for GrandpaClient {
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-        unimplemented!()
+        Ok((
+            client_state.with_header(header.clone()),
+            ConsensusState::from(header),
+        ))
+        // unimplemented!()
     }
 
     fn verify_client_consensus_state(
