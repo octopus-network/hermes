@@ -13,6 +13,8 @@ use crate::application::{app_config, CliApp};
 use crate::cli_utils::{spawn_chain_runtime, ChainHandlePair};
 use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::error::Error;
+use ibc::ics02_client::client_type::ClientType;
+use std::env::current_dir;
 
 #[derive(Clone, Command, Debug, Options)]
 pub struct TxCreateClientCmd {
@@ -32,18 +34,22 @@ impl Runnable for TxCreateClientCmd {
         if self.src_chain_id == self.dst_chain_id {
             Output::error("source and destination chains must be different".to_string()).exit()
         }
+        tracing::info!("src_chain_id: {}, dst_chain_id: {}", self.src_chain_id, self.dst_chain_id);
 
         let chains = match ChainHandlePair::spawn(&config, &self.src_chain_id, &self.dst_chain_id) {
             Ok(chains) => chains,
             Err(e) => return Output::error(format!("{}", e)).exit(),
         };
+        tracing::info!("ChainHandlePair: {:?}", chains);
 
-        let client = ForeignClient::restore(ClientId::default(), chains.dst, chains.src);
+        let client = ForeignClient::restore(ClientId::new(ClientType::Grandpa, 0).unwrap(), chains.dst, chains.src);
+        tracing::info!("client: {}", client);
 
         // Trigger client creation via the "build" interface, so that we obtain the resulting event
         let res: Result<IbcEvent, Error> = client
             .build_create_client_and_send()
             .map_err(Error::foreign_client);
+        tracing::info!("res: {:?}", res);
 
         match res {
             Ok(receipt) => Output::success(receipt).exit(),

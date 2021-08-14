@@ -166,7 +166,7 @@ impl ClientState for AnyClientState {
     fn chain_id(&self) -> ChainId {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.chain_id(),
-            AnyClientState::Grandpa( tm_state) => tm_state.chain_id(),
+            AnyClientState::Grandpa(tm_state) => tm_state.chain_id(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.chain_id(),
@@ -184,7 +184,7 @@ impl ClientState for AnyClientState {
     fn is_frozen(&self) -> bool {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.is_frozen(),
-            AnyClientState::Grandpa( tm_state) => tm_state.is_frozen(),
+            AnyClientState::Grandpa(tm_state) => tm_state.is_frozen(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.is_frozen(),

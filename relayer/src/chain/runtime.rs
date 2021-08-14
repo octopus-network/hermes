@@ -96,6 +96,8 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         config: ChainConfig,
         rt: Arc<TokioRuntime>,
     ) -> Result<Box<dyn ChainHandle>, Error> {
+        tracing::info!("in spawn");
+
         // Similar to `from_config`.
         let chain = C::bootstrap(config, rt.clone())?;
 
@@ -104,6 +106,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
 
         // Start the event monitor
         let (event_batch_rx, tx_monitor_cmd) = chain.init_event_monitor(rt.clone())?;
+        // tracing::info!("event_batch_rx: {:?}", event_batch_rx);
 
         // Instantiate & spawn the runtime
         let (handle, _) = Self::init(chain, light_client, event_batch_rx, tx_monitor_cmd, rt);
@@ -119,6 +122,8 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         tx_monitor_cmd: TxMonitorCmd,
         rt: Arc<TokioRuntime>,
     ) -> (Box<dyn ChainHandle>, thread::JoinHandle<()>) {
+        tracing::info!("in init");
+
         let chain_runtime = Self::new(chain, light_client, event_receiver, tx_monitor_cmd, rt);
 
         // Get a handle to the runtime
@@ -126,6 +131,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
 
         // Spawn the runtime & return
         let id = handle.id();
+        tracing::info!("in id: {}", id);
         let thread = thread::spawn(move || {
             if let Err(e) = chain_runtime.run() {
                 error!("failed to start runtime for chain '{}': {}", id, e);
@@ -143,6 +149,8 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         tx_monitor_cmd: TxMonitorCmd,
         rt: Arc<TokioRuntime>,
     ) -> Self {
+        tracing::info!("in new");
+
         let (request_sender, request_receiver) = channel::unbounded::<ChainRequest>();
 
         Self {
@@ -165,6 +173,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
     }
 
     fn run(mut self) -> Result<(), Error> {
+        tracing::info!("in run");
         loop {
             channel::select! {
                 recv(self.event_receiver) -> event_batch => {
@@ -201,6 +210,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
                         },
 
                         Ok(ChainRequest::Signer { reply_to }) => {
+                            tracing::info!("get_signer");
                             self.get_signer(reply_to)?
                         }
 

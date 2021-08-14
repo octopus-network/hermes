@@ -5,6 +5,7 @@ use tendermint::block::Height;
 use tokio::runtime::Runtime as TokioRuntime;
 
 pub use cosmos::CosmosSdkChain;
+pub use substrate::SubstrateChain;
 
 use ibc::events::IbcEvent;
 use ibc::ics02_client::client_consensus::{
@@ -45,6 +46,7 @@ pub(crate) mod cosmos;
 pub mod counterparty;
 pub mod handle;
 pub mod runtime;
+pub(crate) mod substrate;
 
 #[cfg(test)]
 pub mod mock;

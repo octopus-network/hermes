@@ -29,6 +29,7 @@ use ibc::Height;
 use ibc_proto::ibc::core::client::v1::QueryConsensusStatesRequest;
 
 use crate::chain::handle::ChainHandle;
+use ibc::signer::Signer;
 
 const MAX_MISBEHAVIOUR_CHECK_DURATION: Duration = Duration::from_secs(120);
 
@@ -415,61 +416,106 @@ impl ForeignClient {
 
     /// Lower-level interface for preparing a message to create a client.
     pub fn build_create_client(&self) -> Result<MsgCreateAnyClient, ForeignClientError> {
+        tracing::info!("[{}] in build create client", self);
         // Get signer
-        let signer = self.dst_chain.get_signer().map_err(|e| {
-            ForeignClientError::client_create(
-                self.dst_chain.id(),
-                "failed while fetching the destination chain signer".to_string(),
-                e,
-            )
-        })?;
+        // let signer = self.dst_chain.get_signer().map_err(|e| {
+        //     ForeignClientError::client_create(
+        //         self.dst_chain.id(),
+        //         "failed while fetching the destination chain signer".to_string(),
+        //         e,
+        //     )
+        // })?;
+        use tendermint::account::Id as AccountId;
+        use std::str::FromStr;
+
+        fn get_dummy_account_id_raw() -> String {
+            "0CDA3F47EF3C4906693B170EF650EB968C5F4B2C".to_string()
+        }
+
+        pub fn get_dummy_account_id() -> AccountId {
+            AccountId::from_str(&get_dummy_account_id_raw()).unwrap()
+        }
+
+        let signer = Signer::new(get_dummy_account_id().to_string());
+
+        tracing::info!("in build create client: signer {}", signer);
 
         // Build client create message with the data from source chain at latest height.
-        let latest_height = self.src_chain.query_latest_height().map_err(|e| {
-            ForeignClientError::client_create(
-                self.dst_chain.id(),
-                "failed while querying src chain ({}) for latest height: {}".to_string(),
-                e,
-            )
-        })?;
+        // let latest_height = self.src_chain.query_latest_height().map_err(|e| {
+        //     ForeignClientError::client_create(
+        //         self.dst_chain.id(),
+        //         "failed while querying src chain ({}) for latest height: {}".to_string(),
+        //         e,
+        //     )
+        // })?;
+        let latest_height = Height::new(0, 26);
+        // println!("latest_height = {:?}", latest_height);
 
-        let client_state = self
-            .src_chain
-            .build_client_state(latest_height)
-            .map_err(|e| {
-                ForeignClientError::client_create(
-                    self.src_chain.id(),
-                    "failed while querying src chain for latest height".to_string(),
-                    e,
-                )
-            })?
-            .wrap_any();
+        tracing::info!("latest height: {}", latest_height);
 
-        let consensus_state = self
-            .src_chain
-            .build_consensus_state(
-                client_state.latest_height(),
-                latest_height,
-                client_state.clone(),
-            )
-            .map_err(|e| {
-                ForeignClientError::client_create(
-                    self.src_chain.id(),
-                    "failed while building client consensus state from src chain".to_string(),
-                    e,
-                )
-            })?
-            .wrap_any();
+        let chain_id = ChainId::new("ibc-logic-2".to_string(), 2);
+        tracing::info!("chain_id = {:?}", chain_id);
+        let latest_height = Height::new(0, 26);
+        tracing::info!("latest_height = {:?}", latest_height);
+        let frozen_height = Height::new(0, 0);
+        tracing::info!("frozen_height = {:?}", frozen_height);
+
+        use ibc::ics02_client::client_state::AnyClientState;
+        use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
+
+        // Create mock grandpa client state
+        let client_state = AnyClientState::Grandpa(
+            GRANDPAClientState::new(chain_id, latest_height, frozen_height).unwrap(),
+        );
+        tracing::info!("client_state: {:?}", client_state);
+
+        // let client_state = self
+        //     .src_chain
+        //     .build_client_state(latest_height)
+        //     .map_err(|e| {
+        //         ForeignClientError::client_create(
+        //             self.src_chain.id(),
+        //             "failed while querying src chain for latest height".to_string(),
+        //             e,
+        //         )
+        //     })?
+        //     .wrap_any();
+        // tracing::info!("client state: {:?}", client_state);
+
+        // let consensus_state = self
+        //     .src_chain
+        //     .build_consensus_state(
+        //         client_state.latest_height(),
+        //         latest_height,
+        //         client_state.clone(),
+        //     )
+        //     .map_err(|e| {
+        //         ForeignClientError::client_create(
+        //             self.src_chain.id(),
+        //             "failed while building client consensus state from src chain".to_string(),
+        //             e,
+        //         )
+        //     })?
+        //     .wrap_any();
+        // Create mock grandpa consensus state
+        use ibc::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
+        let consensus_state = AnyConsensusState::Grandpa(GRANDPAConsensusState::new());
+
+        tracing::info!("consensus_state: {:?}", consensus_state);
 
         //TODO Get acct_prefix
         let msg = MsgCreateAnyClient::new(client_state, consensus_state, signer)
             .map_err(ForeignClientError::client)?;
+
+        tracing::info!("msg: {:?}", msg);
 
         Ok(msg)
     }
 
     /// Returns the identifier of the newly created client.
     pub fn build_create_client_and_send(&self) -> Result<IbcEvent, ForeignClientError> {
+        tracing::info!("[{}]in build create client and send", self);
+
         let new_msg = self.build_create_client()?;
 
         let res = self
@@ -482,9 +528,10 @@ impl ForeignClient {
                     e,
                 )
             })?;
-
-        assert!(!res.is_empty());
-        Ok(res[0].clone())
+        tracing::info!("res: {:?}", res);
+        // assert!(!res.is_empty());
+        // Ok(res[0].clone())
+        Ok(IbcEvent::Empty("Empty".to_string()))
     }
 
     /// Sends the client creation transaction & subsequently sets the id of this ForeignClient

@@ -5,6 +5,7 @@ use crate::chain::Chain;
 use crate::error;
 use ibc::ics02_client::events::UpdateClient;
 
+pub mod grandpa;
 pub mod tendermint;
 
 #[cfg(test)]
