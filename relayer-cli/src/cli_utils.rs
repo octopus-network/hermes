@@ -3,7 +3,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 
 use ibc::ics24_host::identifier::ChainId;
 use ibc_relayer::{
-    chain::{handle::ChainHandle, runtime::ChainRuntime, CosmosSdkChain},
+    chain::{handle::ChainHandle, runtime::ChainRuntime, CosmosSdkChain, SubstrateChain},
     config::Config,
 };
 
@@ -26,8 +26,11 @@ impl ChainHandlePair {
         src_chain_id: &ChainId,
         dst_chain_id: &ChainId,
     ) -> Result<Self, Error> {
+        tracing::info!("In cli_util: [spawn]");
+
         let src = spawn_chain_runtime(config, src_chain_id)?;
         let dst = spawn_chain_runtime(config, dst_chain_id)?;
+        tracing::info!("In cli_util: [spawn] >> src: {:?}, dst: {:?}", src, dst);
 
         Ok(ChainHandlePair { src, dst })
     }
@@ -39,13 +42,16 @@ pub fn spawn_chain_runtime(
     config: &Config,
     chain_id: &ChainId,
 ) -> Result<Box<dyn ChainHandle>, Error> {
+    tracing::info!("In cli_util: [spawn_chain_runtime]");
+
     let chain_config = config
         .find_chain(chain_id)
         .cloned()
         .ok_or_else(|| Error::missing_config(chain_id.clone()))?;
+    // tracing::info!("chain config: {:?}", chain_config);
 
     let rt = Arc::new(TokioRuntime::new().unwrap());
-    let handle = ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
+    let handle = ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
 
     Ok(handle)
 }

@@ -17,7 +17,8 @@ pub(crate) fn process(
     let mut output = HandlerOutput::builder();
 
     // Check the client's (consensus state) proof height.
-    check_client_consensus_height(ctx, msg.consensus_height())?;
+    // TODO! future must to be handle
+    // check_client_consensus_height(ctx, msg.consensus_height())?;
 
     // Unwrap the old connection end & validate it.
     let mut new_conn_end = match ctx.connection_end(msg.connection_id()) {
@@ -86,9 +87,13 @@ pub(crate) fn process(
         connection_id_state: ConnectionIdState::Reused,
         connection_end: new_conn_end,
     };
+    tracing::info!("in ics03_connection: [conn_open_ack] >> result: {:?}", result);
 
     let event_attributes = Attributes {
+        height: ctx.host_current_height().clone(),
         connection_id: Some(result.connection_id.clone()),
+        // client_id: msg.client_id.clone(),
+        // counterparty_client_id: msg.counterparty.client_id,
         ..Default::default()
     };
     output.emit(IbcEvent::OpenAckConnection(event_attributes.into()));

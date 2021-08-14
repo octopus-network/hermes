@@ -1,6 +1,7 @@
 use core::marker::{Send, Sync};
 use std::convert::{TryFrom, TryInto};
 use std::time::Duration;
+use std::fmt;
 
 use prost_types::Any;
 use serde::{Deserialize, Serialize};
@@ -25,7 +26,7 @@ pub const GRANDPA_CLIENT_STATE_TYPE_URL: &str = "/ibc.ligheclients.grandpa.v1.Cl
 pub const MOCK_CLIENT_STATE_TYPE_URL: &str = "/ibc.mock.ClientState";
 
 #[dyn_clonable::clonable]
-pub trait ClientState: Clone + std::fmt::Debug + Send + Sync {
+pub trait ClientState: Clone + fmt::Debug + Send + Sync {
     /// Return the chain identifier which this client is serving (i.e., the client is verifying
     /// consensus states from this chain).
     fn chain_id(&self) -> ChainId;
@@ -67,7 +68,7 @@ impl AnyClientState {
     pub fn trust_threshold(&self) -> Option<TrustThresholdFraction> {
         match self {
             AnyClientState::Tendermint(state) => Some(state.trust_level),
-            AnyClientState::Grandpa(state) => unimplemented!(),
+            AnyClientState::Grandpa(state) => todo!(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(_) => None,
@@ -87,7 +88,7 @@ impl AnyClientState {
     pub fn refresh_period(&self) -> Option<Duration> {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.refresh_time(),
-            AnyClientState::Grandpa(_tm_state) => unimplemented!(),
+            AnyClientState::Grandpa(_tm_state) => todo!(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.refresh_time(),
@@ -97,7 +98,7 @@ impl AnyClientState {
     pub fn expired(&self, elapsed_since_latest: Duration) -> bool {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.expired(elapsed_since_latest),
-            AnyClientState::Grandpa(_tm_state) => unimplemented!(),
+            AnyClientState::Grandpa(_tm_state) => todo!(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.expired(elapsed_since_latest),
@@ -166,7 +167,7 @@ impl ClientState for AnyClientState {
     fn chain_id(&self) -> ChainId {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.chain_id(),
-            AnyClientState::Grandpa( tm_state) => tm_state.chain_id(),
+            AnyClientState::Grandpa(tm_state) => tm_state.chain_id(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.chain_id(),
@@ -184,7 +185,7 @@ impl ClientState for AnyClientState {
     fn is_frozen(&self) -> bool {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.is_frozen(),
-            AnyClientState::Grandpa( tm_state) => tm_state.is_frozen(),
+            AnyClientState::Grandpa(tm_state) => tm_state.is_frozen(),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(mock_state) => mock_state.is_frozen(),

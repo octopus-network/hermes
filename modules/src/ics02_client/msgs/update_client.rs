@@ -8,7 +8,6 @@ use ibc_proto::ibc::core::client::v1::MsgUpdateClient as RawMsgUpdateClient;
 
 use crate::ics02_client::error::Error;
 use crate::ics02_client::header::AnyHeader;
-use crate::ics24_host::error::ValidationError;
 use crate::ics24_host::identifier::ClientId;
 use crate::signer::Signer;
 use crate::tx_msg::Msg;
@@ -34,7 +33,7 @@ impl MsgUpdateAnyClient {
 }
 
 impl Msg for MsgUpdateAnyClient {
-    type ValidationError = ValidationError;
+    type ValidationError = crate::ics24_host::error::ValidationError;
     type Raw = RawMsgUpdateClient;
 
     fn route(&self) -> String {

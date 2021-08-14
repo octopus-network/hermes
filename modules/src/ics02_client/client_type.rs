@@ -1,4 +1,5 @@
 use std::fmt;
+use std::str;
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -39,7 +40,7 @@ impl fmt::Display for ClientType {
     }
 }
 
-impl std::str::FromStr for ClientType {
+impl str::FromStr for ClientType {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -54,6 +55,7 @@ impl std::str::FromStr for ClientType {
         }
     }
 }
+
 
 #[cfg(test)]
 mod tests {

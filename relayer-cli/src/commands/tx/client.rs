@@ -13,6 +13,7 @@ use crate::application::{app_config, CliApp};
 use crate::cli_utils::{spawn_chain_runtime, ChainHandlePair};
 use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::error::Error;
+use ibc::ics02_client::client_type::ClientType;
 
 #[derive(Clone, Command, Debug, Options)]
 pub struct TxCreateClientCmd {
@@ -27,23 +28,28 @@ pub struct TxCreateClientCmd {
 ///     `hermes tx raw create-client ibc-0 ibc-1`
 impl Runnable for TxCreateClientCmd {
     fn run(&self) {
+        tracing::info!("In Client: [run]");
         let config = app_config();
 
         if self.src_chain_id == self.dst_chain_id {
             Output::error("source and destination chains must be different".to_string()).exit()
         }
+        tracing::info!("In Client: [run] >> src_chain_id: {}, dst_chain_id: {}", self.src_chain_id, self.dst_chain_id);
 
         let chains = match ChainHandlePair::spawn(&config, &self.src_chain_id, &self.dst_chain_id) {
             Ok(chains) => chains,
             Err(e) => return Output::error(format!("{}", e)).exit(),
         };
+        tracing::info!("In Client: [run] >> ChainHandlePair: {:?}", chains);
 
-        let client = ForeignClient::restore(ClientId::default(), chains.dst, chains.src);
+        let client = ForeignClient::restore(ClientId::new(ClientType::Grandpa, 0).unwrap(), chains.dst, chains.src);
+        tracing::info!("In Client: [run] >> client: {}", client);
 
         // Trigger client creation via the "build" interface, so that we obtain the resulting event
         let res: Result<IbcEvent, Error> = client
             .build_create_client_and_send()
             .map_err(Error::foreign_client);
+        tracing::info!("In Client: [run] >> res: {:?}", res);
 
         match res {
             Ok(receipt) => Output::success(receipt).exit(),
@@ -101,11 +107,13 @@ impl Runnable for TxUpdateClientCmd {
             Some(height) => ibc::Height::new(src_chain.id().version(), height),
             None => ibc::Height::zero(),
         };
+        tracing::info!("in client: [run] >>  height: {:?}", height);
 
         let trusted_height = match self.trusted_height {
             Some(height) => ibc::Height::new(src_chain.id().version(), height),
             None => ibc::Height::zero(),
         };
+        tracing::info!("in client: [run] >>  trust height: {:?}", trusted_height);
 
         let client = ForeignClient::find(src_chain, dst_chain, &self.dst_client_id)
             .unwrap_or_else(exit_with_unrecoverable_error);

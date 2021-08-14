@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 use std::str::FromStr;
+use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
@@ -104,8 +105,8 @@ impl FromStr for ChainId {
     }
 }
 
-impl std::fmt::Display for ChainId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl fmt::Display for ChainId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.id)
     }
 }
@@ -137,7 +138,7 @@ impl TryFrom<String> for ChainId {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ClientId(String);
+pub struct ClientId(pub String);
 
 impl ClientId {
     /// Builds a new client identifier. Client identifiers are deterministically formed from two
@@ -216,8 +217,15 @@ impl PartialEq<str> for ClientId {
     }
 }
 
+// impl From<pallet_ibc::event::primitive::ClientId> for ClientId {
+//     fn from(val : pallet_ibc::event::primitive::ClientId) -> Self {
+//         let val = val.as_str();
+//         Self(val.to_string())
+//     }
+// }
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ConnectionId(String);
+pub struct ConnectionId(pub String);
 
 impl ConnectionId {
     /// Builds a new connection identifier. Connection identifiers are deterministically formed from
@@ -272,6 +280,7 @@ impl Default for ConnectionId {
     }
 }
 
+
 /// Equality check against string literal (satisfies &ConnectionId == &str).
 /// ```
 /// use std::str::FromStr;
@@ -287,7 +296,7 @@ impl PartialEq<str> for ConnectionId {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct PortId(String);
+pub struct PortId(pub String);
 
 impl PortId {
     /// Get this identifier as a borrowed `&str`
@@ -323,7 +332,7 @@ impl Default for PortId {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ChannelId(String);
+pub struct ChannelId(pub String);
 
 impl ChannelId {
     /// Builds a new channel identifier. Like client and connection identifiers, channel ids are
