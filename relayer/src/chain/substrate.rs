@@ -49,7 +49,7 @@ pub struct SubstrateChain {
     config: ChainConfig,
     websocket_url: String,
     rt: Arc<TokioRuntime>,
-    keybase: KeyRing,
+    // keybase: KeyRing,
 }
 
 impl SubstrateChain {
@@ -74,19 +74,19 @@ impl Chain for SubstrateChain {
         tracing::info!("in bootstrap");
 
         let websocket_url = config.substrate_websocket_addr.clone();
-        tracing::info!("websocket url : {}", websocket_url);
+        // tracing::info!("websocket url : {}", websocket_url);
         // tracing::info!("chan config : {:?}", config);
 
         // Initialize key store and load key
-        let keybase = KeyRing::new(Store::Test, &config.account_prefix, &config.id)
-            .map_err(Error::key_base)?;
+        // let keybase = KeyRing::new(Store::Test, &config.account_prefix, &config.id)
+        //     .map_err(Error::key_base)?;
 
-        tracing::info!("keybase: {:?}", keybase);
+        // tracing::info!("keybase: {:?}", keybase);
 
         let chain = Self {
             config,
             websocket_url,
-            keybase,
+            // keybase,
             rt,
         };
 
@@ -138,13 +138,15 @@ impl Chain for SubstrateChain {
     fn keybase(&self) -> &KeyRing {
         tracing::info!("in keybase");
 
-        &self.keybase
+        todo!()
+        // &self.keybase
     }
 
     fn keybase_mut(&mut self) -> &mut KeyRing {
         tracing::info!("in keybase mut");
 
-        &mut self.keybase
+        todo!()
+        // &mut self.keybase
     }
 
     fn send_msgs(&mut self, proto_msgs: Vec<Any>) -> Result<Vec<IbcEvent>, Error> {
@@ -175,16 +177,19 @@ impl Chain for SubstrateChain {
         tracing::info!("in get signer");
         tracing::info!("key_name: {}", self.config.key_name.clone());
 
-        // Get the key from key seed file
-        let key = self
-            .keybase()
-            .get_key(&self.config.key_name)
-            .map_err(Error::key_base)?;
+        fn get_dummy_account_id_raw() -> String {
+            "0CDA3F47EF3C4906693B170EF650EB968C5F4B2C".to_string()
+        }
 
-        tracing::info!("key: {:?}", key);
+        pub fn get_dummy_account_id() -> AccountId {
+            AccountId::from_str(&get_dummy_account_id_raw()).unwrap()
+        }
 
-        let bech32 = encode_to_bech32(&key.address.to_hex(), &self.config.account_prefix)?;
-        Ok(Signer::new(bech32))
+        let signer = Signer::new(get_dummy_account_id().to_string());
+
+        tracing::info!("in build create client: signer {}", signer);
+
+        Ok(signer)
     }
 
     fn get_key(&mut self) -> Result<KeyEntry, Error> {
@@ -201,8 +206,8 @@ impl Chain for SubstrateChain {
 
     fn query_latest_height(&self) -> Result<ICSHeight, Error> {
         tracing::info!("in query latest height");
-
-        todo!()
+        let latest_height = Height::new(0, 26);
+        Ok(latest_height)
     }
 
     fn query_clients(
@@ -436,7 +441,21 @@ impl Chain for SubstrateChain {
     fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
         tracing::info!("in build client state");
 
-        todo!()
+        let chain_id = ChainId::new("ibc-logic-2".to_string(), 2);
+        tracing::info!("chain_id = {:?}", chain_id);
+
+        let frozen_height = Height::new(0, 0);
+        tracing::info!("frozen_height = {:?}", frozen_height);
+
+        use ibc::ics02_client::client_state::AnyClientState;
+        use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
+
+        // Create mock grandpa client state
+        let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
+
+        tracing::info!("client_state: {:?}", client_state);
+
+        Ok(client_state)
     }
 
     fn build_consensus_state(
@@ -445,7 +464,12 @@ impl Chain for SubstrateChain {
     ) -> Result<Self::ConsensusState, Error> {
         tracing::info!("in build consensus state");
 
-        todo!()
+        // Create mock grandpa consensus state
+        use ibc::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
+
+        let consensus_state = GRANDPAConsensusState::new();
+
+        Ok(consensus_state)
     }
 
     fn build_header(

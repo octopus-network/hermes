@@ -36,7 +36,10 @@ impl super::LightClient<SubstrateChain> for LightClient {
     ) -> Result<Verified<()>, Error> {
         tracing::info!("in verify");
 
-        todo!()
+        Ok(Verified {
+            target: (),
+            supporting: Vec::new(),
+        })
     }
 
     fn check_misbehaviour(
