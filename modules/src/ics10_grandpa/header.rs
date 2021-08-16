@@ -24,6 +24,11 @@ impl std::fmt::Debug for Header {
 }
 
 impl Header {
+    pub fn new() -> Self {
+        Self {
+            height: 0,
+        }
+    }
     pub fn height(&self) -> Height {
         Height::new(0, self.height)
     }

@@ -44,7 +44,7 @@ pub fn spawn_chain_runtime(
         .find_chain(chain_id)
         .cloned()
         .ok_or_else(|| Error::missing_config(chain_id.clone()))?;
-    tracing::info!("chain config: {:?}", chain_config);
+    // tracing::info!("chain config: {:?}", chain_config);
 
     let rt = Arc::new(TokioRuntime::new().unwrap());
     let handle = ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(Error::relayer)?;

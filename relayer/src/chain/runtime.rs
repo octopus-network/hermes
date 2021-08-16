@@ -210,7 +210,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
                         },
 
                         Ok(ChainRequest::Signer { reply_to }) => {
-                            tracing::info!("get_signer");
+                            tracing::info!("in Runtime: Run function, get_signer");
                             self.get_signer(reply_to)?
                         }
 
@@ -447,6 +447,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
             .chain
             .build_client_state(height)
             .map(|cs| cs.wrap_any());
+        tracing::info!("In runtime: build client state, {:?}", client_state);
 
         reply_to.send(client_state).map_err(Error::send)?;
 
@@ -467,6 +468,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
             .chain
             .build_consensus_state(verified.target)
             .map(|cs| cs.wrap_any());
+        tracing::info!("In runtime: build conesnsus state, {:?}", consensus_state);
 
         reply_to.send(consensus_state).map_err(Error::send)?;
 

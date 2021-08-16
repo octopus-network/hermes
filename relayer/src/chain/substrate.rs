@@ -41,6 +41,9 @@ use bitcoin::hashes::hex::ToHex;
 use std::str::FromStr;
 use bech32::{ToBase32, Variant};
 use std::future::Future;
+use substrate_subxt::{ClientBuilder, PairSigner, Client};
+use calls::{ibc::DeliverCallExt, NodeRuntime};
+use sp_keyring::AccountKeyring;
 
 // use tendermint_light_client::types::LightBlock as TMLightBlock;
 
@@ -49,7 +52,6 @@ pub struct SubstrateChain {
     config: ChainConfig,
     websocket_url: String,
     rt: Arc<TokioRuntime>,
-    // keybase: KeyRing,
 }
 
 impl SubstrateChain {
@@ -62,6 +64,30 @@ impl SubstrateChain {
         crate::time!("block_on");
         self.rt.block_on(f)
     }
+
+    // async fn subscribe_events(
+    //     client: Client<runtime::AppchainRuntime>,
+    // ) -> Result<(), Box<dyn std::error::Error>> {
+    //     let sub = client.subscribe_events().await?;
+    //     let decoder = client.events_decoder();
+    //     let mut sub = EventSubscription::<runtime::AppchainRuntime>::new(sub, decoder);
+    //     sub.filter_event::<BurnedEvent<_>>();
+    //     while let Some(raw_event) = sub.next().await {
+    //         if let Err(err) = raw_event {
+    //             println!("raw_event error: {:?}", err);
+    //             continue;
+    //         }
+    //         let raw_event = raw_event.unwrap();
+    //         let event = BurnedEvent::<runtime::AppchainRuntime>::decode(&mut &raw_event.data[..]);
+    //         if let Ok(e) = event {
+    //             println!("Burned success: value: {:?}", e.amount);
+    //         } else {
+    //             println!("Failed to decode OctopusAppchain Event");
+    //         }
+    //     }
+    //     Ok(())
+    // }
+
 }
 
 impl Chain for SubstrateChain {
@@ -75,18 +101,10 @@ impl Chain for SubstrateChain {
 
         let websocket_url = config.substrate_websocket_addr.clone();
         // tracing::info!("websocket url : {}", websocket_url);
-        // tracing::info!("chan config : {:?}", config);
-
-        // Initialize key store and load key
-        // let keybase = KeyRing::new(Store::Test, &config.account_prefix, &config.id)
-        //     .map_err(Error::key_base)?;
-
-        // tracing::info!("keybase: {:?}", keybase);
 
         let chain = Self {
             config,
             websocket_url,
-            // keybase,
             rt,
         };
 
@@ -139,28 +157,24 @@ impl Chain for SubstrateChain {
         tracing::info!("in keybase");
 
         todo!()
-        // &self.keybase
     }
 
     fn keybase_mut(&mut self) -> &mut KeyRing {
         tracing::info!("in keybase mut");
 
         todo!()
-        // &mut self.keybase
     }
 
     fn send_msgs(&mut self, proto_msgs: Vec<Any>) -> Result<Vec<IbcEvent>, Error> {
         tracing::info!("in send msg");
 
         let msg : Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
-        use substrate_subxt::{ClientBuilder, PairSigner};
-        use calls::{ibc::DeliverCallExt, NodeRuntime as Runtime};
-        use sp_keyring::AccountKeyring;
+
 
         let signer = PairSigner::new(AccountKeyring::Bob.pair());
 
         let client = async {
-                let client = ClientBuilder::<Runtime>::new().set_url(&self.websocket_url.clone())
+                let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
                     .build().await.unwrap();
                 let result = client.deliver(&signer, msg, 0).await.unwrap();
                 tracing::info!("result: {:?}", result);
@@ -226,7 +240,21 @@ impl Chain for SubstrateChain {
     ) -> Result<Self::ClientState, Error> {
         tracing::info!("in query client state");
 
-        todo!()
+        let chain_id = ChainId::new("ibc".to_string(), 0);
+        tracing::info!("chain_id = {:?}", chain_id);
+
+        let frozen_height = Height::new(0, 0);
+        tracing::info!("frozen_height = {:?}", frozen_height);
+
+        use ibc::ics02_client::client_state::AnyClientState;
+        use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
+
+        // Create mock grandpa client state
+        let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
+
+        tracing::info!("client_state: {:?}", client_state);
+
+        Ok(client_state)
     }
 
     fn query_consensus_states(
@@ -235,7 +263,18 @@ impl Chain for SubstrateChain {
     ) -> Result<Vec<AnyConsensusStateWithHeight>, Error> {
         tracing::info!("in query consensus states");
 
-        todo!()
+        // Create mock grandpa consensus state
+        use ibc::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
+
+        let consensus_state = AnyConsensusState::Grandpa(GRANDPAConsensusState::new());
+        let any_consensus_state_with_height = AnyConsensusStateWithHeight {
+            height: Height::new(0, 0),
+            consensus_state,
+        };
+        tracing::info!("Any consensus state with height: {:?}", any_consensus_state_with_height);
+
+
+        Ok(vec![any_consensus_state_with_height])
     }
 
     fn query_consensus_state(
@@ -441,7 +480,7 @@ impl Chain for SubstrateChain {
     fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
         tracing::info!("in build client state");
 
-        let chain_id = ChainId::new("ibc-logic-2".to_string(), 2);
+        let chain_id = ChainId::new("ibc".to_string(), 2);
         tracing::info!("chain_id = {:?}", chain_id);
 
         let frozen_height = Height::new(0, 0);
@@ -479,9 +518,9 @@ impl Chain for SubstrateChain {
         client_state: &AnyClientState,
         light_client: &mut dyn LightClient<Self>,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
-        tracing::info!("in buuild header");
+        tracing::info!("in build header");
 
-        todo!()
+        Ok((GPHeader::new(), vec![GPHeader::new()]))
     }
 }
 
