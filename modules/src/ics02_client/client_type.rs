@@ -55,14 +55,14 @@ impl std::str::FromStr for ClientType {
     }
 }
 
-impl From<pallet_ibc::event::primitive::ClientType> for ClientType {
-    fn from(val : pallet_ibc::event::primitive::ClientType) -> Self {
-        match val {
-            pallet_ibc::event::primitive::ClientType::Tendermint => ClientType::Tendermint,
-            pallet_ibc::event::primitive::ClientType::Grandpa => ClientType::Grandpa,
-        }
-    }
-}
+// impl From<pallet_ibc::event::primitive::ClientType> for ClientType {
+//     fn from(val : pallet_ibc::event::primitive::ClientType) -> Self {
+//         match val {
+//             pallet_ibc::event::primitive::ClientType::Tendermint => ClientType::Tendermint,
+//             pallet_ibc::event::primitive::ClientType::Grandpa => ClientType::Grandpa,
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

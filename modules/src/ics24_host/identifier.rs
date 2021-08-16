@@ -216,12 +216,12 @@ impl PartialEq<str> for ClientId {
     }
 }
 
-impl From<pallet_ibc::event::primitive::ClientId> for ClientId {
-    fn from(val : pallet_ibc::event::primitive::ClientId) -> Self {
-        let val = val.as_str();
-        Self(val.to_string())
-    }
-}
+// impl From<pallet_ibc::event::primitive::ClientId> for ClientId {
+//     fn from(val : pallet_ibc::event::primitive::ClientId) -> Self {
+//         let val = val.as_str();
+//         Self(val.to_string())
+//     }
+// }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ConnectionId(String);
@@ -279,12 +279,12 @@ impl Default for ConnectionId {
     }
 }
 
-impl From<pallet_ibc::event::primitive::ConnectionId> for ConnectionId {
-    fn from(val : pallet_ibc::event::primitive::ConnectionId) -> Self {
-        let val = val.as_str();
-        Self(val.to_string())
-    }
-}
+// impl From<pallet_ibc::event::primitive::ConnectionId> for ConnectionId {
+//     fn from(val : pallet_ibc::event::primitive::ConnectionId) -> Self {
+//         let val = val.as_str();
+//         Self(val.to_string())
+//     }
+// }
 
 /// Equality check against string literal (satisfies &ConnectionId == &str).
 /// ```

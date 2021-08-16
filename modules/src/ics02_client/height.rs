@@ -121,14 +121,14 @@ impl From<Height> for RawHeight {
     }
 }
 
-impl From<pallet_ibc::event::primitive::Height> for Height {
-    fn from(val : pallet_ibc::event::primitive::Height) -> Self {
-        Self {
-            revision_height: val.revision_height,
-            revision_number: val.revision_number,
-        }
-    }
-}
+// impl From<pallet_ibc::event::primitive::Height> for Height {
+//     fn from(val : pallet_ibc::event::primitive::Height) -> Self {
+//         Self {
+//             revision_height: val.revision_height,
+//             revision_number: val.revision_number,
+//         }
+//     }
+// }
 
 impl std::fmt::Debug for Height {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {

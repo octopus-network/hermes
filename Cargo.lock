@@ -1805,13 +1805,13 @@ dependencies = [
 [[package]]
 name = "ibc"
 version = "0.6.1"
-source = "git+https://github.com/octopus-network/ibc-rs.git?branch=dv-grandpa-client-dev#c38c7a70116a3a4f426d09404e0b5e9db34afeb0"
+source = "git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer#8f3fd358f8d5995133ce2890ea593dfcfda6600e"
 dependencies = [
  "bytes",
  "chrono",
  "dyn-clonable",
  "flex-error",
- "ibc-proto 0.9.0 (git+https://github.com/octopus-network/ibc-rs.git?branch=dv-grandpa-client-dev)",
+ "ibc-proto 0.9.0 (git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer)",
  "ics23",
  "prost",
  "prost-types",
@@ -1840,7 +1840,7 @@ dependencies = [
 [[package]]
 name = "ibc-proto"
 version = "0.9.0"
-source = "git+https://github.com/octopus-network/ibc-rs.git?branch=dv-grandpa-client-dev#c38c7a70116a3a4f426d09404e0b5e9db34afeb0"
+source = "git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer#8f3fd358f8d5995133ce2890ea593dfcfda6600e"
 dependencies = [
  "bytes",
  "prost",
@@ -2799,12 +2799,12 @@ dependencies = [
 [[package]]
 name = "pallet-ibc"
 version = "3.0.0-pre.0"
-source = "git+https://github.com/octopus-network/substrate-ibc.git?branch=dv-ibc-dev#3e9204a46afae3fa5831c173a7096bc4d14f9416"
+source = "git+https://github.com/octopus-network/substrate-ibc.git?branch=dv-ibc-dev#c0d7fa1fd76ae95f86399dc82805435353968062"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "ibc 0.6.1 (git+https://github.com/octopus-network/ibc-rs.git?branch=dv-grandpa-client-dev)",
+ "ibc 0.6.1 (git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer)",
  "log",
  "parity-scale-codec",
  "prost",
