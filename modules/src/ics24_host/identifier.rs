@@ -137,7 +137,7 @@ impl TryFrom<String> for ChainId {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ClientId(String);
+pub struct ClientId(pub String);
 
 impl ClientId {
     /// Builds a new client identifier. Client identifiers are deterministically formed from two
@@ -224,7 +224,7 @@ impl PartialEq<str> for ClientId {
 // }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ConnectionId(String);
+pub struct ConnectionId(pub String);
 
 impl ConnectionId {
     /// Builds a new connection identifier. Connection identifiers are deterministically formed from
@@ -301,7 +301,7 @@ impl PartialEq<str> for ConnectionId {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct PortId(String);
+pub struct PortId(pub String);
 
 impl PortId {
     /// Get this identifier as a borrowed `&str`
@@ -337,7 +337,7 @@ impl Default for PortId {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ChannelId(String);
+pub struct ChannelId(pub String);
 
 impl ChannelId {
     /// Builds a new channel identifier. Like client and connection identifiers, channel ids are
