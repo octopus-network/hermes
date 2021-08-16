@@ -23,7 +23,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
         target: Height,
         client_state: &AnyClientState,
     ) -> Result<Verified<GPHeader>, Error> {
-        tracing::info!("in header and minimal set");
+        tracing::info!("In grandpa: [header_and_minimal_set]");
 
         todo!()
     }
@@ -34,7 +34,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
         target: Height,
         client_state: &AnyClientState,
     ) -> Result<Verified<()>, Error> {
-        tracing::info!("in verify");
+        tracing::info!("In grandpa: [verify]");
 
         Ok(Verified {
             target: (),
@@ -47,13 +47,13 @@ impl super::LightClient<SubstrateChain> for LightClient {
         update: UpdateClient,
         client_state: &AnyClientState,
     ) -> Result<Option<MisbehaviourEvidence>, Error> {
-        tracing::info!("in check misbehaviour");
+        tracing::info!("in grandpa: [check_misbehaviour]");
 
         todo!()
     }
 
     fn fetch(&mut self, height: Height) -> Result<(), Error> {
-        tracing::info!("in fetch");
+        tracing::info!("in grandpa: [fetch]");
 
         todo!()
     }

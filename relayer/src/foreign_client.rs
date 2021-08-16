@@ -30,6 +30,7 @@ use ibc_proto::ibc::core::client::v1::QueryConsensusStatesRequest;
 
 use crate::chain::handle::ChainHandle;
 use ibc::signer::Signer;
+use ibc::ics02_client::client_type::ClientType;
 
 const MAX_MISBEHAVIOUR_CHECK_DURATION: Duration = Duration::from_secs(120);
 
@@ -259,10 +260,12 @@ impl ForeignClient {
         }
 
         let mut client = ForeignClient {
-            id: ClientId::default(),
+            // id: ClientId::default(),
+            id: ClientId::new(ClientType::Grandpa, 0).unwrap(),
             dst_chain: dst_chain.clone(),
             src_chain: src_chain.clone(),
         };
+        tracing::info!("In Foreign_client: [new] >> client : {}", client.clone());
 
         client.create()?;
 
@@ -329,7 +332,7 @@ impl ForeignClient {
             )
         })?;
 
-        info!("[{}] upgrade Height: {}", self, src_height);
+        info!("in foregin_client: [upgrade] >> src_height: {}", src_height.clone());
 
         let mut msgs = self.build_update_client(src_height)?;
 
@@ -346,7 +349,7 @@ impl ForeignClient {
                 )
             })?;
 
-        debug!("[{}] upgraded client state {:?}", self, client_state);
+        debug!("in foregin_client: [upgrade] >> client_state {:?}", client_state.clone());
 
         let (consensus_state, proof_upgrade_consensus_state) = self
             .src_chain
@@ -416,7 +419,7 @@ impl ForeignClient {
 
     /// Lower-level interface for preparing a message to create a client.
     pub fn build_create_client(&self) -> Result<MsgCreateAnyClient, ForeignClientError> {
-        tracing::info!("[{}] in build create client", self);
+        tracing::info!("In foreign_client: [build_create_client]");
         // Get signer
         let signer = self.dst_chain.get_signer().map_err(|e| {
             ForeignClientError::client_create(
@@ -425,6 +428,7 @@ impl ForeignClient {
                 e,
             )
         })?;
+        tracing::info!("In foreign_client: [build_create_client: signer] >> signer : {}", signer.clone());
 
         // Build client create message with the data from source chain at latest height.
         let latest_height = self.src_chain.query_latest_height().map_err(|e| {
@@ -435,7 +439,7 @@ impl ForeignClient {
             )
         })?;
 
-        tracing::info!("latest height: {}", latest_height);
+        tracing::info!("In foreign_client: [build_create_client] >> latest_height: {:?}", latest_height);
 
         let client_state = self
             .src_chain
@@ -448,7 +452,7 @@ impl ForeignClient {
                 )
             })?
             .wrap_any();
-        tracing::info!("client state: {:?}", client_state);
+        tracing::info!("In foreign_client: [build_create_client] >> client_state: {:?}", client_state.clone());
 
         let consensus_state = self
             .src_chain
@@ -466,20 +470,20 @@ impl ForeignClient {
             })?
             .wrap_any();
 
-        tracing::info!("consensus_state: {:?}", consensus_state);
+        tracing::info!("In foreign_client: [build_create_client] >> consensus_state: {:?}", consensus_state.clone());
 
         //TODO Get acct_prefix
         let msg = MsgCreateAnyClient::new(client_state, consensus_state, signer)
             .map_err(ForeignClientError::client)?;
 
-        tracing::info!("msg: {:?}", msg);
+        tracing::info!("In foreign_client: [build_create_client] >>  MsyCreateAnyClient: {:?}", msg.clone());
 
         Ok(msg)
     }
 
     /// Returns the identifier of the newly created client.
     pub fn build_create_client_and_send(&self) -> Result<IbcEvent, ForeignClientError> {
-        tracing::info!("[{}]in build create client and send", self);
+        tracing::info!("In foreign_client: [build_create_client_and_send]");
 
         let new_msg = self.build_create_client()?;
 
@@ -493,7 +497,8 @@ impl ForeignClient {
                     e,
                 )
             })?;
-        tracing::info!("res: {:?}", res);
+        tracing::info!("In foreign_client: [build_create_client_and_send] >> res : {:?}", res.clone());
+
 
         assert!(!res.is_empty());
         Ok(res[0].clone())
@@ -501,6 +506,8 @@ impl ForeignClient {
 
     /// Sends the client creation transaction & subsequently sets the id of this ForeignClient
     fn create(&mut self) -> Result<(), ForeignClientError> {
+        tracing::info!("In foreign_client: [create function]");
+
         let event = self.build_create_client_and_send().map_err(|e| {
             error!("[{}]  failed CreateClient: {}", self, e);
             e
@@ -1113,6 +1120,7 @@ pub enum MisbehaviourResults {
 }
 
 pub fn extract_client_id(event: &IbcEvent) -> Result<&ClientId, ForeignClientError> {
+    tracing::info!("In foreign client: [extract_client_id]");
     match event {
         IbcEvent::CreateClient(ev) => Ok(ev.client_id()),
         IbcEvent::UpdateClient(ev) => Ok(ev.client_id()),

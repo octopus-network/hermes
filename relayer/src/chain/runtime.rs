@@ -96,7 +96,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         config: ChainConfig,
         rt: Arc<TokioRuntime>,
     ) -> Result<Box<dyn ChainHandle>, Error> {
-        tracing::info!("in spawn");
+        tracing::info!("in runtime: [spawn]");
 
         // Similar to `from_config`.
         let chain = C::bootstrap(config, rt.clone())?;
@@ -106,7 +106,6 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
 
         // Start the event monitor
         let (event_batch_rx, tx_monitor_cmd) = chain.init_event_monitor(rt.clone())?;
-        // tracing::info!("event_batch_rx: {:?}", event_batch_rx);
 
         // Instantiate & spawn the runtime
         let (handle, _) = Self::init(chain, light_client, event_batch_rx, tx_monitor_cmd, rt);
@@ -122,7 +121,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         tx_monitor_cmd: TxMonitorCmd,
         rt: Arc<TokioRuntime>,
     ) -> (Box<dyn ChainHandle>, thread::JoinHandle<()>) {
-        tracing::info!("in init");
+        tracing::info!("in runtime: [init]");
 
         let chain_runtime = Self::new(chain, light_client, event_receiver, tx_monitor_cmd, rt);
 
@@ -131,7 +130,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
 
         // Spawn the runtime & return
         let id = handle.id();
-        tracing::info!("in id: {}", id);
+        tracing::info!("in runtime: [init] >> id: {}", id);
         let thread = thread::spawn(move || {
             if let Err(e) = chain_runtime.run() {
                 error!("failed to start runtime for chain '{}': {}", id, e);
@@ -149,7 +148,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         tx_monitor_cmd: TxMonitorCmd,
         rt: Arc<TokioRuntime>,
     ) -> Self {
-        tracing::info!("in new");
+        tracing::info!("in runtime: [new]");
 
         let (request_sender, request_receiver) = channel::unbounded::<ChainRequest>();
 
@@ -173,7 +172,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
     }
 
     fn run(mut self) -> Result<(), Error> {
-        tracing::info!("in run");
+        tracing::info!("in runtime: [run]");
         loop {
             channel::select! {
                 recv(self.event_receiver) -> event_batch => {
@@ -210,7 +209,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
                         },
 
                         Ok(ChainRequest::Signer { reply_to }) => {
-                            tracing::info!("in Runtime: Run function, get_signer");
+                            tracing::info!("in Runtime: [Run] >> get_signer");
                             self.get_signer(reply_to)?
                         }
 
@@ -360,6 +359,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
     }
 
     fn subscribe(&mut self, reply_to: ReplyTo<Subscription>) -> Result<(), Error> {
+        tracing::info!("In Runtime: [subscribe]");
         let subscription = self.event_bus.subscribe();
 
         reply_to.send(Ok(subscription)).map_err(Error::send)?;
@@ -372,6 +372,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         proto_msgs: Vec<prost_types::Any>,
         reply_to: ReplyTo<Vec<IbcEvent>>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [send_msgs]");
         let result = self.chain.send_msgs(proto_msgs);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -380,6 +381,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
     }
 
     fn query_latest_height(&self, reply_to: ReplyTo<Height>) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_latest_height]");
         let latest_height = self.chain.query_latest_height();
 
         reply_to.send(latest_height).map_err(Error::send)?;
@@ -388,6 +390,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
     }
 
     fn get_signer(&mut self, reply_to: ReplyTo<Signer>) -> Result<(), Error> {
+        tracing::info!("In Runtime: [get_signer]");
         let result = self.chain.get_signer();
 
         reply_to.send(result).map_err(Error::send)?;
@@ -396,6 +399,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
     }
 
     fn get_key(&mut self, reply_to: ReplyTo<KeyEntry>) -> Result<(), Error> {
+        tracing::info!("In Runtime: [get_key]");
         let result = self.chain.get_key();
 
         reply_to.send(result).map_err(Error::send)?;
@@ -404,6 +408,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
     }
 
     fn module_version(&self, port_id: PortId, reply_to: ReplyTo<String>) -> Result<(), Error> {
+        tracing::info!("In Runtime: [module_version]");
         let result = self.chain.query_module_version(&port_id);
 
         reply_to.send(Ok(result)).map_err(Error::send)?;
@@ -418,6 +423,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         client_state: AnyClientState,
         reply_to: ReplyTo<(AnyHeader, Vec<AnyHeader>)>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [build_header]");
         let result = self
             .chain
             .build_header(
@@ -443,11 +449,12 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<AnyClientState>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [build_client_state]");
         let client_state = self
             .chain
             .build_client_state(height)
             .map(|cs| cs.wrap_any());
-        tracing::info!("In runtime: build client state, {:?}", client_state);
+        tracing::info!("In runtime: [build client state] >> client_state: [{:?}]", client_state);
 
         reply_to.send(client_state).map_err(Error::send)?;
 
@@ -462,13 +469,14 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         client_state: AnyClientState,
         reply_to: ReplyTo<AnyConsensusState>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [build_consensus_state]");
         let verified = self.light_client.verify(trusted, target, &client_state)?;
 
         let consensus_state = self
             .chain
             .build_consensus_state(verified.target)
             .map(|cs| cs.wrap_any());
-        tracing::info!("In runtime: build conesnsus state, {:?}", consensus_state);
+        tracing::info!("In runtime: [build_conesnsus_state] >> consensus_state: [{:?}]", consensus_state);
 
         reply_to.send(consensus_state).map_err(Error::send)?;
 
@@ -482,6 +490,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         client_state: AnyClientState,
         reply_to: ReplyTo<Option<MisbehaviourEvidence>>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [check_misbehaviour]");
         let misbehaviour = self
             .light_client
             .check_misbehaviour(update_event, &client_state);
@@ -499,6 +508,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<(Option<AnyClientState>, Proofs)>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [build_connection_proofs_and_client_state]");
         let result = self.chain.build_connection_proofs_and_client_state(
             message_type,
             &connection_id,
@@ -519,6 +529,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryClientStatesRequest,
         reply_to: ReplyTo<Vec<IdentifiedAnyClientState>>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_clients]");
         let result = self.chain.query_clients(request);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -531,6 +542,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryClientConnectionsRequest,
         reply_to: ReplyTo<Vec<ConnectionId>>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_client_connections]");
         let result = self.chain.query_client_connections(request);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -544,6 +556,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<AnyClientState>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_client_state]");
         let client_state = self
             .chain
             .query_client_state(&client_id, height)
@@ -559,6 +572,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<(AnyClientState, MerkleProof)>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_upgraded_client_state]");
         let result = self
             .chain
             .query_upgraded_client_state(height)
@@ -574,6 +588,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryConsensusStatesRequest,
         reply_to: ReplyTo<Vec<AnyConsensusStateWithHeight>>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_conesensus_states]");
         let consensus_states = self.chain.query_consensus_states(request);
 
         reply_to.send(consensus_states).map_err(Error::send)?;
@@ -588,6 +603,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         query_height: Height,
         reply_to: ReplyTo<AnyConsensusState>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_consensus_state]");
         let consensus_state =
             self.chain
                 .query_consensus_state(client_id, consensus_height, query_height);
@@ -602,6 +618,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<(AnyConsensusState, MerkleProof)>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_upgraded_consensus_state]");
         let result = self
             .chain
             .query_upgraded_consensus_state(height)
@@ -613,6 +630,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
     }
 
     fn query_commitment_prefix(&self, reply_to: ReplyTo<CommitmentPrefix>) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_commitment_prefix]");
         let prefix = self.chain.query_commitment_prefix();
 
         reply_to.send(prefix).map_err(Error::send)?;
@@ -621,6 +639,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
     }
 
     fn query_compatible_versions(&self, reply_to: ReplyTo<Vec<Version>>) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_compatible_versions]");
         let versions = self.chain.query_compatible_versions();
 
         reply_to.send(versions).map_err(Error::send)?;
@@ -634,6 +653,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<ConnectionEnd>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_connection]");
         let connection_end = self.chain.query_connection(&connection_id, height);
 
         reply_to.send(connection_end).map_err(Error::send)?;
@@ -646,6 +666,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryConnectionsRequest,
         reply_to: ReplyTo<Vec<IdentifiedConnectionEnd>>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_connections]");
         let result = self.chain.query_connections(request);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -658,6 +679,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryConnectionChannelsRequest,
         reply_to: ReplyTo<Vec<IdentifiedChannelEnd>>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_connection_channels]");
         let result = self.chain.query_connection_channels(request);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -670,6 +692,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryChannelsRequest,
         reply_to: ReplyTo<Vec<IdentifiedChannelEnd>>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [qeury_channels]");
         let result = self.chain.query_channels(request);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -684,6 +707,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<ChannelEnd>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_channel]");
         let result = self.chain.query_channel(&port_id, &channel_id, height);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -696,6 +720,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryChannelClientStateRequest,
         reply_to: ReplyTo<Option<IdentifiedAnyClientState>>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_channel_client_state]");
         let result = self.chain.query_channel_client_state(request);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -709,6 +734,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<(AnyClientState, MerkleProof)>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_client_state]");
         let result = self
             .chain
             .proven_client_state(&client_id, height)
@@ -725,6 +751,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<(ConnectionEnd, MerkleProof)>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [proven_connection]");
         let result = self.chain.proven_connection(&connection_id, height);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -739,6 +766,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<(AnyConsensusState, MerkleProof)>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [proven_client_consensus]");
         let result = self
             .chain
             .proven_client_consensus(&client_id, consensus_height, height)
@@ -756,6 +784,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<Proofs>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [build_channel_proofs]");
         let result = self
             .chain
             .build_channel_proofs(&port_id, &channel_id, height);
@@ -774,6 +803,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         height: Height,
         reply_to: ReplyTo<(Vec<u8>, Proofs)>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [build_packet_proofs]");
         let result =
             self.chain
                 .build_packet_proofs(packet_type, port_id, channel_id, sequence, height);
@@ -788,6 +818,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryPacketCommitmentsRequest,
         reply_to: ReplyTo<(Vec<PacketState>, Height)>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_packet_commitments]");
         let result = self.chain.query_packet_commitments(request);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -800,6 +831,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryUnreceivedPacketsRequest,
         reply_to: ReplyTo<Vec<u64>>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_unreceived_packets]");
         let result = self.chain.query_unreceived_packets(request);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -812,6 +844,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryPacketAcknowledgementsRequest,
         reply_to: ReplyTo<(Vec<PacketState>, Height)>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [qeury_packet_acknowledgements]");
         let result = self.chain.query_packet_acknowledgements(request);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -824,6 +857,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryUnreceivedAcksRequest,
         reply_to: ReplyTo<Vec<u64>>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [qeury_unreceived_acknowledgement]");
         let result = self.chain.query_unreceived_acknowledgements(request);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -836,6 +870,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryNextSequenceReceiveRequest,
         reply_to: ReplyTo<Sequence>,
     ) -> Result<(), Error> {
+        tracing::info!("In Runtime: [query_next_sequence_receive]");
         let result = self.chain.query_next_sequence_receive(request);
 
         reply_to.send(result).map_err(Error::send)?;
@@ -848,6 +883,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
         request: QueryTxRequest,
         reply_to: ReplyTo<Vec<IbcEvent>>,
     ) -> Result<(), Error> {
+        tracing::info!("In runtime: [query_txs]");
         let result = self.chain.query_txs(request);
 
         reply_to.send(result).map_err(Error::send)?;

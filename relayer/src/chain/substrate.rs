@@ -72,6 +72,8 @@ impl SubstrateChain {
         &self,
         client: Client<NodeRuntime>,
     ) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
+        tracing::info!("In substrate: [subscribe_events]");
+
         let sub = client.subscribe_events().await?;
         let decoder = client.events_decoder();
         let mut sub = EventSubscription::<NodeRuntime>::new(sub, decoder);
@@ -80,19 +82,19 @@ impl SubstrateChain {
         let mut events = Vec::new();
         while let Some(raw_event) = sub.next().await {
             if let Err(err) = raw_event {
-                println!("raw_event error: {:?}", err);
+                println!("In substrate: [subscribe_events] >> raw_event error: {:?}", err);
                 continue;
             }
             let raw_event = raw_event.unwrap();
-            tracing::info!("raw Event: {:?}", raw_event);
+            tracing::info!("In substrate: [subscribe_events] >> raw Event: {:?}", raw_event);
             let variant = raw_event.variant;
-            tracing::info!("variant: {:?}", variant);
+            tracing::info!("In substrate: [subscribe_events] >> variant: {:?}", variant);
             if let Ok(event) = CreateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
             {
                 if variant.as_str() != "CreateClient" {
                     break;
                 }
-                tracing::info!("create client event");
+                tracing::info!("In substrate: [subscribe_events] >> CreateClientEvent");
 
                 let height = event.height;
                 let client_id = event.client_id;
@@ -107,6 +109,9 @@ impl SubstrateChain {
                 })));
                 break;
             } else if let Ok (event) = OpenInitConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
+                if variant.as_str() != "OpenInitConnection" {
+                    break;
+                }
                 let height = event.height;
                 let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
                 let client_id = event.client_id;
@@ -122,9 +127,9 @@ impl SubstrateChain {
                 })));
                 break;
             } else if let Ok(event) = ExtrinsicSuccessEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
-                tracing::info!("event: {:?}", event);
+                tracing::info!("In substrate: [subscribe_events] >> SystemEvent: {:?}", event);
             } else {
-                tracing::info!("Nothing event");
+                tracing::info!("In substrate: [subscribe_events] >> Nothing event");
                 continue;
             }
         }
@@ -140,7 +145,7 @@ impl Chain for SubstrateChain {
     type ClientState = GPClientState;
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
-        tracing::info!("in bootstrap");
+        tracing::info!("in Substrate: [bootstrap function]");
 
         let websocket_url = config.substrate_websocket_addr.clone();
         // tracing::info!("websocket url : {}", websocket_url);
@@ -155,7 +160,7 @@ impl Chain for SubstrateChain {
     }
 
     fn init_light_client(&self) -> Result<Box<dyn LightClient<Self>>, Error> {
-        tracing::info!("in init_light_client");
+        tracing::info!("In Substrate: [init_light_client]");
 
         let light_client = PGLightClient::new();
 
@@ -166,8 +171,9 @@ impl Chain for SubstrateChain {
         &self,
         rt: Arc<TokioRuntime>,
     ) -> Result<(EventReceiver, TxMonitorCmd), Error> {
-        tracing::info!("in init event mointor");
-        tracing::info!("websocket addr: {}", self.config.websocket_addr.clone());
+        tracing::info!("in Substrate: [init_event_mointor]");
+
+        tracing::info!("In Substrate: [init_event_mointor] >> websocket addr: {}", self.config.websocket_addr.clone());
 
         let (mut event_monitor, event_receiver, monitor_tx) = EventMonitor::new(
             self.config.id.clone(),
@@ -175,7 +181,6 @@ impl Chain for SubstrateChain {
             rt,
         )
             .map_err(Error::event_monitor)?;
-        tracing::info!("in event mointor");
 
         event_monitor.subscribe().map_err(Error::event_monitor)?;
 
@@ -185,31 +190,31 @@ impl Chain for SubstrateChain {
     }
 
     fn shutdown(self) -> Result<(), Error> {
-        tracing::info!("in shutdown");
+        tracing::info!("in Substrate: [shutdown]");
 
         Ok(())
     }
 
     fn id(&self) -> &ChainId {
-        tracing::info!("in id");
+        tracing::info!("in Substrate: [id]");
 
         &self.config().id
     }
 
     fn keybase(&self) -> &KeyRing {
-        tracing::info!("in keybase");
+        tracing::info!("in Substrate: [keybase]");
 
         todo!()
     }
 
     fn keybase_mut(&mut self) -> &mut KeyRing {
-        tracing::info!("in keybase mut");
+        tracing::info!("in Substrate: [keybase_mut]");
 
         todo!()
     }
 
     fn send_msgs(&mut self, proto_msgs: Vec<Any>) -> Result<Vec<IbcEvent>, Error> {
-        tracing::info!("in send msg");
+        tracing::info!("in Substrate: [send_msg]");
 
         let msg : Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
 
@@ -219,7 +224,7 @@ impl Chain for SubstrateChain {
                 let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
                     .build().await.unwrap();
                 let result = client.deliver(&signer, msg, 0).await.unwrap();
-                tracing::info!("result: {:?}", result);
+                tracing::info!("in Substrate: [send_msg] >> result: {:?}", result);
 
                 result
         };
@@ -230,7 +235,7 @@ impl Chain for SubstrateChain {
             let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let result = self.subscribe_events(client.clone()).await.unwrap();
-            tracing::info!("result event : {:?}", result);
+            tracing::info!("In Substrate: [send_msg] >> get_ibc_event: {:?}", result);
 
             result
         };
@@ -242,8 +247,8 @@ impl Chain for SubstrateChain {
     }
 
     fn get_signer(&mut self) -> Result<Signer, Error> {
-        tracing::info!("in get signer");
-        tracing::info!("key_name: {}", self.config.key_name.clone());
+        tracing::info!("in Substrate: [get_signer]");
+        tracing::info!("In Substraet: [get signer] >> key_name: {}", self.config.key_name.clone());
 
         fn get_dummy_account_id_raw() -> String {
             "0CDA3F47EF3C4906693B170EF650EB968C5F4B2C".to_string()
@@ -255,25 +260,25 @@ impl Chain for SubstrateChain {
 
         let signer = Signer::new(get_dummy_account_id().to_string());
 
-        tracing::info!("in build create client: signer {}", signer);
+        tracing::info!("in Substrate: [get_signer] >>  signer {}", signer);
 
         Ok(signer)
     }
 
     fn get_key(&mut self) -> Result<KeyEntry, Error> {
-        tracing::info!("in get key");
+        tracing::info!("in Substraet: [get_key]");
 
         todo!()
     }
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
-        tracing::info!("in query commitment prefix");
+        tracing::info!("in Substrate: [query_commitment_prefix]");
 
         Ok(CommitmentPrefix::default())
     }
 
     fn query_latest_height(&self) -> Result<ICSHeight, Error> {
-        tracing::info!("in query latest height");
+        tracing::info!("in Substrate: [query_latest_height]");
         let latest_height = Height::new(0, 26);
         Ok(latest_height)
     }
@@ -282,7 +287,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryClientStatesRequest,
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
-        tracing::info!("in query clients");
+        tracing::info!("in Substrate: [query_clients]");
 
         todo!()
     }
@@ -292,13 +297,13 @@ impl Chain for SubstrateChain {
         client_id: &ClientId,
         height: ICSHeight,
     ) -> Result<Self::ClientState, Error> {
-        tracing::info!("in query client state");
+        tracing::info!("in Substrate: [query_client_state]");
 
         let chain_id = ChainId::new("ibc".to_string(), 0);
-        tracing::info!("chain_id = {:?}", chain_id);
+        tracing::info!("in Substrate: [query_client_state] >> chain_id = {:?}", chain_id);
 
         let frozen_height = Height::new(0, 0);
-        tracing::info!("frozen_height = {:?}", frozen_height);
+        tracing::info!("in Substrate: [query_client_state] >> frozen_height = {:?}", frozen_height);
 
         use ibc::ics02_client::client_state::AnyClientState;
         use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
@@ -306,7 +311,7 @@ impl Chain for SubstrateChain {
         // Create mock grandpa client state
         let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
 
-        tracing::info!("client_state: {:?}", client_state);
+        tracing::info!("in Substrate: [query_client_state] >> client_state: {:?}", client_state);
 
         Ok(client_state)
     }
@@ -315,7 +320,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryConsensusStatesRequest,
     ) -> Result<Vec<AnyConsensusStateWithHeight>, Error> {
-        tracing::info!("in query consensus states");
+        tracing::info!("in Substrate: [query_consensus_states]");
 
         // Create mock grandpa consensus state
         use ibc::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
@@ -325,7 +330,7 @@ impl Chain for SubstrateChain {
             height: Height::new(0, 0),
             consensus_state,
         };
-        tracing::info!("Any consensus state with height: {:?}", any_consensus_state_with_height);
+        tracing::info!("In Substrate: [query_consensus_state] >> any_consensus_state_with_height: {:?}", any_consensus_state_with_height);
 
 
         Ok(vec![any_consensus_state_with_height])
@@ -337,7 +342,7 @@ impl Chain for SubstrateChain {
         consensus_height: ICSHeight,
         query_height: ICSHeight,
     ) -> Result<AnyConsensusState, Error> {
-        tracing::info!("in query consensus state");
+        tracing::info!("in Substrate: [query_consensus_state]");
 
         todo!()
     }
@@ -346,7 +351,7 @@ impl Chain for SubstrateChain {
         &self,
         height: ICSHeight,
     ) -> Result<(Self::ClientState, MerkleProof), Error> {
-        tracing::info!("in query upgraded client state");
+        tracing::info!("in Substrate: [query_upgraded_client_state]");
 
         todo!()
     }
@@ -355,7 +360,7 @@ impl Chain for SubstrateChain {
         &self,
         height: ICSHeight,
     ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
-        tracing::info!("in query upgraded consensus state");
+        tracing::info!("in Substrate: [query_upgraded_consensus_state]");
 
         todo!()
     }
@@ -364,7 +369,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryConnectionsRequest,
     ) -> Result<Vec<IdentifiedConnectionEnd>, Error> {
-        tracing::info!("in query connections");
+        tracing::info!("in Substrate: [query_connections]");
 
         todo!()
     }
@@ -373,7 +378,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryClientConnectionsRequest,
     ) -> Result<Vec<ConnectionId>, Error> {
-        tracing::info!("in query client connections");
+        tracing::info!("in Substrate: [query_client_connections]");
 
         todo!()
     }
@@ -383,7 +388,7 @@ impl Chain for SubstrateChain {
         connection_id: &ConnectionId,
         height: ICSHeight,
     ) -> Result<ConnectionEnd, Error> {
-        tracing::info!("in query connection");
+        tracing::info!("in Substrate: [query_connection]");
 
         Ok(ConnectionEnd::default())
     }
@@ -392,7 +397,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryConnectionChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-        tracing::info!("in query connection channels");
+        tracing::info!("in Substrate: [query_connection_channels]");
 
         todo!()
     }
@@ -401,7 +406,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-        tracing::info!("in query channels");
+        tracing::info!("in Substrate: [query_channels]");
 
         todo!()
     }
@@ -412,7 +417,7 @@ impl Chain for SubstrateChain {
         channel_id: &ChannelId,
         height: ICSHeight,
     ) -> Result<ChannelEnd, Error> {
-        tracing::info!("in query channel");
+        tracing::info!("in Substrate: [query_channel]");
 
         todo!()
     }
@@ -421,7 +426,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryChannelClientStateRequest,
     ) -> Result<Option<IdentifiedAnyClientState>, Error> {
-        tracing::info!("in query channel client state");
+        tracing::info!("in Substrate: [query_channel_client_state]");
 
         todo!()
     }
@@ -430,7 +435,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryPacketCommitmentsRequest,
     ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
-        tracing::info!("in query packet commitments");
+        tracing::info!("in Substrate: [query_packet_commitments]");
 
         todo!()
     }
@@ -439,7 +444,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryUnreceivedPacketsRequest,
     ) -> Result<Vec<u64>, Error> {
-        tracing::info!("in query unreceived packets");
+        tracing::info!("in Substrate: [query_unreceived_packets]");
 
         todo!()
     }
@@ -448,7 +453,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryPacketAcknowledgementsRequest,
     ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
-        tracing::info!("in query packet acknowledegements");
+        tracing::info!("in Substrate: [query_packet_acknowledegements]");
         todo!()
     }
 
@@ -456,7 +461,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryUnreceivedAcksRequest,
     ) -> Result<Vec<u64>, Error> {
-        tracing::info!("in query unreceived acknowledegements");
+        tracing::info!("in Substraete: [query_unreceived_acknowledegements]");
 
         todo!()
     }
@@ -465,13 +470,13 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryNextSequenceReceiveRequest,
     ) -> Result<Sequence, Error> {
-        tracing::info!("in query next sequence receiven");
+        tracing::info!("in Substrate: [query_next_sequence_receiven]");
 
         todo!()
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error> {
-        tracing::info!("in query txs");
+        tracing::info!("in Substrate: [query_txs]");
 
         todo!()
     }
@@ -481,7 +486,7 @@ impl Chain for SubstrateChain {
         client_id: &ClientId,
         height: ICSHeight,
     ) -> Result<(Self::ClientState, MerkleProof), Error> {
-        tracing::info!("in proven client state");
+        tracing::info!("in Substrate: [proven_client_state]");
 
         todo!()
     }
@@ -491,7 +496,7 @@ impl Chain for SubstrateChain {
         connection_id: &ConnectionId,
         height: ICSHeight,
     ) -> Result<(ConnectionEnd, MerkleProof), Error> {
-        tracing::info!("in proven connection");
+        tracing::info!("in SUbstrate: [proven_connection]");
 
         Ok((ConnectionEnd::default(), get_dummy_merkle_proof()))
     }
@@ -502,7 +507,7 @@ impl Chain for SubstrateChain {
         consensus_height: ICSHeight,
         height: ICSHeight,
     ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
-        tracing::info!("in proven client consensus");
+        tracing::info!("in Substrate: [proven_client_consensus]");
 
         todo!()
     }
@@ -513,7 +518,7 @@ impl Chain for SubstrateChain {
         channel_id: &ChannelId,
         height: ICSHeight,
     ) -> Result<(ChannelEnd, MerkleProof), Error> {
-        tracing::info!("in proven channel");
+        tracing::info!("in Substrate: [proven_channel]");
 
         todo!()
     }
@@ -526,19 +531,19 @@ impl Chain for SubstrateChain {
         sequence: Sequence,
         height: ICSHeight,
     ) -> Result<(Vec<u8>, MerkleProof), Error> {
-        tracing::info!("in proven packet");
+        tracing::info!("in Substrate: [proven_packet]");
 
         todo!()
     }
 
     fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
-        tracing::info!("in build client state");
+        tracing::info!("in Substrate: [build_client_state]");
 
         let chain_id = ChainId::new("ibc".to_string(), 0);
-        tracing::info!("chain_id = {:?}", chain_id);
+        tracing::info!("in Substrate: [build_client_state] >> chain_id = {:?}", chain_id);
 
         let frozen_height = Height::new(0, 0);
-        tracing::info!("frozen_height = {:?}", frozen_height);
+        tracing::info!("in Substrate: [build_client_state] >> frozen_height = {:?}", frozen_height);
 
         use ibc::ics02_client::client_state::AnyClientState;
         use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
@@ -546,7 +551,7 @@ impl Chain for SubstrateChain {
         // Create mock grandpa client state
         let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
 
-        tracing::info!("client_state: {:?}", client_state);
+        tracing::info!("in Substrate: [build_client_state] >> client_state: {:?}", client_state);
 
         Ok(client_state)
     }
@@ -555,7 +560,7 @@ impl Chain for SubstrateChain {
         &self,
         light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
-        tracing::info!("in build consensus state");
+        tracing::info!("in Substrate: [build_consensus_state]");
 
         // Create mock grandpa consensus state
         use ibc::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
@@ -572,7 +577,7 @@ impl Chain for SubstrateChain {
         client_state: &AnyClientState,
         light_client: &mut dyn LightClient<Self>,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
-        tracing::info!("in build header");
+        tracing::info!("in Substrate: [build_header]");
 
         Ok((GPHeader::new(), vec![GPHeader::new()]))
     }

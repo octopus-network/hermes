@@ -2763,18 +2763,17 @@ dependencies = [
 [[package]]
 name = "pallet-ibc"
 version = "3.0.0-pre.0"
+source = "git+https://github.com/octopus-network/substrate-ibc.git?branch=dv-ibc-dev#d068b1acba3fba24c71dd1feecb974e924d83c8e"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex",
  "ibc",
  "log",
  "parity-scale-codec",
  "prost",
  "prost-types",
  "serde",
- "sha2 0.9.5",
  "sp-core",
  "sp-runtime",
  "sp-std",

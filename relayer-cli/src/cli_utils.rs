@@ -26,9 +26,11 @@ impl ChainHandlePair {
         src_chain_id: &ChainId,
         dst_chain_id: &ChainId,
     ) -> Result<Self, Error> {
+        tracing::info!("In cli_util: [spawn]");
+
         let src = spawn_chain_runtime(config, src_chain_id)?;
         let dst = spawn_chain_runtime(config, dst_chain_id)?;
-        tracing::info!("src: {:?}, dst: {:?}", src, dst);
+        tracing::info!("In cli_util: [spawn] >> src: {:?}, dst: {:?}", src, dst);
 
         Ok(ChainHandlePair { src, dst })
     }
@@ -40,6 +42,8 @@ pub fn spawn_chain_runtime(
     config: &Config,
     chain_id: &ChainId,
 ) -> Result<Box<dyn ChainHandle>, Error> {
+    tracing::info!("In cli_util: [spawn_chain_runtime]");
+
     let chain_config = config
         .find_chain(chain_id)
         .cloned()

@@ -249,6 +249,7 @@ impl Connection {
         b_client: ForeignClient,
         delay_period: Duration,
     ) -> Result<Self, ConnectionError> {
+        tracing::info!("In connection: [new]");
         Self::validate_clients(&a_client, &b_client)?;
 
         // Validate the delay period against the upper bound
@@ -424,6 +425,8 @@ impl Connection {
         a_client: &ForeignClient,
         b_client: &ForeignClient,
     ) -> Result<(), ConnectionError> {
+        tracing::info!("In Connection: [validate_clients]");
+
         if a_client.src_chain().id() != b_client.dst_chain().id() {
             return Err(ConnectionError::chain_id_mismatch(
                 a_client.src_chain().id(),
@@ -475,6 +478,7 @@ impl Connection {
 
     /// Executes a connection handshake protocol (ICS 003) for this connection object
     fn handshake(&mut self) -> Result<(), ConnectionError> {
+        tracing::info!("in connection: [handshake]");
         let done = '🥂';
 
         let a_chain = self.a_side.chain.clone();
@@ -729,19 +733,24 @@ impl Connection {
             .dst_chain()
             .get_signer()
             .map_err(|e| ConnectionError::signer(self.dst_chain().id(), e))?;
+        tracing::info!("in connection: [build_conn_init] >> signer: {:?}", signer);
 
         let prefix = self
             .src_chain()
             .query_commitment_prefix()
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
+        tracing::info!("in connection: [build_conn_init] >> prefix: {:?}", prefix);
+
 
         let counterparty = Counterparty::new(self.src_client_id().clone(), None, prefix);
+        tracing::info!("in connection: [build_conn_init] >> counterparty: {:?}", counterparty);
 
         let version = self
             .dst_chain()
             .query_compatible_versions()
             .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?[0]
             .clone();
+        tracing::info!("in connection: [build_conn_init] >> version: {:?}", version);
 
         // Build the domain type message
         let new_msg = MsgConnectionOpenInit {
@@ -751,11 +760,13 @@ impl Connection {
             delay_period: self.delay_period,
             signer,
         };
+        tracing::info!("in connection: [build_conn_init] >> MsgConnectionOpenInit: {:?}", new_msg.clone());
 
         Ok(vec![new_msg.to_any()])
     }
 
     pub fn build_conn_init_and_send(&self) -> Result<IbcEvent, ConnectionError> {
+        tracing::info!("In connection: [build_conn_init_and_send]");
         let dst_msgs = self.build_conn_init()?;
 
         let events = self
@@ -782,6 +793,8 @@ impl Connection {
 
     /// Attempts to build a MsgConnOpenTry.
     pub fn build_conn_try(&self) -> Result<Vec<Any>, ConnectionError> {
+        tracing::info!("In connection: [build_conn_try]");
+
         let src_connection_id = self
             .src_connection_id()
             .ok_or_else(ConnectionError::missing_local_connection_id)?;
@@ -883,6 +896,7 @@ impl Connection {
     }
 
     pub fn build_conn_try_and_send(&self) -> Result<IbcEvent, ConnectionError> {
+        tracing::info!("In connection: [build_conn_try_and_send]");
         let dst_msgs = self.build_conn_try()?;
 
         let events = self

@@ -47,6 +47,7 @@ pub(crate) fn process(
     let event_attributes = Attributes {
         connection_id: Some(conn_id),
         client_id: msg.client_id.clone(),
+        counterparty_client_id: msg.counterparty.client_id,
         ..Default::default()
     };
     output.emit(IbcEvent::OpenInitConnection(event_attributes.into()));
