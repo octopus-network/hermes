@@ -1805,7 +1805,7 @@ dependencies = [
 [[package]]
 name = "ibc"
 version = "0.6.1"
-source = "git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer#1ea9301cbffed57253df262c135ebe827625b7fa"
+source = "git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer#b32ec32dde8597eb5bf28641c4158708b1ab7aa4"
 dependencies = [
  "bytes",
  "chrono",
@@ -1840,7 +1840,7 @@ dependencies = [
 [[package]]
 name = "ibc-proto"
 version = "0.9.0"
-source = "git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer#1ea9301cbffed57253df262c135ebe827625b7fa"
+source = "git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer#b32ec32dde8597eb5bf28641c4158708b1ab7aa4"
 dependencies = [
  "bytes",
  "prost",
@@ -2799,7 +2799,7 @@ dependencies = [
 [[package]]
 name = "pallet-ibc"
 version = "3.0.0-pre.0"
-source = "git+https://github.com/octopus-network/substrate-ibc.git?branch=dv-ibc-dev#c0d7fa1fd76ae95f86399dc82805435353968062"
+source = "git+https://github.com/octopus-network/substrate-ibc.git?branch=dv-ibc-dev#d068b1acba3fba24c71dd1feecb974e924d83c8e"
 dependencies = [
  "frame-benchmarking",
  "frame-support",

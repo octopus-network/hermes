@@ -100,25 +100,25 @@ impl SubstrateChain {
                 let consensus_height = event.consensus_height;
                 use ibc::ics02_client::events::Attributes;
                 events.push(IbcEvent::CreateClient(ibc::ics02_client::events::CreateClient(Attributes {
-                    height: height.into(),
-                    client_id: client_id.into(),
-                    client_type: client_type.into(),
-                    consensus_height: consensus_height.into()
+                    height: height.to_ibc_height(),
+                    client_id: client_id.to_ibc_client_id(),
+                    client_type: client_type.to_ibc_client_type(),
+                    consensus_height: consensus_height.to_ibc_height()
                 })));
                 break;
             } else if let Ok (event) = OpenInitConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
                 let height = event.height;
-                let connection_id = event.connection_id.map(|val| val.into());
+                let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
                 let client_id = event.client_id;
-                let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.into());
+                let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
                 let counterparty_client_id = event.counterparty_client_id;
                 use ibc::ics03_connection::events::Attributes;
                 events.push(IbcEvent::OpenInitConnection(ibc::ics03_connection::events::OpenInit(Attributes {
-                    height: height.into(),
+                    height: height.to_ibc_height(),
                     connection_id,
-                    client_id: client_id.into(),
+                    client_id: client_id.to_ibc_client_id(),
                     counterparty_connection_id,
-                    counterparty_client_id: counterparty_client_id.into(),
+                    counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
                 })));
                 break;
             } else if let Ok(event) = ExtrinsicSuccessEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
