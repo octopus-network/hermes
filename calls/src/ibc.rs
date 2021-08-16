@@ -83,16 +83,6 @@ pub struct CreateClientEvent<T: Ibc> {
     pub consensus_height: Height,
 }
 
-impl<T: Ibc> From<CreateClientEvent<T>> for ibc::events::IbcEvent {
-    fn from(val: CreateClientEvent<T>) -> Self {
-        use ibc::ics02_client::events;
-        use ibc::ics02_client::events::Attributes;
-        ibc::events::IbcEvent::CreateClient(events::CreateClient(Attributes{
-           height: val.height.into(), client_id: val.client_id,client_type: val.client_type,consensus_height: val.consensus_height
-        }))
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
 pub struct OpenInitConnectionEvent<T: Ibc> {
     pub _runtime: PhantomData<T>,

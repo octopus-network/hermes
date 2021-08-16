@@ -494,9 +494,9 @@ impl ForeignClient {
                 )
             })?;
         tracing::info!("res: {:?}", res);
-        // assert!(!res.is_empty());
-        // Ok(res[0].clone())
-        Ok(IbcEvent::Empty("Empty".to_string()))
+
+        assert!(!res.is_empty());
+        Ok(res[0].clone())
     }
 
     /// Sends the client creation transaction & subsequently sets the id of this ForeignClient

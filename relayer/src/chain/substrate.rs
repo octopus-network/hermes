@@ -41,11 +41,12 @@ use bitcoin::hashes::hex::ToHex;
 use std::str::FromStr;
 use bech32::{ToBase32, Variant};
 use std::future::Future;
-use substrate_subxt::{ClientBuilder, PairSigner, Client, EventSubscription};
+use substrate_subxt::{ClientBuilder, PairSigner, Client, EventSubscription, system::ExtrinsicSuccessEvent};
 use calls::{ibc::DeliverCallExt, NodeRuntime};
 use sp_keyring::AccountKeyring;
 use calls::ibc::{CreateClientEvent, OpenInitConnectionEvent};
 use codec::{Decode, Encode};
+
 
 // use tendermint_light_client::types::LightBlock as TMLightBlock;
 
@@ -68,12 +69,14 @@ impl SubstrateChain {
     }
 
     async fn subscribe_events(
+        &self,
         client: Client<NodeRuntime>,
     ) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
         let sub = client.subscribe_events().await?;
         let decoder = client.events_decoder();
         let mut sub = EventSubscription::<NodeRuntime>::new(sub, decoder);
-        // sub.filter_event::<BurnedEvent<_>>();
+        // sub.filter_event::<CreateClientEvent<_>>();
+        // sub.filter_event::<OpenInitConnectionEvent<_>>();
         let mut events = Vec::new();
         while let Some(raw_event) = sub.next().await {
             if let Err(err) = raw_event {
@@ -81,16 +84,45 @@ impl SubstrateChain {
                 continue;
             }
             let raw_event = raw_event.unwrap();
-            // let event = BurnedEvent::<runtime::AppchainRuntime>::decode(&mut &raw_event.data[..]);
-            // if let Ok(e) = event {
-            //     println!("Burned success: value: {:?}", e.amount);
-            // } else {
-            //     println!("Failed to decode OctopusAppchain Event");
-            // }
-            if let Ok(event) = CreateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
-                events.push(IbcEvent::CreateClient(event));
+            tracing::info!("raw Event: {:?}", raw_event);
+            let variant = raw_event.variant;
+            tracing::info!("variant: {:?}", variant);
+            if let Ok(event) = CreateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+            {
+                if variant.as_str() != "CreateClient" {
+                    break;
+                }
+                tracing::info!("create client event");
+
+                let height = event.height;
+                let client_id = event.client_id;
+                let client_type = event.client_type;
+                let consensus_height = event.consensus_height;
+                use ibc::ics02_client::events::Attributes;
+                events.push(IbcEvent::CreateClient(ibc::ics02_client::events::CreateClient(Attributes {
+                    height: height.into(),
+                    client_id: client_id.into(),
+                    client_type: client_type.into(),
+                    consensus_height: consensus_height.into()
+                })));
+                break;
             } else if let Ok (event) = OpenInitConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
-                events.push(IbcEvent::OpenInitConnection(event));
+                let height = event.height;
+                let connection_id = event.connection_id.map(|val| val.into());
+                let client_id = event.client_id;
+                let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.into());
+                let counterparty_client_id = event.counterparty_client_id;
+                use ibc::ics03_connection::events::Attributes;
+                events.push(IbcEvent::OpenInitConnection(ibc::ics03_connection::events::OpenInit(Attributes {
+                    height: height.into(),
+                    connection_id,
+                    client_id: client_id.into(),
+                    counterparty_connection_id,
+                    counterparty_client_id: counterparty_client_id.into(),
+                })));
+                break;
+            } else if let Ok(event) = ExtrinsicSuccessEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
+                tracing::info!("event: {:?}", event);
             } else {
                 tracing::info!("Nothing event");
                 continue;
@@ -181,7 +213,6 @@ impl Chain for SubstrateChain {
 
         let msg : Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
 
-
         let signer = PairSigner::new(AccountKeyring::Bob.pair());
 
         let client = async {
@@ -193,9 +224,21 @@ impl Chain for SubstrateChain {
                 result
         };
 
-        let ret = self.block_on(client);
+        let _ = self.block_on(client);
 
-        Ok(Vec::new())
+        let get_ibc_event = async {
+            let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+            let result = self.subscribe_events(client.clone()).await.unwrap();
+            tracing::info!("result event : {:?}", result);
+
+            result
+        };
+
+        let ret = self.block_on(get_ibc_event);
+
+
+        Ok(ret)
     }
 
     fn get_signer(&mut self) -> Result<Signer, Error> {
@@ -226,7 +269,7 @@ impl Chain for SubstrateChain {
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
         tracing::info!("in query commitment prefix");
 
-        todo!()
+        Ok(CommitmentPrefix::default())
     }
 
     fn query_latest_height(&self) -> Result<ICSHeight, Error> {
@@ -342,7 +385,7 @@ impl Chain for SubstrateChain {
     ) -> Result<ConnectionEnd, Error> {
         tracing::info!("in query connection");
 
-        todo!()
+        Ok(ConnectionEnd::default())
     }
 
     fn query_connection_channels(
@@ -450,7 +493,7 @@ impl Chain for SubstrateChain {
     ) -> Result<(ConnectionEnd, MerkleProof), Error> {
         tracing::info!("in proven connection");
 
-        todo!()
+        Ok((ConnectionEnd::default(), get_dummy_merkle_proof()))
     }
 
     fn proven_client_consensus(
@@ -491,7 +534,7 @@ impl Chain for SubstrateChain {
     fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
         tracing::info!("in build client state");
 
-        let chain_id = ChainId::new("ibc".to_string(), 2);
+        let chain_id = ChainId::new("ibc".to_string(), 0);
         tracing::info!("chain_id = {:?}", chain_id);
 
         let frozen_height = Height::new(0, 0);
@@ -535,12 +578,9 @@ impl Chain for SubstrateChain {
     }
 }
 
-fn encode_to_bech32(address: &str, account_prefix: &str) -> Result<String, Error> {
-    let account = AccountId::from_str(address)
-        .map_err(|e| Error::invalid_key_address(address.to_string(), e))?;
-
-    let encoded = bech32::encode(account_prefix, account.to_base32(), Variant::Bech32)
-        .map_err(Error::bech32_encoding)?;
-
-    Ok(encoded)
+/// Returns a dummy `MerkleProof`, for testing only!
+pub fn get_dummy_merkle_proof() -> MerkleProof {
+    let parsed = ibc_proto::ics23::CommitmentProof { proof: None };
+    let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
+    MerkleProof { proofs: mproofs }
 }
