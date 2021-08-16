@@ -455,7 +455,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "frame-system",
- "ibc 0.6.1 (git+https://github.com/octopus-network/ibc-rs.git?branch=dv-grandpa-client-dev)",
+ "ibc 0.6.1",
  "pallet-balances",
  "pallet-ibc",
  "parity-scale-codec",
@@ -1879,6 +1879,7 @@ dependencies = [
  "itertools 0.10.1",
  "k256",
  "pallet-ibc",
+ "parity-scale-codec",
  "prost",
  "prost-types",
  "retry",

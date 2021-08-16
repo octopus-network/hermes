@@ -12,7 +12,7 @@ substrate-subxt-proc-macro = { version = "0.15.0" }
 
 pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-ibc-dev' }
 
-ibc = { git = "https://github.com/octopus-network/ibc-rs.git", branch = "dv-grandpa-client-dev" }
+ibc = { path = "../modules" }
 
 frame-system = '3.0.0'
 pallet-balances = '3.0.0'

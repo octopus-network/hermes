@@ -41,9 +41,11 @@ use bitcoin::hashes::hex::ToHex;
 use std::str::FromStr;
 use bech32::{ToBase32, Variant};
 use std::future::Future;
-use substrate_subxt::{ClientBuilder, PairSigner, Client};
+use substrate_subxt::{ClientBuilder, PairSigner, Client, EventSubscription};
 use calls::{ibc::DeliverCallExt, NodeRuntime};
 use sp_keyring::AccountKeyring;
+use calls::ibc::{CreateClientEvent, OpenInitConnectionEvent};
+use codec::{Decode, Encode};
 
 // use tendermint_light_client::types::LightBlock as TMLightBlock;
 
@@ -65,28 +67,37 @@ impl SubstrateChain {
         self.rt.block_on(f)
     }
 
-    // async fn subscribe_events(
-    //     client: Client<runtime::AppchainRuntime>,
-    // ) -> Result<(), Box<dyn std::error::Error>> {
-    //     let sub = client.subscribe_events().await?;
-    //     let decoder = client.events_decoder();
-    //     let mut sub = EventSubscription::<runtime::AppchainRuntime>::new(sub, decoder);
-    //     sub.filter_event::<BurnedEvent<_>>();
-    //     while let Some(raw_event) = sub.next().await {
-    //         if let Err(err) = raw_event {
-    //             println!("raw_event error: {:?}", err);
-    //             continue;
-    //         }
-    //         let raw_event = raw_event.unwrap();
-    //         let event = BurnedEvent::<runtime::AppchainRuntime>::decode(&mut &raw_event.data[..]);
-    //         if let Ok(e) = event {
-    //             println!("Burned success: value: {:?}", e.amount);
-    //         } else {
-    //             println!("Failed to decode OctopusAppchain Event");
-    //         }
-    //     }
-    //     Ok(())
-    // }
+    async fn subscribe_events(
+        client: Client<NodeRuntime>,
+    ) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
+        let sub = client.subscribe_events().await?;
+        let decoder = client.events_decoder();
+        let mut sub = EventSubscription::<NodeRuntime>::new(sub, decoder);
+        // sub.filter_event::<BurnedEvent<_>>();
+        let mut events = Vec::new();
+        while let Some(raw_event) = sub.next().await {
+            if let Err(err) = raw_event {
+                println!("raw_event error: {:?}", err);
+                continue;
+            }
+            let raw_event = raw_event.unwrap();
+            // let event = BurnedEvent::<runtime::AppchainRuntime>::decode(&mut &raw_event.data[..]);
+            // if let Ok(e) = event {
+            //     println!("Burned success: value: {:?}", e.amount);
+            // } else {
+            //     println!("Failed to decode OctopusAppchain Event");
+            // }
+            if let Ok(event) = CreateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
+                events.push(IbcEvent::CreateClient(event));
+            } else if let Ok (event) = OpenInitConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
+                events.push(IbcEvent::OpenInitConnection(event));
+            } else {
+                tracing::info!("Nothing event");
+                continue;
+            }
+        }
+        Ok(events)
+    }
 
 }
 

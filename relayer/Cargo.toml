@@ -68,7 +68,7 @@ calls = { path = "../calls" }
 substrate-subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = "octopus-dev" }
 sp-keyring = "3.0.0"
 pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-ibc-dev' }
-
+codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive', 'full'] }
 
 [dependencies.tendermint]
 version = "=0.21.0"

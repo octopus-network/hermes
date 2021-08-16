@@ -158,6 +158,9 @@ fn extract_attributes(object: &RawObject, namespace: &str) -> Result<Attributes,
 pub struct CreateClient(pub Attributes);
 
 impl CreateClient {
+    pub fn new(attributes: Attributes) -> Self {
+        Self(attributes)
+    }
     pub fn client_id(&self) -> &ClientId {
         &self.0.client_id
     }

@@ -7,6 +7,7 @@ use sp_core::H256;
 use substrate_subxt::{balances::Balances, module, system::System, Call, Store};
 use substrate_subxt_proc_macro::Event;
 
+
 /// The subset of the `pallet_ibc::Trait` that a client must implement.
 #[module]
 pub trait Ibc: System + Balances {}
@@ -80,6 +81,16 @@ pub struct CreateClientEvent<T: Ibc> {
     pub client_id: ClientId,
     pub client_type: ClientType,
     pub consensus_height: Height,
+}
+
+impl<T: Ibc> From<CreateClientEvent<T>> for ibc::events::IbcEvent {
+    fn from(val: CreateClientEvent<T>) -> Self {
+        use ibc::ics02_client::events;
+        use ibc::ics02_client::events::Attributes;
+        ibc::events::IbcEvent::CreateClient(events::CreateClient(Attributes{
+           height: val.height.into(), client_id: val.client_id,client_type: val.client_type,consensus_height: val.consensus_height
+        }))
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
