@@ -7,7 +7,6 @@ members = [
     "telemetry",
     "proto",
     "calls",
-#    "substrate-ibc",
 ]
 
 exclude = [
