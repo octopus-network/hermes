@@ -449,7 +449,7 @@ pub trait ChainHandle: DynClone + Send + Sync + Debug {
         client_state: AnyClientState,
     ) -> Result<Option<MisbehaviourEvidence>, Error>;
 
-    fn build_connection_proofs_and_client_state(
+    fn  build_connection_proofs_and_client_state(
         &self,
         message_type: ConnectionMsgType,
         connection_id: &ConnectionId,

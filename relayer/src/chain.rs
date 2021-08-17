@@ -315,6 +315,7 @@ pub trait Chain: Sized {
                 if !connection_end.state_matches(&State::Init)
                     && !connection_end.state_matches(&State::TryOpen)
                 {
+                    tracing::info!("In chain: [build_connection_proofs_and_client_state] >> ConnectionMsgType::OpenTry");
                     return Err(Error::bad_connection_state());
                 }
             }
@@ -322,11 +323,13 @@ pub trait Chain: Sized {
                 if !connection_end.state_matches(&State::TryOpen)
                     && !connection_end.state_matches(&State::Open)
                 {
+                    tracing::info!("In chain: [build_connection_proofs_and_client_state] >> ConnectionMsgType::OpenAck");
                     return Err(Error::bad_connection_state());
                 }
             }
             ConnectionMsgType::OpenConfirm => {
                 if !connection_end.state_matches(&State::Open) {
+                    tracing::info!("In chain: [build_connection_proofs_and_client_state] >> ConnectionMsgType::OpenConfirm");
                     return Err(Error::bad_connection_state());
                 }
             }

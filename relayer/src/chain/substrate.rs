@@ -46,6 +46,8 @@ use calls::{ibc::DeliverCallExt, NodeRuntime};
 use sp_keyring::AccountKeyring;
 use calls::ibc::{CreateClientEvent, OpenInitConnectionEvent};
 use codec::{Decode, Encode};
+use substrate_subxt::sp_runtime::traits::BlakeTwo256;
+use substrate_subxt::sp_runtime::generic::Header;
 
 
 // use tendermint_light_client::types::LightBlock as TMLightBlock;
@@ -136,6 +138,24 @@ impl SubstrateChain {
         Ok(events)
     }
 
+    async fn get_latest_height(&self, client: Client<NodeRuntime>) -> Result<u64, Box<dyn std::error::Error>> {
+        let mut blocks = client.subscribe_blocks().await?;
+        let height= match blocks.next().await {
+            Ok(Some(header)) => {
+                header.number as u64
+            },
+            Ok(None) => {
+                tracing::info!("In Substrate: [get_latest_height] >> None");
+                0
+            },
+            Err(err) =>  {
+              tracing::info!(" In substrate: [get_latest_height] >> error: {:?} ", err);
+                0
+            },
+        };
+        Ok(height)
+    }
+
 }
 
 impl Chain for SubstrateChain {
@@ -215,16 +235,27 @@ impl Chain for SubstrateChain {
 
     fn send_msgs(&mut self, proto_msgs: Vec<Any>) -> Result<Vec<IbcEvent>, Error> {
         tracing::info!("in Substrate: [send_msg]");
+        use tokio::task;
+        use std::time::Duration;
 
         let msg : Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
 
         let signer = PairSigner::new(AccountKeyring::Bob.pair());
 
+
         let client = async {
+                task::spawn_blocking(move || {
+                    thread::sleep(Duration::from_secs(10_00000000000));
+                });
+
                 let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
                     .build().await.unwrap();
-                let result = client.deliver(&signer, msg, 0).await.unwrap();
-                tracing::info!("in Substrate: [send_msg] >> result: {:?}", result);
+                let result = client.deliver(&signer, msg, 0).await;
+
+                tracing::info!("in Substrate: [send_msg] >> result no unwrap: {:?}", result);
+
+                let result = result.unwrap();
+                tracing::info!("in Substrate: [send_msg] >> result : {:?}", result);
 
                 result
         };
@@ -274,12 +305,26 @@ impl Chain for SubstrateChain {
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
         tracing::info!("in Substrate: [query_commitment_prefix]");
 
-        Ok(CommitmentPrefix::default())
+        // TODO - do a real chain query
+        Ok(CommitmentPrefix::from(
+            self.config().store_prefix.as_bytes().to_vec(),
+        ))
     }
 
     fn query_latest_height(&self) -> Result<ICSHeight, Error> {
         tracing::info!("in Substrate: [query_latest_height]");
-        let latest_height = Height::new(0, 26);
+
+        let latest_height = async {
+            let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+            let height = self.get_latest_height(client.clone()).await.unwrap();
+            tracing::info!("In Substrate: [query_latest_height] >> height: {:?}", height);
+
+            height
+        };
+
+        let revision_height =  self.block_on(latest_height);
+        let latest_height = Height::new(0, revision_height);
         Ok(latest_height)
     }
 
@@ -539,10 +584,10 @@ impl Chain for SubstrateChain {
     fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
         tracing::info!("in Substrate: [build_client_state]");
 
-        let chain_id = ChainId::new("ibc".to_string(), 0);
+        let chain_id = self.id().clone();
         tracing::info!("in Substrate: [build_client_state] >> chain_id = {:?}", chain_id);
 
-        let frozen_height = Height::new(0, 0);
+        let frozen_height = Height::zero();
         tracing::info!("in Substrate: [build_client_state] >> frozen_height = {:?}", frozen_height);
 
         use ibc::ics02_client::client_state::AnyClientState;
