@@ -20,7 +20,7 @@ filter = false
 
 # Specify the verbosity for the relayer logging output. Default: 'info'
 # Valid options are 'error', 'warn', 'info', 'debug', 'trace'.
-log_level = 'info'
+log_level = 'debug'
 
 # Parametrize the periodic packet clearing feature.
 # Interval (in number of blocks) at which pending packets

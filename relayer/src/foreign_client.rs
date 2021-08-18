@@ -254,6 +254,8 @@ impl ForeignClient {
         dst_chain: Box<dyn ChainHandle>,
         src_chain: Box<dyn ChainHandle>,
     ) -> Result<ForeignClient, ForeignClientError> {
+        tracing::info!("In foreign_client: [new]");
+
         // Sanity check
         if src_chain.id().eq(&dst_chain.id()) {
             return Err(ForeignClientError::same_chain_id(src_chain.id()));
@@ -506,7 +508,7 @@ impl ForeignClient {
 
     /// Sends the client creation transaction & subsequently sets the id of this ForeignClient
     fn create(&mut self) -> Result<(), ForeignClientError> {
-        tracing::info!("In foreign_client: [create function]");
+        tracing::info!("In foreign_client: [create]");
 
         let event = self.build_create_client_and_send().map_err(|e| {
             error!("[{}]  failed CreateClient: {}", self, e);

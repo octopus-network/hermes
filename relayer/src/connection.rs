@@ -728,6 +728,7 @@ impl Connection {
     }
 
     pub fn build_conn_init(&self) -> Result<Vec<Any>, ConnectionError> {
+        tracing::info!("in connection: [build_conn_init]");
         // Get signer
         let signer = self
             .dst_chain()
@@ -798,11 +799,13 @@ impl Connection {
         let src_connection_id = self
             .src_connection_id()
             .ok_or_else(ConnectionError::missing_local_connection_id)?;
+        tracing::info!("In connection: [build_conn_try] >> src_connection_id: {:?}", src_connection_id);
 
         let src_connection = self
             .src_chain()
             .query_connection(src_connection_id, Height::zero())
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
+        tracing::info!("In connection: [build_conn_try] >> src_connection : {:?}", src_connection);
 
         // TODO - check that the src connection is consistent with the try options
 
@@ -820,6 +823,7 @@ impl Connection {
         } else {
             self.delay_period
         };
+        tracing::info!("In connection: [build_conn_try] >> delay: {:?}", delay);
 
         // Build add send the message(s) for updating client on source
         // TODO - add check if update client is required
@@ -827,7 +831,9 @@ impl Connection {
             .dst_chain()
             .query_latest_height()
             .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?;
+        tracing::info!("In connection: [build_conn_try] >> src_client_target_height : {:?}", src_client_target_height);
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
+        // tracing::info!("In connection: [build_conn_try] >> client_msgs: {:?}", client_msgs);
         self.src_chain()
             .send_msgs(client_msgs)
             .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
@@ -836,6 +842,7 @@ impl Connection {
             .src_chain()
             .query_latest_height()
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
+        tracing::info!("In connection: [build_conn_try] >> query_height: {:?}", query_height);
         let (client_state, proofs) = self
             .src_chain()
             .build_connection_proofs_and_client_state(
@@ -845,6 +852,7 @@ impl Connection {
                 query_height,
             )
             .map_err(ConnectionError::connection_proof)?;
+        tracing::info!("In connection: [build_conn_try] >> client_state: {:?}, proofs: {:?}", client_state, proofs);
 
         // Build message(s) for updating client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
@@ -856,17 +864,20 @@ impl Connection {
         } else {
             src_connection.versions()
         };
+        tracing::info!("In connection: [build_conn_try] >> counterparty_versions: {:?}", counterparty_versions);
 
         // Get signer
         let signer = self
             .dst_chain()
             .get_signer()
             .map_err(|e| ConnectionError::signer(self.dst_chain().id(), e))?;
+        tracing::info!("In connection: [build_conn_try] >> signer: {:?}", signer);
 
         let prefix = self
             .src_chain()
             .query_commitment_prefix()
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
+        tracing::info!("In connection: [build_conn_try] >> prefix: {:?}", prefix);
 
         let counterparty = Counterparty::new(
             self.src_client_id().clone(),
@@ -874,11 +885,13 @@ impl Connection {
             prefix,
         );
 
+        tracing::info!("In connection: [build_conn_try] >> counterparty: {:?}", counterparty);
         let previous_connection_id = if src_connection.counterparty().connection_id.is_none() {
             self.b_side.connection_id.clone()
         } else {
             src_connection.counterparty().connection_id.clone()
         };
+        tracing::info!("In connection: [build_conn_try] >> previous_connection_id: {:?}", previous_connection_id);
 
         let new_msg = MsgConnectionOpenTry {
             client_id: self.dst_client_id().clone(),
@@ -890,6 +903,7 @@ impl Connection {
             delay_period: delay,
             signer,
         };
+        tracing::info!("In connection: [build_conn_try] >> new_msg: {:?}", new_msg);
 
         msgs.push(new_msg.to_any());
         Ok(msgs)

@@ -13,37 +13,38 @@ use substrate_subxt_proc_macro::Event;
 pub trait Ibc: System + Balances {}
 
 #[derive(Encode, Store)]
-pub struct ClientStatesV2Store<T: Ibc> {
+pub struct ClientStatesStore<T: Ibc> {
     #[store(returns = Vec<u8>)]
     pub key: Vec<u8>,
     pub _runtime: PhantomData<T>,
 }
 
 #[derive(Encode, Store)]
-pub struct ConsensusStatesV2Store<T: Ibc> {
+pub struct ConsensusStatesStore<T: Ibc> {
     #[store(returns = Vec<u8>)]
     pub key: (Vec<u8>, Vec<u8>),
     pub _runtime: PhantomData<T>,
 }
 
-#[derive(Encode, Store)]
-pub struct ClientStatesStore<T: Ibc> {
-    #[store(returns = Vec<u8>)]
-    pub key: H256,
-    pub _runtime: PhantomData<T>,
-}
 
-#[derive(Encode, Store)]
-pub struct ConsensusStatesStore<T: Ibc> {
-    #[store(returns = Vec<u8>)]
-    pub key: (H256, u32),
-    pub _runtime: PhantomData<T>,
-}
+// #[derive(Encode, Store)]
+// pub struct ClientStatesStore<T: Ibc> {
+//     #[store(returns = Vec<u8>)]
+//     pub key: H256,
+//     pub _runtime: PhantomData<T>,
+// }
+
+// #[derive(Encode, Store)]
+// pub struct ConsensusStatesStore<T: Ibc> {
+//     #[store(returns = Vec<u8>)]
+//     pub key: (H256, u32),
+//     pub _runtime: PhantomData<T>,
+// }
 
 #[derive(Encode, Store)]
 pub struct ConnectionsStore<T: Ibc> {
     #[store(returns = Vec<u8>)]
-    pub key: H256,
+    pub key: Vec<u8>,
     pub _runtime: PhantomData<T>,
 }
 
