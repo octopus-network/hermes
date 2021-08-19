@@ -5,7 +5,7 @@
 # Two options are currently supported:
 #   - 'all': Relay packets and perform channel and connection handshakes.
 #   - 'packets': Relay packets only.
-strategy = 'packets'
+strategy = 'all'
 
 # Enable or disable the filtering mechanism. Default: 'false'
 # Valid options are 'true', 'false'.
@@ -61,7 +61,7 @@ grpc_addr = 'http://127.0.0.1:9090'
 websocket_addr = 'ws://127.0.0.1:9944/websocket'
 
 # Use for substrate-subxt
-substrate_websocket_addr = 'ws://127.0.0.1:8844'
+substrate_websocket_addr = 'ws://127.0.0.1:9944'
 
 # Specify the maximum amount of time (duration) that the RPC requests should
 # take before timing out. Default: 10s (10 seconds)
@@ -142,7 +142,7 @@ rpc_addr = 'http://127.0.0.1:8844'
 grpc_addr = 'http://127.0.0.1:9091'
 websocket_addr = 'ws://127.0.0.1:8844/websocket'
 # Use for substrate-subxt
-substrate_websocket_addr = 'ws://127.0.0.1:9944'
+substrate_websocket_addr = 'ws://127.0.0.1:8844'
 rpc_timeout = '10s'
 account_prefix = 'cosmos'
 key_name = 'testkey'

@@ -25,7 +25,10 @@ impl super::LightClient<SubstrateChain> for LightClient {
     ) -> Result<Verified<GPHeader>, Error> {
         tracing::info!("In grandpa: [header_and_minimal_set]");
 
-        todo!()
+        Ok(Verified{
+            target: GPHeader::new(target.revision_height),
+            supporting: Vec::new(),
+        })
     }
 
     fn verify(
@@ -55,6 +58,6 @@ impl super::LightClient<SubstrateChain> for LightClient {
     fn fetch(&mut self, height: Height) -> Result<(), Error> {
         tracing::info!("in grandpa: [fetch]");
 
-        todo!()
+        Ok(())
     }
 }

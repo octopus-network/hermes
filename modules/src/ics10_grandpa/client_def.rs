@@ -34,7 +34,7 @@ impl ClientDef for GrandpaClient {
                 client_state.latest_height(),
             ));
         }
-        
+
         Ok((
             client_state.with_header(header.clone()),
             ConsensusState::from(header),

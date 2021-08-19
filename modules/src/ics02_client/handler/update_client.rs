@@ -45,6 +45,7 @@ pub fn process(
     let client_state = ctx
         .client_state(&client_id)
         .ok_or_else(|| Error::client_not_found(client_id.clone()))?;
+    tracing::info!("In Update_client: [process] >> client_state: {:?}", client_state);
 
     let latest_height = client_state.latest_height();
     ctx.consensus_state(&client_id, latest_height)

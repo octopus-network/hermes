@@ -44,7 +44,7 @@ use std::future::Future;
 use substrate_subxt::{ClientBuilder, PairSigner, Client, EventSubscription, system::ExtrinsicSuccessEvent};
 use calls::{ibc::DeliverCallExt, NodeRuntime};
 use sp_keyring::AccountKeyring;
-use calls::ibc::{CreateClientEvent, OpenInitConnectionEvent};
+use calls::ibc::{CreateClientEvent, OpenInitConnectionEvent, UpdateClientEvent};
 use calls::ibc::ClientStatesStoreExt;
 use calls::ibc::ConnectionsStoreExt;
 use calls::ibc::ConsensusStatesStoreExt;
@@ -52,7 +52,6 @@ use codec::{Decode, Encode};
 use substrate_subxt::sp_runtime::traits::BlakeTwo256;
 use substrate_subxt::sp_runtime::generic::Header;
 use tendermint_proto::Protobuf;
-
 
 // use tendermint_light_client::types::LightBlock as TMLightBlock;
 
@@ -114,7 +113,29 @@ impl SubstrateChain {
                     consensus_height: consensus_height.to_ibc_height()
                 })));
                 break;
-            } else if let Ok (event) = OpenInitConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
+
+            } else if let Ok(event) = UpdateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
+                if variant.as_str() != "UpdateClient" {
+                    break;
+                }
+                tracing::info!("In substrate: [subscribe_events] >> UpdateClientEvent");
+                let height = event.height;
+                let client_id = event.client_id;
+                let client_type = event.client_type;
+                let consensus_height = event.consensus_height;
+                use ibc::ics02_client::events::Attributes;
+                events.push(IbcEvent::UpdateClient(ibc::ics02_client::events::UpdateClient{
+                    common: Attributes {
+                        height: height.to_ibc_height(),
+                        client_id: client_id.to_ibc_client_id(),
+                        client_type: client_type.to_ibc_client_type(),
+                        consensus_height: consensus_height.to_ibc_height(),
+                    },
+                    header: None,
+                }));
+                break;
+
+            }else if let Ok (event) = OpenInitConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
                 if variant.as_str() != "OpenInitConnection" {
                     break;
                 }
@@ -179,7 +200,6 @@ impl SubstrateChain {
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
-        tracing::info!("In substrate: [get_client_state] >> block_hash: {:?}", block_hash);
 
         let data = client
             .client_states(
@@ -412,23 +432,10 @@ impl Chain for SubstrateChain {
     ) -> Result<Self::ClientState, Error> {
         tracing::info!("in Substrate: [query_client_state]");
 
-        // let chain_id = ChainId::new("ibc".to_string(), 0);
-        // tracing::info!("in Substrate: [query_client_state] >> chain_id = {:?}", chain_id);
-        //
-        // let frozen_height = Height::new(0, 0);
-        // tracing::info!("in Substrate: [query_client_state] >> frozen_height = {:?}", frozen_height);
-        //
-        // use ibc::ics02_client::client_state::AnyClientState;
-        // use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
-        //
-        // // Create mock grandpa client state
-        // let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
-        //
         let client_state = async {
             let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let client_state = self.get_client_state(client_id, client.clone()).await.unwrap();
-            tracing::info!("In Substrate: [proven_client_state] >> client_state : {:?}", client_state);
 
             client_state
         };
@@ -745,6 +752,8 @@ impl Chain for SubstrateChain {
         light_client: &mut dyn LightClient<Self>,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         tracing::info!("in Substrate: [build_header]");
+        tracing::info!("in Substrate: [build_header] >> Trusted_height: {}, Target_height: {}, client_state: {:?}",
+            trusted_height,target_height, client_state);
 
         Ok((GPHeader::new(target_height.revision_height), vec![GPHeader::new(target_height.revision_height)]))
     }

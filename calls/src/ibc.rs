@@ -85,6 +85,15 @@ pub struct CreateClientEvent<T: Ibc> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct UpdateClientEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub client_id: ClientId,
+    pub client_type: ClientType,
+    pub consensus_height: Height,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
 pub struct OpenInitConnectionEvent<T: Ibc> {
     pub _runtime: PhantomData<T>,
     pub height: Height,
