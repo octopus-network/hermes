@@ -28,6 +28,13 @@ impl ClientDef for GrandpaClient {
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
+        if client_state.latest_height() >= header.height() {
+            return Err(Error::low_header_height(
+                header.height(),
+                client_state.latest_height(),
+            ));
+        }
+        
         Ok((
             client_state.with_header(header.clone()),
             ConsensusState::from(header),

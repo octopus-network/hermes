@@ -833,7 +833,7 @@ impl Connection {
             .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?;
         tracing::info!("In connection: [build_conn_try] >> src_client_target_height : {:?}", src_client_target_height);
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
-        // tracing::info!("In connection: [build_conn_try] >> client_msgs: {:?}", client_msgs);
+
         self.src_chain()
             .send_msgs(client_msgs)
             .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
