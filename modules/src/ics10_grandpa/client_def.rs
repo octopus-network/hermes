@@ -29,7 +29,7 @@ impl ClientDef for GrandpaClient {
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
         Ok((
-            client_state,
+            client_state.with_header(header.clone()),
             ConsensusState::from(header),
         ))
     }

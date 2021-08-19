@@ -346,6 +346,8 @@ pub trait Chain: Sized {
                 let (client_state_value, client_state_proof) =
                     self.proven_client_state(client_id, height)?;
                 tracing::info!("in chain: [build_connection_proof_and_client_state] >> client_state_value");
+                tracing::warn!("in chain: [build_connection_proof_and_client_state] >> client_state_value, \
+                    latest_height: {}", client_state_value.latest_height());
 
                 client_proof = Some(CommitmentProofBytes::from(client_state_proof));
 

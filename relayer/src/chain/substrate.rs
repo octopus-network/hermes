@@ -412,18 +412,28 @@ impl Chain for SubstrateChain {
     ) -> Result<Self::ClientState, Error> {
         tracing::info!("in Substrate: [query_client_state]");
 
-        let chain_id = ChainId::new("ibc".to_string(), 0);
-        tracing::info!("in Substrate: [query_client_state] >> chain_id = {:?}", chain_id);
+        // let chain_id = ChainId::new("ibc".to_string(), 0);
+        // tracing::info!("in Substrate: [query_client_state] >> chain_id = {:?}", chain_id);
+        //
+        // let frozen_height = Height::new(0, 0);
+        // tracing::info!("in Substrate: [query_client_state] >> frozen_height = {:?}", frozen_height);
+        //
+        // use ibc::ics02_client::client_state::AnyClientState;
+        // use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
+        //
+        // // Create mock grandpa client state
+        // let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
+        //
+        let client_state = async {
+            let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+            let client_state = self.get_client_state(client_id, client.clone()).await.unwrap();
+            tracing::info!("In Substrate: [proven_client_state] >> client_state : {:?}", client_state);
 
-        let frozen_height = Height::new(0, 0);
-        tracing::info!("in Substrate: [query_client_state] >> frozen_height = {:?}", frozen_height);
+            client_state
+        };
 
-        use ibc::ics02_client::client_state::AnyClientState;
-        use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
-
-        // Create mock grandpa client state
-        let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
-
+        let client_state =  self.block_on(client_state);
         tracing::info!("in Substrate: [query_client_state] >> client_state: {:?}", client_state);
 
         Ok(client_state)
@@ -736,7 +746,7 @@ impl Chain for SubstrateChain {
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         tracing::info!("in Substrate: [build_header]");
 
-        Ok((GPHeader::new(), vec![GPHeader::new()]))
+        Ok((GPHeader::new(target_height.revision_height), vec![GPHeader::new(target_height.revision_height)]))
     }
 }
 
