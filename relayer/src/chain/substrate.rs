@@ -164,6 +164,7 @@ impl SubstrateChain {
     }
 
     async fn get_latest_height(&self, client: Client<NodeRuntime>) -> Result<u64, Box<dyn std::error::Error>> {
+        tracing::info!("In Substrate: [get_latest_height]");
         let mut blocks = client.subscribe_finalized_blocks().await?;
         let height= match blocks.next().await {
             Ok(Some(header)) => {
@@ -178,6 +179,7 @@ impl SubstrateChain {
                 0
             },
         };
+        tracing::info!("In substrate: [get_latest_height] >> height: {}", height);
         Ok(height)
     }
 
@@ -451,6 +453,7 @@ impl Chain for SubstrateChain {
         request: QueryConsensusStatesRequest,
     ) -> Result<Vec<AnyConsensusStateWithHeight>, Error> {
         tracing::info!("in Substrate: [query_consensus_states]");
+        let request_client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
 
         // Create mock grandpa consensus state
         use ibc::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
