@@ -108,11 +108,13 @@ impl Runnable for TxUpdateClientCmd {
             Some(height) => ibc::Height::new(src_chain.id().version(), height),
             None => ibc::Height::zero(),
         };
+        tracing::info!("in client: [run] >>  height: {:?}", height);
 
         let trusted_height = match self.trusted_height {
             Some(height) => ibc::Height::new(src_chain.id().version(), height),
             None => ibc::Height::zero(),
         };
+        tracing::info!("in client: [run] >>  trust height: {:?}", trusted_height);
 
         let client = ForeignClient::find(src_chain, dst_chain, &self.dst_client_id)
             .unwrap_or_else(exit_with_unrecoverable_error);

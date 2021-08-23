@@ -818,6 +818,8 @@ impl ForeignClient {
                 ForeignClientError::client_query(self.id().clone(), self.src_chain.id(), e)
             })?;
         consensus_states.sort_by_key(|a| std::cmp::Reverse(a.height));
+
+        tracing::info!("in foreign_client: [consensus_states] >> consensus_states : {:?}", consensus_states.clone());
         Ok(consensus_states)
     }
 

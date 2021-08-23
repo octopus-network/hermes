@@ -246,6 +246,26 @@ impl SubstrateChain {
         Ok(consensus_state)
     }
 
+    async fn get_consensus_state_with_height(&self, client_id: &ClientId, client: Client<NodeRuntime>)
+        -> Result<Vec<(Height, GPConsensusState)>, Box<dyn std::error::Error>> {
+        use jsonrpsee_types::to_json_value;
+        use substrate_subxt::RpcClient;
+
+        let client_id = client_id.as_bytes().to_vec();
+        let param = &[to_json_value(client_id)?];
+        let rpc_client = client.rpc_client();
+        let ret: Vec<(Vec<u8>, Vec<u8>)> = rpc_client.request("get_consensus_state_with_height", param).await?;
+
+        let mut result = vec![];
+        for (height, consensus_state) in ret.iter() {
+            let height = Height::decode_vec(&*height).unwrap();
+            let consensus_state = GPConsensusState::decode_vec(&*consensus_state).unwrap();
+            result.push((height, consensus_state));
+        }
+
+        Ok(result)
+    }
+
 
 
 }
@@ -455,18 +475,29 @@ impl Chain for SubstrateChain {
         tracing::info!("in Substrate: [query_consensus_states]");
         let request_client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
 
-        // Create mock grandpa consensus state
-        use ibc::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
+        let consensus_state = async {
+            let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+            let consensus_state = self.get_consensus_state_with_height(&request_client_id, client.clone()).await.unwrap();
 
-        let consensus_state = AnyConsensusState::Grandpa(GRANDPAConsensusState::new());
-        let any_consensus_state_with_height = AnyConsensusStateWithHeight {
-            height: Height::new(0, 0),
-            consensus_state,
+            consensus_state
         };
-        tracing::info!("In Substrate: [query_consensus_state] >> any_consensus_state_with_height: {:?}", any_consensus_state_with_height);
 
+        let consensus_state: Vec<(Height, GPConsensusState)> =  self.block_on(consensus_state);
 
-        Ok(vec![any_consensus_state_with_height])
+        let mut any_consensus_state_with_height = vec![];
+        for (height, consensus_state) in consensus_state.into_iter() {
+            let consensus_state = AnyConsensusState::Grandpa(consensus_state);
+            let tmp = AnyConsensusStateWithHeight {
+                height: height,
+                consensus_state,
+            };
+            any_consensus_state_with_height.push(tmp.clone());
+
+            tracing::info!("In Substrate: [query_consensus_state] >> any_consensus_state_with_height: {:?}", tmp);
+        }
+
+        Ok(any_consensus_state_with_height)
     }
 
     fn query_consensus_state(
@@ -757,8 +788,9 @@ impl Chain for SubstrateChain {
         tracing::info!("in Substrate: [build_header]");
         tracing::info!("in Substrate: [build_header] >> Trusted_height: {}, Target_height: {}, client_state: {:?}",
             trusted_height,target_height, client_state);
+        tracing::info!("in Substrate: [build_header] >> GPHEADER: {:?}", GPHeader::new(target_height.revision_height));
 
-        Ok((GPHeader::new(target_height.revision_height), vec![GPHeader::new(target_height.revision_height)]))
+        Ok((GPHeader::new(target_height.increment().revision_height), vec![GPHeader::new(trusted_height.increment().revision_height)]))
     }
 }
 

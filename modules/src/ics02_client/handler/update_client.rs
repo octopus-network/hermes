@@ -65,6 +65,7 @@ pub fn process(
     });
 
     let event_attributes = Attributes {
+        height: msg.header.height().clone(),
         client_id,
         client_type: header.client_type().clone(),
         ..Default::default()
