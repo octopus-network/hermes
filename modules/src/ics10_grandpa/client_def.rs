@@ -63,7 +63,7 @@ impl ClientDef for GrandpaClient {
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())
     }
 
     fn verify_channel_state(
