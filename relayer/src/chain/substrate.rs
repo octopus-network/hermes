@@ -115,7 +115,9 @@ impl SubstrateChain {
                 break;
 
             } else if let Ok(event) = UpdateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
+                tracing::info!("In substrate: [subscribe_events] >> Update Client Event!!!!");
                 if variant.as_str() != "UpdateClient" {
+                    tracing::info!("In substrate: [subscribe_events] >> Update Client Event ###");
                     break;
                 }
                 tracing::info!("In substrate: [subscribe_events] >> UpdateClientEvent");
@@ -165,7 +167,8 @@ impl SubstrateChain {
 
     async fn get_latest_height(&self, client: Client<NodeRuntime>) -> Result<u64, Box<dyn std::error::Error>> {
         tracing::info!("In Substrate: [get_latest_height]");
-        let mut blocks = client.subscribe_finalized_blocks().await?;
+        // let mut blocks = client.subscribe_finalized_blocks().await?;
+        let mut blocks = client.subscribe_blocks().await?;
         let height= match blocks.next().await {
             Ok(Some(header)) => {
                 header.number as u64
@@ -453,6 +456,7 @@ impl Chain for SubstrateChain {
         height: ICSHeight,
     ) -> Result<Self::ClientState, Error> {
         tracing::info!("in Substrate: [query_client_state]");
+        tracing::info!("in Substrate: [query_client_state] >> height: {:?}", height);
 
         let client_state = async {
             let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
@@ -496,6 +500,8 @@ impl Chain for SubstrateChain {
 
             tracing::info!("In Substrate: [query_consensus_state] >> any_consensus_state_with_height: {:?}", tmp);
         }
+
+        any_consensus_state_with_height.sort_by(|a, b| a.height.cmp(&b.height));
 
         Ok(any_consensus_state_with_height)
     }
@@ -558,7 +564,7 @@ impl Chain for SubstrateChain {
             let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let connection_end = self.get_connectionend(connection_id, client.clone()).await.unwrap();
-            tracing::info!("In Substrate: [proven_connection] >> connection_end: {:?}", connection_end);
+            tracing::info!("In Substrate: [query_connection] >> connection_end: {:?}", connection_end);
 
             connection_end
         };
@@ -672,7 +678,11 @@ impl Chain for SubstrateChain {
             client_state
         };
 
-        let client_state =  self.block_on(client_state);
+        let mut client_state =  self.block_on(client_state);
+        tracing::info!("in Substrate: [prove_client_state] >> before modify height client_state : {:?}", client_state);
+        // client_state.latest_height = height;
+        tracing::info!("in Substrate: [prove_client_state] >> after modify height client_state : {:?}", client_state);
+        // assert_eq!(height, client_state.latest_height, "prove_client_state are not equal client_state");
 
         Ok((client_state, get_dummy_merkle_proof()))
     }
@@ -710,12 +720,12 @@ impl Chain for SubstrateChain {
             let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let consensus_state = self.get_client_consensus(client_id, consensus_height, client.clone()).await.unwrap();
-            tracing::info!("In Substrate: [proven_client_state] >> client_state : {:?}", consensus_state);
+            tracing::info!("In Substrate: [proven_client_consensus] >> consensus_state : {:?}", consensus_state);
 
             consensus_state
         };
 
-        let consensus_state =  self.block_on(consensus_state);
+        let mut consensus_state =  self.block_on(consensus_state);
 
         Ok((consensus_state, get_dummy_merkle_proof()))
     }
@@ -787,7 +797,7 @@ impl Chain for SubstrateChain {
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         tracing::info!("in Substrate: [build_header]");
         tracing::info!("in Substrate: [build_header] >> Trusted_height: {}, Target_height: {}, client_state: {:?}",
-            trusted_height,target_height, client_state);
+            trusted_height, target_height, client_state);
         tracing::info!("in Substrate: [build_header] >> GPHEADER: {:?}", GPHeader::new(target_height.revision_height));
 
         Ok((GPHeader::new(target_height.increment().revision_height), vec![GPHeader::new(trusted_height.increment().revision_height)]))
