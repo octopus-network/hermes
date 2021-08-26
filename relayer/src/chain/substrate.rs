@@ -800,7 +800,7 @@ impl Chain for SubstrateChain {
             trusted_height, target_height, client_state);
         tracing::info!("in Substrate: [build_header] >> GPHEADER: {:?}", GPHeader::new(target_height.revision_height));
 
-        Ok((GPHeader::new(target_height.increment().revision_height), vec![GPHeader::new(trusted_height.increment().revision_height)]))
+        Ok((GPHeader::new(target_height.revision_height), vec![GPHeader::new(trusted_height.revision_height)]))
     }
 }
 
