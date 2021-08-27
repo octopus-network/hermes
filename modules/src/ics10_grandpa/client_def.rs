@@ -51,7 +51,7 @@ impl ClientDef for GrandpaClient {
         _consensus_height: Height,
         _expected_consensus_state: &AnyConsensusState,
     ) -> Result<(), Error> {
-        todo!()
+       Ok(())
     }
 
     fn verify_connection_state(
@@ -89,7 +89,7 @@ impl ClientDef for GrandpaClient {
         _proof: &CommitmentProofBytes,
         _expected_client_state: &AnyClientState,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())
     }
 
     fn verify_packet_data(

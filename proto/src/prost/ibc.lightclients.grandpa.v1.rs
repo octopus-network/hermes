@@ -13,6 +13,9 @@ pub struct ClientState{
 /// ConsensusState defines the consensus state from Tendermint.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConsensusState{
+    /// commitment root (i.e app hash)
+    #[prost(message, optional, tag = "1")]
+    pub root: ::core::option::Option<super::super::super::core::commitment::v1::MerkleRoot>,
 }
 
 /// Misbehaviour is a wrapper over two conflicting Headers

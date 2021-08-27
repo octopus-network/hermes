@@ -13,7 +13,7 @@ use ibc::ics04_channel::packet::{PacketMsgType, Sequence};
 use ibc::ics10_grandpa::client_state::ClientState as GPClientState;
 use ibc::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
 use ibc::ics10_grandpa::header::Header as GPHeader;
-use ibc::ics23_commitment::commitment::CommitmentPrefix;
+use ibc::ics23_commitment::commitment::{CommitmentPrefix, CommitmentRoot};
 use ibc::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
 use ibc::query::QueryTxRequest;
 use ibc::signer::Signer;
@@ -44,7 +44,7 @@ use std::future::Future;
 use substrate_subxt::{ClientBuilder, PairSigner, Client, EventSubscription, system::ExtrinsicSuccessEvent};
 use calls::{ibc::DeliverCallExt, NodeRuntime};
 use sp_keyring::AccountKeyring;
-use calls::ibc::{CreateClientEvent, OpenInitConnectionEvent, UpdateClientEvent};
+use calls::ibc::{CreateClientEvent, OpenInitConnectionEvent, UpdateClientEvent, OpenTryConnectionEvent};
 use calls::ibc::ClientStatesStoreExt;
 use calls::ibc::ConnectionsStoreExt;
 use calls::ibc::ConsensusStatesStoreExt;
@@ -155,6 +155,26 @@ impl SubstrateChain {
                     counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
                 })));
                 break;
+            } else if let Ok(event) = OpenTryConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
+                tracing::info!("In substrate: [subscribe_events] >> OpenTryConnectionEvent");
+                if variant.as_str() != "OpenTryConnection" {
+                    break;
+                }
+                let height = event.height;
+                let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
+                let client_id = event.client_id;
+                let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
+                let counterparty_client_id = event.counterparty_client_id;
+                use ibc::ics03_connection::events::Attributes;
+                events.push(IbcEvent::OpenTryConnection(ibc::ics03_connection::events::OpenTry(Attributes {
+                    height: height.to_ibc_height(),
+                    connection_id,
+                    client_id: client_id.to_ibc_client_id(),
+                    counterparty_connection_id,
+                    counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                })));
+                break;
+
             } else if let Ok(event) = ExtrinsicSuccessEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
                 tracing::info!("In substrate: [subscribe_events] >> SystemEvent: {:?}", event);
             } else {
@@ -240,11 +260,9 @@ impl SubstrateChain {
             .await?;
         let consensus_state = AnyConsensusState::decode_vec(&*data).unwrap();
         let consensus_state = match consensus_state {
-            AnyConsensusState::Grandpa(client_state) => client_state,
+            AnyConsensusState::Grandpa(consensus_state) => consensus_state,
             _ => panic!("wrong consensus_state type"),
         };
-
-        let consensus_state = GPConsensusState::decode_vec(&*data).unwrap();
 
         Ok(consensus_state)
     }
@@ -262,7 +280,11 @@ impl SubstrateChain {
         let mut result = vec![];
         for (height, consensus_state) in ret.iter() {
             let height = Height::decode_vec(&*height).unwrap();
-            let consensus_state = GPConsensusState::decode_vec(&*consensus_state).unwrap();
+            let consensus_state = AnyConsensusState::decode_vec(&*consensus_state).unwrap();
+            let consensus_state = match consensus_state {
+                AnyConsensusState::Grandpa(consensus_state) => consensus_state,
+                _ => panic!("wrong consensus_state type"),
+            };
             result.push((height, consensus_state));
         }
 
@@ -783,7 +805,7 @@ impl Chain for SubstrateChain {
         // Create mock grandpa consensus state
         use ibc::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
 
-        let consensus_state = GRANDPAConsensusState::new();
+        let consensus_state = GRANDPAConsensusState::new(CommitmentRoot::from(vec![1, 2, 3, 4]));
 
         Ok(consensus_state)
     }

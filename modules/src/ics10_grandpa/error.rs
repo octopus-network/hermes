@@ -22,5 +22,9 @@ define_error! {
 
         MissingFrozenHeight
             | _ | { "missing frozen height" },
+
+        InvalidRawConsensusState
+            { reason: String }
+            | _ | { "invalid raw client consensus state" },
     }
 }

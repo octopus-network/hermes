@@ -143,7 +143,7 @@ impl From<OpenInit> for IbcEvent {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct OpenTry(Attributes);
+pub struct OpenTry(pub Attributes);
 
 impl OpenTry {
     pub fn attributes(&self) -> &Attributes {

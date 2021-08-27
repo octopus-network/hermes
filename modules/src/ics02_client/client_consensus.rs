@@ -182,7 +182,15 @@ impl ConsensusState for AnyConsensusState {
     }
 
     fn root(&self) -> &CommitmentRoot {
-        todo!()
+        match self {
+            AnyConsensusState::Tendermint(val) => {
+                val.root()
+            },
+            AnyConsensusState::Grandpa(val) => {
+               val.root()
+            },
+            _ => unimplemented!()
+        }
     }
 
     fn validate_basic(&self) -> Result<(), Infallible> {

@@ -14,11 +14,15 @@ use crate::ics23_commitment::commitment::CommitmentRoot;
 use tendermint_proto::Protobuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct ConsensusState {}
+pub struct ConsensusState {
+    pub root: CommitmentRoot,
+}
 
 impl ConsensusState {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(root: CommitmentRoot) -> Self {
+        Self {
+            root
+        }
     }
 }
 
@@ -32,7 +36,7 @@ impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
     }
 
     fn root(&self) -> &CommitmentRoot {
-        unimplemented!()
+        &self.root
     }
 
     fn validate_basic(&self) -> Result<(), Self::Error> {
@@ -47,14 +51,26 @@ impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
 impl TryFrom<RawConsensusState> for ConsensusState {
     type Error = Error;
 
-    fn try_from(_raw: RawConsensusState) -> Result<Self, Self::Error> {
-        Ok(ConsensusState {})
+    fn try_from(raw: RawConsensusState) -> Result<Self, Self::Error> {
+        Ok(ConsensusState {
+            root: raw
+                .root
+                .ok_or_else(|| {
+                    Error::invalid_raw_consensus_state("missing commitment root".into())
+                })?
+                .hash
+                .into(),
+        })
     }
 }
 
 impl From<ConsensusState> for RawConsensusState {
-    fn from(_value: ConsensusState) -> Self {
-        Self {}
+    fn from(value: ConsensusState) -> Self {
+        Self {
+            root: Some(ibc_proto::ibc::core::commitment::v1::MerkleRoot {
+                hash: value.root.into_vec(),
+            }),
+        }
     }
 }
 
@@ -65,7 +81,9 @@ impl From<ConsensusState> for RawConsensusState {
 // }
 
 impl From<Header> for ConsensusState {
-    fn from(_header: Header) -> Self {
-        Self {}
+    fn from(header: Header) -> Self {
+        Self {
+            root: CommitmentRoot::from(vec![1, 2, 3, 4])
+        }
     }
 }
