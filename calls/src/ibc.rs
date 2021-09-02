@@ -114,6 +114,16 @@ pub struct OpenTryConnectionEvent<T: Ibc> {
     pub counterparty_client_id: ClientId,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct OpenAckConnectionEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub connection_id: Option<ConnectionId>,
+    pub client_id: ClientId,
+    pub counterparty_connection_id: Option<ConnectionId>,
+    pub counterparty_client_id: ClientId,
+}
+
 #[derive(Encode, Call)]
 pub struct DeliverCall<T: Ibc> {
     pub _runtime: PhantomData<T>,

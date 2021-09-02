@@ -180,7 +180,7 @@ impl From<OpenTry> for IbcEvent {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct OpenAck(Attributes);
+pub struct OpenAck(pub Attributes);
 
 impl OpenAck {
     pub fn attributes(&self) -> &Attributes {
@@ -217,7 +217,7 @@ impl From<OpenAck> for IbcEvent {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct OpenConfirm(Attributes);
+pub struct OpenConfirm(pub Attributes);
 
 impl OpenConfirm {
     pub fn attributes(&self) -> &Attributes {

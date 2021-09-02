@@ -1,4 +1,5 @@
 use std::fmt;
+use std::str;
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -39,7 +40,7 @@ impl fmt::Display for ClientType {
     }
 }
 
-impl std::str::FromStr for ClientType {
+impl str::FromStr for ClientType {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -55,14 +56,6 @@ impl std::str::FromStr for ClientType {
     }
 }
 
-// impl From<pallet_ibc::event::primitive::ClientType> for ClientType {
-//     fn from(val : pallet_ibc::event::primitive::ClientType) -> Self {
-//         match val {
-//             pallet_ibc::event::primitive::ClientType::Tendermint => ClientType::Tendermint,
-//             pallet_ibc::event::primitive::ClientType::Grandpa => ClientType::Grandpa,
-//         }
-//     }
-// }
 
 #[cfg(test)]
 mod tests {

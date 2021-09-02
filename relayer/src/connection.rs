@@ -528,13 +528,17 @@ impl Connection {
             let dst_connection_id = self
                 .dst_connection_id()
                 .ok_or_else(ConnectionError::missing_counterparty_connection_id)?;
+            tracing::info!("in connection: [handshake] >> chain_id: {:?}, src_connection_id = {:?}", self.src_chain(), src_connection_id);
+            tracing::info!("in connection: [handshake] >> chain_id: {:?}, dst_connection_id = {:?}", self.dst_chain(), dst_connection_id);
 
             // Continue loop if query error
             let a_connection = a_chain.query_connection(&src_connection_id, Height::zero());
+            tracing::info!("in connection: [handshake] >> a_connection: {:?}", a_connection);
             if a_connection.is_err() {
                 continue;
             }
             let b_connection = b_chain.query_connection(&dst_connection_id, Height::zero());
+            tracing::info!("in connection: [handshake] >> b_connection: {:?}", b_connection);
             if b_connection.is_err() {
                 continue;
             }
@@ -799,6 +803,7 @@ impl Connection {
         let src_connection_id = self
             .src_connection_id()
             .ok_or_else(ConnectionError::missing_local_connection_id)?;
+        tracing::info!("In connection: [build_conn_try] >> src_chain_id: {:?}", self.src_chain());
         tracing::info!("In connection: [build_conn_try] >> src_connection_id: {:?}", src_connection_id);
 
         let src_connection = self

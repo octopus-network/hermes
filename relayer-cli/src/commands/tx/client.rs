@@ -14,7 +14,6 @@ use crate::cli_utils::{spawn_chain_runtime, ChainHandlePair};
 use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::error::Error;
 use ibc::ics02_client::client_type::ClientType;
-use std::env::current_dir;
 
 #[derive(Clone, Command, Debug, Options)]
 pub struct TxCreateClientCmd {

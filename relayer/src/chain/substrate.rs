@@ -52,8 +52,8 @@ use codec::{Decode, Encode};
 use substrate_subxt::sp_runtime::traits::BlakeTwo256;
 use substrate_subxt::sp_runtime::generic::Header;
 use tendermint_proto::Protobuf;
-
-// use tendermint_light_client::types::LightBlock as TMLightBlock;
+use std::thread::sleep;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct SubstrateChain {
@@ -77,14 +77,15 @@ impl SubstrateChain {
         &self,
         client: Client<NodeRuntime>,
     ) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
+        const COUNTER_SYSTEM_EVENT: i32 = 5;
         tracing::info!("In substrate: [subscribe_events]");
 
         let sub = client.subscribe_events().await?;
         let decoder = client.events_decoder();
         let mut sub = EventSubscription::<NodeRuntime>::new(sub, decoder);
-        // sub.filter_event::<CreateClientEvent<_>>();
-        // sub.filter_event::<OpenInitConnectionEvent<_>>();
+
         let mut events = Vec::new();
+        let mut counter_system_event = 0;
         while let Some(raw_event) = sub.next().await {
             if let Err(err) = raw_event {
                 println!("In substrate: [subscribe_events] >> raw_event error: {:?}", err);
@@ -94,92 +95,98 @@ impl SubstrateChain {
             tracing::info!("In substrate: [subscribe_events] >> raw Event: {:?}", raw_event);
             let variant = raw_event.variant;
             tracing::info!("In substrate: [subscribe_events] >> variant: {:?}", variant);
-            if let Ok(event) = CreateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
-            {
-                if variant.as_str() != "CreateClient" {
-                    break;
-                }
-                tracing::info!("In substrate: [subscribe_events] >> CreateClientEvent");
+            match variant.as_str() {
+                "CreateClient" => {
+                    let event = CreateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [subscribe_events] >> Create Client Event");
 
-                let height = event.height;
-                let client_id = event.client_id;
-                let client_type = event.client_type;
-                let consensus_height = event.consensus_height;
-                use ibc::ics02_client::events::Attributes;
-                events.push(IbcEvent::CreateClient(ibc::ics02_client::events::CreateClient(Attributes {
-                    height: height.to_ibc_height(),
-                    client_id: client_id.to_ibc_client_id(),
-                    client_type: client_type.to_ibc_client_type(),
-                    consensus_height: consensus_height.to_ibc_height()
-                })));
-                break;
-
-            } else if let Ok(event) = UpdateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
-                tracing::info!("In substrate: [subscribe_events] >> Update Client Event!!!!");
-                if variant.as_str() != "UpdateClient" {
-                    tracing::info!("In substrate: [subscribe_events] >> Update Client Event ###");
-                    break;
-                }
-                tracing::info!("In substrate: [subscribe_events] >> UpdateClientEvent");
-                let height = event.height;
-                let client_id = event.client_id;
-                let client_type = event.client_type;
-                let consensus_height = event.consensus_height;
-                use ibc::ics02_client::events::Attributes;
-                events.push(IbcEvent::UpdateClient(ibc::ics02_client::events::UpdateClient{
-                    common: Attributes {
+                    let height = event.height;
+                    let client_id = event.client_id;
+                    let client_type = event.client_type;
+                    let consensus_height = event.consensus_height;
+                    use ibc::ics02_client::events::Attributes;
+                    events.push(IbcEvent::CreateClient(ibc::ics02_client::events::CreateClient(Attributes {
                         height: height.to_ibc_height(),
                         client_id: client_id.to_ibc_client_id(),
                         client_type: client_type.to_ibc_client_type(),
-                        consensus_height: consensus_height.to_ibc_height(),
-                    },
-                    header: None,
-                }));
-                break;
-
-            }else if let Ok (event) = OpenInitConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
-                if variant.as_str() != "OpenInitConnection" {
+                        consensus_height: consensus_height.to_ibc_height()
+                    })));
                     break;
-                }
-                let height = event.height;
-                let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
-                let client_id = event.client_id;
-                let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
-                let counterparty_client_id = event.counterparty_client_id;
-                use ibc::ics03_connection::events::Attributes;
-                events.push(IbcEvent::OpenInitConnection(ibc::ics03_connection::events::OpenInit(Attributes {
-                    height: height.to_ibc_height(),
-                    connection_id,
-                    client_id: client_id.to_ibc_client_id(),
-                    counterparty_connection_id,
-                    counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-                })));
-                break;
-            } else if let Ok(event) = OpenTryConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
-                tracing::info!("In substrate: [subscribe_events] >> OpenTryConnectionEvent");
-                if variant.as_str() != "OpenTryConnection" {
-                    break;
-                }
-                let height = event.height;
-                let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
-                let client_id = event.client_id;
-                let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
-                let counterparty_client_id = event.counterparty_client_id;
-                use ibc::ics03_connection::events::Attributes;
-                events.push(IbcEvent::OpenTryConnection(ibc::ics03_connection::events::OpenTry(Attributes {
-                    height: height.to_ibc_height(),
-                    connection_id,
-                    client_id: client_id.to_ibc_client_id(),
-                    counterparty_connection_id,
-                    counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-                })));
-                break;
+                },
+                "UpdateClient" => {
+                    let event = UpdateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [subscribe_events] >> Update Client Event");
 
-            } else if let Ok(event) = ExtrinsicSuccessEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]) {
-                tracing::info!("In substrate: [subscribe_events] >> SystemEvent: {:?}", event);
-            } else {
-                tracing::info!("In substrate: [subscribe_events] >> Nothing event");
-                continue;
+                    let height = event.height;
+                    let client_id = event.client_id;
+                    let client_type = event.client_type;
+                    let consensus_height = event.consensus_height;
+                    use ibc::ics02_client::events::Attributes;
+                    events.push(IbcEvent::UpdateClient(ibc::ics02_client::events::UpdateClient{
+                        common: Attributes {
+                            height: height.to_ibc_height(),
+                            client_id: client_id.to_ibc_client_id(),
+                            client_type: client_type.to_ibc_client_type(),
+                            consensus_height: consensus_height.to_ibc_height(),
+                        },
+                        header: None,
+                    }));
+                    // break;
+                },
+                "OpenInitConnection" => {
+                    let event = OpenInitConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [subscribe_events] >> OpenInitConnection Event");
+
+                    let height = event.height;
+                    let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
+                    let client_id = event.client_id;
+                    let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
+                    let counterparty_client_id = event.counterparty_client_id;
+                    use ibc::ics03_connection::events::Attributes;
+                    events.push(IbcEvent::OpenInitConnection(ibc::ics03_connection::events::OpenInit(Attributes {
+                        height: height.to_ibc_height(),
+                        connection_id,
+                        client_id: client_id.to_ibc_client_id(),
+                        counterparty_connection_id,
+                        counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                    })));
+                    sleep(Duration::from_secs(10));
+                    break;
+                },
+                "OpenTryConnection" => {
+                    let event = OpenTryConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [subscribe_events] >> OpenTryConnection Event");
+
+                    let height = event.height;
+                    let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
+                    let client_id = event.client_id;
+                    let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
+                    let counterparty_client_id = event.counterparty_client_id;
+                    use ibc::ics03_connection::events::Attributes;
+                    events.push(IbcEvent::OpenTryConnection(ibc::ics03_connection::events::OpenTry(Attributes {
+                        height: height.to_ibc_height(),
+                        connection_id,
+                        client_id: client_id.to_ibc_client_id(),
+                        counterparty_connection_id,
+                        counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                    })));
+                    sleep(Duration::from_secs(10));
+                    break;
+                },
+                "ExtrinsicSuccess" => {
+                    let event = ExtrinsicSuccessEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [subscribe_events] >> SystemEvent: {:?}", event);
+                    if counter_system_event < COUNTER_SYSTEM_EVENT {
+                        tracing::info!("In substrate: [subscribe_events] >> counter_system_event: {}", counter_system_event);
+                        counter_system_event += 1;
+                    } else {
+                        tracing::info!("In substrate: [subscribe_events] >> counter_system_event: {}", counter_system_event);
+                        break;
+                    }
+                }
+                _ =>  {
+                    tracing::info!("In substrate: [subscribe_events] >> Unknown event");
+                }
             }
         }
         Ok(events)
@@ -380,7 +387,7 @@ impl Chain for SubstrateChain {
 
 
         let client = async {
-                thread::sleep(Duration::from_secs(3));
+                sleep(Duration::from_secs(3));
 
                 let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
                     .build().await.unwrap();
@@ -586,7 +593,7 @@ impl Chain for SubstrateChain {
             let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let connection_end = self.get_connectionend(connection_id, client.clone()).await.unwrap();
-            tracing::info!("In Substrate: [query_connection] >> connection_end: {:?}", connection_end);
+            tracing::info!("In Substrate: [query_connection] >> connection_id: {:?}, connection_end: {:?}", connection_id, connection_end);
 
             connection_end
         };
@@ -700,7 +707,7 @@ impl Chain for SubstrateChain {
             client_state
         };
 
-        let mut client_state =  self.block_on(client_state);
+        let client_state =  self.block_on(client_state);
         tracing::info!("in Substrate: [prove_client_state] >> before modify height client_state : {:?}", client_state);
         // client_state.latest_height = height;
         tracing::info!("in Substrate: [prove_client_state] >> after modify height client_state : {:?}", client_state);
@@ -714,7 +721,7 @@ impl Chain for SubstrateChain {
         connection_id: &ConnectionId,
         height: ICSHeight,
     ) -> Result<(ConnectionEnd, MerkleProof), Error> {
-        tracing::info!("in Substrate: [proven_connection]");
+        tracing::info !("in Substrate: [proven_connection]");
 
         let connection_end = async {
             let client = ClientBuilder::<NodeRuntime>::new().set_url(&self.websocket_url.clone())
@@ -747,7 +754,7 @@ impl Chain for SubstrateChain {
             consensus_state
         };
 
-        let mut consensus_state =  self.block_on(consensus_state);
+        let consensus_state =  self.block_on(consensus_state);
 
         Ok((consensus_state, get_dummy_merkle_proof()))
     }

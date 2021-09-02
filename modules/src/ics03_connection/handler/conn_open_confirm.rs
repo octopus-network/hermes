@@ -60,6 +60,7 @@ pub(crate) fn process(
         connection_id_state: ConnectionIdState::Reused,
         connection_end: new_conn_end,
     };
+    tracing::info!("in ics03_connection: [conn_open_confirm] >> result: {:?}", result);
 
     let event_attributes = Attributes {
         connection_id: Some(result.connection_id.clone()),

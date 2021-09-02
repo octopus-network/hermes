@@ -1,10 +1,11 @@
 use core::marker::{Send, Sync};
 use std::convert::TryFrom;
+use std::convert::Infallible;
+use std::fmt;
 
 use chrono::{DateTime, Utc};
 use prost_types::Any;
 use serde::Serialize;
-use std::convert::Infallible;
 use tendermint_proto::Protobuf;
 
 use ibc_proto::ibc::core::client::v1::ConsensusStateWithHeight;
@@ -22,14 +23,13 @@ use crate::timestamp::Timestamp;
 #[cfg(any(test, feature = "mocks"))]
 use crate::mock::client_state::MockConsensusState;
 
-pub const TENDERMINT_CONSENSUS_STATE_TYPE_URL: &str =
-    "/ibc.lightclients.tendermint.v1.ConsensusState";
+pub const TENDERMINT_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.lightclients.tendermint.v1.ConsensusState";
 
 pub const GRANDPA_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.ConsensusState";
 
 pub const MOCK_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.mock.ConsensusState";
 
-pub trait ConsensusState: Clone + std::fmt::Debug + Send + Sync {
+pub trait ConsensusState: Clone + fmt::Debug + Send + Sync {
     type Error;
 
     /// Type of client associated with this consensus state (eg. Tendermint)
@@ -64,7 +64,7 @@ impl AnyConsensusState {
             }
 
             Self::Grandpa(cs_state) => {
-                unimplemented!()
+                todo!()
             }
 
             #[cfg(any(test, feature = "mocks"))]
@@ -126,7 +126,7 @@ impl From<AnyConsensusState> for Any {
                 type_url: GRANDPA_CONSENSUS_STATE_TYPE_URL.to_string(),
                 value: value
                     .encode_vec()
-                    .expect("encoding to 'Any' from 'AnyConsensusState::Grandpa'"),
+                    .expect("encoding to `Any` from `AnyConsensusState::Grandpa`"),
             },
 
             #[cfg(any(test, feature = "mocks"))]
@@ -189,11 +189,11 @@ impl ConsensusState for AnyConsensusState {
             AnyConsensusState::Grandpa(val) => {
                val.root()
             },
-            _ => unimplemented!()
+            _ => unreachable!()
         }
     }
 
-    fn validate_basic(&self) -> Result<(), Infallible> {
+    fn validate_basic(&self) -> Result<(), Self::Error> {
         todo!()
     }
 

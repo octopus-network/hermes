@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -16,7 +17,7 @@ use crate::timestamp::ParseTimestampError;
 use crate::Height;
 use flex_error::{define_error, TraceError};
 use prost::alloc::fmt::Formatter;
-use std::fmt;
+
 
 define_error! {
     Error {
