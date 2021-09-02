@@ -44,7 +44,10 @@ use std::future::Future;
 use substrate_subxt::{ClientBuilder, PairSigner, Client, EventSubscription, system::ExtrinsicSuccessEvent};
 use calls::{ibc::DeliverCallExt, NodeRuntime};
 use sp_keyring::AccountKeyring;
-use calls::ibc::{CreateClientEvent, OpenInitConnectionEvent, UpdateClientEvent, OpenTryConnectionEvent};
+use calls::ibc::{
+    CreateClientEvent, OpenInitConnectionEvent, UpdateClientEvent,
+    OpenTryConnectionEvent, OpenAckConnectionEvent, OpenConfirmConnectionEvent
+};
 use calls::ibc::ClientStatesStoreExt;
 use calls::ibc::ConnectionsStoreExt;
 use calls::ibc::ConsensusStatesStoreExt;
@@ -173,6 +176,46 @@ impl SubstrateChain {
                     sleep(Duration::from_secs(10));
                     break;
                 },
+                "OpenAckConnection" => {
+                    let event = OpenAckConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [subscribe_events] >> OpenAckConnection Event");
+
+                    let height = event.height;
+                    let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
+                    let client_id = event.client_id;
+                    let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
+                    let counterparty_client_id = event.counterparty_client_id;
+                    use ibc::ics03_connection::events::Attributes;
+                    events.push(IbcEvent::OpenAckConnection(ibc::ics03_connection::events::OpenAck(Attributes {
+                        height: height.to_ibc_height(),
+                        connection_id,
+                        client_id: client_id.to_ibc_client_id(),
+                        counterparty_connection_id,
+                        counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                    })));
+                    sleep(Duration::from_secs(10));
+                    break;
+                },
+                "OpenConfirmConnection" => {
+                    let event = OpenConfirmConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [subscribe_events] >> OpenConfirmConnection Event");
+
+                    let height = event.height;
+                    let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
+                    let client_id = event.client_id;
+                    let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
+                    let counterparty_client_id = event.counterparty_client_id;
+                    use ibc::ics03_connection::events::Attributes;
+                    events.push(IbcEvent::OpenConfirmConnection(ibc::ics03_connection::events::OpenConfirm(Attributes {
+                        height: height.to_ibc_height(),
+                        connection_id,
+                        client_id: client_id.to_ibc_client_id(),
+                        counterparty_connection_id,
+                        counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                    })));
+                    sleep(Duration::from_secs(10));
+                    break;
+                }
                 "ExtrinsicSuccess" => {
                     let event = ExtrinsicSuccessEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> SystemEvent: {:?}", event);
