@@ -90,7 +90,10 @@ pub(crate) fn process(
     tracing::info!("in ics03_connection: [conn_open_ack] >> result: {:?}", result);
 
     let event_attributes = Attributes {
+        height: ctx.host_current_height().clone(),
         connection_id: Some(result.connection_id.clone()),
+        client_id: msg.client_id.clone(),
+        counterparty_client_id: msg.counterparty.client_id,
         ..Default::default()
     };
     output.emit(IbcEvent::OpenAckConnection(event_attributes.into()));
