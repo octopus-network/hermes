@@ -46,7 +46,8 @@ use calls::{ibc::DeliverCallExt, NodeRuntime};
 use sp_keyring::AccountKeyring;
 use calls::ibc::{
     CreateClientEvent, OpenInitConnectionEvent, UpdateClientEvent,
-    OpenTryConnectionEvent, OpenAckConnectionEvent, OpenConfirmConnectionEvent
+    OpenTryConnectionEvent, OpenAckConnectionEvent, OpenConfirmConnectionEvent,
+    OpenInitChannelEvent,
 };
 use calls::ibc::ClientStatesStoreExt;
 use calls::ibc::ConnectionsStoreExt;
@@ -212,6 +213,28 @@ impl SubstrateChain {
                         client_id: client_id.to_ibc_client_id(),
                         counterparty_connection_id,
                         counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                    })));
+                    sleep(Duration::from_secs(10));
+                    break;
+                }
+                "OpenInitChannel" => {
+                    let event = OpenInitChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [subscribe_events] >> OpenInitChannel Event");
+
+                    let height = event.height;
+                    let port_id = event.port_id;
+                    let channel_id = event.channel_id.map(|val| val.to_ibc_channel_id());
+                    let connection_id = event.connection_id;
+                    let counterparty_port_id = event.counterparty_port_id;
+                    let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
+                    use ibc::ics04_channel::events::Attributes;
+                    events.push(IbcEvent::OpenInitChannel(ibc::ics04_channel::events::OpenInit(Attributes{
+                        height: height.to_ibc_height(),
+                        port_id: port_id.to_ibc_port_id(),
+                        channel_id: channel_id,
+                        connection_id: connection_id.to_ibc_connection_id(),
+                        counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                        counterparty_channel_id: counterparty_channel_id,
                     })));
                     sleep(Duration::from_secs(10));
                     break;
