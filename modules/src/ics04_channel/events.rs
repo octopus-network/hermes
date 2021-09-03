@@ -208,7 +208,7 @@ impl Default for Attributes {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct OpenInit(Attributes);
+pub struct OpenInit(pub Attributes);
 
 impl OpenInit {
     pub fn attributes(&self) -> &Attributes {
@@ -248,7 +248,7 @@ impl From<OpenInit> for IbcEvent {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct OpenTry(Attributes);
+pub struct OpenTry(pub Attributes);
 
 impl OpenTry {
     pub fn attributes(&self) -> &Attributes {
@@ -332,7 +332,7 @@ impl From<OpenAck> for IbcEvent {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct OpenConfirm(Attributes);
+pub struct OpenConfirm(pub Attributes);
 
 impl OpenConfirm {
     pub fn attributes(&self) -> &Attributes {
@@ -375,7 +375,7 @@ impl From<OpenConfirm> for IbcEvent {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct CloseInit(Attributes);
+pub struct CloseInit(pub Attributes);
 
 impl CloseInit {
     pub fn port_id(&self) -> &PortId {
@@ -439,7 +439,7 @@ impl std::fmt::Display for CloseInit {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct CloseConfirm(Attributes);
+pub struct CloseConfirm(pub Attributes);
 
 impl CloseConfirm {
     pub fn channel_id(&self) -> Option<&ChannelId> {
