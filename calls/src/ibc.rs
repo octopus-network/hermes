@@ -51,7 +51,7 @@ pub struct ConnectionsStore<T: Ibc> {
 #[derive(Encode, Store)]
 pub struct ChannelsStore<T: Ibc> {
     #[store(returns = Vec<u8>)]
-    pub key: (Vec<u8>, H256),
+    pub key: (Vec<u8>, Vec<u8>),
     pub _runtime: PhantomData<T>,
 }
 
@@ -142,6 +142,18 @@ pub struct OpenConfirmConnectionEvent<T: Ibc> {
 /// OpenInitChannel Event
 #[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
 pub struct OpenInitChannelEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub port_id: PortId,
+    pub channel_id: Option<ChannelId>,
+    pub connection_id: ConnectionId,
+    pub counterparty_port_id: PortId,
+    pub counterparty_channel_id: Option<ChannelId>
+}
+
+/// OpenTryChannel Event
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct OpenTryChannelEvent<T: Ibc> {
     pub _runtime: PhantomData<T>,
     pub height: Height,
     pub port_id: PortId,

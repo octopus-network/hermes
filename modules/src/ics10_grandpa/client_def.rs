@@ -76,7 +76,7 @@ impl ClientDef for GrandpaClient {
         _channel_id: &ChannelId,
         _expected_channel_end: &ChannelEnd,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())
     }
 
     fn verify_client_full_state(

@@ -115,7 +115,7 @@ pub(crate) fn process(
         connection_id: Some(conn_id),
         client_id: msg.client_id.clone(),
         counterparty_client_id: msg.counterparty.client_id,
-        ..Default::default()
+        counterparty_connection_id: msg.counterparty.connection_id,
     };
     output.emit(IbcEvent::OpenTryConnection(event_attributes.into()));
 

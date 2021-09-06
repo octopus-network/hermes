@@ -85,16 +85,16 @@ pub(crate) fn process(
     let result = ConnectionResult {
         connection_id: msg.connection_id().clone(),
         connection_id_state: ConnectionIdState::Reused,
-        connection_end: new_conn_end,
+        connection_end: new_conn_end.clone(),
     };
     tracing::info!("in ics03_connection: [conn_open_ack] >> result: {:?}", result);
 
     let event_attributes = Attributes {
         height: ctx.host_current_height().clone(),
-        connection_id: Some(result.connection_id.clone()),
-        // client_id: msg.client_id.clone(),
-        // counterparty_client_id: msg.counterparty.client_id,
-        ..Default::default()
+        connection_id: Some(msg.connection_id().clone()),
+        client_id: new_conn_end.client_id().clone(),
+        counterparty_client_id: new_conn_end.counterparty().client_id.clone(),
+        counterparty_connection_id: new_conn_end.counterparty().connection_id.clone(),
     };
     output.emit(IbcEvent::OpenAckConnection(event_attributes.into()));
 
