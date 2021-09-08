@@ -7,7 +7,7 @@ use crate::light_client::LightClient;
 use ibc::events::IbcEvent;
 use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
-use ibc::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd};
+use ibc::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd, Counterparty};
 use ibc::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
 use ibc::ics04_channel::packet::{PacketMsgType, Sequence};
 use ibc::ics10_grandpa::client_state::ClientState as GPClientState;
@@ -47,7 +47,9 @@ use sp_keyring::AccountKeyring;
 use calls::ibc::{
     CreateClientEvent, OpenInitConnectionEvent, UpdateClientEvent,
     OpenTryConnectionEvent, OpenAckConnectionEvent, OpenConfirmConnectionEvent,
-    OpenInitChannelEvent, OpenTryChannelEvent};
+    OpenInitChannelEvent, OpenTryChannelEvent, OpenAckChannelEvent,
+    OpenConfirmChannelEvent,
+};
 use calls::ibc::ClientStatesStoreExt;
 use calls::ibc::ConnectionsStoreExt;
 use calls::ibc::ConsensusStatesStoreExt;
@@ -251,6 +253,50 @@ impl SubstrateChain {
                     let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
                     use ibc::ics04_channel::events::Attributes;
                     events.push(IbcEvent::OpenTryChannel(ibc::ics04_channel::events::OpenTry(Attributes{
+                        height: height.to_ibc_height(),
+                        port_id: port_id.to_ibc_port_id(),
+                        channel_id: channel_id,
+                        connection_id: connection_id.to_ibc_connection_id(),
+                        counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                        counterparty_channel_id: counterparty_channel_id,
+                    })));
+                    sleep(Duration::from_secs(10));
+                    break;
+                }
+                "OpenAckChannel" => {
+                    let event = OpenAckChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [subscribe_events] >> OpenAckChannel Event");
+
+                    let height = event.height;
+                    let port_id = event.port_id;
+                    let channel_id = event.channel_id.map(|val| val.to_ibc_channel_id());
+                    let connection_id = event.connection_id;
+                    let counterparty_port_id = event.counterparty_port_id;
+                    let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
+                    use ibc::ics04_channel::events::Attributes;
+                    events.push(IbcEvent::OpenAckChannel(ibc::ics04_channel::events::OpenAck(Attributes{
+                        height: height.to_ibc_height(),
+                        port_id: port_id.to_ibc_port_id(),
+                        channel_id: channel_id,
+                        connection_id: connection_id.to_ibc_connection_id(),
+                        counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                        counterparty_channel_id: counterparty_channel_id,
+                    })));
+                    sleep(Duration::from_secs(10));
+                    break;
+                }
+                "OpenConfirmChannel" => {
+                    let event = OpenConfirmChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [subscribe_events] >> OpenAckChannel Event");
+
+                    let height = event.height;
+                    let port_id = event.port_id;
+                    let channel_id = event.channel_id.map(|val| val.to_ibc_channel_id());
+                    let connection_id = event.connection_id;
+                    let counterparty_port_id = event.counterparty_port_id;
+                    let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
+                    use ibc::ics04_channel::events::Attributes;
+                    events.push(IbcEvent::OpenConfirmChannel(ibc::ics04_channel::events::OpenConfirm(Attributes{
                         height: height.to_ibc_height(),
                         port_id: port_id.to_ibc_port_id(),
                         channel_id: channel_id,
@@ -864,7 +910,27 @@ impl Chain for SubstrateChain {
 
         let connection_end =  self.block_on(connection_end);
 
-        Ok((connection_end, get_dummy_merkle_proof()))
+        let mut new_connection_end;
+
+        if connection_end.counterparty().clone().connection_id.is_none() {
+
+            // 构造 Counterparty
+            let client_id = connection_end.counterparty().client_id().clone();
+            let prefix = connection_end.counterparty().prefix().clone();
+            let temp_connection_id = Some(connection_id.clone());
+
+            let counterparty = Counterparty::new(client_id, temp_connection_id, prefix);
+            let state = connection_end.state;
+            let client_id = connection_end.client_id().clone();
+            let versions = connection_end.versions().clone();
+            let delay_period = connection_end.delay_period().clone();
+
+            new_connection_end = ConnectionEnd::new(state, client_id, counterparty, versions, delay_period);
+        } else {
+            new_connection_end = connection_end;
+        }
+
+        Ok((new_connection_end, get_dummy_merkle_proof()))
     }
 
     fn proven_client_consensus(

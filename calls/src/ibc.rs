@@ -163,6 +163,32 @@ pub struct OpenTryChannelEvent<T: Ibc> {
     pub counterparty_channel_id: Option<ChannelId>
 }
 
+/// OpenAckChannel Event
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct OpenAckChannelEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub port_id: PortId,
+    pub channel_id: Option<ChannelId>,
+    pub connection_id: ConnectionId,
+    pub counterparty_port_id: PortId,
+    pub counterparty_channel_id: Option<ChannelId>
+}
+
+
+/// OpenConfirmChannel Event
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct OpenConfirmChannelEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub port_id: PortId,
+    pub channel_id: Option<ChannelId>,
+    pub connection_id: ConnectionId,
+    pub counterparty_port_id: PortId,
+    pub counterparty_channel_id: Option<ChannelId>
+}
+
+
 #[derive(Encode, Call)]
 pub struct DeliverCall<T: Ibc> {
     pub _runtime: PhantomData<T>,

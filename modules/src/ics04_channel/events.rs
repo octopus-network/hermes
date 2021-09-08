@@ -288,7 +288,7 @@ impl From<OpenTry> for IbcEvent {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct OpenAck(Attributes);
+pub struct OpenAck(pub Attributes);
 
 impl OpenAck {
     pub fn attributes(&self) -> &Attributes {

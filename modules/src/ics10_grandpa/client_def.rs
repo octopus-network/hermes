@@ -63,6 +63,9 @@ impl ClientDef for GrandpaClient {
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
+
+        // assert_eq!(_connection_id, _expected_connection_end.counterparty().connection_id);
+
         Ok(())
     }
 

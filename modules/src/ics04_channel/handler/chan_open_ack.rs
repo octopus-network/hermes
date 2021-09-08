@@ -20,6 +20,8 @@ pub(crate) fn process(
     let mut channel_end = ctx
         .channel_end(&(msg.port_id().clone(), msg.channel_id().clone()))
         .ok_or_else(|| Error::channel_not_found(msg.port_id.clone(), msg.channel_id().clone()))?;
+    tracing::info!("in ics04_channel: [channel_open_ack] >> port_id: {:?}, channel_id: {:?}, channel_end: {:?}",
+        msg.port_id().clone(), msg.channel_id().clone(), channel_end.clone());
 
     // Validate that the channel end is in a state where it can be ack.
     if !channel_end.state_matches(&State::Init) && !channel_end.state_matches(&State::TryOpen) {
@@ -31,6 +33,7 @@ pub(crate) fn process(
 
     // Channel capabilities
     let channel_cap = ctx.authenticated_capability(&msg.port_id().clone())?;
+    tracing::info!("in ics04_channel: [channel_open_ack] >> channel_cap: {:?}", channel_cap);
 
     // An OPEN IBC connection running on the local (host) chain should exist.
 
@@ -44,6 +47,7 @@ pub(crate) fn process(
     let conn = ctx
         .connection_end(&channel_end.connection_hops()[0])
         .ok_or_else(|| Error::missing_connection(channel_end.connection_hops()[0].clone()))?;
+    tracing::info!("in ics04_channel: [channel_open_ack] >> connectionEnd: {:?}", conn.clone());
 
     if !conn.state_matches(&ConnectionState::Open) {
         return Err(Error::connection_not_open(
@@ -58,7 +62,9 @@ pub(crate) fn process(
         Counterparty::new(msg.port_id().clone(), Some(msg.channel_id().clone()));
 
     let counterparty = conn.counterparty();
+    tracing::info!("in ics04_channel: [channel_open_ack] >> counterparty_connection_id: {:?}", counterparty.connection_id());
     let ccid = counterparty.connection_id().ok_or_else(|| {
+        tracing::info!("in ics04_channel : [chan_open_ack] >> connection_id: {:?}", channel_end.connection_hops()[0].clone());
         Error::undefined_connection_counterparty(channel_end.connection_hops()[0].clone())
     })?;
 
@@ -71,6 +77,9 @@ pub(crate) fn process(
         expected_connection_hops,
         msg.counterparty_version().clone(),
     );
+    // TODO! after must modify
+    channel_end.set_counterparty_channel_id(msg.counterparty_channel_id.clone());
+
     //2. Verify proofs
     verify_channel_proofs(
         ctx,

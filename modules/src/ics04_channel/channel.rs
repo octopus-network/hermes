@@ -198,7 +198,7 @@ impl ChannelEnd {
         &self.remote
     }
 
-    pub fn connection_hops(&self) -> &Vec<ConnectionId> {
+    pub fn  connection_hops(&self) -> &Vec<ConnectionId> {
         &self.connection_hops
     }
 

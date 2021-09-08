@@ -848,6 +848,7 @@ impl Connection {
             .query_latest_height()
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
         tracing::info!("In connection: [build_conn_try] >> query_height: {:?}", query_height);
+
         let (client_state, proofs) = self
             .src_chain()
             .build_connection_proofs_and_client_state(
@@ -889,6 +890,7 @@ impl Connection {
             self.src_connection_id().cloned(),
             prefix,
         );
+        tracing::info!("In connection: [build_conn_try] >> counterparty: src_connection_id {:?}", self.src_connection_id().clone());
 
         tracing::info!("In connection: [build_conn_try] >> counterparty: {:?}", counterparty);
         let previous_connection_id = if src_connection.counterparty().connection_id.is_none() {
@@ -944,6 +946,8 @@ impl Connection {
         let src_connection_id = self
             .src_connection_id()
             .ok_or_else(ConnectionError::missing_local_connection_id)?;
+        tracing::info!("in connection: [build_conn_ack] >> src_connection_id: {:?}", src_connection_id);
+
         let dst_connection_id = self
             .dst_connection_id()
             .ok_or_else(ConnectionError::missing_counterparty_connection_id)?;
@@ -1035,9 +1039,12 @@ impl Connection {
         let src_connection_id = self
             .src_connection_id()
             .ok_or_else(ConnectionError::missing_local_connection_id)?;
+        tracing::info!("in connection: [build_conn_confirm] >> src_connection_id: {:?}", src_connection_id);
+
         let dst_connection_id = self
             .dst_connection_id()
             .ok_or_else(ConnectionError::missing_counterparty_connection_id)?;
+        tracing::info!("in connection: [build_conn_confirm] >> dst_connection_id: {:?}", dst_connection_id);
 
         let _expected_dst_connection =
             self.validated_expected_connection(ConnectionMsgType::OpenAck)?;

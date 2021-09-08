@@ -36,12 +36,15 @@ pub(crate) fn process(
             let counterparty_matches = if let Some(counterparty_connection_id) =
                 old_conn_end.counterparty().connection_id()
             {
+                tracing::info!("in [conn_open_ack] >> Some(old_conn_end) : {:?}", old_conn_end);
                 &msg.counterparty_connection_id == counterparty_connection_id
             } else {
+                tracing::info!("in [conn_open_ack] >> Some() TRUE");
                 true
             };
 
             if state_is_consistent && counterparty_matches {
+                tracing::info!("in [conn_open_ack] >> state_is_consistent && counterparty_matches");
                 Ok(old_conn_end)
             } else {
                 // Old connection end is in incorrect state, propagate the error.
@@ -81,6 +84,10 @@ pub(crate) fn process(
 
     new_conn_end.set_state(State::Open);
     new_conn_end.set_version(msg.version().clone());
+
+    // TODO! after need to remove
+    let counterparty = Counterparty::new(new_conn_end.client_id().clone(), Some(msg.counterparty_connection_id().clone()), ctx.commitment_prefix());
+    new_conn_end.set_counterparty(counterparty);
 
     let result = ConnectionResult {
         connection_id: msg.connection_id().clone(),
