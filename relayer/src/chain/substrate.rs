@@ -466,6 +466,30 @@ impl SubstrateChain {
         Ok(result)
     }
 
+    async fn get_client_connections(&self, client_id: ClientId, client: Client<NodeRuntime>)
+        -> Result<Vec<ConnectionId>, Box<dyn std::error::Error>> {
+
+        use jsonrpsee_types::to_json_value;
+        use substrate_subxt::RpcClient;
+
+        let client_id = client_id.as_bytes().to_vec();
+        let param = &[to_json_value(client_id)?];
+
+        let rpc_client = client.rpc_client();
+
+        let ret: Vec<Vec<u8>> = rpc_client.request("get_client_connections",param).await?;
+
+        let mut result = vec![];
+
+        for connection_id in ret.iter() {
+            let connection_id_str = String::from_utf8(connection_id.clone()).unwrap();
+            let connection_id = ConnectionId::from_str(connection_id_str.as_str()).unwrap();
+            result.push(connection_id);
+        }
+
+        Ok(result)
+    }
+
 
 }
 
@@ -768,8 +792,26 @@ impl Chain for SubstrateChain {
     ) -> Result<Vec<ConnectionId>, Error> {
         tracing::info!("in Substrate: [query_client_connections]");
 
-        //TODO!
-        todo!()
+        let client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
+
+        let client_connections = async {
+            let client = ClientBuilder::<NodeRuntime>::new()
+                .set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+
+            let client_connections = self.get_client_connections(client_id, client)
+                .await.unwrap();
+
+            tracing::info!("In substrate: [query_client_connections] >> client_connections: {:?}",
+                client_connections
+            );
+
+            client_connections
+        };
+
+        let client_connections = self.block_on(client_connections);
+
+        Ok(client_connections)
     }
 
     fn query_connection(
