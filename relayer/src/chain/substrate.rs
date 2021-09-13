@@ -513,7 +513,7 @@ impl SubstrateChain {
         use substrate_subxt::RpcClient;
 
         let connection_id = connection_id.as_bytes().to_vec();
-        let param = &[to_json_value(connection_id)];
+        let param = &[to_json_value(connection_id)?];
 
         let rpc_client = client.rpc_client();
 
@@ -838,7 +838,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryClientConnectionsRequest,
     ) -> Result<Vec<ConnectionId>, Error> {
-        tracing::info!("in Substrate: [query_client_connections]");
+        tracing::info!("in substrate: [query_client_connections]");
 
         let client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
 
@@ -891,7 +891,7 @@ impl Chain for SubstrateChain {
         &self,
         request: QueryConnectionChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-        tracing::info!("in Substrate: [query_connection_channels]");
+        tracing::info!("in substrate: [query_connection_channels]");
 
         let connection_id = request.connection;
         let connection_id = ConnectionId::from_str(connection_id.as_str()).unwrap();
