@@ -9,7 +9,7 @@ use tracing::{trace, warn};
 use ibc::ics24_host::identifier::ChainId;
 
 use crate::{
-    chain::{handle::ChainHandle, runtime::ChainRuntime, CosmosSdkChain},
+    chain::{handle::ChainHandle, runtime::ChainRuntime, CosmosSdkChain, SubstrateChain},
     config::Config,
     error::Error as RelayerError,
     supervisor::RwArc,
@@ -83,7 +83,7 @@ impl Registry {
     /// Returns whether or not the runtime was actually spawned.
     pub fn spawn(&mut self, chain_id: &ChainId) -> Result<bool, SpawnError> {
         if !self.handles.contains_key(chain_id) {
-            let handle = spawn_chain_runtime(&self.config, chain_id, self.rt.clone())?;
+            let handle = spawn_chain_runtime_for_substrate(&self.config, chain_id, self.rt.clone())?;
             self.handles.insert(chain_id.clone(), handle);
             trace!("spawned chain runtime for chain {}", chain_id);
             Ok(true)
@@ -104,7 +104,7 @@ impl Registry {
 
 /// Spawns a chain runtime from the configuration and given a chain identifier.
 /// Returns the corresponding handle if successful.
-pub fn spawn_chain_runtime(
+pub fn spawn_chain_runtime_for_cosmos(
     config: &RwArc<Config>,
     chain_id: &ChainId,
     rt: Arc<TokioRuntime>,
@@ -118,6 +118,26 @@ pub fn spawn_chain_runtime(
 
     let handle =
         ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
+
+    Ok(handle)
+}
+
+/// Spawns a chain runtime from the configuration and given a chain identifier.
+/// Returns the corresponding handle if successful.
+pub fn spawn_chain_runtime_for_substrate(
+    config: &RwArc<Config>,
+    chain_id: &ChainId,
+    rt: Arc<TokioRuntime>,
+) -> Result<Box<dyn ChainHandle>, SpawnError> {
+    let chain_config = config
+        .read()
+        .expect("poisoned lock")
+        .find_chain(chain_id)
+        .cloned()
+        .ok_or_else(|| SpawnError::missing_chain(chain_id.clone()))?;
+
+    let handle =
+        ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
 
     Ok(handle)
 }

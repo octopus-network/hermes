@@ -76,6 +76,7 @@ impl<'a> SpawnContext<'a> {
             .map(|c| &c.id)
             .cloned()
             .collect_vec();
+        tracing::info!("in supervisor: [spawn_workers] >> chain_ids: {:?}", chain_ids);
 
         for chain_id in chain_ids {
             self.spawn_workers_for_chain(&chain_id);

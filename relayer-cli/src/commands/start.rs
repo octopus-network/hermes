@@ -19,6 +19,7 @@ pub struct StartCmd {}
 impl Runnable for StartCmd {
     fn run(&self) {
         let config = (*app_config()).clone();
+        // tracing::info!("in start: [config]   >> config: {:#?}", config.clone());
         let config = Arc::new(RwLock::new(config));
 
         let (supervisor, tx_cmd) = make_supervisor(config.clone()).unwrap_or_else(|e| {
@@ -105,8 +106,10 @@ fn make_supervisor(
     config: Arc<RwLock<Config>>,
 ) -> Result<(Supervisor, Sender<SupervisorCmd>), Box<dyn Error + Send + Sync>> {
     let state = ibc_telemetry::new_state();
+    // tracing::info!("In start: [make_supervisor] >> state: {:#?}", state);
 
     let telemetry = config.read().expect("poisoned lock").telemetry.clone();
+    tracing::info!("In start: [make_supervisor] >> telemetry: {:#?}", telemetry);
     if telemetry.enabled {
         match ibc_telemetry::spawn((telemetry.host, telemetry.port), state.clone()) {
             Ok((addr, _)) => {

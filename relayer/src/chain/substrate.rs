@@ -445,6 +445,27 @@ impl SubstrateChain {
         Ok(result)
     }
 
+    async fn get_clients(&self, client: Client<NodeRuntime>)
+        -> Result<Vec<IdentifiedAnyClientState>, Box<dyn std::error::Error>> {
+
+        let rpc_client = client.rpc_client();
+
+        let ret: Vec<(Vec<u8>, Vec<u8>)> = rpc_client.request("get_identified_any_client_state", &[]).await?;
+
+        let mut result = vec![];
+
+        for (client_id, client_state) in ret.iter() {
+            let client_id_str = String::from_utf8(client_id.clone()).unwrap();
+            let client_id = ClientId::from_str(client_id_str.as_str()).unwrap();
+
+            let client_state = AnyClientState::decode_vec(&*client_state).unwrap();
+
+            result.push(IdentifiedAnyClientState::new(client_id, client_state));
+        }
+
+        Ok(result)
+    }
+
 
 }
 
@@ -555,7 +576,7 @@ impl Chain for SubstrateChain {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
-            let result = self.subscribe_events(client.clone()).await.unwrap();
+            let result = self.subscribe_events(client).await.unwrap();
             tracing::info!("In Substrate: [send_msg] >> get_ibc_event: {:?}", result);
 
             result
@@ -608,7 +629,7 @@ impl Chain for SubstrateChain {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
-            let height = self.get_latest_height(client.clone()).await.unwrap();
+            let height = self.get_latest_height(client).await.unwrap();
             tracing::info!("In Substrate: [query_latest_height] >> height: {:?}", height);
 
             height
@@ -625,7 +646,21 @@ impl Chain for SubstrateChain {
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
         tracing::info!("in Substrate: [query_clients]");
 
-        todo!()
+        let clients = async {
+            let client = ClientBuilder::<NodeRuntime>::new()
+                .set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+
+            let clients = self.get_clients(client).await.unwrap();
+
+            clients
+        };
+
+        let clients = self.block_on(clients);
+
+        tracing::info!("in Substrate: [query_clients] >> clients: {:?}", clients);
+
+        Ok(clients)
     }
 
     fn query_client_state(
@@ -641,7 +676,7 @@ impl Chain for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let client_state = self
-                .get_client_state(client_id, client.clone())
+                .get_client_state(client_id, client)
                 .await.unwrap();
 
             client_state
@@ -665,7 +700,7 @@ impl Chain for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let consensus_state = self
-                .get_consensus_state_with_height(&request_client_id, client.clone()).await.unwrap();
+                .get_consensus_state_with_height(&request_client_id, client).await.unwrap();
 
             consensus_state
         };
@@ -733,6 +768,7 @@ impl Chain for SubstrateChain {
     ) -> Result<Vec<ConnectionId>, Error> {
         tracing::info!("in Substrate: [query_client_connections]");
 
+        //TODO!
         todo!()
     }
 
@@ -748,7 +784,7 @@ impl Chain for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let connection_end = self
-                .get_connectionend(connection_id, client.clone())
+                .get_connectionend(connection_id, client)
                 .await.unwrap();
             tracing::info!("In Substrate: [query_connection] \
                 >> connection_id: {:?}, connection_end: {:?}", connection_id, connection_end);
@@ -767,6 +803,7 @@ impl Chain for SubstrateChain {
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         tracing::info!("in Substrate: [query_connection_channels]");
 
+        // TODO
         todo!()
     }
 
@@ -792,7 +829,7 @@ impl Chain for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let channel_end = self
-                .get_channelend(port_id,  channel_id,client.clone()).await.unwrap();
+                .get_channelend(port_id,  channel_id,client).await.unwrap();
             tracing::info!("In Substrate: [query_channel] \
                 >> port_id: {:?}, channel_id: {:?}, channel_end: {:?}",
                 port_id, channel_id, channel_end);
@@ -876,7 +913,7 @@ impl Chain for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let client_state = self
-                .get_client_state(client_id, client.clone()).await.unwrap();
+                .get_client_state(client_id, client).await.unwrap();
             tracing::info!("In Substrate: [proven_client_state] \
                 >> client_state : {:?}", client_state);
 
@@ -900,7 +937,7 @@ impl Chain for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let connection_end = self
-                .get_connectionend(connection_id, client.clone())
+                .get_connectionend(connection_id, client)
                 .await.unwrap();
             tracing::info!("In Substrate: [proven_connection] \
                 >> connection_end: {:?}", connection_end);
@@ -946,7 +983,7 @@ impl Chain for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let consensus_state = self
-                .get_client_consensus(client_id, consensus_height, client.clone())
+                .get_client_consensus(client_id, consensus_height, client)
                 .await.unwrap();
             tracing::info!("In Substrate: [proven_client_consensus] \
                 >> consensus_state : {:?}", consensus_state);
@@ -972,7 +1009,7 @@ impl Chain for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let channel_end = self
-                .get_channelend(port_id,  channel_id,client.clone()).await.unwrap();
+                .get_channelend(port_id,  channel_id,client).await.unwrap();
             tracing::info!("In Substrate: [query_channel] \
                 >> port_id: {:?}, channel_id: {:?}, channel_end: {:?}",
                 port_id, channel_id, channel_end);

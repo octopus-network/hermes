@@ -393,6 +393,7 @@ impl Supervisor {
     /// Subscribe to the events emitted by the chains the supervisor is connected to.
     fn init_subscriptions(&mut self) -> Result<Vec<(BoxHandle, Subscription)>, Error> {
         let chains = &self.config.read().expect("poisoned lock").chains;
+        // tracing::info!("in supervisor: [init_subscriptions] >> chains: {:#?}", chains);
 
         let mut subscriptions = Vec::with_capacity(chains.len());
 
