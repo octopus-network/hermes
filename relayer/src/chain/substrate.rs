@@ -60,6 +60,7 @@ use substrate_subxt::sp_runtime::generic::Header;
 use tendermint_proto::Protobuf;
 use std::thread::sleep;
 use std::time::Duration;
+use std::sync::mpsc::channel;
 
 #[derive(Debug)]
 pub struct SubstrateChain {
@@ -79,6 +80,7 @@ impl SubstrateChain {
         self.rt.block_on(f)
     }
 
+    /// Subscribe Events
     async fn subscribe_events(
         &self,
         client: Client<NodeRuntime>,
@@ -326,6 +328,7 @@ impl SubstrateChain {
         Ok(events)
     }
 
+    /// get latest height used by subscribe_blocks
     async fn get_latest_height(&self, client: Client<NodeRuntime>) -> Result<u64, Box<dyn std::error::Error>> {
         tracing::info!("In Substrate: [get_latest_height]");
         // let mut blocks = client.subscribe_finalized_blocks().await?;
@@ -347,7 +350,9 @@ impl SubstrateChain {
         Ok(height)
     }
 
-    async fn get_connectionend(&self, connection_identifier: &ConnectionId, client: Client<NodeRuntime>) -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
+    /// get connectionEnd according by connection_identifier and read Connections StorageMaps
+    async fn get_connectionend(&self, connection_identifier: &ConnectionId, client: Client<NodeRuntime>)
+        -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
@@ -360,7 +365,9 @@ impl SubstrateChain {
         Ok(connection_end)
     }
 
-    async fn get_channelend(&self, port_id: &PortId, channel_id: &ChannelId, client: Client<NodeRuntime>) -> Result<ChannelEnd, Box<dyn std::error::Error>> {
+    /// get channelEnd according by port_identifier, channel_identifier and read Channles StorageMaps
+    async fn get_channelend(&self, port_id: &PortId, channel_id: &ChannelId, client: Client<NodeRuntime>)
+        -> Result<ChannelEnd, Box<dyn std::error::Error>> {
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
@@ -373,7 +380,9 @@ impl SubstrateChain {
         Ok(channel_end)
     }
 
-    async fn get_client_state(&self, client_id:  &ClientId, client: Client<NodeRuntime>) -> Result<GPClientState, Box<dyn std::error::Error>> {
+    /// get client_state according by client_id, and read ClientStates StoraageMap
+    async fn get_client_state(&self, client_id:  &ClientId, client: Client<NodeRuntime>)
+        -> Result<GPClientState, Box<dyn std::error::Error>> {
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
@@ -395,7 +404,10 @@ impl SubstrateChain {
         Ok(client_state)
     }
 
-    async fn get_client_consensus(&self, client_id:  &ClientId, height: ICSHeight, client: Client<NodeRuntime>) -> Result<GPConsensusState, Box<dyn std::error::Error>> {
+    /// get appoint height consensus_state according by client_identifier and height
+    /// and read ConsensusStates StoreageMap
+    async fn get_client_consensus(&self, client_id:  &ClientId, height: ICSHeight, client: Client<NodeRuntime>)
+        -> Result<GPConsensusState, Box<dyn std::error::Error>> {
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
@@ -421,6 +433,7 @@ impl SubstrateChain {
         Ok(consensus_state)
     }
 
+    /// get key-value vector of (height, grandpa_consensus_state) according by client_identifier
     async fn get_consensus_state_with_height(&self, client_id: &ClientId, client: Client<NodeRuntime>)
         -> Result<Vec<(Height, GPConsensusState)>, Box<dyn std::error::Error>> {
         use jsonrpsee_types::to_json_value;
@@ -445,6 +458,7 @@ impl SubstrateChain {
         Ok(result)
     }
 
+    /// get key-value pair (client_identifier, client_state) construct IdentifieredAnyClientstate
     async fn get_clients(&self, client: Client<NodeRuntime>)
         -> Result<Vec<IdentifiedAnyClientState>, Box<dyn std::error::Error>> {
 
@@ -466,6 +480,7 @@ impl SubstrateChain {
         Ok(result)
     }
 
+    /// get connection_identifier vector according by client_identifier
     async fn get_client_connections(&self, client_id: ClientId, client: Client<NodeRuntime>)
         -> Result<Vec<ConnectionId>, Box<dyn std::error::Error>> {
 
@@ -490,6 +505,39 @@ impl SubstrateChain {
         Ok(result)
     }
 
+
+    async fn get_connection_channels(&self, connection_id: ConnectionId, client: Client<NodeRuntime>)
+        -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
+
+        use jsonrpsee_types::to_json_value;;
+        use substrate_subxt::RpcClient;
+
+        let connection_id = connection_id.as_bytes().to_vec();
+        let param = &[to_json_value(connection_id)];
+
+        let rpc_client = client.rpc_client();
+
+        let ret: Vec<(Vec<u8>, Vec<u8>,Vec<u8>)> = rpc_client.request("get_connection_channels", param).await?;
+
+        let mut result = vec![];
+
+        for (port_id, channel_id, channel_end) in ret.iter() {
+            // get port_id
+            let port_id = String::from_utf8(port_id.clone()).unwrap();
+            let port_id = PortId::from_str(port_id.as_str()).unwrap();
+
+            // get channel_id
+            let channel_id = String::from_utf8(channel_id.clone()).unwrap();
+            let channel_id = ChannelId::from_str(channel_id.as_str()).unwrap();
+
+            // get channel_end
+            let channel_end = ChannelEnd::decode_vec(&*channel_end).unwrap();
+
+            result.push(IdentifiedChannelEnd::new(port_id, channel_id, channel_end));
+        }
+
+        Ok(result)
+    }
 
 }
 
@@ -845,8 +893,24 @@ impl Chain for SubstrateChain {
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         tracing::info!("in Substrate: [query_connection_channels]");
 
-        // TODO
-        todo!()
+        let connection_id = request.connection;
+        let connection_id = ConnectionId::from_str(connection_id.as_str()).unwrap();
+
+        let connection_channels = async {
+            let client = ClientBuilder::<NodeRuntime>::new()
+                .set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+
+            let connection_channels = self.get_connection_channels(connection_id, client)
+                .await.unwrap();
+
+            tracing::info!("In substrate: [query_connection_channels] >> connection_channels: {:?}", connection_channels);
+            connection_channels
+        };
+
+        let connection_channels = self.block_on(connection_channels);
+
+        Ok(connection_channels)
     }
 
     fn query_channels(
