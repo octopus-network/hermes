@@ -76,7 +76,7 @@ impl<'a> SpawnContext<'a> {
             .map(|c| &c.id)
             .cloned()
             .collect_vec();
-        tracing::info!("in supervisor: [spawn_workers] >> chain_ids: {:?}", chain_ids);
+        tracing::info!("in spawn: [spawn_workers] >> chain_ids: {:?}", chain_ids);
 
         for chain_id in chain_ids {
             self.spawn_workers_for_chain(&chain_id);
@@ -88,6 +88,8 @@ impl<'a> SpawnContext<'a> {
         from_chain_id: &ChainId,
         to_chain_id: &ChainId,
     ) {
+        tracing::info!("in spawn: [spawn_workers_from_chain_to_chain]");
+
         let clients_req = QueryClientStatesRequest {
             pagination: ibc_proto::cosmos::base::query::pagination::all(),
         };
@@ -124,6 +126,8 @@ impl<'a> SpawnContext<'a> {
     }
 
     pub fn spawn_workers_for_chain(&mut self, chain_id: &ChainId) {
+        tracing::info!("in spawn: [spawn_workers_for_chain]");
+
         let clients_req = QueryClientStatesRequest {
             pagination: ibc_proto::cosmos::base::query::pagination::all(),
         };
@@ -183,6 +187,8 @@ impl<'a> SpawnContext<'a> {
         chain: Box<dyn ChainHandle>,
         client: IdentifiedAnyClientState,
     ) {
+        tracing::info!("in spawn: [spawn_workers_for_client]");
+
         // Potentially ignore the client
         if self.client_filter_enabled()
             && matches!(
@@ -250,6 +256,8 @@ impl<'a> SpawnContext<'a> {
         client: &IdentifiedAnyClientState,
         connection_id: ConnectionId,
     ) {
+        tracing::info!("in spawn: [spawn_workers_for_connection]");
+
         let chain_id = chain.id();
 
         let connection_end = match chain.query_connection(&connection_id, Height::zero()) {
@@ -385,6 +393,8 @@ impl<'a> SpawnContext<'a> {
         client: IdentifiedAnyClientState,
         connection: IdentifiedConnectionEnd,
     ) -> Result<ConnectionState, Error> {
+        tracing::info!("in spawn: [counterparty_connection_state]");
+
         let counterparty_chain = self
             .registry
             .get_or_spawn(&client.client_state.chain_id())
@@ -399,6 +409,8 @@ impl<'a> SpawnContext<'a> {
         client: IdentifiedAnyClientState,
         connection: IdentifiedConnectionEnd,
     ) -> Result<(), Error> {
+        tracing::info!("in spawn: [spawn_connection_workers]");
+
         let handshake_enabled = self
             .config
             .read()
@@ -466,6 +478,8 @@ impl<'a> SpawnContext<'a> {
         connection: &IdentifiedConnectionEnd,
         channel: IdentifiedChannelEnd,
     ) -> Result<(), Error> {
+        tracing::info!("in spawn: [spawn_workers_for_channel]");
+
         let handshake_enabled = self
             .config
             .read()
@@ -560,11 +574,15 @@ impl<'a> SpawnContext<'a> {
         chain: &dyn ChainHandle,
         channel: &IdentifiedChannelEnd,
     ) -> bool {
+        tracing::info!("in spawn: [relay_packets_on_channel]");
+
         let config = self.config.read().expect("poisoned lock");
         config.packets_on_channel_allowed(&chain.id(), &channel.port_id, &channel.channel_id)
     }
 
     pub fn shutdown_workers_for_chain(&mut self, chain_id: &ChainId) {
+        tracing::info!("im spawn: [shutdown_workers_for_chain]");
+
         let affected_workers = self.workers.objects_for_chain(chain_id);
         for object in affected_workers {
             self.workers.shutdown_worker(&object);

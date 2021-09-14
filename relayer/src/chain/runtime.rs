@@ -359,7 +359,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
     }
 
     fn subscribe(&mut self, reply_to: ReplyTo<Subscription>) -> Result<(), Error> {
-        tracing::info!("In Runtime: [subscribe]");
+        tracing::info!("In runtime: [subscribe]");
         let subscription = self.event_bus.subscribe();
 
         reply_to.send(Ok(subscription)).map_err(Error::send)?;

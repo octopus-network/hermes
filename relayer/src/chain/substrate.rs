@@ -346,7 +346,7 @@ impl SubstrateChain {
                 0
             },
         };
-        tracing::info!("In substrate: [get_latest_height] >> height: {}", height);
+        tracing::info!("In Substrate: [get_latest_height] >> height: {}", height);
         Ok(height)
     }
 
@@ -509,7 +509,7 @@ impl SubstrateChain {
     async fn get_connection_channels(&self, connection_id: ConnectionId, client: Client<NodeRuntime>)
         -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
 
-        use jsonrpsee_types::to_json_value;;
+        use jsonrpsee_types::to_json_value;
         use substrate_subxt::RpcClient;
 
         let connection_id = connection_id.as_bytes().to_vec();
@@ -804,7 +804,10 @@ impl Chain for SubstrateChain {
     ) -> Result<AnyConsensusState, Error> {
         tracing::info!("in Substrate: [query_consensus_state]");
 
-        todo!()
+        let consensus_state = self
+            .proven_client_consensus(&client_id, consensus_height, query_height)?
+            .0;
+        Ok(AnyConsensusState::Grandpa(consensus_state))
     }
 
     fn query_upgraded_client_state(
@@ -1003,8 +1006,109 @@ impl Chain for SubstrateChain {
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error> {
         tracing::info!("in Substrate: [query_txs]");
+        tracing::info!("in Substrate: [query_txs] >> request: {:?}", request);
 
-        todo!()
+        match request {
+            QueryTxRequest::Packet(request) => {
+                crate::time!("in Substrate: [query_txs]: query packet events");
+
+                let mut result: Vec<IbcEvent> = vec![];
+
+                tracing::info!("in Substrate: [query_txs]: packet >> sequence :{:?}", request.sequences);
+                // for seq in &request.sequences {
+                //     // query first (and only) Tx that includes the event specified in the query request
+                //     let response = self
+                //         .block_on(self.rpc_client.tx_search(
+                //             packet_query(&request, *seq),
+                //             false,
+                //             1,
+                //             1, // get only the first Tx matching the query
+                //             Order::Ascending,
+                //         ))
+                //         .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
+                //
+                //     assert!(
+                //         response.txs.len() <= 1,
+                //         "packet_from_tx_search_response: unexpected number of txs"
+                //     );
+                //
+                //     if response.txs.is_empty() {
+                //         continue;
+                //     }
+                //
+                //     if let Some(event) = packet_from_tx_search_response(
+                //         self.id(),
+                //         &request,
+                //         *seq,
+                //         response.txs[0].clone(),
+                //     ) {
+                //         result.push(event);
+                //     }
+                // }
+                Ok(result)
+            }
+
+            QueryTxRequest::Client(request) => {
+                crate::time!("in Substrate: [query_txs]: single client update event");
+
+                // query the first Tx that includes the event matching the client request
+                // Note: it is possible to have multiple Tx-es for same client and consensus height.
+                // In this case it must be true that the client updates were performed with tha
+                // same header as the first one, otherwise a subsequent transaction would have
+                // failed on chain. Therefore only one Tx is of interest and current API returns
+                // the first one.
+                // let mut response = self
+                //     .block_on(self.rpc_client.tx_search(
+                //         header_query(&request),
+                //         false,
+                //         1,
+                //         1, // get only the first Tx matching the query
+                //         Order::Ascending,
+                //     ))
+                //     .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
+                //
+                // if response.txs.is_empty() {
+                //     return Ok(vec![]);
+                // }
+                //
+                // // the response must include a single Tx as specified in the query.
+                // assert!(
+                //     response.txs.len() <= 1,
+                //     "packet_from_tx_search_response: unexpected number of txs"
+                // );
+                //
+                // let tx = response.txs.remove(0);
+                // let event = update_client_from_tx_search_response(self.id(), &request, tx);
+                let mut result: Vec<IbcEvent> = vec![];
+
+                Ok(result)
+                // Ok(event.into_iter().collect())
+            }
+
+            QueryTxRequest::Transaction(tx) => {
+                crate::time!("in Substrate: [query_txs]: Transaction");
+
+                // let mut response = self
+                //     .block_on(self.rpc_client.tx_search(
+                //         tx_hash_query(&tx),
+                //         false,
+                //         1,
+                //         1, // get only the first Tx matching the query
+                //         Order::Ascending,
+                //     ))
+                //     .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
+                //
+                // if response.txs.is_empty() {
+                //     Ok(vec![])
+                // } else {
+                //     let tx = response.txs.remove(0);
+                //     Ok(all_ibc_events_from_tx_search_response(self.id(), tx))
+                // }
+                let mut result: Vec<IbcEvent> = vec![];
+
+                Ok(result)
+            }
+        }
     }
 
     fn proven_client_state(

@@ -1,5 +1,6 @@
 use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
+use std::time::Duration;
 
 // mock grandpa as tendermint
 use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawClientState;
@@ -41,6 +42,20 @@ impl ClientState {
                 .with_revision_height(h.height),
             ..self
         }
+    }
+
+    /// Get the refresh time to ensure the state does not expire
+    pub fn refresh_time(&self) -> Option<Duration> {
+        //TODO
+        Some(Duration::new(3,0))
+    }
+
+    /// Check if the state is expired when `elapsed` time has passed since the latest consensus
+    /// state timestamp
+    pub fn expired(&self, elapsed: Duration) -> bool {
+        //TODO
+        false
+        // elapsed > self.trusting_period
     }
 
     pub fn latest_height(&self) -> Height {

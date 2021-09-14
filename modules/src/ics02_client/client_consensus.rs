@@ -64,7 +64,8 @@ impl AnyConsensusState {
             }
 
             Self::Grandpa(cs_state) => {
-                todo!()
+                // TODO!
+                Timestamp::now()
             }
 
             #[cfg(any(test, feature = "mocks"))]

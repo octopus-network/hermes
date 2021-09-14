@@ -1024,11 +1024,11 @@ impl Chain for CosmosSdkChain {
         query_height: ICSHeight,
     ) -> Result<AnyConsensusState, Error> {
         crate::time!("query_chain_clients");
-
         let consensus_state = self
             .proven_client_consensus(&client_id, consensus_height, query_height)?
             .0;
         Ok(AnyConsensusState::Tendermint(consensus_state))
+
     }
 
     fn query_client_connections(
