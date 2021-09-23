@@ -1,5 +1,6 @@
 //! Types for the IBC events emitted from Tendermint Websocket by the client module.
 use std::convert::{TryFrom, TryInto};
+use std::fmt;
 
 use prost::Message;
 use serde_derive::{Deserialize, Serialize};
@@ -124,8 +125,8 @@ impl Default for Attributes {
     }
 }
 
-impl std::fmt::Display for Attributes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl fmt::Display for Attributes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "h: {}, cs_h: {}({})",
@@ -158,6 +159,9 @@ fn extract_attributes(object: &RawObject, namespace: &str) -> Result<Attributes,
 pub struct CreateClient(pub Attributes);
 
 impl CreateClient {
+    pub fn new(attributes: Attributes) -> Self {
+        Self(attributes)
+    }
     pub fn client_id(&self) -> &ClientId {
         &self.0.client_id
     }
@@ -188,8 +192,8 @@ impl From<CreateClient> for IbcEvent {
     }
 }
 
-impl std::fmt::Display for CreateClient {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl fmt::Display for CreateClient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -267,8 +271,8 @@ impl From<UpdateClient> for IbcEvent {
     }
 }
 
-impl std::fmt::Display for UpdateClient {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl fmt::Display for UpdateClient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.common)
     }
 }

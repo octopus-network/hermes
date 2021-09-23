@@ -1,5 +1,5 @@
 use std::convert::TryInto;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 use std::num::{ParseIntError, TryFromIntError};
 use std::ops::{Add, Sub};
 use std::str::FromStr;
@@ -115,7 +115,7 @@ impl Timestamp {
 }
 
 impl Display for Timestamp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "Timestamp({})",
@@ -135,7 +135,7 @@ define_error! {
 impl Add<Duration> for Timestamp {
     type Output = Result<Timestamp, TimestampOverflowError>;
 
-    fn add(self, duration: Duration) -> Result<Timestamp, TimestampOverflowError> {
+    fn add(self, duration: Duration) -> Self::Output {
         match self.as_datetime() {
             Some(datetime) => {
                 let duration2 = chrono::Duration::from_std(duration)
@@ -150,7 +150,7 @@ impl Add<Duration> for Timestamp {
 impl Sub<Duration> for Timestamp {
     type Output = Result<Timestamp, TimestampOverflowError>;
 
-    fn sub(self, duration: Duration) -> Result<Timestamp, TimestampOverflowError> {
+    fn sub(self, duration: Duration) -> Self::Output {
         match self.as_datetime() {
             Some(datetime) => {
                 let duration2 = chrono::Duration::from_std(duration)

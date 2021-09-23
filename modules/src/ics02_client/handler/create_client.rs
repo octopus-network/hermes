@@ -46,8 +46,10 @@ pub fn process(
         client_state: msg.client_state(),
         consensus_state: msg.consensus_state(),
     });
+    tracing::info!("in ics02_client : [create_client] >> result: {:?}", result);
 
     let event_attributes = Attributes {
+        height: msg.client_state.latest_height(),
         client_id,
         client_type,
         ..Default::default()

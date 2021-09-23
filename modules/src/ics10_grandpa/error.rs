@@ -1,5 +1,5 @@
-use flex_error::{define_error, DisplayOnly, TraceError};
 use crate::ics24_host::error::ValidationError;
+use flex_error::{define_error, DisplayOnly, TraceError};
 
 define_error! {
     Error{
@@ -22,5 +22,9 @@ define_error! {
 
         MissingFrozenHeight
             | _ | { "missing frozen height" },
+
+        InvalidRawConsensusState
+            { reason: String }
+            | _ | { "invalid raw client consensus state" },
     }
 }

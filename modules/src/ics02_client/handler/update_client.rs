@@ -11,6 +11,7 @@ use crate::ics02_client::events::Attributes;
 use crate::ics02_client::handler::ClientResult;
 use crate::ics02_client::msgs::update_client::MsgUpdateAnyClient;
 use crate::ics24_host::identifier::ClientId;
+use crate::ics02_client::header::Header;
 
 /// The result following the successful processing of a `MsgUpdateAnyClient` message. Preferably
 /// this data type should be used with a qualified name `update_client::Result` to avoid ambiguity.
@@ -44,6 +45,7 @@ pub fn process(
     let client_state = ctx
         .client_state(&client_id)
         .ok_or_else(|| Error::client_not_found(client_id.clone()))?;
+    tracing::info!("In Update_client: [process] >> client_state: {:?}", client_state);
 
     let latest_height = client_state.latest_height();
     ctx.consensus_state(&client_id, latest_height)
@@ -53,7 +55,7 @@ pub fn process(
     // This function will return the new client_state (its latest_height changed) and a
     // consensus_state obtained from header. These will be later persisted by the keeper.
     let (new_client_state, new_consensus_state) = client_def
-        .check_header_and_update_state(client_state, header)
+        .check_header_and_update_state(client_state, header.clone())
         .map_err(|e| Error::header_verification_failure(e.to_string()))?;
 
     let result = ClientResult::Update(Result {
@@ -61,9 +63,12 @@ pub fn process(
         client_state: new_client_state,
         consensus_state: new_consensus_state,
     });
+    tracing::info!("in ics02_client: [update_client] >> result : {:?}", result);
 
     let event_attributes = Attributes {
+        // height: header.clone().height(),
         client_id,
+        client_type: header.client_type().clone(),
         ..Default::default()
     };
     output.emit(IbcEvent::UpdateClient(event_attributes.into()));

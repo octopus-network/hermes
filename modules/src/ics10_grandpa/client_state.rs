@@ -21,12 +21,26 @@ pub struct ClientState {
 }
 
 impl ClientState {
-    pub fn new(chain_id: ChainId, latest_height: Height, frozen_height: Height) -> Result<Self, Error> {
+    pub fn new(
+        chain_id: ChainId,
+        latest_height: Height,
+        frozen_height: Height,
+    ) -> Result<Self, Error> {
         Ok(ClientState {
             chain_id,
             latest_height,
             frozen_height,
         })
+    }
+
+    pub fn with_header(self, h: Header) -> Self {
+        // TODO: Clarify which fields should update.
+        ClientState {
+            latest_height: self
+                .latest_height
+                .with_revision_height(h.height),
+            ..self
+        }
     }
 
     pub fn latest_height(&self) -> Height {
@@ -76,7 +90,8 @@ impl TryFrom<RawClientState> for ClientState {
         Ok(ClientState {
             chain_id: ChainId::from_str(raw.chain_id.as_str())
                 .map_err(Error::invalid_chain_identifier)?,
-            latest_height: raw.latest_height
+            latest_height: raw
+                .latest_height
                 .ok_or_else(Error::missing_latest_height)?
                 .into(),
             frozen_height: raw

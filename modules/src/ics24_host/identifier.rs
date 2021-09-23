@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 use std::str::FromStr;
+use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
@@ -104,8 +105,8 @@ impl FromStr for ChainId {
     }
 }
 
-impl std::fmt::Display for ChainId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl fmt::Display for ChainId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.id)
     }
 }
@@ -216,6 +217,13 @@ impl PartialEq<str> for ClientId {
     }
 }
 
+// impl From<pallet_ibc::event::primitive::ClientId> for ClientId {
+//     fn from(val : pallet_ibc::event::primitive::ClientId) -> Self {
+//         let val = val.as_str();
+//         Self(val.to_string())
+//     }
+// }
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ConnectionId(pub String);
 
@@ -271,6 +279,7 @@ impl Default for ConnectionId {
         Self::new(0)
     }
 }
+
 
 /// Equality check against string literal (satisfies &ConnectionId == &str).
 /// ```

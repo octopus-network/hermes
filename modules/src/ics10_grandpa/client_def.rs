@@ -28,11 +28,17 @@ impl ClientDef for GrandpaClient {
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
+        // if client_state.latest_height() >= header.height() {
+        //     return Err(Error::low_header_height(
+        //         header.height(),
+        //         client_state.latest_height(),
+        //     ));
+        // }
+
         Ok((
             client_state.with_header(header.clone()),
             ConsensusState::from(header),
         ))
-        // unimplemented!()
     }
 
     fn verify_client_consensus_state(
@@ -45,7 +51,7 @@ impl ClientDef for GrandpaClient {
         _consensus_height: Height,
         _expected_consensus_state: &AnyConsensusState,
     ) -> Result<(), Error> {
-        todo!()
+       Ok(())
     }
 
     fn verify_connection_state(
@@ -57,7 +63,7 @@ impl ClientDef for GrandpaClient {
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())
     }
 
     fn verify_channel_state(
@@ -83,7 +89,7 @@ impl ClientDef for GrandpaClient {
         _proof: &CommitmentProofBytes,
         _expected_client_state: &AnyClientState,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())
     }
 
     fn verify_packet_data(

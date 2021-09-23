@@ -18,7 +18,8 @@ pub(crate) fn process(
     let mut output = HandlerOutput::builder();
 
     // Check that consensus height (for client proof) in message is not too advanced nor too old.
-    check_client_consensus_height(ctx, msg.consensus_height())?;
+    // TODO! future must to be handle
+    // check_client_consensus_height(ctx, msg.consensus_height())?;
 
     // Unwrap the old connection end (if any) and its identifier.
     let (mut new_connection_end, conn_id) = match msg.previous_connection_id() {
@@ -107,9 +108,13 @@ pub(crate) fn process(
         },
         connection_end: new_connection_end,
     };
+    tracing::info!("in conn_open_try: [conn_open_try] >> result = {:?}", result);
 
     let event_attributes = Attributes {
+        height: ctx.host_current_height().clone(),
         connection_id: Some(conn_id),
+        client_id: msg.client_id.clone(),
+        counterparty_client_id: msg.counterparty.client_id,
         ..Default::default()
     };
     output.emit(IbcEvent::OpenTryConnection(event_attributes.into()));
