@@ -4,9 +4,10 @@ use crate::error::Error;
 use crate::light_client::Verified;
 use ibc::ics02_client::client_state::AnyClientState;
 use ibc::ics02_client::events::UpdateClient;
-use ibc::ics02_client::misbehaviour::MisbehaviourEvidence;
+use ibc::ics02_client::misbehaviour::{MisbehaviourEvidence, AnyMisbehaviour};
 use ibc::ics10_grandpa::header::Header as GPHeader;
 use ibc::Height;
+use ibc::ics02_client::header::AnyHeader;
 
 pub struct LightClient {}
 
@@ -51,8 +52,12 @@ impl super::LightClient<SubstrateChain> for LightClient {
         client_state: &AnyClientState,
     ) -> Result<Option<MisbehaviourEvidence>, Error> {
         tracing::info!("in grandpa: [check_misbehaviour]");
+        let anyheader = update.header.unwrap();
 
-        todo!()
+        Ok(Some(MisbehaviourEvidence{
+            misbehaviour: AnyMisbehaviour::Grandpa(ibc::ics10_grandpa::misbehaviour::Misbehaviour{}),
+            supporting_headers: vec![anyheader],
+        }))
     }
 
     fn fetch(&mut self, height: Height) -> Result<(), Error> {

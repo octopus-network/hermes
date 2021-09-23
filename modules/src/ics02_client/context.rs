@@ -6,7 +6,7 @@ use crate::ics02_client::client_consensus::AnyConsensusState;
 use crate::ics02_client::client_state::AnyClientState;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics02_client::error::Error;
-use crate::ics02_client::handler::ClientResult::{self, Create, Update, Upgrade};
+use crate::ics02_client::handler::ClientResult::{self, Create, Update, Upgrade, Misbehaviour};
 use crate::ics24_host::identifier::ClientId;
 use crate::Height;
 
@@ -48,6 +48,15 @@ pub trait ClientKeeper {
                 Ok(())
             }
             Upgrade(res) => {
+                self.store_client_state(res.client_id.clone(), res.client_state.clone())?;
+                self.store_consensus_state(
+                    res.client_id.clone(),
+                    res.client_state.latest_height(),
+                    res.consensus_state,
+                )?;
+                Ok(())
+            }
+            Misbehaviour(res)  => {
                 self.store_client_state(res.client_id.clone(), res.client_state.clone())?;
                 self.store_consensus_state(
                     res.client_id.clone(),

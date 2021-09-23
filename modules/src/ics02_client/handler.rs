@@ -8,12 +8,14 @@ use crate::ics02_client::msgs::ClientMsg;
 pub mod create_client;
 pub mod update_client;
 pub mod upgrade_client;
+pub mod misbehavior;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientResult {
     Create(create_client::Result),
     Update(update_client::Result),
     Upgrade(upgrade_client::Result),
+    Misbehaviour(misbehavior::Result),
 }
 
 /// General entry point for processing any message related to ICS2 (client functions) protocols.
@@ -25,6 +27,7 @@ where
         ClientMsg::CreateClient(msg) => create_client::process(ctx, msg),
         ClientMsg::UpdateClient(msg) => update_client::process(ctx, msg),
         ClientMsg::UpgradeClient(msg) => upgrade_client::process(ctx, msg),
+        ClientMsg::Misbehaviour(msg) => misbehavior::process(ctx, msg),
         _ => unimplemented!(),
     }
 }

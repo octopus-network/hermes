@@ -45,7 +45,7 @@ use substrate_subxt::{ClientBuilder, PairSigner, Client, EventSubscription, syst
 use calls::{ibc::DeliverCallExt, NodeRuntime};
 use sp_keyring::AccountKeyring;
 use calls::ibc::{
-    CreateClientEvent, OpenInitConnectionEvent, UpdateClientEvent,
+    CreateClientEvent, OpenInitConnectionEvent, UpdateClientEvent, ClientMisbehaviourEvent,
     OpenTryConnectionEvent, OpenAckConnectionEvent, OpenConfirmConnectionEvent,
     OpenInitChannelEvent, OpenTryChannelEvent, OpenAckChannelEvent,
     OpenConfirmChannelEvent,
@@ -61,6 +61,7 @@ use tendermint_proto::Protobuf;
 use std::thread::sleep;
 use std::time::Duration;
 use std::sync::mpsc::channel;
+use ibc::ics02_client::client_type::ClientType;
 
 #[derive(Debug)]
 pub struct SubstrateChain {
@@ -139,6 +140,25 @@ impl SubstrateChain {
                         },
                         header: None,
                     }));
+                    // break;
+                },
+                "ClientMisbehaviour" => {
+                    let event = ClientMisbehaviourEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [subscribe_events] >> Client Misbehaviour Event");
+
+                    let height = event.height;
+                    let client_id = event.client_id;
+                    let client_type = event.client_type;
+                    let consensus_height = event.consensus_height;
+                    use ibc::ics02_client::events::Attributes;
+                    events.push(IbcEvent::ClientMisbehaviour(ibc::ics02_client::events::ClientMisbehaviour(
+                        Attributes {
+                            height: height.to_ibc_height(),
+                            client_id: client_id.to_ibc_client_id(),
+                            client_type: client_type.to_ibc_client_type(),
+                            consensus_height: consensus_height.to_ibc_height(),
+                        }
+                    )));
                     // break;
                 },
                 "OpenInitConnection" => {
@@ -313,10 +333,10 @@ impl SubstrateChain {
                     let event = ExtrinsicSuccessEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> SystemEvent: {:?}", event);
                     if counter_system_event < COUNTER_SYSTEM_EVENT {
-                        tracing::info!("In substrate: [subscribe_events] >> counter_system_event: {}", counter_system_event);
+                        tracing::info!("In substrate: [subscribe_events] >> counter_system_event: {:?}", counter_system_event);
                         counter_system_event += 1;
                     } else {
-                        tracing::info!("In substrate: [subscribe_events] >> counter_system_event: {}", counter_system_event);
+                        tracing::info!("In substrate: [subscribe_events] >> counter_system_event: {:?}", counter_system_event);
                         break;
                     }
                 }
@@ -346,7 +366,7 @@ impl SubstrateChain {
                 0
             },
         };
-        tracing::info!("In Substrate: [get_latest_height] >> height: {}", height);
+        tracing::info!("In Substrate: [get_latest_height] >> height: {:?}", height);
         Ok(height)
     }
 
@@ -575,7 +595,7 @@ impl Chain for SubstrateChain {
     ) -> Result<(EventReceiver, TxMonitorCmd), Error> {
         tracing::info!("in Substrate: [init_event_mointor]");
 
-        tracing::info!("In Substrate: [init_event_mointor] >> websocket addr: {}", self.config.websocket_addr.clone());
+        tracing::info!("In Substrate: [init_event_mointor] >> websocket addr: {:?}", self.config.websocket_addr.clone());
 
         let (mut event_monitor, event_receiver, monitor_tx) = EventMonitor::new(
             self.config.id.clone(),
@@ -662,7 +682,7 @@ impl Chain for SubstrateChain {
 
     fn get_signer(&mut self) -> Result<Signer, Error> {
         tracing::info!("in Substrate: [get_signer]");
-        tracing::info!("In Substraet: [get signer] >> key_name: {}", self.config.key_name.clone());
+        tracing::info!("In Substraet: [get signer] >> key_name: {:?}", self.config.key_name.clone());
 
         fn get_dummy_account_id_raw() -> String {
             "0CDA3F47EF3C4906693B170EF650EB968C5F4B2C".to_string()
@@ -674,7 +694,7 @@ impl Chain for SubstrateChain {
 
         let signer = Signer::new(get_dummy_account_id().to_string());
 
-        tracing::info!("in Substrate: [get_signer] >>  signer {}", signer);
+        tracing::info!("in Substrate: [get_signer] >>  signer {:?}", signer);
 
         Ok(signer)
     }
@@ -853,7 +873,7 @@ impl Chain for SubstrateChain {
             let client_connections = self.get_client_connections(client_id, client)
                 .await.unwrap();
 
-            tracing::info!("In substrate: [query_client_connections] >> client_connections: {:?}",
+            tracing::info!("In substrate: [query_client_connections] >> client_connections: {:#?}",
                 client_connections
             );
 
@@ -1011,6 +1031,7 @@ impl Chain for SubstrateChain {
         match request {
             QueryTxRequest::Packet(request) => {
                 crate::time!("in Substrate: [query_txs]: query packet events");
+                tracing::info!("in Substrate: [query_txs]: query packet events request: {:?}", request);
 
                 let mut result: Vec<IbcEvent> = vec![];
 
@@ -1049,7 +1070,10 @@ impl Chain for SubstrateChain {
             }
 
             QueryTxRequest::Client(request) => {
+
                 crate::time!("in Substrate: [query_txs]: single client update event");
+                tracing::info!("in Substrate: [query_txs]: single client update event: request:{:?}", request);
+
 
                 // query the first Tx that includes the event matching the client request
                 // Note: it is possible to have multiple Tx-es for same client and consensus height.
@@ -1079,7 +1103,20 @@ impl Chain for SubstrateChain {
                 //
                 // let tx = response.txs.remove(0);
                 // let event = update_client_from_tx_search_response(self.id(), &request, tx);
+                use ibc::ics02_client::events::Attributes;
+                use ibc::ics02_client::header::AnyHeader;
+
                 let mut result: Vec<IbcEvent> = vec![];
+
+                result.push(IbcEvent::UpdateClient(ibc::ics02_client::events::UpdateClient{
+                    common: Attributes {
+                        height: request.height,
+                        client_id: request.client_id,
+                        client_type: ClientType::Grandpa,
+                        consensus_height: request.consensus_height,
+                    },
+                    header: Some(AnyHeader::Grandpa(ibc::ics10_grandpa::header::Header::new(request.height.revision_height))),
+                }));
 
                 Ok(result)
                 // Ok(event.into_iter().collect())
@@ -1087,6 +1124,7 @@ impl Chain for SubstrateChain {
 
             QueryTxRequest::Transaction(tx) => {
                 crate::time!("in Substrate: [query_txs]: Transaction");
+                tracing::info!("in Substrate: [query_txs]: Transaction: {:?}", tx);
 
                 // let mut response = self
                 //     .block_on(self.rpc_client.tx_search(
@@ -1125,7 +1163,7 @@ impl Chain for SubstrateChain {
             let client_state = self
                 .get_client_state(client_id, client).await.unwrap();
             tracing::info!("In Substrate: [proven_client_state] \
-                >> client_state : {:?}", client_state);
+                >> client_state : {:#?}", client_state);
 
             client_state
         };
@@ -1288,7 +1326,7 @@ impl Chain for SubstrateChain {
         light_client: &mut dyn LightClient<Self>,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         tracing::info!("in Substrate: [build_header]");
-        tracing::info!("in Substrate: [build_header] >> Trusted_height: {}, Target_height: {}, client_state: {:?}",
+        tracing::info!("in Substrate: [build_header] >> Trusted_height: {:?}, Target_height: {:?}, client_state: {:?}",
             trusted_height, target_height, client_state);
         tracing::info!("in Substrate: [build_header] >> GPHEADER: {:?}", GPHeader::new(target_height.revision_height));
 

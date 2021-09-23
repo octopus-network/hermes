@@ -280,7 +280,14 @@ impl fmt::Display for UpdateClient {
 /// ClientMisbehaviour event signals the update of an on-chain client (IBC Client) with evidence of
 /// misbehaviour.
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ClientMisbehaviour(Attributes);
+pub struct ClientMisbehaviour(pub Attributes);
+
+impl  From<Attributes> for ClientMisbehaviour {
+    fn from(val : Attributes) -> Self {
+        Self(val)
+    }
+
+}
 
 impl ClientMisbehaviour {
     pub fn client_id(&self) -> &ClientId {

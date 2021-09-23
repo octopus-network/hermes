@@ -2,7 +2,7 @@ use core::convert::TryFrom;
 use prost_types::Any;
 
 use crate::application::ics20_fungible_token_transfer::msgs::{transfer, transfer::MsgTransfer};
-use crate::ics02_client::msgs::{create_client, update_client, upgrade_client, ClientMsg};
+use crate::ics02_client::msgs::{create_client, update_client, upgrade_client, ClientMsg, misbehavior};
 use crate::ics03_connection::msgs::{
     conn_open_ack, conn_open_confirm, conn_open_init, conn_open_try, ConnectionMsg,
 };
@@ -44,6 +44,12 @@ impl TryFrom<Any> for Ics26Envelope {
                 let domain_msg = upgrade_client::MsgUpgradeAnyClient::decode_vec(&any_msg.value)
                     .map_err(Error::malformed_message_bytes)?;
                 Ok(Ics26Envelope::Ics2Msg(ClientMsg::UpgradeClient(domain_msg)))
+            }
+            // Add Misbehaviour
+            misbehavior::TYPE_URL => {
+                let domain_msg = misbehavior::MsgSubmitAnyMisbehaviour::decode_vec(&any_msg.value)
+                    .map_err(Error::malformed_message_bytes)?;
+                Ok(Ics26Envelope::Ics2Msg(ClientMsg::Misbehaviour(domain_msg)))
             }
 
             // ICS03

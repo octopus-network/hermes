@@ -454,7 +454,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
             .chain
             .build_client_state(height)
             .map(|cs| cs.wrap_any());
-        tracing::info!("In runtime: [build client state] >> client_state: [{:?}]", client_state);
+        tracing::info!("In runtime: [build client state] >> client_state: [{:#?}]", client_state);
 
         reply_to.send(client_state).map_err(Error::send)?;
 
@@ -476,7 +476,7 @@ impl<C: Chain + Send + 'static> ChainRuntime<C> {
             .chain
             .build_consensus_state(verified.target)
             .map(|cs| cs.wrap_any());
-        tracing::info!("In runtime: [build_conesnsus_state] >> consensus_state: [{:?}]", consensus_state);
+        tracing::info!("In runtime: [build_conesnsus_state] >> consensus_state: [{:#?}]", consensus_state);
 
         reply_to.send(consensus_state).map_err(Error::send)?;
 
