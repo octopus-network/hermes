@@ -46,6 +46,16 @@ impl ClientState {
     pub fn latest_height(&self) -> Height {
         self.latest_height
     }
+
+    pub fn with_header(self, h: Header) -> Self {
+        // TODO: Clarify which fields should update.
+        ClientState {
+            latest_height: self
+                .latest_height
+                .with_revision_height(u64::from(h.height)),
+            ..self
+        }
+    }
 }
 
 impl Protobuf<RawClientState> for ClientState {}
