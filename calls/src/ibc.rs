@@ -2,7 +2,7 @@
 use codec::Decode;
 use codec::Encode;
 use core::marker::PhantomData;
-use pallet_ibc::event::primitive::{ClientId, ClientType, ConnectionId, Height, PortId, ChannelId};
+use pallet_ibc::event::primitive::{ClientId, ClientType, ConnectionId, Height, PortId, ChannelId, Packet};
 use sp_core::H256;
 use substrate_subxt::{balances::Balances, module, system::System, Call, Store};
 use substrate_subxt_proc_macro::Event;
@@ -196,6 +196,14 @@ pub struct OpenConfirmChannelEvent<T: Ibc> {
     pub connection_id: ConnectionId,
     pub counterparty_port_id: PortId,
     pub counterparty_channel_id: Option<ChannelId>
+}
+
+// SendPacket Event
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct SendPacketEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub packet: Packet,
 }
 
 

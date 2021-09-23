@@ -20,7 +20,7 @@ pub const ZERO_DURATION: Duration = Duration::from_secs(0);
 /// of timestamp.
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Deserialize, Serialize, Hash)]
 pub struct Timestamp {
-    time: Option<DateTime<Utc>>,
+    pub time: Option<DateTime<Utc>>,
 }
 
 /// The expiry result when comparing two timestamps.

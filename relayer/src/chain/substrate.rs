@@ -48,7 +48,7 @@ use calls::ibc::{
     CreateClientEvent, OpenInitConnectionEvent, UpdateClientEvent, ClientMisbehaviourEvent,
     OpenTryConnectionEvent, OpenAckConnectionEvent, OpenConfirmConnectionEvent,
     OpenInitChannelEvent, OpenTryChannelEvent, OpenAckChannelEvent,
-    OpenConfirmChannelEvent,
+    OpenConfirmChannelEvent, SendPacketEvent,
 };
 use calls::ibc::ClientStatesStoreExt;
 use calls::ibc::ConnectionsStoreExt;
@@ -326,6 +326,19 @@ impl SubstrateChain {
                         counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
                         counterparty_channel_id: counterparty_channel_id,
                     })));
+                    sleep(Duration::from_secs(10));
+                    break;
+                }
+                "SendPacket" => {
+                    let event = SendPacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    tracing::info!("In substrate: [substrate_events] >> SendPacket Event");
+
+                    let height = event.height;
+                    let packet = event.packet;
+                    events.push(IbcEvent::SendPacket(ibc::ics04_channel::events::SendPacket{
+                        height: height.to_ibc_height(),
+                        packet: packet.to_ibc_packet(),
+                    }));
                     sleep(Duration::from_secs(10));
                     break;
                 }

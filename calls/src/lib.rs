@@ -46,6 +46,8 @@ impl Runtime for NodeRuntime {
             .register_type_size::<pallet_ibc::event::primitive::PortId>("PortId");
         event_type_registry
             .register_type_size::<pallet_ibc::event::primitive::ChannelId>("ChannelId");
+        event_type_registry
+            .register_type_size::<pallet_ibc::event::primitive::Packet>("Packet");
         register_default_type_sizes(event_type_registry);
     }
 }
