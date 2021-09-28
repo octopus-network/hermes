@@ -241,6 +241,7 @@ impl SubstrateChain {
                     sleep(Duration::from_secs(10));
                     break;
                 }
+
                 "OpenInitChannel" => {
                     let event = OpenInitChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> OpenInitChannel Event");
@@ -386,6 +387,7 @@ impl SubstrateChain {
     /// get connectionEnd according by connection_identifier and read Connections StorageMaps
     async fn get_connectionend(&self, connection_identifier: &ConnectionId, client: Client<NodeRuntime>)
         -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
+
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
@@ -450,14 +452,20 @@ impl SubstrateChain {
 
         let data = client
             .consensus_states(
-                (
-                    client_id.as_bytes().to_vec(),
-                    height.encode_vec().unwrap()
-                ),
+                client_id.as_bytes().to_vec(),
                 Some(block_hash),
             )
             .await?;
-        let consensus_state = AnyConsensusState::decode_vec(&*data).unwrap();
+
+        // get the height consensus_state
+        let mut consensus_state = vec![];
+        for item in data.iter() {
+            if item.0 == height.encode_vec().unwrap() {
+                consensus_state = item.1.clone();
+            }
+        }
+
+        let consensus_state = AnyConsensusState::decode_vec(&*consensus_state).unwrap();
         let consensus_state = match consensus_state {
             AnyConsensusState::Grandpa(consensus_state) => consensus_state,
             _ => panic!("wrong consensus_state type"),
@@ -466,16 +474,21 @@ impl SubstrateChain {
         Ok(consensus_state)
     }
 
-    /// get key-value vector of (height, grandpa_consensus_state) according by client_identifier
+
     async fn get_consensus_state_with_height(&self, client_id: &ClientId, client: Client<NodeRuntime>)
         -> Result<Vec<(Height, GPConsensusState)>, Box<dyn std::error::Error>> {
-        use jsonrpsee_types::to_json_value;
-        use substrate_subxt::RpcClient;
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
 
-        let client_id = client_id.as_bytes().to_vec();
-        let param = &[to_json_value(client_id)?];
-        let rpc_client = client.rpc_client();
-        let ret: Vec<(Vec<u8>, Vec<u8>)> = rpc_client.request("get_consensus_state_with_height", param).await?;
+        let block_hash = block_header.hash();
+        tracing::info!("In substrate: [get_client_consensus] >> block_hash: {:?}", block_hash);
+
+        // vector<height, consensus_state>
+        let ret : Vec<(Vec<u8>, Vec<u8>)> = client
+            .consensus_states(
+                client_id.as_bytes().to_vec(),
+                Some(block_hash),
+            ).await?;
 
         let mut result = vec![];
         for (height, consensus_state) in ret.iter() {
@@ -490,6 +503,7 @@ impl SubstrateChain {
 
         Ok(result)
     }
+
 
     /// get key-value pair (client_identifier, client_state) construct IdentifieredAnyClientstate
     async fn get_clients(&self, client: Client<NodeRuntime>)
@@ -706,7 +720,6 @@ impl Chain for SubstrateChain {
         }
 
         let signer = Signer::new(get_dummy_account_id().to_string());
-
         tracing::info!("in Substrate: [get_signer] >>  signer {:?}", signer);
 
         Ok(signer)
@@ -735,6 +748,7 @@ impl Chain for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
             let height = self.get_latest_height(client).await.unwrap();
+
             tracing::info!("In Substrate: [query_latest_height] >> height: {:?}", height);
 
             height
@@ -836,7 +850,6 @@ impl Chain for SubstrateChain {
         query_height: ICSHeight,
     ) -> Result<AnyConsensusState, Error> {
         tracing::info!("in Substrate: [query_consensus_state]");
-
         let consensus_state = self
             .proven_client_consensus(&client_id, consensus_height, query_height)?
             .0;
@@ -1182,6 +1195,7 @@ impl Chain for SubstrateChain {
         };
 
         let client_state =  self.block_on(client_state);
+
 
         Ok((client_state, get_dummy_merkle_proof()))
     }

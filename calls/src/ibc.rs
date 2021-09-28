@@ -21,8 +21,8 @@ pub struct ClientStatesStore<T: Ibc> {
 
 #[derive(Encode, Store)]
 pub struct ConsensusStatesStore<T: Ibc> {
-    #[store(returns = Vec<u8>)]
-    pub key: (Vec<u8>, Vec<u8>),
+    #[store(returns = Vec<(Vec<u8>, Vec<u8>)>)]
+    pub key: Vec<u8>,
     pub _runtime: PhantomData<T>,
 }
 
@@ -94,6 +94,7 @@ pub struct UpdateClientEvent<T: Ibc> {
     pub client_type: ClientType,
     pub consensus_height: Height,
 }
+
 
 /// ClientMisbehaviour Event
 #[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
