@@ -26,6 +26,26 @@ pub struct ConsensusStatesStore<T: Ibc> {
     pub _runtime: PhantomData<T>,
 }
 
+#[derive(Encode, Store)]
+pub struct ConnectionClientStore<T: Ibc> {
+    #[store(returns = Vec<u8>)]
+    pub key: Vec<u8>,
+    pub _runtime: PhantomData<T>,
+}
+
+#[derive(Encode, Store)]
+pub struct ChannelsConnectionStore<T: Ibc> {
+    #[store(returns = Vec<(Vec<u8>, Vec<u8>)>)]
+    pub key: Vec<u8>,
+    pub _runtime: PhantomData<T>,
+}
+
+#[derive(Encode, Store)]
+pub struct ChannelsStore<T: Ibc> {
+    #[store(returns = Vec<u8>)]
+    pub key: (Vec<u8>, Vec<u8>),
+    pub _runtime: PhantomData<T>,
+}
 
 // #[derive(Encode, Store)]
 // pub struct ClientStatesStore<T: Ibc> {
@@ -48,12 +68,7 @@ pub struct ConnectionsStore<T: Ibc> {
     pub _runtime: PhantomData<T>,
 }
 
-#[derive(Encode, Store)]
-pub struct ChannelsStore<T: Ibc> {
-    #[store(returns = Vec<u8>)]
-    pub key: (Vec<u8>, Vec<u8>),
-    pub _runtime: PhantomData<T>,
-}
+
 
 #[derive(Encode, Store)]
 pub struct PacketsStore<T: Ibc> {

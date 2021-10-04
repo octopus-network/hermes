@@ -54,6 +54,8 @@ use calls::ibc::ClientStatesStoreExt;
 use calls::ibc::ConnectionsStoreExt;
 use calls::ibc::ConsensusStatesStoreExt;
 use calls::ibc::ChannelsStoreExt;
+use calls::ibc::ConnectionClientStoreExt;
+use calls::ibc::ChannelsConnectionStoreExt;
 use codec::{Decode, Encode};
 use substrate_subxt::sp_runtime::traits::BlakeTwo256;
 use substrate_subxt::sp_runtime::generic::Header;
@@ -89,7 +91,7 @@ impl SubstrateChain {
         const COUNTER_SYSTEM_EVENT: i32 = 5;
         tracing::info!("In substrate: [subscribe_events]");
 
-        let sub = client.subscribe_events().await?;
+        let sub = client.subscribe_finalized_events().await?;
         let decoder = client.events_decoder();
         let mut sub = EventSubscription::<NodeRuntime>::new(sub, decoder);
 
@@ -509,6 +511,11 @@ impl SubstrateChain {
     async fn get_clients(&self, client: Client<NodeRuntime>)
         -> Result<Vec<IdentifiedAnyClientState>, Box<dyn std::error::Error>> {
 
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
+
+        let block_hash = block_header.hash();
+
         let rpc_client = client.rpc_client();
 
         let ret: Vec<(Vec<u8>, Vec<u8>)> = rpc_client.request("get_identified_any_client_state", &[]).await?;
@@ -531,23 +538,26 @@ impl SubstrateChain {
     async fn get_client_connections(&self, client_id: ClientId, client: Client<NodeRuntime>)
         -> Result<Vec<ConnectionId>, Box<dyn std::error::Error>> {
 
-        use jsonrpsee_types::to_json_value;
-        use substrate_subxt::RpcClient;
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
 
-        let client_id = client_id.as_bytes().to_vec();
-        let param = &[to_json_value(client_id)?];
+        let block_hash = block_header.hash();
+        tracing::info!("In substrate: [get_client_connections] >> block_hash: {:?}", block_hash);
 
-        let rpc_client = client.rpc_client();
 
-        let ret: Vec<Vec<u8>> = rpc_client.request("get_client_connections",param).await?;
+        // client_id <-> connection_id
+        let connection_id : Vec<u8> = client
+            .connection_client(
+                client_id.as_bytes().to_vec(),
+                Some(block_hash),
+            ).await?;
 
         let mut result = vec![];
 
-        for connection_id in ret.iter() {
-            let connection_id_str = String::from_utf8(connection_id.clone()).unwrap();
-            let connection_id = ConnectionId::from_str(connection_id_str.as_str()).unwrap();
-            result.push(connection_id);
-        }
+        let connection_id_str = String::from_utf8(connection_id.clone()).unwrap();
+        let connection_id = ConnectionId::from_str(connection_id_str.as_str()).unwrap();
+
+        result.push(connection_id);
 
         Ok(result)
     }
@@ -556,19 +566,23 @@ impl SubstrateChain {
     async fn get_connection_channels(&self, connection_id: ConnectionId, client: Client<NodeRuntime>)
         -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
 
-        use jsonrpsee_types::to_json_value;
-        use substrate_subxt::RpcClient;
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
 
-        let connection_id = connection_id.as_bytes().to_vec();
-        let param = &[to_json_value(connection_id)?];
+        let block_hash = block_header.hash();
+        tracing::info!("In substrate: [get_client_connections] >> block_hash: {:?}", block_hash);
 
-        let rpc_client = client.rpc_client();
 
-        let ret: Vec<(Vec<u8>, Vec<u8>,Vec<u8>)> = rpc_client.request("get_connection_channels", param).await?;
+        // connection_id <-> Ve<(port_id, channel_id)>
+        let channel_id_and_port_id : Vec<(Vec<u8>, Vec<u8>)> = client
+            .channels_connection(
+                connection_id.as_bytes().to_vec(),
+                Some(block_hash),
+            ).await?;
 
         let mut result = vec![];
 
-        for (port_id, channel_id, channel_end) in ret.iter() {
+        for (port_id, channel_id) in channel_id_and_port_id.iter() {
             // get port_id
             let port_id = String::from_utf8(port_id.clone()).unwrap();
             let port_id = PortId::from_str(port_id.as_str()).unwrap();
@@ -578,7 +592,8 @@ impl SubstrateChain {
             let channel_id = ChannelId::from_str(channel_id.as_str()).unwrap();
 
             // get channel_end
-            let channel_end = ChannelEnd::decode_vec(&*channel_end).unwrap();
+            let channel_end = self.
+                get_channelend(&port_id,&channel_id, client.clone()).await?;
 
             result.push(IdentifiedChannelEnd::new(port_id, channel_id, channel_end));
         }
