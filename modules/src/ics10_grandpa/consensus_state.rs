@@ -1,5 +1,6 @@
-use std::convert::Infallible;
-use std::convert::{TryFrom, TryInto};
+use core::convert::Infallible;
+use core::convert::{TryFrom, TryInto};
+use alloc::vec::Vec;
 
 use serde::Serialize;
 
@@ -82,8 +83,12 @@ impl From<ConsensusState> for RawConsensusState {
 
 impl From<Header> for ConsensusState {
     fn from(header: Header) -> Self {
+        let mut temp_vec = Vec::new();
+        for val in 0..4 {
+            temp_vec.push(val);
+        }
         Self {
-            root: CommitmentRoot::from(vec![1, 2, 3, 4])
+            root: CommitmentRoot::from(temp_vec)
         }
     }
 }

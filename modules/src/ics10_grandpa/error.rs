@@ -1,7 +1,10 @@
+use alloc::string::String;
+
 use crate::ics24_host::error::ValidationError;
 use flex_error::{define_error, DisplayOnly, TraceError};
 
 define_error! {
+     #[derive(Debug, PartialEq, Eq)]
     Error{
         Dummy
             |_| { format_args!("dummy error") },

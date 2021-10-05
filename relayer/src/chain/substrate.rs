@@ -1,9 +1,10 @@
-use super::Chain;
+use super::{ChainEndpoint, HealthCheck};
 use crate::config::ChainConfig;
 use crate::error::Error;
 use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing, Store};
 use crate::light_client::LightClient;
+use crate::light_client::grandpa::LightClient as GpLightClient;
 use ibc::events::IbcEvent;
 use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
@@ -64,6 +65,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use std::sync::mpsc::channel;
 use ibc::ics02_client::client_type::ClientType;
+use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 
 #[derive(Debug)]
 pub struct SubstrateChain {
@@ -603,11 +605,12 @@ impl SubstrateChain {
 
 }
 
-impl Chain for SubstrateChain {
+impl ChainEndpoint for SubstrateChain {
     type LightBlock = ();
     type Header = GPHeader;
     type ConsensusState = GPConsensusState;
     type ClientState = GPClientState;
+    type LightClient = GpLightClient;
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
         tracing::info!("in Substrate: [bootstrap function]");
@@ -623,12 +626,12 @@ impl Chain for SubstrateChain {
         Ok(chain)
     }
 
-    fn init_light_client(&self) -> Result<Box<dyn LightClient<Self>>, Error> {
+    fn init_light_client(&self) -> Result<Self::LightClient, Error> {
         tracing::info!("In Substrate: [init_light_client]");
 
         let light_client = PGLightClient::new();
 
-        Ok(Box::new(light_client))
+        Ok(light_client)
     }
 
     fn init_event_monitor(
@@ -659,6 +662,10 @@ impl Chain for SubstrateChain {
         Ok(())
     }
 
+    fn health_check(&self) -> Result<HealthCheck, Error> {
+        todo!()
+    }
+
     fn id(&self) -> &ChainId {
         tracing::info!("in Substrate: [id]");
 
@@ -677,7 +684,7 @@ impl Chain for SubstrateChain {
         todo!()
     }
 
-    fn send_msgs(&mut self, proto_msgs: Vec<Any>) -> Result<Vec<IbcEvent>, Error> {
+    fn send_messages_and_wait_commit(&mut self, proto_msgs: Vec<Any>) -> Result<Vec<IbcEvent>, Error> {
         tracing::info!("in Substrate: [send_msg]");
         use tokio::task;
         use std::time::Duration;
@@ -720,6 +727,16 @@ impl Chain for SubstrateChain {
 
 
         Ok(ret)
+    }
+
+
+    fn send_messages_and_wait_check_tx(
+        &mut self,
+        proto_msgs: Vec<Any>,
+    ) -> Result<Vec<TxResponse>, Error> {
+        tracing::info!("in Substrate: [send_message_and_wait_check_tx]");
+
+        todo!()
     }
 
     fn get_signer(&mut self) -> Result<Signer, Error> {
@@ -1267,6 +1284,8 @@ impl Chain for SubstrateChain {
         height: ICSHeight,
     ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
         tracing::info!("in Substrate: [proven_client_consensus]");
+        tracing::info!("in Substrate: [prove_client_consensus]: \
+            client_id: {:?}, consensus_height: {:?}", client_id, consensus_height);
 
         let consensus_state = async {
             let client = ClientBuilder::<NodeRuntime>::new()
@@ -1365,7 +1384,7 @@ impl Chain for SubstrateChain {
         trusted_height: ICSHeight,
         target_height: ICSHeight,
         client_state: &AnyClientState,
-        light_client: &mut dyn LightClient<Self>,
+        light_client: &mut Self::LightClient,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         tracing::info!("in Substrate: [build_header]");
         tracing::info!("in Substrate: [build_header] >> Trusted_height: {:?}, Target_height: {:?}, client_state: {:?}",

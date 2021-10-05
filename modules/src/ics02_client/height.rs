@@ -1,8 +1,8 @@
-use std::cmp::Ordering;
-use std::convert::TryFrom;
-use std::num::ParseIntError;
-use std::str::FromStr;
-use std::fmt;
+use crate::prelude::*;
+use core::cmp::Ordering;
+use core::convert::TryFrom;
+use core::num::ParseIntError;
+use core::str::FromStr;
 
 use flex_error::{define_error, TraceError};
 use serde_derive::{Deserialize, Serialize};
@@ -123,8 +123,8 @@ impl From<Height> for RawHeight {
 }
 
 
-impl fmt::Debug for Height {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl core::fmt::Debug for Height {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         f.debug_struct("Height")
             .field("revision", &self.revision_number)
             .field("height", &self.revision_height)
@@ -133,8 +133,8 @@ impl fmt::Debug for Height {
 }
 
 /// Custom debug output to omit the packet data
-impl fmt::Display for Height {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl core::fmt::Display for Height {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(f, "{}-{}", self.revision_number, self.revision_height)
     }
 }

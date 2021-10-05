@@ -282,7 +282,7 @@ impl Object {
     /// Build the object associated with the given [`UpdateClient`] event.
     pub fn for_update_client(
         e: &UpdateClient,
-        dst_chain: &dyn ChainHandle,
+        dst_chain: &impl ChainHandle,
     ) -> Result<Self, ObjectError> {
         let client_state = dst_chain
             .query_client_state(e.client_id(), Height::zero())
@@ -307,8 +307,8 @@ impl Object {
 
     /// Build the client object associated with the given channel event attributes.
     pub fn client_from_chan_open_events(
-        e: &Attributes,          // The attributes of the emitted event
-        chain: &dyn ChainHandle, // The chain which emitted the event
+        e: &Attributes,           // The attributes of the emitted event
+        chain: &impl ChainHandle, // The chain which emitted the event
     ) -> Result<Self, ObjectError> {
         let channel_id = e
             .channel_id()
@@ -336,14 +336,14 @@ impl Object {
     /// Build the Connection object associated with the given [`Open`] connection event.
     pub fn connection_from_conn_open_events(
         e: &ConnectionAttributes,
-        src_chain: &dyn ChainHandle,
+        src_chain: &impl ChainHandle,
     ) -> Result<Self, ObjectError> {
         let connection_id = e
             .connection_id
             .as_ref()
             .ok_or_else(|| ObjectError::missing_connection_id(e.clone()))?;
 
-        let dst_chain_id = counterparty_chain_from_connection(src_chain, &connection_id)
+        let dst_chain_id = counterparty_chain_from_connection(src_chain, connection_id)
             .map_err(ObjectError::supervisor)?;
 
         Ok(Connection {
@@ -357,14 +357,14 @@ impl Object {
     /// Build the Channel object associated with the given [`Open`] channel event.
     pub fn channel_from_chan_open_events(
         attributes: &Attributes,
-        src_chain: &dyn ChainHandle,
+        src_chain: &impl ChainHandle,
     ) -> Result<Self, ObjectError> {
         let channel_id = attributes
             .channel_id()
             .ok_or_else(|| ObjectError::missing_channel_id(attributes.clone()))?;
 
         let dst_chain_id =
-            counterparty_chain_from_channel(src_chain, channel_id, &attributes.port_id())
+            counterparty_chain_from_channel(src_chain, channel_id, attributes.port_id())
                 .map_err(ObjectError::supervisor)?;
 
         Ok(Channel {
@@ -379,14 +379,14 @@ impl Object {
     /// Build the Packet object associated with the given [`Open`] channel event.
     pub fn packet_from_chan_open_events(
         attributes: &Attributes,
-        src_chain: &dyn ChainHandle,
+        src_chain: &impl ChainHandle,
     ) -> Result<Self, ObjectError> {
         let channel_id = attributes
             .channel_id()
             .ok_or_else(|| ObjectError::missing_channel_id(attributes.clone()))?;
 
         let dst_chain_id =
-            counterparty_chain_from_channel(src_chain, channel_id, &attributes.port_id())
+            counterparty_chain_from_channel(src_chain, channel_id, attributes.port_id())
                 .map_err(ObjectError::supervisor)?;
 
         Ok(Packet {
@@ -401,7 +401,7 @@ impl Object {
     /// Build the object associated with the given [`SendPacket`] event.
     pub fn for_send_packet(
         e: &SendPacket,
-        src_chain: &dyn ChainHandle,
+        src_chain: &impl ChainHandle,
     ) -> Result<Self, ObjectError> {
         let dst_chain_id = counterparty_chain_from_channel(
             src_chain,
@@ -422,7 +422,7 @@ impl Object {
     /// Build the object associated with the given [`WriteAcknowledgement`] event.
     pub fn for_write_ack(
         e: &WriteAcknowledgement,
-        src_chain: &dyn ChainHandle,
+        src_chain: &impl ChainHandle,
     ) -> Result<Self, ObjectError> {
         let dst_chain_id = counterparty_chain_from_channel(
             src_chain,
@@ -443,7 +443,7 @@ impl Object {
     /// Build the object associated with the given [`TimeoutPacket`] event.
     pub fn for_timeout_packet(
         e: &TimeoutPacket,
-        src_chain: &dyn ChainHandle,
+        src_chain: &impl ChainHandle,
     ) -> Result<Self, ObjectError> {
         let dst_chain_id = counterparty_chain_from_channel(
             src_chain,
@@ -464,9 +464,9 @@ impl Object {
     /// Build the object associated with the given [`CloseInit`] event.
     pub fn for_close_init_channel(
         e: &CloseInit,
-        src_chain: &dyn ChainHandle,
+        src_chain: &impl ChainHandle,
     ) -> Result<Self, ObjectError> {
-        let dst_chain_id = counterparty_chain_from_channel(src_chain, e.channel_id(), &e.port_id())
+        let dst_chain_id = counterparty_chain_from_channel(src_chain, e.channel_id(), e.port_id())
             .map_err(ObjectError::supervisor)?;
 
         Ok(Packet {

@@ -1,6 +1,9 @@
-use std::convert::TryFrom;
-use std::ops::Deref;
-use std::fmt;
+use crate::prelude::*;
+use core::convert::TryFrom;
+use core::ops::Deref;
+use prost_types::Any;
+use serde_derive::{Deserialize, Serialize};
+use tendermint_proto::Protobuf;
 
 use crate::ics02_client::client_type::ClientType;
 use crate::ics02_client::error::Error;
@@ -9,17 +12,13 @@ use crate::ics10_grandpa::header::Header as GrandpaHeader;
 #[cfg(any(test, feature = "mocks"))]
 use crate::mock::header::MockHeader;
 use crate::Height;
-use prost_types::Any;
-use serde_derive::{Deserialize, Serialize};
-use tendermint_proto::Protobuf;
 
 pub const TENDERMINT_HEADER_TYPE_URL: &str = "/ibc.lightclients.tendermint.v1.Header";
 pub const GRANDPA_HEADER_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Header";
 pub const MOCK_HEADER_TYPE_URL: &str = "/ibc.mock.Header";
 
 /// Abstract of consensus state update information
-#[dyn_clonable::clonable]
-pub trait Header: Clone + fmt::Debug + Send + Sync {
+pub trait Header: Clone + core::fmt::Debug + Send + Sync {
     /// The type of client (eg. Tendermint)
     fn client_type(&self) -> ClientType;
 

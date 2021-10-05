@@ -36,20 +36,18 @@ pub fn process(
 
     // Read client type from the host chain store. The client should already exist.
     let client_type = ctx
-        .client_type(&client_id)
-        .ok_or_else(|| Error::client_not_found(client_id.clone()))?;
+        .client_type(&client_id)?;
 
     let client_def = AnyClient::from_client_type(client_type);
 
     // Read client state from the host chain store.
     let client_state = ctx
-        .client_state(&client_id)
-        .ok_or_else(|| Error::client_not_found(client_id.clone()))?;
+        .client_state(&client_id)?;
+
     tracing::info!("In misbehaviour : [process] >> client_state: {:?}", client_state);
 
     let latest_height = client_state.latest_height();
-    let consensus_state = ctx.consensus_state(&client_id, latest_height)
-        .ok_or_else(|| Error::consensus_state_not_found(client_id.clone(), latest_height))?;
+    let consensus_state = ctx.consensus_state(&client_id, latest_height)?;
 
     // // Use client_state to validate the new header against the latest consensus_state.
     // // This function will return the new client_state (its latest_height changed) and a

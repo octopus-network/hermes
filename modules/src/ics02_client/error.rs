@@ -1,4 +1,8 @@
-use std::num::TryFromIntError;
+use crate::prelude::*;
+
+use core::num::TryFromIntError;
+
+use flex_error::{define_error, TraceError};
 
 use crate::ics02_client::client_type::ClientType;
 use crate::ics07_tendermint::error::Error as Ics07Error;
@@ -7,11 +11,9 @@ use crate::ics23_commitment::error::Error as Ics23Error;
 use crate::ics24_host::error::ValidationError;
 use crate::ics24_host::identifier::ClientId;
 use crate::Height;
-use tendermint_proto::Error as TendermintError;
-
-use flex_error::{define_error, TraceError};
 
 define_error! {
+    #[derive(Debug, PartialEq, Eq)]
     Error {
         UnknownClientType
             { client_type: String }
@@ -50,6 +52,15 @@ define_error! {
         HeaderVerificationFailure
             { reason: String }
             | e | { format_args!("header verification failed with reason: {}", e.reason) },
+
+        InvalidTrustThreshold
+            { numerator: u64, denominator: u64 }
+            | e | { format_args!("failed to build trust threshold from fraction: {}/{}", e.numerator, e.denominator) },
+
+        FailedTrustThresholdConversion
+            { numerator: u64, denominator: u64 }
+            [ tendermint::Error ]
+            | e | { format_args!("failed to build Tendermint domain type trust threshold from fraction: {}/{}", e.numerator, e.denominator) },
 
         UnknownClientStateType
             { client_state_type: String }
@@ -95,14 +106,14 @@ define_error! {
             },
 
         DecodeRawClientState
-            [ TraceError<TendermintError> ]
+            [ TraceError<tendermint_proto::Error> ]
             | _ | { "error decoding raw client state" },
 
         MissingRawClientState
             | _ | { "missing raw client state" },
 
         InvalidRawConsensusState
-            [ TraceError<TendermintError> ]
+            [ TraceError<tendermint_proto::Error> ]
             | _ | { "invalid raw client consensus state" },
 
         MissingRawConsensusState
@@ -124,14 +135,14 @@ define_error! {
             | _ | { "invalid client identifier" },
 
         InvalidRawHeader
-            [ TraceError<TendermintError> ]
+            [ TraceError<tendermint_proto::Error> ]
             | _ | { "invalid raw header" },
 
         MissingRawHeader
             | _ | { "missing raw header" },
 
         DecodeRawMisbehaviour
-            [ TraceError<TendermintError> ]
+            [ TraceError<tendermint_proto::Error> ]
             | _ | { "invalid raw misbehaviour" },
 
         InvalidRawMisbehaviour
@@ -203,15 +214,5 @@ define_error! {
                 format_args!("upgraded client height {0} must be at greater than current client height {1}",
                     e.upgraded_height, e.client_height)
             },
-    }
-}
-
-impl Error {
-    pub fn upgrade_verification_failed(e: Error) -> Error {
-        e.add_trace(&"upgrade verification failed")
-    }
-
-    pub fn invalid_raw_client_state(e: Error) -> Error {
-        e.add_trace(&"invalid raw client state")
     }
 }

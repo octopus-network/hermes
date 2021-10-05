@@ -7,6 +7,10 @@ define_error! {
             [ TraceError<signature::Error> ]
             |_| { "invalid key: could not build signing key from private key bytes" },
 
+        InvalidKeyRaw
+            [ TraceError<bitcoin::secp256k1::Error> ]
+            |_| { "invalid key: could not build signing key from private key bytes" },
+
         KeyNotFound
             |_| { "key not found" },
 
@@ -91,8 +95,15 @@ define_error! {
         HomeLocationUnavailable
             |_| { "home location is unavailable" },
 
-        KeyStore
-            |_| { "key store error" },
+        RemoveIoFail
+            {
+                file_path: String,
+            }
+            [ TraceError<IoError> ]
+            |e| {
+                format!("I/O error while removing key file at location '{}'",
+                    e.file_path)
+            },
 
         InvalidHdPath
             {

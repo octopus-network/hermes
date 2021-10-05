@@ -1,17 +1,16 @@
-use std::convert::{TryFrom, TryInto};
-use std::str::FromStr;
-use std::time::Duration;
+use crate::prelude::*;
+use core::convert::{TryFrom, TryInto};
+use core::str::FromStr;
+use core::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tendermint::trust_threshold::{
-    TrustThresholdFraction as TrustThreshold, TrustThresholdFraction,
-};
 use tendermint_proto::Protobuf;
 
-use ibc_proto::ibc::lightclients::tendermint::v1::{ClientState as RawClientState, Fraction};
+use ibc_proto::ibc::lightclients::tendermint::v1::ClientState as RawClientState;
 
 use crate::ics02_client::client_state::AnyClientState;
 use crate::ics02_client::client_type::ClientType;
+use crate::ics02_client::trust_threshold::TrustThreshold;
 use crate::ics07_tendermint::error::Error;
 use crate::ics07_tendermint::header::Header;
 use crate::ics23_commitment::specs::ProofSpecs;
@@ -28,7 +27,7 @@ pub struct ClientState {
     pub max_clock_drift: Duration,
     pub frozen_height: Height,
     pub latest_height: Height,
-    // pub proof_specs: ::std::vec::Vec<super::super::super::super::ics23::ProofSpec>,
+    // pub proof_specs: ::core::vec::Vec<super::super::super::super::ics23::ProofSpec>,
     pub upgrade_path: Vec<String>,
     pub allow_update: AllowUpdate,
 }
@@ -111,11 +110,11 @@ impl ClientState {
         }
     }
 
-    /// Helper function to verify the upgrade client procedure.
+    /// Helper function for the upgrade chain & client procedures.
     /// Resets all fields except the blockchain-specific ones.
     pub fn zero_custom_fields(mut client_state: Self) -> Self {
         client_state.trusting_period = ZERO_DURATION;
-        client_state.trust_level = TrustThresholdFraction::default();
+        client_state.trust_level = TrustThreshold::ZERO;
         client_state.allow_update.after_expiry = false;
         client_state.allow_update.after_misbehaviour = false;
         client_state.frozen_height = Height::zero();
@@ -170,7 +169,8 @@ impl TryFrom<RawClientState> for ClientState {
         Ok(Self {
             chain_id: ChainId::from_str(raw.chain_id.as_str())
                 .map_err(Error::invalid_chain_identifier)?,
-            trust_level: TrustThreshold::new(trust_level.numerator, trust_level.denominator)
+            trust_level: trust_level
+                .try_into()
                 .map_err(|e| Error::invalid_trust_threshold(format!("{}", e)))?,
             trusting_period: raw
                 .trusting_period
@@ -208,18 +208,15 @@ impl From<ClientState> for RawClientState {
     fn from(value: ClientState) -> Self {
         RawClientState {
             chain_id: value.chain_id.to_string(),
-            trust_level: Some(Fraction {
-                numerator: value.trust_level.numerator(),
-                denominator: value.trust_level.denominator(),
-            }),
+            trust_level: Some(value.trust_level.into()),
             trusting_period: Some(value.trusting_period.into()),
             unbonding_period: Some(value.unbonding_period.into()),
             max_clock_drift: Some(value.max_clock_drift.into()),
             frozen_height: Some(value.frozen_height.into()),
             latest_height: Some(value.latest_height.into()),
             proof_specs: ProofSpecs::cosmos().into(),
-            allow_update_after_expiry: false,
-            allow_update_after_misbehaviour: false,
+            allow_update_after_expiry: value.allow_update.after_expiry,
+            allow_update_after_misbehaviour: value.allow_update.after_misbehaviour,
             upgrade_path: value.upgrade_path,
         }
     }
@@ -227,12 +224,14 @@ impl From<ClientState> for RawClientState {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use crate::prelude::*;
+    use core::time::Duration;
+    use std::println;
     use test_env_log::test;
 
-    use tendermint::trust_threshold::TrustThresholdFraction as TrustThreshold;
     use tendermint_rpc::endpoint::abci_query::AbciQuery;
 
+    use crate::ics02_client::trust_threshold::TrustThreshold;
     use crate::ics07_tendermint::client_state::{AllowUpdate, ClientState};
     use crate::ics24_host::identifier::ChainId;
     use crate::test::test_serialization_roundtrip;
@@ -363,7 +362,8 @@ mod tests {
 
 #[cfg(any(test, feature = "mocks"))]
 pub mod test_util {
-    use std::time::Duration;
+    use crate::prelude::*;
+    use core::time::Duration;
 
     use tendermint::block::Header;
 

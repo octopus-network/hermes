@@ -1,3 +1,8 @@
+// TODO: disable unwraps:
+// https://github.com/informalsystems/ibc-rs/issues/987
+// #![cfg_attr(not(test), deny(clippy::unwrap_used))]
+
+#![no_std]
 #![allow(clippy::large_enum_variant)]
 #![deny(
     // warnings,
@@ -28,6 +33,11 @@
 //! - ICS 26: Routing
 //! - Applications:
 //!    - ICS 20: Fungible Token Transfer
+
+extern crate alloc;
+extern crate std;
+
+mod prelude;
 
 pub mod application;
 pub mod events;

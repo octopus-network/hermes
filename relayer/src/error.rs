@@ -27,6 +27,7 @@ use ibc::{
     proofs::ProofError,
 };
 
+use crate::chain::cosmos::GENESIS_MAX_BYTES_MAX_FRACTION;
 use crate::event::monitor;
 
 define_error! {
@@ -102,6 +103,10 @@ define_error! {
             [ TraceError<LightClientError> ]
             |e| { format!("Light client error for RPC address {0}", e.address) },
 
+        LightClientState
+            [ client_error::Error ]
+            |_| { "Light client encountered error due to client state".to_string() },
+
         LightClientIo
             { address: String }
             [ TraceError<LightClientIoError> ]
@@ -115,17 +120,24 @@ define_error! {
             |e| { format!("node at {} running chain {} not caught up", e.address, e.chain_id) },
 
         PrivateStore
-            |_| { "requested proof for a path in the private store" },
-
-        Store
-            [ TraceError<sled::Error> ]
-            |_| { "Store error" },
+            |_| { "Requested proof for a path in the private store" },
 
         Event
-            |_| { "Bad Notification" },
+            |_| { "Bad notification" },
+
+        ConversionFromAny
+            [ TraceError<TendermintProtoError> ]
+            |_| { "Conversion from a protobuf `Any` into a domain type failed" },
 
         EmptyUpgradedClientState
-            |_| { "The upgrade plan specifies no upgraded client state" },
+            |_| { "Found no upgraded client state" },
+
+        ConsensusStateTypeMismatch
+            {
+                expected: ClientType,
+                got: ClientType,
+            }
+            |e| { format!("consensus state type mismatch; hint: expected client type '{0}', got '{1}'", e.expected, e.got) },
 
         EmptyResponseValue
             |_| { "Empty response value" },
@@ -138,7 +150,7 @@ define_error! {
             |_| { "Malformed proof" },
 
         InvalidHeight
-            [ DisplayOnly<Box<dyn std::error::Error + Send + Sync>> ]
+            [ tendermint::Error ]
             |_| { "Invalid height" },
 
         InvalidMetadata
@@ -238,7 +250,7 @@ define_error! {
 
         Ics02
             [ client_error::Error ]
-            |_| { "ICS 02 error" },
+            |e| { format!("ICS 02 error: {}", e.source) },
 
         Ics03
             [ connection_error::Error ]
@@ -289,7 +301,7 @@ define_error! {
 
         InvalidKeyAddress
             { address: String }
-            [ DisplayOnly<Box<dyn std::error::Error + Send + Sync>> ]
+            [ tendermint::Error ]
             |e| { format!("invalid key address: {0}", e.address) },
 
         Bech32Encoding
@@ -334,11 +346,11 @@ define_error! {
             }
             [ DisplayOnly<tendermint_rpc::error::Error> ]
             |e| {
-                format!("Hermes health check failed for endpoint {0} on the Json RPC interface of chain {1}:{2}",
+                format!("health check failed for endpoint {0} on the JSON-RPC interface of chain {1}:{2}",
                     e.endpoint, e.chain_id, e.address)
             },
 
-        HealthCheckJsonGrpcTransport
+        HealthCheckGrpcTransport
             {
                 chain_id: ChainId,
                 address: String,
@@ -346,11 +358,11 @@ define_error! {
             }
             [ DisplayOnly<tonic::transport::Error> ]
             |e| {
-                format!("Hermes health check failed for endpoint {0} on the Json RPC interface of chain {1}:{2}",
+                format!("health check failed for endpoint {0} on the gRPC interface of chain {1}:{2}",
                     e.endpoint, e.chain_id, e.address)
             },
 
-        HealthCheckJsonGrpcStatus
+        HealthCheckGrpcStatus
             {
                 chain_id: ChainId,
                 address: String,
@@ -358,7 +370,7 @@ define_error! {
                 status: tonic::Status
             }
             |e| {
-                format!("Hermes health check failed for endpoint {0} on the Json RPC interface of chain {1}:{2}; caused by: {3}",
+                format!("health check failed for endpoint {0} on the gRPC interface of chain {1}:{2}; caused by: {3}",
                     e.endpoint, e.chain_id, e.address, e.status)
             },
 
@@ -369,8 +381,31 @@ define_error! {
                 endpoint: String,
             }
             |e| {
-                format!("Hermes health check failed for endpoint {0} on the Json RPC interface of chain {1}:{2}; the gRPC response contains no application version information",
+                format!("health check failed for endpoint {0} on the Json RPC interface of chain {1}:{2}; the gRPC response contains no application version information",
                     e.endpoint, e.chain_id, e.address)
+            },
+
+        ConfigValidationJsonRpc
+            {
+                chain_id: ChainId,
+                address: String,
+                endpoint: String,
+            }
+            [ DisplayOnly<tendermint_rpc::error::Error> ]
+            |e| {
+                format!("semantic config validation: failed to reach endpoint {0} on the JSON-RPC interface of chain {1}:{2}",
+                    e.endpoint, e.chain_id, e.address)
+            },
+
+        ConfigValidationTxSizeOutOfBounds
+            {
+                chain_id: ChainId,
+                configured_bound: usize,
+                genesis_bound: u64,
+            }
+            |e| {
+                format!("semantic config validation failed for option `max_tx_size` chain '{}', reason: `max_tx_size` = {} is greater than {}% of the genesis block param `max_size` = {}",
+                    e.chain_id, e.configured_bound, GENESIS_MAX_BYTES_MAX_FRACTION * 100.0, e.genesis_bound)
             },
 
         SdkModuleVersion
@@ -383,6 +418,18 @@ define_error! {
                 format!("Hermes health check failed while verifying the application compatibility for chain {0}:{1}; caused by: {2}",
                     e.chain_id, e.address, e.cause)
             },
+
+        UnknownAccountType
+            {
+                type_url: String
+            }
+            |e| {
+                format!("Failed to deserialize account of an unknown protobuf type: {0}",
+                    e.type_url)
+            },
+
+        EmptyBaseAccount
+            |_| { "Empty BaseAccount within EthAccount" },
 
     }
 }

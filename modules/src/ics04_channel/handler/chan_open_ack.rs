@@ -9,6 +9,7 @@ use crate::ics04_channel::events::Attributes;
 use crate::ics04_channel::handler::verify::verify_channel_proofs;
 use crate::ics04_channel::handler::{ChannelIdState, ChannelResult};
 use crate::ics04_channel::msgs::chan_open_ack::MsgChannelOpenAck;
+use crate::prelude::*;
 
 pub(crate) fn process(
     ctx: &dyn ChannelReader,
@@ -17,11 +18,8 @@ pub(crate) fn process(
     let mut output = HandlerOutput::builder();
 
     // Unwrap the old channel end and validate it against the message.
-    let mut channel_end = ctx
-        .channel_end(&(msg.port_id().clone(), msg.channel_id().clone()))
-        .ok_or_else(|| Error::channel_not_found(msg.port_id.clone(), msg.channel_id().clone()))?;
-    tracing::info!("in ics04_channel: [channel_open_ack] >> port_id: {:?}, channel_id: {:?}, channel_end: {:?}",
-        msg.port_id().clone(), msg.channel_id().clone(), channel_end.clone());
+
+    let mut channel_end = ctx.channel_end(&(msg.port_id().clone(), msg.channel_id().clone()))?;
 
     // Validate that the channel end is in a state where it can be ack.
     if !channel_end.state_matches(&State::Init) && !channel_end.state_matches(&State::TryOpen) {
@@ -44,10 +42,8 @@ pub(crate) fn process(
         ));
     }
 
-    let conn = ctx
-        .connection_end(&channel_end.connection_hops()[0])
-        .ok_or_else(|| Error::missing_connection(channel_end.connection_hops()[0].clone()))?;
-    tracing::info!("in ics04_channel: [channel_open_ack] >> connectionEnd: {:?}", conn.clone());
+
+    let conn = ctx.connection_end(&channel_end.connection_hops()[0])?;
 
     if !conn.state_matches(&ConnectionState::Open) {
         return Err(Error::connection_not_open(
@@ -115,8 +111,9 @@ pub(crate) fn process(
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-    use std::str::FromStr;
+    use crate::prelude::*;
+    use core::convert::TryFrom;
+    use core::str::FromStr;
     use test_env_log::test;
 
     use crate::events::IbcEvent;

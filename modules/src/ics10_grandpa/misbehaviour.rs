@@ -1,4 +1,4 @@
-use std::convert::{TryFrom, TryInto};
+use core::convert::{TryFrom, TryInto};
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Misbehaviour as RawMisbehaviour;
 

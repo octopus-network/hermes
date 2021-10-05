@@ -1,6 +1,7 @@
 //! Definition of domain type message `MsgCreateAnyClient`.
 
-use std::convert::TryFrom;
+use crate::prelude::*;
+use core::convert::TryFrom;
 
 use tendermint_proto::Protobuf;
 
@@ -12,7 +13,7 @@ use crate::ics02_client::error::Error;
 use crate::signer::Signer;
 use crate::tx_msg::Msg;
 
-pub(crate) const TYPE_URL: &str = "/ibc.core.client.v1.MsgCreateClient";
+pub const TYPE_URL: &str = "/ibc.core.client.v1.MsgCreateClient";
 
 /// A type of message that triggers the creation of a new on-chain (IBC) client.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -78,9 +79,8 @@ impl TryFrom<RawMsgCreateClient> for MsgCreateAnyClient {
             .ok_or_else(Error::missing_raw_client_state)?;
 
         MsgCreateAnyClient::new(
-            AnyClientState::try_from(raw_client_state).map_err(Error::invalid_raw_client_state)?,
-            AnyConsensusState::try_from(raw_consensus_state)
-                .map_err(Error::invalid_raw_client_state)?,
+            AnyClientState::try_from(raw_client_state)?,
+            AnyConsensusState::try_from(raw_consensus_state)?,
             raw.signer.into(),
         )
     }
@@ -98,7 +98,7 @@ impl From<MsgCreateAnyClient> for RawMsgCreateClient {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::{TryFrom, TryInto};
+    use core::convert::{TryFrom, TryInto};
     use test_env_log::test;
 
     use ibc_proto::ibc::core::client::v1::MsgCreateClient;
