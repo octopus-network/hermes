@@ -1,14 +1,12 @@
-use core::marker::{Send, Sync};
-use std::convert::TryFrom;
-use std::convert::Infallible;
-use std::fmt;
-
+use crate::prelude::*;
 use chrono::{DateTime, Utc};
+use core::convert::Infallible;
+use core::convert::TryFrom;
+use core::marker::{Send, Sync};
+use ibc_proto::ibc::core::client::v1::ConsensusStateWithHeight;
 use prost_types::Any;
 use serde::Serialize;
 use tendermint_proto::Protobuf;
-
-use ibc_proto::ibc::core::client::v1::ConsensusStateWithHeight;
 
 use crate::events::IbcEventType;
 use crate::ics02_client::client_type::ClientType;
@@ -29,7 +27,7 @@ pub const GRANDPA_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1
 
 pub const MOCK_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.mock.ConsensusState";
 
-pub trait ConsensusState: Clone + fmt::Debug + Send + Sync {
+pub trait ConsensusState: Clone + core::fmt::Debug + Send + Sync {
     type Error;
 
     /// Type of client associated with this consensus state (eg. Tendermint)
@@ -183,18 +181,22 @@ impl ConsensusState for AnyConsensusState {
 
     fn root(&self) -> &CommitmentRoot {
         match self {
-            AnyConsensusState::Tendermint(val) => {
-                val.root()
-            },
-            AnyConsensusState::Grandpa(val) => {
-               val.root()
-            },
-            _ => unreachable!()
+            Self::Tendermint(cs_state) => cs_state.root(),
+            Self::Grandpa(cs_state) => cs_state.root(),
+
+            #[cfg(any(test, feature = "mocks"))]
+            Self::Mock(mock_state) => mock_state.root(),
         }
     }
 
-    fn validate_basic(&self) -> Result<(), Self::Error> {
-        todo!()
+    fn validate_basic(&self) -> Result<(), Infallible> {
+        match self {
+            Self::Tendermint(cs_state) => cs_state.validate_basic(),
+            Self::Grandpa(cs_state) => cs_state.validate_basic(),
+
+            #[cfg(any(test, feature = "mocks"))]
+            Self::Mock(mock_state) => mock_state.validate_basic(),
+        }
     }
 
     fn wrap_any(self) -> AnyConsensusState {

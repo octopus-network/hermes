@@ -1,5 +1,6 @@
-use std::convert::{TryFrom, TryInto};
-use std::str::FromStr;
+use core::convert::{TryFrom, TryInto};
+use core::str::FromStr;
+use crate::alloc::string::ToString;
 
 // mock grandpa as tendermint
 use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawClientState;
@@ -31,16 +32,6 @@ impl ClientState {
             latest_height,
             frozen_height,
         })
-    }
-
-    pub fn with_header(self, h: Header) -> Self {
-        // TODO: Clarify which fields should update.
-        ClientState {
-            latest_height: self
-                .latest_height
-                .with_revision_height(h.height),
-            ..self
-        }
     }
 
     pub fn latest_height(&self) -> Height {

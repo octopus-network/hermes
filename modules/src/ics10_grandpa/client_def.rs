@@ -1,3 +1,6 @@
+use alloc::string::String;
+use alloc::vec::Vec;
+
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
 use crate::ics02_client::client_consensus::AnyConsensusState;

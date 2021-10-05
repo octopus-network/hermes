@@ -1,15 +1,16 @@
-use std::collections::HashMap;
+use alloc::collections::BTreeMap as HashMap;
 
 use flex_error::define_error;
-use tendermint_light_client::types::TrustThreshold;
 use tracing::{debug, trace};
 
 use ibc::ics02_client::client_state::{AnyClientState, ClientState};
+use ibc::ics02_client::trust_threshold::TrustThreshold;
 use ibc::ics03_connection::connection::ConnectionEnd;
 use ibc::ics04_channel::error::Error as ChannelError;
 use ibc::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
 use ibc::Height;
 
+use crate::chain::handle::ChainHandle;
 use crate::error::Error as RelayerError;
 use crate::object;
 use crate::registry::{Registry, SpawnError};
@@ -30,7 +31,7 @@ impl Permission {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum CacheKey {
     Client(ChainId, ClientId),
     Channel(ChainId, PortId, ChannelId),
@@ -73,9 +74,9 @@ impl FilterPolicy {
     ///
     /// May encounter errors caused by failed queries. Any such error
     /// is propagated and nothing is cached.
-    pub fn control_connection_end_and_client(
+    pub fn control_connection_end_and_client<Chain: ChainHandle>(
         &mut self,
-        registry: &mut Registry,
+        registry: &mut Registry<Chain>,
         chain_id: &ChainId, // Chain hosting the client & connection
         client_state: &AnyClientState,
         connection: &ConnectionEnd,
@@ -101,15 +102,14 @@ impl FilterPolicy {
             .map_err(FilterError::spawn)?;
         let counterparty_client_id = connection.counterparty().client_id();
         let counterparty_client_state = counterparty_chain
-            .query_client_state(&counterparty_client_id, Height::zero())
+            .query_client_state(counterparty_client_id, Height::zero())
             .map_err(FilterError::relayer)?;
 
         // Control both clients, cache their results.
-        let client_permission =
-            self.control_client(chain_id, &connection.client_id(), &client_state);
+        let client_permission = self.control_client(chain_id, connection.client_id(), client_state);
         let counterparty_client_permission = self.control_client(
             &counterparty_chain_id,
-            &counterparty_client_id,
+            counterparty_client_id,
             &counterparty_client_state,
         );
         let permission = client_permission.and(&counterparty_client_permission);
@@ -183,9 +183,9 @@ impl FilterPolicy {
         permission
     }
 
-    pub fn control_client_object(
+    pub fn control_client_object<Chain: ChainHandle>(
         &mut self,
-        registry: &mut Registry,
+        registry: &mut Registry<Chain>,
         obj: &object::Client,
     ) -> Result<Permission, FilterError> {
         let identifier = CacheKey::Client(obj.dst_chain_id.clone(), obj.dst_client_id.clone());
@@ -218,9 +218,9 @@ impl FilterPolicy {
         Ok(self.control_client(&obj.dst_chain_id, &obj.dst_client_id, &client_state))
     }
 
-    pub fn control_conn_object(
+    pub fn control_conn_object<Chain: ChainHandle>(
         &mut self,
-        registry: &mut Registry,
+        registry: &mut Registry<Chain>,
         obj: &object::Connection,
     ) -> Result<Permission, FilterError> {
         let identifier =
@@ -252,7 +252,7 @@ impl FilterPolicy {
             .map_err(FilterError::relayer)?;
 
         let client_state = src_chain
-            .query_client_state(&connection_end.client_id(), Height::zero())
+            .query_client_state(connection_end.client_id(), Height::zero())
             .map_err(FilterError::relayer)?;
 
         self.control_connection_end_and_client(
@@ -264,9 +264,9 @@ impl FilterPolicy {
         )
     }
 
-    fn control_channel(
+    fn control_channel<Chain: ChainHandle>(
         &mut self,
-        registry: &mut Registry,
+        registry: &mut Registry<Chain>,
         chain_id: &ChainId,
         port_id: &PortId,
         channel_id: &ChannelId,
@@ -285,11 +285,11 @@ impl FilterPolicy {
         }
 
         let src_chain = registry
-            .get_or_spawn(&chain_id)
+            .get_or_spawn(chain_id)
             .map_err(FilterError::spawn)?;
 
         let channel_end = src_chain
-            .query_channel(&port_id, &channel_id, Height::zero())
+            .query_channel(port_id, channel_id, Height::zero())
             .map_err(FilterError::relayer)?;
 
         let conn_id = channel_end.connection_hops.first().ok_or_else(|| {
@@ -304,15 +304,15 @@ impl FilterPolicy {
             .map_err(FilterError::relayer)?;
 
         let client_state = src_chain
-            .query_client_state(&connection_end.client_id(), Height::zero())
+            .query_client_state(connection_end.client_id(), Height::zero())
             .map_err(FilterError::relayer)?;
 
         let permission = self.control_connection_end_and_client(
             registry,
-            &chain_id,
+            chain_id,
             &client_state,
             &connection_end,
-            &conn_id,
+            conn_id,
         )?;
 
         let key = CacheKey::Channel(chain_id.clone(), port_id.clone(), channel_id.clone());
@@ -327,9 +327,9 @@ impl FilterPolicy {
         Ok(permission)
     }
 
-    pub fn control_chan_object(
+    pub fn control_chan_object<Chain: ChainHandle>(
         &mut self,
-        registry: &mut Registry,
+        registry: &mut Registry<Chain>,
         obj: &object::Channel,
     ) -> Result<Permission, FilterError> {
         self.control_channel(
@@ -340,9 +340,9 @@ impl FilterPolicy {
         )
     }
 
-    pub fn control_packet_object(
+    pub fn control_packet_object<Chain: ChainHandle>(
         &mut self,
-        registry: &mut Registry,
+        registry: &mut Registry<Chain>,
         obj: &object::Packet,
     ) -> Result<Permission, FilterError> {
         self.control_channel(

@@ -4,16 +4,18 @@ members = [
     "modules",
     "relayer",
     "relayer-cli",
+    "relayer-rest",
     "telemetry",
     "proto",
     "calls",
 ]
 
 exclude = [
+    "ci/no-std-check",
     "proto-compiler"
 ]
 
-#[patch.crates-io]
+# [patch.crates-io]
 # tendermint              = { git = "https://github.com/informalsystems/tendermint-rs", branch = "master" }
 # tendermint-rpc          = { git = "https://github.com/informalsystems/tendermint-rs", branch = "master" }
 # tendermint-proto        = { git = "https://github.com/informalsystems/tendermint-rs", branch = "master" }

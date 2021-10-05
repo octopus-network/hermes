@@ -1,7 +1,8 @@
-use std::convert::{TryFrom, TryInto};
-use std::str::FromStr;
-use std::time::Duration;
-use std::u64;
+use crate::prelude::*;
+use core::convert::{TryFrom, TryInto};
+use core::str::FromStr;
+use core::time::Duration;
+use core::u64;
 
 use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
@@ -95,7 +96,7 @@ impl Default for ConnectionEnd {
             state: State::Uninitialized,
             client_id: Default::default(),
             counterparty: Default::default(),
-            versions: vec![],
+            versions: Vec::new(),
             delay_period: ZERO_DURATION,
         }
     }
@@ -250,6 +251,8 @@ impl Default for Counterparty {
         }
     }
 }
+
+impl Protobuf<RawCounterparty> for Counterparty {}
 
 // Converts from the wire format RawCounterparty. Typically used from the relayer side
 // during queries for response validation and to extract the Counterparty structure.

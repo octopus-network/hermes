@@ -10,8 +10,9 @@ use crate::ics02_client::error::Error;
 use crate::ics02_client::events::Attributes;
 use crate::ics02_client::handler::ClientResult;
 use crate::ics02_client::msgs::update_client::MsgUpdateAnyClient;
-use crate::ics24_host::identifier::ClientId;
 use crate::ics02_client::header::Header;
+use crate::ics24_host::identifier::ClientId;
+use crate::prelude::*;
 
 /// The result following the successful processing of a `MsgUpdateAnyClient` message. Preferably
 /// this data type should be used with a qualified name `update_client::Result` to avoid ambiguity.
@@ -35,21 +36,15 @@ pub fn process(
     } = msg;
 
     // Read client type from the host chain store. The client should already exist.
-    let client_type = ctx
-        .client_type(&client_id)
-        .ok_or_else(|| Error::client_not_found(client_id.clone()))?;
+    let client_type = ctx.client_type(&client_id)?;
 
     let client_def = AnyClient::from_client_type(client_type);
 
     // Read client state from the host chain store.
-    let client_state = ctx
-        .client_state(&client_id)
-        .ok_or_else(|| Error::client_not_found(client_id.clone()))?;
-    tracing::info!("In Update_client: [process] >> client_state: {:?}", client_state);
+    let client_state = ctx.client_state(&client_id)?;
 
     let latest_height = client_state.latest_height();
-    ctx.consensus_state(&client_id, latest_height)
-        .ok_or_else(|| Error::consensus_state_not_found(client_id.clone(), latest_height))?;
+    ctx.consensus_state(&client_id, latest_height)?;
 
     // Use client_state to validate the new header against the latest consensus_state.
     // This function will return the new client_state (its latest_height changed) and a
@@ -78,7 +73,7 @@ pub fn process(
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use core::str::FromStr;
     use test_env_log::test;
 
     use crate::events::IbcEvent;
@@ -94,6 +89,7 @@ mod tests {
     use crate::mock::client_state::MockClientState;
     use crate::mock::context::MockContext;
     use crate::mock::header::MockHeader;
+    use crate::prelude::*;
     use crate::test_utils::get_dummy_account_id;
     use crate::Height;
 

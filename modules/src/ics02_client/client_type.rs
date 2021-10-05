@@ -1,6 +1,5 @@
-use std::fmt;
-use std::str;
-
+use crate::prelude::*;
+use core::fmt;
 use serde_derive::{Deserialize, Serialize};
 
 use super::error::Error;
@@ -40,7 +39,7 @@ impl fmt::Display for ClientType {
     }
 }
 
-impl str::FromStr for ClientType {
+impl core::str::FromStr for ClientType {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -59,10 +58,11 @@ impl str::FromStr for ClientType {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use core::str::FromStr;
     use test_env_log::test;
 
     use super::ClientType;
+    use crate::ics02_client::error::{Error, ErrorDetail};
 
     #[test]
     fn parse_tendermint_client_type() {
@@ -86,14 +86,16 @@ mod tests {
 
     #[test]
     fn parse_unknown_client_type() {
-        let client_type = ClientType::from_str("some-random-client-type");
+        let client_type_str = "some-random-client-type";
+        let result = ClientType::from_str(client_type_str);
 
-        match client_type {
-            Err(err) => assert_eq!(
-                format!("{}", err),
-                "unknown client type: some-random-client-type"
-            ),
-            _ => panic!("parse didn't fail"),
+        match result {
+            Err(Error(ErrorDetail::UnknownClientType(e), _)) => {
+                assert_eq!(&e.client_type, client_type_str)
+            }
+            _ => {
+                panic!("Expected ClientType::from_str to fail with UnknownClientType, instead got",)
+            }
         }
     }
 
