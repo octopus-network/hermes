@@ -102,15 +102,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anomaly"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "550632e31568ae1a5f47998c3aa48563030fc49b9ec91913ca337cf64fbc5ccb"
-dependencies = [
- "backtrace",
-]
-
-[[package]]
 name = "ansi_term"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -449,7 +440,7 @@ dependencies = [
  "frame-system",
  "ibc",
  "pallet-balances",
- "pallet-ibc 3.0.0-pre.0 (git+https://github.com/octopus-network/substrate-ibc.git?branch=dv-ibc-dev)",
+ "pallet-ibc",
  "parity-scale-codec",
  "prost-types",
  "sp-core",
@@ -1771,7 +1762,7 @@ dependencies = [
  "sha2 0.9.8",
  "subtle-encoding",
  "tendermint",
- "tendermint-proto 0.22.0",
+ "tendermint-proto",
  "tendermint-rpc",
  "tendermint-testgen",
  "test-env-log",
@@ -1788,7 +1779,7 @@ dependencies = [
  "getrandom 0.2.3",
  "prost",
  "prost-types",
- "tendermint-proto 0.22.0",
+ "tendermint-proto",
  "tonic",
 ]
 
@@ -1819,7 +1810,7 @@ dependencies = [
  "itertools 0.10.1",
  "jsonrpsee-types",
  "k256",
- "pallet-ibc 3.0.0-pre.0",
+ "pallet-ibc",
  "parity-scale-codec",
  "prost",
  "prost-types",
@@ -1838,7 +1829,7 @@ dependencies = [
  "subtle-encoding",
  "tendermint",
  "tendermint-light-client",
- "tendermint-proto 0.22.0",
+ "tendermint-proto",
  "tendermint-rpc",
  "tendermint-testgen",
  "test-env-log",
@@ -1884,7 +1875,7 @@ dependencies = [
  "subtle-encoding",
  "tendermint",
  "tendermint-light-client",
- "tendermint-proto 0.22.0",
+ "tendermint-proto",
  "tendermint-rpc",
  "tokio",
  "toml",
@@ -2771,27 +2762,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-std",
- "tendermint-proto 0.22.0",
-]
-
-[[package]]
-name = "pallet-ibc"
-version = "3.0.0-pre.0"
-source = "git+https://github.com/octopus-network/substrate-ibc.git?branch=dv-ibc-dev#b41ad5fbacf21c6613d50b05571e139889c003c2"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "ibc",
- "log",
- "parity-scale-codec",
- "prost",
- "prost-types",
- "serde",
- "sp-core",
- "sp-runtime",
- "sp-std",
- "tendermint-proto 0.21.0",
+ "tendermint-proto",
 ]
 
 [[package]]
@@ -4767,7 +4738,7 @@ dependencies = [
  "signature",
  "subtle 2.4.1",
  "subtle-encoding",
- "tendermint-proto 0.22.0",
+ "tendermint-proto",
  "time 0.1.44",
  "toml",
  "url",
@@ -4792,25 +4763,6 @@ dependencies = [
  "tendermint",
  "tendermint-rpc",
  "tokio",
-]
-
-[[package]]
-name = "tendermint-proto"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfd0371c6b0c7fc4f6b053b8a1bc868a2a47c49a1408c4cd6f595d9f3bd3c238"
-dependencies = [
- "anomaly",
- "bytes",
- "chrono",
- "num-derive",
- "num-traits",
- "prost",
- "prost-types",
- "serde",
- "serde_bytes",
- "subtle-encoding",
- "thiserror",
 ]
 
 [[package]]
@@ -4855,7 +4807,7 @@ dependencies = [
  "serde_json",
  "subtle-encoding",
  "tendermint",
- "tendermint-proto 0.22.0",
+ "tendermint-proto",
  "thiserror",
  "tokio",
  "tracing",

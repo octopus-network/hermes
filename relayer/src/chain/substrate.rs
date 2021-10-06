@@ -536,6 +536,70 @@ impl SubstrateChain {
         Ok(result)
     }
 
+    // get get_commitment_packet_state
+    async fn get_commitment_packet_state(&self, client: Client<NodeRuntime>)
+        -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
+
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
+
+        let block_hash = block_header.hash();
+
+        let rpc_client = client.rpc_client();
+
+        let ret: Vec<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)> = rpc_client.request("get_packet_commitment_state", &[]).await?;
+
+        let mut result = vec![];
+
+        for (port_id, channel_id, seq, data) in ret.into_iter() {
+            let port_id = String::from_utf8(port_id).unwrap();
+            let channel_id = String::from_utf8(channel_id).unwrap();
+            let mut seq: &[u8] = &seq;
+            let seq = u64::decode(&mut seq).unwrap();
+            let packet_state = PacketState {
+                port_id: port_id,
+                channel_id: channel_id,
+                sequence: seq,
+                data,
+            };
+            result.push(packet_state);
+        }
+
+        Ok(result)
+    }
+
+    // get get_commitment_packet_state
+    async fn get_acknowledge_packet_state(&self, client: Client<NodeRuntime>)
+        -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
+
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
+
+        let block_hash = block_header.hash();
+
+        let rpc_client = client.rpc_client();
+
+        let ret: Vec<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)> = rpc_client.request("get_packet_acknowledge_state", &[]).await?;
+
+        let mut result = vec![];
+
+        for (port_id, channel_id, seq, data) in ret.into_iter() {
+            let port_id = String::from_utf8(port_id).unwrap();
+            let channel_id = String::from_utf8(channel_id).unwrap();
+            let mut seq: &[u8] = &seq;
+            let seq = u64::decode(&mut seq).unwrap();
+            let packet_state = PacketState {
+                port_id: port_id,
+                channel_id: channel_id,
+                sequence: seq,
+                data,
+            };
+            result.push(packet_state);
+        }
+
+        Ok(result)
+    }
+
     /// get connection_identifier vector according by client_identifier
     async fn get_client_connections(&self, client_id: ClientId, client: Client<NodeRuntime>)
         -> Result<Vec<ConnectionId>, Box<dyn std::error::Error>> {
@@ -663,7 +727,8 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn health_check(&self) -> Result<HealthCheck, Error> {
-        todo!()
+
+        Ok(HealthCheck::Healthy)
     }
 
     fn id(&self) -> &ChainId {
@@ -1044,7 +1109,22 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
         tracing::info!("in Substrate: [query_packet_commitments]");
 
-        todo!()
+        let packet_commitments = async {
+            let client = ClientBuilder::<NodeRuntime>::new()
+                .set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+            let packet_commitments = self
+                .get_commitment_packet_state(client).await.unwrap();
+
+            packet_commitments
+        };
+
+        let packet_commitments =  self.block_on(packet_commitments);
+
+        let last_height = self.query_latest_height().unwrap();
+
+        Ok((packet_commitments, last_height))
+
     }
 
     fn query_unreceived_packets(
@@ -1061,7 +1141,22 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryPacketAcknowledgementsRequest,
     ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
         tracing::info!("in Substrate: [query_packet_acknowledegements]");
-        todo!()
+
+        let packet_acknowledgements = async {
+            let client = ClientBuilder::<NodeRuntime>::new()
+                .set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+            let packet_acknowledgements = self
+                .get_acknowledge_packet_state(client).await.unwrap();
+
+            packet_acknowledgements
+        };
+
+        let packet_acknowledgements =  self.block_on(packet_acknowledgements);
+
+        let last_height = self.query_latest_height().unwrap();
+
+        Ok((packet_acknowledgements, last_height))
     }
 
     fn query_unreceived_acknowledgements(
