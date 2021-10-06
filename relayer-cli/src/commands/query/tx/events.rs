@@ -12,7 +12,7 @@ use ibc::query::{QueryTxHash, QueryTxRequest};
 
 use ibc_relayer::chain::handle::{ChainHandle, ProdChainHandle};
 use ibc_relayer::chain::runtime::ChainRuntime;
-use ibc_relayer::chain::CosmosSdkChain;
+use ibc_relayer::chain::{CosmosSdkChain, SubstrateChain};
 
 use crate::conclude::Output;
 use crate::error::Error;
@@ -44,8 +44,9 @@ impl Runnable for QueryTxEventsCmd {
         };
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
+        // TODO in the future
         let chain =
-            ChainRuntime::<CosmosSdkChain>::spawn::<ProdChainHandle>(chain_config.clone(), rt)
+            ChainRuntime::<SubstrateChain>::spawn::<ProdChainHandle>(chain_config.clone(), rt)
                 .unwrap();
 
         let res = Hash::from_str(self.hash.as_str())

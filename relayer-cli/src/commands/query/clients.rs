@@ -7,7 +7,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 use ibc::ics02_client::client_state::ClientState;
 use ibc::ics24_host::identifier::{ChainId, ClientId};
 use ibc_proto::ibc::core::client::v1::QueryClientStatesRequest;
-use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain};
+use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain};
 
 use crate::conclude::Output;
 use crate::error::Error;
@@ -58,7 +58,9 @@ impl Runnable for QueryAllClientsCmd {
         debug!("Options: {:?}", self);
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+        // TODO in the future
+        // let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+        let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
 
         let req = QueryClientStatesRequest {
             pagination: ibc_proto::cosmos::base::query::pagination::all(),

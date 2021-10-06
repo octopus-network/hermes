@@ -22,7 +22,7 @@ pub struct StartCmd {}
 impl Runnable for StartCmd {
     fn run(&self) {
         let config = (*app_config()).clone();
-        // tracing::info!("in start: [config]   >> config: {:#?}", config.clone());
+
         let config = Arc::new(RwLock::new(config));
 
         let (supervisor, tx_cmd) = make_supervisor::<ProdChainHandle>(config.clone())

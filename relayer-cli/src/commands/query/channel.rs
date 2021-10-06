@@ -5,7 +5,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 
 use ibc::ics24_host::identifier::ChainId;
 use ibc::ics24_host::identifier::{ChannelId, PortId};
-use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain};
+use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain};
 
 use crate::conclude::Output;
 use crate::prelude::*;
@@ -44,7 +44,8 @@ impl Runnable for QueryChannelEndCmd {
         debug!("Options: {:?}", self);
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+        // TODO in the future
+        let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
 
         let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
         let res = chain.query_channel(&self.port_id, &self.channel_id, height);

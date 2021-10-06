@@ -422,7 +422,6 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
     /// Subscribe to the events emitted by the chains the supervisor is connected to.
     fn init_subscriptions(&mut self) -> Result<Vec<(Chain, Subscription)>, Error> {
         let chains = &self.config.read().expect("poisoned lock").chains;
-        // tracing::info!("in supervisor: [init_subscriptions] >> chains: {:#?}", chains);
 
         let mut subscriptions = Vec::with_capacity(chains.len());
 
@@ -440,7 +439,10 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
             };
 
             match chain.subscribe() {
-                Ok(subscription) => subscriptions.push((chain, subscription)),
+                Ok(subscription) => {
+                    tracing::info!("in supervisor: [init_subscription] >> subscription: {:?}", subscription);
+                    subscriptions.push((chain, subscription))
+                },
                 Err(e) => error!(
                     "failed to subscribe to events of {}: {}",
                     chain_config.id, e
