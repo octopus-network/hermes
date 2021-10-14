@@ -90,6 +90,13 @@ pub struct SubmitDatagramCall<T: Ibc> {
     pub datagram: Vec<u8>,
 }
 
+/// NewBlock
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct NewBlockEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+}
+
 /// CreateClient Event
 #[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
 pub struct CreateClientEvent<T: Ibc> {
@@ -214,12 +221,93 @@ pub struct OpenConfirmChannelEvent<T: Ibc> {
     pub counterparty_channel_id: Option<ChannelId>
 }
 
-// SendPacket Event
+/// CloseInitChannel Event
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct CloseInitChannelEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub port_id: PortId,
+    pub channel_id: Option<ChannelId>,
+    pub connection_id: ConnectionId,
+    pub counterparty_port_id: PortId,
+    pub counterparty_channel_id: Option<ChannelId>
+}
+
+/// CloseConfirmChannel Event
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct CloseConfirmChannelEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub port_id: PortId,
+    pub channel_id: Option<ChannelId>,
+    pub connection_id: ConnectionId,
+    pub counterparty_port_id: PortId,
+    pub counterparty_channel_id: Option<ChannelId>
+}
+
+/// SendPacket Event
 #[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
 pub struct SendPacketEvent<T: Ibc> {
     pub _runtime: PhantomData<T>,
     pub height: Height,
     pub packet: Packet,
+}
+
+
+/// ReceivePacket Event
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct ReceivePacketEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub packet: Packet,
+}
+
+
+/// WriteAcknowledgement Event
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct WriteAcknowledgementEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub packet: Packet,
+    pub ack: Vec<u8>,
+}
+
+/// AcknowledgePacket Event
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct AcknowledgePacketEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub packet: Packet,
+}
+
+/// TimeoutPacket Event
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct TimeoutPacketEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub packet: Packet,
+}
+
+/// TimeoutOnClosePacket Event
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct TimeoutOnClosePacketEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub height: Height,
+    pub packet: Packet,
+}
+
+/// Empty(String) Special event, signifying empty response
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct EmptyEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub data: Vec<u8>,
+}
+
+/// ChainError(String) Special event, signifying an error an CheckTx or DeliverTx
+#[derive(Clone, Debug, Eq, PartialEq, Event, Decode)]
+pub struct ChainErrorEvent<T: Ibc> {
+    pub _runtime: PhantomData<T>,
+    pub data: Vec<u8>,
 }
 
 

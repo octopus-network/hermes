@@ -352,11 +352,13 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
     /// Spawn all the workers necessary for the relayer to connect
     /// and relay between all the chains in the configurations.
     fn spawn_workers(&mut self, mode: SpawnMode) {
+        tracing::info!("in supervisor: [spawn_workers]");
         self.spawn_context(mode).spawn_workers();
     }
 
     /// Perform a health check on all connected chains
     fn health_check(&mut self) {
+        tracing::info!("in supervisor: [health_check]");
         use HealthCheck::*;
 
         let chains = &self.config.read().expect("poisoned lock").chains;
@@ -383,6 +385,7 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
 
     /// Run the supervisor event loop.
     pub fn run(mut self) -> Result<(), Error> {
+        tracing::info!("in supervisor: [run]");
         self.health_check();
 
         self.spawn_workers(SpawnMode::Startup);
@@ -391,6 +394,7 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
 
         loop {
             if let Some((chain, batch)) = try_recv_multiple(&subscriptions) {
+                tracing::info!("in supervisor: [run] >>chain = {:?},  batch  = {:?}", chain, batch);
                 self.handle_batch(chain.clone(), batch);
             }
 
@@ -421,6 +425,7 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
 
     /// Subscribe to the events emitted by the chains the supervisor is connected to.
     fn init_subscriptions(&mut self) -> Result<Vec<(Chain, Subscription)>, Error> {
+        tracing::info!("in supervisor: [init_subscriptions]");
         let chains = &self.config.read().expect("poisoned lock").chains;
 
         let mut subscriptions = Vec::with_capacity(chains.len());
@@ -589,6 +594,7 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
 
     /// Process the given [`WorkerMsg`] sent by a worker.
     fn handle_worker_msg(&mut self, msg: WorkerMsg) {
+        tracing::info!("in supervisor: [handle_worket_msg]");
         match msg {
             WorkerMsg::Stopped(id, object) => {
                 self.workers.remove_stopped(id, object);
@@ -619,6 +625,7 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
     /// Process the given batch if it does not contain any errors,
     /// output the errors on the console otherwise.
     fn handle_batch(&mut self, chain: Chain, batch: ArcBatch) {
+        tracing::info!("in supervisor: [handle_batch]");
         let chain_id = chain.id();
 
         match batch.deref() {

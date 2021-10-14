@@ -894,7 +894,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             })?;
         consensus_states.sort_by_key(|a| std::cmp::Reverse(a.height));
 
-        tracing::info!("in foreign_client: [consensus_states] >> consensus_states : {:?}", consensus_states.clone());
+        for state in consensus_states.iter() {
+            tracing::info!("in foreign_client: [consensus_states] >> consensus_states : {:?}", state);
+        }
+
         Ok(consensus_states)
     }
 

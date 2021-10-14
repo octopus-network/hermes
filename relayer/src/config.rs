@@ -305,7 +305,6 @@ pub struct ChainConfig {
     pub rpc_addr: tendermint_rpc::Url,
     pub websocket_addr: tendermint_rpc::Url,
     pub grpc_addr: tendermint_rpc::Url,
-    pub substrate_websocket_addr: String,
     #[serde(default = "default::rpc_timeout", with = "humantime_serde")]
     pub rpc_timeout: Duration,
     pub account_prefix: String,

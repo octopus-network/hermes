@@ -94,7 +94,8 @@ impl<Chain: ChainHandle> Registry<Chain> {
     /// Returns whether or not the runtime was actually spawned.
     pub fn spawn(&mut self, chain_id: &ChainId) -> Result<bool, SpawnError> {
         if !self.handles.contains_key(chain_id) {
-            let handle = spawn_chain_runtime_for_substrate(&self.config, chain_id, self.rt.clone())?;
+
+            let handle = spawn_chain_runtime(&self.config, chain_id, self.rt.clone())?;
             self.handles.insert(chain_id.clone(), handle);
             trace!("spawned chain runtime for chain {}", chain_id);
             Ok(true)
@@ -127,28 +128,44 @@ pub fn spawn_chain_runtime<Chain: ChainHandle>(
         .cloned()
         .ok_or_else(|| SpawnError::missing_chain(chain_id.clone()))?;
 
-    let handle =
-        ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
+    tracing::info!("in registry: [spawn_chain_runtime_generic] chain_id  = {}", chain_id);
+
+    let account_prefix = chain_config.account_prefix.clone();
+    tracing::info!("in registry: [spawn_chain_runtime_generic] account_prefix: {}", account_prefix);
+
+    let handle = match account_prefix.as_str()  {
+        "cosmos" | "chaina" | "chainb" => {
+            let rt = Arc::new(TokioRuntime::new().unwrap());
+            let handle = ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
+            handle
+        },
+        "substrate" => {
+            let rt = Arc::new(TokioRuntime::new().unwrap());
+            let handle = ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
+            handle
+        }
+        _ => unimplemented!()
+    };
 
     Ok(handle)
 }
-
-/// Spawns a chain runtime from the configuration and given a chain identifier.
-/// Returns the corresponding handle if successful.
-pub fn spawn_chain_runtime_for_substrate<Chain: ChainHandle>(
-    config: &RwArc<Config>,
-    chain_id: &ChainId,
-    rt: Arc<TokioRuntime>,
-) -> Result<Chain, SpawnError> {
-    let chain_config = config
-        .read()
-        .expect("poisoned lock")
-        .find_chain(chain_id)
-        .cloned()
-        .ok_or_else(|| SpawnError::missing_chain(chain_id.clone()))?;
-
-    let handle =
-        ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
-
-    Ok(handle)
-}
+//
+// /// Spawns a chain runtime from the configuration and given a chain identifier.
+// /// Returns the corresponding handle if successful.
+// pub fn spawn_chain_runtime_for_substrate<Chain: ChainHandle>(
+//     config: &RwArc<Config>,
+//     chain_id: &ChainId,
+//     rt: Arc<TokioRuntime>,
+// ) -> Result<Chain, SpawnError> {
+//     let chain_config = config
+//         .read()
+//         .expect("poisoned lock")
+//         .find_chain(chain_id)
+//         .cloned()
+//         .ok_or_else(|| SpawnError::missing_chain(chain_id.clone()))?;
+//
+//     let handle =
+//         ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
+//
+//     Ok(handle)
+// }

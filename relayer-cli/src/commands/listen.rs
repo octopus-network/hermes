@@ -11,7 +11,8 @@ use ibc::{events::IbcEvent, ics24_host::identifier::ChainId};
 
 use ibc_relayer::{
     config::ChainConfig,
-    event::monitor::{EventMonitor, EventReceiver},
+    // event::monitor::{EventMonitor, EventReceiver},
+    event::substrate_mointor::{EventMonitor, EventReceiver},
 };
 
 use crate::prelude::*;
@@ -110,6 +111,7 @@ pub fn listen(
     thread::spawn(|| event_monitor.run());
 
     while let Ok(event_batch) = rx.recv() {
+        tracing::info!("in listen: [listen] event_batch {:?}", event_batch);
         match event_batch {
             Ok(batch) => {
                 let matching_events = batch

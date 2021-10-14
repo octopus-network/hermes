@@ -69,11 +69,24 @@ pub fn spawn_chain_runtime_generic<Chain: ChainHandle>(
         .find_chain(chain_id)
         .cloned()
         .ok_or_else(|| Error::missing_config(chain_id.clone()))?;
-    // tracing::info!("chain config: {:?}", chain_config);
+    tracing::info!("in cli_util: [spawn_chain_runtime_generic] chain_id  = {}", chain_id);
 
-    let rt = Arc::new(TokioRuntime::new().unwrap());
-    let handle = ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
+    let account_prefix = chain_config.account_prefix.clone();
+    tracing::info!("in cli_util: [spawn_chain_runtime_generic] account_prefix: {}", account_prefix);
 
+    let handle = match account_prefix.as_str()  {
+        "cosmos" | "chaina" | "chainb" => {
+            let rt = Arc::new(TokioRuntime::new().unwrap());
+            let handle = ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
+            handle
+        },
+        "substrate" => {
+            let rt = Arc::new(TokioRuntime::new().unwrap());
+            let handle = ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
+            handle
+        }
+        _ => unimplemented!()
+    };
 
     Ok(handle)
 }

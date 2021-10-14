@@ -57,10 +57,10 @@ impl Runnable for QueryAllClientsCmd {
 
         debug!("Options: {:?}", self);
 
+
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        // TODO in the future
-        // let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
         let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+
 
         let req = QueryClientStatesRequest {
             pagination: ibc_proto::cosmos::base::query::pagination::all(),
