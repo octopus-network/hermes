@@ -17,6 +17,7 @@ use tendermint_rpc::{
     query::{EventType, Query},
     Error as RpcError, SubscriptionClient, Url, WebSocketClient, WebSocketClientDriver,
 };
+use substrate_subxt::Error as SubstrateError;
 
 use ibc::{events::IbcEvent, ics02_client::height::Height, ics24_host::identifier::ChainId};
 
@@ -81,6 +82,11 @@ define_error! {
         Rpc
             [ TraceError<RpcError> ]
             |_| { "RPC error" },
+
+        SubscribeSubstrateFailed
+            [ TraceError<SubstrateError>]
+            | _ | { "fail to subscribe substrate failed" },
+
     }
 }
 

@@ -377,6 +377,7 @@ where
 
     fn subscribe(&mut self, reply_to: ReplyTo<Subscription>) -> Result<(), Error> {
         tracing::info!("In runtime: [subscribe]");
+        tracing::info!("In runtime: [subscribe] reply_to event batch: {:?}",  reply_to);
         let subscription = self.event_bus.subscribe();
         reply_to.send(Ok(subscription)).map_err(Error::send)
     }

@@ -44,73 +44,83 @@ mod retry_strategy {
         clamp_total(Fibonacci::from(INITIAL_DELAY), MAX_DELAY, MAX_TOTAL_DELAY)
     }
 }
+//
+// define_error! {
+//     #[derive(Debug, Clone)]
+//     Error {
+//         WebSocketDriver
+//             |_| { "WebSocket driver failed" },
+//
+//         ClientCreationFailed
+//             { chain_id: ChainId, address: Url }
+//             |e| { format!("failed to create WebSocket driver for chain {0} with address {1}", e.chain_id, e.address) },
+//
+//         ClientTerminationFailed
+//             [ TraceError<tokio::task::JoinError> ]
+//             |_| { "failed to terminate previous WebSocket driver" },
+//
+//         ClientCompletionFailed
+//             [ TraceError<SubstrateError> ]
+//             |_| { "failed to run previous WebSocket driver to completion" },
+//
+//         ClientSubscriptionFailed
+//             [ TraceError<SubstrateError> ]
+//             |_| { "failed to run previous WebSocket driver to completion" },
+//
+//         NextEventBatchFailed
+//             [ TraceError<SubstrateError> ]
+//             |_| { "failed to collect events over WebSocket subscription" },
+//
+//         CollectEventsFailed
+//             { reason: String }
+//             |e| { format!("failed to extract IBC events: {0}", e.reason) },
+//
+//         ChannelSendFailed
+//             |_| { "failed to send event batch through channel" },
+//
+//         SubscriptionCancelled
+//             [ TraceError<SubstrateError> ]
+//             |_| { "subscription cancelled" },
+//
+//         Rpc
+//             [ TraceError<SubstrateError> ]
+//             |_| { "RPC error" },
+//     }
+// }
+//
+//
+// pub type Result<T> = core::result::Result<T, Error>;
 
-define_error! {
-    #[derive(Debug, Clone)]
-    Error {
-        WebSocketDriver
-            |_| { "WebSocket driver failed" },
+pub use super::monitor::Result;
+pub use super::monitor::Error;
 
-        ClientCreationFailed
-            { chain_id: ChainId, address: Url }
-            |e| { format!("failed to create WebSocket driver for chain {0} with address {1}", e.chain_id, e.address) },
-
-        ClientTerminationFailed
-            [ TraceError<tokio::task::JoinError> ]
-            |_| { "failed to terminate previous WebSocket driver" },
-
-        ClientCompletionFailed
-            [ TraceError<SubstrateError> ]
-            |_| { "failed to run previous WebSocket driver to completion" },
-
-        ClientSubscriptionFailed
-            [ TraceError<SubstrateError> ]
-            |_| { "failed to run previous WebSocket driver to completion" },
-
-        NextEventBatchFailed
-            [ TraceError<SubstrateError> ]
-            |_| { "failed to collect events over WebSocket subscription" },
-
-        CollectEventsFailed
-            { reason: String }
-            |e| { format!("failed to extract IBC events: {0}", e.reason) },
-
-        ChannelSendFailed
-            |_| { "failed to send event batch through channel" },
-
-        SubscriptionCancelled
-            [ TraceError<SubstrateError> ]
-            |_| { "subscription cancelled" },
-
-        Rpc
-            [ TraceError<SubstrateError> ]
-            |_| { "RPC error" },
-    }
-}
-
-
-pub type Result<T> = core::result::Result<T, Error>;
-
-/// A batch of events from a chain at a specific height
-#[derive(Clone, Debug)]
-pub struct EventBatch {
-    pub chain_id: ChainId,
-    pub height: Height,
-    pub events: Vec<IbcEvent>,
-}
+// /// A batch of events from a chain at a specific height
+// #[derive(Clone, Debug)]
+// pub struct EventBatch {
+//     pub chain_id: ChainId,
+//     pub height: Height,
+//     pub events: Vec<IbcEvent>,
+// }
 
 type SubscriptionResult = core::result::Result<RpcEvent, SubstrateError>;
 type SubscriptionStream = dyn Stream<Item = SubscriptionResult> + Send + Sync + Unpin;
 
 
-pub type EventSender = channel::Sender<Result<EventBatch>>;
-pub type EventReceiver = channel::Receiver<Result<EventBatch>>;
-pub type TxMonitorCmd = channel::Sender<MonitorCmd>;
+// pub type EventSender = channel::Sender<Result<EventBatch>>;
+// pub type EventReceiver = channel::Receiver<Result<EventBatch>>;
+// pub type TxMonitorCmd = channel::Sender<MonitorCmd>;
 
-#[derive(Debug)]
-pub enum MonitorCmd {
-    Shutdown,
-}
+
+pub use super::monitor::EventSender;
+pub use super::monitor::EventReceiver;
+pub use super::monitor::TxMonitorCmd;
+pub use super::monitor::EventBatch;
+pub use super::monitor::MonitorCmd;
+
+// #[derive(Debug)]
+// pub enum MonitorCmd {
+//     Shutdown,
+// }
 
 /// Connect to a Tendermint node, subscribe to a set of queries,
 /// receive push events over a websocket, and filter them for the
@@ -213,7 +223,7 @@ impl EventMonitor {
         let subscription = self
             .rt
             .block_on(subscribe_events(self.client.clone()))
-            .map_err(Error::client_subscription_failed)?;
+            .map_err(Error::subscribe_substrate_failed)?;
         tracing::info!("in substrate_mointor: [subscribe] subscription: {:?}", subscription);
 
         subscriptions.push(subscription);
@@ -488,7 +498,7 @@ impl EventMonitor {
 }
 
 fn process_batch_for_substrate(send_tx: channel::Sender<Result<EventBatch>>, batch: EventBatch) -> Result<()> {
-    tracing::info!("in substrate_mointor: [process_batch]");
+    tracing::info!("in substrate_mointor: [process_batch_for_substrate]");
 
     send_tx
         .send(Ok(batch))
@@ -508,45 +518,45 @@ fn collect_events(
     tracing::info!("in substrate_mointor: [collect_events] : events: {:?}", events);
     stream::iter(events).map(Ok)
 }
-
-/// Convert a stream of RPC event into a stream of event batches
-fn stream_batches(
-    subscriptions: Box<SubscriptionStream>,
-    // subscriptions: channel::Receiver<RawEvent>,
-    chain_id: ChainId,
-) -> impl Stream<Item = Result<EventBatch>> {
-    tracing::info!("in substrate_mointor: [stream_batches]");
-    let id = chain_id.clone();
-
-    // Collect IBC events from each RPC event
-    let events = subscriptions
-        .map_ok(move |raw_event| {
-            collect_events(&id, raw_event)
-        })
-        .map_err(Error::subscription_cancelled)
-        .try_flatten();
-
-    // Group events by height
-    let grouped = try_group_while(events, |(h0, _), (h1, _)| h0 == h1);
-
-    // Convert each group to a batch
-    grouped.map_ok(move |events| {
-        let height = events
-            .first()
-            .map(|(h, _)| h)
-            .copied()
-            .expect("internal error: found empty group"); // SAFETY: upheld by `group_while`
-
-        let mut events = events.into_iter().map(|(_, e)| e).collect();
-        sort_events(&mut events);
-
-        EventBatch {
-            height,
-            events,
-            chain_id: chain_id.clone(),
-        }
-    })
-}
+//
+// /// Convert a stream of RPC event into a stream of event batches
+// fn stream_batches(
+//     subscriptions: Box<SubscriptionStream>,
+//     // subscriptions: channel::Receiver<RawEvent>,
+//     chain_id: ChainId,
+// ) -> impl Stream<Item = Result<EventBatch>> {
+//     tracing::info!("in substrate_mointor: [stream_batches]");
+//     let id = chain_id.clone();
+//
+//     // Collect IBC events from each RPC event
+//     let events = subscriptions
+//         .map_ok(move |raw_event| {
+//             collect_events(&id, raw_event)
+//         })
+//         .map_err(Error::subscription_cancelled)
+//         .try_flatten();
+//
+//     // Group events by height
+//     let grouped = try_group_while(events, |(h0, _), (h1, _)| h0 == h1);
+//
+//     // Convert each group to a batch
+//     grouped.map_ok(move |events| {
+//         let height = events
+//             .first()
+//             .map(|(h, _)| h)
+//             .copied()
+//             .expect("internal error: found empty group"); // SAFETY: upheld by `group_while`
+//
+//         let mut events = events.into_iter().map(|(_, e)| e).collect();
+//         sort_events(&mut events);
+//
+//         EventBatch {
+//             height,
+//             events,
+//             chain_id: chain_id.clone(),
+//         }
+//     })
+// }
 
 
 
