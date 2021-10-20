@@ -6,23 +6,21 @@ setup:
 
 check-panic-conflict:
 	cargo build \
-		--features use-unsupported
+		--no-default-features
 
 check-cargo-build-std:
 	rustup run $(NIGHTLY_VERSION) -- \
-		cargo build -j1 -Z build-std=core,alloc \
-		--features use-unsupported \
+		cargo build -Z build-std=core,alloc \
 		--target x86_64-unknown-linux-gnu
 
 check-wasm:
 	rustup run $(NIGHTLY_VERSION) -- \
 		cargo build \
-		--features use-unsupported \
 		--target wasm32-unknown-unknown
 
 check-substrate:
 	rustup run $(NIGHTLY_VERSION) -- \
 		cargo build \
 		--no-default-features \
-		--features use-unsupported,use-substrate \
+		--features use-substrate \
 		--target wasm32-unknown-unknown

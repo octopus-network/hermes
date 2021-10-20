@@ -305,8 +305,8 @@ impl<'a, Chain: ChainHandle + 'static> SpawnContext<'a, Chain> {
             ),
             Err(e) => error!(
                 "skipped workers for connection {} on chain {}, reason: {}",
-                chain.id(),
                 connection.connection_id,
+                chain.id(),
                 e
             ),
         }

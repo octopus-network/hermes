@@ -60,13 +60,6 @@ impl Timestamp {
         }
     }
 
-    /// Returns a `Timestamp` representation of the current time.
-    pub fn now() -> Timestamp {
-        Timestamp {
-            time: Some(Utc::now()),
-        }
-    }
-
     /// Returns a `Timestamp` representation of a timestamp not being set.
     pub fn none() -> Self {
         Timestamp { time: None }
@@ -195,6 +188,7 @@ impl Default for Timestamp {
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
     use core::convert::TryInto;
     use core::time::Duration;
     use std::thread::sleep;
@@ -259,9 +253,9 @@ mod tests {
     fn subtract_compare() {
         let sleep_duration = Duration::from_micros(100);
 
-        let start = Timestamp::now();
+        let start = Timestamp::from_datetime(Utc::now());
         sleep(sleep_duration);
-        let end = Timestamp::now();
+        let end = Timestamp::from_datetime(Utc::now());
 
         let res = end.duration_since(&start);
         assert!(res.is_some());

@@ -1,4 +1,5 @@
 use core::convert::{TryFrom, TryInto};
+use core::fmt;
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Header as RawHeader;
 
@@ -17,8 +18,8 @@ pub struct Header {
     pub height: u64,
 }
 
-impl std::fmt::Debug for Header {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl fmt::Debug for Header {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, " Header {{...}}")
     }
 }

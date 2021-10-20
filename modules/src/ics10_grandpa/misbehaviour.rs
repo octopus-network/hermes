@@ -1,4 +1,5 @@
 use core::convert::{TryFrom, TryInto};
+use core::fmt;
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Misbehaviour as RawMisbehaviour;
 
@@ -42,8 +43,8 @@ impl From<Misbehaviour> for RawMisbehaviour {
     }
 }
 
-impl std::fmt::Display for Misbehaviour {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl fmt::Display for Misbehaviour {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "Misbehaviour")
     }
 }

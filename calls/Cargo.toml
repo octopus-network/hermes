@@ -10,14 +10,15 @@ codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = 
 substrate-subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = "octopus-dev" }
 substrate-subxt-proc-macro = { version = "0.15.0" }
 
-pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-ibc-dev' }
-#pallet-ibc = { path = "../../substrate/bin/node-template/pallets/ibc" }
+#pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-ibc-dev' }
+pallet-ibc = { path = "../../substrate/bin/node-template/pallets/ibc" }
 
-ibc = { path = "../modules" }
 
-frame-system = '3.0.0'
-pallet-balances = '3.0.0'
-sp-core = '3.0.0'
-sp-finality-grandpa = '3.0.0'
-sp-runtime = '3.0.0'
-prost-types = "0.7.0"
+ibc = { version = "0.7.2", path = "../modules" }
+
+frame-system = { version = '3.0.0' }
+pallet-balances = { version = '3.0.0' }
+sp-core = { version = '3.0.0'}
+sp-finality-grandpa = { version = '3.0.0' }
+sp-runtime = { version = '3.0.0' }
+prost-types = { version = '0.7.0'  }
