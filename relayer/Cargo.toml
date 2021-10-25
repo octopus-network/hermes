@@ -68,11 +68,11 @@ uint = { version = "0.9", default-features = false }
 calls = { path = "../calls" }
 substrate-subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = "octopus-dev" }
 sp-keyring = { version = '3.0.0', default-features = false }
-#pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-ibc-dev' }
-pallet-ibc = { path = "../../substrate/bin/node-template/pallets/ibc" }
+pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-ibc-dev' }
+#pallet-ibc = { path = "../../substrate/bin/node-template/pallets/ibc" }
 jsonrpsee-types = "0.2.0"
 codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive', 'full'] }
-
+#node-template-runtime = { path = "/Users/davirain/workspace/substrate/bin/node-template/runtime" }
 
 
 [dependencies.tendermint]

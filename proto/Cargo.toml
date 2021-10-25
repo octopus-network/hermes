@@ -33,4 +33,9 @@ default-features = false
 
 [features]
 default = ["std"]
-std = ["tonic"]
+std = [
+    "tonic",
+    "prost-types/std",
+    "prost/std",
+    "tendermint-proto/std",
+]

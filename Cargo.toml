@@ -179,6 +179,11 @@ frame-metadata = { git = "https://github.com/octopus-network/substrate", branch 
 
 
 ## for tendermint
+#tendermint              = { git = "https://github.com/octopus-network/tendermint-rs", branch = "dv-octopus-no-std" }
+#tendermint-rpc          = { git = "https://github.com/octopus-network/tendermint-rs", branch = "dv-octopus-no-std" }
+#tendermint-proto        = { git = "https://github.com/octopus-network/tendermint-rs", branch = "dv-octopus-no-std" }
+#tendermint-light-client = { git = "https://github.com/octopus-network/tendermint-rs", branch = "dv-octopus-no-std" }
+#tendermint-testgen      = { git = "https://github.com/octopus-network/tendermint-rs", branch = "dv-octopus-no-std" }
 tendermint              = { git = "https://github.com/informalsystems/tendermint-rs", branch = "soares/activate-no-std" }
 tendermint-rpc          = { git = "https://github.com/informalsystems/tendermint-rs", branch = "soares/activate-no-std" }
 tendermint-proto        = { git = "https://github.com/informalsystems/tendermint-rs", branch = "soares/activate-no-std" }
