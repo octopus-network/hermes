@@ -439,10 +439,10 @@ dependencies = [
  "async-trait",
  "frame-system",
  "ibc",
+ "informalsystems-prost-types",
  "pallet-balances",
  "pallet-ibc",
  "parity-scale-codec",
- "prost-types",
  "sp-core",
  "sp-finality-grandpa",
  "sp-runtime",
@@ -1808,7 +1808,7 @@ dependencies = [
  "informalsystems-prost",
  "informalsystems-prost-types",
  "informalsystems-tonic",
- "itertools 0.10.1",
+ "itertools",
  "jsonrpsee-types",
  "k256",
  "pallet-ibc",
@@ -1863,7 +1863,7 @@ dependencies = [
  "ibc-telemetry",
  "informalsystems-prost",
  "informalsystems-prost-types",
- "itertools 0.10.1",
+ "itertools",
  "once_cell",
  "regex",
  "serde",
@@ -2004,7 +2004,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c6af6594ef5bc7f879ba098055e084bf3562077b6dc83fcc96b579cdd319eba"
 dependencies = [
  "anyhow",
- "itertools 0.10.1",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn",
@@ -2075,15 +2075,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "276ec31bcb4a9ee45f58bec6f9ec700ae4cf4f4f8f2fa7e06cb406bd5ffdd770"
 dependencies = [
  "num-traits",
-]
-
-[[package]]
-name = "itertools"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
-dependencies = [
- "either",
 ]
 
 [[package]]
@@ -2811,7 +2802,7 @@ dependencies = [
 [[package]]
 name = "pallet-ibc"
 version = "3.0.0-pre.0"
-source = "git+https://github.com/octopus-network/substrate-ibc.git?branch=dv-ibc-dev#3fb9904d7b331197af4f48a32077ce5783c1fb8b"
+source = "git+https://github.com/octopus-network/substrate-ibc.git?branch=dv-ibc-dev#14b5c4205e1345f07a3985763af09aca5e1866ea"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -3210,39 +3201,6 @@ dependencies = [
  "parking_lot 0.11.2",
  "protobuf",
  "thiserror",
-]
-
-[[package]]
-name = "prost"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e6984d2f1a23009bd270b8bb56d0926810a3d483f59c987d77969e9d8e840b2"
-dependencies = [
- "bytes",
- "prost-derive",
-]
-
-[[package]]
-name = "prost-derive"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "169a15f3008ecb5160cba7d37bcd690a7601b6d30cfb87a117d45e59d52af5d4"
-dependencies = [
- "anyhow",
- "itertools 0.9.0",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b518d7cdd93dab1d1122cf07fa9a60771836c668dde9d9e2a139f957f0d9f1bb"
-dependencies = [
- "bytes",
- "prost",
 ]
 
 [[package]]
