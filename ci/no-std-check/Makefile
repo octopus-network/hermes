@@ -1,4 +1,5 @@
-NIGHTLY_VERSION=nightly-2021-09-01
+#NIGHTLY_VERSION=nightly-2021-09-01
+NIGHTLY_VERSION=nightly
 
 setup:
 	rustup install $(NIGHTLY_VERSION)
@@ -24,3 +25,10 @@ check-substrate:
 		--no-default-features \
 		--features use-substrate \
 		--target wasm32-unknown-unknown
+
+check-none-wasm :
+	rustup run $(NIGHTLY_VERSION) -- \
+		cargo build \
+		--no-default-features \
+		--features use-substrate \
+#		--target wasm32-unknown-unknown
