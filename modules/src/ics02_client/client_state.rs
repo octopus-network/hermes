@@ -21,7 +21,7 @@ use crate::mock::client_state::MockClientState;
 use crate::Height;
 
 pub const TENDERMINT_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.tendermint.v1.ClientState";
-pub const GRANDPA_CLIENT_STATE_TYPE_URL: &str = "/ibc.ligheclients.grandpa.v1.ClientState";
+pub const GRANDPA_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.ClientState";
 
 pub const MOCK_CLIENT_STATE_TYPE_URL: &str = "/ibc.mock.ClientState";
 
