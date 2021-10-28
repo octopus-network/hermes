@@ -8,7 +8,7 @@ use ibc::{
     events::IbcEvent, ics02_client::events::NewBlock, ics24_host::identifier::ChainId, Height,
 };
 
-use crate::{event::monitor::EventBatch, object::Object};
+use crate::{event::substrate_monitor::EventBatch, object::Object};
 
 use super::error::WorkerError;
 use super::{WorkerCmd, WorkerId};

@@ -11,8 +11,8 @@ use ibc::{events::IbcEvent, ics24_host::identifier::ChainId};
 
 use ibc_relayer::{
     config::ChainConfig,
-    // event::monitor::{EventMonitor, EventReceiver},
-    event::substrate_mointor::{EventMonitor, EventReceiver},
+    // event::substrate_monitor::{EventMonitor, EventReceiver},
+    event::substrate_monitor::{EventMonitor, EventReceiver},
 };
 
 use crate::prelude::*;

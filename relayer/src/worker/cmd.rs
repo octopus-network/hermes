@@ -1,6 +1,6 @@
 use ibc::{ics02_client::events::NewBlock, Height};
 
-use crate::event::monitor::EventBatch;
+use crate::event::substrate_monitor::EventBatch;
 
 /// A command for a [`Worker`].
 #[derive(Debug, Clone)]

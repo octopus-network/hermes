@@ -325,6 +325,9 @@ pub(crate) fn unreceived_packets_sequences(
     dst_channel_id: &ChannelId,
     dst_port_id: &PortId,
 ) -> Result<(Vec<u64>, Vec<u64>, Height), Error> {
+    tracing::debug!("In counterparty: [unreceived_packets_sequences] >>  \
+            src_chain, {:?}, src_channel_id, {:?}, src_port_id, {:?}, dst_chain, {:?}, dst_channel_id, {:?}, dst_port_id, {:?}",
+                   src_chain, src_channel_id, src_port_id, dst_chain, dst_channel_id, dst_port_id);
     // get the packet commitments on the counterparty/ source chain
     let commitments_request = QueryPacketCommitmentsRequest {
         port_id: src_port_id.to_string(),

@@ -36,10 +36,10 @@ use ibc_proto::ibc::core::connection::v1::{
 
 use crate::connection::ConnectionMsgType;
 use crate::error::Error;
-use crate::event::monitor::TxMonitorCmd;
+use crate::event::substrate_monitor::TxMonitorCmd;
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::LightClient;
-use crate::{config::ChainConfig, event::monitor::EventReceiver};
+use crate::{config::ChainConfig, event::substrate_monitor::EventReceiver};
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 
 pub(crate) mod cosmos;

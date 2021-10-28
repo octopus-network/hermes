@@ -115,6 +115,7 @@ pub struct Packet {
 
 impl Packet {
     pub fn timed_out(&self, dst_chain_height: Height) -> bool {
+        tracing::debug!("In packet: [timed_out]  self = {:?} , dst_chain_height = {:?}, Timestamp::now = {:?}", self, dst_chain_height, Timestamp::now()); // Todo: Not printed
         (self.timeout_height != Height::zero() && self.timeout_height < dst_chain_height)
             || (self.timeout_timestamp != Timestamp::none()
                 && Timestamp::now().check_expiry(&self.timeout_timestamp) == Expired)

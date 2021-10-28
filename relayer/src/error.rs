@@ -28,7 +28,7 @@ use ibc::{
 };
 
 use crate::chain::cosmos::GENESIS_MAX_BYTES_MAX_FRACTION;
-use crate::event::monitor;
+use crate::event::substrate_monitor;
 
 define_error! {
     Error {
@@ -76,7 +76,7 @@ define_error! {
             |e| { format!("Websocket error to endpoint {}", e.url) },
 
         EventMonitor
-            [ monitor::Error ]
+            [ substrate_monitor::Error ]
             |_| { "event monitor error" },
 
         Grpc

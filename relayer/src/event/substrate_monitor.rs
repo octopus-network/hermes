@@ -17,10 +17,9 @@ use tendermint_rpc::{event::Event as RpcEvent, Url};
 
 use substrate_subxt::{
     ClientBuilder, PairSigner, Client,
-    EventSubscription, system::ExtrinsicSuccessEvent, RawEvent,
+    EventSubscription, system::{ExtrinsicSuccessEvent, System}, RawEvent,
     Error as SubstrateError,
 };
-
 
 use ibc::{events::IbcEvent, ics02_client::height::Height, ics24_host::identifier::ChainId};
 
@@ -29,6 +28,13 @@ use crate::util::{
     stream::try_group_while,
 };
 use calls::NodeRuntime;
+
+use sp_storage::StorageChangeSet;
+use sp_core::{storage::StorageKey, twox_128, H256};
+use frame_system;
+
+use std::future::Future;
+use tokio::runtime::Runtime;
 
 mod retry_strategy {
     use crate::util::retry::clamp_total;
@@ -101,11 +107,16 @@ pub struct EventBatch {
 
 type SubscriptionResult = core::result::Result<RpcEvent, SubstrateError>;
 type SubscriptionStream = dyn Stream<Item = SubscriptionResult> + Send + Sync + Unpin;
-
+// type EventRecords = Vec<frame_system::EventRecord<node_runtime::Event, <NodeRuntime as System>::Hash>>;
 
 pub type EventSender = channel::Sender<Result<EventBatch>>;
 pub type EventReceiver = channel::Receiver<Result<EventBatch>>;
 pub type TxMonitorCmd = channel::Sender<MonitorCmd>;
+// pub use super::monitor::EventReceiver;
+// pub use super::monitor::EventSender;
+// pub use super::monitor::TxMonitorCmd;
+// pub use super::monitor::EventBatch;
+// pub use super::monitor::MonitorCmd;
 
 #[derive(Debug)]
 pub enum MonitorCmd {
@@ -214,7 +225,7 @@ impl EventMonitor {
             .rt
             .block_on(subscribe_events(self.client.clone()))
             .map_err(Error::client_subscription_failed)?;
-        tracing::info!("in substrate_mointor: [subscribe] subscription: {:?}", subscription);
+        tracing::info!("in substrate_monitor: [subscribe] subscription: {:?}", subscription);
 
         subscriptions.push(subscription);
         // }
@@ -345,38 +356,62 @@ impl EventMonitor {
     }
 
     fn run_loop(&mut self) -> Next {
-        tracing::info!("in substrate_mointor: [run_loop]");
+        tracing::info!("in substrate_monitor: [run_loop]");
 
         // Take ownership of the subscriptions
         let subscriptions =
             core::mem::replace(&mut self.subscriptions, Box::new(futures::stream::empty()));
 
-
         let (send_tx, recv_tx) = channel::unbounded();
 
-
         let client = self.client.clone();
+        let _client = self.client.clone();
         let send_tx = send_tx.clone();
         let chain_id = self.chain_id.clone();
         let send_batch = self.tx_batch.clone();
+        let mut storage_key = twox_128(b"System").to_vec();
+        storage_key.extend(twox_128(b"Events").to_vec());
+        let events_storage_key = StorageKey(storage_key);
+        let rt = self.rt.clone();
 
         let sub_event = async move {
+/*            let mut blocks = client.subscribe_finalized_blocks().await.unwrap();
+            let mut n : Option<u64> = None;
+            while let Ok(Some(header)) = blocks.next().await {
+                let change_sets: Vec<StorageChangeSet<H256>> = client
+                    .query_storage(vec![events_storage_key], header.hash(), None)
+                    .await.unwrap();
+                tracing::info!("length of change_sets: {:?}", change_sets.len());
+                tracing::info!("change_sets: {:?}", change_sets);
+                let events = change_sets
+                    .into_iter()
+                    .map(|change_set| change_set.changes)
+                    .flatten()
+                    .filter_map(|(_key, data)| data.as_ref().map(|data| Decode::decode(&mut &data.0[..])))
+                    .filter_map(|result: Result<EventRecords, codec::Error>| result.ok())
+                    .flatten()
+                    .collect::<Vec<frame_system::EventRecord<node_runtime::Event, <Runtime as System>::Hash>>>(
+                    );
+            }
+*/
             let sub = client.subscribe_finalized_events().await.unwrap();
             let decoder = client.events_decoder();
             let mut sub = EventSubscription::<NodeRuntime>::new(sub, decoder);
 
             while let Some(raw_event) = sub.next().await {
                 if let Err(err) = raw_event {
-                    tracing::info!("In substrate_mointor: [run_loop] >> raw_event error: {:?}", err);
+                    tracing::info!("In substrate_monitor: [run_loop] >> raw_event error: {:?}", err);
                     continue;
                 }
                 let raw_event = raw_event.unwrap();
-                tracing::info!("in substrate_mointor: [run_loop] >> raw_event : {:?}", raw_event);
-                send_tx.send(raw_event);
+                tracing::info!("in substrate_monitor: [run_loop] >> raw_event : {:?}", raw_event);
+                send_tx.send(raw_event);  // Todo: remove these 2 lines?
                 for item in recv_tx.clone().recv() {
-                    tracing::info!("in substrate_mointor: [run_loop] >> recv raw_event : {:?}", item);
+                    tracing::info!("in substrate_monitor: [run_loop] >> recv raw_event : {:?}", item);
 
-                    let batch_event = from_raw_event_to_batch_event(item, chain_id.clone());
+                    let height = get_latest_height(_client.clone()).await; // Todo: Do not query for latest height every time
+                    let batch_event = from_raw_event_to_batch_event(item,
+                                                                    chain_id.clone(), height);
                     process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
                                 error!("[{}] {}", chain_id.clone(), e);
                     });
@@ -385,11 +420,11 @@ impl EventMonitor {
 
             Next::Continue
         };
-        //
-        let ret = self.rt.block_on(sub_event);
+
+        let ret = self.rt.clone().block_on(sub_event);
         ret
 
-        // Convert the stream of RPC events into a stream of event batches.
+/*        // Convert the stream of RPC events into a stream of event batches.
         // let batches = stream_batches(subscriptions, self.chain_id.clone());
 
         // Needed to be able to poll the stream
@@ -454,7 +489,7 @@ impl EventMonitor {
             //         }
             //     }
             // }
-        // }
+        // }*/
     }
 
     /// Propagate error to subscribers.
@@ -465,7 +500,7 @@ impl EventMonitor {
     /// missed a bunch of events which were emitted after the subscrption was closed.
     /// In that case, this error will be handled in [`Supervisor::handle_batch`].
     fn propagate_error(&self, error: Error) -> Result<()> {
-        tracing::info!("in substrate_mointor: [propagate_error]");
+        tracing::info!("in substrate_monitor: [propagate_error]");
         self.tx_batch
             .send(Err(error))
             .map_err(|_| Error::channel_send_failed())?;
@@ -475,7 +510,7 @@ impl EventMonitor {
 
     /// Collect the IBC events from the subscriptions
     fn process_batch(&self, batch: EventBatch) -> Result<()> {
-        tracing::info!("in substrate_mointor: [process_batch]");
+        tracing::info!("in substrate_monitor: [process_batch]");
 
         self.tx_batch
             .send(Ok(batch))
@@ -483,12 +518,11 @@ impl EventMonitor {
 
         Ok(())
     }
-
-
 }
 
 fn process_batch_for_substrate(send_tx: channel::Sender<Result<EventBatch>>, batch: EventBatch) -> Result<()> {
-    tracing::info!("in substrate_mointor: [process_batch]");
+    tracing::info!("in substrate_monitor: [process_batch_for_substrate]");
+    tracing::info!("in substrate_monitor: [process_batch_for_substrate] >> EventBatch {:?}", batch);
 
     send_tx
         .send(Ok(batch))
@@ -502,10 +536,10 @@ fn collect_events(
     chain_id: &ChainId,
     event: RpcEvent,
 ) -> impl Stream<Item = Result<(Height, IbcEvent)>> {
-    tracing::info!("in substrate_mointor: [collect_events]");
+    tracing::info!("in substrate_monitor: [collect_events]");
 
     let events = crate::event::rpc::get_all_events(chain_id, event).unwrap_or_default();
-    tracing::info!("in substrate_mointor: [collect_events] : events: {:?}", events);
+    tracing::info!("in substrate_monitor: [collect_events] : events: {:?}", events);
     stream::iter(events).map(Ok)
 }
 
@@ -515,7 +549,7 @@ fn stream_batches(
     // subscriptions: channel::Receiver<RawEvent>,
     chain_id: ChainId,
 ) -> impl Stream<Item = Result<EventBatch>> {
-    tracing::info!("in substrate_mointor: [stream_batches]");
+    tracing::info!("in substrate_monitor: [stream_batches]");
     let id = chain_id.clone();
 
     // Collect IBC events from each RPC event
@@ -553,7 +587,7 @@ fn stream_batches(
 /// Sort the given events by putting the NewBlock event first,
 /// and leaving the other events as is.
 fn sort_events(events: &mut Vec<IbcEvent>) {
-    tracing::info!("in substrate_mointor: [sort_events]");
+    tracing::info!("in substrate_monitor: [sort_events]");
 
     events.sort_by(|a, b| match (a, b) {
         (IbcEvent::NewBlock(_), _) => Ordering::Less,
@@ -578,7 +612,7 @@ use codec::Decode;
 async fn subscribe_events(
     client: Client<NodeRuntime>,
 )  -> core::result::Result<RawEvent, SubstrateError> {
-    tracing::info!("In substrate_mointor: [subscribe_events]");
+    tracing::info!("In substrate_monitor: [subscribe_events]");
 
     let sub = client.subscribe_finalized_events().await?;
     let decoder = client.events_decoder();
@@ -590,7 +624,13 @@ async fn subscribe_events(
 }
 
 
-fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId) -> EventBatch {
+pub enum Next {
+    Abort,
+    Continue,
+}
+
+fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height: u64)
+                                 -> EventBatch {
     tracing::info!("In substrate: [from_raw_event_to_batch_event] >> raw Event: {:?}", raw_event);
     let variant = raw_event.variant;
     tracing::info!("In substrate: [from_raw_event_to_batch_event] >> variant: {:?}", variant);
@@ -1054,11 +1094,12 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId) -> Even
             tracing::info!("In substrate: [from_raw_event_to_batch_event] >> SystemEvent: {:?}", event);
 
             let event = IbcEvent::NewBlock(ibc::ics02_client::events::NewBlock{
-                height: Default::default()
+                // height: Default::default()
+                height: Height::new(0, height)  // Todo: to set revision_number
             });
 
             EventBatch {
-                height: Height::default(),
+                height: Height::new(0, height),  // Todo: to set revision_number
                 events: vec![event],
                 chain_id: chain_id.clone(),
             }
@@ -1070,8 +1111,23 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId) -> Even
     }
 }
 
-
-pub enum Next {
-    Abort,
-    Continue,
+async fn get_latest_height(client: Client<NodeRuntime>) -> u64 {
+    tracing::info!("In substrate_monitor: [get_latest_height]");
+    // let mut blocks = client.subscribe_finalized_blocks().await?;
+    let mut blocks = client.subscribe_blocks().await.unwrap();
+    let height= match blocks.next().await {
+        Ok(Some(header)) => {
+            header.number as u64
+        },
+        Ok(None) => {
+            tracing::info!("In Substrate: [get_latest_height] >> None");
+            0
+        },
+        Err(err) =>  {
+            tracing::info!(" In substrate: [get_latest_height] >> error: {:?} ", err);
+            0
+        },
+    };
+    tracing::info!("In Substrate: [get_latest_height] >> height: {:?}", height);
+    height
 }

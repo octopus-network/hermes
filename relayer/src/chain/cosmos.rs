@@ -73,12 +73,12 @@ use ibc_proto::ibc::core::connection::v1::{
 
 use crate::config::{AddressType, ChainConfig, GasPrice};
 use crate::error::Error;
-use crate::event::monitor::{EventMonitor, EventReceiver};
+use crate::event::substrate_monitor::{EventMonitor, EventReceiver};
 use crate::keyring::{KeyEntry, KeyRing, Store};
 use crate::light_client::tendermint::LightClient as TmLightClient;
 use crate::light_client::LightClient;
 use crate::light_client::Verified;
-use crate::{chain::QueryResponse, event::monitor::TxMonitorCmd};
+use crate::{chain::QueryResponse, event::substrate_monitor::TxMonitorCmd};
 
 use super::{ChainEndpoint, HealthCheck};
 

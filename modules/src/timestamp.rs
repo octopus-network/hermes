@@ -103,6 +103,7 @@ impl Timestamp {
     /// Checks whether the timestamp has expired when compared to the
     /// `other` timestamp. Returns an [`Expiry`] result.
     pub fn check_expiry(&self, other: &Timestamp) -> Expiry {
+        tracing::info!("In timestamp [check_expiry]: time1 = {:?}, time2 = {:?}", self.time, other.time);
         match (self.time, other.time) {
             (Some(time1), Some(time2)) => {
                 if time1 > time2 {

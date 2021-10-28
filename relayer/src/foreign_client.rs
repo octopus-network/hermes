@@ -663,6 +663,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         target_height: Height,
         trusted_height: Height,
     ) -> Result<Vec<Any>, ForeignClientError> {
+        tracing::debug!("In foreign_client: [build_update_client_with_trusted] >> target_height: {:?}, trusted_height: {:?}", target_height, trusted_height);
         // Wait for source chain to reach `target_height`
         while self.src_chain().query_latest_height().map_err(|e| {
             ForeignClientError::client_create(
@@ -675,6 +676,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             thread::sleep(Duration::from_millis(100))
         }
 
+        // tracing::info!("44444444444444444444444444444444");
         // Get the latest client state on destination.
         let client_state = self
             .dst_chain()
@@ -686,14 +688,14 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     e,
                 )
             })?;
-
+        // tracing::info!("55555555555555555555555555555555555555555");
         let trusted_height = if trusted_height == Height::zero() {
             self.solve_trusted_height(target_height, &client_state)?
         } else {
             self.validate_trusted_height(target_height, trusted_height, &client_state)?;
             trusted_height
         };
-
+        // tracing::info!("6666666666666666666666666666666666666666");
         if trusted_height >= target_height {
             warn!(
                 "[{}] skipping update: trusted height ({}) >= chain target height ({})",
@@ -701,7 +703,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             );
             return Ok(vec![]);
         }
-
+        // tracing::info!("77777777777777777777777777777777777777");
         let (header, support) = self
             .src_chain()
             .build_header(trusted_height, target_height, client_state)
@@ -712,7 +714,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     e,
                 )
             })?;
-
+        // tracing::info!("88888888888888888888888888888888888888888888");
         let signer = self.dst_chain().get_signer().map_err(|e| {
             ForeignClientError::client_update(
                 self.dst_chain.id(),
@@ -720,7 +722,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 e,
             )
         })?;
-
+        // tracing::info!("99999999999999999999999999999999999");
         let mut msgs = vec![];
 
         for header in support {
@@ -739,7 +741,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 .to_any(),
             );
         }
-
+        // tracing::info!("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         debug!(
             "[{}] MsgUpdateAnyClient from trusted height {} to target height {}",
             self,

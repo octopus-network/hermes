@@ -71,6 +71,7 @@ pub fn process(ctx: &dyn ChannelReader, msg: MsgRecvPacket) -> HandlerResult<Pac
         ));
     }
 
+    tracing::info!("In recv_packet [process]: packet = {:?}", packet);
     // Check if packet timestamp is newer than the local host chain timestamp
     let latest_timestamp = ctx.host_timestamp();
     if let Expiry::Expired = latest_timestamp.check_expiry(&packet.timeout_timestamp) {

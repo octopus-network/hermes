@@ -115,6 +115,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
         link: &mut Link<ChainA, ChainB>,
         index: u64,
     ) -> RetryResult<Step, u64> {
+        tracing::debug!("In packet: [step] >>  command received: [{:?}]", cmd);
         if let Some(cmd) = cmd {
             let result = match cmd {
                 WorkerCmd::IbcEvents { batch } => link.a_to_b.update_schedule(batch),
@@ -127,11 +128,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
                 } => {
                     // Schedule the clearing of pending packets. This should happen
                     // once at start, and _forced_ at predefined block intervals.
-                    let force_packet_clearing = self.clear_packets_interval != 0
+/*                    let force_packet_clearing = self.clear_packets_interval != 0
                         && height.revision_height % self.clear_packets_interval == 0;
 
                     link.a_to_b
-                        .schedule_packet_clearing(Some(height), force_packet_clearing)
+                        .schedule_packet_clearing(Some(height), force_packet_clearing)*/
+                    Ok(())
                 }
 
                 WorkerCmd::ClearPendingPackets => link.a_to_b.schedule_packet_clearing(None, true),
@@ -140,7 +142,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
                     return RetryResult::Ok(Step::Shutdown);
                 }
             };
-
+            tracing::debug!("In packet: [step] >>  command received 2:");
             if let Err(e) = result {
                 error!(
                     path = %self.path.short_name(),
@@ -153,9 +155,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
         }
 
         if let Err(e) = link
-            .a_to_b
-            .refresh_schedule()
-            .and_then(|_| link.a_to_b.execute_schedule())
+            .a_to_b.execute_schedule()
+            // .refresh_schedule()
+            // .and_then(|_| link.a_to_b.execute_schedule())
         {
             error!(
                 "[{}] worker: schedule execution encountered error: {}",

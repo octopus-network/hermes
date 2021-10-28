@@ -45,7 +45,7 @@ pub use prod::ProdChainHandle;
 use crate::{
     connection::ConnectionMsgType,
     error::Error,
-    event::monitor::{EventBatch, Result as MonitorResult},
+    event::substrate_monitor::{EventBatch, Result as MonitorResult},
     keyring::KeyEntry,
 };
 

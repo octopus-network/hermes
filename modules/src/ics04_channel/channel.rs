@@ -222,6 +222,7 @@ impl ChannelEnd {
 
     /// Helper function to compare the state of this end with another state.
     pub fn state_matches(&self, other: &State) -> bool {
+        tracing::debug!("In channel: [state_matches]  self state = {:?} , other state = {:?}", self.state, other);
         self.state.eq(other)
     }
 

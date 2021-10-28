@@ -47,7 +47,7 @@ use crate::{
     error::Error,
     event::{
         bus::EventBus,
-        monitor::{EventBatch, EventReceiver, MonitorCmd, Result as MonitorResult, TxMonitorCmd},
+        substrate_monitor::{EventBatch, EventReceiver, MonitorCmd, Result as MonitorResult, TxMonitorCmd},
     },
     keyring::KeyEntry,
     light_client::LightClient,
@@ -396,8 +396,10 @@ where
         proto_msgs: Vec<prost_types::Any>,
         reply_to: ReplyTo<Vec<tendermint_rpc::endpoint::broadcast::tx_sync::Response>>,
     ) -> Result<(), Error> {
+        tracing::debug!("In Runtime: [send_messages_and_wait_check_tx], proto_msgs: {:?}, reply_to: {:?}", proto_msgs, reply_to);
         let result = self.chain.send_messages_and_wait_check_tx(proto_msgs);
-        reply_to.send(result).map_err(Error::send)
+        reply_to.send(result).map_err(Error::send) // Todo
+        // Ok(())
     }
 
     fn query_latest_height(&self, reply_to: ReplyTo<Height>) -> Result<(), Error> {

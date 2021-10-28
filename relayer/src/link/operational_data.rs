@@ -29,7 +29,7 @@ impl fmt::Display for OperationalDataTarget {
 
 /// A packet messages that is prepared for sending to a chain, but has not been sent yet.
 /// Comprises both the proto-encoded packet message, alongside the event which generated it.
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct TransitMessage {
     pub event: IbcEvent,
     pub msg: Any,
@@ -72,6 +72,7 @@ impl OperationalData {
         &self,
         relay_path: &RelayPath<ChainA, ChainB>,
     ) -> Result<Vec<Any>, LinkError> {
+        tracing::debug!("In operational_data: [assemble_msgs] >>  relay_path: [{:?}], self.batch: {:?}", &format!("{}", relay_path), self.batch[0]);
         if self.batch.is_empty() {
             warn!("assemble_msgs() method call on an empty OperationalData!");
             return Ok(vec![]);
@@ -102,6 +103,7 @@ impl OperationalData {
             None
         };
 
+        tracing::debug!("In operational_data: [assemble_msgs] >>  client_update_msg: {:?}", client_update_msg);
         let msgs: Vec<Any> = match client_update_msg {
             Some(client_update) => iter::once(client_update)
                 .chain(self.batch.iter().map(|gm| gm.msg.clone()))

@@ -41,7 +41,7 @@ use ibc_proto::ibc::core::connection::v1::{
 use crate::chain::ChainEndpoint;
 use crate::config::ChainConfig;
 use crate::error::Error;
-use crate::event::monitor::{EventReceiver, EventSender, TxMonitorCmd};
+use crate::event::substrate_monitor::{EventReceiver, EventSender, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::Verified;
 use crate::light_client::{mock::LightClient as MockLightClient, LightClient};

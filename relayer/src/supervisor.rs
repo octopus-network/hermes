@@ -18,7 +18,7 @@ use crate::{
     chain::{handle::ChainHandle, HealthCheck},
     config::{ChainConfig, Config},
     event,
-    event::monitor::{Error as EventError, ErrorDetail as EventErrorDetail, EventBatch},
+    event::substrate_monitor::{Error as EventError, ErrorDetail as EventErrorDetail, EventBatch},
     object::Object,
     registry::Registry,
     rest,
@@ -43,7 +43,7 @@ use cmd::{CmdEffect, ConfigUpdate, SupervisorCmd};
 
 use self::spawn::SpawnMode;
 
-type ArcBatch = Arc<event::monitor::Result<EventBatch>>;
+type ArcBatch = Arc<event::substrate_monitor::Result<EventBatch>>;
 type Subscription = Receiver<ArcBatch>;
 
 pub type RwArc<T> = Arc<RwLock<T>>;
@@ -178,6 +178,8 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
         src_chain: &impl ChainHandle,
         batch: &EventBatch,
     ) -> CollectedEvents {
+        tracing::debug!("in supervisor: [collect_events]  >> EventBatch {:?}", batch);
+
         let mut collected = CollectedEvents::new(batch.height, batch.chain_id.clone());
 
         let handshake_enabled = self
@@ -187,6 +189,7 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
             .handshake_enabled();
 
         for event in &batch.events {
+            // tracing::info!("in supervisor: [collect_events]  >> single event {:?}", event);
             match event {
                 IbcEvent::NewBlock(_) => {
                     collected.new_block = Some(event.clone());
@@ -653,6 +656,7 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
     /// Process a batch of events received from a chain.
     fn process_batch(&mut self, src_chain: Chain, batch: &EventBatch) -> Result<(), Error> {
         assert_eq!(src_chain.id(), batch.chain_id);
+        tracing::debug!("in supervisor: [process_batch]  >> EventBatch {:?}", batch);
 
         let height = batch.height;
         let chain_id = batch.chain_id.clone();
@@ -688,6 +692,8 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
                 let config = self.config.read().expect("poisoned lock");
                 self.workers.get_or_spawn(object, src, dst, &config)
             };
+
+            tracing::debug!("in supervisor: [process_batch] send_events >> woker: {:?}, events: {:?}", worker, events);
 
             worker
                 .send_events(height, events, chain_id.clone())

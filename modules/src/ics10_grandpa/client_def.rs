@@ -105,7 +105,8 @@ impl ClientDef for GrandpaClient {
         _seq: &Sequence,
         _data: String,
     ) -> Result<(), Error> {
-        todo!()
+        // Todo:
+        Ok(())
     }
 
     fn verify_packet_acknowledgement(
@@ -118,7 +119,8 @@ impl ClientDef for GrandpaClient {
         _seq: &Sequence,
         _data: Vec<u8>,
     ) -> Result<(), Error> {
-        todo!()
+        // Todo:
+        Ok(())
     }
 
     fn verify_next_sequence_recv(
@@ -130,7 +132,8 @@ impl ClientDef for GrandpaClient {
         _channel_id: &ChannelId,
         _seq: &Sequence,
     ) -> Result<(), Error> {
-        todo!()
+        // Todo:
+        Ok(())
     }
 
     fn verify_packet_receipt_absence(
@@ -142,7 +145,8 @@ impl ClientDef for GrandpaClient {
         _channel_id: &ChannelId,
         _seq: &Sequence,
     ) -> Result<(), Error> {
-        todo!()
+        // Todo:
+        Ok(())
     }
 
     fn verify_upgrade_and_update_state(
