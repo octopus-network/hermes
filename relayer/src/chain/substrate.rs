@@ -577,8 +577,10 @@ impl SubstrateChain {
         // }
 
         let client_state = AnyClientState::decode_vec(&*data).unwrap();
+        tracing::info!("in substrate [get_client_state]: any_client_state : {:?}", client_state);
         let client_state = match client_state {
             AnyClientState::Grandpa(client_state) => client_state,
+            // AnyClientState::Tendermint(client_state) => client_state,
             _ => panic!("wrong client state type"),
         };
 

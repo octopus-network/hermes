@@ -57,16 +57,37 @@ impl Runnable for QueryAllClientsCmd {
 
         debug!("Options: {:?}", self);
 
-
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
 
+        let chain_type = chain_config.account_prefix.clone();
+        let res = match chain_type.as_str() {
+            "substrate" => {
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let req = QueryClientStatesRequest {
+                    pagination: ibc_proto::cosmos::base::query::pagination::all(),
+                };
 
-        let req = QueryClientStatesRequest {
-            pagination: ibc_proto::cosmos::base::query::pagination::all(),
+                let res: Result<_, Error> = chain.query_clients(req).map_err(Error::relayer);
+                res
+            },
+            "cosmos" => {
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let req = QueryClientStatesRequest {
+                    pagination: ibc_proto::cosmos::base::query::pagination::all(),
+                };
+
+                let res: Result<_, Error> = chain.query_clients(req).map_err(Error::relayer);
+                res
+            }
+            _ => unimplemented!("None chain type"),
         };
 
-        let res: Result<_, Error> = chain.query_clients(req).map_err(Error::relayer);
+
+        // let req = QueryClientStatesRequest {
+        //     pagination: ibc_proto::cosmos::base::query::pagination::all(),
+        // };
+        //
+        // let res: Result<_, Error> = chain.query_clients(req).map_err(Error::relayer);
 
         match res {
             Ok(clients) => {
