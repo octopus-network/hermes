@@ -5,9 +5,10 @@ use crate::light_client::Verified;
 use ibc::ics02_client::client_state::AnyClientState;
 use ibc::ics02_client::events::UpdateClient;
 use ibc::ics02_client::misbehaviour::{MisbehaviourEvidence, AnyMisbehaviour};
-use ibc::ics10_grandpa::header::Header as GPHeader;
+use ibc::ics10_grandpa::header::{Header as GPHeader, Header};
 use ibc::Height;
 use ibc::ics02_client::header::AnyHeader;
+use ibc::ics24_host::identifier::ClientId;
 
 pub struct LightClient {}
 
@@ -55,7 +56,11 @@ impl super::LightClient<SubstrateChain> for LightClient {
         let anyheader = update.header.unwrap();
 
         Ok(Some(MisbehaviourEvidence{
-            misbehaviour: AnyMisbehaviour::Grandpa(ibc::ics10_grandpa::misbehaviour::Misbehaviour{}),
+            misbehaviour: AnyMisbehaviour::Grandpa(ibc::ics10_grandpa::misbehaviour::Misbehaviour{
+                client_id: ClientId::default(),
+                header1: Header::new(0),
+                header2: Header::new(0),
+            }),
             supporting_headers: vec![anyheader],
         }))
     }

@@ -189,7 +189,7 @@ pub mod ibc {
         }
         pub mod grandpa {
             pub mod v1 {
-                include!("prost/ibc.lightclients.grandpa.v1.rs");
+                include_proto!("ibc.lightclients.grandpa.v1.rs");
             }
         }
     }

@@ -29,5 +29,8 @@ define_error! {
         InvalidRawConsensusState
             { reason: String }
             | _ | { "invalid raw client consensus state" },
+        InvalidRawMisbehaviour
+            { reason: String }
+            | _ | { "invalid raw misbehaviour" },
     }
 }

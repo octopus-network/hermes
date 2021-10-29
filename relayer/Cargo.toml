@@ -72,7 +72,6 @@ pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', bra
 #pallet-ibc = { path = "../../substrate/bin/node-template/pallets/ibc" }
 jsonrpsee-types = "0.2.0"
 codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive', 'full'] }
-#node-template-runtime = { path = "/Users/davirain/workspace/substrate/bin/node-template/runtime" }
 
 
 [dependencies.tendermint]

@@ -10,12 +10,6 @@ pub struct Plan {
     /// reached and the software will exit.
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
-    /// Deprecated: Time based upgrades have been deprecated. Time based upgrade logic
-    /// has been removed from the SDK.
-    /// If this field is not empty, an error will be thrown.
-    #[deprecated]
-    #[prost(message, optional, tag = "2")]
-    pub time: ::core::option::Option<::prost_types::Timestamp>,
     /// The height at which the upgrade must be performed.
     /// Only used if Time is not set.
     #[prost(int64, tag = "3")]
@@ -24,12 +18,6 @@ pub struct Plan {
     /// such as a git commit that validators could automatically upgrade to
     #[prost(string, tag = "4")]
     pub info: ::prost::alloc::string::String,
-    /// Deprecated: UpgradedClientState field has been deprecated. IBC upgrade logic has been
-    /// moved to the IBC module in the sub module 02-client.
-    /// If this field is not empty, an error will be thrown.
-    #[deprecated]
-    #[prost(message, optional, tag = "5")]
-    pub upgraded_client_state: ::core::option::Option<::prost_types::Any>,
 }
 /// SoftwareUpgradeProposal is a gov Content type for initiating a software
 /// upgrade.
@@ -50,16 +38,6 @@ pub struct CancelSoftwareUpgradeProposal {
     pub title: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub description: ::prost::alloc::string::String,
-}
-/// ModuleVersion specifies a module and its consensus version.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ModuleVersion {
-    /// name of the app module
-    #[prost(string, tag = "1")]
-    pub name: ::prost::alloc::string::String,
-    /// consensus version of the app module
-    #[prost(uint64, tag = "2")]
-    pub version: u64,
 }
 /// QueryCurrentPlanRequest is the request type for the Query/CurrentPlan RPC
 /// method.
@@ -104,22 +82,4 @@ pub struct QueryUpgradedConsensusStateRequest {
 pub struct QueryUpgradedConsensusStateResponse {
     #[prost(bytes = "vec", tag = "2")]
     pub upgraded_consensus_state: ::prost::alloc::vec::Vec<u8>,
-}
-/// QueryModuleVersionsRequest is the request type for the Query/ModuleVersions
-/// RPC method.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct QueryModuleVersionsRequest {
-    /// module_name is a field to query a specific module
-    /// consensus version from state. Leaving this empty will
-    /// fetch the full list of module versions from state
-    #[prost(string, tag = "1")]
-    pub module_name: ::prost::alloc::string::String,
-}
-/// QueryModuleVersionsResponse is the response type for the Query/ModuleVersions
-/// RPC method.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct QueryModuleVersionsResponse {
-    /// module_versions is a list of module names with their consensus versions.
-    #[prost(message, repeated, tag = "1")]
-    pub module_versions: ::prost::alloc::vec::Vec<ModuleVersion>,
 }
