@@ -974,7 +974,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let client = async {
                 tracing::debug!("in Substrate: [send_messages_and_wait_commit] >> before sleep");
-                sleep(Duration::from_secs(5));
+                sleep(Duration::from_secs(3));
 
                 let client = ClientBuilder::<NodeRuntime>::new()
                     .set_url(&self.websocket_url.clone())
@@ -1030,7 +1030,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> signer: {:?}", "Bob");
 
             tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> before sleep");
-            sleep(Duration::from_secs(5));
+            sleep(Duration::from_secs(3));
             tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> after sleep");
 
         let client = async {
@@ -1458,7 +1458,8 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<u64>, Error> {
         tracing::info!("in Substraete: [query_unreceived_acknowledegements]");
 
-        todo!()
+        // todo:
+        Ok(vec![1,2,3])
     }
 
     fn query_next_sequence_receive(

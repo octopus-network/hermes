@@ -7,12 +7,15 @@ use crate::ics02_client::handler::dispatch as ics2_msg_dispatcher;
 use crate::ics03_connection::handler::dispatch as ics3_msg_dispatcher;
 use crate::ics04_channel::handler::channel_dispatch as ics4_msg_dispatcher;
 use crate::ics04_channel::handler::packet_dispatch as ics04_packet_msg_dispatcher;
+use crate::ics04_channel::handler::write_ack_packet_dispatch;
 use crate::ics26_routing::context::Ics26Context;
 use crate::ics26_routing::error::Error;
 use crate::ics26_routing::msgs::Ics26Envelope::{
     self, Ics20Msg, Ics2Msg, Ics3Msg, Ics4ChannelMsg, Ics4PacketMsg,
 };
 use crate::{events::IbcEvent, handler::HandlerOutput};
+pub use crate::ics04_channel::handler::write_acknowledgement;
+use crate::ics04_channel::packet::Packet;
 
 /// Mimics the DeliverTx ABCI interface, but a slightly lower level. No need for authentication
 /// info or signature checks here.
@@ -109,16 +112,26 @@ where
 
         Ics4PacketMsg(msg) => {
             let handler_output =
-                ics04_packet_msg_dispatcher(ctx, msg).map_err(Error::ics04_channel)?;
+                ics04_packet_msg_dispatcher(ctx, msg.clone()).map_err(Error::ics04_channel)?;
 
             // Apply any results to the host chain store.
             ctx.store_packet_result(handler_output.result)
                 .map_err(Error::ics04_channel)?;
 
-            HandlerOutput::builder()
+            let _ho = HandlerOutput::builder()
                 .with_log(handler_output.log)
-                .with_events(handler_output.events)
-                .with_result(())
+                .with_events(handler_output.events);
+// Todo: submit issues to informal
+            let _ack = write_ack_packet_dispatch(ctx, msg.clone(), vec![102]);
+            let ho = match _ack {
+                Ok(_ho_ack) => {
+                    _ho.with_log(_ho_ack.log)
+                        .with_events(_ho_ack.events)
+                }
+                Err(E) => { _ho }
+            };
+
+            ho.with_result(())
         }
     };
 

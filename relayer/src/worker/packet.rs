@@ -77,11 +77,13 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
                 recv(crossbeam_channel::after(BACKOFF)) -> _ => None,
             };
 
-            let result = retry_with_index(retry_strategy::worker_stubborn_strategy(), |index| {
-                self.step(maybe_cmd.clone(), &mut link, index)
-            });
+            // Todo: uncomment and test packet communications
+            // let result = retry_with_index(retry_strategy::worker_stubborn_strategy(), |index| {
+                self.step(maybe_cmd.clone(), &mut link, 1);
+            // });
 
-            match result {
+            // Todo: uncomment and test packet communications
+/*            match result {
                 Ok(Step::Success(summary)) => {
                     if !summary.is_empty() {
                         trace!("Packet worker produced relay summary: {:?}", summary);
@@ -97,7 +99,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
                 Err(retries) => {
                     return Err(RunError::retry(retries));
                 }
-            }
+            }*/
+            return Ok(());
         }
     }
 
@@ -166,9 +169,11 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
             return RetryResult::Retry(index);
         }
 
-        let confirmation_result = link.a_to_b.process_pending_txs();
+        // Todo: uncomment and test packet communications
+        // let confirmation_result = link.a_to_b.process_pending_txs();
 
-        RetryResult::Ok(Step::Success(confirmation_result))
+        // RetryResult::Ok(Step::Success(confirmation_result))
+        RetryResult::Ok(Step::Shutdown)
     }
 
     /// Get a reference to the uni chan path worker's chains.
