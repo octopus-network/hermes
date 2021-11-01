@@ -14,7 +14,7 @@ use ibc::Height;
 use ibc_proto::ibc::core::client::v1::QueryConsensusStatesRequest;
 use ibc_proto::ibc::core::connection::v1::QueryClientConnectionsRequest;
 use ibc_relayer::chain::ChainEndpoint;
-use ibc_relayer::chain::{CosmosSdkChain, SubstrateChain};
+use ibc_relayer::chain::{CosmosSdkChain, SubstrateChain, CosmosGrandpaSdkChain};
 
 use crate::application::app_config;
 use crate::conclude::Output;
@@ -50,14 +50,27 @@ impl Runnable for QueryClientStateCmd {
         };
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        // TODO in the future
-        // let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
-        let chain = SubstrateChain::bootstrap(chain_config.clone(),rt).unwrap();
-        let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
+        let chain_type = chain_config.account_prefix.clone();
+        match chain_type.as_str() {
+            "cosmos" => {
+                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(),rt).unwrap();
+                let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
 
-        match chain.query_client_state(&self.client_id, height) {
-            Ok(cs) => Output::success(cs).exit(),
-            Err(e) => Output::error(format!("{}", e)).exit(),
+                match chain.query_client_state(&self.client_id, height) {
+                    Ok(cs) => Output::success(cs).exit(),
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
+            }
+            "substrate" => {
+                let chain = SubstrateChain::bootstrap(chain_config.clone(),rt).unwrap();
+                let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
+
+                match chain.query_client_state(&self.client_id, height) {
+                    Ok(cs) => Output::success(cs).exit(),
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
+            }
+            _ => panic!("Unknown chain"),
         }
     }
 }

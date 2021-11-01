@@ -5,7 +5,6 @@ use crate::error::Error;
 use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing, Store};
 use crate::light_client::LightClient;
-use crate::light_client::grandpa::LightClient as GpLightClient;
 use ibc::events::IbcEvent;
 use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
@@ -36,7 +35,7 @@ use prost_types::Any;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tokio::runtime::Runtime as TokioRuntime;
-use crate::light_client::grandpa::LightClient as PGLightClient;
+use crate::light_client::grandpa::LightClient as GPLightClient;
 use std::thread;
 use tendermint::account::Id as AccountId;
 use bitcoin::hashes::hex::ToHex;
@@ -886,7 +885,7 @@ impl ChainEndpoint for SubstrateChain {
     type Header = GPHeader;
     type ConsensusState = GPConsensusState;
     type ClientState = GPClientState;
-    type LightClient = GpLightClient;
+    type LightClient = GPLightClient;
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
         tracing::info!("in Substrate: [bootstrap function]");
@@ -906,7 +905,7 @@ impl ChainEndpoint for SubstrateChain {
     fn init_light_client(&self) -> Result<Self::LightClient, Error> {
         tracing::info!("In Substrate: [init_light_client]");
 
-        let light_client = PGLightClient::new();
+        let light_client = GPLightClient::new();
 
         Ok(light_client)
     }
@@ -1704,7 +1703,6 @@ impl ChainEndpoint for SubstrateChain {
         // Create mock grandpa client state
         let client_state = GRANDPAClientState::new(chain_id, height, frozen_height)
             .unwrap();
-
         tracing::info!("in Substrate: [build_client_state] >> client_state: {:?}", client_state);
 
         Ok(client_state)

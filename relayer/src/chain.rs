@@ -5,6 +5,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 
 pub use cosmos::CosmosSdkChain;
 pub use substrate::SubstrateChain;
+pub use cosmos_grandpa::CosmosGrandpaSdkChain;
 
 use ibc::events::IbcEvent;
 use ibc::ics02_client::client_consensus::{
@@ -47,9 +48,11 @@ pub mod counterparty;
 pub mod handle;
 pub mod runtime;
 pub(crate) mod substrate;
+pub(crate) mod cosmos_grandpa;
 
 #[cfg(test)]
 pub mod mock;
+
 
 /// The result of a health check.
 #[derive(Debug)]
