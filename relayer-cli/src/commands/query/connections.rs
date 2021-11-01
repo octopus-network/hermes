@@ -5,7 +5,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 
 use ibc::ics24_host::identifier::{ChainId, ConnectionId};
 use ibc_proto::ibc::core::connection::v1::QueryConnectionsRequest;
-use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain};
+use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain, CosmosGrandpaSdkChain};
 
 use crate::conclude::Output;
 use crate::prelude::*;
@@ -35,25 +35,51 @@ impl Runnable for QueryConnectionsCmd {
         debug!("Options: {:?}", self);
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        // TODO in the future
-        let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+        let chain_type = chain_config.account_prefix.clone();
+        match chain_type.as_str() {
+            "cosmos" => {
+                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
-        let req = QueryConnectionsRequest {
-            pagination: ibc_proto::cosmos::base::query::pagination::all(),
-        };
+                let req = QueryConnectionsRequest {
+                    pagination: ibc_proto::cosmos::base::query::pagination::all(),
+                };
 
-        let res = chain.query_connections(req);
+                let res = chain.query_connections(req);
 
-        match res {
-            Ok(connections) => {
-                let ids: Vec<ConnectionId> = connections
-                    .into_iter()
-                    .map(|identified_connection| identified_connection.connection_id)
-                    .collect();
+                match res {
+                    Ok(connections) => {
+                        let ids: Vec<ConnectionId> = connections
+                            .into_iter()
+                            .map(|identified_connection| identified_connection.connection_id)
+                            .collect();
 
-                Output::success(ids).exit()
+                        Output::success(ids).exit()
+                    }
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
             }
-            Err(e) => Output::error(format!("{}", e)).exit(),
+            "substrate" => {
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+
+                let req = QueryConnectionsRequest {
+                    pagination: ibc_proto::cosmos::base::query::pagination::all(),
+                };
+
+                let res = chain.query_connections(req);
+
+                match res {
+                    Ok(connections) => {
+                        let ids: Vec<ConnectionId> = connections
+                            .into_iter()
+                            .map(|identified_connection| identified_connection.connection_id)
+                            .collect();
+
+                        Output::success(ids).exit()
+                    }
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
+            }
+            _ => panic!("Unknown chain type"),
         }
     }
 }
