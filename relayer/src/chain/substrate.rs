@@ -827,6 +827,9 @@ impl SubstrateChain {
                 client_id.as_bytes().to_vec(),
                 Some(block_hash),
             ).await?;
+        if connection_id.is_empty() {
+            return Ok(Vec::new());
+        }
 
         let mut result = vec![];
 

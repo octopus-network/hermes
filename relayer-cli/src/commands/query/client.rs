@@ -117,53 +117,102 @@ impl Runnable for QueryClientConsensusCmd {
         debug!("Options: {:?}", self);
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        // TODO in the future
-        // let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
-        let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+        let chain_type = chain_config.account_prefix.clone();
+        match chain_type.as_str() {
+            "cosmos" => {
+                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
-        let counterparty_chain = match chain.query_client_state(&self.client_id, Height::zero()) {
-            Ok(cs) => cs.chain_id(),
-            Err(e) => {
-                return Output::error(format!(
-                    "Failed while querying client '{}' on chain '{}' with error: {}",
-                    self.client_id, self.chain_id, e
-                ))
-                .exit()
-            }
-        };
+                let counterparty_chain = match chain.query_client_state(&self.client_id, Height::zero()) {
+                    Ok(cs) => cs.chain_id(),
+                    Err(e) => {
+                        return Output::error(format!(
+                            "Failed while querying client '{}' on chain '{}' with error: {}",
+                            self.client_id, self.chain_id, e
+                        ))
+                            .exit()
+                    }
+                };
+                match self.consensus_height {
+                    Some(cs_height) => {
+                        let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
+                        let consensus_height = ibc::Height::new(counterparty_chain.version(), cs_height);
 
-        match self.consensus_height {
-            Some(cs_height) => {
-                let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
-                let consensus_height = ibc::Height::new(counterparty_chain.version(), cs_height);
+                        let res =
+                            chain.query_consensus_state(self.client_id.clone(), consensus_height, height);
 
-                let res =
-                    chain.query_consensus_state(self.client_id.clone(), consensus_height, height);
-
-                match res {
-                    Ok(cs) => Output::success(cs).exit(),
-                    Err(e) => Output::error(format!("{}", e)).exit(),
-                }
-            }
-            None => {
-                let res = chain.query_consensus_states(QueryConsensusStatesRequest {
-                    client_id: self.client_id.to_string(),
-                    pagination: ibc_proto::cosmos::base::query::pagination::all(),
-                });
-
-                match res {
-                    Ok(states) => {
-                        if self.heights_only {
-                            let heights: Vec<Height> = states.iter().map(|cs| cs.height).collect();
-                            Output::success(heights).exit()
-                        } else {
-                            Output::success(states).exit()
+                        match res {
+                            Ok(cs) => Output::success(cs).exit(),
+                            Err(e) => Output::error(format!("{}", e)).exit(),
                         }
                     }
-                    Err(e) => Output::error(format!("{}", e)).exit(),
+                    None => {
+                        let res = chain.query_consensus_states(QueryConsensusStatesRequest {
+                            client_id: self.client_id.to_string(),
+                            pagination: ibc_proto::cosmos::base::query::pagination::all(),
+                        });
+
+                        match res {
+                            Ok(states) => {
+                                if self.heights_only {
+                                    let heights: Vec<Height> = states.iter().map(|cs| cs.height).collect();
+                                    Output::success(heights).exit()
+                                } else {
+                                    Output::success(states).exit()
+                                }
+                            }
+                            Err(e) => Output::error(format!("{}", e)).exit(),
+                        }
+                    }
                 }
             }
-        }
+            "substrate" => {
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+
+                let counterparty_chain = match chain.query_client_state(&self.client_id, Height::zero()) {
+                    Ok(cs) => cs.chain_id(),
+                    Err(e) => {
+                        return Output::error(format!(
+                            "Failed while querying client '{}' on chain '{}' with error: {}",
+                            self.client_id, self.chain_id, e
+                        ))
+                            .exit()
+                    }
+                };
+                match self.consensus_height {
+                    Some(cs_height) => {
+                        let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
+                        let consensus_height = ibc::Height::new(counterparty_chain.version(), cs_height);
+
+                        let res =
+                            chain.query_consensus_state(self.client_id.clone(), consensus_height, height);
+
+                        match res {
+                            Ok(cs) => Output::success(cs).exit(),
+                            Err(e) => Output::error(format!("{}", e)).exit(),
+                        }
+                    }
+                    None => {
+                        let res = chain.query_consensus_states(QueryConsensusStatesRequest {
+                            client_id: self.client_id.to_string(),
+                            pagination: ibc_proto::cosmos::base::query::pagination::all(),
+                        });
+
+                        match res {
+                            Ok(states) => {
+                                if self.heights_only {
+                                    let heights: Vec<Height> = states.iter().map(|cs| cs.height).collect();
+                                    Output::success(heights).exit()
+                                } else {
+                                    Output::success(states).exit()
+                                }
+                            }
+                            Err(e) => Output::error(format!("{}", e)).exit(),
+                        }
+                    }
+                }
+            }
+            _ => panic!("Unknown chain type"),
+        };
     }
 }
 
@@ -268,19 +317,37 @@ impl Runnable for QueryClientConnectionsCmd {
         debug!("Options: {:?}", self);
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        // TODO in the future
-        // let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
-        let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+        let chain_type = chain_config.account_prefix.clone();
+        match chain_type.as_str() {
+            "cosmos" => {
+                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
-        let req = QueryClientConnectionsRequest {
-            client_id: self.client_id.to_string(),
-        };
+                let req = QueryClientConnectionsRequest {
+                    client_id: self.client_id.to_string(),
+                };
 
-        let res = chain.query_client_connections(req);
+                let res = chain.query_client_connections(req);
 
-        match res {
-            Ok(ce) => Output::success(ce).exit(),
-            Err(e) => Output::error(format!("{}", e)).exit(),
+                match res {
+                    Ok(ce) => Output::success(ce).exit(),
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
+            },
+            "substrate" => {
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+
+                let req = QueryClientConnectionsRequest {
+                    client_id: self.client_id.to_string(),
+                };
+
+                let res = chain.query_client_connections(req);
+
+                match res {
+                    Ok(ce) => Output::success(ce).exit(),
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
+            }
+            _ => panic!("Unknown chain type"),
         }
     }
 }
