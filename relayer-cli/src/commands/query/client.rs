@@ -251,36 +251,71 @@ impl Runnable for QueryClientHeaderCmd {
         debug!("Options: {:?}", self);
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        // TODO in the future
-        // let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
-        let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+        let chain_type = chain_config.account_prefix.clone();
+        match chain_type.as_str() {
+            "cosmos" => {
+                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
 
-        let counterparty_chain = match chain.query_client_state(&self.client_id, Height::zero()) {
-            Ok(cs) => cs.chain_id(),
-            Err(e) => {
-                return Output::error(format!(
-                    "Failed while querying client '{}' on chain '{}' with error: {}",
-                    self.client_id, self.chain_id, e
-                ))
-                .exit()
+                let counterparty_chain = match chain.query_client_state(&self.client_id, Height::zero()) {
+                    Ok(cs) => cs.chain_id(),
+                    Err(e) => {
+                        return Output::error(format!(
+                            "Failed while querying client '{}' on chain '{}' with error: {}",
+                            self.client_id, self.chain_id, e
+                        ))
+                            .exit()
+                    }
+                };
+
+                let consensus_height =
+                    ibc::Height::new(counterparty_chain.version(), self.consensus_height);
+                let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
+
+                let res = chain.query_txs(QueryTxRequest::Client(QueryClientEventRequest {
+                    height,
+                    event_id: IbcEventType::UpdateClient,
+                    client_id: self.client_id.clone(),
+                    consensus_height,
+                }));
+
+                match res {
+                    Ok(header) => Output::success(header).exit(),
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
+            },
+            "substrate" => {
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+
+
+                let counterparty_chain = match chain.query_client_state(&self.client_id, Height::zero()) {
+                    Ok(cs) => cs.chain_id(),
+                    Err(e) => {
+                        return Output::error(format!(
+                            "Failed while querying client '{}' on chain '{}' with error: {}",
+                            self.client_id, self.chain_id, e
+                        ))
+                            .exit()
+                    }
+                };
+
+                let consensus_height =
+                    ibc::Height::new(counterparty_chain.version(), self.consensus_height);
+                let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
+
+                let res = chain.query_txs(QueryTxRequest::Client(QueryClientEventRequest {
+                    height,
+                    event_id: IbcEventType::UpdateClient,
+                    client_id: self.client_id.clone(),
+                    consensus_height,
+                }));
+
+                match res {
+                    Ok(header) => Output::success(header).exit(),
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
             }
-        };
-
-        let consensus_height =
-            ibc::Height::new(counterparty_chain.version(), self.consensus_height);
-        let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
-
-        let res = chain.query_txs(QueryTxRequest::Client(QueryClientEventRequest {
-            height,
-            event_id: IbcEventType::UpdateClient,
-            client_id: self.client_id.clone(),
-            consensus_height,
-        }));
-
-        match res {
-            Ok(header) => Output::success(header).exit(),
-            Err(e) => Output::error(format!("{}", e)).exit(),
+            _ => panic!("Unknown chain type"),
         }
     }
 }
