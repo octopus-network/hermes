@@ -9,7 +9,7 @@ use ibc::{
     ics24_host::identifier::{ChainId, PortChannelId},
 };
 use ibc_proto::ibc::core::channel::v1::QueryConnectionChannelsRequest;
-use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain};
+use ibc_relayer::chain::{ChainEndpoint, CosmosGrandpaSdkChain, CosmosSdkChain, SubstrateChain};
 
 use crate::conclude::Output;
 use crate::error::Error;
@@ -46,24 +46,49 @@ impl Runnable for QueryConnectionEndCmd {
         debug!("Options: {:?}", self);
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        // TODO in the future
-        let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+        let chain_type = chain_config.account_prefix.clone();
+        match chain_type.as_str() {
+            "cosmos" => {
+                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
-        let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
-        let res = chain.query_connection(&self.connection_id, height);
-        match res {
-            Ok(connection_end) => {
-                if connection_end.state_matches(&State::Uninitialized) {
-                    Output::error(format!(
-                        "connection '{}' does not exist",
-                        self.connection_id
-                    ))
-                    .exit()
-                } else {
-                    Output::success(connection_end).exit()
+                let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
+                let res = chain.query_connection(&self.connection_id, height);
+                match res {
+                    Ok(connection_end) => {
+                        if connection_end.state_matches(&State::Uninitialized) {
+                            Output::error(format!(
+                                "connection '{}' does not exist",
+                                self.connection_id
+                            ))
+                                .exit()
+                        } else {
+                            Output::success(connection_end).exit()
+                        }
+                    }
+                    Err(e) => Output::error(format!("{}", e)).exit(),
                 }
             }
-            Err(e) => Output::error(format!("{}", e)).exit(),
+            "substrate" => {
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+
+                let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
+                let res = chain.query_connection(&self.connection_id, height);
+                match res {
+                    Ok(connection_end) => {
+                        if connection_end.state_matches(&State::Uninitialized) {
+                            Output::error(format!(
+                                "connection '{}' does not exist",
+                                self.connection_id
+                            ))
+                                .exit()
+                        } else {
+                            Output::success(connection_end).exit()
+                        }
+                    }
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
+            }
+            _ => panic!("Unknown chain type"),
         }
     }
 }
