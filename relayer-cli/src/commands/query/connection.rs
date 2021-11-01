@@ -123,28 +123,57 @@ impl Runnable for QueryConnectionChannelsCmd {
         debug!("Options: {:?}", self);
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        // TODO in the future
-        let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+        let chain_type = chain_config.account_prefix.clone();
+        match chain_type.as_str() {
+            "cosmos" => {
+                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
-        let req = QueryConnectionChannelsRequest {
-            connection: self.connection_id.to_string(),
-            pagination: ibc_proto::cosmos::base::query::pagination::all(),
-        };
+                let req = QueryConnectionChannelsRequest {
+                    connection: self.connection_id.to_string(),
+                    pagination: ibc_proto::cosmos::base::query::pagination::all(),
+                };
 
-        let res: Result<_, Error> = chain.query_connection_channels(req).map_err(Error::relayer);
+                let res: Result<_, Error> = chain.query_connection_channels(req).map_err(Error::relayer);
 
-        match res {
-            Ok(channels) => {
-                let ids: Vec<PortChannelId> = channels
-                    .into_iter()
-                    .map(|identified_channel| PortChannelId {
-                        port_id: identified_channel.port_id,
-                        channel_id: identified_channel.channel_id,
-                    })
-                    .collect();
-                Output::success(ids).exit()
+                match res {
+                    Ok(channels) => {
+                        let ids: Vec<PortChannelId> = channels
+                            .into_iter()
+                            .map(|identified_channel| PortChannelId {
+                                port_id: identified_channel.port_id,
+                                channel_id: identified_channel.channel_id,
+                            })
+                            .collect();
+                        Output::success(ids).exit()
+                    }
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
+            },
+            "substrate" => {
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+
+                let req = QueryConnectionChannelsRequest {
+                    connection: self.connection_id.to_string(),
+                    pagination: ibc_proto::cosmos::base::query::pagination::all(),
+                };
+
+                let res: Result<_, Error> = chain.query_connection_channels(req).map_err(Error::relayer);
+
+                match res {
+                    Ok(channels) => {
+                        let ids: Vec<PortChannelId> = channels
+                            .into_iter()
+                            .map(|identified_channel| PortChannelId {
+                                port_id: identified_channel.port_id,
+                                channel_id: identified_channel.channel_id,
+                            })
+                            .collect();
+                        Output::success(ids).exit()
+                    }
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
             }
-            Err(e) => Output::error(format!("{}", e)).exit(),
+            _ => panic!("Unknown chain type"),
         }
     }
 }

@@ -1684,14 +1684,14 @@ impl ChainEndpoint for CosmosGrandpaSdkChain {
 
     fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
         // TODO this is mock
-        tracing::info!("in Substrate: [build_client_state]");
+        tracing::info!("in cosmos_grandpa: [build_client_state]");
         use ibc::Height;
 
         let chain_id = self.id().clone();
-        tracing::info!("in Substrate: [build_client_state] >> chain_id = {:?}", chain_id);
+        tracing::info!("in cosmos_grandpa: [build_client_state] >> chain_id = {:?}", chain_id);
 
         let frozen_height = Height::zero();
-        tracing::info!("in Substrate: [build_client_state] >> frozen_height = {:?}", frozen_height);
+        tracing::info!("in cosmos_grandpa: [build_client_state] >> frozen_height = {:?}", frozen_height);
 
         use ibc::ics02_client::client_state::AnyClientState;
         use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
@@ -1699,7 +1699,7 @@ impl ChainEndpoint for CosmosGrandpaSdkChain {
         // Create mock grandpa client state
         let client_state = GRANDPAClientState::new(chain_id, height, frozen_height)
             .unwrap();
-        tracing::info!("in Substrate: [build_client_state] >> client_state: {:?}", client_state);
+        tracing::info!("in cosmos_grandpa: [build_client_state] >> client_state: {:?}", client_state);
 
         Ok(client_state)
     }
@@ -1709,7 +1709,7 @@ impl ChainEndpoint for CosmosGrandpaSdkChain {
         light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
         // TODO this is mock
-        tracing::info!("in Substrate: [build_consensus_state]");
+        tracing::info!("in cosmos_grandpa: [build_consensus_state]");
 
         // Create mock grandpa consensus state
         use ibc::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
@@ -1729,11 +1729,13 @@ impl ChainEndpoint for CosmosGrandpaSdkChain {
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         crate::time!("build_header");
 
-        // Get the light block at target_height from chain.
-        let Verified { target, supporting } =
-            light_client.header_and_minimal_set(trusted_height, target_height, client_state)?;
+        tracing::info!("in cosmos_grandpa: [build_header]");
+        tracing::info!("in cosmos_grandpa: [build_header] >> Trusted_height: {:?}, Target_height: {:?}, client_state: {:?}",
+            trusted_height, target_height, client_state);
+        tracing::info!("in cosmos_grandpa: [build_header] >> GPHEADER: {:?}", GPHeader::new(target_height.revision_height));
 
-        Ok((target, supporting))
+        Ok((GPHeader::new(target_height.revision_height), vec![GPHeader::new(trusted_height.revision_height)]))
+
     }
 }
 

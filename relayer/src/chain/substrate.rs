@@ -501,8 +501,8 @@ impl SubstrateChain {
     /// get latest height used by subscribe_blocks
     async fn get_latest_height(&self, client: Client<NodeRuntime>) -> Result<u64, Box<dyn std::error::Error>> {
         tracing::info!("In Substrate: [get_latest_height]");
-        // let mut blocks = client.subscribe_finalized_blocks().await?;
-        let mut blocks = client.subscribe_blocks().await?;
+        let mut blocks = client.subscribe_finalized_blocks().await?;
+        // let mut blocks = client.subscribe_blocks().await?;
         let height= match blocks.next().await {
             Ok(Some(header)) => {
                 header.number as u64
