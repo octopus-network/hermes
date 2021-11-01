@@ -5,7 +5,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 
 use ibc::ics24_host::identifier::ChainId;
 use ibc::ics24_host::identifier::{ChannelId, PortId};
-use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain};
+use ibc_relayer::chain::{ChainEndpoint, CosmosGrandpaSdkChain, CosmosSdkChain, SubstrateChain};
 
 use crate::conclude::Output;
 use crate::prelude::*;
@@ -44,24 +44,51 @@ impl Runnable for QueryChannelEndCmd {
         debug!("Options: {:?}", self);
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        // TODO in the future
-        let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+        let chain_type = chain_config.account_prefix.clone();
+        match chain_type.as_str() {
+            "cosmos" => {
+                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
-        let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
-        let res = chain.query_channel(&self.port_id, &self.channel_id, height);
-        match res {
-            Ok(channel_end) => {
-                if channel_end.state_matches(&State::Uninitialized) {
-                    Output::error(format!(
-                        "port '{}' & channel '{}' does not exist",
-                        self.port_id, self.channel_id
-                    ))
-                    .exit()
-                } else {
-                    Output::success(channel_end).exit()
+                let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
+                let res = chain.query_channel(&self.port_id, &self.channel_id, height);
+                match res {
+                    Ok(channel_end) => {
+                        if channel_end.state_matches(&State::Uninitialized) {
+                            Output::error(format!(
+                                "port '{}' & channel '{}' does not exist",
+                                self.port_id, self.channel_id
+                            ))
+                                .exit()
+                        } else {
+                            Output::success(channel_end).exit()
+                        }
+                    }
+                    Err(e) => Output::error(format!("{}", e)).exit(),
                 }
             }
-            Err(e) => Output::error(format!("{}", e)).exit(),
+            "substrate" => {
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+
+                let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
+                let res = chain.query_channel(&self.port_id, &self.channel_id, height);
+                match res {
+                    Ok(channel_end) => {
+                        if channel_end.state_matches(&State::Uninitialized) {
+                            Output::error(format!(
+                                "port '{}' & channel '{}' does not exist",
+                                self.port_id, self.channel_id
+                            ))
+                                .exit()
+                        } else {
+                            Output::success(channel_end).exit()
+                        }
+                    }
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
+            }
+            _ => panic!("Unknown chain type"),
         }
+        // TODO in the future
+
     }
 }
