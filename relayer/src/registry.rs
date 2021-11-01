@@ -11,7 +11,7 @@ use tracing::{trace, warn};
 use ibc::ics24_host::identifier::ChainId;
 
 use crate::{
-    chain::{handle::ChainHandle, runtime::ChainRuntime, CosmosSdkChain, SubstrateChain},
+    chain::{handle::ChainHandle, runtime::ChainRuntime, CosmosSdkChain, SubstrateChain, CosmosGrandpaSdkChain},
     config::Config,
     error::Error as RelayerError,
     supervisor::RwArc,
@@ -136,7 +136,7 @@ pub fn spawn_chain_runtime<Chain: ChainHandle>(
     let handle = match account_prefix.as_str()  {
         "cosmos" | "chaina" | "chainb" => {
             let rt = Arc::new(TokioRuntime::new().unwrap());
-            let handle = ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
+            let handle = ChainRuntime::<CosmosGrandpaSdkChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
             handle
         },
         "substrate" => {
@@ -144,7 +144,7 @@ pub fn spawn_chain_runtime<Chain: ChainHandle>(
             let handle = ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
             handle
         }
-        _ => unimplemented!()
+        _ => panic!("Unknown chain type"),
     };
 
     Ok(handle)
