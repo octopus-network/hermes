@@ -12,7 +12,7 @@ use ibc::query::{QueryTxHash, QueryTxRequest};
 
 use ibc_relayer::chain::handle::{ChainHandle, ProdChainHandle};
 use ibc_relayer::chain::runtime::ChainRuntime;
-use ibc_relayer::chain::{CosmosSdkChain, SubstrateChain};
+use ibc_relayer::chain::{CosmosGrandpaSdkChain, CosmosSdkChain, SubstrateChain};
 
 use crate::conclude::Output;
 use crate::error::Error;
@@ -44,22 +44,46 @@ impl Runnable for QueryTxEventsCmd {
         };
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        // TODO in the future
-        let chain =
-            ChainRuntime::<SubstrateChain>::spawn::<ProdChainHandle>(chain_config.clone(), rt)
-                .unwrap();
+        let chain_type = chain_config.account_prefix.clone();
+        match chain_type.as_str() {
+            "cosmos" => {
+                let chain =
+                    ChainRuntime::<CosmosGrandpaSdkChain>::spawn::<ProdChainHandle>(chain_config.clone(), rt)
+                        .unwrap();
 
-        let res = Hash::from_str(self.hash.as_str())
-            .map_err(|e| Error::invalid_hash(self.hash.clone(), e))
-            .and_then(|h| {
-                chain
-                    .query_txs(QueryTxRequest::Transaction(QueryTxHash(h)))
-                    .map_err(Error::relayer)
-            });
+                let res = Hash::from_str(self.hash.as_str())
+                    .map_err(|e| Error::invalid_hash(self.hash.clone(), e))
+                    .and_then(|h| {
+                        chain
+                            .query_txs(QueryTxRequest::Transaction(QueryTxHash(h)))
+                            .map_err(Error::relayer)
+                    });
 
-        match res {
-            Ok(res) => Output::success(res).exit(),
-            Err(e) => Output::error(format!("{}", e)).exit(),
+                match res {
+                    Ok(res) => Output::success(res).exit(),
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
+            }
+            "substrate" => {
+                let chain =
+                    ChainRuntime::<SubstrateChain>::spawn::<ProdChainHandle>(chain_config.clone(), rt)
+                        .unwrap();
+
+                let res = Hash::from_str(self.hash.as_str())
+                    .map_err(|e| Error::invalid_hash(self.hash.clone(), e))
+                    .and_then(|h| {
+                        chain
+                            .query_txs(QueryTxRequest::Transaction(QueryTxHash(h)))
+                            .map_err(Error::relayer)
+                    });
+
+                match res {
+                    Ok(res) => Output::success(res).exit(),
+                    Err(e) => Output::error(format!("{}", e)).exit(),
+                }
+            }
+            _ => panic!("Unknown chain type"),
         }
+
     }
 }
