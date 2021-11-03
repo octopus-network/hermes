@@ -423,15 +423,15 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                     }
                 }
                 IbcEvent::SendPacket(ref send_packet_ev) => {
-                    // if self.send_packet_event_handled(send_packet_ev)? {
-                    //     debug!("[{}] {} already handled", self, send_packet_ev);
-                    //     (None, None)
-                    // } else {
+                    if self.send_packet_event_handled(send_packet_ev)? {
+                        debug!("[{}] {} already handled", self, send_packet_ev);
+                        (None, None)
+                    } else {
                         self.build_recv_or_timeout_from_send_packet_event(
                             send_packet_ev,
                             dst_height,
                         )?
-                    // }
+                    }
                 }
                 IbcEvent::WriteAcknowledgement(ref write_ack_ev) => {
                     if self

@@ -121,8 +121,8 @@ where
             let _ho = HandlerOutput::builder()
                 .with_log(handler_output.log)
                 .with_events(handler_output.events);
-// Todo: submit issues to informal
-            let _ack = write_ack_packet_dispatch(ctx, msg.clone(), vec![102]);
+            // Todo: submit issues to informal
+            let _ack = write_ack_packet_dispatch(ctx, msg.clone(), vec![102]);  // Todo: Get the correct value of ack
             let ho = match _ack {
                 Ok(_ho_ack) => {
                     _ho.with_log(_ho_ack.log)

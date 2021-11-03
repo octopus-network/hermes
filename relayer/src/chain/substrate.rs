@@ -11,7 +11,7 @@ use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWi
 use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd, Counterparty};
 use ibc::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
-use ibc::ics04_channel::packet::{PacketMsgType, Sequence, Packet};
+use ibc::ics04_channel::packet::{PacketMsgType, Sequence, Packet, Receipt};
 use ibc::ics10_grandpa::client_state::ClientState as GPClientState;
 use ibc::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
 use ibc::ics10_grandpa::header::Header as GPHeader;
@@ -62,6 +62,7 @@ use calls::ibc::ConsensusStatesStoreExt;
 use calls::ibc::ChannelsStoreExt;
 use calls::ibc::ConnectionClientStoreExt;
 use calls::ibc::ChannelsConnectionStoreExt;
+use calls::ibc::PacketReceiptStoreExt;
 use codec::{Decode, Encode};
 use substrate_subxt::sp_runtime::traits::BlakeTwo256;
 use substrate_subxt::sp_runtime::generic::Header;
@@ -557,6 +558,27 @@ impl SubstrateChain {
         Ok(channel_end)
     }
 
+    /// get packet receipt by port_id, channel_id and sequence
+    async fn get_packet_receipt(&self, port_id: &PortId, channel_id: &ChannelId, seq: &Sequence, client: Client<NodeRuntime>)
+                            -> Result<Receipt, Box<dyn std::error::Error>> {
+        tracing::info!("in Substrate: [get_packet_receipt]");
+
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
+
+        let block_hash = block_header.hash();
+        tracing::info!("In substrate: [get_packet_receipt] >> block_hash: {:?}", block_hash);
+
+        let _seq = u64::from(*seq).encode();
+        let data = client.packet_receipt((port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), _seq), Some(block_hash)).await?;
+        let _data = String::from_utf8(data).unwrap();
+        if _data.eq("Ok") {
+            Ok(Receipt::Ok)
+        } else {
+            Err(format!("unrecognized packet receipt: {:?}", _data).into())
+        }
+    }
+
     /// get client_state according by client_id, and read ClientStates StoraageMap
     async fn get_client_state(&self, client_id:  &ClientId, client: Client<NodeRuntime>)
         -> Result<GPClientState, Box<dyn std::error::Error>> {
@@ -1028,38 +1050,30 @@ impl ChainEndpoint for SubstrateChain {
         tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> converted msg to send: {:?}", msg);
         let signer = PairSigner::new(AccountKeyring::Bob.pair());
         tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> signer: {:?}", "Bob");
-
-            tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> before sleep");
-            sleep(Duration::from_secs(3));
-            tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> after sleep");
+        sleep(Duration::from_secs(3));
 
         let client = async {
-            tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> before create new client instance");
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
 
-            tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> msg to send: {:?}", msg);
-            tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> url to send: {:?}", &self.websocket_url.clone());
             let result = client.deliver(&signer, msg, 0).await;
-
             tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> result no unwrap: {:?}", result);
-
             let result = result.unwrap();
             tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}", result);
-
             result
         };
         tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> before block_on");
-        let _ = self.block_on(client);
+        let _result = self.block_on(client);
         tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> after block_on");
 
+        use tendermint::abci::transaction;
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
-        let txRe = TxResponse{
+        let txRe = TxResponse {
             code: Code::default(),
             data: serde_json::from_str(json).unwrap(),
             log: Log::from("testtest"),
-            hash: Hash::new([88; 32]),
+            hash: transaction::Hash::new(*_result.as_fixed_bytes())
         };
 
         Ok(vec![txRe])
@@ -1424,8 +1438,28 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryUnreceivedPacketsRequest,
     ) -> Result<Vec<u64>, Error> {
         tracing::info!("in Substrate: [query_unreceived_packets]");
+        let mut result: Vec<u64> = vec![];
 
-        Ok(vec![])
+        let port_id = PortId::from_str(request.port_id.clone().as_str()).unwrap();
+        let channel_id = ChannelId::from_str(request.channel_id.clone().as_str()).unwrap();
+        let seqs = request.packet_commitment_sequences.clone();
+
+        let get_recp = async {
+            let client = ClientBuilder::<NodeRuntime>::new()
+                .set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+
+            for seq in seqs.iter() {
+                let recp = self.get_packet_receipt(&port_id, &channel_id, &Sequence::from(*seq), client.clone()).await;
+                match recp {
+                    Ok(Receipt::Ok) => {}
+                    _ => {result.push(*seq);}
+                }
+            }
+        };
+
+        let _ = self.block_on(get_recp);
+        Ok(result)
     }
 
     fn query_packet_acknowledgements(

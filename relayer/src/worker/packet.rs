@@ -77,18 +77,16 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
                 recv(crossbeam_channel::after(BACKOFF)) -> _ => None,
             };
 
-            // Todo: uncomment and test packet communications
-            // let result = retry_with_index(retry_strategy::worker_stubborn_strategy(), |index| {
-                self.step(maybe_cmd.clone(), &mut link, 1);
-            // });
+            let result = retry_with_index(retry_strategy::worker_stubborn_strategy(), |index| {
+                self.step(maybe_cmd.clone(), &mut link, index)
+            });
 
-            // Todo: uncomment and test packet communications
-/*            match result {
+            match result {
                 Ok(Step::Success(summary)) => {
                     if !summary.is_empty() {
                         trace!("Packet worker produced relay summary: {:?}", summary);
                     }
-                    telemetry!(self.packet_metrics(&summary));
+                    // telemetry!(self.packet_metrics(&summary));
                 }
 
                 Ok(Step::Shutdown) => {
@@ -99,8 +97,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
                 Err(retries) => {
                     return Err(RunError::retry(retries));
                 }
-            }*/
-            return Ok(());
+            }
         }
     }
 
