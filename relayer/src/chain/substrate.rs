@@ -1452,8 +1452,8 @@ impl ChainEndpoint for SubstrateChain {
             for seq in seqs.iter() {
                 let recp = self.get_packet_receipt(&port_id, &channel_id, &Sequence::from(*seq), client.clone()).await;
                 match recp {
-                    Ok(Receipt::Ok) => {}
-                    _ => {result.push(*seq);}
+                    Ok(Receipt::Ok) => {}  // The packet is already received by the chain, don't record it
+                    _ => {result.push(*seq);}  // The packet is not received by the chain, record it
                 }
             }
         };
