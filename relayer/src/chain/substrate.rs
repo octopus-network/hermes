@@ -53,7 +53,7 @@ use calls::ibc::{
     OpenConfirmChannelEvent,  CloseInitChannelEvent, CloseConfirmChannelEvent,
     SendPacketEvent, ReceivePacketEvent, WriteAcknowledgementEvent,
     AcknowledgePacketEvent, TimeoutPacketEvent, TimeoutOnClosePacketEvent,
-    EmptyEvent, ChainErrorEvent,
+    EmptyEvent, ChainErrorEvent, PacketReceiptStore,
 };
 use calls::ibc::ClientStatesStoreExt;
 use calls::ibc::ConnectionsStoreExt;
@@ -61,6 +61,7 @@ use calls::ibc::ConsensusStatesStoreExt;
 use calls::ibc::ChannelsStoreExt;
 use calls::ibc::ConnectionClientStoreExt;
 use calls::ibc::ChannelsConnectionStoreExt;
+use calls::ibc::PacketReceiptStoreExt;
 use codec::{Decode, Encode};
 use substrate_subxt::sp_runtime::traits::BlakeTwo256;
 use substrate_subxt::sp_runtime::generic::Header;
@@ -654,6 +655,35 @@ impl SubstrateChain {
         Ok(result)
     }
 
+    async fn get_unreceipt_packet(&self, port_id:  &PortId, channel_id: &ChannelId, seqs: Vec<u64>, client: Client<NodeRuntime>)
+         -> Result<Vec<u64>, Box<dyn std::error::Error>> {
+        tracing::info!("in Substrate: [get_unreceipt_packet]");
+
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
+
+        let block_hash = block_header.hash();
+        tracing::info!("In substrate: [get_unreceipt_packet] >> block_hash: {:?}", block_hash);
+
+        let mut result = Vec::new();
+
+        let pair = seqs
+            .into_iter()
+            .map(|seq| (port_id.clone().as_bytes().to_vec(), channel_id.clone().as_bytes().to_vec(), (seq.encode(), seq)))
+            .collect::<Vec<_>>();
+        for (port_id, channel_id, (seq_u8, seq)) in pair.into_iter() {
+            let ret : Vec<u8> = client
+                .packet_receipt(
+                    (port_id, channel_id, seq_u8),
+                    Some(block_hash.clone()),
+                ).await?;
+            if ret.is_empty() {
+                result.push(seq);
+            }
+        }
+
+        Ok(result)
+    }
 
     /// get key-value pair (client_identifier, client_state) construct IdentifieredAnyClientstate
     async fn get_clients(&self, client: Client<NodeRuntime>)
@@ -1378,10 +1408,24 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryUnreceivedPacketsRequest,
     ) -> Result<Vec<u64>, Error> {
         tracing::info!("in Substrate: [query_unreceived_packets]");
+        let port_id = PortId::from_str(request.port_id.as_str()).unwrap();
+        let channel_id = ChannelId::from_str(request.channel_id.as_str()).unwrap();
+        let seqs = request.packet_commitment_sequences.clone();
 
-        // todo!()
-        // TODO
-        Ok(vec![1, 2, 3])
+
+        let unreceived_packets = async {
+            let client = ClientBuilder::<NodeRuntime>::new()
+                .set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+            let unreceived_packets = self
+                .get_unreceipt_packet(&port_id, &channel_id, seqs, client).await.unwrap();
+
+            unreceived_packets
+        };
+
+        let result =  self.block_on(unreceived_packets);
+
+        Ok(result)
     }
 
     fn query_packet_acknowledgements(

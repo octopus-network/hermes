@@ -71,9 +71,9 @@ pub struct ConnectionsStore<T: Ibc> {
 
 
 #[derive(Encode, Store)]
-pub struct PacketsStore<T: Ibc> {
-    #[store(returns = H256)]
-    pub key: (Vec<u8>, H256, u64),
+pub struct PacketReceiptStore<T: Ibc> {
+    #[store(returns = Vec<u8>)]
+    pub key: (Vec<u8>, Vec<u8>, Vec<u8>),
     pub _runtime: PhantomData<T>,
 }
 
