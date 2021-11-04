@@ -134,7 +134,7 @@ pub fn spawn_chain_runtime<Chain: ChainHandle>(
     tracing::info!("in registry: [spawn_chain_runtime_generic] account_prefix: {}", account_prefix);
 
     let handle = match account_prefix.as_str()  {
-        "cosmos" | "chaina" | "chainb" => {
+        "cosmos" => {
             let rt = Arc::new(TokioRuntime::new().unwrap());
             let handle = ChainRuntime::<CosmosGrandpaSdkChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
             handle
