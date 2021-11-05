@@ -85,6 +85,13 @@ pub struct PacketReceiptStore<T: Ibc> {
 }
 
 #[derive(Encode, Store)]
+pub struct SendPacketEventStore<T: Ibc> {
+    #[store(returns = Vec<u8>)]
+    pub key: (Vec<u8>, Vec<u8>, u64),
+    pub _runtime: PhantomData<T>,
+}
+
+#[derive(Encode, Store)]
 pub struct AcknowledgementsStore<T: Ibc> {
     #[store(returns = H256)]
     pub key: (Vec<u8>, H256, u64),

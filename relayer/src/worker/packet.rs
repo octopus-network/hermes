@@ -86,7 +86,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
                     if !summary.is_empty() {
                         trace!("Packet worker produced relay summary: {:?}", summary);
                     }
-                    // telemetry!(self.packet_metrics(&summary));
+                    // telemetry!(self.packet_metrics(&summary));  // Todo: Enable the telemetry
                 }
 
                 Ok(Step::Shutdown) => {
@@ -128,12 +128,11 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
                 } => {
                     // Schedule the clearing of pending packets. This should happen
                     // once at start, and _forced_ at predefined block intervals.
-/*                    let force_packet_clearing = self.clear_packets_interval != 0
+                    let force_packet_clearing = self.clear_packets_interval != 0
                         && height.revision_height % self.clear_packets_interval == 0;
 
                     link.a_to_b
-                        .schedule_packet_clearing(Some(height), force_packet_clearing)*/
-                    Ok(())
+                        .schedule_packet_clearing(Some(height), force_packet_clearing)
                 }
 
                 WorkerCmd::ClearPendingPackets => link.a_to_b.schedule_packet_clearing(None, true),
@@ -170,7 +169,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
         // let confirmation_result = link.a_to_b.process_pending_txs();
 
         // RetryResult::Ok(Step::Success(confirmation_result))
-        RetryResult::Ok(Step::Shutdown)
+        RetryResult::Ok(Step::Success(RelaySummary::empty()))  // The relay summary will be used for telemetry
     }
 
     /// Get a reference to the uni chan path worker's chains.

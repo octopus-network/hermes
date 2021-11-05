@@ -63,6 +63,7 @@ use calls::ibc::ChannelsStoreExt;
 use calls::ibc::ConnectionClientStoreExt;
 use calls::ibc::ChannelsConnectionStoreExt;
 use calls::ibc::PacketReceiptStoreExt;
+use calls::ibc::SendPacketEventStoreExt;
 use codec::{Decode, Encode};
 use substrate_subxt::sp_runtime::traits::BlakeTwo256;
 use substrate_subxt::sp_runtime::generic::Header;
@@ -577,6 +578,25 @@ impl SubstrateChain {
         } else {
             Err(format!("unrecognized packet receipt: {:?}", _data).into())
         }
+    }
+
+    /// get send packet event by port_id, channel_id and sequence
+    async fn get_send_packet_event(&self, port_id: &PortId, channel_id: &ChannelId, seq: &Sequence, client: Client<NodeRuntime>)
+                                -> Result<Packet, Box<dyn std::error::Error>> {
+        tracing::info!("in Substrate: [get_send_packet_event]");
+
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
+
+        let block_hash = block_header.hash();
+        tracing::info!("In substrate: [get_send_packet_event] >> block_hash: {:?}", block_hash);
+
+        let data = client.send_packet_event((
+                port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(*seq)),
+                Some(block_hash)
+            ).await?;
+        let packet = Packet::decode_vec(&*data).unwrap();
+        Ok(packet)
     }
 
     /// get client_state according by client_id, and read ClientStates StoraageMap
