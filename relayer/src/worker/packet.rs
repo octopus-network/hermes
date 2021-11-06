@@ -68,7 +68,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
         }
 
         loop {
-            const BACKOFF: Duration = Duration::from_millis(200);
+            const BACKOFF: Duration = Duration::from_millis(1000);
 
             // Pop-out any unprocessed commands
             // If there are no incoming commands, it's safe to backoff.
@@ -128,11 +128,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
                 } => {
                     // Schedule the clearing of pending packets. This should happen
                     // once at start, and _forced_ at predefined block intervals.
-                    let force_packet_clearing = self.clear_packets_interval != 0
+/*                    let force_packet_clearing = self.clear_packets_interval != 0
                         && height.revision_height % self.clear_packets_interval == 0;
 
                     link.a_to_b
-                        .schedule_packet_clearing(Some(height), force_packet_clearing)
+                        .schedule_packet_clearing(Some(height), force_packet_clearing)*/
+                    Ok(())
                 }
 
                 WorkerCmd::ClearPendingPackets => link.a_to_b.schedule_packet_clearing(None, true),
