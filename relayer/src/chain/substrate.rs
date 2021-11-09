@@ -588,7 +588,7 @@ impl SubstrateChain {
     /// get appoint height consensus_state according by client_identifier and height
     /// and read ConsensusStates StoreageMap
     async fn get_client_consensus(&self, client_id:  &ClientId, height: ICSHeight, client: Client<NodeRuntime>)
-        -> Result<GPConsensusState, Box<dyn std::error::Error>> {
+        -> Result<AnyConsensusState, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_client_consensus]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
@@ -613,10 +613,10 @@ impl SubstrateChain {
         }
 
         let consensus_state = AnyConsensusState::decode_vec(&*consensus_state).unwrap();
-        let consensus_state = match consensus_state {
-            AnyConsensusState::Grandpa(consensus_state) => consensus_state,
-            _ => panic!("wrong consensus_state type"),
-        };
+        // let consensus_state = match consensus_state {
+        //     AnyConsensusState::Grandpa(consensus_state) => consensus_state,
+        //     _ => panic!("wrong consensus_state type"),
+        // };
 
         Ok(consensus_state)
     }
@@ -1196,7 +1196,8 @@ impl ChainEndpoint for SubstrateChain {
         let consensus_state = self
             .proven_client_consensus(&client_id, consensus_height, query_height)?
             .0;
-        Ok(AnyConsensusState::Grandpa(consensus_state))
+        // Ok(AnyConsensusStateonsensusState::Grandpa(consensus_state))
+        Ok(consensus_state)
     }
 
     fn query_upgraded_client_state(
@@ -1767,7 +1768,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let consensus_state = GRANDPAConsensusState::new(CommitmentRoot::from(vec![1, 2, 3, 4]));
 
-        Ok(consensus_state)
+        Ok(AnyConsensusState::Grandpa(consensus_state))
     }
 
     fn build_header(
