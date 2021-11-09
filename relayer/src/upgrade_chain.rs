@@ -74,12 +74,17 @@ pub fn build_and_send_ibc_upgrade_proposal(
         .query_client_state(&opts.src_client_id, Height::zero())
         .map_err(UpgradeChainError::query)?;
 
+    let tm_client_state = match client_state {
+        AnyClientState::Tendermint(cl_state) => cl_state,
+        _ => panic!("None Client State"),
+    };
+
     // Retain the old unbonding period in case the user did not specify a new one
     let upgraded_unbonding_period = opts
         .upgraded_unbonding_period
-        .unwrap_or(client_state.unbonding_period);
+        .unwrap_or(tm_client_state.unbonding_period);
 
-    let mut upgraded_client_state = ClientState::zero_custom_fields(client_state);
+    let mut upgraded_client_state = ClientState::zero_custom_fields(tm_client_state);
     upgraded_client_state.latest_height = upgrade_height.increment();
     upgraded_client_state.unbonding_period = upgraded_unbonding_period;
     upgraded_client_state.chain_id = opts.upgraded_chain_id.clone();

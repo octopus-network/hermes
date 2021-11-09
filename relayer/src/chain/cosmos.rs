@@ -660,7 +660,7 @@ impl ChainEndpoint for CosmosSdkChain {
     type LightBlock = TMLightBlock;
     type Header = TmHeader;
     type ConsensusState = TMConsensusState;
-    type ClientState = ClientState;
+    type ClientState = AnyClientState;
     type LightClient = TmLightClient;
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
@@ -972,8 +972,9 @@ impl ChainEndpoint for CosmosSdkChain {
         let client_state = self
             .query(ClientStatePath(client_id.clone()), height, false)
             .and_then(|v| AnyClientState::decode_vec(&v.value).map_err(Error::decode))?;
-        let client_state = downcast!(client_state.clone() => AnyClientState::Tendermint)
-            .ok_or_else(|| Error::client_state_type(format!("{:?}", client_state)))?;
+        // let client_state = downcast!(client_state.clone() => AnyClientState::Tendermint)
+        //     .ok_or_else(|| Error::client_state_type(format!("{:?}", client_state)))?;
+
         Ok(client_state)
     }
 
@@ -993,11 +994,11 @@ impl ChainEndpoint for CosmosSdkChain {
         let client_state = AnyClientState::decode_vec(&upgraded_client_state_raw)
             .map_err(Error::conversion_from_any)?;
 
-        let client_type = client_state.client_type();
-        let tm_client_state = downcast!(client_state => AnyClientState::Tendermint)
-            .ok_or_else(|| Error::client_type_mismatch(ClientType::Tendermint, client_type))?;
+        // let client_type = client_state.client_type();
+        // let tm_client_state = downcast!(client_state => AnyClientState::Tendermint)
+        //     .ok_or_else(|| Error::client_type_mismatch(ClientType::Tendermint, client_type))?;
 
-        Ok((tm_client_state, proof))
+        Ok((client_state, proof))
     }
 
     fn query_upgraded_consensus_state(
@@ -1561,8 +1562,8 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let client_state = AnyClientState::decode_vec(&res.value).map_err(Error::decode)?;
 
-        let client_state = downcast!(client_state.clone() => AnyClientState::Tendermint)
-            .ok_or_else(|| Error::client_state_type(format!("{:?}", client_state)))?;
+        // let client_state = downcast!(client_state.clone() => AnyClientState::Tendermint)
+        //     .ok_or_else(|| Error::client_state_type(format!("{:?}", client_state)))?;
 
         Ok((
             client_state,
@@ -1679,7 +1680,7 @@ impl ChainEndpoint for CosmosSdkChain {
     fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
         let unbonding_period = self.unbonding_period()?;
         // Build the client state.
-        ClientState::new(
+        let client_state = ClientState::new(
             self.id().clone(),
             self.config.trust_threshold.into(),
             self.trusting_period(unbonding_period),
@@ -1693,7 +1694,10 @@ impl ChainEndpoint for CosmosSdkChain {
                 after_misbehaviour: true,
             },
         )
-        .map_err(Error::ics07)
+        .map_err(Error::ics07)?;
+
+        Ok(AnyClientState::Tendermint(client_state))
+
     }
 
     fn build_consensus_state(
