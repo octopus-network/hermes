@@ -48,7 +48,7 @@ impl Runnable for QueryTxEventsCmd {
         match chain_type.as_str() {
             "cosmos" => {
                 let chain =
-                    ChainRuntime::<CosmosGrandpaSdkChain>::spawn::<ProdChainHandle>(chain_config.clone(), rt)
+                    ChainRuntime::<CosmosSdkChain>::spawn::<ProdChainHandle>(chain_config.clone(), rt)
                         .unwrap();
 
                 let res = Hash::from_str(self.hash.as_str())

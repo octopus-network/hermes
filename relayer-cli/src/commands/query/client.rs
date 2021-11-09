@@ -53,7 +53,7 @@ impl Runnable for QueryClientStateCmd {
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
-                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(),rt).unwrap();
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(),rt).unwrap();
                 let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
 
                 match chain.query_client_state(&self.client_id, height) {
@@ -120,7 +120,7 @@ impl Runnable for QueryClientConsensusCmd {
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
-                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
                 let counterparty_chain = match chain.query_client_state(&self.client_id, Height::zero()) {
                     Ok(cs) => cs.chain_id(),
@@ -254,7 +254,7 @@ impl Runnable for QueryClientHeaderCmd {
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
-                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
 
                 let counterparty_chain = match chain.query_client_state(&self.client_id, Height::zero()) {
@@ -355,7 +355,7 @@ impl Runnable for QueryClientConnectionsCmd {
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
-                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
                 let req = QueryClientConnectionsRequest {
                     client_id: self.client_id.to_string(),

@@ -77,7 +77,7 @@ pub fn spawn_chain_runtime_generic<Chain: ChainHandle>(
     let handle = match account_prefix.as_str()  {
         "cosmos" | "chaina" | "chainb" => {
             let rt = Arc::new(TokioRuntime::new().unwrap());
-            let handle = ChainRuntime::<CosmosGrandpaSdkChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
+            let handle = ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
             handle
         },
         "substrate" => {

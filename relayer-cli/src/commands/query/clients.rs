@@ -71,7 +71,7 @@ impl Runnable for QueryAllClientsCmd {
                 res
             },
             "cosmos" => {
-                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
                 let req = QueryClientStatesRequest {
                     pagination: ibc_proto::cosmos::base::query::pagination::all(),
                 };

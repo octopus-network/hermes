@@ -914,7 +914,7 @@ impl SubstrateChain {
 impl ChainEndpoint for SubstrateChain {
     type LightBlock = ();
     type Header = GPHeader;
-    type ConsensusState = GPConsensusState;
+    type ConsensusState = AnyConsensusState;
     type ClientState = AnyClientState;
     type LightClient = GPLightClient;
 

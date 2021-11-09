@@ -47,7 +47,7 @@ impl Runnable for QueryChannelEndCmd {
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
-                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
                 let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
                 let res = chain.query_channel(&self.port_id, &self.channel_id, height);

@@ -38,7 +38,7 @@ impl Runnable for QueryConnectionsCmd {
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
-                let chain = CosmosGrandpaSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
 
                 let req = QueryConnectionsRequest {
                     pagination: ibc_proto::cosmos::base::query::pagination::all(),
