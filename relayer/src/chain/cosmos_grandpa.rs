@@ -2010,7 +2010,7 @@ fn tx_body_and_bytes(proto_msgs: Vec<Any>) -> Result<(TxBody, Vec<u8>), Error> {
     let body = TxBody {
         messages: proto_msgs.to_vec(),
         memo: "".to_string(),
-        timeout_height: 0_u64,
+        timeout_height: 99999_u64,  // Todo:
         extension_options: Vec::<Any>::new(),
         non_critical_extension_options: Vec::<Any>::new(),
     };

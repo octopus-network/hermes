@@ -10,7 +10,7 @@ use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWi
 use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd, Counterparty};
 use ibc::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
-use ibc::ics04_channel::packet::{PacketMsgType, Sequence};
+use ibc::ics04_channel::packet::{PacketMsgType, Sequence, Packet, Receipt};
 use ibc::ics10_grandpa::client_state::ClientState as GPClientState;
 use ibc::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
 use ibc::ics10_grandpa::header::Header as GPHeader;
@@ -71,6 +71,10 @@ use std::time::Duration;
 use std::sync::mpsc::channel;
 use ibc::ics02_client::client_type::ClientType;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
+use tendermint::abci::{Code, Log};
+use tendermint::abci::transaction::Hash;
+use calls::ibc::SendPacketEventStoreExt;
+use chrono::offset::Utc;
 
 #[derive(Debug)]
 pub struct SubstrateChain {
@@ -553,6 +557,46 @@ impl SubstrateChain {
         let channel_end = ChannelEnd::decode_vec(&*data).unwrap();
 
         Ok(channel_end)
+    }
+
+    /// get packet receipt by port_id, channel_id and sequence
+    async fn get_packet_receipt(&self, port_id: &PortId, channel_id: &ChannelId, seq: &Sequence, client: Client<NodeRuntime>)
+                                -> Result<Receipt, Box<dyn std::error::Error>> {
+        tracing::info!("in Substrate: [get_packet_receipt]");
+
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
+
+        let block_hash = block_header.hash();
+        tracing::info!("In substrate: [get_packet_receipt] >> block_hash: {:?}", block_hash);
+
+        let _seq = u64::from(*seq).encode();
+        let data = client.packet_receipt((port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), _seq), Some(block_hash)).await?;
+        let _data = String::from_utf8(data).unwrap();
+        if _data.eq("Ok") {
+            Ok(Receipt::Ok)
+        } else {
+            Err(format!("unrecognized packet receipt: {:?}", _data).into())
+        }
+    }
+
+    /// get send packet event by port_id, channel_id and sequence
+    async fn get_send_packet_event(&self, port_id: &PortId, channel_id: &ChannelId, seq: &Sequence, client: Client<NodeRuntime>)
+                                   -> Result<Packet, Box<dyn std::error::Error>> {
+        tracing::info!("in Substrate: [get_send_packet_event]");
+
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
+
+        let block_hash = block_header.hash();
+        tracing::info!("In substrate: [get_send_packet_event] >> block_hash: {:?}", block_hash);
+
+        let data = client.send_packet_event((
+                                                port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(*seq)),
+                                            Some(block_hash)
+        ).await?;
+        let packet = Packet::decode_vec(&*data).unwrap();
+        Ok(packet)
     }
 
     /// get client_state according by client_id, and read ClientStates StoraageMap
@@ -1046,9 +1090,38 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: Vec<Any>,
     ) -> Result<Vec<TxResponse>, Error> {
-        tracing::info!("in Substrate: [send_message_and_wait_check_tx]");
+        tracing::info!("in Substrate: [send_messages_and_wait_check_tx]");
 
-        todo!()
+        use tokio::task;
+        use std::time::Duration;
+        let msg : Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
+        tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> converted msg to send: {:?}", msg);
+        let signer = PairSigner::new(AccountKeyring::Bob.pair());
+        tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> signer: {:?}", "Bob");
+        sleep(Duration::from_secs(3));
+
+        let client = async {
+            let client = ClientBuilder::<NodeRuntime>::new()
+                .set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+
+            let result = client.deliver(&signer, msg, 0).await;
+            let result = result.unwrap();
+            tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}", result);
+            result
+        };
+        let _result = self.block_on(client);
+
+        use tendermint::abci::transaction;  // Todo:
+        let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
+        let txRe = TxResponse {
+            code: Code::default(),
+            data: serde_json::from_str(json).unwrap(),
+            log: Log::from("testtest"),
+            hash: transaction::Hash::new(*_result.as_fixed_bytes())
+        };
+
+        Ok(vec![txRe])
     }
 
     fn get_signer(&mut self) -> Result<Signer, Error> {
@@ -1412,7 +1485,6 @@ impl ChainEndpoint for SubstrateChain {
         let channel_id = ChannelId::from_str(request.channel_id.as_str()).unwrap();
         let seqs = request.packet_commitment_sequences.clone();
 
-
         let unreceived_packets = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
@@ -1479,40 +1551,30 @@ impl ChainEndpoint for SubstrateChain {
             QueryTxRequest::Packet(request) => {
                 crate::time!("in Substrate: [query_txs]: query packet events");
                 tracing::info!("in Substrate: [query_txs]: query packet events request: {:?}", request);
+                tracing::debug!("in Substrate: [query_txs]: packet >> sequence :{:?}", request.sequences);
+
+                // use ibc::ics02_client::events::Attributes;
+                use ibc::ics04_channel::events::Attributes;
+                use ibc::ics02_client::header::AnyHeader;
+                use core::ops::Add;
 
                 let mut result: Vec<IbcEvent> = vec![];
 
-                tracing::info!("in Substrate: [query_txs]: packet >> sequence :{:?}", request.sequences);
-                // for seq in &request.sequences {
-                //     // query first (and only) Tx that includes the event specified in the query request
-                //     let response = self
-                //         .block_on(self.rpc_client.tx_search(
-                //             packet_query(&request, *seq),
-                //             false,
-                //             1,
-                //             1, // get only the first Tx matching the query
-                //             Order::Ascending,
-                //         ))
-                //         .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
-                //
-                //     assert!(
-                //         response.txs.len() <= 1,
-                //         "packet_from_tx_search_response: unexpected number of txs"
-                //     );
-                //
-                //     if response.txs.is_empty() {
-                //         continue;
-                //     }
-                //
-                //     if let Some(event) = packet_from_tx_search_response(
-                //         self.id(),
-                //         &request,
-                //         *seq,
-                //         response.txs[0].clone(),
-                //     ) {
-                //         result.push(event);
-                //     }
-                // }
+                result.push(IbcEvent::SendPacket(ibc::ics04_channel::events::SendPacket{
+                    height: request.height,
+                    packet: Packet{
+                        sequence: request.sequences[0],
+                        source_port: request.source_port_id,
+                        source_channel: request.source_channel_id,
+                        destination_port: request.destination_port_id,
+                        destination_channel: request.destination_channel_id,
+                        data: vec![1,3,5],  //Todo
+                        timeout_height: ibc::Height::zero().add( 9999999), //Todo
+                        timeout_timestamp: ibc::timestamp::Timestamp::from_nanoseconds(Utc::now().timestamp_nanos() as u64)
+                            .unwrap().add(Duration::from_secs(99999)).unwrap() //Todo
+                    }
+                }));
+
                 Ok(result)
             }
 

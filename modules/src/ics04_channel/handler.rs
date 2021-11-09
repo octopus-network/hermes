@@ -1,6 +1,6 @@
 //! This module implements the processing logic for ICS4 (channel) messages.
 
-use crate::handler::HandlerOutput;
+use crate::handler::{HandlerOutput, HandlerResult};
 use crate::ics04_channel::channel::ChannelEnd;
 use crate::ics04_channel::context::ChannelReader;
 use crate::ics04_channel::error::Error;
@@ -8,6 +8,7 @@ use crate::ics04_channel::msgs::ChannelMsg;
 use crate::ics04_channel::{msgs::PacketMsg, packet::PacketResult};
 use crate::ics05_port::capabilities::Capability;
 use crate::ics24_host::identifier::{ChannelId, PortId};
+use crate::prelude::*;
 
 pub mod acknowledgement;
 pub mod chan_close_confirm;
@@ -72,5 +73,18 @@ where
         PacketMsg::AckPacket(msg) => acknowledgement::process(ctx, msg),
         PacketMsg::ToPacket(msg) => timeout::process(ctx, msg),
         PacketMsg::ToClosePacket(msg) => timeout_on_close::process(ctx, msg),
+    }
+}
+
+// Todo: Apply proper errors
+pub fn write_ack_packet_dispatch<Ctx>(ctx: &Ctx, msg: PacketMsg, ack: Vec<u8>) -> HandlerResult<PacketResult, Error>
+    where
+        Ctx: ChannelReader,
+{
+    match msg {
+        PacketMsg::RecvPacket(msg) => write_acknowledgement::process(ctx, msg.packet, ack),
+        PacketMsg::AckPacket(msg) => Err(Error::invalid_acknowledgement()),  // Todo:
+        PacketMsg::ToPacket(msg) => Err(Error::invalid_acknowledgement()),  // Todo:
+        PacketMsg::ToClosePacket(msg) => Err(Error::invalid_acknowledgement()),  // Todo:
     }
 }
