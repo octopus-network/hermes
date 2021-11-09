@@ -557,7 +557,7 @@ impl SubstrateChain {
 
     /// get client_state according by client_id, and read ClientStates StoraageMap
     async fn get_client_state(&self, client_id:  &ClientId, client: Client<NodeRuntime>)
-        -> Result<GPClientState, Box<dyn std::error::Error>> {
+        -> Result<AnyClientState, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_client_state]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
@@ -572,17 +572,15 @@ impl SubstrateChain {
             )
             .await?;
         tracing::info!("in substrate [get_client_state]: client_state: {:?}",data);
-        // if data.is_empty() {
-        //     return Err(Box::new("Get Client States is empty".to_string().into()));
-        // }
+
 
         let client_state = AnyClientState::decode_vec(&*data).unwrap();
         tracing::info!("in substrate [get_client_state]: any_client_state : {:?}", client_state);
-        let client_state = match client_state {
-            AnyClientState::Grandpa(client_state) => client_state,
-            // AnyClientState::Tendermint(client_state) => client_state,
-            _ => panic!("wrong client state type"),
-        };
+        // let client_state = match client_state {
+        //     AnyClientState::Grandpa(client_state) => client_state,
+        //     // AnyClientState::Tendermint(client_state) => client_state,
+        //     _ => panic!("wrong client state type"),
+        // };
 
         Ok(client_state)
     }
@@ -917,7 +915,7 @@ impl ChainEndpoint for SubstrateChain {
     type LightBlock = ();
     type Header = GPHeader;
     type ConsensusState = GPConsensusState;
-    type ClientState = GPClientState;
+    type ClientState = AnyClientState;
     type LightClient = GPLightClient;
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
@@ -1750,9 +1748,11 @@ impl ChainEndpoint for SubstrateChain {
         // Create mock grandpa client state
         let client_state = GRANDPAClientState::new(chain_id, height, frozen_height)
             .unwrap();
-        tracing::info!("in Substrate: [build_client_state] >> client_state: {:?}", client_state);
+        let any_client_state = AnyClientState::Grandpa(client_state);
 
-        Ok(client_state)
+        tracing::info!("in Substrate: [build_client_state] >> client_state: {:?}", any_client_state);
+
+        Ok(any_client_state)
     }
 
     fn build_consensus_state(
