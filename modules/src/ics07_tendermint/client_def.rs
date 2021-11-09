@@ -54,7 +54,7 @@ impl ClientDef for TendermintClient {
         _consensus_height: Height,
         _expected_consensus_state: &AnyConsensusState,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())
     }
 
     fn verify_connection_state(
@@ -66,7 +66,7 @@ impl ClientDef for TendermintClient {
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())
     }
 
     fn verify_channel_state(
@@ -79,7 +79,7 @@ impl ClientDef for TendermintClient {
         _channel_id: &ChannelId,
         _expected_channel_end: &ChannelEnd,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())
     }
 
     fn verify_client_full_state(
@@ -92,7 +92,7 @@ impl ClientDef for TendermintClient {
         _proof: &CommitmentProofBytes,
         _expected_client_state: &AnyClientState,
     ) -> Result<(), Error> {
-        unimplemented!()
+        Ok(())
     }
 
     fn verify_packet_data(
@@ -147,11 +147,15 @@ impl ClientDef for TendermintClient {
 
     fn verify_upgrade_and_update_state(
         &self,
-        _client_state: &Self::ClientState,
-        _consensus_state: &Self::ConsensusState,
+        client_state: &Self::ClientState,
+        consensus_state: &Self::ConsensusState,
         _proof_upgrade_client: MerkleProof,
         _proof_upgrade_consensus_state: MerkleProof,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-        todo!()
+        // TODO
+        Ok((
+            client_state.clone(),
+            consensus_state.clone(),
+        ))
     }
 }

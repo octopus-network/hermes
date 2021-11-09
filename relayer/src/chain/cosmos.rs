@@ -659,7 +659,7 @@ fn all_tx_results_found(tx_sync_results: &[TxSyncResult]) -> bool {
 impl ChainEndpoint for CosmosSdkChain {
     type LightBlock = TMLightBlock;
     type Header = TmHeader;
-    type ConsensusState = TMConsensusState;
+    type ConsensusState = AnyConsensusState;
     type ClientState = AnyClientState;
     type LightClient = TmLightClient;
 
@@ -1018,13 +1018,13 @@ impl ChainEndpoint for CosmosSdkChain {
         let consensus_state = AnyConsensusState::decode_vec(&upgraded_consensus_state_raw)
             .map_err(Error::conversion_from_any)?;
 
-        let cs_client_type = consensus_state.client_type();
-        let tm_consensus_state = downcast!(consensus_state => AnyConsensusState::Tendermint)
-            .ok_or_else(|| {
-                Error::consensus_state_type_mismatch(ClientType::Tendermint, cs_client_type)
-            })?;
+        // let cs_client_type = consensus_state.client_type();
+        // let tm_consensus_state = downcast!(consensus_state => AnyConsensusState::Tendermint)
+        //     .ok_or_else(|| {
+        //         Error::consensus_state_type_mismatch(ClientType::Tendermint, cs_client_type)
+        //     })?;
 
-        Ok((tm_consensus_state, proof))
+        Ok((consensus_state, proof))
     }
 
     /// Performs a query to retrieve the identifiers of all connections.
@@ -1069,8 +1069,8 @@ impl ChainEndpoint for CosmosSdkChain {
         let consensus_state = self
             .proven_client_consensus(&client_id, consensus_height, query_height)?
             .0;
-        Ok(AnyConsensusState::Tendermint(consensus_state))
-
+        // Ok(AnyConsensusState::Tendermint(consensus_state))
+        Ok(consensus_state)
     }
 
     fn query_client_connections(
@@ -1591,9 +1591,9 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let consensus_state = AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
 
-        let consensus_state =
-            downcast!(consensus_state.clone() => AnyConsensusState::Tendermint)
-                .ok_or_else(|| Error::client_state_type(format!("{:?}", consensus_state)))?;
+        // let consensus_state =
+        //     downcast!(consensus_state.clone() => AnyConsensusState::Tendermint)
+        //         .ok_or_else(|| Error::client_state_type(format!("{:?}", consensus_state)))?;
 
         Ok((
             consensus_state,
@@ -1706,7 +1706,7 @@ impl ChainEndpoint for CosmosSdkChain {
     ) -> Result<Self::ConsensusState, Error> {
         crate::time!("build_consensus_state");
 
-        Ok(TMConsensusState::from(light_block.signed_header.header))
+        Ok(AnyConsensusState::Tendermint(TMConsensusState::from(light_block.signed_header.header)))
     }
 
     fn build_header(
