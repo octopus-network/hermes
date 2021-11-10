@@ -30,6 +30,9 @@ use crate::util::{
 };
 use calls::NodeRuntime;
 
+use std::future::Future;
+use tokio::runtime::Runtime;
+
 mod retry_strategy {
     use crate::util::retry::clamp_total;
     use core::time::Duration;
@@ -366,6 +369,7 @@ impl EventMonitor {
 
 
         let client = self.client.clone();
+        let _client = self.client.clone();
         let send_tx = send_tx.clone();
         let chain_id = self.chain_id.clone();
         let send_batch = self.tx_batch.clone();
@@ -382,11 +386,12 @@ impl EventMonitor {
                 }
                 let raw_event = raw_event.unwrap();
                 tracing::info!("in substrate_mointor: [run_loop] >> raw_event : {:?}", raw_event);
-                send_tx.send(raw_event);
+                send_tx.send(raw_event);  // Todo: remove these 2 lines?
                 for item in recv_tx.clone().recv() {
                     tracing::info!("in substrate_mointor: [run_loop] >> recv raw_event : {:?}", item);
 
-                    let batch_event = from_raw_event_to_batch_event(item, chain_id.clone());
+                    let height = get_latest_height(_client.clone()).await; // Todo: Do not query for latest height every time
+                    let batch_event = from_raw_event_to_batch_event(item, chain_id.clone(), height);
                     process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
                                 error!("[{}] {}", chain_id.clone(), e);
                     });
@@ -600,7 +605,7 @@ async fn subscribe_events(
 }
 
 
-fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId) -> EventBatch {
+fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height: u64) -> EventBatch {
     tracing::info!("In substrate: [from_raw_event_to_batch_event] >> raw Event: {:?}", raw_event);
     let variant = raw_event.variant;
     tracing::info!("In substrate: [from_raw_event_to_batch_event] >> variant: {:?}", variant);
@@ -1064,11 +1069,11 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId) -> Even
             tracing::info!("In substrate: [from_raw_event_to_batch_event] >> SystemEvent: {:?}", event);
 
             let event = IbcEvent::NewBlock(ibc::ics02_client::events::NewBlock{
-                height: Default::default()
+                height: Height::new(0, height)  // Todo: to set revision_number
             });
 
             EventBatch {
-                height: Height::default(),
+                height: Height::new(0, height),  // Todo: to set revision_number
                 events: vec![event],
                 chain_id: chain_id.clone(),
             }
@@ -1084,4 +1089,25 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId) -> Even
 pub enum Next {
     Abort,
     Continue,
+}
+
+async fn get_latest_height(client: Client<NodeRuntime>) -> u64 {
+    tracing::info!("In substrate_monitor: [get_latest_height]");
+    // let mut blocks = client.subscribe_finalized_blocks().await?;
+    let mut blocks = client.subscribe_blocks().await.unwrap();
+    let height= match blocks.next().await {
+        Ok(Some(header)) => {
+            header.number as u64
+        },
+        Ok(None) => {
+            tracing::info!("In Substrate: [get_latest_height] >> None");
+            0
+        },
+        Err(err) =>  {
+            tracing::info!(" In substrate: [get_latest_height] >> error: {:?} ", err);
+            0
+        },
+    };
+    tracing::info!("In Substrate: [get_latest_height] >> height: {:?}", height);
+    height
 }

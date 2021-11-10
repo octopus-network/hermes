@@ -317,3 +317,10 @@ pub struct DeliverCall<T: Ibc> {
     pub messages: Vec<pallet_ibc::Any>,
     pub tmp: u8,
 }
+
+#[derive(Encode, Store)]
+pub struct SendPacketEventStore<T: Ibc> {
+    #[store(returns = Vec<u8>)]
+    pub key: (Vec<u8>, Vec<u8>, u64),
+    pub _runtime: PhantomData<T>,
+}

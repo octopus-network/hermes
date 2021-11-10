@@ -4,6 +4,7 @@ use core::str::FromStr;
 
 use serde_derive::{Deserialize, Serialize};
 
+use tendermint_proto::Protobuf;
 use ibc_proto::ibc::core::channel::v1::Packet as RawPacket;
 
 use crate::ics04_channel::error::Error;
@@ -162,6 +163,8 @@ impl Default for Packet {
         }
     }
 }
+
+impl Protobuf<RawPacket> for Packet {}
 
 impl TryFrom<RawPacket> for Packet {
     type Error = Error;
