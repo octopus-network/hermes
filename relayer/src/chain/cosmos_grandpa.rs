@@ -2010,7 +2010,7 @@ fn tx_body_and_bytes(proto_msgs: Vec<Any>) -> Result<(TxBody, Vec<u8>), Error> {
     let body = TxBody {
         messages: proto_msgs.to_vec(),
         memo: "".to_string(),
-        timeout_height: 99999_u64,  // Todo:
+        timeout_height: 9999_u64,  // Todo: The packet alreay include a timeout height, what's the timeout_height for?
         extension_options: Vec::<Any>::new(),
         non_critical_extension_options: Vec::<Any>::new(),
     };

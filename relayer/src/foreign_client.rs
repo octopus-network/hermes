@@ -665,7 +665,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         trusted_height: Height,
     ) -> Result<Vec<Any>, ForeignClientError> {
         // Wait for source chain to reach `target_height`
-        while self.src_chain().query_latest_height().map_err(|e| {
+/*        while self.src_chain().query_latest_height().map_err(|e| {
             ForeignClientError::client_create(
                 self.src_chain.id(),
                 "failed fetching src chain latest height with error".to_string(),
@@ -674,7 +674,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         })? < target_height
         {
             thread::sleep(Duration::from_millis(100))
-        }
+        }*/  // Todo: the height of one chain is much greater than the other's would cause loop here close to infinite
 
         // Get the latest client state on destination.
         let client_state = self
