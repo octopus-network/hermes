@@ -11,7 +11,7 @@ use tracing::{trace, warn};
 use ibc::ics24_host::identifier::ChainId;
 
 use crate::{
-    chain::{handle::ChainHandle, runtime::ChainRuntime, CosmosSdkChain, SubstrateChain, CosmosGrandpaSdkChain},
+    chain::{handle::ChainHandle, runtime::ChainRuntime, CosmosSdkChain, SubstrateChain},
     config::Config,
     error::Error as RelayerError,
     supervisor::RwArc,

@@ -12,7 +12,7 @@ use ibc::query::{QueryTxHash, QueryTxRequest};
 
 use ibc_relayer::chain::handle::{ChainHandle, ProdChainHandle};
 use ibc_relayer::chain::runtime::ChainRuntime;
-use ibc_relayer::chain::{CosmosGrandpaSdkChain, CosmosSdkChain, SubstrateChain};
+use ibc_relayer::chain::{CosmosSdkChain, SubstrateChain};
 
 use crate::conclude::Output;
 use crate::error::Error;

@@ -7,7 +7,6 @@ use ibc::ics02_client::events::UpdateClient;
 
 pub mod grandpa;
 pub mod tendermint;
-pub mod cosmos_grandpa;
 
 #[cfg(test)]
 pub mod mock;

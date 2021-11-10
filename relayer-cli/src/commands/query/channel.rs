@@ -5,7 +5,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 
 use ibc::ics24_host::identifier::ChainId;
 use ibc::ics24_host::identifier::{ChannelId, PortId};
-use ibc_relayer::chain::{ChainEndpoint, CosmosGrandpaSdkChain, CosmosSdkChain, SubstrateChain};
+use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain};
 
 use crate::conclude::Output;
 use crate::prelude::*;

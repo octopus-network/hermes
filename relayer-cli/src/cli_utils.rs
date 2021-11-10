@@ -9,7 +9,7 @@ use ibc_relayer::{
     chain::{
         handle::{ChainHandle, ProdChainHandle},
         runtime::ChainRuntime,
-        CosmosSdkChain, SubstrateChain, CosmosGrandpaSdkChain
+        CosmosSdkChain, SubstrateChain
     },
     config::Config,
 };

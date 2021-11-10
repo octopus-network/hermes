@@ -14,7 +14,7 @@ use ibc::Height;
 use ibc_proto::ibc::core::client::v1::QueryConsensusStatesRequest;
 use ibc_proto::ibc::core::connection::v1::QueryClientConnectionsRequest;
 use ibc_relayer::chain::ChainEndpoint;
-use ibc_relayer::chain::{CosmosSdkChain, SubstrateChain, CosmosGrandpaSdkChain};
+use ibc_relayer::chain::{CosmosSdkChain, SubstrateChain};
 
 use crate::application::app_config;
 use crate::conclude::Output;
