@@ -667,7 +667,7 @@ impl SubstrateChain {
 
 
     async fn get_consensus_state_with_height(&self, client_id: &ClientId, client: Client<NodeRuntime>)
-        -> Result<Vec<(Height, GPConsensusState)>, Box<dyn std::error::Error>> {
+        -> Result<Vec<(Height, AnyConsensusState)>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_consensus_state_with_height]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
@@ -687,10 +687,10 @@ impl SubstrateChain {
         for (height, consensus_state) in ret.iter() {
             let height = Height::decode_vec(&*height).unwrap();
             let consensus_state = AnyConsensusState::decode_vec(&*consensus_state).unwrap();
-            let consensus_state = match consensus_state {
-                AnyConsensusState::Grandpa(consensus_state) => consensus_state,
-                _ => panic!("wrong consensus_state type"),
-            };
+            // let consensus_state = match consensus_state {
+            //     AnyConsensusState::Grandpa(consensus_state) => consensus_state,
+            //     _ => panic!("wrong consensus_state type"),
+            // };
             result.push((height, consensus_state));
         }
 
@@ -1239,11 +1239,11 @@ impl ChainEndpoint for SubstrateChain {
             consensus_state
         };
 
-        let consensus_state: Vec<(Height, GPConsensusState)> =  self.block_on(consensus_state);
+        let consensus_state: Vec<(Height, AnyConsensusState)> =  self.block_on(consensus_state);
 
         let mut any_consensus_state_with_height = vec![];
         for (height, consensus_state) in consensus_state.into_iter() {
-            let consensus_state = AnyConsensusState::Grandpa(consensus_state);
+            // let consensus_state = AnyConsensusState::Grandpa(consensus_state);
             let tmp = AnyConsensusStateWithHeight {
                 height: height,
                 consensus_state,
