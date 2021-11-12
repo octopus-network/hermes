@@ -105,7 +105,7 @@ impl ClientDef for TendermintClient {
         _seq: &Sequence,
         _data: String,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())  // Todo:
     }
 
     fn verify_packet_acknowledgement(
@@ -118,7 +118,7 @@ impl ClientDef for TendermintClient {
         _seq: &Sequence,
         _data: Vec<u8>,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())  // Todo:
     }
 
     fn verify_next_sequence_recv(
@@ -130,7 +130,7 @@ impl ClientDef for TendermintClient {
         _channel_id: &ChannelId,
         _seq: &Sequence,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())  // Todo:
     }
 
     fn verify_packet_receipt_absence(
@@ -142,7 +142,7 @@ impl ClientDef for TendermintClient {
         _channel_id: &ChannelId,
         _seq: &Sequence,
     ) -> Result<(), Error> {
-        todo!()
+        Ok(())  // Todo:
     }
 
     fn verify_upgrade_and_update_state(

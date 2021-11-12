@@ -75,6 +75,8 @@ use tendermint::abci::{Code, Log};
 use tendermint::abci::transaction::Hash;
 use calls::ibc::SendPacketEventStoreExt;
 use chrono::offset::Utc;
+use tokio::task;
+
 
 #[derive(Debug)]
 pub struct SubstrateChain {
@@ -1038,14 +1040,9 @@ impl ChainEndpoint for SubstrateChain {
 
     fn send_messages_and_wait_commit(&mut self, proto_msgs: Vec<Any>) -> Result<Vec<IbcEvent>, Error> {
         tracing::info!("in Substrate: [send_messages_and_wait_commit]");
-        use tokio::task;
-        use std::time::Duration;
 
         let msg : Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
-
         let signer = PairSigner::new(AccountKeyring::Bob.pair());
-
-
         let client = async {
                 sleep(Duration::from_secs(3));
 
@@ -1078,8 +1075,6 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         let ret = self.block_on(get_ibc_event);
-
-
         Ok(ret)
     }
 
@@ -1089,14 +1084,11 @@ impl ChainEndpoint for SubstrateChain {
         proto_msgs: Vec<Any>,
     ) -> Result<Vec<TxResponse>, Error> {
         tracing::info!("in Substrate: [send_messages_and_wait_check_tx]");
-
-        use tokio::task;
-        use std::time::Duration;
+        tracing::debug!("in Substrate: [send_messages_and_wait_check_tx], raw msg to send {:?}", proto_msgs);
         let msg : Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
-        tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> converted msg to send: {:?}", msg);
+
         let signer = PairSigner::new(AccountKeyring::Bob.pair());
         tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> signer: {:?}", "Bob");
-        sleep(Duration::from_secs(3));
 
         let client = async {
             let client = ClientBuilder::<NodeRuntime>::new()
@@ -1104,6 +1096,7 @@ impl ChainEndpoint for SubstrateChain {
                 .build().await.unwrap();
 
             let result = client.deliver(&signer, msg, 0).await;
+            sleep(Duration::from_secs(10));  // For avoiding transaction low priority error, Todo:
             let result = result.unwrap();
             tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}", result);
             result

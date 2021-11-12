@@ -154,9 +154,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
         }
 
         if let Err(e) = link
-            .a_to_b
-            .refresh_schedule()
-            .and_then(|_| link.a_to_b.execute_schedule())
+            .a_to_b.execute_schedule()
+            // .refresh_schedule()  // Todo: remove the comment
+            // .and_then(|_| link.a_to_b.execute_schedule())
         {
             error!(
                 "[{}] worker: schedule execution encountered error: {}",

@@ -71,7 +71,7 @@ pub(crate) fn process(
     conn_end.set_version(msg.version().clone());
 
     // TODO! after need to remove
-    let counterparty = Counterparty::new(conn_end.client_id().clone(), Some(msg.counterparty_connection_id().clone()), ctx.commitment_prefix());
+    let counterparty = Counterparty::new(conn_end.counterparty().client_id().clone(), Some(msg.counterparty_connection_id().clone()), ctx.commitment_prefix());
     conn_end.set_counterparty(counterparty);
 
     let result = ConnectionResult {
