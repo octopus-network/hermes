@@ -60,6 +60,7 @@ pub fn process(
     });
     tracing::info!("in ics02_client: [update_client] >> result : {:?}", result);
 
+    // TODO have ibc-rs informal have some different
     let event_attributes = Attributes {
         // height: header.clone().height(),
         client_id,
