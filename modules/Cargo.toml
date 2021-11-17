@@ -30,6 +30,7 @@ std = [
     "sha2/std",
     "tendermint/std",
     "tendermint-proto/std",
+#    "tendermint-testgen/std",
 ]
 eyre_tracer = ["flex-error/eyre_tracer"]
 # This feature grants access to development-time mocking libraries, such as `MockContext` or `MockHeader`.
