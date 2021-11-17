@@ -159,8 +159,8 @@ pub trait ChannelKeeper {
                         self.store_next_sequence_ack((res.port_id.clone(), res.channel_id), s)?;
                     }
                     None => {
-                        //Unordered Channel
-                        self.delete_packet_acknowledgement((
+                        //Unordered Channel, https://github.com/informalsystems/ibc-rs/issues/1573
+                        self.delete_packet_commitment((
                             res.port_id.clone(),
                             res.channel_id.clone(),
                             res.seq,

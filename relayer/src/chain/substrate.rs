@@ -10,6 +10,7 @@ use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWi
 use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd, Counterparty};
 use ibc::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
+use ibc::ics04_channel::error::Error as Ics04Error;
 use ibc::ics04_channel::packet::{PacketMsgType, Sequence, Packet, Receipt};
 use ibc::ics10_grandpa::client_state::ClientState as GPClientState;
 use ibc::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
@@ -55,13 +56,10 @@ use calls::ibc::{
     AcknowledgePacketEvent, TimeoutPacketEvent, TimeoutOnClosePacketEvent,
     EmptyEvent, ChainErrorEvent, PacketReceiptStore,
 };
-use calls::ibc::ClientStatesStoreExt;
-use calls::ibc::ConnectionsStoreExt;
-use calls::ibc::ConsensusStatesStoreExt;
-use calls::ibc::ChannelsStoreExt;
-use calls::ibc::ConnectionClientStoreExt;
-use calls::ibc::ChannelsConnectionStoreExt;
-use calls::ibc::PacketReceiptStoreExt;
+use calls::ibc::{ClientStatesStoreExt, ConnectionsStoreExt, ConsensusStatesStoreExt, ChannelsStoreExt,
+                 ConnectionClientStoreExt, ChannelsConnectionStoreExt, PacketReceiptStoreExt, SendPacketEventStoreExt,
+                 PacketCommitmentStoreExt
+};
 use codec::{Decode, Encode};
 use substrate_subxt::sp_runtime::traits::BlakeTwo256;
 use substrate_subxt::sp_runtime::generic::Header;
@@ -73,7 +71,6 @@ use ibc::ics02_client::client_type::ClientType;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tendermint::abci::{Code, Log};
 use tendermint::abci::transaction::Hash;
-use calls::ibc::SendPacketEventStoreExt;
 use chrono::offset::Utc;
 use tokio::task;
 
@@ -850,6 +847,29 @@ impl SubstrateChain {
         Ok(result)
     }
 
+    /// get packet commitment by port_id, channel_id and sequence to verify if the ack has been received by the sending chain
+    async fn get_packet_commitment(&self, port_id: &PortId, channel_id: &ChannelId, seq: u64, client: Client<NodeRuntime>)
+                                   -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        tracing::info!("in Substrate: [get_packet_commitment]");
+
+        let mut block = client.subscribe_finalized_blocks().await?;
+        let block_header = block.next().await.unwrap().unwrap();
+
+        let block_hash = block_header.hash();
+        tracing::info!("In substrate: [get_packet_commitment] >> block_hash: {:?}", block_hash);
+
+        let _seq = seq.encode();
+        let data = client.packet_commitment((port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), _seq),
+                                            Some(block_hash)
+        ).await?;
+
+        if data.is_empty() {
+            Err(Box::new(Ics04Error::packet_commitment_not_found(Sequence(seq))))
+        } else {
+            Ok(data)
+        }
+    }
+
     // get get_commitment_packet_state
     async fn get_acknowledge_packet_state(&self, client: Client<NodeRuntime>)
         -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
@@ -1521,9 +1541,34 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryUnreceivedAcksRequest,
     ) -> Result<Vec<u64>, Error> {
         tracing::info!("in Substraete: [query_unreceived_acknowledegements]");
+        let port_id = PortId::from_str(request.port_id.as_str()).unwrap();
+        let channel_id = ChannelId::from_str(request.channel_id.as_str()).unwrap();
+        let seqs = request.packet_ack_sequences.clone();
 
-        // todo!()
-        Ok(vec![1,2,3])
+        let unreceived_seqs = async {
+            let mut unreceived_seqs: Vec<u64> = vec![];
+
+            let client = ClientBuilder::<NodeRuntime>::new()
+                .set_url(&self.websocket_url.clone())
+                .build().await.unwrap();
+
+            for _seq in seqs {
+                let _cmt = self
+                    .get_packet_commitment(&port_id, &channel_id, _seq, client.clone()).await;
+
+                // if packet commitment still exists on the original sending chain, then packet ack is unreceived
+                // since processing the ack will delete the packet commitment
+                match _cmt {
+                    Ok(_) => { unreceived_seqs.push(_seq); }
+                    Err(_) => {}
+                }
+            }
+
+            unreceived_seqs
+        };
+
+        let result =  self.block_on(unreceived_seqs);
+        Ok(result)
     }
 
     fn query_next_sequence_receive(
@@ -1542,15 +1587,23 @@ impl ChainEndpoint for SubstrateChain {
         match request {
             QueryTxRequest::Packet(request) => {
                 crate::time!("in Substrate: [query_txs]: query packet events");
+
+                let mut result: Vec<IbcEvent> = vec![];
+                if request.sequences.is_empty() {
+                    return Ok(result);
+                }
+
                 tracing::info!("in Substrate: [query_txs]: query packet events request: {:?}", request);
                 tracing::debug!("in Substrate: [query_txs]: packet >> sequence :{:?}", request.sequences);
 
+                return Ok(result)
+
+                // Todo: Related to https://github.com/octopus-network/ibc-rs/issues/88
+                // To query to event by event type, sequence number and block height
                 // use ibc::ics02_client::events::Attributes;
-                use ibc::ics04_channel::events::Attributes;
+/*                use ibc::ics04_channel::events::Attributes;
                 use ibc::ics02_client::header::AnyHeader;
                 use core::ops::Add;
-
-                let mut result: Vec<IbcEvent> = vec![];
 
                 result.push(IbcEvent::SendPacket(ibc::ics04_channel::events::SendPacket{
                     height: request.height,
@@ -1567,7 +1620,7 @@ impl ChainEndpoint for SubstrateChain {
                     }
                 }));
 
-                Ok(result)
+                Ok(result)*/
             }
 
             QueryTxRequest::Client(request) => {

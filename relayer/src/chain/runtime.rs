@@ -795,7 +795,7 @@ where
         request: QueryUnreceivedAcksRequest,
         reply_to: ReplyTo<Vec<u64>>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [qeury_unreceived_acknowledgement]");
+        tracing::info!("In Runtime: [query_unreceived_acknowledgement]");
         let result = self.chain.query_unreceived_acknowledgements(request);
         reply_to.send(result).map_err(Error::send)
     }

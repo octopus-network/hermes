@@ -68,8 +68,6 @@ pub struct ConnectionsStore<T: Ibc> {
     pub _runtime: PhantomData<T>,
 }
 
-
-
 #[derive(Encode, Store)]
 pub struct PacketReceiptStore<T: Ibc> {
     #[store(returns = Vec<u8>)]
@@ -79,8 +77,15 @@ pub struct PacketReceiptStore<T: Ibc> {
 
 #[derive(Encode, Store)]
 pub struct AcknowledgementsStore<T: Ibc> {
-    #[store(returns = H256)]
-    pub key: (Vec<u8>, H256, u64),
+    #[store(returns = Vec<u8>)]
+    pub key: (Vec<u8>, Vec<u8>, u64),
+    pub _runtime: PhantomData<T>,
+}
+
+#[derive(Encode, Store)]
+pub struct PacketCommitmentStore<T: Ibc> {
+    #[store(returns = Vec<u8>)]
+    pub key: (Vec<u8>, Vec<u8>, Vec<u8>),
     pub _runtime: PhantomData<T>,
 }
 
