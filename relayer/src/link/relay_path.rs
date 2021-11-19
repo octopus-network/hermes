@@ -1193,11 +1193,11 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         dst_chain_height: Height,
     ) -> Result<(Option<Any>, Option<Any>), LinkError> {
         let timeout = self.build_timeout_from_send_packet_event(event, dst_chain_height)?;
-        // if timeout.is_some() { // Todo:
-        //     Ok((None, timeout))
-        // } else {
+        if timeout.is_some() {
+            Ok((None, timeout))
+        } else {
             Ok((self.build_recv_packet(&event.packet, event.height)?, None))
-        // }
+        }
     }
 
     /// Checks if there are any operational data items ready,

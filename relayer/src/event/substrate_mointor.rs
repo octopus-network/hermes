@@ -363,14 +363,7 @@ impl EventMonitor {
         // Take ownership of the subscriptions
         let subscriptions =
             core::mem::replace(&mut self.subscriptions, Box::new(futures::stream::empty()));
-
-
-        let (send_tx, recv_tx) = channel::unbounded();
-
-
         let client = self.client.clone();
-        let _client = self.client.clone();
-        let send_tx = send_tx.clone();
         let chain_id = self.chain_id.clone();
         let send_batch = self.tx_batch.clone();
 
@@ -386,16 +379,11 @@ impl EventMonitor {
                 }
                 let raw_event = raw_event.unwrap();
                 tracing::info!("in substrate_mointor: [run_loop] >> raw_event : {:?}", raw_event);
-                send_tx.send(raw_event);  // Todo: remove these 2 lines?
-                for item in recv_tx.clone().recv() {
-                    tracing::info!("in substrate_mointor: [run_loop] >> recv raw_event : {:?}", item);
-
-                    let height = get_latest_height(_client.clone()).await; // Todo: Do not query for latest height every time
-                    let batch_event = from_raw_event_to_batch_event(item, chain_id.clone(), height);
-                    process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
-                                error!("[{}] {}", chain_id.clone(), e);
-                    });
-                }
+                let height = get_latest_height(client.clone()).await; // Todo: Do not query for latest height every time
+                let batch_event = from_raw_event_to_batch_event(raw_event, chain_id.clone(), height);
+                process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
+                            error!("[{}] {}", chain_id.clone(), e);
+                });
             }
 
             Next::Continue

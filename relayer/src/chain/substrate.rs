@@ -98,7 +98,7 @@ impl SubstrateChain {
         &self,
         client: Client<NodeRuntime>,
     ) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
-        const COUNTER_SYSTEM_EVENT: i32 = 5;
+        const COUNTER_SYSTEM_EVENT: i32 = 10;
         tracing::info!("In substrate: [subscribe_events]");
 
         let sub = client.subscribe_finalized_events().await?;
