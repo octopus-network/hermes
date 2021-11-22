@@ -1116,7 +1116,6 @@ impl ChainEndpoint for SubstrateChain {
                 .build().await.unwrap();
 
             let result = client.deliver(&signer, msg, 0).await;
-            sleep(Duration::from_secs(10));  // For avoiding transaction low priority error, Todo:
             let result = result.unwrap();
             tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}", result);
             result
