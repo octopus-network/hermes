@@ -10,7 +10,7 @@ codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = 
 substrate-subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = "octopus-dev" }
 substrate-subxt-proc-macro = { version = "0.15.0" }
 
-pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-ibc-dev' }
+pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-ibc-dev-features-cargo-bug' }
 #pallet-ibc = { path = "../../substrate/bin/node-template/pallets/ibc" }
 
 
