@@ -14,11 +14,12 @@ pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', bra
 #pallet-ibc = { path = "../../substrate/bin/node-template/pallets/ibc" }
 
 
-ibc = { version = "0.7.2", path = "../modules" }
+ibc = { version = "0.8.0", path = "../modules" }
 
 frame-system = { version = '3.0.0' }
 pallet-balances = { version = '3.0.0' }
 sp-core = { version = '3.0.0'}
 sp-finality-grandpa = { version = '3.0.0' }
 sp-runtime = { version = '3.0.0' }
-prost-types = { package = "informalsystems-prost-types", version = "0.8.1", default-features = false }
+#prost = { version = "0.9", default-features = false }
+prost-types = { version = "0.9", default-features = false }

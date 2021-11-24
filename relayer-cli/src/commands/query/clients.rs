@@ -4,12 +4,12 @@ use abscissa_core::{Command, Options, Runnable};
 use serde::Serialize;
 use tokio::runtime::Runtime as TokioRuntime;
 
-use ibc::ics02_client::client_state::ClientState;
-use ibc::ics24_host::identifier::{ChainId, ClientId};
+use ibc::core::ics02_client::client_state::ClientState;
+use ibc::core::ics24_host::identifier::{ChainId, ClientId};
 use ibc_proto::ibc::core::client::v1::QueryClientStatesRequest;
 use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain};
 
-use crate::conclude::Output;
+use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::error::Error;
 use crate::prelude::*;
 
@@ -59,10 +59,12 @@ impl Runnable for QueryAllClientsCmd {
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
 
+
         let chain_type = chain_config.account_prefix.clone();
         let res = match chain_type.as_str() {
             "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt)
+                    .unwrap_or_else(exit_with_unrecoverable_error);
                 let req = QueryClientStatesRequest {
                     pagination: ibc_proto::cosmos::base::query::pagination::all(),
                 };
@@ -71,7 +73,8 @@ impl Runnable for QueryAllClientsCmd {
                 res
             },
             "cosmos" => {
-                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt)
+                    .unwrap_or_else(exit_with_unrecoverable_error);
                 let req = QueryClientStatesRequest {
                     pagination: ibc_proto::cosmos::base::query::pagination::all(),
                 };

@@ -1,5 +1,5 @@
-use crate::ics24_host::error::ValidationError;
 
+use crate::core::ics24_host::error::ValidationError;
 use crate::prelude::*;
 use prost_types::Any;
 

@@ -6,7 +6,7 @@ extern crate alloc;
 
 // Import the crates that we want to check if they are fully no-std compliance
 
-use ibc;
+// use ibc;
 use ibc_proto;
 use tendermint;
 use tendermint_proto;
@@ -43,7 +43,7 @@ error[E0152]: found duplicate lang item `panic_impl`
 ```
 
  */
-#[cfg(not(feature = "use-substrate"))]
+#[cfg(feature="panic-handler")]
 #[panic_handler]
 #[no_mangle]
 fn panic(_info: &PanicInfo) -> ! {

@@ -12,9 +12,9 @@ use ibc::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd, 
 use ibc::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
 use ibc::ics04_channel::error::Error as Ics04Error;
 use ibc::ics04_channel::packet::{PacketMsgType, Sequence, Packet, Receipt};
-use ibc::ics10_grandpa::client_state::ClientState as GPClientState;
-use ibc::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
-use ibc::ics10_grandpa::header::Header as GPHeader;
+use ibc::clients::ics10_grandpa::client_state::ClientState as GPClientState;
+use ibc::clients::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
+use ibc::clients::ics10_grandpa::header::Header as GPHeader;
 use ibc::ics23_commitment::commitment::{CommitmentPrefix, CommitmentRoot};
 use ibc::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
 use ibc::query::QueryTxRequest;
@@ -1669,7 +1669,7 @@ impl ChainEndpoint for SubstrateChain {
                         client_type: ClientType::Grandpa,
                         consensus_height: request.consensus_height,
                     },
-                    header: Some(AnyHeader::Grandpa(ibc::ics10_grandpa::header::Header::new(request.height.revision_height))),
+                    header: Some(AnyHeader::Grandpa(ibc::clients::ics10_grandpa::header::Header::new(request.height.revision_height))),
                 }));
 
                 Ok(result)
@@ -1852,7 +1852,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [build_client_state] >> frozen_height = {:?}", frozen_height);
 
         use ibc::ics02_client::client_state::AnyClientState;
-        use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
+        use ibc::clients::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
 
         // Create mock grandpa client state
         let client_state = GRANDPAClientState::new(chain_id, height, frozen_height)
@@ -1872,7 +1872,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [build_consensus_state]");
 
         // Create mock grandpa consensus state
-        use ibc::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
+        use ibc::clients::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
 
         let consensus_state = GRANDPAConsensusState::new(CommitmentRoot::from(vec![1, 2, 3, 4]));
 

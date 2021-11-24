@@ -3,7 +3,7 @@ use alloc::sync::Arc;
 use abscissa_core::{Command, Options, Runnable};
 use tokio::runtime::Runtime as TokioRuntime;
 
-use ibc::{
+use ibc::core::{
     ics03_connection::connection::State,
     ics24_host::identifier::ConnectionId,
     ics24_host::identifier::{ChainId, PortChannelId},
@@ -11,7 +11,7 @@ use ibc::{
 use ibc_proto::ibc::core::channel::v1::QueryConnectionChannelsRequest;
 use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain};
 
-use crate::conclude::Output;
+use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::error::Error;
 use crate::prelude::*;
 
@@ -46,10 +46,12 @@ impl Runnable for QueryConnectionEndCmd {
         debug!("Options: {:?}", self);
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
+
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
-                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt)
+                    .unwrap_or_else(exit_with_unrecoverable_error);
 
                 let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
                 let res = chain.query_connection(&self.connection_id, height);
@@ -69,7 +71,8 @@ impl Runnable for QueryConnectionEndCmd {
                 }
             }
             "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt)
+                    .unwrap_or_else(exit_with_unrecoverable_error);
 
                 let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
                 let res = chain.query_connection(&self.connection_id, height);
@@ -123,10 +126,12 @@ impl Runnable for QueryConnectionChannelsCmd {
         debug!("Options: {:?}", self);
 
         let rt = Arc::new(TokioRuntime::new().unwrap());
+
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
-                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt)
+                    .unwrap_or_else(exit_with_unrecoverable_error);
 
                 let req = QueryConnectionChannelsRequest {
                     connection: self.connection_id.to_string(),
@@ -150,7 +155,8 @@ impl Runnable for QueryConnectionChannelsCmd {
                 }
             },
             "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt)
+                    .unwrap_or_else(exit_with_unrecoverable_error);
 
                 let req = QueryConnectionChannelsRequest {
                     connection: self.connection_id.to_string(),

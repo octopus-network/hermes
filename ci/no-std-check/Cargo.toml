@@ -1,14 +1,14 @@
 [package]
 name = "no-std-check"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 resolver = "2"
 
 [dependencies]
-ibc = { path = "../../modules", default-features = false }
+# ibc = { path = "../../modules", default-features = false }
 ibc-proto = { path = "../../proto", default-features = false }
-tendermint = { version = "0.22", default-features = false }
-tendermint-proto = { version = "0.22", default-features = false }
+tendermint = { version = "0.23", default-features = false }
+tendermint-proto = { version = "0.23", default-features = false }
 
 sp-core = { version = "3.0.0", default-features = false, optional = true }
 sp-io = { version = "3.0.0", default-features = false, optional = true }
@@ -17,13 +17,19 @@ sp-std = { version = "3.0.0", default-features = false, optional = true }
 sp-runtime-interface = { version = "3.0.0", default-features = false, optional = true}
 
 [features]
-default = []
+panic-handler = []
 use-substrate = [
   "sp-core",
   "sp-io",
   "sp-runtime",
   "sp-std",
   "sp-runtime-interface",
+]
+substrate-std = [
+  "sp-core/std",
+  "sp-io/std",
+  "sp-runtime/std",
+  "sp-std/std",
 ]
 
 [profile.dev]
@@ -35,7 +41,7 @@ panic = "abort"
 [patch.crates-io]
 tendermint          = { git = "https://github.com/informalsystems/tendermint-rs", branch = "soares/activate-no-std" }
 tendermint-proto    = { git = "https://github.com/informalsystems/tendermint-rs", branch = "soares/activate-no-std" }
-ics23               = { git = "https://github.com/informalsystems/ics23.git", branch = "master" }
+ics23               = { git = "https://github.com/informalsystems/ics23.git", branch = "soares/no-std" }
 safe-regex          = { git = "https://github.com/informalsystems/safe-regex.git", branch = "main" }
 safe-regex-macro    = { git = "https://github.com/informalsystems/safe-regex.git", branch = "main" }
 safe-regex-compiler = { git = "https://github.com/informalsystems/safe-regex.git", branch = "main" }

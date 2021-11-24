@@ -7,14 +7,14 @@ use tracing::debug;
 
 use tendermint::abci::transaction::Hash;
 
-use ibc::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ChainId;
 use ibc::query::{QueryTxHash, QueryTxRequest};
 
 use ibc_relayer::chain::handle::{ChainHandle, ProdChainHandle};
 use ibc_relayer::chain::runtime::ChainRuntime;
 use ibc_relayer::chain::{CosmosSdkChain, SubstrateChain};
 
-use crate::conclude::Output;
+use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::error::Error;
 use crate::prelude::app_config;
 

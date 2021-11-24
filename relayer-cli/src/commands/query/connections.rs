@@ -3,11 +3,11 @@ use alloc::sync::Arc;
 use abscissa_core::{Options, Runnable};
 use tokio::runtime::Runtime as TokioRuntime;
 
-use ibc::ics24_host::identifier::{ChainId, ConnectionId};
+use ibc::core::ics24_host::identifier::{ChainId, ConnectionId};
 use ibc_proto::ibc::core::connection::v1::QueryConnectionsRequest;
 use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain};
 
-use crate::conclude::Output;
+use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::prelude::*;
 
 #[derive(Clone, Command, Debug, Options)]
@@ -38,7 +38,9 @@ impl Runnable for QueryConnectionsCmd {
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
-                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt)
+                    .unwrap_or_else(exit_with_unrecoverable_error);
+
 
                 let req = QueryConnectionsRequest {
                     pagination: ibc_proto::cosmos::base::query::pagination::all(),
@@ -59,7 +61,8 @@ impl Runnable for QueryConnectionsCmd {
                 }
             }
             "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt)
+                    .unwrap_or_else(exit_with_unrecoverable_error);
 
                 let req = QueryConnectionsRequest {
                     pagination: ibc_proto::cosmos::base::query::pagination::all(),
