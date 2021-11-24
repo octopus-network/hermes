@@ -438,7 +438,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "frame-system",
- "ibc 0.8.0",
+ "ibc",
  "pallet-balances",
  "pallet-ibc",
  "parity-scale-codec",
@@ -1737,7 +1737,7 @@ dependencies = [
  "clap_derive",
  "env_logger",
  "flex-error",
- "ibc-proto 0.12.0",
+ "ibc-proto",
  "ics23",
  "modelator",
  "prost",
@@ -1759,30 +1759,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc"
-version = "0.8.0"
-source = "git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer-bug-cargo#60aa512601f1f5faca65ef9c031baeed7d7b8175"
-dependencies = [
- "bytes",
- "chrono",
- "flex-error",
- "ibc-proto 0.12.0 (git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer-bug-cargo)",
- "ics23",
- "prost",
- "prost-types",
- "safe-regex",
- "serde",
- "serde_derive",
- "serde_json",
- "sha2 0.9.8",
- "subtle-encoding",
- "tendermint",
- "tendermint-light-client",
- "tendermint-proto",
- "tracing",
-]
-
-[[package]]
 name = "ibc-integration-test"
 version = "0.8.0"
 dependencies = [
@@ -1791,8 +1767,8 @@ dependencies = [
  "env_logger",
  "eyre",
  "hex",
- "ibc 0.8.0",
- "ibc-proto 0.12.0",
+ "ibc",
+ "ibc-proto",
  "ibc-relayer",
  "ibc-relayer-cli",
  "itertools",
@@ -1823,17 +1799,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-proto"
-version = "0.12.0"
-source = "git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer-bug-cargo#60aa512601f1f5faca65ef9c031baeed7d7b8175"
-dependencies = [
- "bytes",
- "prost",
- "prost-types",
- "tendermint-proto",
-]
-
-[[package]]
 name = "ibc-relayer"
 version = "0.8.0"
 dependencies = [
@@ -1855,8 +1820,8 @@ dependencies = [
  "http",
  "humantime",
  "humantime-serde",
- "ibc 0.8.0",
- "ibc-proto 0.12.0",
+ "ibc",
+ "ibc-proto",
  "ibc-telemetry",
  "itertools",
  "jsonrpsee-types",
@@ -1911,8 +1876,8 @@ dependencies = [
  "futures",
  "gumdrop 0.7.0",
  "hex",
- "ibc 0.8.0",
- "ibc-proto 0.12.0",
+ "ibc",
+ "ibc-proto",
  "ibc-relayer",
  "ibc-relayer-rest",
  "ibc-telemetry",
@@ -1942,7 +1907,7 @@ name = "ibc-relayer-rest"
 version = "0.8.0"
 dependencies = [
  "crossbeam-channel 0.5.1",
- "ibc 0.8.0",
+ "ibc",
  "ibc-relayer",
  "rouille",
  "serde",
@@ -1957,7 +1922,7 @@ name = "ibc-telemetry"
 version = "0.8.0"
 dependencies = [
  "crossbeam-channel 0.5.1",
- "ibc 0.8.0",
+ "ibc",
  "once_cell",
  "opentelemetry",
  "opentelemetry-prometheus",
@@ -2796,7 +2761,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "ibc 0.8.0 (git+https://github.com/octopus-network/ibc-rs.git?branch=dv-octopus-relayer-bug-cargo)",
+ "ibc",
  "log",
  "parity-scale-codec",
  "prost",

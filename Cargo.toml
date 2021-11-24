@@ -193,3 +193,6 @@ safe-regex-macro    = { git = "https://github.com/informalsystems/safe-regex.git
 safe-regex-compiler = { git = "https://github.com/informalsystems/safe-regex.git", branch = "main" }
 safe-quote          = { git = "https://github.com/informalsystems/safe-regex.git", branch = "main" }
 safe-proc-macro2    = { git = "https://github.com/informalsystems/safe-regex.git", branch = "main" }
+
+[patch."https://github.com/octopus-network/ibc-rs.git"]
+ibc = { path = "./modules" }
