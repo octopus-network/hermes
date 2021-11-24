@@ -6,18 +6,19 @@ use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd}
 use crate::keyring::{KeyEntry, KeyRing, Store};
 use crate::light_client::LightClient;
 use ibc::events::IbcEvent;
-use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
-use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
-use ibc::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd, Counterparty};
-use ibc::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
-use ibc::ics04_channel::error::Error as Ics04Error;
-use ibc::ics04_channel::packet::{PacketMsgType, Sequence, Packet, Receipt};
+use ibc::core::ics02_client::client_type::ClientType;
+use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
+use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
+use ibc::core::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd, Counterparty};
+use ibc::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
+use ibc::core::ics04_channel::error::Error as Ics04Error;
+use ibc::core::ics04_channel::packet::{PacketMsgType, Sequence, Packet, Receipt};
 use ibc::clients::ics10_grandpa::client_state::ClientState as GPClientState;
 use ibc::clients::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
 use ibc::clients::ics10_grandpa::header::Header as GPHeader;
-use ibc::ics23_commitment::commitment::{CommitmentPrefix, CommitmentRoot};
-use ibc::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
-use ibc::query::QueryTxRequest;
+use ibc::core::ics23_commitment::commitment::{CommitmentPrefix, CommitmentRoot};
+use ibc::core::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
+use ibc::query::{QueryBlockRequest, QueryTxRequest};
 use ibc::signer::Signer;
 use ibc::Height;
 use ibc::Height as ICSHeight;
@@ -67,12 +68,13 @@ use tendermint_proto::Protobuf;
 use std::thread::sleep;
 use std::time::Duration;
 use std::sync::mpsc::channel;
-use ibc::ics02_client::client_type::ClientType;
+
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tendermint::abci::{Code, Log};
 use tendermint::abci::transaction::Hash;
 use chrono::offset::Utc;
 use tokio::task;
+use crate::chain::StatusResponse;
 
 
 #[derive(Debug)]
@@ -125,8 +127,8 @@ impl SubstrateChain {
                     let client_id = event.client_id;
                     let client_type = event.client_type;
                     let consensus_height = event.consensus_height;
-                    use ibc::ics02_client::events::Attributes;
-                    events.push(IbcEvent::CreateClient(ibc::ics02_client::events::CreateClient(Attributes {
+                    use ibc::core::ics02_client::events::Attributes;
+                    events.push(IbcEvent::CreateClient(ibc::core::ics02_client::events::CreateClient(Attributes {
                         height: height.to_ibc_height(),
                         client_id: client_id.to_ibc_client_id(),
                         client_type: client_type.to_ibc_client_type(),
@@ -142,8 +144,8 @@ impl SubstrateChain {
                     let client_id = event.client_id;
                     let client_type = event.client_type;
                     let consensus_height = event.consensus_height;
-                    use ibc::ics02_client::events::Attributes;
-                    events.push(IbcEvent::UpdateClient(ibc::ics02_client::events::UpdateClient{
+                    use ibc::core::ics02_client::events::Attributes;
+                    events.push(IbcEvent::UpdateClient(ibc::core::ics02_client::events::UpdateClient{
                         common: Attributes {
                             height: height.to_ibc_height(),
                             client_id: client_id.to_ibc_client_id(),
@@ -162,8 +164,8 @@ impl SubstrateChain {
                     let client_id = event.client_id;
                     let client_type = event.client_type;
                     let consensus_height = event.consensus_height;
-                    use ibc::ics02_client::events::Attributes;
-                    events.push(IbcEvent::ClientMisbehaviour(ibc::ics02_client::events::ClientMisbehaviour(
+                    use ibc::core::ics02_client::events::Attributes;
+                    events.push(IbcEvent::ClientMisbehaviour(ibc::core::ics02_client::events::ClientMisbehaviour(
                         Attributes {
                             height: height.to_ibc_height(),
                             client_id: client_id.to_ibc_client_id(),
@@ -182,8 +184,8 @@ impl SubstrateChain {
                     let client_id = event.client_id;
                     let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
                     let counterparty_client_id = event.counterparty_client_id;
-                    use ibc::ics03_connection::events::Attributes;
-                    events.push(IbcEvent::OpenInitConnection(ibc::ics03_connection::events::OpenInit(Attributes {
+                    use ibc::core::ics03_connection::events::Attributes;
+                    events.push(IbcEvent::OpenInitConnection(ibc::core::ics03_connection::events::OpenInit(Attributes {
                         height: height.to_ibc_height(),
                         connection_id,
                         client_id: client_id.to_ibc_client_id(),
@@ -202,8 +204,8 @@ impl SubstrateChain {
                     let client_id = event.client_id;
                     let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
                     let counterparty_client_id = event.counterparty_client_id;
-                    use ibc::ics03_connection::events::Attributes;
-                    events.push(IbcEvent::OpenTryConnection(ibc::ics03_connection::events::OpenTry(Attributes {
+                    use ibc::core::ics03_connection::events::Attributes;
+                    events.push(IbcEvent::OpenTryConnection(ibc::core::ics03_connection::events::OpenTry(Attributes {
                         height: height.to_ibc_height(),
                         connection_id,
                         client_id: client_id.to_ibc_client_id(),
@@ -222,8 +224,8 @@ impl SubstrateChain {
                     let client_id = event.client_id;
                     let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
                     let counterparty_client_id = event.counterparty_client_id;
-                    use ibc::ics03_connection::events::Attributes;
-                    events.push(IbcEvent::OpenAckConnection(ibc::ics03_connection::events::OpenAck(Attributes {
+                    use ibc::core::ics03_connection::events::Attributes;
+                    events.push(IbcEvent::OpenAckConnection(ibc::core::ics03_connection::events::OpenAck(Attributes {
                         height: height.to_ibc_height(),
                         connection_id,
                         client_id: client_id.to_ibc_client_id(),
@@ -242,8 +244,8 @@ impl SubstrateChain {
                     let client_id = event.client_id;
                     let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
                     let counterparty_client_id = event.counterparty_client_id;
-                    use ibc::ics03_connection::events::Attributes;
-                    events.push(IbcEvent::OpenConfirmConnection(ibc::ics03_connection::events::OpenConfirm(Attributes {
+                    use ibc::core::ics03_connection::events::Attributes;
+                    events.push(IbcEvent::OpenConfirmConnection(ibc::core::ics03_connection::events::OpenConfirm(Attributes {
                         height: height.to_ibc_height(),
                         connection_id,
                         client_id: client_id.to_ibc_client_id(),
@@ -264,8 +266,8 @@ impl SubstrateChain {
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
                     let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
-                    use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::OpenInitChannel(ibc::ics04_channel::events::OpenInit(Attributes{
+                    use ibc::core::ics04_channel::events::Attributes;
+                    events.push(IbcEvent::OpenInitChannel(ibc::core::ics04_channel::events::OpenInit(Attributes{
                         height: height.to_ibc_height(),
                         port_id: port_id.to_ibc_port_id(),
                         channel_id: channel_id,
@@ -286,8 +288,8 @@ impl SubstrateChain {
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
                     let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
-                    use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::OpenTryChannel(ibc::ics04_channel::events::OpenTry(Attributes{
+                    use ibc::core::ics04_channel::events::Attributes;
+                    events.push(IbcEvent::OpenTryChannel(ibc::core::ics04_channel::events::OpenTry(Attributes{
                         height: height.to_ibc_height(),
                         port_id: port_id.to_ibc_port_id(),
                         channel_id: channel_id,
@@ -308,8 +310,8 @@ impl SubstrateChain {
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
                     let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
-                    use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::OpenAckChannel(ibc::ics04_channel::events::OpenAck(Attributes{
+                    use ibc::core::ics04_channel::events::Attributes;
+                    events.push(IbcEvent::OpenAckChannel(ibc::core::ics04_channel::events::OpenAck(Attributes{
                         height: height.to_ibc_height(),
                         port_id: port_id.to_ibc_port_id(),
                         channel_id: channel_id,
@@ -330,8 +332,8 @@ impl SubstrateChain {
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
                     let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
-                    use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::OpenConfirmChannel(ibc::ics04_channel::events::OpenConfirm(Attributes{
+                    use ibc::core::ics04_channel::events::Attributes;
+                    events.push(IbcEvent::OpenConfirmChannel(ibc::core::ics04_channel::events::OpenConfirm(Attributes{
                         height: height.to_ibc_height(),
                         port_id: port_id.to_ibc_port_id(),
                         channel_id: channel_id,
@@ -352,8 +354,8 @@ impl SubstrateChain {
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
                     let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
-                    use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::CloseInitChannel(ibc::ics04_channel::events::CloseInit(Attributes{
+                    use ibc::core::ics04_channel::events::Attributes;
+                    events.push(IbcEvent::CloseInitChannel(ibc::core::ics04_channel::events::CloseInit(Attributes{
                         height: height.to_ibc_height(),
                         port_id: port_id.to_ibc_port_id(),
                         channel_id: channel_id,
@@ -374,8 +376,8 @@ impl SubstrateChain {
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
                     let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
-                    use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::CloseConfirmChannel(ibc::ics04_channel::events::CloseConfirm(Attributes{
+                    use ibc::core::ics04_channel::events::Attributes;
+                    events.push(IbcEvent::CloseConfirmChannel(ibc::core::ics04_channel::events::CloseConfirm(Attributes{
                         height: height.to_ibc_height(),
                         port_id: port_id.to_ibc_port_id(),
                         channel_id: channel_id,
@@ -392,7 +394,7 @@ impl SubstrateChain {
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::SendPacket(ibc::ics04_channel::events::SendPacket{
+                    events.push(IbcEvent::SendPacket(ibc::core::ics04_channel::events::SendPacket{
                         height: height.to_ibc_height(),
                         packet: packet.to_ibc_packet(),
                     }));
@@ -405,7 +407,7 @@ impl SubstrateChain {
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::ReceivePacket(ibc::ics04_channel::events::ReceivePacket{
+                    events.push(IbcEvent::ReceivePacket(ibc::core::ics04_channel::events::ReceivePacket{
                         height: height.to_ibc_height(),
                         packet: packet.to_ibc_packet(),
                     }));
@@ -418,7 +420,7 @@ impl SubstrateChain {
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::WriteAcknowledgement(ibc::ics04_channel::events::WriteAcknowledgement{
+                    events.push(IbcEvent::WriteAcknowledgement(ibc::core::ics04_channel::events::WriteAcknowledgement{
                         height: height.to_ibc_height(),
                         packet: packet.to_ibc_packet(),
                         ack: event.ack,
@@ -432,7 +434,7 @@ impl SubstrateChain {
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::AcknowledgePacket(ibc::ics04_channel::events::AcknowledgePacket{
+                    events.push(IbcEvent::AcknowledgePacket(ibc::core::ics04_channel::events::AcknowledgePacket{
                         height: height.to_ibc_height(),
                         packet: packet.to_ibc_packet(),
                     }));
@@ -445,7 +447,7 @@ impl SubstrateChain {
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::TimeoutPacket(ibc::ics04_channel::events::TimeoutPacket{
+                    events.push(IbcEvent::TimeoutPacket(ibc::core::ics04_channel::events::TimeoutPacket{
                         height: height.to_ibc_height(),
                         packet: packet.to_ibc_packet(),
                     }));
@@ -458,7 +460,7 @@ impl SubstrateChain {
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::TimeoutOnClosePacket(ibc::ics04_channel::events::TimeoutOnClosePacket{
+                    events.push(IbcEvent::TimeoutOnClosePacket(ibc::core::ics04_channel::events::TimeoutOnClosePacket{
                         height: height.to_ibc_height(),
                         packet: packet.to_ibc_packet(),
                     }));
@@ -1168,24 +1170,24 @@ impl ChainEndpoint for SubstrateChain {
         ))
     }
 
-    fn query_latest_height(&self) -> Result<ICSHeight, Error> {
-        tracing::info!("in Substrate: [query_latest_height]");
-
-        let latest_height = async {
-            let client = ClientBuilder::<NodeRuntime>::new()
-                .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
-            let height = self.get_latest_height(client).await.unwrap();
-
-            tracing::info!("In Substrate: [query_latest_height] >> height: {:?}", height);
-
-            height
-        };
-
-        let revision_height =  self.block_on(latest_height);
-        let latest_height = Height::new(0, revision_height);
-        Ok(latest_height)
-    }
+    // fn query_latest_height(&self) -> Result<ICSHeight, Error> {
+    //     tracing::info!("in Substrate: [query_latest_height]");
+    //
+    //     let latest_height = async {
+    //         let client = ClientBuilder::<NodeRuntime>::new()
+    //             .set_url(&self.websocket_url.clone())
+    //             .build().await.unwrap();
+    //         let height = self.get_latest_height(client).await.unwrap();
+    //
+    //         tracing::info!("In Substrate: [query_latest_height] >> height: {:?}", height);
+    //
+    //         height
+    //     };
+    //
+    //     let revision_height =  self.block_on(latest_height);
+    //     let latest_height = Height::new(0, revision_height);
+    //     Ok(latest_height)
+    // }
 
     fn query_clients(
         &self,
@@ -1482,8 +1484,10 @@ impl ChainEndpoint for SubstrateChain {
 
         let packet_commitments =  self.block_on(packet_commitments);
 
-        let last_height = self.query_latest_height().unwrap();
+        // let last_height = self.query_latest_height().unwrap();
 
+        // TODO
+        let last_height = Height::default();
         Ok((packet_commitments, last_height))
 
     }
@@ -1531,7 +1535,9 @@ impl ChainEndpoint for SubstrateChain {
 
         let packet_acknowledgements =  self.block_on(packet_acknowledgements);
 
-        let last_height = self.query_latest_height().unwrap();
+        // TODO
+        // let last_height = self.query_latest_height().unwrap();
+        let last_height = Height::default();
 
         Ok((packet_acknowledgements, last_height))
     }
@@ -1657,12 +1663,12 @@ impl ChainEndpoint for SubstrateChain {
                 //
                 // let tx = response.txs.remove(0);
                 // let event = update_client_from_tx_search_response(self.id(), &request, tx);
-                use ibc::ics02_client::events::Attributes;
-                use ibc::ics02_client::header::AnyHeader;
+                use ibc::core::ics02_client::events::Attributes;
+                use ibc::core::ics02_client::header::AnyHeader;
 
                 let mut result: Vec<IbcEvent> = vec![];
 
-                result.push(IbcEvent::UpdateClient(ibc::ics02_client::events::UpdateClient{
+                result.push(IbcEvent::UpdateClient(ibc::core::ics02_client::events::UpdateClient{
                     common: Attributes {
                         height: request.height,
                         client_id: request.client_id,
@@ -1841,7 +1847,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok((vec![0], get_dummy_merkle_proof()))
     }
 
-    fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
+    fn build_client_state(&self, height: ICSHeight, dst_config: ChainConfig) -> Result<Self::ClientState, Error> {
         // TODO this is mock
         tracing::info!("in Substrate: [build_client_state]");
 
@@ -1851,7 +1857,7 @@ impl ChainEndpoint for SubstrateChain {
         let frozen_height = Height::zero();
         tracing::info!("in Substrate: [build_client_state] >> frozen_height = {:?}", frozen_height);
 
-        use ibc::ics02_client::client_state::AnyClientState;
+        use ibc::core::ics02_client::client_state::AnyClientState;
         use ibc::clients::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
 
         // Create mock grandpa client state
@@ -1893,6 +1899,22 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [build_header] >> GPHEADER: {:?}", GPHeader::new(target_height.revision_height));
 
         Ok((GPHeader::new(target_height.revision_height), vec![GPHeader::new(trusted_height.revision_height)]))
+    }
+
+    fn config(&self) -> ChainConfig {
+        todo!()
+    }
+
+    fn add_key(&mut self, key_name: &str, key: KeyEntry) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn query_status(&self) -> Result<StatusResponse, Error> {
+        todo!()
+    }
+
+    fn query_blocks(&self, request: QueryBlockRequest) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error> {
+        todo!()
     }
 }
 

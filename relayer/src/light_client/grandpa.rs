@@ -2,13 +2,13 @@ use crate::chain::SubstrateChain;
 use crate::error::Error;
 
 use crate::light_client::Verified;
-use ibc::ics02_client::client_state::AnyClientState;
-use ibc::ics02_client::events::UpdateClient;
-use ibc::ics02_client::misbehaviour::{MisbehaviourEvidence, AnyMisbehaviour};
+use ibc::core::ics02_client::client_state::AnyClientState;
+use ibc::core::ics02_client::events::UpdateClient;
+use ibc::core::ics02_client::misbehaviour::{MisbehaviourEvidence, AnyMisbehaviour};
 use ibc::clients::ics10_grandpa::header::{Header as GPHeader, Header};
 use ibc::Height;
-use ibc::ics02_client::header::AnyHeader;
-use ibc::ics24_host::identifier::ClientId;
+use ibc::core::ics02_client::header::AnyHeader;
+use ibc::core::ics24_host::identifier::ClientId;
 
 pub struct LightClient {}
 

@@ -410,7 +410,7 @@ impl<'a, Chain: ChainHandle + 'static> SpawnContext<'a, Chain> {
     ) -> Result<(), Error> {
         tracing::info!("in spawn: [spawn_connection_workers]");
 
-        let handshake_enabled = self
+        let config_conn_enabled = self
             .config
             .read()
             .expect("poisoned lock")

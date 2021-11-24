@@ -33,7 +33,7 @@ use ibc_proto::ibc::core::client::v1::QueryConsensusStatesRequest;
 
 use crate::chain::handle::ChainHandle;
 use ibc::signer::Signer;
-use ibc::ics02_client::client_type::ClientType;
+use ibc::core::ics02_client::client_type::ClientType;
 
 const MAX_MISBEHAVIOUR_CHECK_DURATION: Duration = Duration::from_secs(120);
 
