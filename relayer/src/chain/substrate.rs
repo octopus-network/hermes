@@ -69,11 +69,10 @@ use std::time::Duration;
 use std::sync::mpsc::channel;
 use ibc::ics02_client::client_type::ClientType;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
-use tendermint::abci::{Code, Log};
-use tendermint::abci::transaction::Hash;
+use tendermint::abci::{Code, Log, transaction::Hash};
 use chrono::offset::Utc;
 use tokio::task;
-
+use ibc::ics07_tendermint::header::Header as tHeader;
 
 #[derive(Debug)]
 pub struct SubstrateChain {
@@ -1122,13 +1121,13 @@ impl ChainEndpoint for SubstrateChain {
         };
         let _result = self.block_on(client);
 
-        use tendermint::abci::transaction;  // Todo:
+        // Todo:
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
         let txRe = TxResponse {
             code: Code::default(),
             data: serde_json::from_str(json).unwrap(),
             log: Log::from("testtest"),
-            hash: transaction::Hash::new(*_result.as_fixed_bytes())
+            hash: Hash::new(*_result.as_fixed_bytes())
         };
 
         Ok(vec![txRe])
@@ -1196,16 +1195,12 @@ impl ChainEndpoint for SubstrateChain {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
                 .build().await.unwrap();
-
             let clients = self.get_clients(client).await.unwrap();
-
             clients
         };
 
         let clients = self.block_on(clients);
-
         tracing::info!("in Substrate: [query_clients] >> clients: {:?}", clients);
-
         Ok(clients)
     }
 
@@ -1623,80 +1618,32 @@ impl ChainEndpoint for SubstrateChain {
             }
 
             QueryTxRequest::Client(request) => {
-
                 crate::time!("in Substrate: [query_txs]: single client update event");
                 tracing::info!("in Substrate: [query_txs]: single client update event: request:{:?}", request);
-
-
-                // query the first Tx that includes the event matching the client request
-                // Note: it is possible to have multiple Tx-es for same client and consensus height.
-                // In this case it must be true that the client updates were performed with tha
-                // same header as the first one, otherwise a subsequent transaction would have
-                // failed on chain. Therefore only one Tx is of interest and current API returns
-                // the first one.
-                // let mut response = self
-                //     .block_on(self.rpc_client.tx_search(
-                //         header_query(&request),
-                //         false,
-                //         1,
-                //         1, // get only the first Tx matching the query
-                //         Order::Ascending,
-                //     ))
-                //     .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
-                //
-                // if response.txs.is_empty() {
-                //     return Ok(vec![]);
-                // }
-                //
-                // // the response must include a single Tx as specified in the query.
-                // assert!(
-                //     response.txs.len() <= 1,
-                //     "packet_from_tx_search_response: unexpected number of txs"
-                // );
-                //
-                // let tx = response.txs.remove(0);
-                // let event = update_client_from_tx_search_response(self.id(), &request, tx);
                 use ibc::ics02_client::events::Attributes;
                 use ibc::ics02_client::header::AnyHeader;
 
+                // Todo: the client event below is mock
+                // replace it with real client event replied from a Substrate chain
                 let mut result: Vec<IbcEvent> = vec![];
-
                 result.push(IbcEvent::UpdateClient(ibc::ics02_client::events::UpdateClient{
                     common: Attributes {
                         height: request.height,
                         client_id: request.client_id,
-                        client_type: ClientType::Grandpa,
+                        client_type: ClientType::Tendermint,
                         consensus_height: request.consensus_height,
                     },
-                    header: Some(AnyHeader::Grandpa(ibc::ics10_grandpa::header::Header::new(request.height.revision_height))),
+                    header: Some(AnyHeader::Tendermint(get_dummy_ics07_header())),
                 }));
 
                 Ok(result)
-                // Ok(event.into_iter().collect())
             }
 
             QueryTxRequest::Transaction(tx) => {
                 crate::time!("in Substrate: [query_txs]: Transaction");
                 tracing::info!("in Substrate: [query_txs]: Transaction: {:?}", tx);
-
-                // let mut response = self
-                //     .block_on(self.rpc_client.tx_search(
-                //         tx_hash_query(&tx),
-                //         false,
-                //         1,
-                //         1, // get only the first Tx matching the query
-                //         Order::Ascending,
-                //     ))
-                //     .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
-                //
-                // if response.txs.is_empty() {
-                //     Ok(vec![])
-                // } else {
-                //     let tx = response.txs.remove(0);
-                //     Ok(all_ibc_events_from_tx_search_response(self.id(), tx))
-                // }
+                // Todo: https://github.com/octopus-network/ibc-rs/issues/98
                 let mut result: Vec<IbcEvent> = vec![];
-
                 Ok(result)
             }
         }
@@ -1902,4 +1849,40 @@ pub fn get_dummy_merkle_proof() -> MerkleProof {
     let parsed = ibc_proto::ics23::CommitmentProof { proof: None };
     let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
     MerkleProof { proofs: mproofs }
+}
+
+pub fn get_dummy_ics07_header() -> tHeader {
+    use tendermint::block::signed_header::SignedHeader;
+    // Build a SignedHeader from a JSON file.
+    let shdr = serde_json::from_str::<SignedHeader>(include_str!(
+        "../../../modules/tests/support/signed_header.json"
+    ))
+        .unwrap();
+
+    // Build a set of validators.
+    // Below are test values inspired form `test_validator_set()` in tendermint-rs.
+    use tendermint::validator::Info as ValidatorInfo;
+    use tendermint::PublicKey;
+    use subtle_encoding::hex;
+    use std::convert::TryInto;
+    let v1: ValidatorInfo = ValidatorInfo::new(
+        PublicKey::from_raw_ed25519(
+            &hex::decode_upper(
+                "F349539C7E5EF7C49549B09C4BFC2335318AB0FE51FBFAA2433B4F13E816F4A7",
+            )
+                .unwrap(),
+        )
+            .unwrap(),
+        281_815_u64.try_into().unwrap(),
+    );
+
+    use tendermint::validator::Set as ValidatorSet;
+    let vs = ValidatorSet::new(vec![v1.clone()], Some(v1));
+
+    tHeader {
+        signed_header: shdr,
+        validator_set: vs.clone(),
+        trusted_height: Height::new(0, 1),
+        trusted_validator_set: vs,
+    }
 }
