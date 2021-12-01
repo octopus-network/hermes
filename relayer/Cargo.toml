@@ -66,9 +66,10 @@ fraction = {version = "0.9.0", default-features = false }
 semver = { version = "1.0", default-features = false }
 uint = { version = "0.9", default-features = false }
 calls = { path = "../calls" }
-substrate-subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = "octopus-dev" }
-sp-keyring = { version = '3.0.0', default-features = false }
-pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-ibc-dev' }
+subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.12' }
+#substrate-subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = "octopus-dev" }
+sp-keyring = { package = "sp-keyring", git = "https://github.com/paritytech/substrate/", branch = "polkadot-v0.9.12" }
+pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-ibc-dev-0.9.12-tag' }
 #pallet-ibc = { path = "../../substrate/bin/node-template/pallets/ibc" }
 jsonrpsee-types = "0.2.0"
 codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive', 'full'] }
