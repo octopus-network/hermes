@@ -10,12 +10,32 @@ use core::str::FromStr;
 // pub struct ParachainId(u32);
 
 #[derive(Encode, Decode)]
+pub enum ClientType {
+    Tendermint,
+    Grandpa,
+}
+
+impl ClientType {
+    pub fn to_ibc_client_type(self) -> ibc::ics02_client::client_type::ClientType {
+        match self {
+            ClientType::Tendermint => ibc::ics02_client::client_type::ClientType::Tendermint,
+            ClientType::Grandpa => ibc::ics02_client::client_type::ClientType::Grandpa,
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Encode, Decode)]
 pub struct MessageQueueChain(pub subxt::sp_core::H256);
 
 #[subxt::subxt(runtime_metadata_path = "metadata_file/metadata.scale")]
 pub mod ibc_node {
     // #[subxt(substitute_type = "polkadot_parachain::primitives::Id")]
     // use crate::ParachainId;
+
+    #[subxt(substitute_type = "pallet_ibc::event::primitive::ClientTy")]
+    use crate::ClientType;
+
 
     // #[subxt(substitute_type = "polkadot_core_primitives::InboundHrmpMessage")]
     // use crate::ibc_node::runtime_types::polkadot_core_primitives::InboundHrmpMessage;
@@ -122,15 +142,7 @@ impl ibc_node::runtime_types::pallet_ibc::event::primitive::Timestamp {
 }
 
 
-impl ibc_node::runtime_types::pallet_ibc::event::primitive::ClientTy {
-    pub fn to_ibc_client_type(self) -> ibc::ics02_client::client_type::ClientType {
-        match self {
-            ibc_node::runtime_types::pallet_ibc::event::primitive::ClientTy::Tendermint => ibc::ics02_client::client_type::ClientType::Tendermint,
-            ibc_node::runtime_types::pallet_ibc::event::primitive::ClientTy::Grandpa => ibc::ics02_client::client_type::ClientType::Grandpa,
-            _ => unreachable!(),
-        }
-    }
-}
+
 
 
 impl From<Any> for ibc_node::runtime_types::pallet_ibc::Any {

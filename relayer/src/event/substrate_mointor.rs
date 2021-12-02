@@ -1110,8 +1110,13 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         _ =>  {
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> Unknown event");
-            unimplemented!()
+            tracing::info!("In substrate: [from_raw_event_to_batch_event]: unknown event");
+
+            EventBatch {
+                height: Height::new(0, height),  // Todo: to set revision_number
+                events: vec![],
+                chain_id: chain_id.clone(),
+            }
         }
     }
 }
