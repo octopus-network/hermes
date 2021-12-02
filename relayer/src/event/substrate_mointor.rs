@@ -307,7 +307,7 @@ impl EventMonitor {
 
         let sub_event = async move {
 
-            let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+            let api = client.clone().to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
             let sub = api.client.rpc().subscribe_events().await.unwrap();
             let decoder = api.client.events_decoder();
             let mut sub = EventSubscription::<ibc_node::DefaultConfig>::new(sub, decoder);

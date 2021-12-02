@@ -439,6 +439,7 @@ dependencies = [
  "env_logger 0.8.4",
  "hex",
  "ibc",
+ "informalsystems-prost-types",
  "parity-scale-codec",
  "sp-keyring",
  "subxt",

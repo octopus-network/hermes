@@ -1194,6 +1194,27 @@ impl SubstrateChain {
         Ok(result)
     }
 
+    async fn deliever(&self, msg: Vec<Any>, client: Client<ibc_node::DefaultConfig>) -> Result<subxt::sp_core::H256, Box<dyn std::error::Error>> {
+
+        let msg : Vec<calls::ibc_node::runtime_types::pallet_ibc::Any> = msg.into_iter().map(|val| val.into()).collect();
+        let signer = PairSigner::new(AccountKeyring::Bob.pair());
+
+        let api = client.clone().to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+
+        let result = api
+            .tx()
+            .ibc()
+            .deliver(msg, 0)
+            .sign_and_submit(&signer)
+            .await?;
+
+        tracing::info!("deliever result: {:?}", result);
+
+
+
+        Ok(result)
+    }
+
 }
 
 impl ChainEndpoint for SubstrateChain {
@@ -1280,23 +1301,14 @@ impl ChainEndpoint for SubstrateChain {
     fn send_messages_and_wait_commit(&mut self, proto_msgs: Vec<Any>) -> Result<Vec<IbcEvent>, Error> {
         tracing::info!("in Substrate: [send_messages_and_wait_commit]");
 
-        let msg : Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
-        let signer = PairSigner::new(AccountKeyring::Bob.pair());
         let client = async {
-                sleep(Duration::from_secs(3));
 
                 let client = ClientBuilder::new()
                     .set_url(&self.websocket_url.clone())
-                    .build().await?.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+                    .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-                let result = client
-                    .tx()
-                    .ibc()
-                    .deliver(msg, 0).await?;
+                let result = self.deliever(proto_msgs, client).await.unwrap();;
 
-                tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result no unwrap: {:?}", result);
-
-                let result = result.unwrap();
                 tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}", result);
 
                 result
@@ -1328,25 +1340,19 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<TxResponse>, Error> {
         tracing::info!("in Substrate: [send_messages_and_wait_check_tx]");
         tracing::debug!("in Substrate: [send_messages_and_wait_check_tx], raw msg to send {:?}", proto_msgs);
-        let msg : Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
-
-        let signer = PairSigner::new(AccountKeyring::Bob.pair());
-        tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> signer: {:?}", "Bob");
 
         let client = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await?.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+                .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            let result = client
-                .tx()
-                .ibc()
-                .deliver(msg, 0).await?;
-            sleep(Duration::from_secs(10));  // For avoiding transaction low priority error, Todo:
-            let result = result.unwrap();
-            tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}", result);
+            let result = self.deliever(proto_msgs, client).await.unwrap();
+
+            tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}", result);
+
             result
         };
+
         let _result = self.block_on(client);
 
         use tendermint::abci::transaction;  // Todo:

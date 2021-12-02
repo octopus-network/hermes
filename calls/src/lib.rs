@@ -3,6 +3,8 @@ mod codegen;
 
 
 use codec::{Decode, Encode};
+use prost_types::Any;
+use core::str::FromStr;
 
 // #[derive(Eq, PartialEq, Encode, Decode)]
 // pub struct ParachainId(u32);
@@ -62,43 +64,94 @@ impl ibc_node::runtime_types::pallet_ibc::event::primitive::Height {
 
 impl ibc_node::runtime_types::pallet_ibc::event::primitive::Packet {
     pub fn to_ibc_packet(self) -> ibc::ics04_channel::packet::Packet {
-        todo!()
+        ibc::ics04_channel::packet::Packet {
+            sequence: self.sequence.to_ibc_sequence(),
+            source_port: self.source_port.to_ibc_port_id(),
+            source_channel: self.source_channel.to_ibc_channel_id(),
+            destination_port: self.destination_port.to_ibc_port_id(),
+            destination_channel: self.destination_channel.to_ibc_channel_id(),
+            data: self.data,
+            timeout_height: self.timeout_height.to_ibc_height(),
+            timeout_timestamp: self.timeout_timestamp.to_ibc_timestamp(),
+        }
     }
     
 }
 
 impl  ibc_node::runtime_types::pallet_ibc::event::primitive::ConnectionId {
     pub fn to_ibc_connection_id(self) -> ibc::ics24_host::identifier::ConnectionId {
-        todo!()
+        let value = String::from_utf8(self.0).unwrap();
+        ibc::ics24_host::identifier::ConnectionId(value)
     }
 }
 
 impl ibc_node::runtime_types::pallet_ibc::event::primitive::ChannelId {
     pub fn to_ibc_channel_id(self) -> ibc::ics24_host::identifier::ChannelId {
-        todo!()
+        let value = String::from_utf8(self.0).unwrap();
+        ibc::ics24_host::identifier::ChannelId (value)
     }
 }
 
 impl ibc_node::runtime_types::pallet_ibc::event::primitive::PortId {
     pub fn to_ibc_port_id(self) -> ibc::ics24_host::identifier::PortId {
-        todo!()
+        let value = String::from_utf8(self.0).unwrap();
+        ibc::ics24_host::identifier::PortId(value)
     }
 }
 
 
 impl ibc_node::runtime_types::pallet_ibc::event::primitive::ClientId {
     pub fn to_ibc_client_id(self) -> ibc::ics24_host::identifier::ClientId {
-        todo!()
+        let value = String::from_utf8(self.0).unwrap();
+        ibc::ics24_host::identifier::ClientId(value)
+    }
+}
+
+impl ibc_node::runtime_types::pallet_ibc::event::primitive::Sequence {
+    pub fn to_ibc_sequence(self) -> ibc::ics04_channel::packet::Sequence {
+        ibc::ics04_channel::packet::Sequence(self.0)
+    }
+}
+
+impl ibc_node::runtime_types::pallet_ibc::event::primitive::Timestamp {
+    pub fn to_ibc_timestamp(self) -> ibc::timestamp::Timestamp {
+        let value = String::from_utf8(self.0).unwrap();
+        let timestamp = ibc::timestamp::Timestamp::from_str(&value).unwrap();
+        timestamp
     }
 }
 
 
 impl ibc_node::runtime_types::pallet_ibc::event::primitive::ClientTy {
     pub fn to_ibc_client_type(self) -> ibc::ics02_client::client_type::ClientType {
-        todo!()
+        match self {
+            ibc_node::runtime_types::pallet_ibc::event::primitive::ClientTy::Tendermint => ibc::ics02_client::client_type::ClientType::Tendermint,
+            ibc_node::runtime_types::pallet_ibc::event::primitive::ClientTy::Grandpa => ibc::ics02_client::client_type::ClientType::Grandpa,
+            _ => unreachable!(),
+        }
     }
 }
 
+
+impl From<Any> for ibc_node::runtime_types::pallet_ibc::Any {
+    fn from(value : Any) -> Self {
+        ibc_node::runtime_types::pallet_ibc::Any {
+            type_url: value.type_url.as_bytes().to_vec(),
+            value: value.value,
+        }
+    }
+}
+
+impl Copy for ibc_node::runtime_types::pallet_ibc::event::primitive::Height {}
+
+impl Clone for ibc_node::runtime_types::pallet_ibc::event::primitive::Height {
+    fn clone(&self) -> Self {
+        Self {
+            revision_number: self.revision_number,
+            revision_height: self.revision_height,
+        }
+    }
+}
 
 
 // // #![feature(associated_type_bounds)]

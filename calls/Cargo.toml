@@ -11,6 +11,8 @@ sp-keyring = { package = "sp-keyring", git = "https://github.com/paritytech/subs
 codec = { package = "parity-scale-codec", version = "2", default-features = false, features = ["derive", "full", "bit-vec"] }
 env_logger = "0.8.3"
 hex = "0.4.3"
+#prost = { package = "informalsystems-prost", version = "0.8.1", default-features = false }
+prost-types = { package = "informalsystems-prost-types", version = "0.8.1", default-features = false }
 
 ibc = { path = "../modules" }
 
