@@ -113,9 +113,9 @@ impl SubstrateChain {
                 continue;
             }
             let raw_event = raw_event.unwrap();
-            tracing::info!("In substrate: [subscribe_events] >> raw Event: {:?}", raw_event);
+            // tracing::info!("In substrate: [subscribe_events] >> raw Event: {:?}", raw_event);
             let variant = raw_event.variant;
-            tracing::info!("In substrate: [subscribe_events] >> variant: {:?}", variant);
+            // tracing::info!("In substrate: [subscribe_events] >> variant: {:?}", variant);
             match variant.as_str() {
                 "CreateClient" => {
                     let event = CreateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
@@ -485,7 +485,7 @@ impl SubstrateChain {
                 }
                 "ExtrinsicSuccess" => {
                     let event = ExtrinsicSuccessEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-                    tracing::info!("In substrate: [subscribe_events] >> SystemEvent: {:?}", event);
+                    tracing::info!("In substrate: [subscribe_events] >> SystemEvent ");
                     if counter_system_event < COUNTER_SYSTEM_EVENT {
                         tracing::info!("In substrate: [subscribe_events] >> counter_system_event: {:?}", counter_system_event);
                         counter_system_event += 1;

@@ -378,7 +378,7 @@ impl EventMonitor {
                     continue;
                 }
                 let raw_event = raw_event.unwrap();
-                tracing::info!("in substrate_mointor: [run_loop] >> raw_event : {:?}", raw_event);
+                // tracing::info!("in substrate_mointor: [run_loop] >> raw_event : {:?}", raw_event);
                 let height = get_latest_height(client.clone()).await; // Todo: Do not query for latest height every time
                 let batch_event = from_raw_event_to_batch_event(raw_event, chain_id.clone(), height);
                 process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
@@ -594,13 +594,13 @@ async fn subscribe_events(
 
 
 fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height: u64) -> EventBatch {
-    tracing::info!("In substrate: [from_raw_event_to_batch_event] >> raw Event: {:?}", raw_event);
+    // tracing::info!("In substrate: [from_raw_event_to_batch_event] >> raw Event: {:?}", raw_event);
     let variant = raw_event.variant;
-    tracing::info!("In substrate: [from_raw_event_to_batch_event] >> variant: {:?}", variant);
+    // tracing::info!("In substrate: [from_raw_event_to_batch_event] >> variant: {:?}", variant);
     match variant.as_str() {
         "CreateClient" => {
             let event = CreateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> CreateClient Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> CreateClient Event");
 
             let height = event.height;
             let client_id = event.client_id;
@@ -622,7 +622,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         },
         "UpdateClient" => {
             let event = UpdateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> UpdateClient Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> UpdateClient Event");
 
             let height = event.height;
             let client_id = event.client_id;
@@ -646,7 +646,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         },
         "ClientMisbehaviour" => {
             let event = ClientMisbehaviourEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> ClientMisbehaviour Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> ClientMisbehaviour Event");
 
             let height = event.height;
             let client_id = event.client_id;
@@ -670,7 +670,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         },
         "OpenInitConnection" => {
             let event = OpenInitConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> OpenInitConnection Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> OpenInitConnection Event");
 
             let height = event.height;
             let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
@@ -694,7 +694,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         },
         "OpenTryConnection" => {
             let event = OpenTryConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> OpenTryConnection Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> OpenTryConnection Event");
 
             let height = event.height;
             let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
@@ -718,7 +718,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         },
         "OpenAckConnection" => {
             let event = OpenAckConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> OpenAckConnection Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> OpenAckConnection Event");
 
             let height = event.height;
             let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
@@ -742,7 +742,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         },
         "OpenConfirmConnection" => {
             let event = OpenConfirmConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> OpenConfirmConnection Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> OpenConfirmConnection Event");
 
             let height = event.height;
             let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
@@ -767,7 +767,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
 
         "OpenInitChannel" => {
             let event = OpenInitChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> OpenInitChannel Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> OpenInitChannel Event");
 
             let height = event.height;
             let port_id = event.port_id;
@@ -793,7 +793,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "OpenTryChannel" => {
             let event = OpenTryChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> OpenTryChannel Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> OpenTryChannel Event");
 
             let height = event.height;
             let port_id = event.port_id;
@@ -819,7 +819,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "OpenAckChannel" => {
             let event = OpenAckChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> OpenAckChannel Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> OpenAckChannel Event");
 
             let height = event.height;
             let port_id = event.port_id;
@@ -845,7 +845,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "OpenConfirmChannel" => {
             let event = OpenConfirmChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> OpenConfirmChannel Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> OpenConfirmChannel Event");
 
             let height = event.height;
             let port_id = event.port_id;
@@ -871,7 +871,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "CloseInitChannel" => {
             let event = CloseInitChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [subscribe_events] >> CloseInitChannel Event");
+            tracing::info!("In substrate_mointor: [subscribe_events] >> CloseInitChannel Event");
 
             let height = event.height;
             let port_id = event.port_id;
@@ -897,7 +897,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "CloseConfirmChannel" => {
             let event = CloseConfirmChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [subscribe_events] >> CloseConfirmChannel Event");
+            tracing::info!("In substrate_mointor: [subscribe_events] >> CloseConfirmChannel Event");
 
             let height = event.height;
             let port_id = event.port_id;
@@ -924,7 +924,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "SendPacket" => {
             let event = SendPacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> SendPacket Event");
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> SendPacket Event");
 
             let height = event.height;
             let packet = event.packet;
@@ -941,7 +941,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "ReceivePacket" => {
             let event = ReceivePacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [substrate_events] >> ReceivePacket Event");
+            tracing::info!("In substrate_mointor: [substrate_events] >> ReceivePacket Event");
 
             let height = event.height;
             let packet = event.packet;
@@ -958,7 +958,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "WriteAcknowledgement" => {
             let event = WriteAcknowledgementEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [substrate_events] >> WriteAcknowledgement Event");
+            tracing::info!("In substrate_mointor: [substrate_events] >> WriteAcknowledgement Event");
 
             let height = event.height;
             let packet = event.packet;
@@ -977,7 +977,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "AcknowledgePacket" => {
             let event = AcknowledgePacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [substrate_events] >> AcknowledgePacket Event");
+            tracing::info!("In substrate_mointor: [substrate_events] >> AcknowledgePacket Event");
 
             let height = event.height;
             let packet = event.packet;
@@ -994,7 +994,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "TimeoutPacket" => {
             let event = TimeoutPacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [substrate_events] >> TimeoutPacket Event");
+            tracing::info!("In substrate_mointor: [substrate_events] >> TimeoutPacket Event");
 
             let height = event.height;
             let packet = event.packet;
@@ -1011,7 +1011,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "TimeoutOnClosePacket" => {
             let event = TimeoutOnClosePacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [substrate_events] >> TimeoutOnClosePacket Event");
+            tracing::info!("In substrate_mointor: [substrate_events] >> TimeoutOnClosePacket Event");
 
             let height = event.height;
             let packet = event.packet;
@@ -1028,7 +1028,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "Empty" => {
             let event =  EmptyEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("in substrate: [substrate_events] >> Empty Event");
+            tracing::info!("in substrate_mointor: [substrate_events] >> Empty Event");
 
             let data = String::from_utf8(event.data).unwrap();
             let event = IbcEvent::Empty(data);
@@ -1041,7 +1041,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "ChainError" => {
             let event =  ChainErrorEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("in substrate: [substrate_events] >> ChainError Event");
+            tracing::info!("in substrate_mointor: [substrate_events] >> ChainError Event");
 
             let data = String::from_utf8(event.data).unwrap();
             let event = IbcEvent::Empty(data);
@@ -1054,7 +1054,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "ExtrinsicSuccess" => {
             let event = ExtrinsicSuccessEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> SystemEvent: {:?}", event);
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> SystemEvent ");
 
             let event = IbcEvent::NewBlock(ibc::ics02_client::events::NewBlock{
                 height: Height::new(0, height)  // Todo: to set revision_number
@@ -1067,8 +1067,13 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         _ =>  {
-            tracing::info!("In substrate: [from_raw_event_to_batch_event] >> Unknown event");
-            unimplemented!()
+            tracing::info!("In substrate_mointor: [from_raw_event_to_batch_event] >> Unknown event");
+
+            EventBatch {
+                height: Height::new(0, height),  // Todo: to set revision_number
+                events: vec![],
+                chain_id: chain_id.clone(),
+            }
         }
     }
 }
@@ -1088,14 +1093,14 @@ async fn get_latest_height(client: Client<NodeRuntime>) -> u64 {
             header.number as u64
         },
         Ok(None) => {
-            tracing::info!("In Substrate: [get_latest_height] >> None");
+            tracing::info!("In substrate_monitor: [get_latest_height] >> None");
             0
         },
         Err(err) =>  {
-            tracing::info!(" In substrate: [get_latest_height] >> error: {:?} ", err);
+            tracing::info!(" In substrate_monitor: [get_latest_height] >> error: {:?} ", err);
             0
         },
     };
-    tracing::info!("In Substrate: [get_latest_height] >> height: {:?}", height);
+    tracing::info!("In substrate_monitor: [get_latest_height] >> height: {:?}", height);
     height
 }
