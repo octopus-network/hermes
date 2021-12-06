@@ -318,7 +318,7 @@ impl EventMonitor {
                     continue;
                 }
                 let raw_event = raw_event.unwrap();
-                tracing::info!("in substrate_mointor: [run_loop] >> raw_event : {:?}", raw_event);
+                // tracing::info!("in substrate_mointor: [run_loop] >> raw_event : {:?}", raw_event);
                 let height = get_latest_height(client.clone()).await; // Todo: Do not query for latest height every time
                 let batch_event = from_raw_event_to_batch_event(raw_event, chain_id.clone(), height);
                 process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
@@ -535,7 +535,7 @@ async fn subscribe_events(
 
 
 fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height: u64) -> EventBatch {
-    tracing::info!("In substrate: [from_raw_event_to_batch_event] >> raw Event: {:?}", raw_event);
+    // tracing::info!("In substrate: [from_raw_event_to_batch_event] >> raw Event: {:?}", raw_event);
     let variant = raw_event.variant;
     tracing::info!("In substrate: [from_raw_event_to_batch_event] >> variant: {:?}", variant);
     match variant.as_str() {
@@ -1110,13 +1110,14 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         _ =>  {
-            tracing::info!("In substrate: [from_raw_event_to_batch_event]: unknown event");
+            // tracing::info!("In substrate: [from_raw_event_to_batch_event]: unknown event");
 
             EventBatch {
                 height: Height::new(0, height),  // Todo: to set revision_number
                 events: vec![],
                 chain_id: chain_id.clone(),
             }
+
         }
     }
 }

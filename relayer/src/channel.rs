@@ -673,6 +673,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
     }
 
     pub fn build_chan_open_init(&self) -> Result<Vec<Any>, ChannelError> {
+        tracing::info!("build_chan_open_init: src_port_id = {}, dst_port_id = {}",
+            self.src_port_id().clone(), self.dst_port_id().clone());
+
         let signer = self
             .dst_chain()
             .get_signer()
@@ -694,6 +697,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             channel,
             signer,
         };
+        tracing::info!("build_chan_open_init: new_msg = {:?}", new_msg);
 
         Ok(vec![new_msg.to_any()])
     }

@@ -586,7 +586,8 @@ impl SubstrateChain {
                     }
                 }
                 _ =>  {
-                    tracing::info!("In substrate: [subscribe_events] >> Unknown event");
+                    continue;
+                    // tracing::info!("In substrate: [subscribe_events] >> Unknown event");
                 }
             }
         }
