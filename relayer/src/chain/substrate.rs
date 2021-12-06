@@ -7,9 +7,6 @@ use crate::keyring::{KeyEntry, KeyRing, Store};
 use crate::light_client::grandpa::LightClient as GPLightClient;
 use crate::light_client::LightClient;
 use bech32::{ToBase32, Variant};
-use bitcoin::hashes::hex::ToHex;
-
-use calls::{ibc::DeliverCallExt, NodeRuntime};
 use chrono::offset::Utc;
 use codec::{Decode, Encode};
 use ibc::events::IbcEvent;
@@ -41,36 +38,21 @@ use ibc_proto::ibc::core::connection::v1::{
     QueryClientConnectionsRequest, QueryConnectionsRequest,
 };
 use prost_types::Any;
-use sp_keyring::AccountKeyring;
-use std::future::Future;
-use std::str::FromStr;
-use std::sync::mpsc::channel;
-use std::sync::Arc;
+use core::str::FromStr;
 use std::thread;
+use core::future::Future;
+use alloc::sync::Arc;
+use core::time::Duration;
+use tokio::time::sleep;
 use tendermint::account::Id as AccountId;
-use bitcoin::hashes::hex::ToHex;
-use std::str::FromStr;
-use bech32::{ToBase32, Variant};
-use std::future::Future;
 use subxt::{ClientBuilder, PairSigner, Client, EventSubscription};
 use calls::ibc_node;
-
 use sp_keyring::AccountKeyring;
-use codec::{Decode, Encode};
-// use substrate_subxt::sp_runtime::traits::BlakeTwo256;
-// use substrate_subxt::sp_runtime::generic::Header;
 use tendermint_proto::Protobuf;
-use std::thread::sleep;
-use std::time::Duration;
 use subxt::sp_runtime::generic::Header;
 use subxt::sp_runtime::traits::BlakeTwo256;
-use subxt::{
-    system::ExtrinsicSuccessEvent, Client, ClientBuilder, EventSubscription, PairSigner,
-};
 use tendermint::abci::transaction::Hash;
 use tendermint::abci::{Code, Log};
-use tendermint::account::Id as AccountId;
-use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime;
 use tokio::runtime::Runtime as TokioRuntime;
@@ -1435,22 +1417,15 @@ impl ChainEndpoint for SubstrateChain {
 
         let client = async {
 
-                let client = ClientBuilder::new()
-                    .set_url(&self.websocket_url.clone())
-                    .build::<ibc_node::DefaultConfig>().await.unwrap();
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-                sleep(Duration::from_secs(30));
+            sleep(Duration::from_secs(30));
 
-                let result = self.deliever(proto_msgs, client).await.unwrap();;
+            let result = self.deliever(proto_msgs, client).await.unwrap();;
 
-                tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}", result);
-
-
-            let result = result.unwrap();
-            tracing::info!(
-                "in Substrate: [send_messages_and_wait_commit] >> result : {:?}",
-                result
-            );
+            tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}", result);
 
             result
         };
