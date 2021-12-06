@@ -789,20 +789,25 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .ok_or_else(ChannelError::missing_local_channel_id)?;
 
         // Channel must exist on source
-        let src_channel = self
+        let mut src_channel = self
             .src_chain()
             .query_channel(self.src_port_id(), src_channel_id, Height::zero())
             .map_err(|e| ChannelError::query(self.src_chain().id(), e))?;
 
-        if src_channel.counterparty().port_id() != self.dst_port_id() {
-            return Err(ChannelError::mismatch_port(
-                self.dst_chain().id(),
-                self.dst_port_id().clone(),
-                self.src_chain().id(),
-                src_channel.counterparty().port_id.clone(),
-                src_channel_id.clone(),
-            ));
-        }
+        // TODO
+        // if src_channel.counterparty().port_id() != self.dst_port_id() {
+        //     return Err(ChannelError::mismatch_port(
+        //         self.dst_chain().id(),
+        //         self.dst_port_id().clone(),
+        //         self.src_chain().id(),
+        //         src_channel.counterparty().port_id.clone(),
+        //         src_channel_id.clone(),
+        //     ));
+        // }
+
+        // todo
+        src_channel.version = "ics20-1".to_string();
+
 
         // Connection must exist on destination
         self.dst_chain()

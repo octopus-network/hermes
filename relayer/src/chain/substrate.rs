@@ -104,7 +104,7 @@ impl SubstrateChain {
             let raw_event = raw_event.unwrap();
             // tracing::info!("In substrate: [subscribe_events] >> raw Event: {:?}", raw_event);
             let variant = raw_event.variant;
-            tracing::info!("In substrate: [subscribe_events] >> variant: {:?}", variant);
+            // tracing::info!("In substrate: [subscribe_events] >> variant: {:?}", variant);
             match variant.as_str() {
                 "CreateClient" => {
                     let event  = <ibc_node::ibc::events::CreateClient as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
@@ -576,7 +576,7 @@ impl SubstrateChain {
                 }
                 "ExtrinsicSuccess" => {
                     let event = <ibc_node::system::events::ExtrinsicSuccess as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
-                    // tracing::info!("In substrate: [subscribe_events] >> SystemEvent: {:?}", event);
+                    tracing::info!("In substrate: [subscribe_events] >> ExtrinsicSuccess ");
                     if counter_system_event < COUNTER_SYSTEM_EVENT {
                         tracing::info!("In substrate: [subscribe_events] >> counter_system_event: {:?}", counter_system_event);
                         counter_system_event += 1;
@@ -1308,7 +1308,8 @@ impl ChainEndpoint for SubstrateChain {
                 let client = ClientBuilder::new()
                     .set_url(&self.websocket_url.clone())
                     .build::<ibc_node::DefaultConfig>().await.unwrap();
-                sleep(Duration::from_secs(10));
+
+                sleep(Duration::from_secs(30));
 
                 let result = self.deliever(proto_msgs, client).await.unwrap();;
 

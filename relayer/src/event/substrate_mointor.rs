@@ -537,7 +537,7 @@ async fn subscribe_events(
 fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height: u64) -> EventBatch {
     // tracing::info!("In substrate: [from_raw_event_to_batch_event] >> raw Event: {:?}", raw_event);
     let variant = raw_event.variant;
-    tracing::info!("In substrate: [from_raw_event_to_batch_event] >> variant: {:?}", variant);
+    // tracing::info!("In substrate: [from_raw_event_to_batch_event] >> variant: {:?}", variant);
     match variant.as_str() {
         "CreateClient" => {
             let event  = <ibc_node::ibc::events::CreateClient as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
@@ -1097,7 +1097,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
         "ExtrinsicSuccess" => {
             let event = <ibc_node::system::events::ExtrinsicSuccess as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
-            // tracing::info!("In substrate: [subscribe_events] >> SystemEvent: {:?}", event);
+            tracing::info!("In substrate: [subscribe_events] >> ExtrinsicSuccess Event");
 
             let event = IbcEvent::NewBlock(ibc::ics02_client::events::NewBlock{
                 height: Height::new(0, height)  // Todo: to set revision_number
