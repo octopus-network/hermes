@@ -39,7 +39,7 @@ pub mod ibc_node {
 
     // #[subxt(substitute_type = "polkadot_core_primitives::InboundHrmpMessage")]
     // use crate::ibc_node::runtime_types::polkadot_core_primitives::InboundHrmpMessage;
-    //
+
     #[subxt(substitute_type = "cumulus_pallet_parachain_system::MessageQueueChain")]
     use crate::MessageQueueChain;
 

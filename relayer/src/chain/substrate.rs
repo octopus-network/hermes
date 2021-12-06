@@ -102,7 +102,7 @@ impl SubstrateChain {
                 continue;
             }
             let raw_event = raw_event.unwrap();
-            tracing::info!("In substrate: [subscribe_events] >> raw Event: {:?}", raw_event);
+            // tracing::info!("In substrate: [subscribe_events] >> raw Event: {:?}", raw_event);
             let variant = raw_event.variant;
             tracing::info!("In substrate: [subscribe_events] >> variant: {:?}", variant);
             match variant.as_str() {
@@ -1300,12 +1300,14 @@ impl ChainEndpoint for SubstrateChain {
 
     fn send_messages_and_wait_commit(&mut self, proto_msgs: Vec<Any>) -> Result<Vec<IbcEvent>, Error> {
         tracing::info!("in Substrate: [send_messages_and_wait_commit]");
+        tracing::info!("in Substrate: proto_msg: {:?}", proto_msgs.first().unwrap().type_url);
 
         let client = async {
 
                 let client = ClientBuilder::new()
                     .set_url(&self.websocket_url.clone())
                     .build::<ibc_node::DefaultConfig>().await.unwrap();
+                sleep(Duration::from_secs(10));
 
                 let result = self.deliever(proto_msgs, client).await.unwrap();;
 
@@ -1345,6 +1347,8 @@ impl ChainEndpoint for SubstrateChain {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
+
+            sleep(Duration::from_secs(10));
 
             let result = self.deliever(proto_msgs, client).await.unwrap();
 
