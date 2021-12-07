@@ -4,14 +4,34 @@ use crate::error::Error;
 // use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing, Store};
+use crate::light_client::grandpa::LightClient as GPLightClient;
 use crate::light_client::LightClient;
+use bech32::{ToBase32, Variant};
+use bitcoin::hashes::hex::ToHex;
+use calls::ibc::{
+    AcknowledgePacketEvent, ChainErrorEvent, ClientMisbehaviourEvent, CloseConfirmChannelEvent,
+    CloseInitChannelEvent, CreateClientEvent, EmptyEvent, NewBlockEvent, OpenAckChannelEvent,
+    OpenAckConnectionEvent, OpenConfirmChannelEvent, OpenConfirmConnectionEvent,
+    OpenInitChannelEvent, OpenInitConnectionEvent, OpenTryChannelEvent, OpenTryConnectionEvent,
+    PacketReceiptStore, ReceivePacketEvent, SendPacketEvent, TimeoutOnClosePacketEvent,
+    TimeoutPacketEvent, UpdateClientEvent, WriteAcknowledgementEvent,
+};
+use calls::ibc::{
+    ChannelsConnectionStoreExt, ChannelsStoreExt, ClientStatesStoreExt, ConnectionClientStoreExt,
+    ConnectionsStoreExt, ConsensusStatesStoreExt, PacketCommitmentStoreExt, PacketReceiptStoreExt,
+    SendPacketEventStoreExt,
+};
+use calls::{ibc::DeliverCallExt, NodeRuntime};
+use chrono::offset::Utc;
+use codec::{Decode, Encode};
 use ibc::events::IbcEvent;
 use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
-use ibc::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd, Counterparty};
+use ibc::ics02_client::client_type::ClientType;
+use ibc::ics03_connection::connection::{ConnectionEnd, Counterparty, IdentifiedConnectionEnd};
 use ibc::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
 use ibc::ics04_channel::error::Error as Ics04Error;
-use ibc::ics04_channel::packet::{PacketMsgType, Sequence, Packet, Receipt};
+use ibc::ics04_channel::packet::{Packet, PacketMsgType, Receipt, Sequence};
 use ibc::ics10_grandpa::client_state::ClientState as GPClientState;
 use ibc::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
 use ibc::ics10_grandpa::header::Header as GPHeader;
@@ -33,47 +53,27 @@ use ibc_proto::ibc::core::connection::v1::{
     QueryClientConnectionsRequest, QueryConnectionsRequest,
 };
 use prost_types::Any;
-use std::sync::Arc;
-use tokio::runtime::Runtime;
-use tokio::runtime::Runtime as TokioRuntime;
-use crate::light_client::grandpa::LightClient as GPLightClient;
-use std::thread;
-use tendermint::account::Id as AccountId;
-use bitcoin::hashes::hex::ToHex;
-use std::str::FromStr;
-use bech32::{ToBase32, Variant};
-use std::future::Future;
-use substrate_subxt::{ClientBuilder, PairSigner, Client, EventSubscription, system::ExtrinsicSuccessEvent};
-use calls::{ibc::DeliverCallExt, NodeRuntime};
 use sp_keyring::AccountKeyring;
-use calls::ibc::{
-    NewBlockEvent,
-    CreateClientEvent, OpenInitConnectionEvent, UpdateClientEvent, ClientMisbehaviourEvent,
-    OpenTryConnectionEvent, OpenAckConnectionEvent, OpenConfirmConnectionEvent,
-    OpenInitChannelEvent, OpenTryChannelEvent, OpenAckChannelEvent,
-    OpenConfirmChannelEvent,  CloseInitChannelEvent, CloseConfirmChannelEvent,
-    SendPacketEvent, ReceivePacketEvent, WriteAcknowledgementEvent,
-    AcknowledgePacketEvent, TimeoutPacketEvent, TimeoutOnClosePacketEvent,
-    EmptyEvent, ChainErrorEvent, PacketReceiptStore,
-};
-use calls::ibc::{ClientStatesStoreExt, ConnectionsStoreExt, ConsensusStatesStoreExt, ChannelsStoreExt,
-                 ConnectionClientStoreExt, ChannelsConnectionStoreExt, PacketReceiptStoreExt, SendPacketEventStoreExt,
-                 PacketCommitmentStoreExt
-};
-use codec::{Decode, Encode};
-use substrate_subxt::sp_runtime::traits::BlakeTwo256;
-use substrate_subxt::sp_runtime::generic::Header;
-use tendermint_proto::Protobuf;
+use std::future::Future;
+use std::str::FromStr;
+use std::sync::mpsc::channel;
+use std::sync::Arc;
+use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
-use std::sync::mpsc::channel;
-use ibc::ics02_client::client_type::ClientType;
-use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
-use tendermint::abci::{Code, Log};
+use substrate_subxt::sp_runtime::generic::Header;
+use substrate_subxt::sp_runtime::traits::BlakeTwo256;
+use substrate_subxt::{
+    system::ExtrinsicSuccessEvent, Client, ClientBuilder, EventSubscription, PairSigner,
+};
 use tendermint::abci::transaction::Hash;
-use chrono::offset::Utc;
+use tendermint::abci::{Code, Log};
+use tendermint::account::Id as AccountId;
+use tendermint_proto::Protobuf;
+use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
+use tokio::runtime::Runtime;
+use tokio::runtime::Runtime as TokioRuntime;
 use tokio::task;
-
 
 #[derive(Debug)]
 pub struct SubstrateChain {
@@ -98,7 +98,7 @@ impl SubstrateChain {
         &self,
         client: Client<NodeRuntime>,
     ) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
-        const COUNTER_SYSTEM_EVENT: i32 = 10;
+        const COUNTER_SYSTEM_EVENT: i32 = 8;
         tracing::info!("In substrate: [subscribe_events]");
 
         let sub = client.subscribe_finalized_events().await?;
@@ -109,16 +109,19 @@ impl SubstrateChain {
         let mut counter_system_event = 0;
         while let Some(raw_event) = sub.next().await {
             if let Err(err) = raw_event {
-                println!("In substrate: [subscribe_events] >> raw_event error: {:?}", err);
+                println!(
+                    "In substrate: [subscribe_events] >> raw_event error: {:?}",
+                    err
+                );
                 continue;
             }
             let raw_event = raw_event.unwrap();
-            // tracing::info!("In substrate: [subscribe_events] >> raw Event: {:?}", raw_event);
             let variant = raw_event.variant;
             // tracing::info!("In substrate: [subscribe_events] >> variant: {:?}", variant);
             match variant.as_str() {
                 "CreateClient" => {
-                    let event = CreateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        CreateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> CreateClient Event");
 
                     let height = event.height;
@@ -126,16 +129,19 @@ impl SubstrateChain {
                     let client_type = event.client_type;
                     let consensus_height = event.consensus_height;
                     use ibc::ics02_client::events::Attributes;
-                    events.push(IbcEvent::CreateClient(ibc::ics02_client::events::CreateClient(Attributes {
-                        height: height.to_ibc_height(),
-                        client_id: client_id.to_ibc_client_id(),
-                        client_type: client_type.to_ibc_client_type(),
-                        consensus_height: consensus_height.to_ibc_height()
-                    })));
+                    events.push(IbcEvent::CreateClient(
+                        ibc::ics02_client::events::CreateClient(Attributes {
+                            height: height.to_ibc_height(),
+                            client_id: client_id.to_ibc_client_id(),
+                            client_type: client_type.to_ibc_client_type(),
+                            consensus_height: consensus_height.to_ibc_height(),
+                        }),
+                    ));
                     break;
-                },
+                }
                 "UpdateClient" => {
-                    let event = UpdateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        UpdateClientEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> UpdateClient Event");
 
                     let height = event.height;
@@ -143,19 +149,23 @@ impl SubstrateChain {
                     let client_type = event.client_type;
                     let consensus_height = event.consensus_height;
                     use ibc::ics02_client::events::Attributes;
-                    events.push(IbcEvent::UpdateClient(ibc::ics02_client::events::UpdateClient{
-                        common: Attributes {
-                            height: height.to_ibc_height(),
-                            client_id: client_id.to_ibc_client_id(),
-                            client_type: client_type.to_ibc_client_type(),
-                            consensus_height: consensus_height.to_ibc_height(),
+                    events.push(IbcEvent::UpdateClient(
+                        ibc::ics02_client::events::UpdateClient {
+                            common: Attributes {
+                                height: height.to_ibc_height(),
+                                client_id: client_id.to_ibc_client_id(),
+                                client_type: client_type.to_ibc_client_type(),
+                                consensus_height: consensus_height.to_ibc_height(),
+                            },
+                            header: None,
                         },
-                        header: None,
-                    }));
+                    ));
                     // break;
-                },
+                }
                 "ClientMisbehaviour" => {
-                    let event = ClientMisbehaviourEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        ClientMisbehaviourEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> ClientMisbehaviour Event");
 
                     let height = event.height;
@@ -163,99 +173,127 @@ impl SubstrateChain {
                     let client_type = event.client_type;
                     let consensus_height = event.consensus_height;
                     use ibc::ics02_client::events::Attributes;
-                    events.push(IbcEvent::ClientMisbehaviour(ibc::ics02_client::events::ClientMisbehaviour(
-                        Attributes {
+                    events.push(IbcEvent::ClientMisbehaviour(
+                        ibc::ics02_client::events::ClientMisbehaviour(Attributes {
                             height: height.to_ibc_height(),
                             client_id: client_id.to_ibc_client_id(),
                             client_type: client_type.to_ibc_client_type(),
                             consensus_height: consensus_height.to_ibc_height(),
-                        }
-                    )));
+                        }),
+                    ));
                     // break;
-                },
+                }
                 "OpenInitConnection" => {
-                    let event = OpenInitConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        OpenInitConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> OpenInitConnection Event");
 
                     let height = event.height;
                     let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
                     let client_id = event.client_id;
-                    let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
+                    let counterparty_connection_id = event
+                        .counterparty_connection_id
+                        .map(|val| val.to_ibc_connection_id());
                     let counterparty_client_id = event.counterparty_client_id;
                     use ibc::ics03_connection::events::Attributes;
-                    events.push(IbcEvent::OpenInitConnection(ibc::ics03_connection::events::OpenInit(Attributes {
-                        height: height.to_ibc_height(),
-                        connection_id,
-                        client_id: client_id.to_ibc_client_id(),
-                        counterparty_connection_id,
-                        counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-                    })));
+                    events.push(IbcEvent::OpenInitConnection(
+                        ibc::ics03_connection::events::OpenInit(Attributes {
+                            height: height.to_ibc_height(),
+                            connection_id,
+                            client_id: client_id.to_ibc_client_id(),
+                            counterparty_connection_id,
+                            counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                        }),
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
-                },
+                }
                 "OpenTryConnection" => {
-                    let event = OpenTryConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        OpenTryConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> OpenTryConnection Event");
 
                     let height = event.height;
                     let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
                     let client_id = event.client_id;
-                    let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
+                    let counterparty_connection_id = event
+                        .counterparty_connection_id
+                        .map(|val| val.to_ibc_connection_id());
                     let counterparty_client_id = event.counterparty_client_id;
                     use ibc::ics03_connection::events::Attributes;
-                    events.push(IbcEvent::OpenTryConnection(ibc::ics03_connection::events::OpenTry(Attributes {
-                        height: height.to_ibc_height(),
-                        connection_id,
-                        client_id: client_id.to_ibc_client_id(),
-                        counterparty_connection_id,
-                        counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-                    })));
+                    events.push(IbcEvent::OpenTryConnection(
+                        ibc::ics03_connection::events::OpenTry(Attributes {
+                            height: height.to_ibc_height(),
+                            connection_id,
+                            client_id: client_id.to_ibc_client_id(),
+                            counterparty_connection_id,
+                            counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                        }),
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
-                },
+                }
                 "OpenAckConnection" => {
-                    let event = OpenAckConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        OpenAckConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> OpenAckConnection Event");
 
                     let height = event.height;
                     let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
                     let client_id = event.client_id;
-                    let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
+                    let counterparty_connection_id = event
+                        .counterparty_connection_id
+                        .map(|val| val.to_ibc_connection_id());
                     let counterparty_client_id = event.counterparty_client_id;
                     use ibc::ics03_connection::events::Attributes;
-                    events.push(IbcEvent::OpenAckConnection(ibc::ics03_connection::events::OpenAck(Attributes {
-                        height: height.to_ibc_height(),
-                        connection_id,
-                        client_id: client_id.to_ibc_client_id(),
-                        counterparty_connection_id,
-                        counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-                    })));
+                    events.push(IbcEvent::OpenAckConnection(
+                        ibc::ics03_connection::events::OpenAck(Attributes {
+                            height: height.to_ibc_height(),
+                            connection_id,
+                            client_id: client_id.to_ibc_client_id(),
+                            counterparty_connection_id,
+                            counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                        }),
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
-                },
+                }
                 "OpenConfirmConnection" => {
-                    let event = OpenConfirmConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-                    tracing::info!("In substrate: [subscribe_events] >> OpenConfirmConnection Event");
+                    let event =
+                        OpenConfirmConnectionEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
+                    tracing::info!(
+                        "In substrate: [subscribe_events] >> OpenConfirmConnection Event"
+                    );
 
                     let height = event.height;
                     let connection_id = event.connection_id.map(|val| val.to_ibc_connection_id());
                     let client_id = event.client_id;
-                    let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.to_ibc_connection_id());
+                    let counterparty_connection_id = event
+                        .counterparty_connection_id
+                        .map(|val| val.to_ibc_connection_id());
                     let counterparty_client_id = event.counterparty_client_id;
                     use ibc::ics03_connection::events::Attributes;
-                    events.push(IbcEvent::OpenConfirmConnection(ibc::ics03_connection::events::OpenConfirm(Attributes {
-                        height: height.to_ibc_height(),
-                        connection_id,
-                        client_id: client_id.to_ibc_client_id(),
-                        counterparty_connection_id,
-                        counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-                    })));
+                    events.push(IbcEvent::OpenConfirmConnection(
+                        ibc::ics03_connection::events::OpenConfirm(Attributes {
+                            height: height.to_ibc_height(),
+                            connection_id,
+                            client_id: client_id.to_ibc_client_id(),
+                            counterparty_connection_id,
+                            counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                        }),
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
 
                 "OpenInitChannel" => {
-                    let event = OpenInitChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        OpenInitChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> OpenInitChannel Event");
 
                     let height = event.height;
@@ -263,21 +301,27 @@ impl SubstrateChain {
                     let channel_id = event.channel_id.map(|val| val.to_ibc_channel_id());
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
+                    let counterparty_channel_id = event
+                        .counterparty_channel_id
+                        .map(|val| val.to_ibc_channel_id());
                     use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::OpenInitChannel(ibc::ics04_channel::events::OpenInit(Attributes{
-                        height: height.to_ibc_height(),
-                        port_id: port_id.to_ibc_port_id(),
-                        channel_id: channel_id,
-                        connection_id: connection_id.to_ibc_connection_id(),
-                        counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                        counterparty_channel_id: counterparty_channel_id,
-                    })));
+                    events.push(IbcEvent::OpenInitChannel(
+                        ibc::ics04_channel::events::OpenInit(Attributes {
+                            height: height.to_ibc_height(),
+                            port_id: port_id.to_ibc_port_id(),
+                            channel_id: channel_id,
+                            connection_id: connection_id.to_ibc_connection_id(),
+                            counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                            counterparty_channel_id: counterparty_channel_id,
+                        }),
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "OpenTryChannel" => {
-                    let event = OpenTryChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        OpenTryChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> OpenTryChannel Event");
 
                     let height = event.height;
@@ -285,21 +329,27 @@ impl SubstrateChain {
                     let channel_id = event.channel_id.map(|val| val.to_ibc_channel_id());
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
+                    let counterparty_channel_id = event
+                        .counterparty_channel_id
+                        .map(|val| val.to_ibc_channel_id());
                     use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::OpenTryChannel(ibc::ics04_channel::events::OpenTry(Attributes{
-                        height: height.to_ibc_height(),
-                        port_id: port_id.to_ibc_port_id(),
-                        channel_id: channel_id,
-                        connection_id: connection_id.to_ibc_connection_id(),
-                        counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                        counterparty_channel_id: counterparty_channel_id,
-                    })));
+                    events.push(IbcEvent::OpenTryChannel(
+                        ibc::ics04_channel::events::OpenTry(Attributes {
+                            height: height.to_ibc_height(),
+                            port_id: port_id.to_ibc_port_id(),
+                            channel_id: channel_id,
+                            connection_id: connection_id.to_ibc_connection_id(),
+                            counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                            counterparty_channel_id: counterparty_channel_id,
+                        }),
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "OpenAckChannel" => {
-                    let event = OpenAckChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        OpenAckChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> OpenAckChannel Event");
 
                     let height = event.height;
@@ -307,21 +357,27 @@ impl SubstrateChain {
                     let channel_id = event.channel_id.map(|val| val.to_ibc_channel_id());
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
+                    let counterparty_channel_id = event
+                        .counterparty_channel_id
+                        .map(|val| val.to_ibc_channel_id());
                     use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::OpenAckChannel(ibc::ics04_channel::events::OpenAck(Attributes{
-                        height: height.to_ibc_height(),
-                        port_id: port_id.to_ibc_port_id(),
-                        channel_id: channel_id,
-                        connection_id: connection_id.to_ibc_connection_id(),
-                        counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                        counterparty_channel_id: counterparty_channel_id,
-                    })));
+                    events.push(IbcEvent::OpenAckChannel(
+                        ibc::ics04_channel::events::OpenAck(Attributes {
+                            height: height.to_ibc_height(),
+                            port_id: port_id.to_ibc_port_id(),
+                            channel_id: channel_id,
+                            connection_id: connection_id.to_ibc_connection_id(),
+                            counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                            counterparty_channel_id: counterparty_channel_id,
+                        }),
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "OpenConfirmChannel" => {
-                    let event = OpenConfirmChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        OpenConfirmChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> OpenConfirmChannel Event");
 
                     let height = event.height;
@@ -329,21 +385,27 @@ impl SubstrateChain {
                     let channel_id = event.channel_id.map(|val| val.to_ibc_channel_id());
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
+                    let counterparty_channel_id = event
+                        .counterparty_channel_id
+                        .map(|val| val.to_ibc_channel_id());
                     use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::OpenConfirmChannel(ibc::ics04_channel::events::OpenConfirm(Attributes{
-                        height: height.to_ibc_height(),
-                        port_id: port_id.to_ibc_port_id(),
-                        channel_id: channel_id,
-                        connection_id: connection_id.to_ibc_connection_id(),
-                        counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                        counterparty_channel_id: counterparty_channel_id,
-                    })));
+                    events.push(IbcEvent::OpenConfirmChannel(
+                        ibc::ics04_channel::events::OpenConfirm(Attributes {
+                            height: height.to_ibc_height(),
+                            port_id: port_id.to_ibc_port_id(),
+                            channel_id: channel_id,
+                            connection_id: connection_id.to_ibc_connection_id(),
+                            counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                            counterparty_channel_id: counterparty_channel_id,
+                        }),
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "CloseInitChannel" => {
-                    let event = CloseInitChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        CloseInitChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> CloseInitChannel Event");
 
                     let height = event.height;
@@ -351,21 +413,27 @@ impl SubstrateChain {
                     let channel_id = event.channel_id.map(|val| val.to_ibc_channel_id());
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
+                    let counterparty_channel_id = event
+                        .counterparty_channel_id
+                        .map(|val| val.to_ibc_channel_id());
                     use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::CloseInitChannel(ibc::ics04_channel::events::CloseInit(Attributes{
-                        height: height.to_ibc_height(),
-                        port_id: port_id.to_ibc_port_id(),
-                        channel_id: channel_id,
-                        connection_id: connection_id.to_ibc_connection_id(),
-                        counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                        counterparty_channel_id: counterparty_channel_id,
-                    })));
+                    events.push(IbcEvent::CloseInitChannel(
+                        ibc::ics04_channel::events::CloseInit(Attributes {
+                            height: height.to_ibc_height(),
+                            port_id: port_id.to_ibc_port_id(),
+                            channel_id: channel_id,
+                            connection_id: connection_id.to_ibc_connection_id(),
+                            counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                            counterparty_channel_id: counterparty_channel_id,
+                        }),
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "CloseConfirmChannel" => {
-                    let event = CloseConfirmChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        CloseConfirmChannelEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> CloseConfirmChannel Event");
 
                     let height = event.height;
@@ -373,100 +441,130 @@ impl SubstrateChain {
                     let channel_id = event.channel_id.map(|val| val.to_ibc_channel_id());
                     let connection_id = event.connection_id;
                     let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
+                    let counterparty_channel_id = event
+                        .counterparty_channel_id
+                        .map(|val| val.to_ibc_channel_id());
                     use ibc::ics04_channel::events::Attributes;
-                    events.push(IbcEvent::CloseConfirmChannel(ibc::ics04_channel::events::CloseConfirm(Attributes{
-                        height: height.to_ibc_height(),
-                        port_id: port_id.to_ibc_port_id(),
-                        channel_id: channel_id,
-                        connection_id: connection_id.to_ibc_connection_id(),
-                        counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                        counterparty_channel_id: counterparty_channel_id,
-                    })));
+                    events.push(IbcEvent::CloseConfirmChannel(
+                        ibc::ics04_channel::events::CloseConfirm(Attributes {
+                            height: height.to_ibc_height(),
+                            port_id: port_id.to_ibc_port_id(),
+                            channel_id: channel_id,
+                            connection_id: connection_id.to_ibc_connection_id(),
+                            counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                            counterparty_channel_id: counterparty_channel_id,
+                        }),
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "SendPacket" => {
-                    let event = SendPacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        SendPacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
                     tracing::info!("In substrate: [substrate_events] >> SendPacket Event");
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::SendPacket(ibc::ics04_channel::events::SendPacket{
-                        height: height.to_ibc_height(),
-                        packet: packet.to_ibc_packet(),
-                    }));
+                    events.push(IbcEvent::SendPacket(
+                        ibc::ics04_channel::events::SendPacket {
+                            height: height.to_ibc_height(),
+                            packet: packet.to_ibc_packet(),
+                        },
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "ReceivePacket" => {
-                    let event = ReceivePacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event = ReceivePacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                        .unwrap();
                     tracing::info!("In substrate: [substrate_events] >> ReceivePacket Event");
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::ReceivePacket(ibc::ics04_channel::events::ReceivePacket{
-                        height: height.to_ibc_height(),
-                        packet: packet.to_ibc_packet(),
-                    }));
+                    events.push(IbcEvent::ReceivePacket(
+                        ibc::ics04_channel::events::ReceivePacket {
+                            height: height.to_ibc_height(),
+                            packet: packet.to_ibc_packet(),
+                        },
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "WriteAcknowledgement" => {
-                    let event = WriteAcknowledgementEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-                    tracing::info!("In substrate: [substrate_events] >> WriteAcknowledgement Event");
+                    let event =
+                        WriteAcknowledgementEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
+                    tracing::info!(
+                        "In substrate: [substrate_events] >> WriteAcknowledgement Event"
+                    );
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::WriteAcknowledgement(ibc::ics04_channel::events::WriteAcknowledgement{
-                        height: height.to_ibc_height(),
-                        packet: packet.to_ibc_packet(),
-                        ack: event.ack,
-                    }));
+                    events.push(IbcEvent::WriteAcknowledgement(
+                        ibc::ics04_channel::events::WriteAcknowledgement {
+                            height: height.to_ibc_height(),
+                            packet: packet.to_ibc_packet(),
+                            ack: event.ack,
+                        },
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "AcknowledgePacket" => {
-                    let event = AcknowledgePacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        AcknowledgePacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
                     tracing::info!("In substrate: [substrate_events] >> AcknowledgePacket Event");
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::AcknowledgePacket(ibc::ics04_channel::events::AcknowledgePacket{
-                        height: height.to_ibc_height(),
-                        packet: packet.to_ibc_packet(),
-                    }));
+                    events.push(IbcEvent::AcknowledgePacket(
+                        ibc::ics04_channel::events::AcknowledgePacket {
+                            height: height.to_ibc_height(),
+                            packet: packet.to_ibc_packet(),
+                        },
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "TimeoutPacket" => {
-                    let event = TimeoutPacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event = TimeoutPacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                        .unwrap();
                     tracing::info!("In substrate: [substrate_events] >> TimeoutPacket Event");
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::TimeoutPacket(ibc::ics04_channel::events::TimeoutPacket{
-                        height: height.to_ibc_height(),
-                        packet: packet.to_ibc_packet(),
-                    }));
+                    events.push(IbcEvent::TimeoutPacket(
+                        ibc::ics04_channel::events::TimeoutPacket {
+                            height: height.to_ibc_height(),
+                            packet: packet.to_ibc_packet(),
+                        },
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "TimeoutOnClosePacket" => {
-                    let event = TimeoutOnClosePacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
-                    tracing::info!("In substrate: [substrate_events] >> TimeoutOnClosePacket Event");
+                    let event =
+                        TimeoutOnClosePacketEvent::<NodeRuntime>::decode(&mut &raw_event.data[..])
+                            .unwrap();
+                    tracing::info!(
+                        "In substrate: [substrate_events] >> TimeoutOnClosePacket Event"
+                    );
 
                     let height = event.height;
                     let packet = event.packet;
-                    events.push(IbcEvent::TimeoutOnClosePacket(ibc::ics04_channel::events::TimeoutOnClosePacket{
-                        height: height.to_ibc_height(),
-                        packet: packet.to_ibc_packet(),
-                    }));
+                    events.push(IbcEvent::TimeoutOnClosePacket(
+                        ibc::ics04_channel::events::TimeoutOnClosePacket {
+                            height: height.to_ibc_height(),
+                            packet: packet.to_ibc_packet(),
+                        },
+                    ));
                     sleep(Duration::from_secs(10));
                     break;
                 }
                 "Empty" => {
-                    let event =  EmptyEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        EmptyEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
                     tracing::info!("in substrate: [substrate_events] >> Empty Event");
 
                     let data = String::from_utf8(event.data).unwrap();
@@ -475,7 +573,8 @@ impl SubstrateChain {
                     break;
                 }
                 "ChainError" => {
-                    let event =  ChainErrorEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
+                    let event =
+                        ChainErrorEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
                     tracing::info!("in substrate: [substrate_events] >> ChainError Event");
 
                     let data = String::from_utf8(event.data).unwrap();
@@ -486,15 +585,22 @@ impl SubstrateChain {
                 "ExtrinsicSuccess" => {
                     let event = ExtrinsicSuccessEvent::<NodeRuntime>::decode(&mut &raw_event.data[..]).unwrap();
                     tracing::info!("In substrate: [subscribe_events] >> SystemEvent ");
+
                     if counter_system_event < COUNTER_SYSTEM_EVENT {
-                        tracing::info!("In substrate: [subscribe_events] >> counter_system_event: {:?}", counter_system_event);
+                        tracing::info!(
+                            "In substrate: [subscribe_events] >> counter_system_event: {:?}",
+                            counter_system_event
+                        );
                         counter_system_event += 1;
                     } else {
-                        tracing::info!("In substrate: [subscribe_events] >> counter_system_event: {:?}", counter_system_event);
+                        tracing::info!(
+                            "In substrate: [subscribe_events] >> counter_system_event: {:?}",
+                            counter_system_event
+                        );
                         break;
                     }
                 }
-                _ =>  {
+                _ => {
                     tracing::info!("In substrate: [subscribe_events] >> Unknown event");
                 }
             }
@@ -503,74 +609,112 @@ impl SubstrateChain {
     }
 
     /// get latest height used by subscribe_blocks
-    async fn get_latest_height(&self, client: Client<NodeRuntime>) -> Result<u64, Box<dyn std::error::Error>> {
+    async fn get_latest_height(
+        &self,
+        client: Client<NodeRuntime>,
+    ) -> Result<u64, Box<dyn std::error::Error>> {
         tracing::info!("In Substrate: [get_latest_height]");
         let mut blocks = client.subscribe_finalized_blocks().await?;
         // let mut blocks = client.subscribe_blocks().await?;
-        let height= match blocks.next().await {
-            Ok(Some(header)) => {
-                header.number as u64
-            },
+        let height = match blocks.next().await {
+            Ok(Some(header)) => header.number as u64,
             Ok(None) => {
                 tracing::info!("In Substrate: [get_latest_height] >> None");
                 0
-            },
-            Err(err) =>  {
-              tracing::info!(" In substrate: [get_latest_height] >> error: {:?} ", err);
+            }
+            Err(err) => {
+                tracing::info!(" In substrate: [get_latest_height] >> error: {:?} ", err);
                 0
-            },
+            }
         };
         tracing::info!("In Substrate: [get_latest_height] >> height: {:?}", height);
         Ok(height)
     }
 
     /// get connectionEnd according by connection_identifier and read Connections StorageMaps
-    async fn get_connectionend(&self, connection_identifier: &ConnectionId, client: Client<NodeRuntime>)
-        -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
+    async fn get_connectionend(
+        &self,
+        connection_identifier: &ConnectionId,
+        client: Client<NodeRuntime>,
+    ) -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_connectionend]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
-        tracing::info!("In substrate: [get_connectionend] >> block_hash: {:?}", block_hash);
+        tracing::info!(
+            "In substrate: [get_connectionend] >> block_hash: {:?}",
+            block_hash
+        );
 
-        let data = client.connections(connection_identifier.as_bytes().to_vec(), Some(block_hash)).await?;
+        let data = client
+            .connections(connection_identifier.as_bytes().to_vec(), Some(block_hash))
+            .await?;
         let connection_end = ConnectionEnd::decode_vec(&*data).unwrap();
 
         Ok(connection_end)
     }
 
     /// get channelEnd according by port_identifier, channel_identifier and read Channles StorageMaps
-    async fn get_channelend(&self, port_id: &PortId, channel_id: &ChannelId, client: Client<NodeRuntime>)
-        -> Result<ChannelEnd, Box<dyn std::error::Error>> {
+    async fn get_channelend(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        client: Client<NodeRuntime>,
+    ) -> Result<ChannelEnd, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_channelend]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
-        tracing::info!("In substrate: [get_channelend] >> block_hash: {:?}", block_hash);
+        tracing::info!(
+            "In substrate: [get_channelend] >> block_hash: {:?}",
+            block_hash
+        );
 
-        let data = client.channels((port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()), Some(block_hash)).await?;
+        let data = client
+            .channels(
+                (port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()),
+                Some(block_hash),
+            )
+            .await?;
         let channel_end = ChannelEnd::decode_vec(&*data).unwrap();
 
         Ok(channel_end)
     }
 
     /// get packet receipt by port_id, channel_id and sequence
-    async fn get_packet_receipt(&self, port_id: &PortId, channel_id: &ChannelId, seq: &Sequence, client: Client<NodeRuntime>)
-                                -> Result<Receipt, Box<dyn std::error::Error>> {
+    async fn get_packet_receipt(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        seq: &Sequence,
+        client: Client<NodeRuntime>,
+    ) -> Result<Receipt, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_packet_receipt]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
-        tracing::info!("In substrate: [get_packet_receipt] >> block_hash: {:?}", block_hash);
+        tracing::info!(
+            "In substrate: [get_packet_receipt] >> block_hash: {:?}",
+            block_hash
+        );
 
         let _seq = u64::from(*seq).encode();
-        let data = client.packet_receipt((port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), _seq), Some(block_hash)).await?;
+        let data = client
+            .packet_receipt(
+                (
+                    port_id.as_bytes().to_vec(),
+                    channel_id.as_bytes().to_vec(),
+                    _seq,
+                ),
+                Some(block_hash),
+            )
+            .await?;
         let _data = String::from_utf8(data).unwrap();
         if _data.eq("Ok") {
             Ok(Receipt::Ok)
@@ -580,27 +724,44 @@ impl SubstrateChain {
     }
 
     /// get send packet event by port_id, channel_id and sequence
-    async fn get_send_packet_event(&self, port_id: &PortId, channel_id: &ChannelId, seq: &Sequence, client: Client<NodeRuntime>)
-                                   -> Result<Packet, Box<dyn std::error::Error>> {
+    async fn get_send_packet_event(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        seq: &Sequence,
+        client: Client<NodeRuntime>,
+    ) -> Result<Packet, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_send_packet_event]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
-        tracing::info!("In substrate: [get_send_packet_event] >> block_hash: {:?}", block_hash);
+        tracing::info!(
+            "In substrate: [get_send_packet_event] >> block_hash: {:?}",
+            block_hash
+        );
 
-        let data = client.send_packet_event((
-                                                port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(*seq)),
-                                            Some(block_hash)
-        ).await?;
+        let data = client
+            .send_packet_event(
+                (
+                    port_id.as_bytes().to_vec(),
+                    channel_id.as_bytes().to_vec(),
+                    u64::from(*seq),
+                ),
+                Some(block_hash),
+            )
+            .await?;
         let packet = Packet::decode_vec(&*data).unwrap();
         Ok(packet)
     }
 
     /// get client_state according by client_id, and read ClientStates StoraageMap
-    async fn get_client_state(&self, client_id:  &ClientId, client: Client<NodeRuntime>)
-        -> Result<AnyClientState, Box<dyn std::error::Error>> {
+    async fn get_client_state(
+        &self,
+        client_id: &ClientId,
+        client: Client<NodeRuntime>,
+    ) -> Result<AnyClientState, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_client_state]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
@@ -608,17 +769,16 @@ impl SubstrateChain {
 
         let block_hash = block_header.hash();
 
-        let data : Vec<u8> = client
-            .client_states(
-                client_id.as_bytes().to_vec(),
-                Some(block_hash),
-            )
+        let data: Vec<u8> = client
+            .client_states(client_id.as_bytes().to_vec(), Some(block_hash))
             .await?;
-        tracing::info!("in substrate [get_client_state]: client_state: {:?}",data);
-
+        tracing::info!("in substrate [get_client_state]: client_state: {:?}", data);
 
         let client_state = AnyClientState::decode_vec(&*data).unwrap();
-        tracing::info!("in substrate [get_client_state]: any_client_state : {:?}", client_state);
+        tracing::info!(
+            "in substrate [get_client_state]: any_client_state : {:?}",
+            client_state
+        );
         // let client_state = match client_state {
         //     AnyClientState::Grandpa(client_state) => client_state,
         //     // AnyClientState::Tendermint(client_state) => client_state,
@@ -630,21 +790,25 @@ impl SubstrateChain {
 
     /// get appoint height consensus_state according by client_identifier and height
     /// and read ConsensusStates StoreageMap
-    async fn get_client_consensus(&self, client_id:  &ClientId, height: ICSHeight, client: Client<NodeRuntime>)
-        -> Result<AnyConsensusState, Box<dyn std::error::Error>> {
+    async fn get_client_consensus(
+        &self,
+        client_id: &ClientId,
+        height: ICSHeight,
+        client: Client<NodeRuntime>,
+    ) -> Result<AnyConsensusState, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_client_consensus]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
-        tracing::info!("In substrate: [get_client_consensus] >> block_hash: {:?}", block_hash);
+        tracing::info!(
+            "In substrate: [get_client_consensus] >> block_hash: {:?}",
+            block_hash
+        );
 
         let data = client
-            .consensus_states(
-                client_id.as_bytes().to_vec(),
-                Some(block_hash),
-            )
+            .consensus_states(client_id.as_bytes().to_vec(), Some(block_hash))
             .await?;
 
         // get the height consensus_state
@@ -664,23 +828,26 @@ impl SubstrateChain {
         Ok(consensus_state)
     }
 
-
-    async fn get_consensus_state_with_height(&self, client_id: &ClientId, client: Client<NodeRuntime>)
-        -> Result<Vec<(Height, AnyConsensusState)>, Box<dyn std::error::Error>> {
+    async fn get_consensus_state_with_height(
+        &self,
+        client_id: &ClientId,
+        client: Client<NodeRuntime>,
+    ) -> Result<Vec<(Height, AnyConsensusState)>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_consensus_state_with_height]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
-        tracing::info!("In substrate: [get_client_consensus] >> block_hash: {:?}", block_hash);
+        tracing::info!(
+            "In substrate: [get_client_consensus] >> block_hash: {:?}",
+            block_hash
+        );
 
         // vector<height, consensus_state>
-        let ret : Vec<(Vec<u8>, Vec<u8>)> = client
-            .consensus_states(
-                client_id.as_bytes().to_vec(),
-                Some(block_hash),
-            ).await?;
+        let ret: Vec<(Vec<u8>, Vec<u8>)> = client
+            .consensus_states(client_id.as_bytes().to_vec(), Some(block_hash))
+            .await?;
 
         let mut result = vec![];
         for (height, consensus_state) in ret.iter() {
@@ -696,28 +863,40 @@ impl SubstrateChain {
         Ok(result)
     }
 
-    async fn get_unreceipt_packet(&self, port_id:  &PortId, channel_id: &ChannelId, seqs: Vec<u64>, client: Client<NodeRuntime>)
-         -> Result<Vec<u64>, Box<dyn std::error::Error>> {
+    async fn get_unreceipt_packet(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        seqs: Vec<u64>,
+        client: Client<NodeRuntime>,
+    ) -> Result<Vec<u64>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_unreceipt_packet]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
-        tracing::info!("In substrate: [get_unreceipt_packet] >> block_hash: {:?}", block_hash);
+        tracing::info!(
+            "In substrate: [get_unreceipt_packet] >> block_hash: {:?}",
+            block_hash
+        );
 
         let mut result = Vec::new();
 
         let pair = seqs
             .into_iter()
-            .map(|seq| (port_id.clone().as_bytes().to_vec(), channel_id.clone().as_bytes().to_vec(), (seq.encode(), seq)))
+            .map(|seq| {
+                (
+                    port_id.clone().as_bytes().to_vec(),
+                    channel_id.clone().as_bytes().to_vec(),
+                    (seq.encode(), seq),
+                )
+            })
             .collect::<Vec<_>>();
         for (port_id, channel_id, (seq_u8, seq)) in pair.into_iter() {
-            let ret : Vec<u8> = client
-                .packet_receipt(
-                    (port_id, channel_id, seq_u8),
-                    Some(block_hash.clone()),
-                ).await?;
+            let ret: Vec<u8> = client
+                .packet_receipt((port_id, channel_id, seq_u8), Some(block_hash.clone()))
+                .await?;
             if ret.is_empty() {
                 result.push(seq);
             }
@@ -727,8 +906,10 @@ impl SubstrateChain {
     }
 
     /// get key-value pair (client_identifier, client_state) construct IdentifieredAnyClientstate
-    async fn get_clients(&self, client: Client<NodeRuntime>)
-        -> Result<Vec<IdentifiedAnyClientState>, Box<dyn std::error::Error>> {
+    async fn get_clients(
+        &self,
+        client: Client<NodeRuntime>,
+    ) -> Result<Vec<IdentifiedAnyClientState>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_clients]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
@@ -738,7 +919,9 @@ impl SubstrateChain {
 
         let rpc_client = client.rpc_client();
 
-        let ret: Vec<(Vec<u8>, Vec<u8>)> = rpc_client.request("get_identified_any_client_state", &[]).await?;
+        let ret: Vec<(Vec<u8>, Vec<u8>)> = rpc_client
+            .request("get_identified_any_client_state", &[])
+            .await?;
 
         let mut result = vec![];
 
@@ -755,8 +938,10 @@ impl SubstrateChain {
     }
 
     /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
-    async fn get_connctions(&self, client: Client<NodeRuntime>)
-                         -> Result<Vec<IdentifiedConnectionEnd>, Box<dyn std::error::Error>> {
+    async fn get_connctions(
+        &self,
+        client: Client<NodeRuntime>,
+    ) -> Result<Vec<IdentifiedConnectionEnd>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_connctions]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
@@ -766,7 +951,9 @@ impl SubstrateChain {
 
         let rpc_client = client.rpc_client();
 
-        let ret: Vec<(Vec<u8>, Vec<u8>)> = rpc_client.request("get_idenfitied_connection_end", &[]).await?;
+        let ret: Vec<(Vec<u8>, Vec<u8>)> = rpc_client
+            .request("get_idenfitied_connection_end", &[])
+            .await?;
 
         let mut result = vec![];
 
@@ -782,10 +969,11 @@ impl SubstrateChain {
         Ok(result)
     }
 
-
     /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
-    async fn get_channels(&self, client: Client<NodeRuntime>)
-        -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
+    async fn get_channels(
+        &self,
+        client: Client<NodeRuntime>,
+    ) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_channels]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
@@ -795,7 +983,9 @@ impl SubstrateChain {
 
         let rpc_client = client.rpc_client();
 
-        let ret: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = rpc_client.request("get_idenfitied_channel_end", &[]).await?;
+        let ret: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = rpc_client
+            .request("get_idenfitied_channel_end", &[])
+            .await?;
 
         let mut result = vec![];
 
@@ -815,8 +1005,10 @@ impl SubstrateChain {
     }
 
     // get get_commitment_packet_state
-    async fn get_commitment_packet_state(&self, client: Client<NodeRuntime>)
-        -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
+    async fn get_commitment_packet_state(
+        &self,
+        client: Client<NodeRuntime>,
+    ) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_commitment_packet_state]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
@@ -826,7 +1018,9 @@ impl SubstrateChain {
 
         let rpc_client = client.rpc_client();
 
-        let ret: Vec<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)> = rpc_client.request("get_packet_commitment_state", &[]).await?;
+        let ret: Vec<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)> = rpc_client
+            .request("get_packet_commitment_state", &[])
+            .await?;
 
         let mut result = vec![];
 
@@ -848,31 +1042,50 @@ impl SubstrateChain {
     }
 
     /// get packet commitment by port_id, channel_id and sequence to verify if the ack has been received by the sending chain
-    async fn get_packet_commitment(&self, port_id: &PortId, channel_id: &ChannelId, seq: u64, client: Client<NodeRuntime>)
-                                   -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    async fn get_packet_commitment(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        seq: u64,
+        client: Client<NodeRuntime>,
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_packet_commitment]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
-        tracing::info!("In substrate: [get_packet_commitment] >> block_hash: {:?}", block_hash);
+        tracing::info!(
+            "In substrate: [get_packet_commitment] >> block_hash: {:?}",
+            block_hash
+        );
 
         let _seq = seq.encode();
-        let data = client.packet_commitment((port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), _seq),
-                                            Some(block_hash)
-        ).await?;
+        let data = client
+            .packet_commitment(
+                (
+                    port_id.as_bytes().to_vec(),
+                    channel_id.as_bytes().to_vec(),
+                    _seq,
+                ),
+                Some(block_hash),
+            )
+            .await?;
 
         if data.is_empty() {
-            Err(Box::new(Ics04Error::packet_commitment_not_found(Sequence(seq))))
+            Err(Box::new(Ics04Error::packet_commitment_not_found(Sequence(
+                seq,
+            ))))
         } else {
             Ok(data)
         }
     }
 
     // get get_commitment_packet_state
-    async fn get_acknowledge_packet_state(&self, client: Client<NodeRuntime>)
-        -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
+    async fn get_acknowledge_packet_state(
+        &self,
+        client: Client<NodeRuntime>,
+    ) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_acknowledge_packet_state]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
@@ -882,7 +1095,9 @@ impl SubstrateChain {
 
         let rpc_client = client.rpc_client();
 
-        let ret: Vec<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)> = rpc_client.request("get_packet_acknowledge_state", &[]).await?;
+        let ret: Vec<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)> = rpc_client
+            .request("get_packet_acknowledge_state", &[])
+            .await?;
 
         let mut result = vec![];
 
@@ -904,23 +1119,26 @@ impl SubstrateChain {
     }
 
     /// get connection_identifier vector according by client_identifier
-    async fn get_client_connections(&self, client_id: ClientId, client: Client<NodeRuntime>)
-        -> Result<Vec<ConnectionId>, Box<dyn std::error::Error>> {
+    async fn get_client_connections(
+        &self,
+        client_id: ClientId,
+        client: Client<NodeRuntime>,
+    ) -> Result<Vec<ConnectionId>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_client_connections]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
-        tracing::info!("In substrate: [get_client_connections] >> block_hash: {:?}", block_hash);
-
+        tracing::info!(
+            "In substrate: [get_client_connections] >> block_hash: {:?}",
+            block_hash
+        );
 
         // client_id <-> connection_id
-        let connection_id : Vec<u8> = client
-            .connection_client(
-                client_id.as_bytes().to_vec(),
-                Some(block_hash),
-            ).await?;
+        let connection_id: Vec<u8> = client
+            .connection_client(client_id.as_bytes().to_vec(), Some(block_hash))
+            .await?;
         if connection_id.is_empty() {
             return Ok(Vec::new());
         }
@@ -935,24 +1153,26 @@ impl SubstrateChain {
         Ok(result)
     }
 
-
-    async fn get_connection_channels(&self, connection_id: ConnectionId, client: Client<NodeRuntime>)
-        -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
+    async fn get_connection_channels(
+        &self,
+        connection_id: ConnectionId,
+        client: Client<NodeRuntime>,
+    ) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_connection_channels]");
 
         let mut block = client.subscribe_finalized_blocks().await?;
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
-        tracing::info!("In substrate: [get_client_connections] >> block_hash: {:?}", block_hash);
-
+        tracing::info!(
+            "In substrate: [get_client_connections] >> block_hash: {:?}",
+            block_hash
+        );
 
         // connection_id <-> Ve<(port_id, channel_id)>
-        let channel_id_and_port_id : Vec<(Vec<u8>, Vec<u8>)> = client
-            .channels_connection(
-                connection_id.as_bytes().to_vec(),
-                Some(block_hash),
-            ).await?;
+        let channel_id_and_port_id: Vec<(Vec<u8>, Vec<u8>)> = client
+            .channels_connection(connection_id.as_bytes().to_vec(), Some(block_hash))
+            .await?;
 
         let mut result = vec![];
 
@@ -966,15 +1186,15 @@ impl SubstrateChain {
             let channel_id = ChannelId::from_str(channel_id.as_str()).unwrap();
 
             // get channel_end
-            let channel_end = self.
-                get_channelend(&port_id,&channel_id, client.clone()).await?;
+            let channel_end = self
+                .get_channelend(&port_id, &channel_id, client.clone())
+                .await?;
 
             result.push(IdentifiedChannelEnd::new(port_id, channel_id, channel_end));
         }
 
         Ok(result)
     }
-
 }
 
 impl ChainEndpoint for SubstrateChain {
@@ -988,7 +1208,10 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [bootstrap function]");
 
         let websocket_url = format!("{}", config.websocket_addr.clone());
-        tracing::info!("in Substrate: [bootstrap] websocket_url = {:?}", websocket_url);
+        tracing::info!(
+            "in Substrate: [bootstrap] websocket_url = {:?}",
+            websocket_url
+        );
 
         let chain = Self {
             config,
@@ -1013,14 +1236,17 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(EventReceiver, TxMonitorCmd), Error> {
         tracing::info!("in Substrate: [init_event_mointor]");
 
-        tracing::info!("In Substrate: [init_event_mointor] >> websocket addr: {:?}", self.config.websocket_addr.clone());
+        tracing::info!(
+            "In Substrate: [init_event_mointor] >> websocket addr: {:?}",
+            self.config.websocket_addr.clone()
+        );
 
         let (mut event_monitor, event_receiver, monitor_tx) = EventMonitor::new(
             self.config.id.clone(),
             self.config.websocket_addr.clone(),
             rt,
         )
-            .map_err(Error::event_monitor)?;
+        .map_err(Error::event_monitor)?;
 
         event_monitor.subscribe().map_err(Error::event_monitor)?;
 
@@ -1036,7 +1262,6 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn health_check(&self) -> Result<HealthCheck, Error> {
-
         Ok(HealthCheck::Healthy)
     }
 
@@ -1058,26 +1283,37 @@ impl ChainEndpoint for SubstrateChain {
         todo!()
     }
 
-    fn send_messages_and_wait_commit(&mut self, proto_msgs: Vec<Any>) -> Result<Vec<IbcEvent>, Error> {
+    fn send_messages_and_wait_commit(
+        &mut self,
+        proto_msgs: Vec<Any>,
+    ) -> Result<Vec<IbcEvent>, Error> {
         tracing::info!("in Substrate: [send_messages_and_wait_commit]");
 
-        let msg : Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
+        let msg: Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
         let signer = PairSigner::new(AccountKeyring::Bob.pair());
         let client = async {
-                sleep(Duration::from_secs(3));
+            sleep(Duration::from_secs(3));
 
-                let client = ClientBuilder::<NodeRuntime>::new()
-                    .set_url(&self.websocket_url.clone())
-                    .build().await.unwrap();
+            let client = ClientBuilder::<NodeRuntime>::new()
+                .set_url(&self.websocket_url.clone())
+                .build()
+                .await
+                .unwrap();
 
-                let result = client.deliver(&signer, msg, 0).await;
+            let result = client.deliver(&signer, msg, 0).await;
 
-                tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result no unwrap: {:?}", result);
-
-                let result = result.unwrap();
-                tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}", result);
-
+            tracing::info!(
+                "in Substrate: [send_messages_and_wait_commit] >> result no unwrap: {:?}",
                 result
+            );
+
+            let result = result.unwrap();
+            tracing::info!(
+                "in Substrate: [send_messages_and_wait_commit] >> result : {:?}",
+                result
+            );
+
+            result
         };
 
         let _ = self.block_on(client);
@@ -1085,10 +1321,15 @@ impl ChainEndpoint for SubstrateChain {
         let get_ibc_event = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
             let result = self.subscribe_events(client).await.unwrap();
             for event in result.iter() {
-                tracing::info!("In Substrate: [send_messages_and_wait_commit] >> get_ibc_event: {:?}", event);
+                tracing::info!(
+                    "In Substrate: [send_messages_and_wait_commit] >> get_ibc_event: {:?}",
+                    event
+                );
             }
 
             result
@@ -1098,38 +1339,47 @@ impl ChainEndpoint for SubstrateChain {
         Ok(ret)
     }
 
-
     fn send_messages_and_wait_check_tx(
         &mut self,
         proto_msgs: Vec<Any>,
     ) -> Result<Vec<TxResponse>, Error> {
         tracing::info!("in Substrate: [send_messages_and_wait_check_tx]");
-        tracing::debug!("in Substrate: [send_messages_and_wait_check_tx], raw msg to send {:?}", proto_msgs);
-        let msg : Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
+        tracing::debug!(
+            "in Substrate: [send_messages_and_wait_check_tx], raw msg to send {:?}",
+            proto_msgs
+        );
+        let msg: Vec<pallet_ibc::Any> = proto_msgs.into_iter().map(|val| val.into()).collect();
 
         let signer = PairSigner::new(AccountKeyring::Bob.pair());
-        tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> signer: {:?}", "Bob");
+        tracing::debug!(
+            "in Substrate: [send_messages_and_wait_check_tx] >> signer: {:?}",
+            "Bob"
+        );
 
         let client = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
 
             let result = client.deliver(&signer, msg, 0).await;
-            sleep(Duration::from_secs(10));  // For avoiding transaction low priority error, Todo:
             let result = result.unwrap();
-            tracing::debug!("in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}", result);
+            tracing::debug!(
+                "in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}",
+                result
+            );
             result
         };
         let _result = self.block_on(client);
 
-        use tendermint::abci::transaction;  // Todo:
+        use tendermint::abci::transaction; // Todo:
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
         let txRe = TxResponse {
             code: Code::default(),
             data: serde_json::from_str(json).unwrap(),
             log: Log::from("testtest"),
-            hash: transaction::Hash::new(*_result.as_fixed_bytes())
+            hash: transaction::Hash::new(*_result.as_fixed_bytes()),
         };
 
         Ok(vec![txRe])
@@ -1137,7 +1387,10 @@ impl ChainEndpoint for SubstrateChain {
 
     fn get_signer(&mut self) -> Result<Signer, Error> {
         tracing::info!("in Substrate: [get_signer]");
-        tracing::info!("In Substraet: [get signer] >> key_name: {:?}", self.config.key_name.clone());
+        tracing::info!(
+            "In Substraet: [get signer] >> key_name: {:?}",
+            self.config.key_name.clone()
+        );
 
         fn get_dummy_account_id_raw() -> String {
             "0CDA3F47EF3C4906693B170EF650EB968C5F4B2C".to_string()
@@ -1174,15 +1427,20 @@ impl ChainEndpoint for SubstrateChain {
         let latest_height = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
             let height = self.get_latest_height(client).await.unwrap();
 
-            tracing::info!("In Substrate: [query_latest_height] >> height: {:?}", height);
+            tracing::info!(
+                "In Substrate: [query_latest_height] >> height: {:?}",
+                height
+            );
 
             height
         };
 
-        let revision_height =  self.block_on(latest_height);
+        let revision_height = self.block_on(latest_height);
         let latest_height = Height::new(0, revision_height);
         Ok(latest_height)
     }
@@ -1196,7 +1454,9 @@ impl ChainEndpoint for SubstrateChain {
         let clients = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
 
             let clients = self.get_clients(client).await.unwrap();
 
@@ -1221,16 +1481,19 @@ impl ChainEndpoint for SubstrateChain {
         let client_state = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
-            let client_state = self
-                .get_client_state(client_id, client)
-                .await.unwrap();
+                .build()
+                .await
+                .unwrap();
+            let client_state = self.get_client_state(client_id, client).await.unwrap();
 
             client_state
         };
 
-        let client_state =  self.block_on(client_state);
-        tracing::info!("in Substrate: [query_client_state] >> client_state: {:?}", client_state);
+        let client_state = self.block_on(client_state);
+        tracing::info!(
+            "in Substrate: [query_client_state] >> client_state: {:?}",
+            client_state
+        );
 
         Ok(client_state)
     }
@@ -1245,14 +1508,18 @@ impl ChainEndpoint for SubstrateChain {
         let consensus_state = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
             let consensus_state = self
-                .get_consensus_state_with_height(&request_client_id, client).await.unwrap();
+                .get_consensus_state_with_height(&request_client_id, client)
+                .await
+                .unwrap();
 
             consensus_state
         };
 
-        let consensus_state: Vec<(Height, AnyConsensusState)> =  self.block_on(consensus_state);
+        let consensus_state: Vec<(Height, AnyConsensusState)> = self.block_on(consensus_state);
 
         let mut any_consensus_state_with_height = vec![];
         for (height, consensus_state) in consensus_state.into_iter() {
@@ -1263,7 +1530,10 @@ impl ChainEndpoint for SubstrateChain {
             };
             any_consensus_state_with_height.push(tmp.clone());
 
-            tracing::info!("In Substrate: [query_consensus_state] >> any_consensus_state_with_height: {:?}", tmp);
+            tracing::info!(
+                "In Substrate: [query_consensus_state] >> any_consensus_state_with_height: {:?}",
+                tmp
+            );
         }
 
         any_consensus_state_with_height.sort_by(|a, b| a.height.cmp(&b.height));
@@ -1313,7 +1583,9 @@ impl ChainEndpoint for SubstrateChain {
         let connections = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
 
             let connections = self.get_connctions(client).await.unwrap();
 
@@ -1322,7 +1594,10 @@ impl ChainEndpoint for SubstrateChain {
 
         let connections = self.block_on(connections);
 
-        tracing::info!("in Substrate: [query_connections] >> clients: {:?}", connections);
+        tracing::info!(
+            "in Substrate: [query_connections] >> clients: {:?}",
+            connections
+        );
 
         Ok(connections)
     }
@@ -1338,12 +1613,17 @@ impl ChainEndpoint for SubstrateChain {
         let client_connections = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
 
-            let client_connections = self.get_client_connections(client_id, client)
-                .await.unwrap();
+            let client_connections = self
+                .get_client_connections(client_id, client)
+                .await
+                .unwrap();
 
-            tracing::info!("In substrate: [query_client_connections] >> client_connections: {:#?}",
+            tracing::info!(
+                "In substrate: [query_client_connections] >> client_connections: {:#?}",
                 client_connections
             );
 
@@ -1365,17 +1645,21 @@ impl ChainEndpoint for SubstrateChain {
         let connection_end = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
-            let connection_end = self
-                .get_connectionend(connection_id, client)
-                .await.unwrap();
-            tracing::info!("In Substrate: [query_connection] \
-                >> connection_id: {:?}, connection_end: {:?}", connection_id, connection_end);
+                .build()
+                .await
+                .unwrap();
+            let connection_end = self.get_connectionend(connection_id, client).await.unwrap();
+            tracing::info!(
+                "In Substrate: [query_connection] \
+                >> connection_id: {:?}, connection_end: {:?}",
+                connection_id,
+                connection_end
+            );
 
             connection_end
         };
 
-        let connection_end =  self.block_on(connection_end);
+        let connection_end = self.block_on(connection_end);
 
         Ok(connection_end)
     }
@@ -1392,12 +1676,19 @@ impl ChainEndpoint for SubstrateChain {
         let connection_channels = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
 
-            let connection_channels = self.get_connection_channels(connection_id, client)
-                .await.unwrap();
+            let connection_channels = self
+                .get_connection_channels(connection_id, client)
+                .await
+                .unwrap();
 
-            tracing::info!("In substrate: [query_connection_channels] >> connection_channels: {:?}", connection_channels);
+            tracing::info!(
+                "In substrate: [query_connection_channels] >> connection_channels: {:?}",
+                connection_channels
+            );
             connection_channels
         };
 
@@ -1415,7 +1706,9 @@ impl ChainEndpoint for SubstrateChain {
         let channels = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
 
             let channels = self.get_channels(client).await.unwrap();
 
@@ -1424,7 +1717,10 @@ impl ChainEndpoint for SubstrateChain {
 
         let channels = self.block_on(channels);
 
-        tracing::info!("in Substrate: [query_connections] >> clients: {:?}", channels);
+        tracing::info!(
+            "in Substrate: [query_connections] >> clients: {:?}",
+            channels
+        );
 
         Ok(channels)
     }
@@ -1440,17 +1736,25 @@ impl ChainEndpoint for SubstrateChain {
         let channel_end = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
             let channel_end = self
-                .get_channelend(port_id,  channel_id,client).await.unwrap();
-            tracing::info!("In Substrate: [query_channel] \
+                .get_channelend(port_id, channel_id, client)
+                .await
+                .unwrap();
+            tracing::info!(
+                "In Substrate: [query_channel] \
                 >> port_id: {:?}, channel_id: {:?}, channel_end: {:?}",
-                port_id, channel_id, channel_end);
+                port_id,
+                channel_id,
+                channel_end
+            );
 
             channel_end
         };
 
-        let channel_end =  self.block_on(channel_end);
+        let channel_end = self.block_on(channel_end);
 
         Ok(channel_end)
     }
@@ -1473,19 +1777,19 @@ impl ChainEndpoint for SubstrateChain {
         let packet_commitments = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
-            let packet_commitments = self
-                .get_commitment_packet_state(client).await.unwrap();
+                .build()
+                .await
+                .unwrap();
+            let packet_commitments = self.get_commitment_packet_state(client).await.unwrap();
 
             packet_commitments
         };
 
-        let packet_commitments =  self.block_on(packet_commitments);
+        let packet_commitments = self.block_on(packet_commitments);
 
         let last_height = self.query_latest_height().unwrap();
 
         Ok((packet_commitments, last_height))
-
     }
 
     fn query_unreceived_packets(
@@ -1500,14 +1804,18 @@ impl ChainEndpoint for SubstrateChain {
         let unreceived_packets = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
             let unreceived_packets = self
-                .get_unreceipt_packet(&port_id, &channel_id, seqs, client).await.unwrap();
+                .get_unreceipt_packet(&port_id, &channel_id, seqs, client)
+                .await
+                .unwrap();
 
             unreceived_packets
         };
 
-        let result =  self.block_on(unreceived_packets);
+        let result = self.block_on(unreceived_packets);
 
         Ok(result)
     }
@@ -1521,15 +1829,16 @@ impl ChainEndpoint for SubstrateChain {
         let packet_acknowledgements = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
 
-            let packet_acknowledgements = self
-                .get_acknowledge_packet_state(client).await.unwrap();
+            let packet_acknowledgements = self.get_acknowledge_packet_state(client).await.unwrap();
 
             packet_acknowledgements
         };
 
-        let packet_acknowledgements =  self.block_on(packet_acknowledgements);
+        let packet_acknowledgements = self.block_on(packet_acknowledgements);
 
         let last_height = self.query_latest_height().unwrap();
 
@@ -1550,16 +1859,21 @@ impl ChainEndpoint for SubstrateChain {
 
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
 
             for _seq in seqs {
                 let _cmt = self
-                    .get_packet_commitment(&port_id, &channel_id, _seq, client.clone()).await;
+                    .get_packet_commitment(&port_id, &channel_id, _seq, client.clone())
+                    .await;
 
                 // if packet commitment still exists on the original sending chain, then packet ack is unreceived
                 // since processing the ack will delete the packet commitment
                 match _cmt {
-                    Ok(_) => { unreceived_seqs.push(_seq); }
+                    Ok(_) => {
+                        unreceived_seqs.push(_seq);
+                    }
                     Err(_) => {}
                 }
             }
@@ -1567,7 +1881,7 @@ impl ChainEndpoint for SubstrateChain {
             unreceived_seqs
         };
 
-        let result =  self.block_on(unreceived_seqs);
+        let result = self.block_on(unreceived_seqs);
         Ok(result)
     }
 
@@ -1593,15 +1907,21 @@ impl ChainEndpoint for SubstrateChain {
                     return Ok(result);
                 }
 
-                tracing::info!("in Substrate: [query_txs]: query packet events request: {:?}", request);
-                tracing::debug!("in Substrate: [query_txs]: packet >> sequence :{:?}", request.sequences);
+                tracing::info!(
+                    "in Substrate: [query_txs]: query packet events request: {:?}",
+                    request
+                );
+                tracing::debug!(
+                    "in Substrate: [query_txs]: packet >> sequence :{:?}",
+                    request.sequences
+                );
 
-                return Ok(result)
+                return Ok(result);
 
                 // Todo: Related to https://github.com/octopus-network/ibc-rs/issues/88
                 // To query to event by event type, sequence number and block height
                 // use ibc::ics02_client::events::Attributes;
-/*                use ibc::ics04_channel::events::Attributes;
+                /*                use ibc::ics04_channel::events::Attributes;
                 use ibc::ics02_client::header::AnyHeader;
                 use core::ops::Add;
 
@@ -1624,10 +1944,11 @@ impl ChainEndpoint for SubstrateChain {
             }
 
             QueryTxRequest::Client(request) => {
-
                 crate::time!("in Substrate: [query_txs]: single client update event");
-                tracing::info!("in Substrate: [query_txs]: single client update event: request:{:?}", request);
-
+                tracing::info!(
+                    "in Substrate: [query_txs]: single client update event: request:{:?}",
+                    request
+                );
 
                 // query the first Tx that includes the event matching the client request
                 // Note: it is possible to have multiple Tx-es for same client and consensus height.
@@ -1660,16 +1981,17 @@ impl ChainEndpoint for SubstrateChain {
                 use ibc::ics02_client::events::Attributes;
                 use ibc::ics02_client::header::AnyHeader;
 
+                // Todo: the client event below is mock
+                // replace it with real client event replied from a Substrate chain
                 let mut result: Vec<IbcEvent> = vec![];
-
                 result.push(IbcEvent::UpdateClient(ibc::ics02_client::events::UpdateClient{
                     common: Attributes {
                         height: request.height,
                         client_id: request.client_id,
-                        client_type: ClientType::Grandpa,
+                        client_type: ClientType::Tendermint,
                         consensus_height: request.consensus_height,
                     },
-                    header: Some(AnyHeader::Grandpa(ibc::ics10_grandpa::header::Header::new(request.height.revision_height))),
+                    header: Some(AnyHeader::Tendermint(get_dummy_ics07_header())),
                 }));
 
                 Ok(result)
@@ -1679,25 +2001,8 @@ impl ChainEndpoint for SubstrateChain {
             QueryTxRequest::Transaction(tx) => {
                 crate::time!("in Substrate: [query_txs]: Transaction");
                 tracing::info!("in Substrate: [query_txs]: Transaction: {:?}", tx);
-
-                // let mut response = self
-                //     .block_on(self.rpc_client.tx_search(
-                //         tx_hash_query(&tx),
-                //         false,
-                //         1,
-                //         1, // get only the first Tx matching the query
-                //         Order::Ascending,
-                //     ))
-                //     .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
-                //
-                // if response.txs.is_empty() {
-                //     Ok(vec![])
-                // } else {
-                //     let tx = response.txs.remove(0);
-                //     Ok(all_ibc_events_from_tx_search_response(self.id(), tx))
-                // }
+                // Todo: https://github.com/octopus-network/ibc-rs/issues/98
                 let mut result: Vec<IbcEvent> = vec![];
-
                 Ok(result)
             }
         }
@@ -1713,17 +2018,20 @@ impl ChainEndpoint for SubstrateChain {
         let client_state = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
-            let client_state = self
-                .get_client_state(client_id, client).await.unwrap();
-            tracing::info!("In Substrate: [proven_client_state] \
-                >> client_state : {:#?}", client_state);
+                .build()
+                .await
+                .unwrap();
+            let client_state = self.get_client_state(client_id, client).await.unwrap();
+            tracing::info!(
+                "In Substrate: [proven_client_state] \
+                >> client_state : {:#?}",
+                client_state
+            );
 
             client_state
         };
 
-        let client_state =  self.block_on(client_state);
-
+        let client_state = self.block_on(client_state);
 
         Ok((client_state, get_dummy_merkle_proof()))
     }
@@ -1733,27 +2041,34 @@ impl ChainEndpoint for SubstrateChain {
         connection_id: &ConnectionId,
         height: ICSHeight,
     ) -> Result<(ConnectionEnd, MerkleProof), Error> {
-        tracing::info !("in Substrate: [proven_connection]");
+        tracing::info!("in Substrate: [proven_connection]");
 
         let connection_end = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
-            let connection_end = self
-                .get_connectionend(connection_id, client)
-                .await.unwrap();
-            tracing::info!("In Substrate: [proven_connection] \
-                >> connection_end: {:?}", connection_end);
+                .build()
+                .await
+                .unwrap();
+            let connection_end = self.get_connectionend(connection_id, client).await.unwrap();
+            tracing::info!(
+                "In Substrate: [proven_connection] \
+                >> connection_end: {:?}",
+                connection_end
+            );
 
             connection_end
         };
 
-        let connection_end =  self.block_on(connection_end);
+        let connection_end = self.block_on(connection_end);
 
         let mut new_connection_end;
 
-        if connection_end.counterparty().clone().connection_id.is_none() {
-
+        if connection_end
+            .counterparty()
+            .clone()
+            .connection_id
+            .is_none()
+        {
             // 构造 Counterparty
             let client_id = connection_end.counterparty().client_id().clone();
             let prefix = connection_end.counterparty().prefix().clone();
@@ -1765,7 +2080,8 @@ impl ChainEndpoint for SubstrateChain {
             let versions = connection_end.versions().clone();
             let delay_period = connection_end.delay_period().clone();
 
-            new_connection_end = ConnectionEnd::new(state, client_id, counterparty, versions, delay_period);
+            new_connection_end =
+                ConnectionEnd::new(state, client_id, counterparty, versions, delay_period);
         } else {
             new_connection_end = connection_end;
         }
@@ -1780,23 +2096,33 @@ impl ChainEndpoint for SubstrateChain {
         height: ICSHeight,
     ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
         tracing::info!("in Substrate: [proven_client_consensus]");
-        tracing::info!("in Substrate: [prove_client_consensus]: \
-            client_id: {:?}, consensus_height: {:?}", client_id, consensus_height);
+        tracing::info!(
+            "in Substrate: [prove_client_consensus]: \
+            client_id: {:?}, consensus_height: {:?}",
+            client_id,
+            consensus_height
+        );
 
         let consensus_state = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
             let consensus_state = self
                 .get_client_consensus(client_id, consensus_height, client)
-                .await.unwrap();
-            tracing::info!("In Substrate: [proven_client_consensus] \
-                >> consensus_state : {:?}", consensus_state);
+                .await
+                .unwrap();
+            tracing::info!(
+                "In Substrate: [proven_client_consensus] \
+                >> consensus_state : {:?}",
+                consensus_state
+            );
 
             consensus_state
         };
 
-        let consensus_state =  self.block_on(consensus_state);
+        let consensus_state = self.block_on(consensus_state);
 
         Ok((consensus_state, get_dummy_merkle_proof()))
     }
@@ -1812,17 +2138,25 @@ impl ChainEndpoint for SubstrateChain {
         let channel_end = async {
             let client = ClientBuilder::<NodeRuntime>::new()
                 .set_url(&self.websocket_url.clone())
-                .build().await.unwrap();
+                .build()
+                .await
+                .unwrap();
             let channel_end = self
-                .get_channelend(port_id,  channel_id,client).await.unwrap();
-            tracing::info!("In Substrate: [query_channel] \
+                .get_channelend(port_id, channel_id, client)
+                .await
+                .unwrap();
+            tracing::info!(
+                "In Substrate: [query_channel] \
                 >> port_id: {:?}, channel_id: {:?}, channel_end: {:?}",
-                port_id, channel_id, channel_end);
+                port_id,
+                channel_id,
+                channel_end
+            );
 
             channel_end
         };
 
-        let channel_end =  self.block_on(channel_end);
+        let channel_end = self.block_on(channel_end);
 
         Ok((channel_end, get_dummy_merkle_proof()))
     }
@@ -1846,20 +2180,28 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [build_client_state]");
 
         let chain_id = self.id().clone();
-        tracing::info!("in Substrate: [build_client_state] >> chain_id = {:?}", chain_id);
+        tracing::info!(
+            "in Substrate: [build_client_state] >> chain_id = {:?}",
+            chain_id
+        );
 
         let frozen_height = Height::zero();
-        tracing::info!("in Substrate: [build_client_state] >> frozen_height = {:?}", frozen_height);
+        tracing::info!(
+            "in Substrate: [build_client_state] >> frozen_height = {:?}",
+            frozen_height
+        );
 
         use ibc::ics02_client::client_state::AnyClientState;
         use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
 
         // Create mock grandpa client state
-        let client_state = GRANDPAClientState::new(chain_id, height, frozen_height)
-            .unwrap();
+        let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
         let any_client_state = AnyClientState::Grandpa(client_state);
 
-        tracing::info!("in Substrate: [build_client_state] >> client_state: {:?}", any_client_state);
+        tracing::info!(
+            "in Substrate: [build_client_state] >> client_state: {:?}",
+            any_client_state
+        );
 
         Ok(any_client_state)
     }
@@ -1890,9 +2232,15 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [build_header]");
         tracing::info!("in Substrate: [build_header] >> Trusted_height: {:?}, Target_height: {:?}, client_state: {:?}",
             trusted_height, target_height, client_state);
-        tracing::info!("in Substrate: [build_header] >> GPHEADER: {:?}", GPHeader::new(target_height.revision_height));
+        tracing::info!(
+            "in Substrate: [build_header] >> GPHEADER: {:?}",
+            GPHeader::new(target_height.revision_height)
+        );
 
-        Ok((GPHeader::new(target_height.revision_height), vec![GPHeader::new(trusted_height.revision_height)]))
+        Ok((
+            GPHeader::new(target_height.revision_height),
+            vec![GPHeader::new(trusted_height.revision_height)],
+        ))
     }
 }
 
@@ -1903,4 +2251,41 @@ pub fn get_dummy_merkle_proof() -> MerkleProof {
     let parsed = ibc_proto::ics23::CommitmentProof { proof: None };
     let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
     MerkleProof { proofs: mproofs }
+}
+
+use ibc::ics07_tendermint::header::Header as tHeader;
+pub fn get_dummy_ics07_header() -> tHeader {
+    use tendermint::block::signed_header::SignedHeader;
+    // Build a SignedHeader from a JSON file.
+    let shdr = serde_json::from_str::<SignedHeader>(include_str!(
+        "../../../modules/tests/support/signed_header.json"
+    ))
+        .unwrap();
+
+    // Build a set of validators.
+    // Below are test values inspired form `test_validator_set()` in tendermint-rs.
+    use tendermint::validator::Info as ValidatorInfo;
+    use tendermint::PublicKey;
+    use subtle_encoding::hex;
+    use std::convert::TryInto;
+    let v1: ValidatorInfo = ValidatorInfo::new(
+        PublicKey::from_raw_ed25519(
+            &hex::decode_upper(
+                "F349539C7E5EF7C49549B09C4BFC2335318AB0FE51FBFAA2433B4F13E816F4A7",
+            )
+                .unwrap(),
+        )
+            .unwrap(),
+        281_815_u64.try_into().unwrap(),
+    );
+
+    use tendermint::validator::Set as ValidatorSet;
+    let vs = ValidatorSet::new(vec![v1.clone()], Some(v1));
+
+    tHeader {
+        signed_header: shdr,
+        validator_set: vs.clone(),
+        trusted_height: Height::new(0, 1),
+        trusted_validator_set: vs,
+    }
 }
