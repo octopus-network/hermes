@@ -87,12 +87,16 @@ pub(crate) fn process(
         channel_id: msg.channel_id().clone(),
         channel_id_state: ChannelIdState::Reused,
         channel_cap,
-        channel_end,
+        channel_end: channel_end.clone(),
     };
 
     let event_attributes = Attributes {
         channel_id: Some(msg.channel_id().clone()),
-        ..Default::default()
+        height: ctx.host_height(),
+        port_id: msg.port_id.clone(),
+        connection_id: channel_end.connection_hops()[0].clone(),
+        counterparty_port_id: channel_end.remote.port_id.clone(),
+        counterparty_channel_id: channel_end.remote.channel_id.clone()
     };
     output.emit(IbcEvent::OpenConfirmChannel(event_attributes.into()));
 
