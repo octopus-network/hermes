@@ -795,18 +795,18 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .map_err(|e| ChannelError::query(self.src_chain().id(), e))?;
 
         // TODO
-        // if src_channel.counterparty().port_id() != self.dst_port_id() {
-        //     return Err(ChannelError::mismatch_port(
-        //         self.dst_chain().id(),
-        //         self.dst_port_id().clone(),
-        //         self.src_chain().id(),
-        //         src_channel.counterparty().port_id.clone(),
-        //         src_channel_id.clone(),
-        //     ));
-        // }
+        if src_channel.counterparty().port_id() != self.dst_port_id() {
+            return Err(ChannelError::mismatch_port(
+                self.dst_chain().id(),
+                self.dst_port_id().clone(),
+                self.src_chain().id(),
+                src_channel.counterparty().port_id.clone(),
+                src_channel_id.clone(),
+            ));
+        }
 
         // todo
-        src_channel.version = "ics20-1".to_string();
+        // src_channel.version = "ics20-1".to_string();
 
 
         // Connection must exist on destination
