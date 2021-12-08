@@ -108,7 +108,7 @@ impl  ibc_node::runtime_types::pallet_ibc::event::primitive::ConnectionId {
 impl ibc_node::runtime_types::pallet_ibc::event::primitive::ChannelId {
     pub fn to_ibc_channel_id(self) -> ibc::ics24_host::identifier::ChannelId {
         let value = String::from_utf8(self.0).unwrap();
-        ibc::ics24_host::identifier::ChannelId (value)
+        ibc::ics24_host::identifier::ChannelId(value)
     }
 }
 

@@ -138,13 +138,18 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                 .module_version(&b_port)
                 .map_err(|e| ChannelError::query(b_side_chain.id(), e))?,
         );
+        tracing::info!("in channel: version = {:?}", version);
 
         let src_connection_id = connection
             .src_connection_id()
             .ok_or_else(|| ChannelError::missing_local_connection(connection.src_chain().id()))?;
+        tracing::info!("in channel: src_connection_id: {:?}", src_connection_id);
+
         let dst_connection_id = connection
             .dst_connection_id()
             .ok_or_else(|| ChannelError::missing_local_connection(connection.dst_chain().id()))?;
+
+        tracing::info!("in channel: dst_connection_id: {:?}", dst_connection_id);
 
         let mut channel = Self {
             ordering,
@@ -680,8 +685,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .dst_chain()
             .get_signer()
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
+        tracing::info!("in channel: [build_chan_open_init] >> sigener {:?}", signer);
 
         let counterparty = Counterparty::new(self.src_port_id().clone(), None);
+        tracing::info!("in channel: [build_chan_open_init] >> counterparty {:?}", counterparty);
 
         let channel = ChannelEnd::new(
             State::Init,
@@ -690,6 +697,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             vec![self.dst_connection_id().clone()],
             self.dst_version()?,
         );
+
+        tracing::info!("in channel: [build_chan_open_init] >> channel {:?}", channel);
 
         // Build the domain type message
         let new_msg = MsgChannelOpenInit {
@@ -787,12 +796,15 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         let src_channel_id = self
             .src_channel_id()
             .ok_or_else(ChannelError::missing_local_channel_id)?;
+        tracing::info!("in channel: [build_chan_open_try] >> src_channel_id {:?}", src_channel_id);
 
         // Channel must exist on source
         let mut src_channel = self
             .src_chain()
             .query_channel(self.src_port_id(), src_channel_id, Height::zero())
             .map_err(|e| ChannelError::query(self.src_chain().id(), e))?;
+        tracing::info!("in channel: [build_chan_open_try] >> src_chain {:?}", self.src_chain());
+        tracing::info!("in channel: [build_chan_open_try] >> src_channel {:?}", src_channel);
 
         // TODO
         if src_channel.counterparty().port_id() != self.dst_port_id() {
@@ -804,10 +816,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                 src_channel_id.clone(),
             ));
         }
-
-        // todo
-        // src_channel.version = "ics20-1".to_string();
-
 
         // Connection must exist on destination
         self.dst_chain()

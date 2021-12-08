@@ -1,6 +1,7 @@
 //! Protocol logic specific to ICS4 messages of type `MsgChannelOpenAck`.
 use crate::events::IbcEvent;
 use crate::handler::{HandlerOutput, HandlerResult};
+use crate::ics02_client::height::Height;
 use crate::ics03_connection::connection::State as ConnectionState;
 use crate::ics04_channel::channel::{ChannelEnd, Counterparty, State};
 use crate::ics04_channel::context::ChannelReader;
@@ -92,6 +93,7 @@ pub(crate) fn process(
     channel_end.set_version(msg.counterparty_version().clone());
     channel_end.set_counterparty_channel_id(msg.counterparty_channel_id.clone());
 
+
     let result = ChannelResult {
         port_id: msg.port_id().clone(),
         channel_id: msg.channel_id().clone(),
@@ -101,8 +103,12 @@ pub(crate) fn process(
     };
 
     let event_attributes = Attributes {
-        channel_id: Some(msg.channel_id().clone()),
-        ..Default::default()
+        height: ctx.host_height().clone(),
+        port_id: msg.port_id.clone(),
+        channel_id: Some(chan_id),
+        connection_id: msg.channel.connection_hops[0].clone(),
+        counterparty_port_id: msg.channel.counterparty().port_id.clone(),
+        counterparty_channel_id: msg.channel.counterparty().channel_id.clone(),
     };
     output.emit(IbcEvent::OpenAckChannel(event_attributes.into()));
 

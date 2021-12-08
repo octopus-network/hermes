@@ -2,6 +2,7 @@
 
 use crate::events::IbcEvent;
 use crate::handler::{HandlerOutput, HandlerResult};
+use crate::ics02_client::height::Height;
 use crate::ics04_channel::channel::{ChannelEnd, State};
 use crate::ics04_channel::context::ChannelReader;
 use crate::ics04_channel::error::Error;
@@ -72,9 +73,21 @@ pub(crate) fn process(
         channel_cap,
     };
 
+    // pub struct Attributes {
+    //     pub height: Height,
+    //     pub port_id: PortId,
+    //     pub channel_id: Option<ChannelId>,
+    //     pub connection_id: ConnectionId,
+    //     pub counterparty_port_id: PortId,
+    //     pub counterparty_channel_id: Option<ChannelId>,
+    // }
     let event_attributes = Attributes {
+        height: ctx.host_height().clone(),
+        port_id: msg.port_id.clone(),
         channel_id: Some(chan_id),
-        ..Default::default()
+        connection_id: msg.channel.connection_hops[0].clone(),
+        counterparty_port_id: msg.channel.counterparty().port_id.clone(),
+        counterparty_channel_id: msg.channel.counterparty().channel_id.clone(),
     };
     output.emit(IbcEvent::OpenInitChannel(event_attributes.into()));
 
