@@ -20,7 +20,7 @@ use subxt::{
     EventSubscription, RawEvent,
     Error as SubstrateError,
 };
-use calls::ibc_node;
+use octopusxt::ibc_node;
 
 
 use ibc::{events::IbcEvent, ics02_client::height::Height, ics24_host::identifier::ChainId};

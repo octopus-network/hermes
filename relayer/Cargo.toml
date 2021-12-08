@@ -65,14 +65,8 @@ anyhow = { version = "1.0.44", default-features = false }
 fraction = {version = "0.9.0", default-features = false }
 semver = { version = "1.0", default-features = false }
 uint = { version = "0.9", default-features = false }
-calls = { path = "../calls" }
+octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", version = "0.1.0" }
 subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.12' }
-#substrate-subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = "octopus-dev" }
-sp-keyring = { package = "sp-keyring", git = "https://github.com/paritytech/substrate/", branch = "polkadot-v0.9.12" }
-pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-ibc-dev-0.9.12-tag' }
-#pallet-ibc = { path = "../../substrate/bin/node-template/pallets/ibc" }
-#jsonrpsee-types = "0.2.0"
-jsonrpsee = { version = "0.5.1", features = ["macros", "ws-client", "http-client"] }
 codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive', 'full'] }
 
 
