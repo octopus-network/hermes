@@ -33,7 +33,7 @@ pub mod ibc_node {
     // #[subxt(substitute_type = "polkadot_parachain::primitives::Id")]
     // use crate::ParachainId;
 
-    #[subxt(substitute_type = "pallet_ibc::event::primitive::ClientTy")]
+    #[subxt(substitute_type = "pallet_ibc::event::primitive::ClientType")]
     use crate::ClientType;
 
 
@@ -135,7 +135,7 @@ impl ibc_node::runtime_types::pallet_ibc::event::primitive::Sequence {
 
 impl ibc_node::runtime_types::pallet_ibc::event::primitive::Timestamp {
     pub fn to_ibc_timestamp(self) -> ibc::timestamp::Timestamp {
-        let value = String::from_utf8(self.0).unwrap();
+        let value = String::from_utf8(self.time).unwrap();
         let timestamp = ibc::timestamp::Timestamp::from_str(&value).unwrap();
         timestamp
     }
