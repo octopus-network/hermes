@@ -426,9 +426,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                         .state_matches(&ChannelState::Closed)
                     {
                         (None, None)
-                    } else if self.write_ack_event_handled(write_ack_ev)? {
-                        debug!("[{}] {} already handled", self, write_ack_ev);
-                        (None, None)
+                    // } else if self.write_ack_event_handled(write_ack_ev)? {
+                    //     debug!("[{}] {} already handled", self, write_ack_ev);
+                    //     (None, None)
                     } else {
                         (self.build_ack_from_recv_event(write_ack_ev)?, None)
                     }

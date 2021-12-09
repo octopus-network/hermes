@@ -296,108 +296,37 @@ impl EventMonitor {
     }
 
     fn run_loop(&mut self) -> Next {
+        use core::time::Duration;
         tracing::info!("in substrate_mointor: [run_loop]");
-
-        // Take ownership of the subscriptions
-        let subscriptions =
-            core::mem::replace(&mut self.subscriptions, Box::new(futures::stream::empty()));
         let client = self.client.clone();
         let chain_id = self.chain_id.clone();
         let send_batch = self.tx_batch.clone();
 
         let sub_event = async move {
-
             let api = client.clone().to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
             let sub = api.client.rpc().subscribe_events().await.unwrap();
             let decoder = api.client.events_decoder();
             let mut sub = EventSubscription::<ibc_node::DefaultConfig>::new(sub, decoder);
 
             while let Some(raw_event) = sub.next().await {
+                let _client = client.clone();
+                let _chain_id = chain_id.clone();
+                let _send_batch = send_batch.clone();
+
                 if let Err(err) = raw_event {
                     tracing::info!("In substrate_mointor: [run_loop] >> raw_event error: {:?}", err);
                     continue;
                 }
-                let raw_event = raw_event.unwrap();
-                // tracing::info!("in substrate_mointor: [run_loop] >> raw_event : {:?}", raw_event);
-                let height = get_latest_height(client.clone()).await; // Todo: Do not query for latest height every time
-                let batch_event = from_raw_event_to_batch_event(raw_event, chain_id.clone(), height);
-                process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
-                            error!("[{}] {}", chain_id.clone(), e);
+
+                tokio::spawn(async move {
+                handle_single_event(raw_event.unwrap(), _client, _chain_id, _send_batch).await;
                 });
             }
-
             Next::Continue
         };
-        //
+
         let ret = self.rt.block_on(sub_event);
         ret
-
-        // Convert the stream of RPC events into a stream of event batches.
-        // let batches = stream_batches(subscriptions, self.chain_id.clone());
-
-        // Needed to be able to poll the stream
-        // pin_mut!(batches);
-
-        // Work around double borrow
-        // let rt = self.rt.clone();
-
-        // loop {
-        //     if let Ok(cmd) = self.rx_cmd.try_recv() {
-        //         match cmd {
-        //             MonitorCmd::Shutdown => return Next::Abort,
-        //         }
-        //     }
-
-
-
-            // let result = rt.block_on(async {
-            //     tokio::select! {
-            //         Some(batch) = batches.next() => batch,
-            //         Some(e) = self.rx_err.recv() => Err(Error::web_socket_driver()),
-            //     }
-            // });
-
-            // match result {
-            //     Ok(batch) => self.process_batch(batch).unwrap_or_else(|e| {
-            //         error!("[{}] {}", self.chain_id, e);
-            //     }),
-            //     Err(e) => {
-            //         match e.detail() {
-            //             ErrorDetail::SubscriptionCancelled(reason) => {
-            //                 error!(
-            //                     "[{}] subscription cancelled, reason: {}",
-            //                     self.chain_id, reason
-            //                 );
-            //
-            //                 self.propagate_error(e).unwrap_or_else(|e| {
-            //                     error!("[{}] {}", self.chain_id, e);
-            //                 });
-            //
-            //                 // Reconnect to the WebSocket endpoint, and subscribe again to the queries.
-            //                 self.reconnect();
-            //
-            //                 // Abort this event loop, the `run` method will start a new one.
-            //                 // We can't just write `return self.run()` here because Rust
-            //                 // does not perform tail call optimization, and we would
-            //                 // thus potentially blow up the stack after many restarts.
-            //                 return Next::Continue;
-            //             }
-            //             _ => {
-            //                 error!("[{}] failed to collect events: {}", self.chain_id, e);
-            //
-            //                 // Reconnect to the WebSocket endpoint, and subscribe again to the queries.
-            //                 self.reconnect();
-            //
-            //                 // Abort this event loop, the `run` method will start a new one.
-            //                 // We can't just write `return self.run()` here because Rust
-            //                 // does not perform tail call optimization, and we would
-            //                 // thus potentially blow up the stack after many restarts.
-            //                 return Next::Continue;
-            //             }
-            //         }
-            //     }
-            // }
-        // }
     }
 
     /// Propagate error to subscribers.
@@ -1154,4 +1083,14 @@ async fn get_latest_height(client: Client<ibc_node::DefaultConfig>) -> u64 {
     };
     tracing::info!("In Substrate: [get_latest_height] >> height: {:?}", height);
     height
+}
+
+async fn handle_single_event(raw_event: RawEvent, client: Client<ibc_node::DefaultConfig>,
+                             chain_id: ChainId, send_batch: channel::Sender<Result<EventBatch>>) {
+    tracing::info!("in substrate_mointor: [run_loop] >> raw_event : {:?}", raw_event);
+    let height = get_latest_height(client).await; // Todo: Do not query for latest height every time
+    let batch_event = from_raw_event_to_batch_event(raw_event, chain_id.clone(), height);
+    process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
+        error!("[{}] {}", chain_id, e);
+    });
 }

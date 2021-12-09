@@ -203,7 +203,7 @@ impl SubstrateChain {
                             counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
                         }),
                     ));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "OpenTryConnection" => {
@@ -233,7 +233,7 @@ impl SubstrateChain {
                             counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
                         }),
                     ));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "OpenAckConnection" => {
@@ -262,7 +262,7 @@ impl SubstrateChain {
                             counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
                         }),
                     ));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "OpenConfirmConnection" => {
@@ -293,7 +293,7 @@ impl SubstrateChain {
                             counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
                         }),
                     ));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
 
@@ -326,7 +326,7 @@ impl SubstrateChain {
                             counterparty_channel_id: counterparty_channel_id,
                         }),
                     ));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "OpenTryChannel" => {
@@ -358,7 +358,7 @@ impl SubstrateChain {
                             counterparty_channel_id: counterparty_channel_id,
                         }),
                     ));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "OpenAckChannel" => {
@@ -390,7 +390,7 @@ impl SubstrateChain {
                             counterparty_channel_id: counterparty_channel_id,
                         }),
                     ));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "OpenConfirmChannel" => {
@@ -421,7 +421,7 @@ impl SubstrateChain {
                             counterparty_channel_id: counterparty_channel_id,
                         }),
                     ));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "CloseInitChannel" => {
@@ -453,7 +453,7 @@ impl SubstrateChain {
                             counterparty_channel_id: counterparty_channel_id,
                         }),
                     ));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "CloseConfirmChannel" => {
@@ -484,7 +484,7 @@ impl SubstrateChain {
                             counterparty_channel_id: counterparty_channel_id,
                         }),
                     ));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "SendPacket" => {
@@ -499,7 +499,7 @@ impl SubstrateChain {
                         height: height.to_ibc_height(),
                         packet: packet.to_ibc_packet(),
                     }));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "ReceivePacket" => {
@@ -516,7 +516,7 @@ impl SubstrateChain {
                         packet: packet.to_ibc_packet(),
                     }));
 
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "WriteAcknowledgement" => {
@@ -537,7 +537,7 @@ impl SubstrateChain {
                         ack: ack,
                     }));
 
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "AcknowledgePacket" => {
@@ -554,7 +554,7 @@ impl SubstrateChain {
                         packet: packet.to_ibc_packet(),
                     }));
 
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "TimeoutPacket" => {
@@ -571,7 +571,7 @@ impl SubstrateChain {
                         packet: packet.to_ibc_packet(),
                     }));
 
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "TimeoutOnClosePacket" => {
@@ -588,7 +588,7 @@ impl SubstrateChain {
                         packet: packet.to_ibc_packet(),
                     }));
 
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "Empty" => {
@@ -599,7 +599,7 @@ impl SubstrateChain {
                     let data = String::from_utf8(event.0).unwrap();
 
                     events.push(IbcEvent::Empty(data));
-                    sleep(Duration::from_secs(10)).await;
+                    sleep(Duration::from_secs(2)).await;
                     break;
                 }
                 "ChainError" => {
@@ -611,7 +611,7 @@ impl SubstrateChain {
                     let data = String::from_utf8(event.0).unwrap();
 
                     events.push(IbcEvent::Empty(data));
-                    sleep(Duration::from_secs(10));
+                    sleep(Duration::from_secs(2));
                     break;
                 }
                 "ExtrinsicSuccess" => {
@@ -1435,7 +1435,7 @@ impl ChainEndpoint for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let result = self.deliever(proto_msgs, client).await.unwrap();
 
@@ -1478,7 +1478,7 @@ impl ChainEndpoint for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let result = self.deliever(proto_msgs, client).await.unwrap();
 
@@ -1545,7 +1545,7 @@ impl ChainEndpoint for SubstrateChain {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let height = self.get_latest_height(client).await.unwrap();
 
@@ -1573,7 +1573,7 @@ impl ChainEndpoint for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
 
             let clients = self.get_clients(client).await.unwrap();
@@ -1600,7 +1600,7 @@ impl ChainEndpoint for SubstrateChain {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let client_state = self
                 .get_client_state(client_id, client)
@@ -1630,7 +1630,7 @@ impl ChainEndpoint for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
             let consensus_state = self
                 .get_consensus_state_with_height(&request_client_id, client)
                 .await
@@ -1706,7 +1706,7 @@ impl ChainEndpoint for SubstrateChain {
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let connections = self.get_connctions(client).await.unwrap();
 
@@ -1737,7 +1737,7 @@ impl ChainEndpoint for SubstrateChain {
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
             let client_connections = self
                 .get_client_connections(client_id, client)
                 .await
@@ -1767,7 +1767,7 @@ impl ChainEndpoint for SubstrateChain {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let connection_end = self
                 .get_connectionend(connection_id, client)
@@ -1797,7 +1797,7 @@ impl ChainEndpoint for SubstrateChain {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let connection_channels = self.get_connection_channels(connection_id, client)
                 .await.unwrap();
@@ -1823,7 +1823,7 @@ impl ChainEndpoint for SubstrateChain {
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
             let channels = self.get_channels(client).await.unwrap();
 
             channels
@@ -1852,7 +1852,7 @@ impl ChainEndpoint for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let channel_end = self
                 .get_channelend(port_id, channel_id, client)
@@ -1893,7 +1893,7 @@ impl ChainEndpoint for SubstrateChain {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let packet_commitments = self
                 .get_commitment_packet_state(client).await.unwrap();
@@ -1923,7 +1923,7 @@ impl ChainEndpoint for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let unreceived_packets = self
                 .get_unreceipt_packet(&port_id, &channel_id, seqs, client)
@@ -1949,7 +1949,7 @@ impl ChainEndpoint for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let packet_acknowledgements = self.get_acknowledge_packet_state(client).await.unwrap();
 
@@ -1980,7 +1980,7 @@ impl ChainEndpoint for SubstrateChain {
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             for _seq in seqs {
                 let _cmt = self
@@ -2139,7 +2139,7 @@ impl ChainEndpoint for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
 
             let client_state = self
@@ -2168,7 +2168,7 @@ impl ChainEndpoint for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let connection_end = self
                 .get_connectionend(connection_id, client)
@@ -2228,7 +2228,7 @@ impl ChainEndpoint for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let consensus_state = self
                 .get_client_consensus(client_id, consensus_height, client)
@@ -2261,7 +2261,7 @@ impl ChainEndpoint for SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>().await.unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let channel_end = self
                 .get_channelend(port_id, channel_id, client)
