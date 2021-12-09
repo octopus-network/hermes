@@ -665,7 +665,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         trusted_height: Height,
     ) -> Result<Vec<Any>, ForeignClientError> {
         // Wait for source chain to reach `target_height`
-        let mut _i = 0;  // Todo: to remove _i
         while self.src_chain().query_latest_height().map_err(|e| {
             ForeignClientError::client_create(
                 self.src_chain.id(),
@@ -674,8 +673,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             )
         })? < target_height
         {
-            if _i > 5 { break;}
-            _i = _i + 1;
             thread::sleep(Duration::from_millis(200))
         }
 

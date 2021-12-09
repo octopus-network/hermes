@@ -159,7 +159,7 @@ impl Runnable for TxRawChanOpenTryCmd {
             Err(e) => return Output::error(format!("{}", e)).exit(),
         };
 
-        // Retrieve the connection
+        // Retrieve the connection of destination chain
         let dst_connection = match chains
             .dst
             .query_connection(&self.dst_conn_id, Height::default())
@@ -168,12 +168,13 @@ impl Runnable for TxRawChanOpenTryCmd {
             Err(e) => return Output::error(format!("{}", e)).exit(),
         };
 
+        use ibc::ics02_client::client_type::ClientType;
         let channel = Channel {
             connection_delay: Default::default(),
             ordering: Order::default(),
             a_side: ChannelSide::new(
                 chains.src,
-                ClientId::default(),
+                ClientId::new(ClientType::Grandpa, 0).unwrap(),
                 ConnectionId::default(),
                 self.src_port_id.clone(),
                 Some(self.src_chan_id.clone()),
