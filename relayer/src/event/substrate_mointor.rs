@@ -319,7 +319,7 @@ impl EventMonitor {
                 }
 
                 tokio::spawn(async move {
-                handle_single_event(raw_event.unwrap(), _client, _chain_id, _send_batch).await;
+                    handle_single_event(raw_event.unwrap(), _client, _chain_id, _send_batch).await;
                 });
             }
             Next::Continue
