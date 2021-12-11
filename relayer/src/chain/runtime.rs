@@ -57,6 +57,7 @@ use super::{
     handle::{ChainHandle, ChainRequest, ReplyTo, Subscription},
     ChainEndpoint, HealthCheck,
 };
+use std::thread::sleep;
 
 pub struct Threads {
     pub chain_runtime: thread::JoinHandle<()>,
@@ -180,6 +181,7 @@ where
         loop {
             channel::select! {
                 recv(self.event_receiver) -> event_batch => {
+                    tracing::debug!("in runtime: [run] -- event_receiver) {:?}", event_batch);
                     match event_batch {
                         Ok(event_batch) => {
                             self.event_bus

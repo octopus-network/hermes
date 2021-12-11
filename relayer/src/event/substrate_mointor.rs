@@ -317,30 +317,6 @@ impl EventMonitor {
                     tracing::info!("In substrate_mointor: [run_loop] >> raw_event error: {:?}", err);
                     continue;
                 }
-//                 let raw_event = raw_event.unwrap();
-//                 tracing::info!("in substrate_monitor: [run_loop] >> raw_event : {:?}", raw_event);
-//                 match raw_event.variant.as_str() {
-//                     "CreateClient" | "UpdateClient" |
-//                     "ClientMisbehaviour" | "OpenInitConnection" |
-//                     "OpenTryConnection" | "OpenAckConnection" |
-//                     "OpenConfirmConnection" | "OpenInitChannel" |
-//                     "OpenTryChannel" | "OpenAckChannel" |
-//                     "OpenConfirmChannel" | "CloseInitChannel" |
-//                     "CloseConfirmChannel" | "SendPacket" |
-//                     "ReceivePacket" | "WriteAcknowledgement" |
-//                     "AcknowledgePacket" | "TimeoutPacket" |
-//                     "TimeoutOnClosePacket" | "Empty" |
-//                     "ChainError" | "ExtrinsicSuccess"
-//                      => {
-//                         let height = get_latest_height(client.clone()).await; // Todo: Do not query for latest height every time
-//                         let batch_event = from_raw_event_to_batch_event(raw_event, chain_id.clone(), height).await;
-//                         process_batch_for_substrate(send_batch.clone(), batch_event).await.unwrap_or_else(|e| {
-//                                     error!("[{}] {}", chain_id.clone(), e);
-//                         });
-//                     }
-//                     _ => continue,
-//                 }
-//
 
                 tokio::spawn(async move {
                     handle_single_event(raw_event.unwrap(), _client, _chain_id, _send_batch).await;
