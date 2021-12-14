@@ -27,14 +27,18 @@ impl<T> EventBus<T> {
 
     pub fn broadcast(&mut self, value: T)
     where
-        T: Clone,
+        T: Clone + core::fmt::Debug,
     {
         let mut disconnected = Vec::new();
 
+        tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 4) txs: {:?}, value: {:?}",
+                        self.txs, value.clone());
         for (idx, tx) in self.txs.iter().enumerate() {
             // TODO: Avoid cloning when sending to last subscriber
             if let Err(channel::SendError(_)) = tx.send(value.clone()) {
                 disconnected.push(idx);
+            } else {
+                tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 5), value: {:?}", value.clone());
             }
         }
 

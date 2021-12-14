@@ -181,9 +181,11 @@ where
         loop {
             channel::select! {
                 recv(self.event_receiver) -> event_batch => {
-                    tracing::debug!("in runtime: [run] -- event_receiver) {:?}", event_batch);
+                    tracing::trace!("in runtime: [run] -- relayer_process_channel_events 2) event_batch: {:?}", event_batch);
                     match event_batch {
                         Ok(event_batch) => {
+                            tracing::trace!("in runtime: [run] -- relayer_process_channel_events 3) event_batch: {:?}",
+                                event_batch);
                             self.event_bus
                                 .broadcast(Arc::new(event_batch));
                         },

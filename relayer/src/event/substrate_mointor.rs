@@ -363,9 +363,9 @@ fn process_batch_for_substrate(send_tx: channel::Sender<Result<EventBatch>>, bat
     tracing::info!("in substrate_mointor: [process_batch_for_substrate]");
 
     send_tx
-        .send(Ok(batch))
+        .try_send(Ok(batch.clone()))
         .map_err(|_| Error::channel_send_failed())?;
-
+    tracing::trace!("in substrate_mointor: [relayer_process_channel_events 1] tx: {:?}, batch: {:?}", send_tx, batch.clone());
     Ok(())
 }
 
@@ -1078,9 +1078,12 @@ async fn get_latest_height(client: Client<ibc_node::DefaultConfig>) -> u64 {
 async fn handle_single_event(raw_event: RawEvent, client: Client<ibc_node::DefaultConfig>,
                              chain_id: ChainId, send_batch: channel::Sender<Result<EventBatch>>) {
     tracing::info!("in substrate_monitor: [run_loop] >> raw_event : {:?}", raw_event);
+
     let height = get_latest_height(client).await; // Todo: Do not query for latest height every time
     let batch_event = from_raw_event_to_batch_event(raw_event, chain_id.clone(), height);
-    process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
-        error!("[{}] {}", chain_id, e);
-    });
+    if(batch_event.events.len() > 0) {
+        process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
+            error!("[{}] {}", chain_id, e);
+        });
+    }
 }
