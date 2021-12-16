@@ -1,6 +1,6 @@
 ## Intro
-The e2e script is responsible for test ibc use case between the substrate appchain and the cosmos appchain.   
-The current test case includes: 
+The e2e script is responsible for testing IBC use cases between the substrate chain and the cosmos chain.   
+The current test cases are: 
 + tx raw create-client	
 + tx raw update-client	
 + tx raw conn-init	
@@ -11,9 +11,7 @@ The current test case includes:
 + tx raw chan-open-try	
 + tx raw chan-open-ack	
 + tx raw chan-open-confirm	
-+ tx raw ft-transfer	
-+ tx raw packet-recv	
-+ tx raw packet-ack	
++ tx raw ft-transfer
 
 ### Requirement
 ```
@@ -25,7 +23,7 @@ pip install toml
 ```
 ### Start app chain
 - Start a substrate appchain and a cosmos appchain 
-- Update the relayer config file based on the app chains above
+- Update the relayer config file(hermes.toml in the script) based on the 2 chains above
 ### Run test script
 ```
 # Get help info
@@ -46,7 +44,7 @@ python e2e/run.py -h
 # Run test case
 python run.py -c ../hermes.toml --cmd hermes
 
-# The output like:
+# The output may look like:
 hermes-dv -c hermes.toml --json tx raw create-client earth ibc-0
 
 {
@@ -102,6 +100,3 @@ alice
 ....
 
 ```  
-
-## TODO
-- Add test case for passive mode
