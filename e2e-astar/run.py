@@ -33,7 +33,7 @@ def passive_packets(c: Config, ibc0: ChainId, ibc1: ChainId, port_id: PortId,
                        src_channel=ibc1_channel_id,
                        amount=10000,
                        height_offset=1000,
-                       number_msgs=1,
+                       number_msgs=4,
                        key=key1)
 
     # hermes tx raw ft-transfer ibc-1 ibc-0 transfer channel-0 10000 1000 -n 4
@@ -44,7 +44,7 @@ def passive_packets(c: Config, ibc0: ChainId, ibc1: ChainId, port_id: PortId,
                        src_channel=ibc0_channel_id,
                        amount=10000,
                        height_offset=1000,
-                       number_msgs=1,
+                       number_msgs=4,
                        key=key0)
 
     #wait for the relayer to initialize and pick up pending packets

@@ -45,7 +45,7 @@ python e2e/run.py -h
 python run.py -c ../hermes.toml --cmd hermes
 
 # The output may look like:
-hermes-dv -c hermes.toml --json tx raw create-client earth ibc-0
+hermes -c hermes.toml --json tx raw create-client earth ibc-0
 
 {
   "result": {
@@ -66,7 +66,7 @@ hermes-dv -c hermes.toml --json tx raw create-client earth ibc-0
 }
 ...
 
-hermes-dv -c hermes.toml --json tx raw ft-transfer ibc-0 earth transfer channel-36 9999 -o 1000 -d atom -k
+hermes -c hermes.toml --json tx raw ft-transfer ibc-0 earth transfer channel-36 9999 -o 1000 -d atom -k
 alice
 
 {
