@@ -190,7 +190,7 @@ where
                 },
                 Err(e) => {
                     // error!("received error via event bus: {}", e);
-                    sleep(Duration::from_millis(300));
+                    sleep(Duration::from_millis(100));
                     // return Err(Error::channel_receive(e));
                 },
             };

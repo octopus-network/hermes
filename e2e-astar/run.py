@@ -75,9 +75,9 @@ def passive_packets(c: Config, ibc0: ChainId, ibc1: ChainId, port_id: PortId,
                                  port=port_id,
                                  channel=ibc0_channel_id)
 
-    sleep(120.0)
+    sleep(600.0)
     # Stop the relayer
-    # proc.kill()
+    proc.kill()
 
 
 def raw(c: Config, ibc0: ChainId, ibc1: ChainId, ibc0_chan_id: ChannelId,

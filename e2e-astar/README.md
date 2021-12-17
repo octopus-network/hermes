@@ -1,6 +1,7 @@
 ## Intro
 The e2e script is responsible for testing IBC use cases between the substrate chain and the cosmos chain.   
 The current test cases are: 
+### Establish Client, Connection, and Channel to Connect the 2 Chains 
 + tx raw create-client	
 + tx raw update-client	
 + tx raw conn-init	
@@ -10,8 +11,9 @@ The current test cases are:
 + tx raw chan-open-init	
 + tx raw chan-open-try	
 + tx raw chan-open-ack	
-+ tx raw chan-open-confirm	
-+ tx raw ft-transfer
++ tx raw chan-open-confirm
+### Packet Transfer
++ tx raw ft-transfer: Send packets from one chain to the other and get acknowlegement. e.g., From Astar/Shiden parachain to the Cosmos chain and the other way around.
 
 ### Requirement
 ```
@@ -23,7 +25,7 @@ pip install toml
 ```
 ### Start app chain
 - Start a substrate appchain and a cosmos appchain 
-- Update the relayer config file(hermes.toml in the script) based on the 2 chains above
+- Update the relayer config file(hermes.toml in the script) based on the 2 chains above if necessary
 ### Run test script
 ```
 # Get help info
