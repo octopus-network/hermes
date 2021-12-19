@@ -2,6 +2,7 @@ use alloc::collections::VecDeque;
 
 use crossbeam_channel as channel;
 
+#[derive(Clone)]
 pub struct EventBus<T> {
     txs: VecDeque<channel::Sender<T>>,
 }
@@ -31,14 +32,18 @@ impl<T> EventBus<T> {
     {
         let mut disconnected = Vec::new();
 
-        tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 4) txs: {:?}, value: {:?}",
-                        self.txs, value.clone());
+        tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 4) len: {:?}, value: {:?}",
+                        self.txs.len(), value.clone());
         for (idx, tx) in self.txs.iter().enumerate() {
+            tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 4.5) len: {:?}, value: {:?}",
+                            tx.len(), value.clone());
             // TODO: Avoid cloning when sending to last subscriber
-            if let Err(channel::SendError(_)) = tx.send(value.clone()) {
-                disconnected.push(idx);
+            if let Ok(_) = tx.try_send(value.clone()) {
+                tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 5), len: {:?}, value: {:?}", tx.len(), value.clone());
             } else {
-                tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 5), value: {:?}", value.clone());
+                disconnected.push(idx);
+                tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 6), disconnected. len: {:?} value: {:?}",
+                                tx.len(), value.clone());
             }
         }
 

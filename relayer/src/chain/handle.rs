@@ -312,6 +312,11 @@ pub enum ChainRequest {
 pub trait ChainHandle: Clone + Send + Sync + Serialize + Debug {
     fn new(chain_id: ChainId, sender: channel::Sender<ChainRequest>) -> Self;
 
+    fn send_messages_no_wait(
+        &self,
+        proto_msgs: Vec<prost_types::Any>,
+    );
+
     /// Get the [`ChainId`] of this chain.
     fn id(&self) -> ChainId;
 

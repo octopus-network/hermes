@@ -1,9 +1,9 @@
 // use crate::ibc_node;
-use calls::ibc_node;
+/*use calls::ibc_node;
 
 use sp_keyring::AccountKeyring;
 use subxt::{Client, ClientBuilder, EventSubscription, PairSigner};
-
+*/
 
 // can test
 // use ibc_node::runtime_types::frame_support::PalletId;
@@ -119,7 +119,7 @@ use subxt::{Client, ClientBuilder, EventSubscription, PairSigner};
 // }
 
 
-#[async_std::main]
+/*#[async_std::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
@@ -154,4 +154,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Failed to subscribe to Balances::Transfer Event");
     }
     Ok(())
-}
+}*/

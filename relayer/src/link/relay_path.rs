@@ -49,7 +49,7 @@ use crate::link::relay_summary::RelaySummary;
 use crate::link::{pending, relay_sender};
 use crate::util::queue::Queue;
 
-const MAX_RETRIES: usize = 5;
+const MAX_RETRIES: usize = 1;
 
 pub struct RelayPath<ChainA: ChainHandle, ChainB: ChainHandle> {
     channel: Channel<ChainA, ChainB>,
@@ -734,7 +734,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             return Ok(());
         }
 
-        let mut dst_err_ev = None;
+        // let mut dst_err_ev = None;
         for i in 0..MAX_RETRIES {
             let dst_update = self.build_update_client_on_dst(src_chain_height)?;
             info!(
@@ -745,25 +745,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 i + 1, MAX_RETRIES,
             );
 
-            let dst_tx_events = self
-                .dst_chain()
-                .send_messages_and_wait_commit(dst_update)
-                .map_err(LinkError::relayer)?;
-            info!("[{}] result {}\n", self, PrettyEvents(&dst_tx_events));
-
-            dst_err_ev = dst_tx_events
-                .into_iter()
-                .find(|event| matches!(event, IbcEvent::ChainError(_)));
-
-            if dst_err_ev.is_none() {
-                return Ok(());
-            }
+            self.dst_chain().send_messages_no_wait(dst_update);
         }
-
-        Err(LinkError::client(ForeignClientError::chain_error_event(
-            self.dst_chain().id(),
-            dst_err_ev.unwrap(),
-        )))
+        Ok(())
     }
 
     /// Handles updating the client on the source chain
@@ -776,7 +760,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             return Ok(());
         }
 
-        let mut src_err_ev = None;
+        // let mut src_err_ev = None;
         for _ in 0..MAX_RETRIES {
             let src_update = self.build_update_client_on_src(dst_chain_height)?;
             info!(
@@ -786,25 +770,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 dst_chain_height,
             );
 
-            let src_tx_events = self
-                .src_chain()
-                .send_messages_and_wait_commit(src_update)
-                .map_err(LinkError::relayer)?;
-            info!("[{}] result {}\n", self, PrettyEvents(&src_tx_events));
-
-            src_err_ev = src_tx_events
-                .into_iter()
-                .find(|event| matches!(event, IbcEvent::ChainError(_)));
-
-            if src_err_ev.is_none() {
-                return Ok(());
-            }
+            self.src_chain().send_messages_no_wait(src_update);
         }
-
-        Err(LinkError::client(ForeignClientError::chain_error_event(
-            self.src_chain().id(),
-            src_err_ev.unwrap(),
-        )))
+        Ok(())
     }
 
     /// Returns relevant packet events for building RecvPacket and timeout messages.
@@ -1193,11 +1161,11 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         dst_chain_height: Height,
     ) -> Result<(Option<Any>, Option<Any>), LinkError> {
         let timeout = self.build_timeout_from_send_packet_event(event, dst_chain_height)?;
-        if timeout.is_some() {
-            Ok((None, timeout))
-        } else {
+        // if timeout.is_some() {
+        //     Ok((None, timeout))
+        // } else {
             Ok((self.build_recv_packet(&event.packet, event.height)?, None))
-        }
+        // }
     }
 
     /// Checks if there are any operational data items ready,

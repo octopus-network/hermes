@@ -180,21 +180,6 @@ where
         tracing::info!("in runtime: [run]");
         use core::time::Duration;
         loop {
-            match self.event_receiver.try_recv() {
-                // tracing::trace!("in runtime: [run] -- relayer_process_channel_events 2) event_batch: {:?}", event_batch);
-                Ok(event_batch) => {
-                    tracing::trace!("in runtime: [run] -- relayer_process_channel_events 3) event_batch: {:?}",
-                                    event_batch);
-                    self.event_bus
-                        .broadcast(Arc::new(event_batch));
-                },
-                Err(e) => {
-                    // error!("received error via event bus: {}", e);
-                    sleep(Duration::from_millis(100));
-                    // return Err(Error::channel_receive(e));
-                },
-            };
-
             match self.request_receiver.try_recv() {
                 Ok(ChainRequest::Shutdown { reply_to }) => {
                     self.tx_monitor_cmd.send(MonitorCmd::Shutdown)
@@ -366,9 +351,29 @@ where
 
                 Err(e) => {
                     // error!("received error via chain request channel: {}", e);
-                    sleep(Duration::from_millis(300));
+                    sleep(Duration::from_millis(200));
                 },
             };
+
+            loop {
+                if self.event_receiver.len() == 0 {
+                    break;
+                }
+
+                tracing::trace!("in runtime: [run] -- relayer_process_channel_events 2) len: {:?}", self.event_receiver.len());
+                match self.event_receiver.try_recv() {
+                    Ok(event_batch) => {
+                        tracing::trace!("in runtime: [run] -- relayer_process_channel_events 3) event_batch: {:?}, len: {:?}",
+                                        event_batch, self.event_receiver.len());
+                        self.event_bus
+                            .broadcast(Arc::new(event_batch));
+                    },
+                    Err(e) => {
+                        // error!("received error via event bus: {}", e);
+                        // return Err(Error::channel_receive(e));
+                    },
+                };
+            }
         }
 
         Ok(())

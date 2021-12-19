@@ -69,11 +69,32 @@ impl ProdChainHandle {
 
         receiver.recv().map_err(Error::channel_receive)?
     }
+
+    fn send_async<F, O>(&self, f: F)
+        where
+            F: FnOnce(ReplyTo<O>) -> ChainRequest,
+            O: Debug,
+    {
+        let (sender, receiver) = reply_channel();
+        let input = f(sender);
+
+        self.runtime_sender.send(input);
+    }
 }
 
 impl ChainHandle for ProdChainHandle {
     fn new(chain_id: ChainId, sender: channel::Sender<ChainRequest>) -> Self {
         Self::new(chain_id, sender)
+    }
+
+    fn send_messages_no_wait(
+        &self,
+        proto_msgs: Vec<prost_types::Any>,
+    ) {
+        self.send_async(|reply_to| ChainRequest::SendMessagesAndWaitCommit {
+            proto_msgs,
+            reply_to,
+        });
     }
 
     fn id(&self) -> ChainId {

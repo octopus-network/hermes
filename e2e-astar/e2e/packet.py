@@ -46,16 +46,16 @@ class TxPacketSend(Cmd[TxPacketSendRes]):
             str(self.amount),
             "-o",
             str(self.height_offset),
-            # "-d",
-            # self.demo,
+            "-d",
+            self.demo,
             "-t 9999",
         ]
 
         if self.number_msgs != None:
             args.extend(['-n', str(self.number_msgs)])
 
-        # if self.key != None:
-        #     args.extend(['-k', str(self.key)])
+        if self.key != None:
+            args.extend(['-k', str(self.key)])
 
         return args
 

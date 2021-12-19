@@ -22,7 +22,7 @@ def passive_packets(c: Config, ibc0: ChainId, ibc1: ChainId, port_id: PortId,
 
     #start relaying - it should clear the unreceived packets
     proc = relayer.start(c)
-    sleep(40.0)
+    sleep(150.0)
 
     #send some packets
     # hermes tx raw ft-transfer ibc-0 ibc-1 transfer channel-1 10000 1000 -n 3
@@ -75,7 +75,7 @@ def passive_packets(c: Config, ibc0: ChainId, ibc1: ChainId, port_id: PortId,
                                  port=port_id,
                                  channel=ibc0_channel_id)
 
-    sleep(600.0)
+    sleep(1000.0)
     # Stop the relayer
     proc.kill()
 

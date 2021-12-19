@@ -362,10 +362,13 @@ impl EventMonitor {
 fn process_batch_for_substrate(send_tx: channel::Sender<Result<EventBatch>>, batch: EventBatch) -> Result<()> {
     tracing::info!("in substrate_mointor: [process_batch_for_substrate]");
 
+    tracing::trace!("in substrate_mointor: [relayer_process_channel_events 0] tx: {:?}, batch: {:?}, len: {:?}",
+                    send_tx, batch.clone(), send_tx.len());
     send_tx
         .try_send(Ok(batch.clone()))
         .map_err(|_| Error::channel_send_failed())?;
-    tracing::trace!("in substrate_mointor: [relayer_process_channel_events 1] tx: {:?}, batch: {:?}", send_tx, batch.clone());
+    tracing::trace!("in substrate_mointor: [relayer_process_channel_events 1] tx: {:?}, batch: {:?}, len: {:?}",
+                    send_tx, batch.clone(), send_tx.len());
     Ok(())
 }
 
@@ -1081,7 +1084,7 @@ async fn handle_single_event(raw_event: RawEvent, client: Client<ibc_node::Defau
 
     let height = get_latest_height(client).await; // Todo: Do not query for latest height every time
     let batch_event = from_raw_event_to_batch_event(raw_event, chain_id.clone(), height);
-    if(batch_event.events.len() > 0) {
+    if batch_event.events.len() > 0 {
         process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
             error!("[{}] {}", chain_id, e);
         });
