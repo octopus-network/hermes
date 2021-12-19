@@ -57,6 +57,12 @@ use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime;
 use tokio::runtime::Runtime as TokioRuntime;
 use tokio::task;
+use crate::{
+    util::retry::{retry_with_index, RetryResult},
+    worker::retry_strategy,
+};
+
+const MAX_QUERY_TIMES: u64 = 40;
 
 #[derive(Debug)]
 pub struct SubstrateChain {
@@ -1412,24 +1418,26 @@ impl ChainEndpoint for SubstrateChain {
     fn query_latest_height(&self) -> Result<ICSHeight, Error> {
         tracing::info!("in Substrate: [query_latest_height]");
 
-        let latest_height = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>().await.unwrap();
-            sleep(Duration::from_secs(4)).await;
+        let height = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            let height = self.get_latest_height(client).await.unwrap();
+            let latest_height = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>().await.unwrap();
+                // sleep(Duration::from_secs(4)).await;
+                self.get_latest_height(client).await
+            };
 
-            tracing::info!(
-                "In Substrate: [query_latest_height] >> height: {:?}",
-                height
-            );
+            match self.block_on(latest_height) {
+                Ok(_v) => RetryResult::Ok(_v),
+                Err(_e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
-            height
-        };
-
-        let revision_height = self.block_on(latest_height);
-        let latest_height = Height::new(0, revision_height);
+        let latest_height = Height::new(0, height.unwrap());
         Ok(latest_height)
     }
 
@@ -2247,6 +2255,8 @@ pub fn get_dummy_merkle_proof() -> MerkleProof {
 }
 
 use ibc::ics07_tendermint::header::Header as tHeader;
+use retry::delay::Fixed;
+
 pub fn get_dummy_ics07_header() -> tHeader {
     use tendermint::block::signed_header::SignedHeader;
     // Build a SignedHeader from a JSON file.
