@@ -123,7 +123,7 @@ pub fn process(ctx: &dyn ChannelReader, msg: MsgRecvPacket) -> HandlerResult<Pac
     output.log("success: packet receive");
 
     output.emit(IbcEvent::ReceivePacket(ReceivePacket {
-        height: Height::zero(),
+        height: ctx.host_height(),
         packet: msg.packet,
     }));
 
