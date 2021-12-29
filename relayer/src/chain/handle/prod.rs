@@ -71,9 +71,9 @@ impl ProdChainHandle {
     }
 
     fn send_async<F, O>(&self, f: F)
-        where
-            F: FnOnce(ReplyTo<O>) -> ChainRequest,
-            O: Debug,
+    where
+        F: FnOnce(ReplyTo<O>) -> ChainRequest,
+        O: Debug,
     {
         let (sender, receiver) = reply_channel();
         let input = f(sender);
@@ -87,10 +87,7 @@ impl ChainHandle for ProdChainHandle {
         Self::new(chain_id, sender)
     }
 
-    fn send_messages_no_wait(
-        &self,
-        proto_msgs: Vec<prost_types::Any>,
-    ) {
+    fn send_messages_no_wait(&self, proto_msgs: Vec<prost_types::Any>) {
         self.send_async(|reply_to| ChainRequest::SendMessagesAndWaitCommit {
             proto_msgs,
             reply_to,

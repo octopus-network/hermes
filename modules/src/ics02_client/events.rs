@@ -228,11 +228,10 @@ impl core::fmt::Display for UpdateClient {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ClientMisbehaviour(pub Attributes);
 
-impl  From<Attributes> for ClientMisbehaviour {
-    fn from(val : Attributes) -> Self {
+impl From<Attributes> for ClientMisbehaviour {
+    fn from(val: Attributes) -> Self {
         Self(val)
     }
-
 }
 
 impl ClientMisbehaviour {

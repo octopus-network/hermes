@@ -47,9 +47,11 @@ impl Runnable for QueryTxEventsCmd {
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
-                let chain =
-                    ChainRuntime::<CosmosSdkChain>::spawn::<ProdChainHandle>(chain_config.clone(), rt)
-                        .unwrap();
+                let chain = ChainRuntime::<CosmosSdkChain>::spawn::<ProdChainHandle>(
+                    chain_config.clone(),
+                    rt,
+                )
+                .unwrap();
 
                 let res = Hash::from_str(self.hash.as_str())
                     .map_err(|e| Error::invalid_hash(self.hash.clone(), e))
@@ -65,9 +67,11 @@ impl Runnable for QueryTxEventsCmd {
                 }
             }
             "substrate" => {
-                let chain =
-                    ChainRuntime::<SubstrateChain>::spawn::<ProdChainHandle>(chain_config.clone(), rt)
-                        .unwrap();
+                let chain = ChainRuntime::<SubstrateChain>::spawn::<ProdChainHandle>(
+                    chain_config.clone(),
+                    rt,
+                )
+                .unwrap();
 
                 let res = Hash::from_str(self.hash.as_str())
                     .map_err(|e| Error::invalid_hash(self.hash.clone(), e))
@@ -84,6 +88,5 @@ impl Runnable for QueryTxEventsCmd {
             }
             _ => panic!("Unknown chain type"),
         }
-
     }
 }

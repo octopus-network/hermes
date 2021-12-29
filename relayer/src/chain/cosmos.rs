@@ -1697,7 +1697,6 @@ impl ChainEndpoint for CosmosSdkChain {
         .map_err(Error::ics07)?;
 
         Ok(AnyClientState::Tendermint(client_state))
-
     }
 
     fn build_consensus_state(
@@ -1706,7 +1705,9 @@ impl ChainEndpoint for CosmosSdkChain {
     ) -> Result<Self::ConsensusState, Error> {
         crate::time!("build_consensus_state");
 
-        Ok(AnyConsensusState::Tendermint(TMConsensusState::from(light_block.signed_header.header)))
+        Ok(AnyConsensusState::Tendermint(TMConsensusState::from(
+            light_block.signed_header.header,
+        )))
     }
 
     fn build_header(

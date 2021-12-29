@@ -9,7 +9,7 @@ use ibc_relayer::{
     chain::{
         handle::{ChainHandle, ProdChainHandle},
         runtime::ChainRuntime,
-        CosmosSdkChain, SubstrateChain
+        CosmosSdkChain, SubstrateChain,
     },
     config::Config,
 };
@@ -39,7 +39,6 @@ impl<Chain: ChainHandle> ChainHandlePair<Chain> {
         let dst = spawn_chain_runtime_generic(config, dst_chain_id)?;
         tracing::info!("In cli_util: [spawn] >> src: {:?}, dst: {:?}", src, dst);
 
-
         Ok(ChainHandlePair { src, dst })
     }
 }
@@ -64,28 +63,36 @@ pub fn spawn_chain_runtime_generic<Chain: ChainHandle>(
     config: &Config,
     chain_id: &ChainId,
 ) -> Result<Chain, Error> {
-        tracing::info!("In cli_util: [spawn_chain_runtime]");
+    tracing::info!("In cli_util: [spawn_chain_runtime]");
     let chain_config = config
         .find_chain(chain_id)
         .cloned()
         .ok_or_else(|| Error::missing_config(chain_id.clone()))?;
-    tracing::info!("in cli_util: [spawn_chain_runtime_generic] chain_id  = {}", chain_id);
+    tracing::info!(
+        "in cli_util: [spawn_chain_runtime_generic] chain_id  = {}",
+        chain_id
+    );
 
     let account_prefix = chain_config.account_prefix.clone();
-    tracing::info!("in cli_util: [spawn_chain_runtime_generic] account_prefix: {}", account_prefix);
+    tracing::info!(
+        "in cli_util: [spawn_chain_runtime_generic] account_prefix: {}",
+        account_prefix
+    );
 
-    let handle = match account_prefix.as_str()  {
+    let handle = match account_prefix.as_str() {
         "cosmos" | "chaina" | "chainb" => {
             let rt = Arc::new(TokioRuntime::new().unwrap());
-            let handle = ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
-            handle
-        },
-        "substrate" => {
-            let rt = Arc::new(TokioRuntime::new().unwrap());
-            let handle = ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
+            let handle =
+                ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
             handle
         }
-        _ => unimplemented!()
+        "substrate" => {
+            let rt = Arc::new(TokioRuntime::new().unwrap());
+            let handle =
+                ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
+            handle
+        }
+        _ => unimplemented!(),
     };
 
     Ok(handle)

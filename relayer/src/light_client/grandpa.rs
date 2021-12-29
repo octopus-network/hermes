@@ -4,12 +4,12 @@ use crate::error::Error;
 use crate::light_client::Verified;
 use ibc::ics02_client::client_state::AnyClientState;
 use ibc::ics02_client::events::UpdateClient;
-use ibc::ics02_client::header::Header;
-use ibc::ics02_client::misbehaviour::{MisbehaviourEvidence, AnyMisbehaviour};
-use ibc::ics10_grandpa::header::Header as GPHeader;
-use ibc::Height;
 use ibc::ics02_client::header::AnyHeader;
+use ibc::ics02_client::header::Header;
+use ibc::ics02_client::misbehaviour::{AnyMisbehaviour, MisbehaviourEvidence};
+use ibc::ics10_grandpa::header::Header as GPHeader;
 use ibc::ics24_host::identifier::ClientId;
+use ibc::Height;
 
 pub struct LightClient {}
 
@@ -28,7 +28,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
     ) -> Result<Verified<GPHeader>, Error> {
         tracing::info!("In grandpa: [header_and_minimal_set]");
 
-        Ok(Verified{
+        Ok(Verified {
             target: GPHeader::new(target.revision_height),
             supporting: Vec::new(),
         })
@@ -55,7 +55,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
     ) -> Result<Option<MisbehaviourEvidence>, Error> {
         tracing::info!("in grandpa: [check_misbehaviour]");
         // Uncomment below will return a good misbehaviour which will be sent to Cosmos chain and freeze the Grandpa client
-/*        let anyheader = update.header.unwrap();
+        /*        let anyheader = update.header.unwrap();
 
         Ok(Some(MisbehaviourEvidence{
             misbehaviour: AnyMisbehaviour::Grandpa(ibc::ics10_grandpa::misbehaviour::Misbehaviour{
@@ -65,7 +65,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
             }),
             supporting_headers: vec![anyheader],
         }))*/
-        Ok(None)  // Todo: May need to implement the same logic of check_misbehaviour in tendermint.rs
+        Ok(None) // Todo: May need to implement the same logic of check_misbehaviour in tendermint.rs
     }
 
     fn fetch(&mut self, height: Height) -> Result<(), Error> {

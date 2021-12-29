@@ -34,7 +34,11 @@ impl Runnable for TxCreateClientCmd {
         if self.src_chain_id == self.dst_chain_id {
             Output::error("source and destination chains must be different".to_string()).exit()
         }
-        tracing::info!("In Client: [run] >> src_chain_id: {}, dst_chain_id: {}", self.src_chain_id, self.dst_chain_id);
+        tracing::info!(
+            "In Client: [run] >> src_chain_id: {}, dst_chain_id: {}",
+            self.src_chain_id,
+            self.dst_chain_id
+        );
 
         let chains = match ChainHandlePair::spawn(&config, &self.src_chain_id, &self.dst_chain_id) {
             Ok(chains) => chains,
@@ -42,7 +46,11 @@ impl Runnable for TxCreateClientCmd {
         };
         tracing::info!("In Client: [run] >> ChainHandlePair: {:?}", chains);
 
-        let client = ForeignClient::restore(ClientId::new(ClientType::Grandpa, 0).unwrap(), chains.dst, chains.src);
+        let client = ForeignClient::restore(
+            ClientId::new(ClientType::Grandpa, 0).unwrap(),
+            chains.dst,
+            chains.src,
+        );
         tracing::info!("In Client: [run] >> client: {}", client);
 
         // Trigger client creation via the "build" interface, so that we obtain the resulting event

@@ -60,7 +60,7 @@ impl Runnable for QueryConnectionEndCmd {
                                 "connection '{}' does not exist",
                                 self.connection_id
                             ))
-                                .exit()
+                            .exit()
                         } else {
                             Output::success(connection_end).exit()
                         }
@@ -80,7 +80,7 @@ impl Runnable for QueryConnectionEndCmd {
                                 "connection '{}' does not exist",
                                 self.connection_id
                             ))
-                                .exit()
+                            .exit()
                         } else {
                             Output::success(connection_end).exit()
                         }
@@ -133,7 +133,8 @@ impl Runnable for QueryConnectionChannelsCmd {
                     pagination: ibc_proto::cosmos::base::query::pagination::all(),
                 };
 
-                let res: Result<_, Error> = chain.query_connection_channels(req).map_err(Error::relayer);
+                let res: Result<_, Error> =
+                    chain.query_connection_channels(req).map_err(Error::relayer);
 
                 match res {
                     Ok(channels) => {
@@ -148,7 +149,7 @@ impl Runnable for QueryConnectionChannelsCmd {
                     }
                     Err(e) => Output::error(format!("{}", e)).exit(),
                 }
-            },
+            }
             "substrate" => {
                 let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
 
@@ -157,7 +158,8 @@ impl Runnable for QueryConnectionChannelsCmd {
                     pagination: ibc_proto::cosmos::base::query::pagination::all(),
                 };
 
-                let res: Result<_, Error> = chain.query_connection_channels(req).map_err(Error::relayer);
+                let res: Result<_, Error> =
+                    chain.query_connection_channels(req).map_err(Error::relayer);
 
                 match res {
                     Ok(channels) => {

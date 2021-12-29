@@ -1,6 +1,6 @@
+use alloc::vec::Vec;
 use core::convert::Infallible;
 use core::convert::{TryFrom, TryInto};
-use alloc::vec::Vec;
 
 use serde::Serialize;
 
@@ -21,9 +21,7 @@ pub struct ConsensusState {
 
 impl ConsensusState {
     pub fn new(root: CommitmentRoot) -> Self {
-        Self {
-            root
-        }
+        Self { root }
     }
 }
 
@@ -88,7 +86,7 @@ impl From<Header> for ConsensusState {
             temp_vec.push(val);
         }
         Self {
-            root: CommitmentRoot::from(temp_vec)
+            root: CommitmentRoot::from(temp_vec),
         }
     }
 }

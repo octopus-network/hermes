@@ -1164,7 +1164,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         // if timeout.is_some() {
         //     Ok((None, timeout))
         // } else {
-            Ok((self.build_recv_packet(&event.packet, event.height)?, None))
+        Ok((self.build_recv_packet(&event.packet, event.height)?, None))
         // }
     }
 

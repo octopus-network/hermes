@@ -58,7 +58,7 @@ impl Runnable for QueryChannelEndCmd {
                                 "port '{}' & channel '{}' does not exist",
                                 self.port_id, self.channel_id
                             ))
-                                .exit()
+                            .exit()
                         } else {
                             Output::success(channel_end).exit()
                         }
@@ -78,7 +78,7 @@ impl Runnable for QueryChannelEndCmd {
                                 "port '{}' & channel '{}' does not exist",
                                 self.port_id, self.channel_id
                             ))
-                                .exit()
+                            .exit()
                         } else {
                             Output::success(channel_end).exit()
                         }
@@ -89,6 +89,5 @@ impl Runnable for QueryChannelEndCmd {
             _ => panic!("Unknown chain type"),
         }
         // TODO in the future
-
     }
 }

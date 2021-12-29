@@ -65,7 +65,10 @@ impl CreateConnectionCommand {
 
         let chains = ChainHandlePair::spawn(&config, &self.chain_a_id, chain_b_id)
             .unwrap_or_else(exit_with_unrecoverable_error);
-        tracing::info!("In Connection: [run_using_new_clients] >>  chains: [{:?}]", chains);
+        tracing::info!(
+            "In Connection: [run_using_new_clients] >>  chains: [{:?}]",
+            chains
+        );
 
         // Validate the other options. Bail if the CLI was invoked with incompatible options.
         if self.client_a.is_some() {

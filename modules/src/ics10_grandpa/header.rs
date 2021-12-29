@@ -26,9 +26,7 @@ impl fmt::Debug for Header {
 
 impl Header {
     pub fn new(height: u64) -> Self {
-        Self {
-            height,
-        }
+        Self { height }
     }
     pub fn height(&self) -> Height {
         Height::new(0, self.height)

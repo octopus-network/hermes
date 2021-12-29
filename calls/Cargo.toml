@@ -16,6 +16,10 @@ prost-types = { package = "informalsystems-prost-types", version = "0.8.1", defa
 
 ibc = { path = "../modules" }
 
+[dependencies.tendermint-proto]
+version = "=0.22.0"
+default-features = false
+
 #async-trait = "0.1.50"
 #codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive', 'full'] }
 #substrate-subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = "octopus-dev" }

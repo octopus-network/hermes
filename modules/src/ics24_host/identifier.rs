@@ -1,8 +1,8 @@
+use crate::alloc::string::ToString;
 use crate::prelude::*;
 use core::convert::TryFrom;
 use core::fmt::{self, Display, Formatter};
 use core::str::FromStr;
-use crate::alloc::string::ToString;
 use serde::{Deserialize, Serialize};
 
 use crate::ics02_client::client_type::ClientType;
@@ -280,7 +280,6 @@ impl Default for ConnectionId {
         Self::new(0)
     }
 }
-
 
 /// Equality check against string literal (satisfies &ConnectionId == &str).
 /// ```

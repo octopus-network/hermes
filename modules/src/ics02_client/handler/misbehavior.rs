@@ -11,8 +11,8 @@ use crate::ics02_client::error::Error;
 use crate::ics02_client::events::Attributes;
 use crate::ics02_client::handler::ClientResult;
 use crate::ics02_client::msgs::misbehavior::MsgSubmitAnyMisbehaviour;
-use crate::ics24_host::identifier::ClientId;
 use crate::ics10_grandpa::client_state::ClientState;
+use crate::ics24_host::identifier::ClientId;
 
 /// The result following the successful processing of a `MsgCreateAnyClient` message. Preferably
 /// this data type should be used with a qualified name `create_client::Result` to avoid ambiguity.
@@ -35,16 +35,17 @@ pub fn process(
     } = msg;
 
     // Read client type from the host chain store. The client should already exist.
-    let client_type = ctx
-        .client_type(&client_id)?;
+    let client_type = ctx.client_type(&client_id)?;
 
     let client_def = AnyClient::from_client_type(client_type);
 
     // Read client state from the host chain store.
-    let client_state = ctx
-        .client_state(&client_id)?;
+    let client_state = ctx.client_state(&client_id)?;
 
-    tracing::info!("In misbehaviour : [process] >> client_state: {:?}", client_state);
+    tracing::info!(
+        "In misbehaviour : [process] >> client_state: {:?}",
+        client_state
+    );
 
     let latest_height = client_state.latest_height();
     let consensus_state = ctx.consensus_state(&client_id, latest_height)?;
@@ -69,7 +70,6 @@ pub fn process(
         client_type: ClientType::Grandpa,
         ..Default::default()
     };
-
 
     output.emit(IbcEvent::ClientMisbehaviour(event_attributes.into()));
 

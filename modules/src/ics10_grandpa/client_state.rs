@@ -1,6 +1,6 @@
+use crate::alloc::string::ToString;
 use core::convert::{TryFrom, TryInto};
 use core::str::FromStr;
-use crate::alloc::string::ToString;
 use core::time::Duration;
 
 // mock grandpa as tendermint
@@ -38,9 +38,7 @@ impl ClientState {
     pub fn with_header(self, h: Header) -> Self {
         // TODO: Clarify which fields should update.
         ClientState {
-            latest_height: self
-                .latest_height
-                .with_revision_height(h.height),
+            latest_height: self.latest_height.with_revision_height(h.height),
             ..self
         }
     }
@@ -48,7 +46,7 @@ impl ClientState {
     /// Get the refresh time to ensure the state does not expire
     pub fn refresh_time(&self) -> Option<Duration> {
         //TODO
-        Some(Duration::new(3,0))
+        Some(Duration::new(3, 0))
     }
 
     /// Check if the state is expired when `elapsed` time has passed since the latest consensus

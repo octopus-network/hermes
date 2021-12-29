@@ -73,7 +73,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
             // Pop-out any unprocessed commands
             // If there are no incoming commands, it's safe to backoff.
             if self.cmd_rx.len() != 0 {
-                tracing::trace!("in packet: [run] -- relayer_process_channel_events 30) len: {:?}", self.cmd_rx.len());
+                tracing::trace!(
+                    "in packet: [run] -- relayer_process_channel_events 30) len: {:?}",
+                    self.cmd_rx.len()
+                );
             }
 
             let maybe_cmd = crossbeam_channel::select! {
@@ -84,8 +87,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
             // let result = retry_with_index(retry_strategy::worker_stubborn_strategy(), |index| {
             //     self.step(maybe_cmd.clone(), &mut link, index)
             // });
-                self.step(maybe_cmd.clone(), &mut link, 0);
-/*            match result {
+            self.step(maybe_cmd.clone(), &mut link, 0);
+            /*            match result {
                 Ok(Step::Success(summary)) => {
                     if !summary.is_empty() {
                         trace!("Packet worker produced relay summary: {:?}", summary);
@@ -160,7 +163,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
             .a_to_b
             // .refresh_schedule()
             .execute_schedule()
-            // .and_then(|_| link.a_to_b.execute_schedule())
+        // .and_then(|_| link.a_to_b.execute_schedule())
         {
             error!(
                 "[{}] worker: schedule execution encountered error: {}",
@@ -172,7 +175,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> PacketWorker<ChainA, ChainB> {
         // Todo: uncomment and test packet communications
         // let confirmation_result = link.a_to_b.process_pending_txs();
         // RetryResult::Ok(Step::Success(confirmation_result))
-        RetryResult::Ok(Step::Success(RelaySummary::empty()))  // The relay summary will be used for telemetry
+        RetryResult::Ok(Step::Success(RelaySummary::empty())) // The relay summary will be used for telemetry
     }
 
     /// Get a reference to the uni chan path worker's chains.

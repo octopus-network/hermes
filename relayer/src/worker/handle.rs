@@ -59,7 +59,10 @@ impl WorkerHandle {
         };
 
         if self.tx.len() != 0 {
-            tracing::trace!("in runtime: [send_events] -- relayer_process_channel_events 20) len: {:?}", self.tx.len());
+            tracing::trace!(
+                "in runtime: [send_events] -- relayer_process_channel_events 20) len: {:?}",
+                self.tx.len()
+            );
         }
 
         self.tx

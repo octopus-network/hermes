@@ -54,7 +54,7 @@ impl ClientDef for GrandpaClient {
         _consensus_height: Height,
         _expected_consensus_state: &AnyConsensusState,
     ) -> Result<(), Error> {
-       Ok(())
+        Ok(())
     }
 
     fn verify_connection_state(
@@ -153,9 +153,6 @@ impl ClientDef for GrandpaClient {
         _proof_upgrade_consensus_state: MerkleProof,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
         // TODO
-        Ok((
-            client_state.clone(),
-            consensus_state.clone(),
-        ))
+        Ok((client_state.clone(), consensus_state.clone()))
     }
 }

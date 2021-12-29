@@ -12,12 +12,12 @@ use tokio::task::JoinHandle;
 use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, trace};
 
+use subxt::Error as SubstrateError;
 use tendermint_rpc::{
     event::Event as RpcEvent,
     query::{EventType, Query},
     Error as RpcError, SubscriptionClient, Url, WebSocketClient, WebSocketClientDriver,
 };
-use subxt::Error as SubstrateError;
 
 use ibc::{events::IbcEvent, ics02_client::height::Height, ics24_host::identifier::ChainId};
 

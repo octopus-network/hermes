@@ -36,7 +36,6 @@ pub(crate) fn process(
             true
         };
 
-
     if !state_is_consistent || !counterparty_matches {
         // Old connection end is in incorrect state, propagate the error.
         return Err(Error::connection_mismatch(msg.connection_id().clone()));
@@ -71,7 +70,11 @@ pub(crate) fn process(
     conn_end.set_version(msg.version().clone());
 
     // TODO! after need to remove
-    let counterparty = Counterparty::new(conn_end.counterparty().client_id().clone(), Some(msg.counterparty_connection_id().clone()), ctx.commitment_prefix());
+    let counterparty = Counterparty::new(
+        conn_end.counterparty().client_id().clone(),
+        Some(msg.counterparty_connection_id().clone()),
+        ctx.commitment_prefix(),
+    );
     conn_end.set_counterparty(counterparty);
 
     let result = ConnectionResult {
@@ -79,7 +82,10 @@ pub(crate) fn process(
         connection_id_state: ConnectionIdState::Reused,
         connection_end: conn_end.clone(),
     };
-    tracing::info!("in ics03_connection: [conn_open_ack] >> result: {:?}", result);
+    tracing::info!(
+        "in ics03_connection: [conn_open_ack] >> result: {:?}",
+        result
+    );
 
     let event_attributes = Attributes {
         height: ctx.host_current_height().clone(),

@@ -12,16 +12,12 @@ use tokio::task::JoinHandle;
 use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, trace};
 
-
 use tendermint_rpc::{event::Event as RpcEvent, Url};
 
-use subxt::{
-    ClientBuilder, PairSigner, Client,
-    EventSubscription, RawEvent,
-    Error as SubstrateError,
-};
 use calls::ibc_node;
-
+use subxt::{
+    Client, ClientBuilder, Error as SubstrateError, EventSubscription, PairSigner, RawEvent,
+};
 
 use ibc::{events::IbcEvent, ics02_client::height::Height, ics24_host::identifier::ChainId};
 
@@ -48,20 +44,17 @@ mod retry_strategy {
     }
 }
 
-pub use super::monitor::Result;
 pub use super::monitor::Error;
+pub use super::monitor::Result;
 
 type SubscriptionResult = core::result::Result<RpcEvent, SubstrateError>;
 type SubscriptionStream = dyn Stream<Item = SubscriptionResult> + Send + Sync + Unpin;
 
-
-
-pub use super::monitor::EventSender;
-pub use super::monitor::EventReceiver;
-pub use super::monitor::TxMonitorCmd;
 pub use super::monitor::EventBatch;
+pub use super::monitor::EventReceiver;
+pub use super::monitor::EventSender;
 pub use super::monitor::MonitorCmd;
-
+pub use super::monitor::TxMonitorCmd;
 
 /// Connect to a Tendermint node, subscribe to a set of queries,
 /// receive push events over a websocket, and filter them for the
@@ -109,9 +102,11 @@ impl EventMonitor {
 
         let ws_addr = format!("{}", node_addr.clone());
         let client = rt
-            .block_on(async move { ClientBuilder::new()
-                .set_url(ws_addr)
-                .build::<ibc_node::DefaultConfig>().await
+            .block_on(async move {
+                ClientBuilder::new()
+                    .set_url(ws_addr)
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
             })
             .map_err(|_| Error::client_creation_failed(chain_id.clone(), node_addr.clone()))?;
 
@@ -165,7 +160,10 @@ impl EventMonitor {
             .rt
             .block_on(subscribe_events(self.client.clone()))
             .map_err(Error::subscribe_substrate_failed)?;
-        tracing::info!("in substrate_mointor: [subscribe] subscription: {:?}", subscription);
+        tracing::info!(
+            "in substrate_mointor: [subscribe] subscription: {:?}",
+            subscription
+        );
 
         subscriptions.push(subscription);
         // }
@@ -189,8 +187,8 @@ impl EventMonitor {
             .rt
             .block_on(
                 ClientBuilder::new()
-                .set_url(format!("{}", &self.node_addr.clone()))
-                .build::<ibc_node::DefaultConfig>()
+                    .set_url(format!("{}", &self.node_addr.clone()))
+                    .build::<ibc_node::DefaultConfig>(),
             )
             .map_err(|_| {
                 Error::client_creation_failed(self.chain_id.clone(), self.node_addr.clone())
@@ -303,7 +301,9 @@ impl EventMonitor {
         let send_batch = self.tx_batch.clone();
 
         let sub_event = async move {
-            let api = client.clone().to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+            let api = client
+                .clone()
+                .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
             let sub = api.client.rpc().subscribe_events().await.unwrap();
             let decoder = api.client.events_decoder();
             let mut sub = EventSubscription::<ibc_node::DefaultConfig>::new(sub, decoder);
@@ -314,7 +314,10 @@ impl EventMonitor {
                 let _send_batch = send_batch.clone();
 
                 if let Err(err) = raw_event {
-                    tracing::info!("In substrate_mointor: [run_loop] >> raw_event error: {:?}", err);
+                    tracing::info!(
+                        "In substrate_mointor: [run_loop] >> raw_event error: {:?}",
+                        err
+                    );
                     continue;
                 }
 
@@ -355,20 +358,29 @@ impl EventMonitor {
 
         Ok(())
     }
-
-
 }
 
-fn process_batch_for_substrate(send_tx: channel::Sender<Result<EventBatch>>, batch: EventBatch) -> Result<()> {
+fn process_batch_for_substrate(
+    send_tx: channel::Sender<Result<EventBatch>>,
+    batch: EventBatch,
+) -> Result<()> {
     tracing::info!("in substrate_mointor: [process_batch_for_substrate]");
 
-    tracing::trace!("in substrate_mointor: [relayer_process_channel_events 0] tx: {:?}, batch: {:?}, len: {:?}",
-                    send_tx, batch.clone(), send_tx.len());
+    tracing::trace!(
+        "in substrate_mointor: [relayer_process_channel_events 0] tx: {:?}, batch: {:?}, len: {:?}",
+        send_tx,
+        batch.clone(),
+        send_tx.len()
+    );
     send_tx
         .try_send(Ok(batch.clone()))
         .map_err(|_| Error::channel_send_failed())?;
-    tracing::trace!("in substrate_mointor: [relayer_process_channel_events 1] tx: {:?}, batch: {:?}, len: {:?}",
-                    send_tx, batch.clone(), send_tx.len());
+    tracing::trace!(
+        "in substrate_mointor: [relayer_process_channel_events 1] tx: {:?}, batch: {:?}, len: {:?}",
+        send_tx,
+        batch.clone(),
+        send_tx.len()
+    );
     Ok(())
 }
 
@@ -380,7 +392,10 @@ fn collect_events(
     tracing::info!("in substrate_mointor: [collect_events]");
 
     let events = crate::event::rpc::get_all_events(chain_id, event).unwrap_or_default();
-    tracing::info!("in substrate_mointor: [collect_events] : events: {:?}", events);
+    tracing::info!(
+        "in substrate_mointor: [collect_events] : events: {:?}",
+        events
+    );
     stream::iter(events).map(Ok)
 }
 //
@@ -423,8 +438,6 @@ fn collect_events(
 //     })
 // }
 
-
-
 /// Sort the given events by putting the NewBlock event first,
 /// and leaving the other events as is.
 fn sort_events(events: &mut Vec<IbcEvent>) {
@@ -441,7 +454,7 @@ use codec::Decode;
 /// Subscribe Events
 async fn subscribe_events(
     client: Client<ibc_node::DefaultConfig>,
-)  -> core::result::Result<RawEvent, SubstrateError> {
+) -> core::result::Result<RawEvent, SubstrateError> {
     tracing::info!("In substrate_monitor: [subscribe_events]");
 
     let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
@@ -454,14 +467,20 @@ async fn subscribe_events(
     result
 }
 
-
-fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height: u64) -> EventBatch {
+fn from_raw_event_to_batch_event(
+    raw_event: RawEvent,
+    chain_id: ChainId,
+    height: u64,
+) -> EventBatch {
     // tracing::info!("In substrate: [from_raw_event_to_batch_event] >> raw Event: {:?}", raw_event);
     let variant = raw_event.variant;
     // tracing::info!("In substrate: [from_raw_event_to_batch_event] >> variant: {:?}", variant);
     match variant.as_str() {
         "CreateClient" => {
-            let event  = <ibc_node::ibc::events::CreateClient as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::CreateClient as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> CreateClient Event");
 
             // let height = event.height;
@@ -475,21 +494,25 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let consensus_height = event.3;
 
             use ibc::ics02_client::events::Attributes;
-            let event = IbcEvent::CreateClient(ibc::ics02_client::events::CreateClient(Attributes {
-                height: height.to_ibc_height(),
-                client_id: client_id.to_ibc_client_id(),
-                client_type: client_type.to_ibc_client_type(),
-                consensus_height: consensus_height.to_ibc_height()
-            }));
+            let event =
+                IbcEvent::CreateClient(ibc::ics02_client::events::CreateClient(Attributes {
+                    height: height.to_ibc_height(),
+                    client_id: client_id.to_ibc_client_id(),
+                    client_type: client_type.to_ibc_client_type(),
+                    consensus_height: consensus_height.to_ibc_height(),
+                }));
 
             EventBatch {
                 height: height.to_ibc_height(),
                 events: vec![event],
                 chain_id: chain_id.clone(),
             }
-        },
+        }
         "UpdateClient" => {
-            let event = <ibc_node::ibc::events::UpdateClient as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::UpdateClient as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> UpdateClient Event");
 
             // let height = event.height;
@@ -502,7 +525,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let consensus_height = event.3;
 
             use ibc::ics02_client::events::Attributes;
-            let event = IbcEvent::UpdateClient(ibc::ics02_client::events::UpdateClient{
+            let event = IbcEvent::UpdateClient(ibc::ics02_client::events::UpdateClient {
                 common: Attributes {
                     height: height.to_ibc_height(),
                     client_id: client_id.to_ibc_client_id(),
@@ -516,9 +539,12 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
                 events: vec![event],
                 chain_id: chain_id.clone(),
             }
-        },
+        }
         "ClientMisbehaviour" => {
-            let event = <ibc_node::ibc::events::ClientMisbehaviour as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::ClientMisbehaviour as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> ClientMisbehaviour Event");
 
             // let height = event.height;
@@ -531,23 +557,26 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let consensus_height = event.3;
 
             use ibc::ics02_client::events::Attributes;
-            let event = IbcEvent::ClientMisbehaviour(ibc::ics02_client::events::ClientMisbehaviour(
-                Attributes {
+            let event = IbcEvent::ClientMisbehaviour(
+                ibc::ics02_client::events::ClientMisbehaviour(Attributes {
                     height: height.to_ibc_height(),
                     client_id: client_id.to_ibc_client_id(),
                     client_type: client_type.to_ibc_client_type(),
                     consensus_height: consensus_height.to_ibc_height(),
-                }
-            ));
+                }),
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),
                 events: vec![event],
                 chain_id: chain_id.clone(),
             }
-        },
+        }
         "OpenInitConnection" => {
-            let event = <ibc_node::ibc::events::OpenInitConnection as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::OpenInitConnection as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> OpenInitConnection Event");
 
             // let height = event.height;
@@ -562,22 +591,26 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let counterparty_client_id = event.4;
 
             use ibc::ics03_connection::events::Attributes;
-            let event = IbcEvent::OpenInitConnection(ibc::ics03_connection::events::OpenInit(Attributes {
-                height: height.to_ibc_height(),
-                connection_id,
-                client_id: client_id.to_ibc_client_id(),
-                counterparty_connection_id,
-                counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-            }));
+            let event =
+                IbcEvent::OpenInitConnection(ibc::ics03_connection::events::OpenInit(Attributes {
+                    height: height.to_ibc_height(),
+                    connection_id,
+                    client_id: client_id.to_ibc_client_id(),
+                    counterparty_connection_id,
+                    counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                }));
 
             EventBatch {
                 height: height.to_ibc_height(),
                 events: vec![event],
                 chain_id: chain_id.clone(),
             }
-        },
+        }
         "OpenTryConnection" => {
-            let event = <ibc_node::ibc::events::OpenTryConnection as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::OpenTryConnection as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> OpenTryConnection Event");
 
             // let height = event.height;
@@ -592,22 +625,26 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let counterparty_client_id = event.4;
 
             use ibc::ics03_connection::events::Attributes;
-            let event = IbcEvent::OpenTryConnection(ibc::ics03_connection::events::OpenTry(Attributes {
-                height: height.to_ibc_height(),
-                connection_id,
-                client_id: client_id.to_ibc_client_id(),
-                counterparty_connection_id,
-                counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-            }));
+            let event =
+                IbcEvent::OpenTryConnection(ibc::ics03_connection::events::OpenTry(Attributes {
+                    height: height.to_ibc_height(),
+                    connection_id,
+                    client_id: client_id.to_ibc_client_id(),
+                    counterparty_connection_id,
+                    counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                }));
 
             EventBatch {
                 height: height.to_ibc_height(),
                 events: vec![event],
                 chain_id: chain_id.clone(),
             }
-        },
+        }
         "OpenAckConnection" => {
-            let event = <ibc_node::ibc::events::OpenAckConnection as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::OpenAckConnection as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> OpenAckConnection Event");
 
             // let height = event.height;
@@ -622,24 +659,29 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let counterparty_client_id = event.4;
 
             use ibc::ics03_connection::events::Attributes;
-            let event = IbcEvent::OpenAckConnection(ibc::ics03_connection::events::OpenAck(Attributes {
-                height: height.to_ibc_height(),
-                connection_id,
-                client_id: client_id.to_ibc_client_id(),
-                counterparty_connection_id,
-                counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-            }));
+            let event =
+                IbcEvent::OpenAckConnection(ibc::ics03_connection::events::OpenAck(Attributes {
+                    height: height.to_ibc_height(),
+                    connection_id,
+                    client_id: client_id.to_ibc_client_id(),
+                    counterparty_connection_id,
+                    counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                }));
 
             EventBatch {
                 height: height.to_ibc_height(),
                 events: vec![event],
                 chain_id: chain_id.clone(),
             }
-        },
+        }
         "OpenConfirmConnection" => {
-            let event = <ibc_node::ibc::events::OpenConfirmConnection as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate_monitor: [subscribe_events] >> OpenConfirmConnection Event");
-
+            let event = <ibc_node::ibc::events::OpenConfirmConnection as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
+            tracing::info!(
+                "In substrate_monitor: [subscribe_events] >> OpenConfirmConnection Event"
+            );
 
             // let height = event.height;
             let height = event.0;
@@ -653,13 +695,15 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let counterparty_client_id = event.4;
 
             use ibc::ics03_connection::events::Attributes;
-            let event = IbcEvent::OpenConfirmConnection(ibc::ics03_connection::events::OpenConfirm(Attributes {
-                height: height.to_ibc_height(),
-                connection_id,
-                client_id: client_id.to_ibc_client_id(),
-                counterparty_connection_id,
-                counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-            }));
+            let event = IbcEvent::OpenConfirmConnection(
+                ibc::ics03_connection::events::OpenConfirm(Attributes {
+                    height: height.to_ibc_height(),
+                    connection_id,
+                    client_id: client_id.to_ibc_client_id(),
+                    counterparty_connection_id,
+                    counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
+                }),
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -669,7 +713,10 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
         }
 
         "OpenInitChannel" => {
-            let event = <ibc_node::ibc::events::OpenInitChannel as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::OpenInitChannel as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> OpenInitChannel Event");
 
             // let height = event.height;
@@ -686,14 +733,15 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::ics04_channel::events::Attributes;
-            let event = IbcEvent::OpenInitChannel(ibc::ics04_channel::events::OpenInit(Attributes{
-                height: height.to_ibc_height(),
-                port_id: port_id.to_ibc_port_id(),
-                channel_id: channel_id,
-                connection_id: connection_id.to_ibc_connection_id(),
-                counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                counterparty_channel_id: counterparty_channel_id,
-            }));
+            let event =
+                IbcEvent::OpenInitChannel(ibc::ics04_channel::events::OpenInit(Attributes {
+                    height: height.to_ibc_height(),
+                    port_id: port_id.to_ibc_port_id(),
+                    channel_id: channel_id,
+                    connection_id: connection_id.to_ibc_connection_id(),
+                    counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                    counterparty_channel_id: counterparty_channel_id,
+                }));
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -702,7 +750,10 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "OpenTryChannel" => {
-            let event = <ibc_node::ibc::events::OpenTryChannel as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::OpenTryChannel as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> OpenTryChannel Event");
 
             // let height = event.height;
@@ -719,7 +770,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::ics04_channel::events::Attributes;
-            let event = IbcEvent::OpenTryChannel(ibc::ics04_channel::events::OpenTry(Attributes{
+            let event = IbcEvent::OpenTryChannel(ibc::ics04_channel::events::OpenTry(Attributes {
                 height: height.to_ibc_height(),
                 port_id: port_id.to_ibc_port_id(),
                 channel_id: channel_id,
@@ -735,7 +786,10 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "OpenAckChannel" => {
-            let event = <ibc_node::ibc::events::OpenAckChannel as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::OpenAckChannel as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> OpenAckChannel Event");
 
             // let height = event.height;
@@ -752,7 +806,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::ics04_channel::events::Attributes;
-            let event = IbcEvent::OpenAckChannel(ibc::ics04_channel::events::OpenAck(Attributes{
+            let event = IbcEvent::OpenAckChannel(ibc::ics04_channel::events::OpenAck(Attributes {
                 height: height.to_ibc_height(),
                 port_id: port_id.to_ibc_port_id(),
                 channel_id: channel_id,
@@ -768,7 +822,10 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "OpenConfirmChannel" => {
-            let event = <ibc_node::ibc::events::OpenConfirmChannel as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::OpenConfirmChannel as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> OpenConfirmChannel Event");
 
             // let height = event.height;
@@ -785,14 +842,15 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::ics04_channel::events::Attributes;
-            let event = IbcEvent::OpenConfirmChannel(ibc::ics04_channel::events::OpenConfirm(Attributes{
-                height: height.to_ibc_height(),
-                port_id: port_id.to_ibc_port_id(),
-                channel_id: channel_id,
-                connection_id: connection_id.to_ibc_connection_id(),
-                counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                counterparty_channel_id: counterparty_channel_id,
-            }));
+            let event =
+                IbcEvent::OpenConfirmChannel(ibc::ics04_channel::events::OpenConfirm(Attributes {
+                    height: height.to_ibc_height(),
+                    port_id: port_id.to_ibc_port_id(),
+                    channel_id: channel_id,
+                    connection_id: connection_id.to_ibc_connection_id(),
+                    counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                    counterparty_channel_id: counterparty_channel_id,
+                }));
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -801,7 +859,10 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "CloseInitChannel" => {
-            let event = <ibc_node::ibc::events::CloseInitChannel as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::CloseInitChannel as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> CloseInitChannel Event");
 
             // let height = event.height;
@@ -818,14 +879,15 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::ics04_channel::events::Attributes;
-            let event = IbcEvent::CloseInitChannel(ibc::ics04_channel::events::CloseInit(Attributes{
-                height: height.to_ibc_height(),
-                port_id: port_id.to_ibc_port_id(),
-                channel_id: channel_id,
-                connection_id: connection_id.to_ibc_connection_id(),
-                counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                counterparty_channel_id: counterparty_channel_id,
-            }));
+            let event =
+                IbcEvent::CloseInitChannel(ibc::ics04_channel::events::CloseInit(Attributes {
+                    height: height.to_ibc_height(),
+                    port_id: port_id.to_ibc_port_id(),
+                    channel_id: channel_id,
+                    connection_id: connection_id.to_ibc_connection_id(),
+                    counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                    counterparty_channel_id: counterparty_channel_id,
+                }));
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -834,7 +896,10 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "CloseConfirmChannel" => {
-            let event = <ibc_node::ibc::events::CloseConfirmChannel as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::CloseConfirmChannel as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> CloseConfirmChannel Event");
 
             // let height = event.height;
@@ -851,31 +916,35 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::ics04_channel::events::Attributes;
-            let event = IbcEvent::CloseConfirmChannel(ibc::ics04_channel::events::CloseConfirm(Attributes{
-                height: height.to_ibc_height(),
-                port_id: port_id.to_ibc_port_id(),
-                channel_id: channel_id,
-                connection_id: connection_id.to_ibc_connection_id(),
-                counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                counterparty_channel_id: counterparty_channel_id,
-            }));
+            let event = IbcEvent::CloseConfirmChannel(ibc::ics04_channel::events::CloseConfirm(
+                Attributes {
+                    height: height.to_ibc_height(),
+                    port_id: port_id.to_ibc_port_id(),
+                    channel_id: channel_id,
+                    connection_id: connection_id.to_ibc_connection_id(),
+                    counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                    counterparty_channel_id: counterparty_channel_id,
+                },
+            ));
 
             EventBatch {
                 height: height.to_ibc_height(),
                 events: vec![event],
                 chain_id: chain_id.clone(),
             }
-
         }
         "SendPacket" => {
-            let event = <ibc_node::ibc::events::SendPacket as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::SendPacket as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [substrate_events] >> SendPacket Event");
 
             // let height = event.height;
             let height = event.0;
             // let packet = event.packet;
             let packet = event.1;
-            let event = IbcEvent::SendPacket(ibc::ics04_channel::events::SendPacket{
+            let event = IbcEvent::SendPacket(ibc::ics04_channel::events::SendPacket {
                 height: height.to_ibc_height(),
                 packet: packet.to_ibc_packet(),
             });
@@ -887,7 +956,10 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "ReceivePacket" => {
-            let event = <ibc_node::ibc::events::ReceivePacket as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::ReceivePacket as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [substrate_events] >> ReceivePacket Event");
 
             // let height = event.height;
@@ -895,7 +967,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             // let packet = event.packet;
             let packet = event.1;
 
-            let event = IbcEvent::ReceivePacket(ibc::ics04_channel::events::ReceivePacket{
+            let event = IbcEvent::ReceivePacket(ibc::ics04_channel::events::ReceivePacket {
                 height: height.to_ibc_height(),
                 packet: packet.to_ibc_packet(),
             });
@@ -907,8 +979,13 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "WriteAcknowledgement" => {
-            let event = <ibc_node::ibc::events::WriteAcknowledgement as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate_monitor: [substrate_events] >> WriteAcknowledgement Event");
+            let event = <ibc_node::ibc::events::WriteAcknowledgement as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
+            tracing::info!(
+                "In substrate_monitor: [substrate_events] >> WriteAcknowledgement Event"
+            );
 
             // let height = event.height;
             let height = event.0;
@@ -917,21 +994,24 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
 
             let ack = event.2;
 
-            let event = IbcEvent::WriteAcknowledgement(ibc::ics04_channel::events::WriteAcknowledgement{
-                height: height.to_ibc_height(),
-                packet: packet.to_ibc_packet(),
-                ack: ack,
-            });
+            let event =
+                IbcEvent::WriteAcknowledgement(ibc::ics04_channel::events::WriteAcknowledgement {
+                    height: height.to_ibc_height(),
+                    packet: packet.to_ibc_packet(),
+                    ack: ack,
+                });
 
             EventBatch {
                 height: height.to_ibc_height(),
                 events: vec![event],
                 chain_id: chain_id.clone(),
             }
-
         }
         "AcknowledgePacket" => {
-            let event = <ibc_node::ibc::events::AcknowledgePacket as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::AcknowledgePacket as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [substrate_events] >> AcknowledgePacket Event");
 
             // let height = event.height;
@@ -939,10 +1019,11 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             // let packet = event.packet;
             let packet = event.1;
 
-            let event = IbcEvent::AcknowledgePacket(ibc::ics04_channel::events::AcknowledgePacket{
-                height: height.to_ibc_height(),
-                packet: packet.to_ibc_packet(),
-            });
+            let event =
+                IbcEvent::AcknowledgePacket(ibc::ics04_channel::events::AcknowledgePacket {
+                    height: height.to_ibc_height(),
+                    packet: packet.to_ibc_packet(),
+                });
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -951,7 +1032,10 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "TimeoutPacket" => {
-            let event = <ibc_node::ibc::events::TimeoutPacket as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::TimeoutPacket as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [substrate_events] >> TimeoutPacket Event");
 
             // let height = event.height;
@@ -959,7 +1043,7 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             // let packet = event.packet;
             let packet = event.1;
 
-            let event = IbcEvent::TimeoutPacket(ibc::ics04_channel::events::TimeoutPacket{
+            let event = IbcEvent::TimeoutPacket(ibc::ics04_channel::events::TimeoutPacket {
                 height: height.to_ibc_height(),
                 packet: packet.to_ibc_packet(),
             });
@@ -971,18 +1055,24 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "TimeoutOnClosePacket" => {
-            let event = <ibc_node::ibc::events::TimeoutOnClosePacket as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
-            tracing::info!("In substrate_monitor: [substrate_events] >> TimeoutOnClosePacket Event");
+            let event = <ibc_node::ibc::events::TimeoutOnClosePacket as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
+            tracing::info!(
+                "In substrate_monitor: [substrate_events] >> TimeoutOnClosePacket Event"
+            );
 
             // let height = event.height;
             let height = event.0;
             // let packet = event.packet;
             let packet = event.1;
 
-            let event = IbcEvent::TimeoutOnClosePacket(ibc::ics04_channel::events::TimeoutOnClosePacket{
-                height: height.to_ibc_height(),
-                packet: packet.to_ibc_packet(),
-            });
+            let event =
+                IbcEvent::TimeoutOnClosePacket(ibc::ics04_channel::events::TimeoutOnClosePacket {
+                    height: height.to_ibc_height(),
+                    packet: packet.to_ibc_packet(),
+                });
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -991,7 +1081,9 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "Empty" => {
-            let event =  <ibc_node::ibc::events::Empty as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event =
+                <ibc_node::ibc::events::Empty as codec::Decode>::decode(&mut &raw_event.data[..])
+                    .unwrap();
             tracing::info!("in substrate_monitor: [substrate_events] >> Empty Event");
 
             let data = String::from_utf8(event.0).unwrap();
@@ -1005,7 +1097,10 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "ChainError" => {
-            let event =  <ibc_node::ibc::events::ChainError as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::ibc::events::ChainError as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("in substrate_monitor: [substrate_events] >> ChainError Event");
 
             let data = String::from_utf8(event.0).unwrap();
@@ -1019,31 +1114,31 @@ fn from_raw_event_to_batch_event(raw_event: RawEvent, chain_id: ChainId, height:
             }
         }
         "ExtrinsicSuccess" => {
-            let event = <ibc_node::system::events::ExtrinsicSuccess as codec::Decode>::decode(&mut &raw_event.data[..]).unwrap();
+            let event = <ibc_node::system::events::ExtrinsicSuccess as codec::Decode>::decode(
+                &mut &raw_event.data[..],
+            )
+            .unwrap();
             tracing::info!("In substrate_monitor: [subscribe_events] >> ExtrinsicSuccess Event");
 
-            let event = IbcEvent::NewBlock(ibc::ics02_client::events::NewBlock{
-                height: Height::new(0, height)  // Todo: to set revision_number
+            let event = IbcEvent::NewBlock(ibc::ics02_client::events::NewBlock {
+                height: Height::new(0, height), // Todo: to set revision_number
             });
 
             EventBatch {
-                height: Height::new(0, height),  // Todo: to set revision_number
+                height: Height::new(0, height), // Todo: to set revision_number
                 events: vec![event],
                 chain_id: chain_id.clone(),
             }
         }
-        _ =>  {
-
+        _ => {
             EventBatch {
-                height: Height::new(0, height),  // Todo: to set revision_number
+                height: Height::new(0, height), // Todo: to set revision_number
                 events: vec![],
                 chain_id: chain_id.clone(),
             }
-
         }
     }
 }
-
 
 pub enum Next {
     Abort,
@@ -1055,32 +1150,39 @@ async fn get_latest_height(client: Client<ibc_node::DefaultConfig>) -> u64 {
 
     let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
-    let mut block = api
-        .client
-        .rpc()
-        .subscribe_blocks()
-        .await.unwrap();
+    let mut block = api.client.rpc().subscribe_blocks().await.unwrap();
 
-    let height= match block.next().await {
-        Ok(Some(header)) => {
-            header.number as u64
-        },
+    let height = match block.next().await {
+        Ok(Some(header)) => header.number as u64,
         Ok(None) => {
             tracing::info!("In substrate_monitor: [get_latest_height] >> None");
             0
-        },
-        Err(err) =>  {
-            tracing::info!(" In substrate_monitor: [get_latest_height] >> error: {:?} ", err);
+        }
+        Err(err) => {
+            tracing::info!(
+                " In substrate_monitor: [get_latest_height] >> error: {:?} ",
+                err
+            );
             0
-        },
+        }
     };
-    tracing::info!("In substrate_monitor: [get_latest_height] >> height: {:?}", height);
+    tracing::info!(
+        "In substrate_monitor: [get_latest_height] >> height: {:?}",
+        height
+    );
     height
 }
 
-async fn handle_single_event(raw_event: RawEvent, client: Client<ibc_node::DefaultConfig>,
-                             chain_id: ChainId, send_batch: channel::Sender<Result<EventBatch>>) {
-    tracing::info!("in substrate_monitor: [run_loop] >> raw_event : {:?}", raw_event);
+async fn handle_single_event(
+    raw_event: RawEvent,
+    client: Client<ibc_node::DefaultConfig>,
+    chain_id: ChainId,
+    send_batch: channel::Sender<Result<EventBatch>>,
+) {
+    tracing::info!(
+        "in substrate_monitor: [run_loop] >> raw_event : {:?}",
+        raw_event
+    );
 
     let height = get_latest_height(client).await; // Todo: Do not query for latest height every time
     let batch_event = from_raw_event_to_batch_event(raw_event, chain_id.clone(), height);

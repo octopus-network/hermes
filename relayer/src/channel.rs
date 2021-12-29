@@ -678,8 +678,11 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
     }
 
     pub fn build_chan_open_init(&self) -> Result<Vec<Any>, ChannelError> {
-        tracing::info!("build_chan_open_init: src_port_id = {}, dst_port_id = {}",
-            self.src_port_id().clone(), self.dst_port_id().clone());
+        tracing::info!(
+            "build_chan_open_init: src_port_id = {}, dst_port_id = {}",
+            self.src_port_id().clone(),
+            self.dst_port_id().clone()
+        );
 
         let signer = self
             .dst_chain()
@@ -688,7 +691,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         tracing::info!("in channel: [build_chan_open_init] >> sigener {:?}", signer);
 
         let counterparty = Counterparty::new(self.src_port_id().clone(), None);
-        tracing::info!("in channel: [build_chan_open_init] >> counterparty {:?}", counterparty);
+        tracing::info!(
+            "in channel: [build_chan_open_init] >> counterparty {:?}",
+            counterparty
+        );
 
         let channel = ChannelEnd::new(
             State::Init,
@@ -698,7 +704,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             self.dst_version()?,
         );
 
-        tracing::info!("in channel: [build_chan_open_init] >> channel {:?}", channel);
+        tracing::info!(
+            "in channel: [build_chan_open_init] >> channel {:?}",
+            channel
+        );
 
         // Build the domain type message
         let new_msg = MsgChannelOpenInit {
@@ -796,15 +805,24 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         let src_channel_id = self
             .src_channel_id()
             .ok_or_else(ChannelError::missing_local_channel_id)?;
-        tracing::info!("in channel: [build_chan_open_try] >> src_channel_id {:?}", src_channel_id);
+        tracing::info!(
+            "in channel: [build_chan_open_try] >> src_channel_id {:?}",
+            src_channel_id
+        );
 
         // Channel must exist on source
         let mut src_channel = self
             .src_chain()
             .query_channel(self.src_port_id(), src_channel_id, Height::zero())
             .map_err(|e| ChannelError::query(self.src_chain().id(), e))?;
-        tracing::info!("in channel: [build_chan_open_try] >> src_chain {:?}", self.src_chain());
-        tracing::info!("in channel: [build_chan_open_try] >> src_channel {:?}", src_channel);
+        tracing::info!(
+            "in channel: [build_chan_open_try] >> src_chain {:?}",
+            self.src_chain()
+        );
+        tracing::info!(
+            "in channel: [build_chan_open_try] >> src_channel {:?}",
+            src_channel
+        );
 
         // TODO
         if src_channel.counterparty().port_id() != self.dst_port_id() {
