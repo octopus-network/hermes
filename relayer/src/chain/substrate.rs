@@ -699,8 +699,10 @@ impl SubstrateChain {
         let data = api
             .storage()
             .ibc()
-            .connections(connection_identifier.as_bytes().to_vec(), None)
+            .connections(connection_identifier.as_bytes().to_vec(), Some(block_hash))
             .await?;
+        
+        assert!(!data.is_empty());
 
         tracing::info!("in Substrate: [get_connectionend] >> data : {:?}", data);
 
@@ -723,8 +725,6 @@ impl SubstrateChain {
             channel_id.clone()
         );
 
-        // sleep(Duration::from_secs(60)).await;
-
         let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
         let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
@@ -744,7 +744,7 @@ impl SubstrateChain {
                 .channels(
                     port_id.as_bytes().to_vec(),
                     channel_id.as_bytes().to_vec(),
-                    None,
+                    Some(block_hash),
                 )
                 .await?;
 
@@ -754,6 +754,7 @@ impl SubstrateChain {
                 continue;
             }
         };
+        assert!(!data.is_empty());
 
         tracing::info!(
             "in substrate: [get_channel_end] >> data >> {:?}",
@@ -799,9 +800,10 @@ impl SubstrateChain {
                 port_id.as_bytes().to_vec(),
                 channel_id.as_bytes().to_vec(),
                 _seq,
-                None,
+                Some(block_hash),
             )
             .await?;
+        assert!(!data.is_empty());
 
         let _data = String::from_utf8(data).unwrap();
         if _data.eq("Ok") {
@@ -839,9 +841,10 @@ impl SubstrateChain {
                 port_id.as_bytes().to_vec(),
                 channel_id.as_bytes().to_vec(),
                 u64::from(*seq),
-                None,
+                Some(block_hash),
             )
             .await?;
+        assert!(!data.is_empty());
 
         let packet = Packet::decode_vec(&*data).unwrap();
         Ok(packet)
@@ -865,8 +868,9 @@ impl SubstrateChain {
         let data: Vec<u8> = api
             .storage()
             .ibc()
-            .client_states(client_id.as_bytes().to_vec(), None)
+            .client_states(client_id.as_bytes().to_vec(), Some(block_hash))
             .await?;
+        assert!(!data.is_empty());
 
         tracing::info!("in substrate [get_client_state]: client_state: {:?}", data);
 
@@ -905,8 +909,9 @@ impl SubstrateChain {
         let data = api
             .storage()
             .ibc()
-            .consensus_states(client_id.as_bytes().to_vec(), None)
+            .consensus_states(client_id.as_bytes().to_vec(), Some(block_hash))
             .await?;
+        assert!(!data.is_empty());
 
         // get the height consensus_state
         let mut consensus_state = vec![];
@@ -944,8 +949,9 @@ impl SubstrateChain {
         let ret: Vec<(Vec<u8>, Vec<u8>)> = api
             .storage()
             .ibc()
-            .consensus_states(client_id.as_bytes().to_vec(), None)
+            .consensus_states(client_id.as_bytes().to_vec(), Some(block_hash))
             .await?;
+        assert!(!ret.is_empty());
 
         let mut result = vec![];
         for (height, consensus_state) in ret.iter() {
@@ -995,7 +1001,7 @@ impl SubstrateChain {
             let ret: Vec<u8> = api
                 .storage()
                 .ibc()
-                .packet_receipt(port_id, channel_id, seq_u8, None)
+                .packet_receipt(port_id, channel_id, seq_u8, Some(block_hash))
                 .await?;
             if ret.is_empty() {
                 result.push(seq);
@@ -1031,8 +1037,9 @@ impl SubstrateChain {
         let client_states_keys: Vec<Vec<u8>> = api
             .storage()
             .ibc()
-            .client_states_keys(None)
+            .client_states_keys(Some(block_hash))
             .await?;
+        assert!(!client_states_keys.is_empty());
 
         // enumate every item get client_state value
         for key in client_states_keys {
@@ -1040,8 +1047,9 @@ impl SubstrateChain {
             let client_states_value: Vec<u8> = api
                 .storage()
                 .ibc()
-                .client_states(key.clone(), None)
+                .client_states(key.clone(), Some(block_hash))
                 .await?;
+            assert!(!client_states_value.is_empty());
             // store key-value
             ret.push((key.clone(), client_states_value));
         }
@@ -1084,16 +1092,18 @@ impl SubstrateChain {
         let connection_keys: Vec<Vec<u8>> = api
             .storage()
             .ibc()
-            .connections_keys(None)
+            .connections_keys(Some(block_hash))
             .await?;
+        assert!(!connection_keys.is_empty());
 
         for key in connection_keys {
             // get connectons value
             let value: Vec<u8> = api
                 .storage()
                 .ibc()
-                .connections(key.clone(), None)
+                .connections(key.clone(), Some(block_hash))
                 .await?;
+            assert!(!value.is_empty());
             // store key-value
             ret.push((key.clone(), value.clone()));
         }
@@ -1135,15 +1145,17 @@ impl SubstrateChain {
         let mut ret = vec![];
 
         let channels_keys: Vec<(Vec<u8>, Vec<u8>)> =
-            api.storage().ibc().channels_keys(None).await?;
+            api.storage().ibc().channels_keys(Some(block_hash)).await?;
+        assert!(!channels_keys.is_empty());
 
         for key in channels_keys {
             // get value
             let value: Vec<u8> = api
                 .storage()
                 .ibc()
-                .channels(key.0.clone(), key.1.clone(), None)
+                .channels(key.0.clone(), key.1.clone(), Some(block_hash))
                 .await?;
+            assert!(!value.is_empty());
             // store key-value
             ret.push((key.0.clone(), key.1.clone(), value));
         }
@@ -1188,8 +1200,9 @@ impl SubstrateChain {
         let packet_commitments_keys: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = api
             .storage()
             .ibc()
-            .packet_commitment_keys(None)
+            .packet_commitment_keys(Some(block_hash))
             .await?;
+        assert!(!packet_commitments_keys.is_empty());
 
         for key in packet_commitments_keys {
             // get value
@@ -1200,9 +1213,10 @@ impl SubstrateChain {
                     key.0.clone(),
                     key.1.clone(),
                     key.2.clone(),
-                    None,
+                    Some(block_hash),
                 )
                 .await?;
+            assert!(!!value.is_empty());
             // store key-value
             ret.push((key.0.clone(), key.1.clone(), key.2.clone(), value));
         }
@@ -1257,7 +1271,7 @@ impl SubstrateChain {
                 port_id.as_bytes().to_vec(),
                 channel_id.as_bytes().to_vec(),
                 _seq,
-                None,
+                Some(block_hash),
             )
             .await?;
 
@@ -1294,8 +1308,9 @@ impl SubstrateChain {
         let acknowledgements_keys: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)> = api
             .storage()
             .ibc()
-            .acknowledgements_keys(None)
+            .acknowledgements_keys(Some(block_hash))
             .await?;
+        assert!(!acknowledgements_keys.is_empty());
 
         for key in acknowledgements_keys {
             let value: Vec<u8> = api
@@ -1305,9 +1320,10 @@ impl SubstrateChain {
                     key.0.clone(),
                     key.1.clone(),
                     key.2.clone(),
-                    None,
+                    Some(block_hash),
                 )
                 .await?;
+            assert!(!value.is_empty());
             ret.push((key.0.clone(), key.1.clone(), key.2.clone(), value));
         }
 
@@ -1353,8 +1369,10 @@ impl SubstrateChain {
         let connection_id: Vec<u8> = api
             .storage()
             .ibc()
-            .connection_client(client_id.as_bytes().to_vec(), None)
+            .connection_client(client_id.as_bytes().to_vec(), Some(block_hash))
             .await?;
+        
+        assert!(!connection_id.is_empty());
         if connection_id.is_empty() {
             return Ok(Vec::new());
         }
@@ -1384,6 +1402,7 @@ impl SubstrateChain {
         let block_header = block.next().await.unwrap().unwrap();
 
         let block_hash = block_header.hash();
+
         tracing::info!(
             "In substrate: [get_client_connections] >> block_hash: {:?}",
             block_hash
@@ -1393,8 +1412,10 @@ impl SubstrateChain {
         let channel_id_and_port_id: Vec<(Vec<u8>, Vec<u8>)> = api
             .storage()
             .ibc()
-            .channels_connection(connection_id.as_bytes().to_vec(), None)
+            .channels_connection(connection_id.as_bytes().to_vec(), Some(block_hash))
             .await?;
+        
+        assert!(!channel_id_and_port_id.is_empty());
 
         let mut result = vec![];
 
