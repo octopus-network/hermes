@@ -2085,7 +2085,25 @@ impl ChainEndpoint for SubstrateChain {
             new_connection_end = connection_end;
         }
 
-        Ok((new_connection_end, get_dummy_merkle_proof()))
+        let generate_proof = async {
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>().await.unwrap();
+
+            sleep(Duration::from_secs(4)).await;
+
+            use jsonrpsee::types::to_json_value;
+            let params = &[to_json_value(height.revision_height - 1).unwrap()];
+            let generate_proof: pallet_mmr_rpc::LeafProof<String> = client.rpc().client.request("mmr_generateProof", params).await.unwrap();
+            tracing::info!("In Substrate: [proven_connection] >> generate_proof : {:?}", generate_proof);
+            let generate_proof_str = serde_json::to_string(&generate_proof).unwrap();
+            tracing::info!("In Substrate: [proven_connection] >> generate_proof to_string: {:?}", generate_proof_str);
+            generate_proof_str
+        };
+
+        let generate_proof = self.block_on(generate_proof);
+
+        Ok((new_connection_end, _get_dummy_merkle_proof(generate_proof)))
     }
 
     fn proven_client_consensus(
@@ -2243,6 +2261,31 @@ impl ChainEndpoint for SubstrateChain {
             vec![GPHeader::new(trusted_height.revision_height)],
         ))
     }
+}
+
+use ibc_proto::ics23::{commitment_proof, ExistenceProof, InnerOp};
+/// Returns a dummy `MerkleProof`, for testing only!
+pub fn _get_dummy_merkle_proof(proof: String) -> MerkleProof {
+    tracing::info!("in substrate: [get_dummy_merk_proof]");
+
+    let _inner_op = InnerOp{
+        hash: 0,
+        prefix: vec![0],
+        suffix: vec![0]
+    };
+
+    let _proof = commitment_proof::Proof::Exist(
+        ExistenceProof{
+            key: vec![0],
+            value: proof.as_bytes().to_vec(),
+            leaf: None,
+            path: vec![_inner_op],
+        }
+    );
+
+    let parsed = ibc_proto::ics23::CommitmentProof { proof: Some(_proof)};
+    let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
+    MerkleProof { proofs: mproofs }
 }
 
 /// Returns a dummy `MerkleProof`, for testing only!
