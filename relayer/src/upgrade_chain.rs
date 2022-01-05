@@ -185,8 +185,8 @@ impl From<UpgradeProposal> for LegacyProposal {
                     name: plan.name,
                     height: plan.height,
                     info: plan.info,
-                    time: None,
-                    upgraded_client_state: v.upgraded_client_state,
+                    // time: None,
+                    // upgraded_client_state: v.upgraded_client_state,
                 })
             } else {
                 None

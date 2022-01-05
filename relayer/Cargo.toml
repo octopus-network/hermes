@@ -72,7 +72,7 @@ pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', bra
 # pallet-ibc = { path = "../../substrate-ibc" }
 jsonrpsee = { version = "0.5.1", features = ["macros", "ws-client", "http-client"] }
 codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive', 'full'] }
-pallet-mmr-rpc = { git = "https://github.com/paritytech/substrate/", branch = "polkadot-v0.9.12" }
+pallet-mmr-rpc = { git = "https://github.com/paritytech/substrate/", branch = "polkadot-v0.9.12", default-features = false}
 
 
 [dependencies.tendermint]

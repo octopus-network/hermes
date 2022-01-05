@@ -55,12 +55,7 @@ impl TryFrom<RawHeader> for Header {
     type Error = Error;
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
-        Ok(Header {
-            height: raw
-                .height
-                .ok_or_else(Error::missing_height)?
-                .revision_height,
-        })
+        todo!()
     }
 }
 
@@ -70,8 +65,6 @@ pub fn decode_header<B: Buf>(buf: B) -> Result<Header, Error> {
 
 impl From<Header> for RawHeader {
     fn from(value: Header) -> Self {
-        Self {
-            height: Some(Height::new(0, value.height).into()),
-        }
+        todo!()
     }
 }

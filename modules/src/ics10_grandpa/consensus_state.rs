@@ -53,25 +53,13 @@ impl TryFrom<RawConsensusState> for ConsensusState {
     type Error = Error;
 
     fn try_from(raw: RawConsensusState) -> Result<Self, Self::Error> {
-        Ok(ConsensusState {
-            root: raw
-                .root
-                .ok_or_else(|| {
-                    Error::invalid_raw_consensus_state("missing commitment root".into())
-                })?
-                .hash
-                .into(),
-        })
+        todo!()
     }
 }
 
 impl From<ConsensusState> for RawConsensusState {
     fn from(value: ConsensusState) -> Self {
-        Self {
-            root: Some(ibc_proto::ibc::core::commitment::v1::MerkleRoot {
-                hash: value.root.into_vec(),
-            }),
-        }
+        todo!()
     }
 }
 

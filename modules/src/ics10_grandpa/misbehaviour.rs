@@ -54,11 +54,7 @@ impl TryFrom<RawMisbehaviour> for Misbehaviour {
 
 impl From<Misbehaviour> for RawMisbehaviour {
     fn from(value: Misbehaviour) -> Self {
-        RawMisbehaviour {
-            client_id: value.client_id.to_string(),
-            header_1: Some(value.header1.into()),
-            header_2: Some(value.header2.into()),
-        }
+        todo!()
     }
 }
 
