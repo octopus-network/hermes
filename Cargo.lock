@@ -3146,6 +3146,7 @@ checksum = "2386b4ebe91c2f7f51082d4cefa145d030e33a1842a96b12e4885cc3c01f7a55"
 [[package]]
 name = "pallet-ibc"
 version = "3.0.0-pre.0"
+source = "git+https://github.com/octopus-network/substrate-ibc.git?branch=feature/beefy#45031eb3c3cd78f7bb537d9a20d3106c17bf69c6"
 dependencies = [
  "frame-benchmarking",
  "frame-support",

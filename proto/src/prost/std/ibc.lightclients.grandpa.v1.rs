@@ -1,127 +1,179 @@
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Header {
+    ///uint32 block_number = 1
+    ///      [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"block_number\""];
+    #[prost(message, optional, tag = "1")]
+    pub signed_commitment: ::core::option::Option<SignedCommitment>,
+    #[prost(message, optional, tag = "2")]
+    pub validator_merkle_proof: ::core::option::Option<ValidatorMerkleProof>,
+    #[prost(message, optional, tag = "3")]
+    pub mmr_leaf: ::core::option::Option<MmrLeaf>,
+    #[prost(message, optional, tag = "4")]
+    pub mmr_leaf_proof: ::core::option::Option<MmrLeafProof>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SignedCommitment {
+    #[prost(message, optional, tag = "1")]
+    pub commitment: ::core::option::Option<Commitment>,
+    #[prost(message, repeated, tag = "2")]
+    pub signatures: ::prost::alloc::vec::Vec<Signature>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Commitment {
+    /// block height
+    #[prost(uint32, tag = "1")]
+    pub block_number: u32,
+    /// mmr root
+    #[prost(bytes = "vec", tag = "2")]
+    pub payload: ::prost::alloc::vec::Vec<u8>,
+    ///validator_set_id
+    #[prost(uint64, tag = "3")]
+    pub validator_set_id: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Signature {
+    #[prost(bytes = "vec", tag = "1")]
+    pub signature: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ValidatorMerkleProof {
+    //// Proof items (does not contain the leaf hash, nor the root obviously).
+    ////
+    //// This vec contains all inner node hashes necessary to reconstruct the root hash given the
+    //// leaf hash.
+    #[prost(bytes = "vec", repeated, tag = "1")]
+    pub proof: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+    //// Number of leaves in the original tree.
+    ////
+    //// This is needed to detect a case where we have an odd number of leaves that "get promoted"
+    //// to upper layers.
+    //// pub number_of_leaves: usize,
+    #[prost(uint32, tag = "2")]
+    pub number_of_leaves: u32,
+    //// Index of the leaf the proof is for (0-based).
+    //// pub leaf_index: usize,
+    #[prost(uint32, tag = "3")]
+    pub leaf_index: u32,
+    //// Leaf content.
+    ////pub leaf: Vec<u8>,
+    #[prost(bytes = "vec", tag = "4")]
+    pub leaf: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MmrLeaf {
+    //// Version of the leaf format.
+    //// Can be used to enable future format migrations and compatibility.
+    #[prost(uint32, tag = "1")]
+    pub version: u32,
+    //// Current block parent number and hash.
+    #[prost(message, optional, tag = "2")]
+    pub parent_number_and_hash: ::core::option::Option<ParentNumberAndHash>,
+    //// A merkle root of the next BEEFY authority set.
+    #[prost(message, optional, tag = "3")]
+    pub beefy_next_authority_set: ::core::option::Option<ValidatorSet>,
+    //// A merkle root of all registered parachain heads.
+    #[prost(bytes = "vec", tag = "4")]
+    pub parachain_heads: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ParentNumberAndHash {
+    #[prost(uint32, tag = "1")]
+    pub block_number: u32,
+    /// header hash
+    #[prost(bytes = "vec", tag = "2")]
+    pub mmr_root: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ValidatorSet {
+    //// Id of the next set.
+    ////
+    //// Id is required to correlate BEEFY signed commitments with the validator set.
+    //// Light Client can easily verify that the commitment witness it is getting is
+    //// produced by the latest validator set.
+    #[prost(uint64, tag = "1")]
+    pub id: u64,
+    //// Number of validators in the set.
+    ////
+    //// Some BEEFY Light Clients may use an interactive protocol to verify only subset
+    //// of signatures. We put set length here, so that these clients can verify the minimal
+    //// number of required signatures.
+    #[prost(uint32, tag = "2")]
+    pub len: u32,
+    //// Merkle Root Hash build from BEEFY AuthorityIds.
+    ////
+    //// This is used by Light Clients to confirm that the commitments are signed by the correct
+    //// validator set. Light Clients using interactive protocol, might verify only subset of
+    //// signatures, hence don't require the full list here (will receive inclusion proofs).
+    #[prost(bytes = "vec", tag = "3")]
+    pub root: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MmrLeafProof {
+    //// The index of the leaf the proof is for.
+    #[prost(uint64, tag = "1")]
+    pub leaf_index: u64,
+    //// Number of leaves in MMR, when the proof was generated.
+    #[prost(uint64, tag = "2")]
+    pub leaf_count: u64,
+    //// Proof elements (hashes of siblings of inner nodes on the path to the leaf).
+    #[prost(bytes = "vec", repeated, tag = "3")]
+    pub items: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+}
 /// Client state
-/// The GRANDPA client state tracks latest height and a possible frozen height.
-/// interface ClientState {
-///   latestHeight: uint64
-///   frozenHeight: Maybe<uint64>
-/// }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ClientState {
     #[prost(string, tag = "1")]
     pub chain_id: ::prost::alloc::string::String,
-    /// Latest height the client was updated to
-    #[prost(message, optional, tag = "2")]
-    pub latest_height: ::core::option::Option<super::super::super::core::client::v1::Height>,
+    /// block_number is height?
+    #[prost(uint32, tag = "2")]
+    pub block_number: u32,
     /// Block height when the client was frozen due to a misbehaviour
-    #[prost(message, optional, tag = "3")]
-    pub frozen_height: ::core::option::Option<super::super::super::core::client::v1::Height>,
+    #[prost(uint32, tag = "3")]
+    pub frozen_height: u32,
+    ///latest_commitment: Option<Commitment>
+    #[prost(message, optional, tag = "4")]
+    pub latest_commitment: ::core::option::Option<Commitment>,
+    #[prost(message, optional, tag = "5")]
+    pub validator_set: ::core::option::Option<ValidatorSet>,
 }
+// message InProcessState{
+//   uint32 position = 1;
+// 	bytes commitment_hash =2;
+// 	SignedCommitment signed_commitment = 3;
+// 	repeated ValidatorMerkleProof validator_proofs = 4;
+// 	BeefyNextAuthoritySet validator_set = 5;
+// }
+
 /// Consensus state
-/// The GRANDPA client tracks authority set and commitment root for all previously verified consensus states.
-/// interface ConsensusState {
-///   authoritySet: AuthoritySet
-///   commitmentRoot: []byte
-/// }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConsensusState {
-    /// commitment root (i.e app hash)
-    ///
-    /// authoritySet
-    /// AuthoritySet authority_set = 2 [(gogoproto.nullable) = false];
+    /// mmr root
     #[prost(message, optional, tag = "1")]
-    pub root: ::core::option::Option<super::super::super::core::commitment::v1::MerkleRoot>,
+    pub root: ::core::option::Option<Commitment>,
 }
-///   ibc.core.client.v1.Height from_height = 1 [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"frome_height\""];
-///   Header header_1 = 2 [(gogoproto.customname) = "Header1", (gogoproto.moretags) = "yaml:\"header_1\""];
-///   Header header_2 = 3 [(gogoproto.customname) = "Header2", (gogoproto.moretags) = "yaml:\"header_2\""];
-/// }
+//  message Header {
+//   option (gogoproto.goproto_getters) = false;
+//   /// The parent hash.
+//   bytes parent_hash = 1 [(gogoproto.nullable) = false];
+//   /// The block number.
+//   uint32 block_number = 2 [(gogoproto.nullable) = false];
+//   /// The state trie merkle root
+//   bytes state_root = 3 [(gogoproto.nullable) = false];
+//   /// The merkle root of the extrinsics.
+// 	bytes extrinsics_root = 4 [(gogoproto.nullable) = false];
+//   /// A chain-specific digest of data useful for light clients or referencing auxiliary data.
+//   bytes digest = 5 [(gogoproto.nullable) = false];
+// }
+
+/// Misbehaviour
+/// The Misbehaviour type is used for detecting misbehaviour and freezing the client - to prevent further packet flow -
+/// if applicable. GRANDPA client Misbehaviour consists of two headers at the same height both of which the light client
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Misbehaviour {
-    #[prost(string, tag = "1")]
-    pub client_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "1")]
+    pub client_id: u64,
     #[prost(message, optional, tag = "2")]
     pub header_1: ::core::option::Option<Header>,
     #[prost(message, optional, tag = "3")]
     pub header_2: ::core::option::Option<Header>,
-}
-/// Headers
-/// The GRANDPA client headers include the height, the commitment root,a justification of block and authority set.
-/// (In fact, here is a proof of authority set rather than the authority set itself, but we can using a fixed key
-/// to verify the proof and extract the real set, the details are ignored here)
-/// interface Header {
-///   height: uint64
-///   commitmentRoot: []byte
-///   justification: Justification
-///   authoritySet: AuthoritySet
-/// }
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Header {
-    #[prost(message, optional, tag = "1")]
-    pub height: ::core::option::Option<super::super::super::core::client::v1::Height>,
-}
-// Justification
-// A GRANDPA justification for block finality, it includes a commit message and an ancestry proof including
-// all headers routing all precommit target blocks to the commit target block. For example, the latest blocks
-// are A - B - C - D - E - F, where A is the last finalised block, F is the point where a majority for vote
-//(they may on B, C, D, E, F) can be collected. Then the proof need to include all headers from F back to A.
-
-/// interface Justification {
-///   round: uint64
-///   commit: Commit
-///   votesAncestries: []Header
-/// }
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Justification {
-    #[prost(uint64, tag = "1")]
-    pub round: u64,
-    #[prost(bytes = "vec", tag = "2")]
-    pub commit: ::prost::alloc::vec::Vec<u8>,
-    #[prost(message, repeated, tag = "3")]
-    pub votes_ancestry: ::prost::alloc::vec::Vec<Header>,
-}
-/// Authority set
-/// A set of authorities for GRANDPA.
-/// interface AuthoritySet {
-///   // this is incremented every time the set changes
-///   setId: uint64
-///   authorities: List<Pair<AuthorityId, AuthorityWeight>>
-/// }
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AuthoritySet {
-    #[prost(uint64, tag = "1")]
-    pub set_id: u64,
-    #[prost(message, repeated, tag = "2")]
-    pub authority: ::prost::alloc::vec::Vec<Authority>,
-}
-/// Authority
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Authority {
-    #[prost(bytes = "vec", tag = "1")]
-    pub authority_id: ::prost::alloc::vec::Vec<u8>,
-    #[prost(bytes = "vec", tag = "2")]
-    pub authority_weight: ::prost::alloc::vec::Vec<u8>,
-}
-/// Commit
-/// A commit message which is an aggregate of signed precommits.
-/// interface Commit {
-///   precommits: []SignedPrecommit
-/// }
-/// interface SignedPrecommit {
-///   targetHash: Hash
-///   signature: Signature
-///   id: AuthorityId
-/// }
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Commit {
-    #[prost(message, repeated, tag = "1")]
-    pub precommit: ::prost::alloc::vec::Vec<SignedPrecommit>,
-}
-/// SignedPrecommit
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SignedPrecommit {
-    #[prost(bytes = "vec", tag = "1")]
-    pub authority_id: ::prost::alloc::vec::Vec<u8>,
-    #[prost(bytes = "vec", tag = "2")]
-    pub target_hash: ::prost::alloc::vec::Vec<u8>,
-    #[prost(bytes = "vec", tag = "3")]
-    pub signature: ::prost::alloc::vec::Vec<u8>,
 }
