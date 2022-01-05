@@ -1,6 +1,7 @@
 use core::convert::Infallible;
 use core::convert::{TryFrom, TryInto};
 use alloc::vec::Vec;
+use alloc::vec;
 
 use serde::Serialize;
 
@@ -13,6 +14,7 @@ use crate::ics10_grandpa::error::Error;
 use crate::ics10_grandpa::header::Header;
 use crate::ics23_commitment::commitment::CommitmentRoot;
 use tendermint_proto::Protobuf;
+use super::help::Commitment;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ConsensusState {
@@ -23,6 +25,14 @@ impl ConsensusState {
     pub fn new(root: CommitmentRoot) -> Self {
         Self {
             root
+        }
+    }
+    
+    pub fn from_commit(root_commit: Commitment) -> Self {
+        let encode_root_commit = serde_json::to_string(&root_commit).unwrap().as_bytes().to_vec();
+
+        Self {
+            root: CommitmentRoot::from_bytes(&encode_root_commit)
         }
     }
 }
@@ -53,13 +63,25 @@ impl TryFrom<RawConsensusState> for ConsensusState {
     type Error = Error;
 
     fn try_from(raw: RawConsensusState) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(ConsensusState {
+            root: raw
+                .root
+                .ok_or_else(|| {
+                    Error::invalid_raw_consensus_state("missing commitment root".into())
+                })?
+                .hash
+                .into(),
+        })
     }
 }
 
 impl From<ConsensusState> for RawConsensusState {
     fn from(value: ConsensusState) -> Self {
-        todo!()
+        Self {
+            root: Some(ibc_proto::ibc::core::commitment::v1::MerkleRoot {
+                hash: value.root.into_vec(),
+            }),
+        }
     }
 }
 

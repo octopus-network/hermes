@@ -1,5 +1,6 @@
 use core::convert::{TryFrom, TryInto};
 use core::str::FromStr;
+use alloc::vec::Vec;
 use crate::alloc::string::ToString;
 use core::time::Duration;
 
@@ -14,33 +15,52 @@ use crate::ics24_host::identifier::ChainId;
 use crate::Height;
 use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
+use super::help::Commitment;
+use super::help::ValidatorSet;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState {
     pub chain_id: ChainId,
-    pub latest_height: Height,
+    pub block_number: u32,
     pub frozen_height: Height,
+    pub latest_commitment: Option<Commitment>,
+    pub validator_set: Option<ValidatorSet>,
+}
+
+impl Default for ClientState {
+    fn default() -> Self {
+        Self {
+            chain_id: Default::default(),
+            block_number: 0,
+            frozen_height: Default::default(),
+            latest_commitment: None,
+            validator_set: None
+        }
+    }
 }
 
 impl ClientState {
     pub fn new(
         chain_id: ChainId,
-        latest_height: Height,
+        block_number: u32,
         frozen_height: Height,
+        latest_commitment: Option<Commitment>,
+        validator_set: Option<ValidatorSet>,
     ) -> Result<Self, Error> {
-        Ok(ClientState {
+       let client_state = ClientState {
             chain_id,
-            latest_height,
+            block_number,
             frozen_height,
-        })
+            latest_commitment,
+            validator_set,
+       };
+
+       Ok(client_state)
     }
 
     pub fn with_header(self, h: Header) -> Self {
         // TODO: Clarify which fields should update.
         ClientState {
-            latest_height: self
-                .latest_height
-                .with_revision_height(h.height),
             ..self
         }
     }
@@ -60,7 +80,7 @@ impl ClientState {
     }
 
     pub fn latest_height(&self) -> Height {
-        self.latest_height
+        Height::new(0, self.block_number as u64)
     }
 }
 
@@ -76,7 +96,7 @@ impl crate::ics02_client::client_state::ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        self.latest_height
+        Height::new(0, self.block_number as u64)
     }
 
     fn is_frozen(&self) -> bool {

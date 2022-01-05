@@ -149,7 +149,7 @@ pub struct ClientState {
 pub struct ConsensusState {
     /// mmr root
     #[prost(message, optional, tag = "1")]
-    pub root: ::core::option::Option<Commitment>,
+    pub root: ::core::option::Option<super::super::super::core::commitment::v1::MerkleRoot>,
 }
 //  message Header {
 //   option (gogoproto.goproto_getters) = false;

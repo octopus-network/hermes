@@ -29,7 +29,8 @@ impl super::LightClient<SubstrateChain> for LightClient {
         tracing::info!("In grandpa: [header_and_minimal_set]");
 
         Ok(Verified{
-            target: GPHeader::new(target.revision_height),
+            // target: GPHeader::new(target.revision_height),
+            target: GPHeader::default(),
             supporting: Vec::new(),
         })
     }

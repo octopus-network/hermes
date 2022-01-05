@@ -2214,7 +2214,8 @@ impl ChainEndpoint for SubstrateChain {
         use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
 
         // Create mock grandpa client state
-        let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
+        // let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
+        let client_state = GPClientState::default();
         let any_client_state = AnyClientState::Grandpa(client_state);
 
         tracing::info!(
@@ -2253,12 +2254,15 @@ impl ChainEndpoint for SubstrateChain {
             trusted_height, target_height, client_state);
         tracing::info!(
             "in Substrate: [build_header] >> GPHEADER: {:?}",
-            GPHeader::new(target_height.revision_height)
+            GPHeader::default()
+            // GPHeader::new(target_height.revision_height)
         );
 
         Ok((
-            GPHeader::new(target_height.revision_height),
-            vec![GPHeader::new(trusted_height.revision_height)],
+            // GPHeader::new(target_height.revision_height),
+            GPHeader::default(),
+            vec![GPHeader::default()]
+            // vec![GPHeader::new(trusted_height.revision_height)],
         ))
     }
 }

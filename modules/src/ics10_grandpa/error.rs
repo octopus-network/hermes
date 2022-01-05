@@ -21,7 +21,7 @@ define_error! {
 
         InvalidChainIdentifier
             [ ValidationError ]
-            | _ | { "Invalid chain identifier" },
+            | _ | { "invalid chain identifier" },
 
         MissingFrozenHeight
             | _ | { "missing frozen height" },
@@ -29,8 +29,32 @@ define_error! {
         InvalidRawConsensusState
             { reason: String }
             | _ | { "invalid raw client consensus state" },
+
         InvalidRawMisbehaviour
             { reason: String }
             | _ | { "invalid raw misbehaviour" },
+
+        Encode
+            [ TraceError<prost::EncodeError> ]
+            | _ | { "encode error" },
+
+        EmptyCommitment
+            | _ | { "empty commitment"},
+
+        InvalidSignedCommitment
+            | _ | { "invalid Signed Commitment" },
+
+        InvalidValidatorMerkleProof
+            | _ | { "invalid Validator Merkle Proof" },
+
+        InvalidMmrLeaf
+            | _ | { "invalid Mmr Leaf" },
+
+        InvalidMmrLeafProof
+            | _ | { "invalid Mmr Lead Proof" },
+
+        InvalidCommitment
+            | _ | { "Invalid commitment"}
+
     }
 }
