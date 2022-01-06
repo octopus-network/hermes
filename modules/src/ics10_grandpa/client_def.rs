@@ -72,6 +72,17 @@ impl ClientDef for GrandpaClient {
         use ibc_proto::ics23::commitment_proof::Proof::Exist;
         use beefy_merkle_tree::Keccak256;
         use codec::Decode;
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+        pub struct LeafProof {
+            /// Block hash the proof was generated for.
+            pub block_hash: String,
+            /// SCALE-encoded leaf data.
+            pub leaf: sp_core::Bytes,
+            /// SCALE-encoded proof data. See [pallet_mmr_primitives::Proof].
+            pub proof: sp_core::Bytes,
+        }
 
         let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
         let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap();
@@ -79,10 +90,10 @@ impl ClientDef for GrandpaClient {
             Exist(_exist_proof) => {
                 let _proof_str = String::from_utf8_lossy(&*_exist_proof.value);
                 tracing::debug!("In ics10-client_def.rs: [verify_connection_state] >> _proof_str: {:?}", _proof_str);
-                let leaf_proof: pallet_mmr_rpc::LeafProof<String> = serde_json::from_str(&*_proof_str).unwrap();
+                let leaf_proof: LeafProof = serde_json::from_str(&*_proof_str).unwrap();
                 leaf_proof
             }
-            _ => {unimplemented!()}
+            _ => unimplemented!()
         };
 
         let mmr_root: [u8; 32] = _client_state.
