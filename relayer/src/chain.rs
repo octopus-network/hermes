@@ -51,7 +51,6 @@ pub(crate) mod substrate;
 #[cfg(test)]
 pub mod mock;
 
-
 /// The result of a health check.
 #[derive(Debug)]
 pub enum HealthCheck {
@@ -360,7 +359,10 @@ pub trait ChainEndpoint: Sized {
                 }
             }
         }
-        tracing::info!("In chain: [build_connection_proof_and_client_state] >> Successful ConnectionEnd: {:?}", connection_end.state);
+        tracing::info!(
+            "In chain: [build_connection_proof_and_client_state] >> Successful ConnectionEnd: {:?}",
+            connection_end.state
+        );
 
         let mut client_state = None;
         let mut client_proof = None;
@@ -370,9 +372,14 @@ pub trait ChainEndpoint: Sized {
             ConnectionMsgType::OpenTry | ConnectionMsgType::OpenAck => {
                 let (client_state_value, client_state_proof) =
                     self.proven_client_state(client_id, height)?;
-                tracing::info!("in chain: [build_connection_proof_and_client_state] >> client_state_value");
-                tracing::warn!("in chain: [build_connection_proof_and_client_state] >> client_state_value, \
-                    latest_height: {}", client_state_value.latest_height());
+                tracing::info!(
+                    "in chain: [build_connection_proof_and_client_state] >> client_state_value"
+                );
+                tracing::warn!(
+                    "in chain: [build_connection_proof_and_client_state] >> client_state_value, \
+                    latest_height: {}",
+                    client_state_value.latest_height()
+                );
 
                 client_proof = Some(CommitmentProofBytes::from(client_state_proof));
 
@@ -380,7 +387,9 @@ pub trait ChainEndpoint: Sized {
                     .proven_client_consensus(client_id, client_state_value.latest_height(), height)?
                     .1;
 
-                tracing::info!("in chain: [build_connection_proof_and_client_state] >> consensus_state_proof");
+                tracing::info!(
+                    "in chain: [build_connection_proof_and_client_state] >> consensus_state_proof"
+                );
 
                 consensus_proof = Option::from(
                     ConsensusProof::new(

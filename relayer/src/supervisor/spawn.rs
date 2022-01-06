@@ -183,7 +183,6 @@ impl<'a, Chain: ChainHandle + 'static> SpawnContext<'a, Chain> {
         }
     }
 
-
     pub fn spawn_workers_for_client(&mut self, chain: Chain, client: IdentifiedAnyClientState) {
         // Potentially ignore the client
         if self.client_filter_enabled()

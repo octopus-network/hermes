@@ -1,7 +1,7 @@
+use crate::alloc::string::ToString;
 use core::convert::{TryFrom, TryInto};
 use core::str::FromStr;
 use alloc::vec::Vec;
-use crate::alloc::string::ToString;
 use core::time::Duration;
 
 // mock grandpa as tendermint
@@ -68,7 +68,7 @@ impl ClientState {
     /// Get the refresh time to ensure the state does not expire
     pub fn refresh_time(&self) -> Option<Duration> {
         //TODO
-        Some(Duration::new(3,0))
+        Some(Duration::new(3, 0))
     }
 
     /// Check if the state is expired when `elapsed` time has passed since the latest consensus

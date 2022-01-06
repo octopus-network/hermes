@@ -69,7 +69,7 @@ impl Runnable for QueryAllClientsCmd {
 
                 let res: Result<_, Error> = chain.query_clients(req).map_err(Error::relayer);
                 res
-            },
+            }
             "cosmos" => {
                 let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap();
                 let req = QueryClientStatesRequest {
@@ -81,7 +81,6 @@ impl Runnable for QueryAllClientsCmd {
             }
             _ => unimplemented!("None chain type"),
         };
-
 
         // let req = QueryClientStatesRequest {
         //     pagination: ibc_proto::cosmos::base::query::pagination::all(),

@@ -4,8 +4,8 @@ use core::str::FromStr;
 
 use serde_derive::{Deserialize, Serialize};
 
-use tendermint_proto::Protobuf;
 use ibc_proto::ibc::core::channel::v1::Packet as RawPacket;
+use tendermint_proto::Protobuf;
 
 use crate::ics04_channel::error::Error;
 use crate::ics24_host::identifier::{ChannelId, PortId};

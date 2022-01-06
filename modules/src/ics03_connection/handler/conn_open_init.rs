@@ -42,7 +42,10 @@ pub(crate) fn process(
         connection_id_state: ConnectionIdState::Generated,
         connection_end: new_connection_end,
     };
-    tracing::info!("in ics03_connection: [conn_open_init] >> result : {:?}", result);
+    tracing::info!(
+        "in ics03_connection: [conn_open_init] >> result : {:?}",
+        result
+    );
 
     let event_attributes = Attributes {
         height: ctx.host_current_height().clone(),

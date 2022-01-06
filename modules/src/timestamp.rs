@@ -6,7 +6,6 @@ use core::ops::{Add, Sub};
 use core::str::FromStr;
 use core::time::Duration;
 
-
 use chrono::{offset::Utc, DateTime, TimeZone};
 use flex_error::{define_error, TraceError};
 use serde_derive::{Deserialize, Serialize};
@@ -110,7 +109,6 @@ impl Timestamp {
 }
 
 impl Display for Timestamp {
-
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,

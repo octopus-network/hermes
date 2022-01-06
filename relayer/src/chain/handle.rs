@@ -312,10 +312,7 @@ pub enum ChainRequest {
 pub trait ChainHandle: Clone + Send + Sync + Serialize + Debug {
     fn new(chain_id: ChainId, sender: channel::Sender<ChainRequest>) -> Self;
 
-    fn send_messages_no_wait(
-        &self,
-        proto_msgs: Vec<prost_types::Any>,
-    );
+    fn send_messages_no_wait(&self, proto_msgs: Vec<prost_types::Any>);
 
     /// Get the [`ChainId`] of this chain.
     fn id(&self) -> ChainId;
@@ -476,7 +473,7 @@ pub trait ChainHandle: Clone + Send + Sync + Serialize + Debug {
         client_state: AnyClientState,
     ) -> Result<Option<MisbehaviourEvidence>, Error>;
 
-    fn  build_connection_proofs_and_client_state(
+    fn build_connection_proofs_and_client_state(
         &self,
         message_type: ConnectionMsgType,
         connection_id: &ConnectionId,

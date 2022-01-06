@@ -55,7 +55,6 @@ impl core::str::FromStr for ClientType {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use core::str::FromStr;

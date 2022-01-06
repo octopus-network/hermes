@@ -6,9 +6,9 @@ use crate::ics02_client::error::Error;
 use crate::ics02_client::msgs::ClientMsg;
 
 pub mod create_client;
+pub mod misbehavior;
 pub mod update_client;
 pub mod upgrade_client;
-pub mod misbehavior;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientResult {

@@ -9,8 +9,8 @@ use crate::ics02_client::context::ClientReader;
 use crate::ics02_client::error::Error;
 use crate::ics02_client::events::Attributes;
 use crate::ics02_client::handler::ClientResult;
-use crate::ics02_client::msgs::update_client::MsgUpdateAnyClient;
 use crate::ics02_client::header::Header;
+use crate::ics02_client::msgs::update_client::MsgUpdateAnyClient;
 use crate::ics24_host::identifier::ClientId;
 use crate::prelude::*;
 

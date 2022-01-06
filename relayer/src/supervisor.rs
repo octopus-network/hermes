@@ -394,7 +394,11 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
 
         loop {
             if let Some((chain, batch)) = try_recv_multiple(&subscriptions) {
-                tracing::info!("in supervisor: [run] >>chain = {:?},  batch  = {:?}", chain, batch);
+                tracing::info!(
+                    "in supervisor: [run] >>chain = {:?},  batch  = {:?}",
+                    chain,
+                    batch
+                );
                 self.handle_batch(chain.clone(), batch);
             }
 
@@ -445,9 +449,12 @@ impl<Chain: ChainHandle + 'static> Supervisor<Chain> {
 
             match chain.subscribe() {
                 Ok(subscription) => {
-                    tracing::info!("in supervisor: [init_subscription] >> subscription: {:?}", subscription);
+                    tracing::info!(
+                        "in supervisor: [init_subscription] >> subscription: {:?}",
+                        subscription
+                    );
                     subscriptions.push((chain, subscription))
-                },
+                }
                 Err(e) => error!(
                     "failed to subscribe to events of {}: {}",
                     chain_config.id, e

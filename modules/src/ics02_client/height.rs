@@ -122,7 +122,6 @@ impl From<Height> for RawHeight {
     }
 }
 
-
 impl core::fmt::Debug for Height {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         f.debug_struct("Height")
