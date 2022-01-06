@@ -143,8 +143,8 @@ impl Default for MmrLeaf {
     fn default() -> Self {
         Self {
             version: 0,
-            parent_number_and_hash: None,
-            beefy_next_authority_set: None,
+            parent_number_and_hash: Some(ParentNumberAndHash::default()),
+            beefy_next_authority_set: Some(ValidatorSet::default()),
             parachain_heads: vec![]
         }
     }
@@ -158,6 +158,13 @@ pub struct ParentNumberAndHash {
     pub block_number: u32,
     /// header hash
     pub mmr_root: Vec<u8>,
+}
+
+
+impl Default for ParentNumberAndHash {
+    fn default() -> Self {
+        Self { block_number: 0, mmr_root: vec![] }
+    }
 }
 
 impl From<RawParentNumberAndHash> for ParentNumberAndHash {
@@ -210,7 +217,7 @@ impl From<SignedCommitment> for RawSignedCommitment {
 impl  Default for SignedCommitment {
     fn default() -> Self {
         Self {
-            commitment: None,
+            commitment: Some(Commitment::default()),
             signatures: vec![]
         }
     }
