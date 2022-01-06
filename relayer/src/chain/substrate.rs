@@ -49,6 +49,7 @@ use ibc_proto::ibc::core::connection::v1::{
 use prost_types::Any;
 use sp_keyring::AccountKeyring;
 use std::thread;
+use beefy_light_client::commitment::Commitment;
 use subxt::sp_runtime::generic::Header;
 use subxt::sp_runtime::traits::BlakeTwo256;
 use subxt::{Client, ClientBuilder, EventSubscription, PairSigner};
@@ -2521,6 +2522,8 @@ impl ChainEndpoint for SubstrateChain {
     fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
         // TODO this is mock
         tracing::info!("in Substrate: [build_client_state]");
+        use ibc::ics10_grandpa::help::Commitment;
+        use ibc::ics10_grandpa::help::ValidatorSet;
 
         let chain_id = self.id().clone();
         tracing::info!(
@@ -2627,6 +2630,7 @@ pub fn get_dummy_merkle_proof() -> MerkleProof {
 
 use ibc::ics07_tendermint::header::Header as tHeader;
 use retry::delay::Fixed;
+use tendermint_light_client::types::Validator;
 
 pub fn get_dummy_ics07_header() -> tHeader {
     use tendermint::block::signed_header::SignedHeader;

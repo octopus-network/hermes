@@ -33,8 +33,8 @@ impl Default for ClientState {
             chain_id: Default::default(),
             block_number: 0,
             frozen_height: Default::default(),
-            latest_commitment: None,
-            validator_set: None
+            latest_commitment: Some(Commitment::default()),
+            validator_set: Some(ValidatorSet::default()),
         }
     }
 }

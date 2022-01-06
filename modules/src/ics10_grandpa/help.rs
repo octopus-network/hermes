@@ -17,6 +17,16 @@ pub struct Commitment {
     pub validator_set_id: u64,
 }
 
+impl Default for Commitment {
+    fn default() -> Self {
+        Self {
+            block_number: 0,
+            payload: vec![],
+            validator_set_id: 0
+        }
+    }
+}
+
 impl From<RawCommitment> for Commitment {
     fn from(raw : RawCommitment) -> Self {
         Self {
@@ -60,6 +70,15 @@ pub struct ValidatorSet {
     pub root: Vec<u8>,
 }
 
+impl Default for ValidatorSet {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            len: 0,
+            root: vec![]
+        }
+    }
+}
 impl From<RawValidatorSet> for ValidatorSet {
     fn from(raw : RawValidatorSet) -> Self {
         Self {
