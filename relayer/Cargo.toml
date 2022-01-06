@@ -68,7 +68,7 @@ uint = { version = "0.9", default-features = false }
 calls = { path = "../calls" }
 subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.12' }
 sp-keyring = { package = "sp-keyring", git = "https://github.com/paritytech/substrate/", branch = "polkadot-v0.9.12" }
-pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'dv-remove-rpc' }
+pallet-ibc = { git = 'https://github.com/octopus-network/substrate-ibc.git', branch = 'master' }
 # pallet-ibc = { path = "../../substrate-ibc" }
 jsonrpsee = { version = "0.5.1", features = ["macros", "ws-client", "http-client"] }
 codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive', 'full'] }
