@@ -67,12 +67,10 @@ impl ClientDef for GrandpaClient {
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
-        // _client_state.latest_height
         use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
         use core::convert::TryFrom;
         use ibc_proto::ics23::commitment_proof::Proof::Exist;
         use beefy_merkle_tree::Keccak256;
-        use subxt::sp_core::H256;
         use codec::Decode;
 
         let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
