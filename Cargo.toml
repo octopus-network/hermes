@@ -7,7 +7,6 @@ members = [
     "relayer-rest",
     "telemetry",
     "proto",
-    "calls",
 ]
 
 exclude = [

@@ -18,6 +18,8 @@ use calls::ibc_node;
 use subxt::{
     Client, ClientBuilder, Error as SubstrateError, EventSubscription, PairSigner, RawEvent,
 };
+use octopusxt::ibc_node;
+
 
 use ibc::{events::IbcEvent, ics02_client::height::Height, ics24_host::identifier::ChainId};
 
