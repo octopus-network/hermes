@@ -42,7 +42,6 @@ sp-runtime = { git = "https://github.com/octopus-network/substrate", branch = "p
 sp-staking = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 sp-std = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 sp-trie = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
-#sp-utils = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 substrate-prometheus-endpoint = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 frame-benchmarking = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 frame-benchmarking-cli = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
@@ -97,7 +96,6 @@ sp-transaction-pool = { git = "https://github.com/octopus-network/substrate", br
 sp-version = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 substrate-wasm-builder = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 substrate-build-script-utils = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
-#frame-metadata = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 
 [patch.crates-io]
 frame-support = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
@@ -120,7 +118,6 @@ sp-runtime = { git = "https://github.com/octopus-network/substrate", branch = "p
 sp-staking = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 sp-std = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 sp-trie = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
-#sp-utils = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 substrate-prometheus-endpoint = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 frame-benchmarking = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 frame-benchmarking-cli = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
@@ -175,7 +172,6 @@ sp-transaction-pool = { git = "https://github.com/octopus-network/substrate", br
 sp-version = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 substrate-wasm-builder = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 substrate-build-script-utils = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
-#frame-metadata = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 
 
 ## for tendermint
