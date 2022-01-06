@@ -66,7 +66,31 @@ impl ClientDef for GrandpaClient {
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
-        Ok(())
+        // _client_state.latest_height
+        use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
+        use core::convert::TryFrom;
+        use ibc_proto::ics23::commitment_proof::Proof::Exist;
+        use sp_runtime::traits::{Hash, Keccak256};
+        use subxt::sp_core::H256;
+
+        let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
+        let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap();
+        let leaf_proof = match _merkel_proof {
+            Exist(_exist_proof) => {
+                let _proof_str = String::from_utf8_lossy(&*_exist_proof.value);
+                tracing::debug!("In ics10-client_def.rs: [verify_connection_state] >> _proof_str: {:?}", _proof_str);
+                let leaf_proof: pallet_mmr_rpc::LeafProof<String> = serde_json::from_str(&*_proof_str).unwrap();
+                leaf_proof
+            }
+            _ => {unimplemented!()}
+        };
+
+        let mmr_leaf_proof = leaf_proof.proof;
+        let mmr_leaf_hash = Keccak256::hash(&leaf_proof.leaf);
+        let mmr_root = _client_state.latest_commitment.unwrap().payload;
+
+        beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_leaf_proof)?;
+        // Ok(())
     }
 
     fn verify_channel_state(
