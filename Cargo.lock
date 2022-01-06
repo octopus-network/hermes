@@ -1822,7 +1822,6 @@ dependencies = [
  "informalsystems-prost",
  "informalsystems-prost-types",
  "modelator",
- "pallet-mmr-rpc",
  "parity-scale-codec",
  "safe-regex",
  "serde",
