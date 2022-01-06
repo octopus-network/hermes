@@ -10,13 +10,23 @@ use ibc::ics10_grandpa::header::Header as GPHeader;
 use ibc::Height;
 use ibc::ics02_client::header::AnyHeader;
 use ibc::ics24_host::identifier::ClientId;
+use ibc::ics24_host::identifier::ChainId;
+use crate::config::{ChainConfig, Strategy};
 
-pub struct LightClient {}
+pub struct LightClient {
+    chain_id: ChainId,
+    beefy_light_client: beefy_light_client::LightClient,
+}
 
 impl LightClient {
-    pub fn new() -> Self {
-        Self {}
-    }
+   pub fn from_config(config: &ChainConfig, initial_public_keys: Vec<String>) -> Self {
+       let chain_id = config.id.clone();
+       let beefy_light_client = beefy_light_client::new(initial_public_keys);
+       Self {
+           chain_id,
+           beefy_light_client,
+       }
+   }
 }
 
 impl super::LightClient<SubstrateChain> for LightClient {

@@ -113,12 +113,24 @@ impl TryFrom<RawClientState> for ClientState {
     type Error = Error;
 
     fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            chain_id: ChainId::from_str(raw.chain_id.as_str()).unwrap(),
+            block_number: raw.block_number,
+            frozen_height: Height::new(0, raw.frozen_height as u64),
+            latest_commitment: Some(raw.latest_commitment.unwrap().into()),
+            validator_set: Some(raw.validator_set.unwrap().into()),
+        })
     }
 }
 
 impl From<ClientState> for RawClientState {
     fn from(value: ClientState) -> Self {
-        todo!()
+        Self {
+            chain_id: value.chain_id.to_string(),
+            block_number: value.block_number,
+            frozen_height: value.frozen_height.revision_height as u32,
+            latest_commitment: Some(value.latest_commitment.unwrap().into()),
+            validator_set: Some(value.validator_set.unwrap().into()),
+        }
     }
 }

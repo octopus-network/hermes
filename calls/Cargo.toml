@@ -13,5 +13,6 @@ env_logger = "0.8.3"
 hex = "0.4.3"
 #prost = { package = "informalsystems-prost", version = "0.8.1", default-features = false }
 prost-types = { package = "informalsystems-prost-types", version = "0.8.1", default-features = false }
+beefy-primitives = { git = "https://github.com/paritytech/substrate/", branch = "polkadot-v0.9.12" }
 
 ibc = { path = "../modules" }

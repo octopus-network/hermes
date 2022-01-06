@@ -1240,9 +1240,30 @@ impl ChainEndpoint for SubstrateChain {
 
     fn init_light_client(&self) -> Result<Self::LightClient, Error> {
         tracing::info!("In Substrate: [init_light_client]");
+        use subxt::sp_core::Public;
 
-        let light_client = GPLightClient::new();
+        let config = self.config.clone();
 
+        let public_key = async {
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>().await.unwrap();
+
+            let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+
+            let authorities = api.storage().beefy().authorities(None).await.unwrap();
+            tracing::info!("authorities length : {:?}", authorities.len());
+            let result : Vec<String> = authorities
+                .into_iter()
+                .map(|val| format!("0x{}", subxt::sp_core::hexdisplay::HexDisplay::from(&  val.to_raw_vec())))
+                .collect();
+            tracing::info!("authorities member: {:?}", result);
+            result
+        };
+        let public_key = self.block_on(public_key);
+
+        let initial_public_keys = public_key;
+        let light_client = GPLightClient::from_config(&config, initial_public_keys);
         Ok(light_client)
     }
 
