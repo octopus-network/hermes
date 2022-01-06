@@ -1,11 +1,10 @@
-use alloc::vec::Vec;
+use crate::ics10_grandpa::error::Error;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::convert::TryFrom;
 use serde::{Deserialize, Serialize};
-use crate::ics10_grandpa::error::Error;
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Commitment as RawCommitment;
-
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Commitment {
@@ -22,13 +21,13 @@ impl Default for Commitment {
         Self {
             block_number: 0,
             payload: vec![],
-            validator_set_id: 0
+            validator_set_id: 0,
         }
     }
 }
 
 impl From<RawCommitment> for Commitment {
-    fn from(raw : RawCommitment) -> Self {
+    fn from(raw: RawCommitment) -> Self {
         Self {
             block_number: raw.block_number,
             payload: raw.payload,
@@ -37,7 +36,7 @@ impl From<RawCommitment> for Commitment {
     }
 }
 impl From<Commitment> for RawCommitment {
-    fn from(value : Commitment) -> Self {
+    fn from(value: Commitment) -> Self {
         Self {
             block_number: value.block_number,
             payload: value.payload,
@@ -75,12 +74,12 @@ impl Default for ValidatorSet {
         Self {
             id: 0,
             len: 0,
-            root: vec![]
+            root: vec![],
         }
     }
 }
 impl From<RawValidatorSet> for ValidatorSet {
-    fn from(raw : RawValidatorSet) -> Self {
+    fn from(raw: RawValidatorSet) -> Self {
         Self {
             id: raw.id,
             len: raw.len,
@@ -89,19 +88,17 @@ impl From<RawValidatorSet> for ValidatorSet {
     }
 }
 
-impl From<ValidatorSet> for RawValidatorSet  {
-    fn from(value:  ValidatorSet) -> Self {
+impl From<ValidatorSet> for RawValidatorSet {
+    fn from(value: ValidatorSet) -> Self {
         Self {
             id: value.id,
             len: value.len,
             root: value.root,
         }
     }
-
 }
 
 use ibc_proto::ibc::lightclients::grandpa::v1::MmrLeaf as RawMmrLeaf;
-
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MmrLeaf {
@@ -116,8 +113,8 @@ pub struct MmrLeaf {
     pub parachain_heads: Vec<u8>,
 }
 
-impl From<RawMmrLeaf>  for MmrLeaf {
-    fn from(raw : RawMmrLeaf) -> Self {
+impl From<RawMmrLeaf> for MmrLeaf {
+    fn from(raw: RawMmrLeaf) -> Self {
         Self {
             version: raw.version,
             parent_number_and_hash: Some(raw.parent_number_and_hash.unwrap().into()),
@@ -128,7 +125,7 @@ impl From<RawMmrLeaf>  for MmrLeaf {
 }
 
 impl From<MmrLeaf> for RawMmrLeaf {
-    fn from(value : MmrLeaf) -> Self {
+    fn from(value: MmrLeaf) -> Self {
         Self {
             version: value.version,
             parent_number_and_hash: Some(value.parent_number_and_hash.unwrap().into()),
@@ -136,7 +133,6 @@ impl From<MmrLeaf> for RawMmrLeaf {
             parachain_heads: value.parachain_heads,
         }
     }
-
 }
 
 impl Default for MmrLeaf {
@@ -145,13 +141,12 @@ impl Default for MmrLeaf {
             version: 0,
             parent_number_and_hash: Some(ParentNumberAndHash::default()),
             beefy_next_authority_set: Some(ValidatorSet::default()),
-            parachain_heads: vec![]
+            parachain_heads: vec![],
         }
     }
 }
 
 use ibc_proto::ibc::lightclients::grandpa::v1::ParentNumberAndHash as RawParentNumberAndHash;
-
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParentNumberAndHash {
@@ -160,15 +155,17 @@ pub struct ParentNumberAndHash {
     pub mmr_root: Vec<u8>,
 }
 
-
 impl Default for ParentNumberAndHash {
     fn default() -> Self {
-        Self { block_number: 0, mmr_root: vec![] }
+        Self {
+            block_number: 0,
+            mmr_root: vec![],
+        }
     }
 }
 
 impl From<RawParentNumberAndHash> for ParentNumberAndHash {
-    fn from(raw : RawParentNumberAndHash) -> Self {
+    fn from(raw: RawParentNumberAndHash) -> Self {
         Self {
             block_number: raw.block_number,
             mmr_root: raw.mmr_root,
@@ -177,14 +174,13 @@ impl From<RawParentNumberAndHash> for ParentNumberAndHash {
 }
 
 impl From<ParentNumberAndHash> for RawParentNumberAndHash {
-    fn from(value : ParentNumberAndHash) -> Self {
+    fn from(value: ParentNumberAndHash) -> Self {
         Self {
             block_number: value.block_number,
             mmr_root: value.mmr_root,
         }
     }
 }
-
 
 use ibc_proto::ibc::lightclients::grandpa::v1::SignedCommitment as RawSignedCommitment;
 
@@ -195,34 +191,39 @@ pub struct SignedCommitment {
 }
 
 impl From<RawSignedCommitment> for SignedCommitment {
-
     fn from(raw: RawSignedCommitment) -> Self {
         Self {
             commitment: Some(raw.commitment.unwrap().into()),
-            signatures: raw.signatures.into_iter().map(|value| value.into()).collect(),
+            signatures: raw
+                .signatures
+                .into_iter()
+                .map(|value| value.into())
+                .collect(),
         }
     }
 }
 
 impl From<SignedCommitment> for RawSignedCommitment {
-
     fn from(value: SignedCommitment) -> Self {
         Self {
             commitment: Some(value.commitment.unwrap().into()),
-            signatures: value.signatures.into_iter().map(|value| value.into()).collect(),
+            signatures: value
+                .signatures
+                .into_iter()
+                .map(|value| value.into())
+                .collect(),
         }
     }
 }
 
-impl  Default for SignedCommitment {
+impl Default for SignedCommitment {
     fn default() -> Self {
         Self {
             commitment: Some(Commitment::default()),
-            signatures: vec![]
+            signatures: vec![],
         }
     }
 }
-
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Signature as RawSignature;
 
@@ -232,7 +233,7 @@ pub struct Signature {
 }
 
 impl From<RawSignature> for Signature {
-    fn from(raw : RawSignature) -> Self {
+    fn from(raw: RawSignature) -> Self {
         Self {
             signature: raw.signature,
         }
@@ -240,7 +241,7 @@ impl From<RawSignature> for Signature {
 }
 
 impl From<Signature> for RawSignature {
-    fn from(value : Signature) -> Self {
+    fn from(value: Signature) -> Self {
         Self {
             signature: value.signature,
         }
@@ -249,12 +250,9 @@ impl From<Signature> for RawSignature {
 
 impl Default for Signature {
     fn default() -> Self {
-        Self {
-            signature: vec![]
-        }
+        Self { signature: vec![] }
     }
 }
-
 
 use ibc_proto::ibc::lightclients::grandpa::v1::ValidatorMerkleProof as RawValidatorMerkleProof;
 
@@ -280,7 +278,7 @@ pub struct ValidatorMerkleProof {
 }
 
 impl From<RawValidatorMerkleProof> for ValidatorMerkleProof {
-    fn from(raw : RawValidatorMerkleProof) -> Self {
+    fn from(raw: RawValidatorMerkleProof) -> Self {
         Self {
             proof: raw.proof,
             number_of_leaves: raw.number_of_leaves,
@@ -291,7 +289,7 @@ impl From<RawValidatorMerkleProof> for ValidatorMerkleProof {
 }
 
 impl From<ValidatorMerkleProof> for RawValidatorMerkleProof {
-    fn from(value : ValidatorMerkleProof) -> Self {
+    fn from(value: ValidatorMerkleProof) -> Self {
         Self {
             proof: value.proof,
             number_of_leaves: value.number_of_leaves,
@@ -299,7 +297,6 @@ impl From<ValidatorMerkleProof> for RawValidatorMerkleProof {
             leaf: value.leaf,
         }
     }
-
 }
 
 impl Default for ValidatorMerkleProof {
@@ -308,10 +305,9 @@ impl Default for ValidatorMerkleProof {
             proof: vec![],
             number_of_leaves: 0,
             leaf_index: 0,
-            leaf: vec![]
+            leaf: vec![],
         }
     }
-    
 }
 
 use ibc_proto::ibc::lightclients::grandpa::v1::MmrLeafProof as RawMmrLeafProof;
@@ -327,7 +323,7 @@ pub struct MmrLeafProof {
 }
 
 impl From<RawMmrLeafProof> for MmrLeafProof {
-    fn from(raw : RawMmrLeafProof) -> Self {
+    fn from(raw: RawMmrLeafProof) -> Self {
         Self {
             leaf_index: raw.leaf_index,
             leaf_count: raw.leaf_count,
@@ -337,7 +333,7 @@ impl From<RawMmrLeafProof> for MmrLeafProof {
 }
 
 impl From<MmrLeafProof> for RawMmrLeafProof {
-    fn from(value : MmrLeafProof) -> Self {
+    fn from(value: MmrLeafProof) -> Self {
         Self {
             leaf_index: value.leaf_index,
             leaf_count: value.leaf_count,
@@ -351,7 +347,7 @@ impl Default for MmrLeafProof {
         Self {
             leaf_index: 0,
             leaf_count: 0,
-            items: vec![]
+            items: vec![],
         }
     }
 }

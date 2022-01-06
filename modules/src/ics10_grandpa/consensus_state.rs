@@ -1,20 +1,20 @@
+use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::Infallible;
 use core::convert::{TryFrom, TryInto};
-use alloc::vec;
 
 use serde::Serialize;
 
 // use tendermint mock as grandpa
 use ibc_proto::ibc::lightclients::grandpa::v1::ConsensusState as RawConsensusState;
 
+use super::help::Commitment;
 use crate::ics02_client::client_consensus::AnyConsensusState;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics10_grandpa::error::Error;
 use crate::ics10_grandpa::header::Header;
 use crate::ics23_commitment::commitment::CommitmentRoot;
 use tendermint_proto::Protobuf;
-use super::help::Commitment;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ConsensusState {
@@ -25,12 +25,15 @@ impl ConsensusState {
     pub fn new(root: CommitmentRoot) -> Self {
         Self { root }
     }
-    
+
     pub fn from_commit(root_commit: Commitment) -> Self {
-        let encode_root_commit = serde_json::to_string(&root_commit).unwrap().as_bytes().to_vec();
+        let encode_root_commit = serde_json::to_string(&root_commit)
+            .unwrap()
+            .as_bytes()
+            .to_vec();
 
         Self {
-            root: CommitmentRoot::from_bytes(&encode_root_commit)
+            root: CommitmentRoot::from_bytes(&encode_root_commit),
         }
     }
 }

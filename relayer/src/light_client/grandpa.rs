@@ -1,6 +1,7 @@
 use crate::chain::SubstrateChain;
 use crate::error::Error;
 
+use crate::config::{ChainConfig, Strategy};
 use crate::light_client::Verified;
 use ibc::ics02_client::client_state::AnyClientState;
 use ibc::ics02_client::events::UpdateClient;
@@ -8,9 +9,8 @@ use ibc::ics02_client::header::AnyHeader;
 use ibc::ics02_client::header::Header;
 use ibc::ics02_client::misbehaviour::{AnyMisbehaviour, MisbehaviourEvidence};
 use ibc::ics10_grandpa::header::Header as GPHeader;
-use ibc::ics24_host::identifier::ClientId;
 use ibc::ics24_host::identifier::ChainId;
-use crate::config::{ChainConfig, Strategy};
+use ibc::ics24_host::identifier::ClientId;
 use ibc::Height;
 
 pub struct LightClient {
@@ -19,14 +19,14 @@ pub struct LightClient {
 }
 
 impl LightClient {
-   pub fn from_config(config: &ChainConfig, initial_public_keys: Vec<String>) -> Self {
-       let chain_id = config.id.clone();
-       let beefy_light_client = beefy_light_client::new(initial_public_keys);
-       Self {
-           chain_id,
-           beefy_light_client,
-       }
-   }
+    pub fn from_config(config: &ChainConfig, initial_public_keys: Vec<String>) -> Self {
+        let chain_id = config.id.clone();
+        let beefy_light_client = beefy_light_client::new(initial_public_keys);
+        Self {
+            chain_id,
+            beefy_light_client,
+        }
+    }
 }
 
 impl super::LightClient<SubstrateChain> for LightClient {
@@ -38,7 +38,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
     ) -> Result<Verified<GPHeader>, Error> {
         tracing::info!("In grandpa: [header_and_minimal_set]");
 
-        Ok(Verified{
+        Ok(Verified {
             // target: GPHeader::new(target.revision_height),
             target: GPHeader::default(),
             supporting: Vec::new(),

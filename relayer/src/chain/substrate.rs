@@ -10,9 +10,14 @@ use crate::{
     util::retry::{retry_with_index, RetryResult},
     worker::retry_strategy,
 };
+use alloc::sync::Arc;
 use bech32::{ToBase32, Variant};
+use beefy_light_client::commitment::Commitment;
 use chrono::offset::Utc;
 use codec::{Decode, Encode};
+use core::future::Future;
+use core::str::FromStr;
+use core::time::Duration;
 use ibc::events::IbcEvent;
 use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
@@ -41,16 +46,12 @@ use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 use ibc_proto::ibc::core::connection::v1::{
     QueryClientConnectionsRequest, QueryConnectionsRequest,
 };
+use octopusxt::ibc_node;
 use prost_types::Any;
-use beefy_light_client::commitment::Commitment;
+use std::thread;
 use subxt::sp_runtime::generic::Header;
 use subxt::sp_runtime::traits::BlakeTwo256;
-use core::str::FromStr;
-use std::thread;
-use core::future::Future;
-use alloc::sync::Arc;
-use core::time::Duration;
-use subxt::{ClientBuilder, Client};
+use subxt::{Client, ClientBuilder};
 use tendermint::abci::transaction::Hash;
 use tendermint::abci::{Code, Log};
 use tendermint::account::Id as AccountId;
@@ -60,10 +61,8 @@ use tokio::runtime::Runtime;
 use tokio::runtime::Runtime as TokioRuntime;
 use tokio::task;
 use tokio::time::sleep;
-use octopusxt::ibc_node;
 
 const MAX_QUERY_TIMES: u64 = 40;
-
 
 #[derive(Debug)]
 pub struct SubstrateChain {
@@ -104,18 +103,29 @@ impl SubstrateChain {
     }
 
     /// get connectionEnd according by connection_identifier and read Connections StorageMaps
-    async fn get_connection_end(&self, connection_identifier: &ConnectionId, client: Client<ibc_node::DefaultConfig>)
-        -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
+    async fn get_connection_end(
+        &self,
+        connection_identifier: &ConnectionId,
+        client: Client<ibc_node::DefaultConfig>,
+    ) -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_connection_end]");
 
         octopusxt::get_connection_end(connection_identifier, client).await
     }
 
     /// get channelEnd according by port_identifier, channel_identifier and read Channles StorageMaps
-    async fn get_channel_end(&self, port_id: &PortId, channel_id: &ChannelId, client: Client<ibc_node::DefaultConfig>)
-        -> Result<ChannelEnd, Box<dyn std::error::Error>> {
+    async fn get_channel_end(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        client: Client<ibc_node::DefaultConfig>,
+    ) -> Result<ChannelEnd, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_channel_end]");
-        tracing::info!("in Substrate: [get_channel_end] >> port_id: {:?}, channel_id: {:?}", port_id.clone(), channel_id.clone());
+        tracing::info!(
+            "in Substrate: [get_channel_end] >> port_id: {:?}, channel_id: {:?}",
+            port_id.clone(),
+            channel_id.clone()
+        );
 
         octopusxt::get_channel_end(port_id, channel_id, client).await
     }
@@ -134,8 +144,13 @@ impl SubstrateChain {
     }
 
     /// get send packet event by port_id, channel_id and sequence
-    async fn get_send_packet_event(&self, port_id: &PortId, channel_id: &ChannelId, seq: &Sequence, client: Client<ibc_node::DefaultConfig>)
-                                   -> Result<Packet, Box<dyn std::error::Error>> {
+    async fn get_send_packet_event(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        seq: &Sequence,
+        client: Client<ibc_node::DefaultConfig>,
+    ) -> Result<Packet, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_send_packet_event]");
 
         octopusxt::get_send_packet_event(port_id, channel_id, seq, client).await
@@ -161,15 +176,17 @@ impl SubstrateChain {
     ) -> Result<AnyConsensusState, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_client_consensus]");
 
-        octopusxt::get_client_consensus(client_id, height,client).await
+        octopusxt::get_client_consensus(client_id, height, client).await
     }
 
-
-    async fn get_consensus_state_with_height(&self, client_id: &ClientId, client: Client<ibc_node::DefaultConfig>)
-        -> Result<Vec<(Height, AnyConsensusState)>, Box<dyn std::error::Error>> {
+    async fn get_consensus_state_with_height(
+        &self,
+        client_id: &ClientId,
+        client: Client<ibc_node::DefaultConfig>,
+    ) -> Result<Vec<(Height, AnyConsensusState)>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_consensus_state_with_height]");
 
-       octopusxt::get_consensus_state_with_height(client_id, client).await
+        octopusxt::get_consensus_state_with_height(client_id, client).await
     }
 
     async fn get_unreceipt_packet(
@@ -195,9 +212,10 @@ impl SubstrateChain {
     }
 
     /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
-    async fn get_connections(&self, client: Client<ibc_node::DefaultConfig>)
-                             -> Result<Vec<IdentifiedConnectionEnd>, Box<dyn std::error::Error>> {
-
+    async fn get_connections(
+        &self,
+        client: Client<ibc_node::DefaultConfig>,
+    ) -> Result<Vec<IdentifiedConnectionEnd>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_connections]");
 
         octopusxt::get_connections(client).await
@@ -233,7 +251,7 @@ impl SubstrateChain {
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_packet_commitment]");
 
-       octopusxt::get_packet_commitment(port_id, channel_id, seq, client).await
+        octopusxt::get_packet_commitment(port_id, channel_id, seq, client).await
     }
 
     // get get_commitment_packet_state
@@ -272,7 +290,7 @@ impl SubstrateChain {
         msg: Vec<Any>,
         client: Client<ibc_node::DefaultConfig>,
     ) -> Result<subxt::sp_core::H256, Box<dyn std::error::Error>> {
-       octopusxt::deliver(msg, client).await
+        octopusxt::deliver(msg, client).await
     }
 }
 
@@ -310,15 +328,22 @@ impl ChainEndpoint for SubstrateChain {
         let public_key = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>().await.unwrap();
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
 
             let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
             let authorities = api.storage().beefy().authorities(None).await.unwrap();
             tracing::info!("authorities length : {:?}", authorities.len());
-            let result : Vec<String> = authorities
+            let result: Vec<String> = authorities
                 .into_iter()
-                .map(|val| format!("0x{}", subxt::sp_core::hexdisplay::HexDisplay::from(&  val.to_raw_vec())))
+                .map(|val| {
+                    format!(
+                        "0x{}",
+                        subxt::sp_core::hexdisplay::HexDisplay::from(&val.to_raw_vec())
+                    )
+                })
                 .collect();
             tracing::info!("authorities member: {:?}", result);
             result
@@ -752,15 +777,22 @@ impl ChainEndpoint for SubstrateChain {
         let connection_end = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>().await.unwrap();
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
 
             sleep(Duration::from_secs(10)).await;
 
             let connection_end = self
                 .get_connection_end(connection_id, client)
-                .await.unwrap();
-            tracing::info!("In Substrate: [query_connection] \
-                >> connection_id: {:?}, connection_end: {:?}", connection_id, connection_end);
+                .await
+                .unwrap();
+            tracing::info!(
+                "In Substrate: [query_connection] \
+                >> connection_id: {:?}, connection_end: {:?}",
+                connection_id,
+                connection_end
+            );
 
             connection_end
         };
@@ -1179,9 +1211,13 @@ impl ChainEndpoint for SubstrateChain {
 
             let connection_end = self
                 .get_connection_end(connection_id, client)
-                .await.unwrap();
-            tracing::info!("In Substrate: [proven_connection] \
-                >> connection_end: {:?}", connection_end);
+                .await
+                .unwrap();
+            tracing::info!(
+                "In Substrate: [proven_connection] \
+                >> connection_end: {:?}",
+                connection_end
+            );
 
             connection_end
         };
@@ -1216,16 +1252,29 @@ impl ChainEndpoint for SubstrateChain {
         let generate_proof = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>().await.unwrap();
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
 
             sleep(Duration::from_secs(4)).await;
 
             use jsonrpsee::types::to_json_value;
             let params = &[to_json_value(height.revision_height - 1).unwrap()];
-            let generate_proof: pallet_mmr_rpc::LeafProof<String> = client.rpc().client.request("mmr_generateProof", params).await.unwrap();
-            tracing::info!("In Substrate: [proven_connection] >> generate_proof : {:?}", generate_proof);
+            let generate_proof: pallet_mmr_rpc::LeafProof<String> = client
+                .rpc()
+                .client
+                .request("mmr_generateProof", params)
+                .await
+                .unwrap();
+            tracing::info!(
+                "In Substrate: [proven_connection] >> generate_proof : {:?}",
+                generate_proof
+            );
             let generate_proof_str = serde_json::to_string(&generate_proof).unwrap();
-            tracing::info!("In Substrate: [proven_connection] >> generate_proof to_string: {:?}", generate_proof_str);
+            tracing::info!(
+                "In Substrate: [proven_connection] >> generate_proof to_string: {:?}",
+                generate_proof_str
+            );
             generate_proof_str
         };
 
@@ -1393,15 +1442,13 @@ impl ChainEndpoint for SubstrateChain {
             trusted_height, target_height, client_state);
         tracing::info!(
             "in Substrate: [build_header] >> GPHEADER: {:?}",
-            GPHeader::default()
-            // GPHeader::new(target_height.revision_height)
+            GPHeader::default() // GPHeader::new(target_height.revision_height)
         );
 
         Ok((
             // GPHeader::new(target_height.revision_height),
             GPHeader::default(),
-            vec![GPHeader::default()]
-            // vec![GPHeader::new(trusted_height.revision_height)],
+            vec![GPHeader::default()], // vec![GPHeader::new(trusted_height.revision_height)],
         ))
     }
 }
@@ -1411,22 +1458,22 @@ use ibc_proto::ics23::{commitment_proof, ExistenceProof, InnerOp};
 pub fn _get_dummy_merkle_proof(proof: String) -> MerkleProof {
     tracing::info!("in substrate: [get_dummy_merk_proof]");
 
-    let _inner_op = InnerOp{
+    let _inner_op = InnerOp {
         hash: 0,
         prefix: vec![0],
-        suffix: vec![0]
+        suffix: vec![0],
     };
 
-    let _proof = commitment_proof::Proof::Exist(
-        ExistenceProof{
-            key: vec![0],
-            value: proof.as_bytes().to_vec(),
-            leaf: None,
-            path: vec![_inner_op],
-        }
-    );
+    let _proof = commitment_proof::Proof::Exist(ExistenceProof {
+        key: vec![0],
+        value: proof.as_bytes().to_vec(),
+        leaf: None,
+        path: vec![_inner_op],
+    });
 
-    let parsed = ibc_proto::ics23::CommitmentProof { proof: Some(_proof)};
+    let parsed = ibc_proto::ics23::CommitmentProof {
+        proof: Some(_proof),
+    };
     let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
     MerkleProof { proofs: mproofs }
 }

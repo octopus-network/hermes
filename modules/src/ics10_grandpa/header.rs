@@ -1,9 +1,13 @@
+use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 use core::fmt;
-use alloc::vec::Vec;
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Header as RawHeader;
 
+use super::help::MmrLeaf;
+use super::help::MmrLeafProof;
+use super::help::SignedCommitment;
+use super::help::ValidatorMerkleProof;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics02_client::header::AnyHeader;
 use crate::ics10_grandpa::error::Error;
@@ -13,11 +17,6 @@ use bytes::Buf;
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
-use super::help::SignedCommitment;
-use super::help::ValidatorMerkleProof;
-use super::help::MmrLeaf;
-use super::help::MmrLeafProof;
-
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct Header {
@@ -33,7 +32,7 @@ impl fmt::Debug for Header {
     }
 }
 
-impl  Default for Header {
+impl Default for Header {
     fn default() -> Self {
         Self {
             signed_commitment: SignedCommitment::default(),
@@ -84,14 +83,12 @@ impl TryFrom<RawHeader> for Header {
     type Error = Error;
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
-        Ok(
-            Self {
-                signed_commitment: raw.signed_commitment.unwrap().into(),
-                validator_merkle_proof: raw.validator_merkle_proof.unwrap().into(),
-                mmr_leaf: raw.mmr_leaf.unwrap().into(),
-                mmr_leaf_proof: raw.mmr_leaf_proof.unwrap().into(),
-            }
-        )
+        Ok(Self {
+            signed_commitment: raw.signed_commitment.unwrap().into(),
+            validator_merkle_proof: raw.validator_merkle_proof.unwrap().into(),
+            mmr_leaf: raw.mmr_leaf.unwrap().into(),
+            mmr_leaf_proof: raw.mmr_leaf_proof.unwrap().into(),
+        })
     }
 }
 

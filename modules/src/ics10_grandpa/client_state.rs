@@ -1,12 +1,14 @@
 use crate::alloc::string::ToString;
+use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 use core::str::FromStr;
-use alloc::vec::Vec;
 use core::time::Duration;
 
 // mock grandpa as tendermint
 use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawClientState;
 
+use super::help::Commitment;
+use super::help::ValidatorSet;
 use crate::ics02_client::client_state::AnyClientState;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics10_grandpa::error::Error;
@@ -15,8 +17,6 @@ use crate::ics24_host::identifier::ChainId;
 use crate::Height;
 use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
-use super::help::Commitment;
-use super::help::ValidatorSet;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState {
@@ -47,22 +47,20 @@ impl ClientState {
         latest_commitment: Option<Commitment>,
         validator_set: Option<ValidatorSet>,
     ) -> Result<Self, Error> {
-       let client_state = ClientState {
+        let client_state = ClientState {
             chain_id,
             block_number,
             frozen_height,
             latest_commitment,
             validator_set,
-       };
+        };
 
-       Ok(client_state)
+        Ok(client_state)
     }
 
     pub fn with_header(self, h: Header) -> Self {
         // TODO: Clarify which fields should update.
-        ClientState {
-            ..self
-        }
+        ClientState { ..self }
     }
 
     /// Get the refresh time to ensure the state does not expire
