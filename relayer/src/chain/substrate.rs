@@ -1400,6 +1400,7 @@ impl ChainEndpoint for SubstrateChain {
         // let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
         let default_client_state = GPClientState::default();
         let client_state = GPClientState {
+            chain_id: chain_id,
             block_number: height.revision_height as u32,
             ..default_client_state
         };
