@@ -1200,7 +1200,6 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(ConnectionEnd, MerkleProof), Error> {
         tracing::info!("in Substrate: [proven_connection]");
         use subxt::{BlockNumber, sp_core::H256, rpc::NumberOrHex};
-        use sp_runtime::traits::Keccak256;
 
         let connection_end = async {
             let client = ClientBuilder::new()

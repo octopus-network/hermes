@@ -214,5 +214,8 @@ define_error! {
                 format_args!("upgraded client height {0} must be at greater than current client height {1}",
                     e.upgraded_height, e.client_height)
             },
+
+        CantDecodeMmrProof
+            | _ | { "cant decode Mmr Proof" }
     }
 }

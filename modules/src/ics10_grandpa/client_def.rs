@@ -1,5 +1,6 @@
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::convert::TryInto;
 
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
@@ -70,8 +71,9 @@ impl ClientDef for GrandpaClient {
         use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
         use core::convert::TryFrom;
         use ibc_proto::ics23::commitment_proof::Proof::Exist;
-        use sp_runtime::traits::{Hash, Keccak256};
+        use beefy_merkle_tree::Keccak256;
         use subxt::sp_core::H256;
+        use codec::Decode;
 
         let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
         let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap();
@@ -85,12 +87,20 @@ impl ClientDef for GrandpaClient {
             _ => {unimplemented!()}
         };
 
-        let mmr_leaf_proof = leaf_proof.proof;
-        let mmr_leaf_hash = Keccak256::hash(&leaf_proof.leaf);
-        let mmr_root = _client_state.latest_commitment.unwrap().payload;
+        let mmr_root: [u8; 32] = _client_state.
+            latest_commitment.as_ref().unwrap().payload.as_slice().try_into().map_err(|_| Error::cant_decode_mmr_proof())?;
 
-        beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_leaf_proof)?;
-        // Ok(())
+        let mmr_leaf: Vec<u8> =
+            Decode::decode(&mut &leaf_proof.leaf[..]).map_err(|_| Error::cant_decode_mmr_proof())?;
+        let mmr_leaf_hash = Keccak256::hash(&mmr_leaf[..]);
+
+        let mmr_leaf_proof = leaf_proof.proof;
+        let mmr_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..])
+            .map_err(|_| Error::cant_decode_mmr_proof())?;
+
+        beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof);
+
+        Ok(())
     }
 
     fn verify_channel_state(
