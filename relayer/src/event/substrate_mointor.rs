@@ -14,7 +14,6 @@ use tracing::{debug, error, info, trace};
 
 use tendermint_rpc::{event::Event as RpcEvent, Url};
 
-use calls::ibc_node;
 use subxt::{
     Client, ClientBuilder, Error as SubstrateError, EventSubscription, PairSigner, RawEvent,
 };

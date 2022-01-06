@@ -1875,6 +1875,7 @@ dependencies = [
  "informalsystems-prost-types",
  "informalsystems-tonic",
  "itertools",
+ "jsonrpsee",
  "k256",
  "octopusxt",
  "pallet-mmr-rpc",
@@ -2910,7 +2911,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git#a8b6a7b90c8a66c193109720b2c29cf9c8244817"
+source = "git+https://github.com/octopus-network/octopusxt.git#64b0df1a1cad3910b2dc8238a49a8147fa3d15a5"
 dependencies = [
  "beefy-primitives",
  "env_logger 0.8.4",

@@ -10,14 +10,9 @@ use crate::{
     util::retry::{retry_with_index, RetryResult},
     worker::retry_strategy,
 };
-use alloc::sync::Arc;
 use bech32::{ToBase32, Variant};
-use calls::ibc_node;
 use chrono::offset::Utc;
 use codec::{Decode, Encode};
-use core::future::Future;
-use core::str::FromStr;
-use core::time::Duration;
 use ibc::events::IbcEvent;
 use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
@@ -47,21 +42,15 @@ use ibc_proto::ibc::core::connection::v1::{
     QueryClientConnectionsRequest, QueryConnectionsRequest,
 };
 use prost_types::Any;
-use sp_keyring::AccountKeyring;
-use std::thread;
 use beefy_light_client::commitment::Commitment;
 use subxt::sp_runtime::generic::Header;
 use subxt::sp_runtime::traits::BlakeTwo256;
-use subxt::{Client, ClientBuilder, EventSubscription, PairSigner};
 use core::str::FromStr;
 use std::thread;
 use core::future::Future;
 use alloc::sync::Arc;
 use core::time::Duration;
-use tokio::time::sleep;
-use tendermint::account::Id as AccountId;
 use subxt::{ClientBuilder, Client};
-use tendermint_proto::Protobuf;
 use tendermint::abci::transaction::Hash;
 use tendermint::abci::{Code, Log};
 use tendermint::account::Id as AccountId;
@@ -413,7 +402,7 @@ impl ChainEndpoint for SubstrateChain {
 
             sleep(Duration::from_secs(4)).await;
 
-            let result = self.deliver(proto_msgs, client).await.unwrap();
+            let result = self.deliever(proto_msgs, client).await.unwrap();
 
             tracing::info!(
                 "in Substrate: [send_messages_and_wait_commit] >> result : {:?}",
@@ -466,7 +455,7 @@ impl ChainEndpoint for SubstrateChain {
 
             sleep(Duration::from_secs(4)).await;
 
-            let result = self.deliver(proto_msgs, client).await.unwrap();
+            let result = self.deliever(proto_msgs, client).await.unwrap();
 
             tracing::info!(
                 "in Substrate: [send_messages_and_wait_commit] >> result : {:?}",
@@ -772,14 +761,6 @@ impl ChainEndpoint for SubstrateChain {
                 .await.unwrap();
             tracing::info!("In Substrate: [query_connection] \
                 >> connection_id: {:?}, connection_end: {:?}", connection_id, connection_end);
-
-            let connection_end = self.get_connectionend(connection_id, client).await.unwrap();
-            tracing::info!(
-                "In Substrate: [query_connection] \
-                >> connection_id: {:?}, connection_end: {:?}",
-                connection_id,
-                connection_end
-            );
 
             connection_end
         };
@@ -1368,7 +1349,12 @@ impl ChainEndpoint for SubstrateChain {
 
         // Create mock grandpa client state
         // let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
-        let client_state = GPClientState::default();
+        let default_client_state = GPClientState::default();
+        let client_state = GPClientState {
+            block_number: height.revision_height as u32,
+            ..default_client_state
+        };
+
         let any_client_state = AnyClientState::Grandpa(client_state);
 
         tracing::info!(
