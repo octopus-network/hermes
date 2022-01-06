@@ -1199,6 +1199,8 @@ impl ChainEndpoint for SubstrateChain {
         height: ICSHeight,
     ) -> Result<(ConnectionEnd, MerkleProof), Error> {
         tracing::info!("in Substrate: [proven_connection]");
+        use subxt::{BlockNumber, sp_core::H256, rpc::NumberOrHex};
+        use sp_runtime::traits::Keccak256;
 
         let connection_end = async {
             let client = ClientBuilder::new()
@@ -1258,8 +1260,11 @@ impl ChainEndpoint for SubstrateChain {
 
             sleep(Duration::from_secs(4)).await;
 
+            let _height = NumberOrHex::Number(height.revision_height);
+            let block_hash: Option<H256> = client.rpc().block_hash(Some(BlockNumber::from(_height))).await.unwrap();
+            tracing::info!("In Substrate: [proven_connection] >> block_hash : {:?}", block_hash);
             use jsonrpsee::types::to_json_value;
-            let params = &[to_json_value(height.revision_height - 1).unwrap()];
+            let params = &[to_json_value(height.revision_height - 1).unwrap(), to_json_value(block_hash.unwrap()).unwrap()];
             let generate_proof: pallet_mmr_rpc::LeafProof<String> = client
                 .rpc()
                 .client
