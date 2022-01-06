@@ -1828,7 +1828,6 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2 0.9.8",
- "sp-core",
  "subtle-encoding",
  "tendermint",
  "tendermint-proto",
@@ -2532,6 +2531,7 @@ dependencies = [
  "libsecp256k1-gen-genmult 0.3.0",
  "rand 0.8.4",
  "serde",
+ "sha2 0.9.8",
 ]
 
 [[package]]

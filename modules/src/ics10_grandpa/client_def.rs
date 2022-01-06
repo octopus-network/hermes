@@ -79,9 +79,9 @@ impl ClientDef for GrandpaClient {
             /// Block hash the proof was generated for.
             pub block_hash: String,
             /// SCALE-encoded leaf data.
-            pub leaf: sp_core::Bytes,
+            pub leaf: Vec<u8>,
             /// SCALE-encoded proof data. See [pallet_mmr_primitives::Proof].
-            pub proof: sp_core::Bytes,
+            pub proof: Vec<u8>,
         }
 
         let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
@@ -95,7 +95,7 @@ impl ClientDef for GrandpaClient {
             }
             _ => unimplemented!()
         };
-
+        //
         let mmr_root: [u8; 32] = _client_state.
             latest_commitment.as_ref().unwrap().payload.as_slice().try_into().map_err(|_| Error::cant_decode_mmr_proof())?;
 
@@ -103,11 +103,11 @@ impl ClientDef for GrandpaClient {
             Decode::decode(&mut &leaf_proof.leaf[..]).map_err(|_| Error::cant_decode_mmr_proof())?;
         let mmr_leaf_hash = Keccak256::hash(&mmr_leaf[..]);
 
-        let mmr_leaf_proof = leaf_proof.proof;
-        let mmr_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..])
-            .map_err(|_| Error::cant_decode_mmr_proof())?;
+        // let mmr_leaf_proof = leaf_proof.proof;
+        // let mmr_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..])
+        //     .map_err(|_| Error::cant_decode_mmr_proof())?;
 
-        beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof);
+        // beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof);
 
         Ok(())
     }

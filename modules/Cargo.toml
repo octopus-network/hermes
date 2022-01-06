@@ -30,6 +30,9 @@ std = [
     "sha2/std",
     "tendermint/std",
     "tendermint-proto/std",
+    "beefy-merkle-tree/std",
+    "codec/std",
+    "beefy-light-client/std",
 #    "tendermint-testgen/std",
 ]
 eyre_tracer = ["flex-error/eyre_tracer"]
@@ -53,7 +56,6 @@ safe-regex = { version = "0.2.4" }
 subtle-encoding = { version = "0.5", default-features = false }
 sha2 = { version = "0.9.8", default-features = false, optional = true }
 flex-error = { version = "0.4.3", default-features = false }
-sp-core = { git = "https://github.com/octopus-network/substrate/", branch = "polkadot-v0.9.12", default-features = false }
 beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", default-features = false }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 beefy-merkle-tree = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.12", features = ["keccak"], default-features = false }
