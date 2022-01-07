@@ -331,6 +331,9 @@ pub trait ChainEndpoint: Sized {
         client_id: &ClientId,
         height: ICSHeight,
     ) -> Result<(Option<Self::ClientState>, Proofs), Error> {
+        tracing::info!("in chain: [build_connection_proofs_and_client_state] >> message_type = {:?}, \
+            connection_id = {:?}, client_id = {:?}, height = {:?}", message_type, connection_id, client_id, height);
+
         let (connection_end, connection_proof) = self.proven_connection(connection_id, height)?;
 
         // Check that the connection state is compatible with the message
@@ -373,11 +376,10 @@ pub trait ChainEndpoint: Sized {
                 let (client_state_value, client_state_proof) =
                     self.proven_client_state(client_id, height)?;
                 tracing::info!(
-                    "in chain: [build_connection_proof_and_client_state] >> client_state_value"
+                    "in chain: [build_connection_proof_and_client_state] >> client_state_value: {:?}", client_state_value.clone()
                 );
                 tracing::warn!(
-                    "in chain: [build_connection_proof_and_client_state] >> client_state_value, \
-                    latest_height: {}",
+                    "in chain: [build_connection_proof_and_client_state] >> latest_height: {}",
                     client_state_value.latest_height()
                 );
 

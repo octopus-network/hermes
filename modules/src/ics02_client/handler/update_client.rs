@@ -35,6 +35,8 @@ pub fn process(
         signer: _,
     } = msg;
 
+    tracing::info!("in ics02_client: [update_client] >> Header: {:?}", header);
+
     // Read client type from the host chain store. The client should already exist.
     let client_type = ctx.client_type(&client_id)?;
 

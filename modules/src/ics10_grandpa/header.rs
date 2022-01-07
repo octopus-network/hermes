@@ -18,7 +18,7 @@ use prost::Message;
 use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
 
-#[derive(Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Header {
     pub signed_commitment: SignedCommitment,
     pub validator_merkle_proof: ValidatorMerkleProof,
@@ -26,11 +26,6 @@ pub struct Header {
     pub mmr_leaf_proof: MmrLeafProof,
 }
 
-impl fmt::Debug for Header {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, " Header {{...}}")
-    }
-}
 
 impl Default for Header {
     fn default() -> Self {

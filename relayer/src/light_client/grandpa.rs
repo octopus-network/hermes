@@ -12,6 +12,7 @@ use ibc::ics10_grandpa::header::Header as GPHeader;
 use ibc::ics24_host::identifier::ChainId;
 use ibc::ics24_host::identifier::ClientId;
 use ibc::Height;
+use ibc::ics10_grandpa::help::{Commitment, SignedCommitment};
 
 pub struct LightClient {
     chain_id: ChainId,
@@ -37,11 +38,30 @@ impl super::LightClient<SubstrateChain> for LightClient {
         client_state: &AnyClientState,
     ) -> Result<Verified<GPHeader>, Error> {
         tracing::info!("In grandpa: [header_and_minimal_set]");
+        use ibc::ics10_grandpa::help::Commitment;
 
         Ok(Verified {
             // target: GPHeader::new(target.revision_height),
-            target: GPHeader::default(),
-            supporting: Vec::new(),
+            target: GPHeader {
+                signed_commitment: SignedCommitment { commitment: Some(Commitment {
+                    block_number: target.revision_height as u32,
+                    payload: vec![],
+                    validator_set_id: 0
+                }) , signatures: vec![] },
+                validator_merkle_proof: Default::default(),
+                mmr_leaf: Default::default(),
+                mmr_leaf_proof: Default::default()
+            },
+            supporting: vec![GPHeader {
+                signed_commitment: SignedCommitment { commitment: Some(Commitment {
+                    block_number: trusted.revision_height as u32,
+                    payload: vec![],
+                    validator_set_id: 0
+                }) , signatures: vec![] },
+                validator_merkle_proof: Default::default(),
+                mmr_leaf: Default::default(),
+                mmr_leaf_proof: Default::default()
+            }],
         })
     }
 
@@ -50,11 +70,11 @@ impl super::LightClient<SubstrateChain> for LightClient {
         trusted: Height,
         target: Height,
         client_state: &AnyClientState,
-    ) -> Result<Verified<()>, Error> {
+    ) -> Result<Verified<GPHeader>, Error> {
         tracing::info!("In grandpa: [verify]");
 
         Ok(Verified {
-            target: (),
+            target: GPHeader::default(),
             supporting: Vec::new(),
         })
     }
@@ -79,9 +99,9 @@ impl super::LightClient<SubstrateChain> for LightClient {
         Ok(None) // Todo: May need to implement the same logic of check_misbehaviour in tendermint.rs
     }
 
-    fn fetch(&mut self, height: Height) -> Result<(), Error> {
+    fn fetch(&mut self, height: Height) -> Result<GPHeader, Error> {
         tracing::info!("in grandpa: [fetch]");
 
-        Ok(())
+        Ok(GPHeader::default())
     }
 }

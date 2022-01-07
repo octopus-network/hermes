@@ -86,20 +86,18 @@ impl From<ConsensusState> for RawConsensusState {
     }
 }
 
-// impl From<grandpa::block::Header> for ConsensusState {
-//     fn from(header: grandpa::block::Header) -> Self {
-//         unimplemented!()
-//     }
-// }
 
 impl From<Header> for ConsensusState {
     fn from(header: Header) -> Self {
-        let mut temp_vec = Vec::new();
-        for val in 0..4 {
-            temp_vec.push(val);
-        }
+        let commitment_root = header.signed_commitment.commitment.unwrap();
+
+        let encode_commitment_root = serde_json::to_string(&commitment_root)
+            .unwrap()
+            .as_bytes()
+            .to_vec();
+
         Self {
-            root: CommitmentRoot::from(temp_vec),
+            root: CommitmentRoot::from_bytes(&encode_commitment_root),
         }
     }
 }

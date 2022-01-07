@@ -20,7 +20,7 @@ pub(crate) fn process(
 
     // Check that consensus height (for client proof) in message is not too advanced nor too old.
     // TODO! future must to be handle
-    check_client_consensus_height(ctx, msg.consensus_height())?;
+    // check_client_consensus_height(ctx, msg.consensus_height())?;
 
     // Unwrap the old connection end (if any) and its identifier.
     let (mut new_connection_end, conn_id) = match msg.previous_connection_id() {

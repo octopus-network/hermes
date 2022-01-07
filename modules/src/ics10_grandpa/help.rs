@@ -190,6 +190,19 @@ pub struct SignedCommitment {
     pub signatures: Vec<Signature>,
 }
 
+impl SignedCommitment {
+    pub fn from_height(height: Height) -> SignedCommitment {
+        SignedCommitment {
+            commitment: Some(Commitment {
+                block_number: height.revision_height as u32,
+                payload: vec![],
+                validator_set_id: 0
+            }),
+            signatures: vec![]
+        }
+    }
+}
+
 impl From<RawSignedCommitment> for SignedCommitment {
     fn from(raw: RawSignedCommitment) -> Self {
         Self {
@@ -311,6 +324,7 @@ impl Default for ValidatorMerkleProof {
 }
 
 use ibc_proto::ibc::lightclients::grandpa::v1::MmrLeafProof as RawMmrLeafProof;
+use crate::Height;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MmrLeafProof {

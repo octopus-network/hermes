@@ -19,6 +19,7 @@ use core::future::Future;
 use core::str::FromStr;
 use core::time::Duration;
 use ibc::events::IbcEvent;
+
 use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::ics02_client::client_type::ClientType;
@@ -61,6 +62,7 @@ use tokio::runtime::Runtime;
 use tokio::runtime::Runtime as TokioRuntime;
 use tokio::task;
 use tokio::time::sleep;
+use crate::light_client::Verified;
 
 const MAX_QUERY_TIMES: u64 = 40;
 
@@ -295,7 +297,7 @@ impl SubstrateChain {
 }
 
 impl ChainEndpoint for SubstrateChain {
-    type LightBlock = ();
+    type LightBlock = GPHeader;
     type Header = GPHeader;
     type ConsensusState = AnyConsensusState;
     type ClientState = AnyClientState;
@@ -1380,58 +1382,35 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
-        // TODO this is mock
         tracing::info!("in Substrate: [build_client_state]");
+        tracing::info!("in Substrate: [build_client_state] >> height = {:?}", height);
+
         use ibc::ics10_grandpa::help::Commitment;
-        use ibc::ics10_grandpa::help::ValidatorSet;
 
-        let chain_id = self.id().clone();
-        tracing::info!(
-            "in Substrate: [build_client_state] >> chain_id = {:?}",
-            chain_id
-        );
-
-        let frozen_height = Height::zero();
-        tracing::info!(
-            "in Substrate: [build_client_state] >> frozen_height = {:?}",
-            frozen_height
-        );
-
-        use ibc::ics02_client::client_state::AnyClientState;
-        use ibc::ics10_grandpa::client_state::ClientState as GRANDPAClientState;
-
-        // Create mock grandpa client state
-        // let client_state = GRANDPAClientState::new(chain_id, height, frozen_height).unwrap();
-        let default_client_state = GPClientState::default();
-        let client_state = GPClientState {
-            chain_id: chain_id,
-            block_number: height.revision_height as u32,
-            ..default_client_state
-        };
-
-        let any_client_state = AnyClientState::Grandpa(client_state);
+        // Build client state
+        let client_state = GPClientState::new(
+            self.id().clone(),
+            height.revision_height as u32,
+            Height::zero(),
+            Some(Commitment::default()),
+            Some(ValidatorSet::default()),
+        ).map_err(Error::ics10)?;
 
         tracing::info!(
             "in Substrate: [build_client_state] >> client_state: {:?}",
-            any_client_state
+            client_state.clone()
         );
 
-        Ok(any_client_state)
+        Ok(AnyClientState::Grandpa(client_state))
     }
 
     fn build_consensus_state(
         &self,
         light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
-        // TODO this is mock
         tracing::info!("in Substrate: [build_consensus_state]");
 
-        // Create mock grandpa consensus state
-        use ibc::ics10_grandpa::consensus_state::ConsensusState as GRANDPAConsensusState;
-
-        let consensus_state = GRANDPAConsensusState::new(CommitmentRoot::from(vec![1, 2, 3, 4]));
-
-        Ok(AnyConsensusState::Grandpa(consensus_state))
+        Ok(AnyConsensusState::Grandpa(GPConsensusState::from(light_block)))
     }
 
     fn build_header(
@@ -1445,16 +1424,13 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [build_header]");
         tracing::info!("in Substrate: [build_header] >> Trusted_height: {:?}, Target_height: {:?}, client_state: {:?}",
             trusted_height, target_height, client_state);
-        tracing::info!(
-            "in Substrate: [build_header] >> GPHEADER: {:?}",
-            GPHeader::default() // GPHeader::new(target_height.revision_height)
-        );
 
-        Ok((
-            // GPHeader::new(target_height.revision_height),
-            GPHeader::default(),
-            vec![GPHeader::default()], // vec![GPHeader::new(trusted_height.revision_height)],
-        ))
+        // Get the light block at target_height from chain.
+        let Verified { target, supporting } =
+            light_client.header_and_minimal_set(trusted_height, target_height, client_state)?;
+
+        tracing::info!("in substrate: [build_header] >> target: {:?}, supporting: {:?}", target, supporting);
+        Ok((target, supporting))
     }
 }
 
@@ -1495,6 +1471,7 @@ pub fn get_dummy_merkle_proof() -> MerkleProof {
 use ibc::ics07_tendermint::header::Header as tHeader;
 use retry::delay::Fixed;
 use tendermint_light_client::types::Validator;
+use ibc::ics10_grandpa::help::{MmrLeaf, MmrLeafProof, SignedCommitment, ValidatorMerkleProof, ValidatorSet};
 
 pub fn get_dummy_ics07_header() -> tHeader {
     use tendermint::block::signed_header::SignedHeader;

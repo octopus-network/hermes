@@ -21,6 +21,7 @@ use ibc::{
     ics02_client::{client_type::ClientType, error as client_error},
     ics03_connection::error as connection_error,
     ics07_tendermint::error as tendermint_error,
+    ics10_grandpa::error as grandpa_error,
     ics18_relayer::error as relayer_error,
     ics23_commitment::error as commitment_error,
     ics24_host::identifier::{ChainId, ChannelId, ConnectionId},
@@ -259,6 +260,10 @@ define_error! {
         Ics07
             [ tendermint_error::Error ]
             |_| { "ICS 07 error" },
+
+        Ics10
+            [ grandpa_error::Error ]
+            |_ | { "ICS 10 error" },
 
         Ics18
             [ relayer_error::Error ]

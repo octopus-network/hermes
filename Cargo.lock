@@ -304,7 +304,7 @@ dependencies = [
 [[package]]
 name = "beefy-merkle-tree"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.12#d76f39995315ec36980908e4b99709bd14927044"
+source = "git+https://github.com/octopus-network/substrate?branch=polkadot-v0.9.12#902587b22222be87321c1a53f8b2a11ed3855a42"
 dependencies = [
  "tiny-keccak",
 ]
