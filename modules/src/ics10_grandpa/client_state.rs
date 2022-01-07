@@ -60,7 +60,10 @@ impl ClientState {
 
     pub fn with_header(self, h: Header) -> Self {
         // TODO: Clarify which fields should update.
-        ClientState { ..self }
+        ClientState {
+            block_number: h.height().revision_number as u32,
+            ..self
+        }
     }
 
     /// Get the refresh time to ensure the state does not expire

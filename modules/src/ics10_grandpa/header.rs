@@ -59,7 +59,7 @@ impl Header {
     }
 
     pub fn height(&self) -> Height {
-        Height::default()
+        Height::new(0, self.signed_commitment.commitment.as_ref().unwrap().block_number as u64)
     }
 }
 

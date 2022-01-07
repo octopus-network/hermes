@@ -19,7 +19,7 @@ pub(crate) fn process(
 
     // Check the client's (consensus state) proof height.
     // TODO! future must to be handle
-    // check_client_consensus_height(ctx, msg.consensus_height())?;
+    check_client_consensus_height(ctx, msg.consensus_height())?;
 
     // Validate the connection end.
     let mut conn_end = ctx.connection_end(msg.connection_id())?;
