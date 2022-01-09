@@ -64,9 +64,10 @@ pub fn process(
 
     // TODO have ibc-rs informal have some different
     let event_attributes = Attributes {
-        // height: header.clone().height(),
+        height: header.clone().height(),
         client_id,
         client_type: header.client_type().clone(),
+        consensus_height: header.clone().height(),
         ..Default::default()
     };
     output.emit(IbcEvent::UpdateClient(event_attributes.into()));
