@@ -1276,6 +1276,25 @@ impl ChainEndpoint for SubstrateChain {
                 "In Substrate: [proven_connection] >> generate_proof : {:?}",
                 generate_proof
             );
+
+            use serde::{Deserialize, Serialize};
+            #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+            #[serde(rename_all = "camelCase")]
+            pub struct LeafProof_ {
+                pub block_hash: String,
+                pub leaf: Vec<u8>,
+                pub proof: Vec<u8>,
+            }
+            let generate_proof = LeafProof_  {
+                block_hash: generate_proof.block_hash,
+                leaf: generate_proof.leaf.0,
+                proof: generate_proof.proof.0,
+            };
+            tracing::info!(
+                "In Substrate: [proven_connection] >> generate_proof_ : {:?}",
+                generate_proof
+            );
+
             let generate_proof_str = serde_json::to_string(&generate_proof).unwrap();
             tracing::info!(
                 "In Substrate: [proven_connection] >> generate_proof to_string: {:?}",
@@ -1285,7 +1304,6 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         let generate_proof = self.block_on(generate_proof);
-
         Ok((new_connection_end, _get_dummy_merkle_proof(generate_proof)))
     }
 
