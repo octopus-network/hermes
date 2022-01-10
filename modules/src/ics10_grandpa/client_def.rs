@@ -76,56 +76,7 @@ impl ClientDef for GrandpaClient {
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
-        use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
-        use core::convert::TryFrom;
-        use ibc_proto::ics23::commitment_proof::Proof::Exist;
-        use beefy_merkle_tree::Keccak256;
-        use codec::Decode;
-
-        use serde::{Deserialize, Serialize};
-        #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-        #[serde(rename_all = "camelCase")]
-        pub struct LeafProof_ {
-            pub block_hash: String,
-            pub leaf: Vec<u8>,
-            pub proof: Vec<u8>,
-        }
-
-        // The latest height was increased here: https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/chain.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L438
-        // Call decrement() to restore the latest height
-        let _height = _height.decrement();
-        let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
-        let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap();
-        let leaf_proof = match _merkel_proof {
-            Exist(_exist_proof) => {
-                let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
-                // tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> _proof_str: {:?}", _proof_str);
-                let leaf_proof: LeafProof_ = serde_json::from_str(&_proof_str).unwrap();
-                tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> leaf_proof: {:?}", leaf_proof);
-                leaf_proof
-            }
-            _ => unimplemented!()
-        };
-
-        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> _client_state: {:?}", _client_state);
-        let mmr_root: [u8; 32] = _client_state.
-            latest_commitment.as_ref().unwrap().payload.as_slice().try_into().map_err(|_| Error::cant_decode_mmr_proof())?;
-        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_root: {:?}", mmr_root);
-
-        let mmr_leaf: Vec<u8> =
-            Decode::decode(&mut &leaf_proof.leaf[..]).map_err(|_| Error::cant_decode_mmr_proof())?;
-        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_leaf: {:?}", mmr_leaf);
-        let mmr_leaf_hash = Keccak256::hash(&mmr_leaf[..]);
-        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_leaf_hash: {:?}", mmr_leaf_hash);
-
-        let mmr_leaf_proof = leaf_proof.proof;
-        let mmr_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..])
-            .map_err(|_| Error::cant_decode_mmr_proof())?;
-        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_proof: {:?}", mmr_proof);
-
-        beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof);
-
-        Ok(())
+        Self::extract_verify_beefy_proof(_client_state, _height, _proof)
     }
 
     fn verify_channel_state(
@@ -151,7 +102,7 @@ impl ClientDef for GrandpaClient {
         _proof: &CommitmentProofBytes,
         _expected_client_state: &AnyClientState,
     ) -> Result<(), Error> {
-        Ok(())
+        Self::extract_verify_beefy_proof(_client_state, _height, _proof)
     }
 
     fn verify_packet_data(
@@ -213,5 +164,64 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
         // TODO
         Ok((client_state.clone(), consensus_state.clone()))
+    }
+}
+
+impl GrandpaClient {
+    /// Extract `LeafProof_` and verify its validity
+    fn extract_verify_beefy_proof(_client_state: &ClientState, _height: Height, _proof: &CommitmentProofBytes) -> Result<(), Error> {
+        use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
+        use core::convert::TryFrom;
+        use ibc_proto::ics23::commitment_proof::Proof::Exist;
+        use beefy_merkle_tree::Keccak256;
+        use codec::Decode;
+
+        use serde::{Deserialize, Serialize};
+        #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+        #[serde(rename_all = "camelCase")]
+        pub struct LeafProof_ {
+            pub block_hash: String,
+            pub leaf: Vec<u8>,
+            pub proof: Vec<u8>,
+        }
+
+        // The latest height was increased here: https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/chain.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L438
+        // Call decrement() to restore the latest height
+        let _height = _height.decrement();
+        let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
+        let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap();
+        let leaf_proof = match _merkel_proof {
+            Exist(_exist_proof) => {
+                let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
+                // tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> _proof_str: {:?}", _proof_str);
+                let leaf_proof: LeafProof_ = serde_json::from_str(&_proof_str).unwrap();
+                tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> leaf_proof: {:?}", leaf_proof);
+                leaf_proof
+            }
+            _ => unimplemented!()
+        };
+
+        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> _client_state: {:?}", _client_state);
+        let mmr_root: [u8; 32] = _client_state.
+            latest_commitment.as_ref().unwrap().payload.as_slice().try_into().map_err(|_| Error::cant_decode_mmr_root())?;
+        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_root: {:?}", mmr_root);
+
+        let mmr_leaf: Vec<u8> =
+            Decode::decode(&mut &leaf_proof.leaf[..]).map_err(|_| Error::cant_decode_mmr_leaf())?;
+        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_leaf: {:?}", mmr_leaf);
+        let mmr_leaf_hash = Keccak256::hash(&mmr_leaf[..]);
+        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_leaf_hash: {:?}", mmr_leaf_hash);
+
+        let mmr_leaf_proof = leaf_proof.proof;
+        let mmr_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..])
+            .map_err(|_| Error::cant_decode_mmr_proof())?;
+        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_proof: {:?}", mmr_proof);
+
+        let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof).unwrap();
+        if !result {
+            return Err(Error::failed_to_verify_mmr_proof());
+        }
+
+        Ok(())
     }
 }

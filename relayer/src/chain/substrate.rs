@@ -1304,7 +1304,7 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         let generate_proof = self.block_on(generate_proof);
-        Ok((new_connection_end, _get_dummy_merkle_proof(generate_proof)))
+        Ok((new_connection_end, compose_ibc_merkle_proof(generate_proof)))
     }
 
     fn proven_client_consensus(
@@ -1452,9 +1452,9 @@ impl ChainEndpoint for SubstrateChain {
     }
 }
 
-use ibc_proto::ics23::{commitment_proof, ExistenceProof, InnerOp};
-/// Returns a dummy `MerkleProof`, for testing only!
-pub fn _get_dummy_merkle_proof(proof: String) -> MerkleProof {
+/// Compose merkle proof according to ibc proto
+pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
+    use ibc_proto::ics23::{commitment_proof, ExistenceProof, InnerOp};
     tracing::info!("in substrate: [get_dummy_merk_proof]");
 
     let _inner_op = InnerOp {
