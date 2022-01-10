@@ -91,6 +91,9 @@ impl ClientDef for GrandpaClient {
             pub proof: Vec<u8>,
         }
 
+        // The latest height was increased here: https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/chain.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L438
+        // Call decrement() to restore the latest height
+        let _height = _height.decrement();
         let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
         let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap();
         let leaf_proof = match _merkel_proof {
