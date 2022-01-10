@@ -17,8 +17,9 @@ use bytes::Buf;
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
+use codec::{Encode, Decode};
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, Encode, Decode)]
 pub struct Header {
     pub signed_commitment: SignedCommitment,
     pub validator_merkle_proof: ValidatorMerkleProof,
