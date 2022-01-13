@@ -1,14 +1,17 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Header {
+pub struct MmrRoot {
     ///uint32 block_number = 1
     ///      [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"block_number\""];
+    //// Block Header.
     #[prost(message, optional, tag = "1")]
-    pub signed_commitment: ::core::option::Option<SignedCommitment>,
+    pub block_header: ::core::option::Option<BlockHeader>,
     #[prost(message, optional, tag = "2")]
-    pub validator_merkle_proof: ::core::option::Option<ValidatorMerkleProof>,
+    pub signed_commitment: ::core::option::Option<SignedCommitment>,
     #[prost(message, optional, tag = "3")]
-    pub mmr_leaf: ::core::option::Option<MmrLeaf>,
+    pub validator_merkle_proof: ::core::option::Option<ValidatorMerkleProof>,
     #[prost(message, optional, tag = "4")]
+    pub mmr_leaf: ::core::option::Option<MmrLeaf>,
+    #[prost(message, optional, tag = "5")]
     pub mmr_leaf_proof: ::core::option::Option<MmrLeafProof>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -130,14 +133,16 @@ pub struct ClientState {
     /// Block height when the client was frozen due to a misbehaviour
     #[prost(uint32, tag = "3")]
     pub frozen_height: u32,
-    ///latest_commitment: Option<Commitment>
     #[prost(message, optional, tag = "4")]
-    pub latest_commitment: ::core::option::Option<Commitment>,
+    pub block_header: ::core::option::Option<BlockHeader>,
+    ///latest_commitment: Option<Commitment>
     #[prost(message, optional, tag = "5")]
+    pub latest_commitment: ::core::option::Option<Commitment>,
+    #[prost(message, optional, tag = "6")]
     pub validator_set: ::core::option::Option<ValidatorSet>,
 }
 // message InProcessState{
-//   uint32 position = 1;
+//  uint32 position = 1;
 // 	bytes commitment_hash =2;
 // 	SignedCommitment signed_commitment = 3;
 // 	repeated ValidatorMerkleProof validator_proofs = 4;
@@ -147,24 +152,51 @@ pub struct ClientState {
 /// Consensus state
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConsensusState {
-    /// mmr root
-    #[prost(message, optional, tag = "1")]
-    pub root: ::core::option::Option<super::super::super::core::commitment::v1::MerkleRoot>,
+    //// The parent hash.
+    #[prost(bytes = "vec", tag = "1")]
+    pub parent_hash: ::prost::alloc::vec::Vec<u8>,
+    //// The block number.
+    #[prost(uint32, tag = "2")]
+    pub block_number: u32,
+    //// The state trie merkle root
+    #[prost(bytes = "vec", tag = "3")]
+    pub state_root: ::prost::alloc::vec::Vec<u8>,
+    //// The merkle root of the extrinsics.
+    #[prost(bytes = "vec", tag = "4")]
+    pub extrinsics_root: ::prost::alloc::vec::Vec<u8>,
+    //// A chain-specific digest of data useful for light clients or referencing auxiliary data.
+    #[prost(bytes = "vec", tag = "5")]
+    pub digest: ::prost::alloc::vec::Vec<u8>,
 }
-//  message Header {
-//   option (gogoproto.goproto_getters) = false;
-//   /// The parent hash.
-//   bytes parent_hash = 1 [(gogoproto.nullable) = false];
-//   /// The block number.
-//   uint32 block_number = 2 [(gogoproto.nullable) = false];
-//   /// The state trie merkle root
-//   bytes state_root = 3 [(gogoproto.nullable) = false];
-//   /// The merkle root of the extrinsics.
-// 	bytes extrinsics_root = 4 [(gogoproto.nullable) = false];
-//   /// A chain-specific digest of data useful for light clients or referencing auxiliary data.
-//   bytes digest = 5 [(gogoproto.nullable) = false];
-// }
-
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Header {
+    //// Block Header.
+    #[prost(message, optional, tag = "1")]
+    pub block_header: ::core::option::Option<BlockHeader>,
+    #[prost(message, optional, tag = "2")]
+    pub mmr_leaf: ::core::option::Option<MmrLeaf>,
+    #[prost(message, optional, tag = "3")]
+    pub mmr_leaf_proof: ::core::option::Option<MmrLeafProof>,
+}
+/// Block Header
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BlockHeader {
+    //// The parent hash.
+    #[prost(bytes = "vec", tag = "1")]
+    pub parent_hash: ::prost::alloc::vec::Vec<u8>,
+    //// The block number.
+    #[prost(uint32, tag = "2")]
+    pub block_number: u32,
+    //// The state trie merkle root
+    #[prost(bytes = "vec", tag = "3")]
+    pub state_root: ::prost::alloc::vec::Vec<u8>,
+    //// The merkle root of the extrinsics.
+    #[prost(bytes = "vec", tag = "4")]
+    pub extrinsics_root: ::prost::alloc::vec::Vec<u8>,
+    //// A chain-specific digest of data useful for light clients or referencing auxiliary data.
+    #[prost(bytes = "vec", tag = "5")]
+    pub digest: ::prost::alloc::vec::Vec<u8>,
+}
 /// Misbehaviour
 /// The Misbehaviour type is used for detecting misbehaviour and freezing the client - to prevent further packet flow -
 /// if applicable. GRANDPA client Misbehaviour consists of two headers at the same height both of which the light client
