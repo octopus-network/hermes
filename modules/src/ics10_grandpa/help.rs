@@ -399,6 +399,7 @@ impl Default for ValidatorMerkleProof {
 }
 
 use ibc_proto::ibc::lightclients::grandpa::v1::MmrLeafProof as RawMmrLeafProof;
+
 use crate::Height;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode)]
@@ -439,4 +440,59 @@ impl Default for MmrLeafProof {
             items: vec![],
         }
     }
+}
+
+
+use ibc_proto::ibc::lightclients::grandpa::v1::BlockHeader as RawBlockHeader;
+
+/// Block Header
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode)]
+pub struct BlockHeader {
+    //// The parent hash.
+    pub parent_hash: Vec<u8>,
+    //// The block number.
+    pub block_number: u32,
+    //// The state trie merkle root
+    pub state_root: Vec<u8>,
+    //// The merkle root of the extrinsics.
+    pub extrinsics_root: Vec<u8>,
+    //// A chain-specific digest of data useful for light clients or referencing auxiliary data.
+    pub digest: Vec<u8>,
+}
+
+impl Default for BlockHeader {
+    fn default() -> Self {
+        Self {
+            parent_hash: vec![],
+            block_number: 0,
+            state_root: vec![],
+            extrinsics_root: vec![],
+            digest: vec![]
+        }
+    }
+}
+
+impl From<RawBlockHeader> for BlockHeader {
+    fn from(raw : RawBlockHeader) -> Self {
+        Self {
+            parent_hash: raw.parent_hash,
+            block_number: raw.block_number,
+            state_root: raw.state_root,
+            extrinsics_root: raw.extrinsics_root,
+            digest: raw.digest,
+        }
+    }
+}
+
+impl  From<BlockHeader> for RawBlockHeader {
+    fn from(value : BlockHeader) -> Self {
+        Self {
+            parent_hash: value.parent_hash,
+            block_number: value.block_number,
+            state_root: value.state_root,
+            extrinsics_root: value.extrinsics_root,
+            digest: value.digest,
+        }
+    }
+    
 }

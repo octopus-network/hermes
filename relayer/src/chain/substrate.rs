@@ -1392,8 +1392,9 @@ impl ChainEndpoint for SubstrateChain {
             self.id().clone(),
             height.revision_height as u32,
             Height::zero(),
-            Some(Commitment::default()),
-            Some(ValidatorSet::default()),
+                        BlockHeader::default(),
+            Commitment::default(),
+            ValidatorSet::default(),
         ).map_err(Error::ics10)?;
 
         tracing::info!(
@@ -1470,7 +1471,7 @@ pub fn get_dummy_merkle_proof() -> MerkleProof {
 use ibc::ics07_tendermint::header::Header as tHeader;
 use retry::delay::Fixed;
 use tendermint_light_client::types::Validator;
-use ibc::ics10_grandpa::help::{MmrLeaf, MmrLeafProof, SignedCommitment, ValidatorMerkleProof, ValidatorSet};
+use ibc::ics10_grandpa::help::{BlockHeader, MmrLeaf, MmrLeafProof, SignedCommitment, ValidatorMerkleProof, ValidatorSet};
 
 pub fn get_dummy_ics07_header() -> tHeader {
     use tendermint::block::signed_header::SignedHeader;

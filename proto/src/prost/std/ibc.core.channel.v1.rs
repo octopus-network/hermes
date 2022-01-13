@@ -863,9 +863,9 @@ pub struct QueryPacketAcknowledgementsRequest {
     pub pagination: ::core::option::Option<
         super::super::super::super::cosmos::base::query::v1beta1::PageRequest,
     >,
-    /// list of packet sequences
-    #[prost(uint64, repeated, tag = "4")]
-    pub packet_commitment_sequences: ::prost::alloc::vec::Vec<u64>,
+    // /// list of packet sequences
+    // #[prost(uint64, repeated, tag = "4")]
+    // pub packet_commitment_sequences: ::prost::alloc::vec::Vec<u64>,
 }
 /// QueryPacketAcknowledgemetsResponse is the request type for the
 /// Query/QueryPacketAcknowledgements RPC method

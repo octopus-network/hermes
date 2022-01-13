@@ -15,27 +15,45 @@ use crate::ics10_grandpa::error::Error;
 use crate::ics10_grandpa::header::Header;
 use crate::ics23_commitment::commitment::CommitmentRoot;
 use tendermint_proto::Protobuf;
+use crate::ics10_grandpa::help::BlockHeader;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ConsensusState {
-    pub root: CommitmentRoot,
+    //// The parent hash.
+    pub parent_hash: Vec<u8>,
+    //// The block number
+    pub block_number: u32,
+    //// The state trie merkle root
+    pub state_root: Vec<u8>,
+    //// The merkle root of the extrinsics.
+    pub extrinsics_root: Vec<u8>,
+    //// A chain-specific digest of data useful for light clients or referencing auxiliary data.
+    pub digest: Vec<u8>,
+    // // TODO NEED timestamp, because ics02 have timestamp function
+    // pub root: CommitmentRoot,
 }
 
 impl ConsensusState {
-    pub fn new(root: CommitmentRoot) -> Self {
-        Self { root }
-    }
-
-    pub fn from_commit(root_commit: Commitment) -> Self {
-        let encode_root_commit = serde_json::to_string(&root_commit)
-            .unwrap()
-            .as_bytes()
-            .to_vec();
-
+    pub fn new(header: BlockHeader) -> Self {
         Self {
-            root: CommitmentRoot::from_bytes(&encode_root_commit),
+            parent_hash: header.parent_hash,
+            block_number: header.block_number,
+            state_root: header.state_root,
+            extrinsics_root: header.extrinsics_root,
+            digest: header.digest,
         }
     }
+
+    // pub fn from_commit(root_commit: Commitment) -> Self {
+    //     let encode_root_commit = serde_json::to_string(&root_commit)
+    //         .unwrap()
+    //         .as_bytes()
+    //         .to_vec();
+    //
+    //     Self {
+    //         root: CommitmentRoot::from_bytes(&encode_root_commit),
+    //     }
+    // }
 }
 
 impl Protobuf<RawConsensusState> for ConsensusState {}
@@ -48,7 +66,7 @@ impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
     }
 
     fn root(&self) -> &CommitmentRoot {
-        &self.root
+        todo!()
     }
 
     fn validate_basic(&self) -> Result<(), Self::Error> {
@@ -64,14 +82,12 @@ impl TryFrom<RawConsensusState> for ConsensusState {
     type Error = Error;
 
     fn try_from(raw: RawConsensusState) -> Result<Self, Self::Error> {
-        Ok(ConsensusState {
-            root: raw
-                .root
-                .ok_or_else(|| {
-                    Error::invalid_raw_consensus_state("missing commitment root".into())
-                })?
-                .hash
-                .into(),
+        Ok(Self {
+            parent_hash: raw.parent_hash,
+            block_number: raw.block_number,
+            state_root: raw.state_root,
+            extrinsics_root: raw.extrinsics_root,
+            digest: raw.digest,
         })
     }
 }
@@ -79,9 +95,14 @@ impl TryFrom<RawConsensusState> for ConsensusState {
 impl From<ConsensusState> for RawConsensusState {
     fn from(value: ConsensusState) -> Self {
         Self {
-            root: Some(ibc_proto::ibc::core::commitment::v1::MerkleRoot {
-                hash: value.root.into_vec(),
-            }),
+            parent_hash: value.parent_hash,
+            block_number: value.block_number,
+            state_root: value.state_root,
+            extrinsics_root: value.extrinsics_root,
+            digest: value.digest,
+            // root: Some(ibc_proto::ibc::core::commitment::v1::MerkleRoot {
+            //     hash: value.root.into_vec(),
+            // }),
         }
     }
 }
@@ -89,15 +110,12 @@ impl From<ConsensusState> for RawConsensusState {
 
 impl From<Header> for ConsensusState {
     fn from(header: Header) -> Self {
-        let commitment_root = header.signed_commitment.commitment.unwrap();
-
-        let encode_commitment_root = serde_json::to_string(&commitment_root)
-            .unwrap()
-            .as_bytes()
-            .to_vec();
-
         Self {
-            root: CommitmentRoot::from_bytes(&encode_commitment_root),
+            parent_hash: header.block_header.parent_hash,
+            block_number: header.block_header.block_number,
+            state_root: header.block_header.state_root,
+            extrinsics_root: header.block_header.extrinsics_root,
+            digest: header.block_header.digest,
         }
     }
 }
