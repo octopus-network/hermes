@@ -216,6 +216,15 @@ define_error! {
             },
 
         CantDecodeMmrProof
-            | _ | { "cant decode Mmr Proof" }
+            | _ | { "cant decode Mmr Proof" },
+
+        CantDecodeMmrRoot
+            | _ | { "cant decode MMR root" },
+
+        CantDecodeMmrLeaf
+            | _ | { "cant decode MMR leaf" },
+
+        FailedToVerifyMmrProof
+            | _ | { "failed to verify MMR proof" }
     }
 }
