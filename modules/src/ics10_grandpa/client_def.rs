@@ -1,6 +1,8 @@
 use alloc::string::String;
 use alloc::vec::Vec;
+use alloc::vec;
 use core::convert::TryInto;
+use codec::{Encode, Decode};
 
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
@@ -39,19 +41,62 @@ impl ClientDef for GrandpaClient {
         //     ));
         // }
 
-        // proof 的height为0 定位到了这里的错误
-        let result_client_state = ClientState {
-            chain_id: client_state.chain_id.clone(),
-            block_number: header.signed_commitment.commitment.as_ref().unwrap().block_number,
-            frozen_height: client_state.frozen_height.clone(),
-            latest_commitment: Some(Default::default()),
-            validator_set: Some(Default::default())
-        };
+        // tracing::info!("in ics10 client_def [check_header_and_update_state] >> header = {:?}", header);
+        // // destruct header
+        // let Header {
+        //     block_header,
+        //     mmr_leaf,
+        //     mmr_leaf_proof,
+        // } = header;
+        //
+        //
+        // if client_state.latest_commitment.is_none() {
+        //     let new_client_state = ClientState {
+        //         chain_id: client_state.chain_id,
+        //         block_number: signed_commitment.clone().commitment.unwrap().block_number,
+        //         frozen_height: client_state.frozen_height,
+        //         latest_commitment: signed_commitment.clone().commitment,
+        //         validator_set: mmr_leaf.beefy_next_authority_set
+        //     };
+        //
+        //     let new_consensus_state = ConsensusState::from_commit(signed_commitment.commitment.unwrap());
+        //
+        //     return Ok((new_client_state, new_consensus_state));
+        // }
+        //
+        // let mut beefy_light_client = beefy_light_client::LightClient {
+        //     latest_commitment: Some(client_state.latest_commitment.unwrap().into()),
+        //     validator_set: client_state.validator_set.unwrap().into(),
+        //     in_process_state: None
+        // };
+        //
+        // let encode_signed_commitment = signed_commitment.encode();
+        // let validator_proofs = vec![validator_merkle_proof.into()];
+        // let encode_mmr_leaf = mmr_leaf.encode();
+        // let encode_mmr_leaf_proof = mmr_leaf_proof.encode();
+        //
+        // beefy_light_client.update_state(&encode_signed_commitment, &validator_proofs, &encode_mmr_leaf,&encode_mmr_leaf_proof);
+        //
+        // tracing::info!("in ics10 client_def [check_header_and_update_state] >> beefy_light_client = {:?}", beefy_light_client);
+        //
+        //
+        // let new_client_state = ClientState {
+        //     chain_id: client_state.chain_id,
+        //     // TODO Need later to fix
+        //     // block_number: beefy_light_client.latest_commitment.as_ref().unwrap().block_number,
+        //     block_number: signed_commitment.commitment.as_ref().unwrap().block_number,
+        //     frozen_height: client_state.frozen_height,
+        //     latest_commitment: Some(beefy_light_client.latest_commitment.clone().unwrap().into()),
+        //     validator_set: Some(beefy_light_client.validator_set.into()),
+        // };
+        //
+        // let new_consensus_state = ConsensusState::from_commit(beefy_light_client.latest_commitment.unwrap().into());
+        //
+        // tracing::info!("in ics10 client_def [check_header_and_update_state] >> client_state = {:?}", new_client_state);
+        // tracing::info!("in ics10 client_def [check_header_and_update_state] >> new_consensus_state = {:?}", new_consensus_state);
 
-        Ok((
-            result_client_state,
-            ConsensusState::from(header),
-        ))
+        // Ok((new_client_state ,new_consensus_state))
+        Ok((client_state.with_header(header.clone()), ConsensusState::from(header)))
     }
 
     fn verify_client_consensus_state(

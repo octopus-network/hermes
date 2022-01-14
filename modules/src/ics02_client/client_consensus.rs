@@ -63,7 +63,7 @@ impl AnyConsensusState {
             }
 
             Self::Grandpa(cs_state) => {
-                // TODO!
+                // TODO ibc02 MUST
                 Timestamp::none()
             }
 

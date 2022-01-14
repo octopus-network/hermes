@@ -12,7 +12,7 @@ use ibc::ics10_grandpa::header::Header as GPHeader;
 use ibc::ics24_host::identifier::ChainId;
 use ibc::ics24_host::identifier::ClientId;
 use ibc::Height;
-use ibc::ics10_grandpa::help::{Commitment, SignedCommitment};
+use ibc::ics10_grandpa::help::{BlockHeader, Commitment, SignedCommitment};
 
 pub struct LightClient {
     chain_id: ChainId,
@@ -43,22 +43,24 @@ impl super::LightClient<SubstrateChain> for LightClient {
         Ok(Verified {
             // target: GPHeader::new(target.revision_height),
             target: GPHeader {
-                signed_commitment: SignedCommitment { commitment: Some(Commitment {
+                block_header: BlockHeader {
+                    parent_hash: vec![],
                     block_number: target.revision_height as u32,
-                    payload: vec![],
-                    validator_set_id: 0
-                }) , signatures: vec![] },
-                validator_merkle_proof: Default::default(),
+                    state_root: vec![],
+                    extrinsics_root: vec![],
+                    digest: vec![]
+                },
                 mmr_leaf: Default::default(),
                 mmr_leaf_proof: Default::default()
             },
             supporting: vec![GPHeader {
-                signed_commitment: SignedCommitment { commitment: Some(Commitment {
+                block_header: BlockHeader {
+                    parent_hash: vec![],
                     block_number: trusted.revision_height as u32,
-                    payload: vec![],
-                    validator_set_id: 0
-                }) , signatures: vec![] },
-                validator_merkle_proof: Default::default(),
+                    state_root: vec![],
+                    extrinsics_root: vec![],
+                    digest: vec![]
+                },
                 mmr_leaf: Default::default(),
                 mmr_leaf_proof: Default::default()
             }],

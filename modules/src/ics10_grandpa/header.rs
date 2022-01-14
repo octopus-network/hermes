@@ -17,21 +17,25 @@ use bytes::Buf;
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
+use codec::{Encode, Decode};
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+use super::help::BlockHeader;
+
+/// block header
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, Encode, Decode)]
 pub struct Header {
-    pub signed_commitment: SignedCommitment,
-    pub validator_merkle_proof: ValidatorMerkleProof,
+    pub block_header: BlockHeader,
     pub mmr_leaf: MmrLeaf,
     pub mmr_leaf_proof: MmrLeafProof,
 }
 
 
+
+
 impl Default for Header {
     fn default() -> Self {
         Self {
-            signed_commitment: SignedCommitment::default(),
-            validator_merkle_proof: ValidatorMerkleProof::default(),
+            block_header: BlockHeader::default(),
             mmr_leaf: MmrLeaf::default(),
             mmr_leaf_proof: MmrLeafProof::default(),
         }
@@ -40,21 +44,19 @@ impl Default for Header {
 
 impl Header {
     pub fn new(
-        signed_commitment: SignedCommitment,
-        validator_merkle_proof: ValidatorMerkleProof,
+        block_header: BlockHeader,
         mmr_leaf: MmrLeaf,
         mmr_leaf_proof: MmrLeafProof,
     ) -> Self {
         Self {
-            signed_commitment,
-            validator_merkle_proof,
+            block_header,
             mmr_leaf,
             mmr_leaf_proof,
         }
     }
 
     pub fn height(&self) -> Height {
-        Height::new(0, self.signed_commitment.commitment.as_ref().unwrap().block_number as u64)
+        Height::new(0, self.block_header.block_number as u64)
     }
 }
 
@@ -79,8 +81,7 @@ impl TryFrom<RawHeader> for Header {
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
         Ok(Self {
-            signed_commitment: raw.signed_commitment.unwrap().into(),
-            validator_merkle_proof: raw.validator_merkle_proof.unwrap().into(),
+            block_header: raw.block_header.unwrap().into(),
             mmr_leaf: raw.mmr_leaf.unwrap().into(),
             mmr_leaf_proof: raw.mmr_leaf_proof.unwrap().into(),
         })
@@ -94,8 +95,7 @@ pub fn decode_header<B: Buf>(buf: B) -> Result<Header, Error> {
 impl From<Header> for RawHeader {
     fn from(value: Header) -> Self {
         RawHeader {
-            signed_commitment: Some(value.signed_commitment.into()),
-            validator_merkle_proof: Some(value.validator_merkle_proof.into()),
+            block_header: Some(value.block_header.into()),
             mmr_leaf: Some(value.mmr_leaf.into()),
             mmr_leaf_proof: Some(value.mmr_leaf_proof.into()),
         }

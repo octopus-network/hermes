@@ -9,6 +9,8 @@ use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawClientState;
 
 use super::help::Commitment;
 use super::help::ValidatorSet;
+use super::help::BlockHeader;
+
 use crate::ics02_client::client_state::AnyClientState;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics10_grandpa::error::Error;
@@ -21,20 +23,24 @@ use tendermint_proto::Protobuf;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState {
     pub chain_id: ChainId,
+    /// block_number is height?
     pub block_number: u32,
+    /// Block height when the client was frozen due to a misbehaviour
     pub frozen_height: Height,
-    pub latest_commitment: Option<Commitment>,
-    pub validator_set: Option<ValidatorSet>,
+    pub block_header: BlockHeader,
+    pub latest_commitment: Commitment,
+    pub validator_set: ValidatorSet,
 }
 
 impl Default for ClientState {
     fn default() -> Self {
         Self {
-            chain_id: Default::default(),
-            block_number: 0,
-            frozen_height: Default::default(),
-            latest_commitment: Some(Commitment::default()),
-            validator_set: Some(ValidatorSet::default()),
+            chain_id: ChainId::default(),
+            block_number: u32::default(),
+            frozen_height: Height::default(),
+            block_header: BlockHeader::default(),
+            latest_commitment: Commitment::default(),
+            validator_set: ValidatorSet::default(),
         }
     }
 }
@@ -44,13 +50,15 @@ impl ClientState {
         chain_id: ChainId,
         block_number: u32,
         frozen_height: Height,
-        latest_commitment: Option<Commitment>,
-        validator_set: Option<ValidatorSet>,
+        block_header: BlockHeader,
+        latest_commitment: Commitment,
+        validator_set: ValidatorSet,
     ) -> Result<Self, Error> {
         let client_state = ClientState {
             chain_id,
             block_number,
             frozen_height,
+            block_header,
             latest_commitment,
             validator_set,
         };
@@ -118,8 +126,9 @@ impl TryFrom<RawClientState> for ClientState {
             chain_id: ChainId::from_str(raw.chain_id.as_str()).unwrap(),
             block_number: raw.block_number,
             frozen_height: Height::new(0, raw.frozen_height as u64),
-            latest_commitment: Some(raw.latest_commitment.unwrap().into()),
-            validator_set: Some(raw.validator_set.unwrap().into()),
+            block_header: raw.block_header.unwrap().into(),
+            latest_commitment: raw.latest_commitment.unwrap().into(),
+            validator_set: raw.validator_set.unwrap().into(),
         })
     }
 }
@@ -130,8 +139,9 @@ impl From<ClientState> for RawClientState {
             chain_id: value.chain_id.to_string(),
             block_number: value.block_number,
             frozen_height: value.frozen_height.revision_height as u32,
-            latest_commitment: Some(value.latest_commitment.unwrap().into()),
-            validator_set: Some(value.validator_set.unwrap().into()),
+            block_header: Some(value.block_header.into()),
+            latest_commitment: Some(value.latest_commitment.into()),
+            validator_set: Some(value.validator_set.into()),
         }
     }
 }

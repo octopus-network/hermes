@@ -1428,8 +1428,9 @@ impl ChainEndpoint for SubstrateChain {
             self.id().clone(),
             height.revision_height as u32,
             Height::zero(),
-            Some(Commitment::default()),
-            Some(ValidatorSet::default()),
+                        BlockHeader::default(),
+            Commitment::default(),
+            ValidatorSet::default(),
         ).map_err(Error::ics10)?;
 
         tracing::info!(
@@ -1456,7 +1457,6 @@ impl ChainEndpoint for SubstrateChain {
         client_state: &AnyClientState,
         light_client: &mut Self::LightClient,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
-        // TODO this is mock
         tracing::info!("in Substrate: [build_header]");
         tracing::info!("in Substrate: [build_header] >> Trusted_height: {:?}, Target_height: {:?}, client_state: {:?}",
             trusted_height, target_height, client_state);
@@ -1508,7 +1508,7 @@ use ibc::ics07_tendermint::header::Header as tHeader;
 use retry::delay::Fixed;
 use subxt::sp_core::storage::StorageKey;
 use tendermint_light_client::types::Validator;
-use ibc::ics10_grandpa::help::{MmrLeaf, MmrLeafProof, SignedCommitment, ValidatorMerkleProof, ValidatorSet};
+use ibc::ics10_grandpa::help::{BlockHeader, MmrLeaf, MmrLeafProof, SignedCommitment, ValidatorMerkleProof, ValidatorSet};
 
 pub fn get_dummy_ics07_header() -> tHeader {
     use tendermint::block::signed_header::SignedHeader;
