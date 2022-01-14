@@ -294,6 +294,76 @@ impl SubstrateChain {
     ) -> Result<subxt::sp_core::H256, Box<dyn std::error::Error>> {
         octopusxt::deliver(msg, client).await
     }
+
+    /// Retrieve the storage proof according to storage keys
+    /// And convert the proof to IBC compatible type
+    fn generate_storage_proof(&self, storage_keys: Vec<Vec<u8>>, height: &Height) -> MerkleProof {
+        let generate_storage_proof = async {
+            use subxt::{BlockNumber, sp_core::H256, rpc::NumberOrHex};
+            use sp_core::{storage::StorageKey, Bytes};
+
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
+
+            sleep(Duration::from_secs(4)).await;
+
+            let _height = NumberOrHex::Number(height.revision_height);
+            let block_hash: Option<H256> = client.rpc().block_hash(Some(BlockNumber::from(_height))).await.unwrap();
+
+            let _keys = storage_keys.iter().map( |val| StorageKey(val.clone())).collect::<Vec<StorageKey>>();
+            tracing::info!("In Substrate: [proven_connection] >> block_hash : {:?}, storage key: {:?}", block_hash, _keys);
+            use jsonrpsee::types::to_json_value;
+            let params = &[to_json_value(_keys).unwrap(), to_json_value(block_hash.unwrap()).unwrap()];
+
+            use serde::{Deserialize, Serialize};
+            #[derive(Debug, PartialEq, Serialize, Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            pub struct ReadProof_ {
+                pub at: String,
+                pub proof: Vec<Bytes>,
+            }
+            let storage_proof: ReadProof_ = client
+                .rpc()
+                .client
+                .request("state_getReadProof", params)
+                .await.unwrap();
+            tracing::info!(
+                "In Substrate: [proven_connection] >> storage_proof : {:?}",
+                storage_proof
+            );
+
+/*            use serde::{Deserialize, Serialize};
+            #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+            #[serde(rename_all = "camelCase")]
+            pub struct LeafProof_ {
+                pub block_hash: String,
+                pub leaf: Vec<u8>,
+                pub proof: Vec<u8>,
+            }
+            let generate_proof = LeafProof_ {
+                block_hash: storage_proof.block_hash,
+                leaf: storage_proof.leaf.0,
+                proof: storage_proof.proof.0,
+            };
+            tracing::info!(
+                "In Substrate: [proven_connection] >> generate_proof_ : {:?}",
+                generate_proof
+            );*/
+
+            let storage_proof_str = serde_json::to_string(&storage_proof).unwrap();
+            tracing::info!(
+                "In Substrate: [proven_connection] >> storage_proof_str: {:?}",
+                storage_proof_str
+            );
+            storage_proof_str
+        };
+
+        let storage_proof = self.block_on(generate_storage_proof);
+        compose_ibc_merkle_proof(storage_proof)
+    }
 }
 
 impl ChainEndpoint for SubstrateChain {
@@ -1201,7 +1271,6 @@ impl ChainEndpoint for SubstrateChain {
         height: ICSHeight,
     ) -> Result<(ConnectionEnd, MerkleProof), Error> {
         tracing::info!("in Substrate: [proven_connection]");
-        use subxt::{BlockNumber, sp_core::H256, rpc::NumberOrHex};
 
         let connection_end = async {
             let client = ClientBuilder::new()
@@ -1252,59 +1321,8 @@ impl ChainEndpoint for SubstrateChain {
             new_connection_end = connection_end;
         }
 
-        let generate_proof = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
-
-            sleep(Duration::from_secs(4)).await;
-
-            let _height = NumberOrHex::Number(height.revision_height);
-            let block_hash: Option<H256> = client.rpc().block_hash(Some(BlockNumber::from(_height))).await.unwrap();
-            tracing::info!("In Substrate: [proven_connection] >> block_hash : {:?}", block_hash);
-            use jsonrpsee::types::to_json_value;
-            let params = &[to_json_value(height.revision_height - 1).unwrap(), to_json_value(block_hash.unwrap()).unwrap()];
-            let generate_proof: pallet_mmr_rpc::LeafProof<String> = client
-                .rpc()
-                .client
-                .request("mmr_generateProof", params)
-                .await
-                .unwrap();
-            tracing::info!(
-                "In Substrate: [proven_connection] >> generate_proof : {:?}",
-                generate_proof
-            );
-
-            use serde::{Deserialize, Serialize};
-            #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-            #[serde(rename_all = "camelCase")]
-            pub struct LeafProof_ {
-                pub block_hash: String,
-                pub leaf: Vec<u8>,
-                pub proof: Vec<u8>,
-            }
-            let generate_proof = LeafProof_  {
-                block_hash: generate_proof.block_hash,
-                leaf: generate_proof.leaf.0,
-                proof: generate_proof.proof.0,
-            };
-            tracing::info!(
-                "In Substrate: [proven_connection] >> generate_proof_ : {:?}",
-                generate_proof
-            );
-
-            let generate_proof_str = serde_json::to_string(&generate_proof).unwrap();
-            tracing::info!(
-                "In Substrate: [proven_connection] >> generate_proof to_string: {:?}",
-                generate_proof_str
-            );
-            generate_proof_str
-        };
-
-        let generate_proof = self.block_on(generate_proof);
-        Ok((new_connection_end, compose_ibc_merkle_proof(generate_proof)))
+        let storage_key = connection_id.as_bytes().to_vec();
+        Ok((new_connection_end, self.generate_storage_proof(vec![storage_key], &height)))
     }
 
     fn proven_client_consensus(
@@ -1382,7 +1400,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let channel_end = self.block_on(channel_end);
 
-        Ok((channel_end, get_dummy_merkle_proof()))
+        Ok((channel_end, self.generate_storage_proof(vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()], &height)))
     }
 
     fn proven_packet(
@@ -1488,6 +1506,7 @@ pub fn get_dummy_merkle_proof() -> MerkleProof {
 
 use ibc::ics07_tendermint::header::Header as tHeader;
 use retry::delay::Fixed;
+use subxt::sp_core::storage::StorageKey;
 use tendermint_light_client::types::Validator;
 use ibc::ics10_grandpa::help::{MmrLeaf, MmrLeafProof, SignedCommitment, ValidatorMerkleProof, ValidatorSet};
 
