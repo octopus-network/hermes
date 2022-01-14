@@ -330,7 +330,7 @@ impl GrandpaClient {
 
         tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> _client_state: {:?}", _client_state);
         let mmr_root: [u8; 32] = _client_state.
-            latest_commitment.as_ref().unwrap().payload.as_slice().try_into().map_err(|_| Error::cant_decode_mmr_root())?;
+            latest_commitment.payload.as_slice().try_into().map_err(|_| Error::cant_decode_mmr_root())?;
         tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_root: {:?}", mmr_root);
 
         let mmr_leaf: Vec<u8> =
