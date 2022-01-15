@@ -123,7 +123,7 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         // Self::extract_verify_beefy_proof(_client_state, _height, _proof)
         use core::time::Duration;
-        use sp_core::{storage::StorageKey, Bytes};
+        // use sp_core::{storage::StorageKey, Bytes};
         use  alloc::vec;
         // use subxt::sp_core::H256;
 
@@ -137,7 +137,7 @@ impl ClientDef for GrandpaClient {
         #[serde(rename_all = "camelCase")]
         pub struct ReadProof_ {
             pub at: String,
-            pub proof: Vec<Bytes>,
+            pub proof: Vec<Vec<u8>>,
         }
 
         use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
@@ -281,7 +281,7 @@ impl GrandpaClient {
     /// Extract `LeafProof_` and verify its validity
     fn extract_verify_beefy_proof(_client_state: &ClientState, _height: Height, _proof: &CommitmentProofBytes) -> Result<(), Error> {
         use core::time::Duration;
-        use sp_core::{storage::StorageKey, Bytes};
+        // use sp_core::{storage::StorageKey, Bytes};
         // use subxt::sp_core::H256;
 
         while _client_state.block_number < (_height.revision_height as u32) {
