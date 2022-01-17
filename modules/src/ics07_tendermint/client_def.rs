@@ -15,6 +15,7 @@ use crate::ics24_host::identifier::ConnectionId;
 use crate::ics24_host::identifier::{ChannelId, ClientId, PortId};
 use crate::prelude::*;
 use crate::Height;
+use crate::ics03_connection::context::ConnectionReader;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TendermintClient;
@@ -65,6 +66,7 @@ impl ClientDef for TendermintClient {
         _proof: &CommitmentProofBytes,
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
+        _ctx: Option<&dyn ConnectionReader>,
     ) -> Result<(), Error> {
         Ok(())
     }

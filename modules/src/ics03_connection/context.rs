@@ -60,6 +60,7 @@ pub trait ConnectionReader {
     /// The value of this counter should increase only via method
     /// `ConnectionKeeper::increase_connection_counter`.
     fn connection_counter(&self) -> Result<u64, Error>;
+    fn connection_storage_key(&self, conn_id: &ConnectionId) -> Result<Vec<u8>, Error>;
 }
 
 /// A context supplying all the necessary write-only dependencies (i.e., storage writing facility)

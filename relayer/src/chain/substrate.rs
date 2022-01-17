@@ -335,25 +335,22 @@ impl SubstrateChain {
                 storage_proof
             );
 
-/*            use serde::{Deserialize, Serialize};
-            #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+            #[derive(Debug, PartialEq, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
-            pub struct LeafProof_ {
-                pub block_hash: String,
-                pub leaf: Vec<u8>,
-                pub proof: Vec<u8>,
+            pub struct ReadProofU8 {
+                pub at: String,
+                pub proof: Vec<Vec<u8>>,
             }
-            let generate_proof = LeafProof_ {
-                block_hash: storage_proof.block_hash,
-                leaf: storage_proof.leaf.0,
-                proof: storage_proof.proof.0,
+            let storage_proof_ = ReadProofU8{
+                at: storage_proof.at,
+                proof: storage_proof.proof.iter().map( |val| val.clone().0).collect::<Vec<Vec<u8>>>()
             };
             tracing::info!(
-                "In Substrate: [proven_connection] >> generate_proof_ : {:?}",
-                generate_proof
-            );*/
+                "In Substrate: [proven_connection] >> storage_proof_ : {:?}",
+                storage_proof_
+            );
 
-            let storage_proof_str = serde_json::to_string(&storage_proof).unwrap();
+            let storage_proof_str = serde_json::to_string(&storage_proof_).unwrap();
             tracing::info!(
                 "In Substrate: [proven_connection] >> storage_proof_str: {:?}",
                 storage_proof_str

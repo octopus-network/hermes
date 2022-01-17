@@ -19,6 +19,7 @@ use crate::ics10_grandpa::header::Header;
 use crate::ics23_commitment::commitment::{CommitmentPrefix, CommitmentProofBytes, CommitmentRoot};
 use crate::ics24_host::identifier::ConnectionId;
 use crate::ics24_host::identifier::{ChannelId, ClientId, PortId};
+use crate::ics03_connection::context::ConnectionReader;
 use crate::Height;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -120,71 +121,59 @@ impl ClientDef for GrandpaClient {
         _proof: &CommitmentProofBytes,
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
+        _ctx: Option<&dyn ConnectionReader>,
     ) -> Result<(), Error> {
-        // Self::extract_verify_beefy_proof(_client_state, _height, _proof)
         use core::time::Duration;
-        // use sp_core::{storage::StorageKey, Bytes};
-        use  alloc::vec;
-        // use subxt::sp_core::H256;
+        use sp_core::storage::StorageKey;
+        use alloc::vec;
+        use sp_runtime::traits::BlakeTwo256;
+        use sp_trie::StorageProof;
+        use crate::ics10_grandpa::state_machine::read_proof_check;
+        use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
+        use ibc_proto::ics23::commitment_proof::Proof::Exist;
+        use core::convert::TryFrom;
+        use tendermint_proto::Protobuf;
 
 /*        while _client_state.block_number < (_height.revision_height as u32) {
             let sleep_duration = Duration::from_micros(500);
             // wasm_timer::sleep(sleep_duration);
         }*/
-
         use serde::{Deserialize, Serialize};
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         #[serde(rename_all = "camelCase")]
-        pub struct ReadProof_ {
+        pub struct ReadProofU8 {
             pub at: String,
             pub proof: Vec<Vec<u8>>,
         }
 
-        use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
-        use core::convert::TryFrom;
-        use ibc_proto::ics23::commitment_proof::Proof::Exist;
-        use beefy_merkle_tree::Keccak256;
-        use codec::Decode;
-
-        // The latest height was increased here: https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/chain.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L438
-        // Call decrement() to restore the latest height
-        let _height = _height.decrement();
-
         let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
         let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap();
-        let leaf_proof = match _merkel_proof {
+        let storage_proof = match _merkel_proof {
             Exist(_exist_proof) => {
                 let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
-                // tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> _proof_str: {:?}", _proof_str);
-                let leaf_proof: ReadProof_ = serde_json::from_str(&_proof_str).unwrap();
-                tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> leaf_proof: {:?}", leaf_proof);
-                leaf_proof
+                tracing::info!("In ics10-client_def.rs: [verify_storage_proof] >> _proof_str: {:?}", _proof_str);
+                let _storage_proof: ReadProofU8 = serde_json::from_str(&_proof_str).unwrap();
+                tracing::info!("In ics10-client_def.rs: [verify_storage_proof] >> leaf_proof: {:?}", _storage_proof);
+                _storage_proof
             }
             _ => unimplemented!()
         };
 
-        let storage_key = (vec![_connection_id.unwrap().as_bytes().to_vec()]).iter();
+        let storage_keys = _ctx.unwrap().connection_storage_key(_connection_id.unwrap()).unwrap();
+        tracing::info!("In ics10-client_def.rs: [verify_storage_proof] >> storage_keys: {:?}", storage_keys);
+        let state_root = _client_state.clone().block_header.state_root;
+        tracing::info!("In ics10-client_def.rs: [verify_storage_proof] >> storage_root: {:?}", state_root);
+        let state_root_ = vector_to_array::<u8, 32>(state_root);
+        tracing::info!("In ics10-client_def.rs: [verify_storage_proof] >> storage_root: {:?}", state_root_);
 
-/*        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> _client_state: {:?}", _client_state);
-        let mmr_root: [u8; 32] = _client_state.
-            latest_commitment.as_ref().unwrap().payload.as_slice().try_into().map_err(|_| Error::cant_decode_mmr_root())?;
-        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_root: {:?}", mmr_root);
+        let storage_result = read_proof_check::<BlakeTwo256>(
+            sp_core::H256::from(state_root_),
+            StorageProof::new(storage_proof.proof),
+            &storage_keys,
+        ).unwrap().unwrap();
 
-        let mmr_leaf: Vec<u8> =
-            Decode::decode(&mut &leaf_proof.leaf[..]).map_err(|_| Error::cant_decode_mmr_leaf())?;
-        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_leaf: {:?}", mmr_leaf);
-        let mmr_leaf_hash = Keccak256::hash(&mmr_leaf[..]);
-        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_leaf_hash: {:?}", mmr_leaf_hash);
-
-        let mmr_leaf_proof = leaf_proof.proof;
-        let mmr_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..])
-            .map_err(|_| Error::cant_decode_mmr_proof())?;
-        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> mmr_proof: {:?}", mmr_proof);
-
-        let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof).unwrap();
-        if !result {
-            return Err(Error::failed_to_verify_mmr_proof());
-        }*/
+        let connection_end = ConnectionEnd::decode(&mut &*storage_result);
+        tracing::info!("In ics10-client_def.rs: [verify_storage_proof] >> connection_end: {:?}", connection_end);
 
         Ok(())
     }
@@ -351,4 +340,9 @@ impl GrandpaClient {
 
         Ok(())
     }
+}
+
+fn vector_to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
+    v.try_into()
+        .unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
 }
