@@ -308,16 +308,13 @@ impl SubstrateChain {
                 .await
                 .unwrap();
 
-            sleep(Duration::from_secs(4)).await;
-
             let _height = NumberOrHex::Number(height.revision_height);
             let block_hash: Option<H256> = client.rpc().block_hash(Some(BlockNumber::from(_height))).await.unwrap();
-
             let _keys = storage_keys.iter().map( |val| StorageKey(val.clone())).collect::<Vec<StorageKey>>();
-            tracing::info!("In Substrate: [proven_connection] >> block_hash : {:?}, storage key: {:?}", block_hash, _keys);
+            tracing::debug!("In substrate: [generate_storage_proof] >> block_hash : {:?}, storage key: {:?}", block_hash, _keys);
+
             use jsonrpsee::types::to_json_value;
             let params = &[to_json_value(_keys).unwrap(), to_json_value(block_hash.unwrap()).unwrap()];
-
             use serde::{Deserialize, Serialize};
             #[derive(Debug, PartialEq, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -330,8 +327,8 @@ impl SubstrateChain {
                 .client
                 .request("state_getReadProof", params)
                 .await.unwrap();
-            tracing::info!(
-                "In Substrate: [proven_connection] >> storage_proof : {:?}",
+            tracing::debug!(
+                "In Substrate: [generate_storage_proof] >> storage_proof : {:?}",
                 storage_proof
             );
 
@@ -346,13 +343,13 @@ impl SubstrateChain {
                 proof: storage_proof.proof.iter().map( |val| val.clone().0).collect::<Vec<Vec<u8>>>()
             };
             tracing::info!(
-                "In Substrate: [proven_connection] >> storage_proof_ : {:?}",
+                "In Substrate: [generate_storage_proof] >> storage_proof_ : {:?}",
                 storage_proof_
             );
 
             let storage_proof_str = serde_json::to_string(&storage_proof_).unwrap();
             tracing::info!(
-                "In Substrate: [proven_connection] >> storage_proof_str: {:?}",
+                "In Substrate: [generate_storage_proof] >> storage_proof_str: {:?}",
                 storage_proof_str
             );
             storage_proof_str
@@ -1318,7 +1315,25 @@ impl ChainEndpoint for SubstrateChain {
             new_connection_end = connection_end;
         }
 
-        let storage_key = connection_id.as_bytes().to_vec();
+        let storage_key = async {
+            use subxt::{BlockNumber, sp_core::H256, rpc::NumberOrHex};
+            use subxt::storage::StorageEntryKey;
+            use octopusxt::ibc_node;
+
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
+
+            let block_hash: Option<H256> = client.rpc().block_hash(Some(BlockNumber::from(height.revision_height as u32))).await.unwrap();
+            let conn_rpc = ibc_node::ibc::storage::Connections(connection_id.as_bytes().to_vec());
+            let storage_key = client.storage().fetch(&conn_rpc, block_hash).await.unwrap().unwrap();
+            tracing::debug!("key - {:?}: id - {:?}", storage_key, connection_id);
+            storage_key
+        };
+        let storage_key = self.block_on(storage_key);
+
         Ok((new_connection_end, self.generate_storage_proof(vec![storage_key], &height)))
     }
 
