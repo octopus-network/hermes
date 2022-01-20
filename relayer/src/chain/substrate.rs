@@ -1447,6 +1447,9 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Self::ConsensusState, Error> {
         tracing::info!("in Substrate: [build_consensus_state]");
 
+        tracing::info!("in Substrate: [build_consensus_state] >> Any consensus state = {:?}",
+            AnyConsensusState::Grandpa(GPConsensusState::from(light_block.clone())));
+
         Ok(AnyConsensusState::Grandpa(GPConsensusState::from(light_block)))
     }
 
@@ -1461,12 +1464,92 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [build_header] >> Trusted_height: {:?}, Target_height: {:?}, client_state: {:?}",
             trusted_height, target_height, client_state);
 
-        // Get the light block at target_height from chain.
-        let Verified { target, supporting } =
-            light_client.header_and_minimal_set(trusted_height, target_height, client_state)?;
+        // build target height header
+        let result = async {
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
 
-        tracing::info!("in substrate: [build_header] >> target: {:?}, supporting: {:?}", target, supporting);
-        Ok((target, supporting))
+            let block_header = octopusxt::call_ibc::get_block_header_by_block_number(client.clone(), target_height.revision_height as u32).await.unwrap();
+
+            let mmr_leaf_and_mmr_lead_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_header.block_number - 1) as u64, client).await.unwrap();
+
+            (block_header, mmr_leaf_and_mmr_lead_proof)
+        };
+
+        let result = self.block_on(result);
+        tracing::info!("in substrate [build header] >> block header = {:?}, mmr_leaf = {:?}, mmr_leaf_proof = {:?}",
+            result.0, result.1.0, result.1.1
+        );
+
+        let grandpa_client_state = match client_state {
+            AnyClientState::Grandpa(state) => state,
+            _ => todo!()
+        };
+        // assert!(result.0.block_number <= grandpa_client_state.block_number);
+
+        let mut mmr_leaf: &[u8] = &result.1.0;
+        let mut mmr_leaf_proof: &[u8] = &result.1.1;
+
+        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
+        let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut mmr_leaf_proof).unwrap();
+
+        let grandpa_header = GPHeader {
+            block_header: result.0,
+            mmr_leaf: mmr_leaf.into(),
+            mmr_leaf_proof: mmr_leaf_proof.into(),
+        };
+
+        // build support header
+        let mut support_header = vec![];
+
+        // ensure target_height > trust_height
+        assert!(target_height > trusted_height);
+
+        for block_number in trusted_height.revision_height..target_height.revision_height {
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
+
+                let block_header = octopusxt::call_ibc::get_block_header_by_block_number(client.clone(), block_number as u32).await.unwrap();
+
+                let mmr_leaf_and_mmr_lead_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_header.block_number - 1) as u64, client).await.unwrap();
+
+                (block_header, mmr_leaf_and_mmr_lead_proof)
+            };
+
+            let result = self.block_on(result);
+            tracing::info!("in substrate [build header] >> block header = {:?}, mmr_leaf = {:?}, mmr_leaf_proof = {:?}",
+            result.0, result.1.0, result.1.1
+        );
+
+            let grandpa_client_state = match client_state {
+                AnyClientState::Grandpa(state) => state,
+                _ => todo!()
+            };
+            // assert!(result.0.block_number <= grandpa_client_state.block_number);
+
+            let mut mmr_leaf: &[u8] = &result.1.0;
+            let mut mmr_leaf_proof: &[u8] = &result.1.1;
+
+            let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
+            let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut mmr_leaf_proof).unwrap();
+
+            let grandpa_header = GPHeader {
+                block_header: result.0,
+                mmr_leaf: mmr_leaf.into(),
+                mmr_leaf_proof: mmr_leaf_proof.into(),
+            };
+
+            support_header.push(grandpa_header);
+        }
+
+        Ok((grandpa_header, support_header))
     }
 }
 

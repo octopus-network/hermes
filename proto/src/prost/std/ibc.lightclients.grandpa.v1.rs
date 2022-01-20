@@ -167,6 +167,8 @@ pub struct ConsensusState {
     //// A chain-specific digest of data useful for light clients or referencing auxiliary data.
     #[prost(bytes = "vec", tag = "5")]
     pub digest: ::prost::alloc::vec::Vec<u8>,
+    #[prost(message, optional, tag = "6")]
+    pub root: ::core::option::Option<super::super::super::core::commitment::v1::MerkleRoot>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Header {

@@ -30,17 +30,18 @@ pub struct ConsensusState {
     //// A chain-specific digest of data useful for light clients or referencing auxiliary data.
     pub digest: Vec<u8>,
     // // TODO NEED timestamp, because ics02 have timestamp function
-    // pub root: CommitmentRoot,
+    pub root: CommitmentRoot,
 }
 
 impl ConsensusState {
     pub fn new(header: BlockHeader) -> Self {
         Self {
-            parent_hash: header.parent_hash,
-            block_number: header.block_number,
-            state_root: header.state_root,
-            extrinsics_root: header.extrinsics_root,
-            digest: header.digest,
+            parent_hash: header.clone().parent_hash,
+            block_number: header.clone().block_number,
+            state_root: header.clone().state_root,
+            extrinsics_root: header.clone().extrinsics_root,
+            digest: header.clone().digest,
+            root: CommitmentRoot::from(header.extrinsics_root.clone())
         }
     }
 
@@ -66,7 +67,7 @@ impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
     }
 
     fn root(&self) -> &CommitmentRoot {
-        todo!()
+        &self.root
     }
 
     fn validate_basic(&self) -> Result<(), Self::Error> {
@@ -88,6 +89,13 @@ impl TryFrom<RawConsensusState> for ConsensusState {
             state_root: raw.state_root,
             extrinsics_root: raw.extrinsics_root,
             digest: raw.digest,
+            root: raw
+                .root
+                .ok_or_else(|| {
+                    Error::invalid_raw_consensus_state("missing commitment root".into())
+                })?
+                .hash
+                .into(),
         })
     }
 }
@@ -100,9 +108,9 @@ impl From<ConsensusState> for RawConsensusState {
             state_root: value.state_root,
             extrinsics_root: value.extrinsics_root,
             digest: value.digest,
-            // root: Some(ibc_proto::ibc::core::commitment::v1::MerkleRoot {
-            //     hash: value.root.into_vec(),
-            // }),
+            root: Some(ibc_proto::ibc::core::commitment::v1::MerkleRoot {
+                hash: value.root.into_vec(),
+            }),
         }
     }
 }
@@ -111,11 +119,12 @@ impl From<ConsensusState> for RawConsensusState {
 impl From<Header> for ConsensusState {
     fn from(header: Header) -> Self {
         Self {
-            parent_hash: header.block_header.parent_hash,
-            block_number: header.block_header.block_number,
-            state_root: header.block_header.state_root,
-            extrinsics_root: header.block_header.extrinsics_root,
-            digest: header.block_header.digest,
+            parent_hash: header.clone().block_header.parent_hash,
+            block_number: header.clone().block_header.block_number,
+            state_root: header.clone().block_header.state_root,
+            extrinsics_root: header.clone().block_header.extrinsics_root,
+            digest: header.clone().block_header.digest,
+            root: CommitmentRoot::from(header.block_header.extrinsics_root),
         }
     }
 }
