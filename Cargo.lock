@@ -1910,7 +1910,7 @@ dependencies = [
  "signature",
  "sp-core",
  "subtle-encoding",
- "subxt 0.15.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12)",
+ "subxt",
  "tendermint",
  "tendermint-light-client",
  "tendermint-proto",
@@ -2940,10 +2940,9 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git#e7c70fb7f406de829340a19c01641fc8fa2b31ac"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=main#213ecaad952da4c88bb1069fd31f614516bc0646"
 dependencies = [
  "beefy-light-client",
- "beefy-merkle-tree",
  "beefy-primitives",
  "env_logger 0.8.4",
  "hex",
@@ -2956,7 +2955,7 @@ dependencies = [
  "parity-scale-codec",
  "sp-core",
  "sp-keyring",
- "subxt 0.15.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=feature/beefy)",
+ "subxt",
  "tendermint-proto",
  "tokio",
 ]
@@ -4696,36 +4695,6 @@ dependencies = [
 [[package]]
 name = "subxt"
 version = "0.15.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=feature/beefy#edbbe9e827aa512093ad88ba3fa11f5df350c543"
-dependencies = [
- "async-trait",
- "bitvec 0.20.4",
- "chameleon",
- "frame-metadata",
- "futures 0.3.19",
- "hex",
- "jsonrpsee-http-client 0.4.1",
- "jsonrpsee-proc-macros 0.4.1",
- "jsonrpsee-types 0.4.1",
- "jsonrpsee-ws-client 0.4.1",
- "log",
- "num-traits",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "serde_json",
- "sp-arithmetic",
- "sp-core",
- "sp-runtime",
- "sp-version",
- "subxt-macro 0.1.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=feature/beefy)",
- "thiserror",
- "url 2.2.2",
-]
-
-[[package]]
-name = "subxt"
-version = "0.15.0"
 source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12#5de15a300b51d74f36d80bb43f4ce2bf93ac5c94"
 dependencies = [
  "async-trait",
@@ -4748,27 +4717,9 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-version",
- "subxt-macro 0.1.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12)",
+ "subxt-macro",
  "thiserror",
  "url 2.2.2",
-]
-
-[[package]]
-name = "subxt-codegen"
-version = "0.2.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=feature/beefy#edbbe9e827aa512093ad88ba3fa11f5df350c543"
-dependencies = [
- "async-trait",
- "darling 0.13.1",
- "frame-metadata",
- "heck",
- "parity-scale-codec",
- "proc-macro-crate 0.1.5",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "scale-info",
- "syn",
 ]
 
 [[package]]
@@ -4792,25 +4743,6 @@ dependencies = [
 [[package]]
 name = "subxt-macro"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=feature/beefy#edbbe9e827aa512093ad88ba3fa11f5df350c543"
-dependencies = [
- "async-trait",
- "darling 0.13.1",
- "frame-metadata",
- "heck",
- "parity-scale-codec",
- "proc-macro-crate 0.1.5",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "scale-info",
- "subxt-codegen 0.2.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=feature/beefy)",
- "syn",
-]
-
-[[package]]
-name = "subxt-macro"
-version = "0.1.0"
 source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12#5de15a300b51d74f36d80bb43f4ce2bf93ac5c94"
 dependencies = [
  "async-trait",
@@ -4823,7 +4755,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scale-info",
- "subxt-codegen 0.2.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12)",
+ "subxt-codegen",
  "syn",
 ]
 

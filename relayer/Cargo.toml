@@ -67,7 +67,7 @@ semver = { version = "1.0", default-features = false }
 uint = { version = "0.9", default-features = false }
 
 jsonrpsee = { version = "0.5.1", features = ["macros", "ws-client", "http-client"] }
-octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", version = "0.1.0" }
+octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "main", version = "0.1.0" }
 subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.12' }
 codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive', 'full'] }
 pallet-mmr-rpc = { git = "https://github.com/paritytech/substrate/", branch = "polkadot-v0.9.12", default-features = false}
