@@ -225,6 +225,9 @@ define_error! {
             | _ | { "cant decode MMR leaf" },
 
         FailedToVerifyMmrProof
-            | _ | { "failed to verify MMR proof" }
+            | _ | { "failed to verify MMR proof" },
+
+        InvalidConnectionState
+            | _ | { "invalid connection state"},
     }
 }
