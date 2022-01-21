@@ -226,7 +226,10 @@ define_error! {
 
         FailedToVerifyMmrProof
             | _ | { "failed to verify MMR proof" },
-
+      
+        InvalidConnectionState
+            | _ | { "invalid connection state"},
+      
         HeaderHashNotMatch
             | _ | { "Header hash not match" },
 

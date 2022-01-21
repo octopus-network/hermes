@@ -63,6 +63,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 use tokio::task;
 use tokio::time::sleep;
 use crate::light_client::Verified;
+use subxt::storage::StorageEntry;
 
 const MAX_QUERY_TIMES: u64 = 40;
 
@@ -297,7 +298,9 @@ impl SubstrateChain {
 
     /// Retrieve the storage proof according to storage keys
     /// And convert the proof to IBC compatible type
-    fn generate_storage_proof(&self, storage_keys: Vec<Vec<u8>>, height: &Height) -> MerkleProof {
+    fn generate_storage_proof<F: StorageEntry>
+        (&self, storage_entry: &F, height: &Height) -> MerkleProof where <F as StorageEntry>::Value: serde::Serialize
+    {
         let generate_storage_proof = async {
             use subxt::{BlockNumber, sp_core::H256, rpc::NumberOrHex};
             use sp_core::{storage::StorageKey, Bytes};
@@ -308,16 +311,13 @@ impl SubstrateChain {
                 .await
                 .unwrap();
 
-            sleep(Duration::from_secs(4)).await;
-
             let _height = NumberOrHex::Number(height.revision_height);
             let block_hash: Option<H256> = client.rpc().block_hash(Some(BlockNumber::from(_height))).await.unwrap();
+            let storage_key = client.storage().fetch(storage_entry, block_hash).await.unwrap().unwrap();
+            tracing::debug!("In substrate: [generate_storage_proof] >> block_hash : {:?}, storage key: ", block_hash/*, storage_key*/);
 
-            let _keys = storage_keys.iter().map( |val| StorageKey(val.clone())).collect::<Vec<StorageKey>>();
-            tracing::info!("In Substrate: [proven_connection] >> block_hash : {:?}, storage key: {:?}", block_hash, _keys);
             use jsonrpsee::types::to_json_value;
-            let params = &[to_json_value(_keys).unwrap(), to_json_value(block_hash.unwrap()).unwrap()];
-
+            let params = &[to_json_value(storage_key).unwrap(), to_json_value(block_hash.unwrap()).unwrap()];
             use serde::{Deserialize, Serialize};
             #[derive(Debug, PartialEq, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -330,32 +330,29 @@ impl SubstrateChain {
                 .client
                 .request("state_getReadProof", params)
                 .await.unwrap();
-            tracing::info!(
-                "In Substrate: [proven_connection] >> storage_proof : {:?}",
+            tracing::debug!(
+                "In Substrate: [generate_storage_proof] >> storage_proof : {:?}",
                 storage_proof
             );
 
-/*            use serde::{Deserialize, Serialize};
-            #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+            #[derive(Debug, PartialEq, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
-            pub struct LeafProof_ {
-                pub block_hash: String,
-                pub leaf: Vec<u8>,
-                pub proof: Vec<u8>,
+            pub struct ReadProofU8 {
+                pub at: String,
+                pub proof: Vec<Vec<u8>>,
             }
-            let generate_proof = LeafProof_ {
-                block_hash: storage_proof.block_hash,
-                leaf: storage_proof.leaf.0,
-                proof: storage_proof.proof.0,
+            let storage_proof_ = ReadProofU8{
+                at: storage_proof.at,
+                proof: storage_proof.proof.iter().map( |val| val.clone().0).collect::<Vec<Vec<u8>>>()
             };
             tracing::info!(
-                "In Substrate: [proven_connection] >> generate_proof_ : {:?}",
-                generate_proof
-            );*/
+                "In Substrate: [generate_storage_proof] >> storage_proof_ : {:?}",
+                storage_proof_
+            );
 
-            let storage_proof_str = serde_json::to_string(&storage_proof).unwrap();
+            let storage_proof_str = serde_json::to_string(&storage_proof_).unwrap();
             tracing::info!(
-                "In Substrate: [proven_connection] >> storage_proof_str: {:?}",
+                "In Substrate: [generate_storage_proof] >> storage_proof_str: {:?}",
                 storage_proof_str
             );
             storage_proof_str
@@ -1321,8 +1318,8 @@ impl ChainEndpoint for SubstrateChain {
             new_connection_end = connection_end;
         }
 
-        let storage_key = connection_id.as_bytes().to_vec();
-        Ok((new_connection_end, self.generate_storage_proof(vec![storage_key], &height)))
+        let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes().to_vec());
+        Ok((new_connection_end, self.generate_storage_proof(&storage_entry, &height)))
     }
 
     fn proven_client_consensus(
@@ -1400,7 +1397,9 @@ impl ChainEndpoint for SubstrateChain {
 
         let channel_end = self.block_on(channel_end);
 
-        Ok((channel_end, self.generate_storage_proof(vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()], &height)))
+        // let storage_entry = ibc_node::ibc::storage::Channels(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec());
+        let storage_entry = ibc_node::ibc::storage::Connections(port_id.as_bytes().to_vec());  // Todo: Hotfix!!!
+        Ok((channel_end, self.generate_storage_proof(&storage_entry, &height)))
     }
 
     fn proven_packet(
