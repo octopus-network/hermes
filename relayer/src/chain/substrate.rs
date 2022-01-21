@@ -1464,6 +1464,18 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [build_header] >> Trusted_height: {:?}, Target_height: {:?}, client_state: {:?}",
             trusted_height, target_height, client_state);
 
+
+        let grandpa_client_state = match client_state {
+            AnyClientState::Grandpa(state) => state,
+            _ => todo!()
+        };
+        // assert trust_height <= grandpa_client_state height
+        if trusted_height.revision_height > grandpa_client_state.block_number as u64 {
+            return Err(Error::trust_height_miss_match_client_state_height(trusted_height.revision_height, grandpa_client_state.block_number as u64));
+        }
+
+
+
         // build target height header
         let result = async {
             let client = ClientBuilder::new()
@@ -1483,12 +1495,6 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in substrate [build header] >> block header = {:?}, mmr_leaf = {:?}, mmr_leaf_proof = {:?}",
             result.0, result.1.0, result.1.1
         );
-
-        let grandpa_client_state = match client_state {
-            AnyClientState::Grandpa(state) => state,
-            _ => todo!()
-        };
-        // assert!(result.0.block_number <= grandpa_client_state.block_number);
 
         let mut mmr_leaf: &[u8] = &result.1.0;
         let mut mmr_leaf_proof: &[u8] = &result.1.1;

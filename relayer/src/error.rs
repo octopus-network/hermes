@@ -436,6 +436,15 @@ define_error! {
         EmptyBaseAccount
             |_| { "Empty BaseAccount within EthAccount" },
 
+        TrustHeightMissMatchClientStateHeight
+            {
+                trust_height: u64,
+                client_state_height: u64
+            }
+            | e | {
+                format!("Trust height ({0}) greater than client state height ({1})", e.trust_height, e.client_state_height)
+            }
+
     }
 }
 
