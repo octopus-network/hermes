@@ -733,6 +733,10 @@ impl ConnectionReader for MockContext {
     fn connection_counter(&self) -> Result<u64, Ics03Error> {
         Ok(self.connection_ids_counter)
     }
+
+    fn connection_storage_key(&self, conn_id: &ConnectionId) -> Result<Vec<u8>, Ics03Error> {
+        todo!()
+    }
 }
 
 impl ConnectionKeeper for MockContext {

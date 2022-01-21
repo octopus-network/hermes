@@ -87,6 +87,7 @@ pub fn verify_connection_proof(
             proof,
             connection_end.counterparty().connection_id(),
             expected_conn,
+            Some(ctx),
         )
         .map_err(Error::verify_connection_state)
 }

@@ -34,6 +34,9 @@ std = [
     "codec/std",
     "beefy-light-client/std",
     "sp-core/std",
+    "sp-runtime/std",
+    "sp-trie/std",
+    "sp-std/std",
 #    "tendermint-testgen/std",
 ]
 eyre_tracer = ["flex-error/eyre_tracer"]
@@ -61,6 +64,10 @@ beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-cli
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 beefy-merkle-tree = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.12", features = ["keccak"], default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.12", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
+sp-trie = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
+hash-db = { version = "0.15.2", default-features = false }
 blake2-rfc = { version = "0.2.18", default-features = false }
 
 [dependencies.tendermint]
