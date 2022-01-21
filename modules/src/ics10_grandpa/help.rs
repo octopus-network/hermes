@@ -22,7 +22,7 @@ impl Default for Commitment {
     fn default() -> Self {
         Self {
             block_number: 0,
-            payload: vec![],
+            payload: vec![0u8; 32],
             validator_set_id: 0,
         }
     }
@@ -149,19 +149,34 @@ pub struct MmrLeaf {
     //// Can be used to enable future format migrations and compatibility.
     pub version: u32,
     //// Current block parent number and hash.
-    pub parent_number_and_hash: Option<ParentNumberAndHash>,
+    pub parent_number_and_hash: ParentNumberAndHash,
     //// A merkle root of the next BEEFY authority set.
-    pub beefy_next_authority_set: Option<ValidatorSet>,
+    pub beefy_next_authority_set: ValidatorSet,
     //// A merkle root of all registered parachain heads.
     pub parachain_heads: Vec<u8>,
 }
 
+
+impl From<beefy_light_client::mmr::MmrLeaf> for MmrLeaf {
+    fn from(value : beefy_light_client::mmr::MmrLeaf) -> Self {
+        Self {
+            version: value.version.0 as u32,
+            parent_number_and_hash: ParentNumberAndHash {
+                block_number: value.parent_number_and_hash.0,
+                mmr_root: Vec::from(value.parent_number_and_hash.1),
+            },
+            beefy_next_authority_set: ValidatorSet::from(value.beefy_next_authority_set),
+            parachain_heads: Vec::from(value.parachain_heads)
+        }
+    }
+
+}
 impl From<RawMmrLeaf> for MmrLeaf {
     fn from(raw: RawMmrLeaf) -> Self {
         Self {
             version: raw.version,
-            parent_number_and_hash: Some(raw.parent_number_and_hash.unwrap().into()),
-            beefy_next_authority_set: Some(raw.beefy_next_authority_set.unwrap().into()),
+            parent_number_and_hash: raw.parent_number_and_hash.unwrap().into(),
+            beefy_next_authority_set: raw.beefy_next_authority_set.unwrap().into(),
             parachain_heads: raw.parachain_heads,
         }
     }
@@ -171,8 +186,8 @@ impl From<MmrLeaf> for RawMmrLeaf {
     fn from(value: MmrLeaf) -> Self {
         Self {
             version: value.version,
-            parent_number_and_hash: Some(value.parent_number_and_hash.unwrap().into()),
-            beefy_next_authority_set: Some(value.beefy_next_authority_set.unwrap().into()),
+            parent_number_and_hash: Some(value.parent_number_and_hash.into()),
+            beefy_next_authority_set: Some(value.beefy_next_authority_set.into()),
             parachain_heads: value.parachain_heads,
         }
     }
@@ -182,8 +197,8 @@ impl Default for MmrLeaf {
     fn default() -> Self {
         Self {
             version: 0,
-            parent_number_and_hash: Some(ParentNumberAndHash::default()),
-            beefy_next_authority_set: Some(ValidatorSet::default()),
+            parent_number_and_hash: ParentNumberAndHash::default(),
+            beefy_next_authority_set: ValidatorSet::default(),
             parachain_heads: vec![],
         }
     }
@@ -412,6 +427,17 @@ pub struct MmrLeafProof {
     pub items: Vec<Vec<u8>>,
 }
 
+impl From<beefy_light_client::mmr::MmrLeafProof> for MmrLeafProof {
+    fn from(value : beefy_light_client::mmr::MmrLeafProof) -> Self {
+        let items = value.items.into_iter().map(|value| Vec::from(value)).collect();
+        Self {
+            leaf_index: value.leaf_index,
+            leaf_count: value.leaf_count,
+            items,
+        }
+    }
+}
+
 impl From<RawMmrLeafProof> for MmrLeafProof {
     fn from(raw: RawMmrLeafProof) -> Self {
         Self {
@@ -437,7 +463,7 @@ impl Default for MmrLeafProof {
         Self {
             leaf_index: 0,
             leaf_count: 0,
-            items: vec![],
+            items: vec![vec![0u8; 32], vec![0u8; 32]],
         }
     }
 }

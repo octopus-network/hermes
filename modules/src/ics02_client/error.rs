@@ -226,8 +226,26 @@ define_error! {
 
         FailedToVerifyMmrProof
             | _ | { "failed to verify MMR proof" },
-
+      
         InvalidConnectionState
             | _ | { "invalid connection state"},
+      
+        HeaderHashNotMatch
+            | _ | { "Header hash not match" },
+
+        InvalidMmrLeafProof
+            | _ | { "Invalid Mmr Leaf Proof" },
+
+        MissingLatestCommitment
+            | _ | { "Missing Latest Commitment" },
+
+        EmptyMmrRoot
+            | _ | { "Empty Mmr Root" },
+
+        EmpryMmrLeafProofItems
+            | _ | { "Empty Mmr Proof Items" },
+
+        EmptyMmrLeafParentHashMmrRoot
+            | _ | { "empty Mmr Leaf parent hash Mmr Root" }
     }
 }
