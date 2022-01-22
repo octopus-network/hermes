@@ -234,9 +234,10 @@ impl ClientDef for GrandpaClient {
 
 impl GrandpaClient {
     /// Extract on-chain storage value by proof, path, and state root
-    fn get_storage_via_proof(_client_state: &ClientState, _height: Height, _proof: &CommitmentProofBytes, storage_keys: Vec<u8>)
+    fn get_storage_via_proof(_client_state: &ClientState, _height: Height, _proof: &CommitmentProofBytes, _storage_keys: Vec<u8>)
                              -> Result<Vec<u8>, Error>
     {
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _client_state: {:?}, _height: {:?}, _storage_keys: {:?}", _client_state, _height, _storage_keys);
         use sp_runtime::traits::BlakeTwo256;
         use sp_trie::StorageProof;
         use crate::ics10_grandpa::state_machine::read_proof_check;
@@ -263,22 +264,22 @@ impl GrandpaClient {
                 let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
                 tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _proof_str: {:?}", _proof_str);
                 let _storage_proof: ReadProofU8 = serde_json::from_str(&_proof_str).unwrap();
-                tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> leaf_proof: {:?}", _storage_proof);
+                tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _storage_proof: {:?}", _storage_proof);
                 _storage_proof
             }
             _ => unimplemented!()
         };
 
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}", storage_keys);
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}", _storage_keys);
         let state_root = _client_state.clone().block_header.state_root;
         tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root: {:?}", state_root);
         let state_root_ = vector_to_array::<u8, 32>(state_root);
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root: {:?}", state_root_);
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root_: {:?}", state_root_);
 
         let storage_result = read_proof_check::<BlakeTwo256>(
             sp_core::H256::from(state_root_),
             StorageProof::new(storage_proof.proof),
-            &storage_keys,
+            &_storage_keys,
         ).unwrap().unwrap();
 
         tracing::info!("In ics10-client_def.rs: [verify_storage_proof] >> storage_result: {:?}", storage_result);
