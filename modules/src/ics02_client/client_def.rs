@@ -15,7 +15,6 @@ use crate::ics23_commitment::commitment::{CommitmentPrefix, CommitmentProofBytes
 use crate::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
 use crate::prelude::*;
 use crate::Height;
-use crate::ics03_connection::context::ConnectionReader;
 
 #[cfg(any(test, feature = "mocks"))]
 use crate::mock::client_def::MockClient;
@@ -68,7 +67,6 @@ pub trait ClientDef: Clone {
         proof: &CommitmentProofBytes,
         connection_id: Option<&ConnectionId>,
         expected_connection_end: &ConnectionEnd,
-        ctx: Option<&dyn ConnectionReader>,
     ) -> Result<(), Error>;
 
     /// Verify a `proof` that a channel state matches that of the input `channel_end`.
@@ -305,7 +303,6 @@ impl ClientDef for AnyClient {
         proof: &CommitmentProofBytes,
         connection_id: Option<&ConnectionId>,
         expected_connection_end: &ConnectionEnd,
-        ctx: Option<&dyn ConnectionReader>,
     ) -> Result<(), Error> {
         match self {
             Self::Tendermint(client) => {
@@ -319,7 +316,6 @@ impl ClientDef for AnyClient {
                     proof,
                     connection_id,
                     expected_connection_end,
-                    ctx,
                 )
             }
             Self::Grandpa(client) => {
@@ -333,7 +329,6 @@ impl ClientDef for AnyClient {
                     proof,
                     connection_id,
                     expected_connection_end,
-                    ctx,
                 )
             }
 
@@ -349,7 +344,6 @@ impl ClientDef for AnyClient {
                     proof,
                     connection_id,
                     expected_connection_end,
-                    None,
                 )
             }
         }

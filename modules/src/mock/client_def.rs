@@ -15,7 +15,6 @@ use crate::mock::client_state::{MockClientState, MockConsensusState};
 use crate::mock::header::MockHeader;
 use crate::prelude::*;
 use crate::Height;
-use crate::ics03_connection::context::ConnectionReader;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MockClient;
@@ -75,7 +74,6 @@ impl ClientDef for MockClient {
         _proof: &CommitmentProofBytes,
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
-        _ctx: Option<&dyn ConnectionReader>,
     ) -> Result<(), Error> {
         Ok(())
     }
