@@ -37,6 +37,7 @@ std = [
     "sp-runtime/std",
     "sp-trie/std",
     "sp-std/std",
+    "frame-system/std"
 #    "tendermint-testgen/std",
 ]
 eyre_tracer = ["flex-error/eyre_tracer"]
@@ -69,6 +70,8 @@ sp-trie = { git = "https://github.com/paritytech/substrate", branch = "polkadot-
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
 blake2-rfc = { version = "0.2.18", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.12", default-features = false }
 
 [dependencies.tendermint]
 version = "=0.22.0"
