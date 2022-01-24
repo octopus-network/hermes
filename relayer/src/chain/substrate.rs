@@ -20,6 +20,7 @@ use core::str::FromStr;
 use core::time::Duration;
 use ibc::events::IbcEvent;
 
+use crate::light_client::Verified;
 use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::ics02_client::client_type::ClientType;
@@ -52,7 +53,8 @@ use prost_types::Any;
 use std::thread;
 use subxt::sp_runtime::generic::Header;
 use subxt::sp_runtime::traits::BlakeTwo256;
-use subxt::{Client, ClientBuilder};
+use subxt::storage::StorageEntry;
+use subxt::{BlockNumber, Client, ClientBuilder};
 use tendermint::abci::transaction::Hash;
 use tendermint::abci::{Code, Log};
 use tendermint::account::Id as AccountId;
@@ -62,8 +64,6 @@ use tokio::runtime::Runtime;
 use tokio::runtime::Runtime as TokioRuntime;
 use tokio::task;
 use tokio::time::sleep;
-use crate::light_client::Verified;
-use subxt::storage::StorageEntry;
 
 const MAX_QUERY_TIMES: u64 = 40;
 
@@ -307,6 +307,7 @@ impl SubstrateChain {
             use sp_core::{storage::StorageKey, Bytes};
             use serde::{Deserialize, Serialize};
 
+
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
@@ -320,6 +321,7 @@ impl SubstrateChain {
 
             use jsonrpsee::types::to_json_value;
             let params = &[to_json_value(vec![storage_key]).unwrap(), to_json_value(block_hash.unwrap()).unwrap()];
+
             #[derive(Debug, PartialEq, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
             pub struct ReadProof_ {
@@ -330,7 +332,8 @@ impl SubstrateChain {
                 .rpc()
                 .client
                 .request("state_getReadProof", params)
-                .await.unwrap();
+                .await
+                .unwrap();
             tracing::debug!(
                 "In Substrate: [generate_storage_proof] >> storage_proof : {:?}",
                 storage_proof
@@ -342,9 +345,13 @@ impl SubstrateChain {
                 pub at: String,
                 pub proof: Vec<Vec<u8>>,
             }
-            let storage_proof_ = ReadProofU8{
+            let storage_proof_ = ReadProofU8 {
                 at: storage_proof.at,
-                proof: storage_proof.proof.iter().map( |val| val.clone().0).collect::<Vec<Vec<u8>>>()
+                proof: storage_proof
+                    .proof
+                    .iter()
+                    .map(|val| val.clone().0)
+                    .collect::<Vec<Vec<u8>>>(),
             };
             tracing::info!(
                 "In Substrate: [generate_storage_proof] >> storage_proof_ : {:?}",
@@ -1320,7 +1327,8 @@ impl ChainEndpoint for SubstrateChain {
         }
 
         let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes().to_vec());
-        Ok((new_connection_end, self.generate_storage_proof(&storage_entry, &height)))
+        // Ok((new_connection_end, self.generate_storage_proof(&storage_entry, &height)))
+        Ok((new_connection_end, get_dummy_merkle_proof()))
     }
 
     fn proven_client_consensus(
@@ -1399,8 +1407,9 @@ impl ChainEndpoint for SubstrateChain {
         let channel_end = self.block_on(channel_end);
 
         // let storage_entry = ibc_node::ibc::storage::Channels(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec());
-        let storage_entry = ibc_node::ibc::storage::Connections(port_id.as_bytes().to_vec());  // Todo: Hotfix!!!
-        Ok((channel_end, self.generate_storage_proof(&storage_entry, &height)))
+        let storage_entry = ibc_node::ibc::storage::Connections(port_id.as_bytes().to_vec()); // Todo: Hotfix!!!
+                                                                                              // Ok((channel_end, self.generate_storage_proof(&storage_entry, &height)))
+        Ok((channel_end, get_dummy_merkle_proof()))
     }
 
     fn proven_packet(
@@ -1419,7 +1428,10 @@ impl ChainEndpoint for SubstrateChain {
 
     fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
         tracing::info!("in Substrate: [build_client_state]");
-        tracing::info!("in Substrate: [build_client_state] >> height = {:?}", height);
+        tracing::info!(
+            "in Substrate: [build_client_state] >> height = {:?}",
+            height
+        );
 
         use ibc::ics10_grandpa::help::Commitment;
 
@@ -1428,10 +1440,11 @@ impl ChainEndpoint for SubstrateChain {
             self.id().clone(),
             height.revision_height as u32,
             Height::zero(),
-                        BlockHeader::default(),
+            BlockHeader::default(),
             Commitment::default(),
             ValidatorSet::default(),
-        ).map_err(Error::ics10)?;
+        )
+        .map_err(Error::ics10)?;
 
         tracing::info!(
             "in Substrate: [build_client_state] >> client_state: {:?}",
@@ -1447,10 +1460,14 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Self::ConsensusState, Error> {
         tracing::info!("in Substrate: [build_consensus_state]");
 
-        tracing::info!("in Substrate: [build_consensus_state] >> Any consensus state = {:?}",
-            AnyConsensusState::Grandpa(GPConsensusState::from(light_block.clone())));
+        tracing::info!(
+            "in Substrate: [build_consensus_state] >> Any consensus state = {:?}",
+            AnyConsensusState::Grandpa(GPConsensusState::from(light_block.clone()))
+        );
 
-        Ok(AnyConsensusState::Grandpa(GPConsensusState::from(light_block)))
+        Ok(AnyConsensusState::Grandpa(GPConsensusState::from(
+            light_block,
+        )))
     }
 
     fn build_header(
@@ -1464,17 +1481,17 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [build_header] >> Trusted_height: {:?}, Target_height: {:?}, client_state: {:?}",
             trusted_height, target_height, client_state);
 
-
         let grandpa_client_state = match client_state {
             AnyClientState::Grandpa(state) => state,
-            _ => todo!()
+            _ => todo!(),
         };
         // assert trust_height <= grandpa_client_state height
         if trusted_height.revision_height > grandpa_client_state.block_number as u64 {
-            return Err(Error::trust_height_miss_match_client_state_height(trusted_height.revision_height, grandpa_client_state.block_number as u64));
+            return Err(Error::trust_height_miss_match_client_state_height(
+                trusted_height.revision_height,
+                grandpa_client_state.block_number as u64,
+            ));
         }
-
-
 
         // build target height header
         let result = async {
@@ -1484,11 +1501,44 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
-            let block_header = octopusxt::call_ibc::get_block_header_by_block_number(client.clone(), target_height.revision_height as u32).await.unwrap();
+            // get block header
+            let block_header = octopusxt::call_ibc::get_block_header_by_block_number(
+                client.clone(),
+                target_height.revision_height as u32,
+            )
+            .await
+            .unwrap();
 
-            let mmr_leaf_and_mmr_lead_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_header.block_number - 1) as u64, client).await.unwrap();
+            let api = client
+                .clone()
+                .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
-            (block_header, mmr_leaf_and_mmr_lead_proof)
+            // assert block_header.block_number == target_height
+            assert_eq!(
+                block_header.block_number,
+                target_height.revision_height as u32
+            );
+
+            // block hash by block number
+            let block_hash: Option<sp_core::H256> = api
+                .client
+                .rpc()
+                .block_hash(Some(BlockNumber::from(
+                    target_height.revision_height as u32,
+                )))
+                .await
+                .unwrap();
+
+            // get mmr_leaf and mmr_leaf_proof
+            let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
+                (block_header.block_number - 1) as u64,
+                block_hash,
+                client,
+            )
+            .await
+            .unwrap();
+
+            (block_header, mmr_leaf_and_mmr_leaf_proof)
         };
 
         let result = self.block_on(result);
@@ -1496,11 +1546,12 @@ impl ChainEndpoint for SubstrateChain {
             result.0, result.1.0, result.1.1
         );
 
-        let mut mmr_leaf: &[u8] = &result.1.0;
-        let mut mmr_leaf_proof: &[u8] = &result.1.1;
+        let mut mmr_leaf: &[u8] = &result.1 .0;
+        let mut mmr_leaf_proof: &[u8] = &result.1 .1;
 
         let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
-        let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut mmr_leaf_proof).unwrap();
+        let mmr_leaf_proof =
+            beefy_light_client::mmr::MmrLeafProof::decode(&mut mmr_leaf_proof).unwrap();
 
         let grandpa_header = GPHeader {
             block_header: result.0,
@@ -1514,46 +1565,80 @@ impl ChainEndpoint for SubstrateChain {
         // ensure target_height > trust_height
         assert!(target_height > trusted_height);
 
-        for block_number in trusted_height.revision_height..target_height.revision_height {
-            let result = async {
-                let client = ClientBuilder::new()
-                    .set_url(&self.websocket_url.clone())
-                    .build::<ibc_node::DefaultConfig>()
-                    .await
-                    .unwrap();
+        // for block_number in trusted_height.revision_height..target_height.revision_height {
+        let result = async {
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
 
-                let block_header = octopusxt::call_ibc::get_block_header_by_block_number(client.clone(), block_number as u32).await.unwrap();
+            // get block header
+            let block_header = octopusxt::call_ibc::get_block_header_by_block_number(
+                client.clone(),
+                trusted_height.revision_height as u32,
+            )
+            .await
+            .unwrap();
 
-                let mmr_leaf_and_mmr_lead_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_header.block_number - 1) as u64, client).await.unwrap();
+            let api = client
+                .clone()
+                .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
-                (block_header, mmr_leaf_and_mmr_lead_proof)
-            };
+            // assert block_header.block_number == target_height
+            assert_eq!(
+                block_header.block_number,
+                target_height.revision_height as u32
+            );
 
-            let result = self.block_on(result);
-            tracing::info!("in substrate [build header] >> block header = {:?}, mmr_leaf = {:?}, mmr_leaf_proof = {:?}",
-            result.0, result.1.0, result.1.1
-        );
+            // block hash by block number
+            let block_hash: Option<sp_core::H256> = api
+                .client
+                .rpc()
+                .block_hash(Some(BlockNumber::from(
+                    trusted_height.revision_height as u32,
+                )))
+                .await
+                .unwrap();
 
-            let grandpa_client_state = match client_state {
-                AnyClientState::Grandpa(state) => state,
-                _ => todo!()
-            };
-            // assert!(result.0.block_number <= grandpa_client_state.block_number);
+            // get mmr_leaf and mmr_leaf_proof
+            let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
+                (block_header.block_number - 1) as u64,
+                block_hash,
+                client,
+            )
+            .await
+            .unwrap();
 
-            let mut mmr_leaf: &[u8] = &result.1.0;
-            let mut mmr_leaf_proof: &[u8] = &result.1.1;
+            (block_header, mmr_leaf_and_mmr_leaf_proof)
+        };
 
-            let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
-            let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut mmr_leaf_proof).unwrap();
+        let result = self.block_on(result);
+        tracing::info!("in substrate [build header] >> block header = {:?}, mmr_leaf = {:?}, mmr_leaf_proof = {:?}",
+                result.0, result.1.0, result.1.1
+            );
 
-            let grandpa_header = GPHeader {
-                block_header: result.0,
-                mmr_leaf: mmr_leaf.into(),
-                mmr_leaf_proof: mmr_leaf_proof.into(),
-            };
+        let grandpa_client_state = match client_state {
+            AnyClientState::Grandpa(state) => state,
+            _ => todo!(),
+        };
+        // assert!(result.0.block_number <= grandpa_client_state.block_number);
 
-            support_header.push(grandpa_header);
-        }
+        let mut mmr_leaf: &[u8] = &result.1 .0;
+        let mut mmr_leaf_proof: &[u8] = &result.1 .1;
+
+        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
+        let mmr_leaf_proof =
+            beefy_light_client::mmr::MmrLeafProof::decode(&mut mmr_leaf_proof).unwrap();
+
+        let grandpa_header_temp = GPHeader {
+            block_header: result.0,
+            mmr_leaf: mmr_leaf.into(),
+            mmr_leaf_proof: mmr_leaf_proof.into(),
+        };
+
+        support_header.push(grandpa_header_temp);
+        // }
 
         Ok((grandpa_header, support_header))
     }
@@ -1594,10 +1679,12 @@ pub fn get_dummy_merkle_proof() -> MerkleProof {
 }
 
 use ibc::ics07_tendermint::header::Header as tHeader;
+use ibc::ics10_grandpa::help::{
+    BlockHeader, MmrLeaf, MmrLeafProof, SignedCommitment, ValidatorMerkleProof, ValidatorSet,
+};
 use retry::delay::Fixed;
 use subxt::sp_core::storage::StorageKey;
 use tendermint_light_client::types::Validator;
-use ibc::ics10_grandpa::help::{BlockHeader, MmrLeaf, MmrLeafProof, SignedCommitment, ValidatorMerkleProof, ValidatorSet};
 
 pub fn get_dummy_ics07_header() -> tHeader {
     use tendermint::block::signed_header::SignedHeader;

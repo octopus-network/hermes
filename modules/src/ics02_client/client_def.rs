@@ -7,6 +7,7 @@ use crate::ics02_client::client_type::ClientType;
 use crate::ics02_client::error::Error;
 use crate::ics02_client::header::{AnyHeader, Header};
 use crate::ics03_connection::connection::ConnectionEnd;
+use crate::ics03_connection::context::ConnectionReader;
 use crate::ics04_channel::channel::ChannelEnd;
 use crate::ics04_channel::packet::Sequence;
 use crate::ics07_tendermint::client_def::TendermintClient;
