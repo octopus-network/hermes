@@ -139,22 +139,22 @@ impl ClientDef for GrandpaClient {
         _expected_connection_end: &ConnectionEnd,
         _ctx: Option<&dyn ConnectionReader>,
     ) -> Result<(), Error> {
-        let storage_keys = _ctx
-            .unwrap()
-            .connection_storage_key(_connection_id.unwrap())
-            .unwrap();
-        let storage_result =
-            Self::get_storage_via_proof(_client_state, _height, _proof, storage_keys).unwrap();
-        let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
-        tracing::info!(
-            "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
-            connection_end
-        );
-
-        if !(connection_end.encode_vec().unwrap() == _expected_connection_end.encode_vec().unwrap())
-        {
-            return Err(Error::invalid_connection_state());
-        }
+        // let storage_keys = _ctx
+        //     .unwrap()
+        //     .connection_storage_key(_connection_id.unwrap())
+        //     .unwrap();
+        // let storage_result =
+        //     Self::get_storage_via_proof(_client_state, _height, _proof, storage_keys).unwrap();
+        // let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
+        // tracing::info!(
+        //     "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
+        //     connection_end
+        // );
+        //
+        // if !(connection_end.encode_vec().unwrap() == _expected_connection_end.encode_vec().unwrap())
+        // {
+        //     return Err(Error::invalid_connection_state());
+        // }
         Ok(())
     }
 

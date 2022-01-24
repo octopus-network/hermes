@@ -1548,7 +1548,7 @@ impl ChainEndpoint for SubstrateChain {
 
             // get mmr_leaf and mmr_leaf_proof
             let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
-                (block_header.block_number - 1) as u64,
+                target_height.revision_height - 1,
                 block_hash,
                 client,
             )
@@ -1605,7 +1605,7 @@ impl ChainEndpoint for SubstrateChain {
             // assert block_header.block_number == target_height
             assert_eq!(
                 block_header.block_number,
-                target_height.revision_height as u32
+                trusted_height.revision_height as u32
             );
 
             // block hash by block number
@@ -1620,7 +1620,7 @@ impl ChainEndpoint for SubstrateChain {
 
             // get mmr_leaf and mmr_leaf_proof
             let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
-                (block_header.block_number - 1) as u64,
+                trusted_height.revision_height - 1,
                 block_hash,
                 client,
             )
