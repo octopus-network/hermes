@@ -52,7 +52,7 @@ use prost_types::Any;
 use std::thread;
 use subxt::sp_runtime::generic::Header;
 use subxt::sp_runtime::traits::BlakeTwo256;
-use subxt::{Client, ClientBuilder};
+use subxt::{BlockNumber, Client, ClientBuilder};
 use tendermint::abci::transaction::Hash;
 use tendermint::abci::{Code, Log};
 use tendermint::account::Id as AccountId;
@@ -1485,11 +1485,21 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
+            // get block header
             let block_header = octopusxt::call_ibc::get_block_header_by_block_number(client.clone(), target_height.revision_height as u32).await.unwrap();
 
-            let mmr_leaf_and_mmr_lead_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_header.block_number - 1) as u64, client).await.unwrap();
+            let api = client.clone().to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
-            (block_header, mmr_leaf_and_mmr_lead_proof)
+            // assert block_header.block_number == target_height
+            assert_eq!(block_header.block_number, target_height.revision_height as u32);
+
+            // block hash by block number
+            let block_hash: Option<sp_core::H256> = api.client.rpc().block_hash(Some(BlockNumber::from(target_height.revision_height as u32))).await.unwrap();
+
+            // get mmr_leaf and mmr_leaf_proof
+            let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_header.block_number - 1) as u64, block_hash, client).await.unwrap();
+
+            (block_header, mmr_leaf_and_mmr_leaf_proof)
         };
 
         let result = self.block_on(result);
@@ -1523,11 +1533,21 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap();
 
-                let block_header = octopusxt::call_ibc::get_block_header_by_block_number(client.clone(), block_number as u32).await.unwrap();
+                // get block header
+                let block_header = octopusxt::call_ibc::get_block_header_by_block_number(client.clone(), target_height.revision_height as u32).await.unwrap();
 
-                let mmr_leaf_and_mmr_lead_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_header.block_number - 1) as u64, client).await.unwrap();
+                let api = client.clone().to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
-                (block_header, mmr_leaf_and_mmr_lead_proof)
+                // assert block_header.block_number == target_height
+                assert_eq!(block_header.block_number, target_height.revision_height as u32);
+
+                // block hash by block number
+                let block_hash: Option<sp_core::H256> = api.client.rpc().block_hash(Some(BlockNumber::from(target_height.revision_height as u32))).await.unwrap();
+
+                // get mmr_leaf and mmr_leaf_proof
+                let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_header.block_number - 1) as u64, block_hash, client).await.unwrap();
+
+                (block_header, mmr_leaf_and_mmr_leaf_proof)
             };
 
             let result = self.block_on(result);
