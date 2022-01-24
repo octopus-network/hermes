@@ -248,9 +248,6 @@ impl GrandpaClient {
                              -> Result<Vec<u8>, Error>
     {
         tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _client_state: {:?}, _height: {:?}, _key_encoded: {:?}", _client_state, _height, _key_encoded);
-        use sp_runtime::traits::BlakeTwo256;
-        use sp_trie::StorageProof;
-
         use crate::ics10_grandpa::state_machine::read_proof_check;
         use core::convert::TryFrom;
         use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
