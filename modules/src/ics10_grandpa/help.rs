@@ -1,10 +1,10 @@
 use crate::ics10_grandpa::error::Error;
 use alloc::vec;
 use alloc::vec::Vec;
+use beefy_light_client::mmr::MmrLeafVersion;
 use beefy_merkle_tree::Hash;
 use codec::{Decode, Encode};
 use core::convert::TryFrom;
-use beefy_light_client::mmr::MmrLeafVersion;
 use serde::{Deserialize, Serialize};
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Commitment as RawCommitment;
@@ -171,15 +171,20 @@ impl From<beefy_light_client::mmr::MmrLeaf> for MmrLeaf {
 }
 
 impl From<MmrLeaf> for beefy_light_client::mmr::MmrLeaf {
-    fn from(value : MmrLeaf) -> Self {
+    fn from(value: MmrLeaf) -> Self {
         Self {
             version: MmrLeafVersion(value.version as u8),
-            parent_number_and_hash: (value.parent_number_and_hash.block_number, Hash::try_from(value.parent_number_and_hash.mmr_root).unwrap()),
-            beefy_next_authority_set: beefy_light_client::validator_set::BeefyNextAuthoritySet::from(value.beefy_next_authority_set),
+            parent_number_and_hash: (
+                value.parent_number_and_hash.block_number,
+                Hash::try_from(value.parent_number_and_hash.mmr_root).unwrap(),
+            ),
+            beefy_next_authority_set:
+                beefy_light_client::validator_set::BeefyNextAuthoritySet::from(
+                    value.beefy_next_authority_set,
+                ),
             parachain_heads: Hash::try_from(value.parachain_heads).unwrap(),
         }
     }
-    
 }
 
 impl From<RawMmrLeaf> for MmrLeaf {
@@ -286,10 +291,14 @@ impl From<beefy_light_client::commitment::SignedCommitment> for SignedCommitment
 }
 
 impl From<SignedCommitment> for beefy_light_client::commitment::SignedCommitment {
-    fn from(value : SignedCommitment) -> Self {
+    fn from(value: SignedCommitment) -> Self {
         Self {
             commitment: value.commitment.unwrap().into(),
-            signatures: value.signatures.into_iter().map(|value| Some(value.into())).collect(),
+            signatures: value
+                .signatures
+                .into_iter()
+                .map(|value| Some(value.into()))
+                .collect(),
         }
     }
 }
@@ -345,9 +354,9 @@ impl From<beefy_light_client::commitment::Signature> for Signature {
 }
 
 impl From<Signature> for beefy_light_client::commitment::Signature {
-    fn from(value : Signature) -> Self {
+    fn from(value: Signature) -> Self {
         Self {
-            0: <[u8; 65]>::try_from(value.signature).unwrap()
+            0: <[u8; 65]>::try_from(value.signature).unwrap(),
         }
     }
 }
@@ -489,14 +498,17 @@ impl From<beefy_light_client::mmr::MmrLeafProof> for MmrLeafProof {
 }
 
 impl From<MmrLeafProof> for beefy_light_client::mmr::MmrLeafProof {
-    fn from(value : MmrLeafProof) -> Self {
+    fn from(value: MmrLeafProof) -> Self {
         Self {
             leaf_index: value.leaf_index,
             leaf_count: value.leaf_count,
-            items: value.items.into_iter().map(|value| Hash::try_from(value).unwrap()).collect(),
+            items: value
+                .items
+                .into_iter()
+                .map(|value| Hash::try_from(value).unwrap())
+                .collect(),
         }
     }
-    
 }
 
 impl From<RawMmrLeafProof> for MmrLeafProof {

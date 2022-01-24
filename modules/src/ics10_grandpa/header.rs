@@ -4,6 +4,7 @@ use core::fmt;
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Header as RawHeader;
 
+use super::help::BlockHeader;
 use super::help::MmrLeaf;
 use super::help::MmrLeafProof;
 use super::help::SignedCommitment;
@@ -13,13 +14,12 @@ use crate::ics02_client::header::AnyHeader;
 use crate::ics10_grandpa::error::Error;
 use crate::ics24_host::identifier::ChainId;
 use crate::Height;
+use beefy_merkle_tree::Hash;
 use bytes::Buf;
+use codec::{Decode, Encode};
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
-use codec::{Encode, Decode};
-use beefy_merkle_tree::Hash;
-use super::help::BlockHeader;
 
 /// block header
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize, Encode, Decode)]
@@ -28,7 +28,6 @@ pub struct Header {
     pub mmr_leaf: MmrLeaf,
     pub mmr_leaf_proof: MmrLeafProof,
 }
-
 
 impl Default for Header {
     fn default() -> Self {
@@ -41,11 +40,7 @@ impl Default for Header {
 }
 
 impl Header {
-    pub fn new(
-        block_header: BlockHeader,
-        mmr_leaf: MmrLeaf,
-        mmr_leaf_proof: MmrLeafProof,
-    ) -> Self {
+    pub fn new(block_header: BlockHeader, mmr_leaf: MmrLeaf, mmr_leaf_proof: MmrLeafProof) -> Self {
         Self {
             block_header,
             mmr_leaf,

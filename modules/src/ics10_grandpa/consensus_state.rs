@@ -13,9 +13,9 @@ use crate::ics02_client::client_consensus::AnyConsensusState;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics10_grandpa::error::Error;
 use crate::ics10_grandpa::header::Header;
+use crate::ics10_grandpa::help::BlockHeader;
 use crate::ics23_commitment::commitment::CommitmentRoot;
 use tendermint_proto::Protobuf;
-use crate::ics10_grandpa::help::BlockHeader;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ConsensusState {
@@ -41,7 +41,7 @@ impl ConsensusState {
             state_root: header.clone().state_root,
             extrinsics_root: header.clone().extrinsics_root,
             digest: header.clone().digest,
-            root: CommitmentRoot::from(header.extrinsics_root.clone())
+            root: CommitmentRoot::from(header.extrinsics_root.clone()),
         }
     }
 
@@ -114,7 +114,6 @@ impl From<ConsensusState> for RawConsensusState {
         }
     }
 }
-
 
 impl From<Header> for ConsensusState {
     fn from(header: Header) -> Self {

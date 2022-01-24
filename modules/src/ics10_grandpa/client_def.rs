@@ -1,10 +1,10 @@
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::vec;
-use core::convert::TryInto;
-use codec::{Encode, Decode};
-use tendermint_proto::Protobuf;
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
 use core::convert::From;
+use core::convert::TryInto;
+use tendermint_proto::Protobuf;
 
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
@@ -13,6 +13,7 @@ use crate::ics02_client::client_def::ClientDef;
 use crate::ics02_client::client_state::AnyClientState;
 use crate::ics02_client::error::Error;
 use crate::ics03_connection::connection::ConnectionEnd;
+use crate::ics03_connection::context::ConnectionReader;
 use crate::ics04_channel::channel::ChannelEnd;
 use crate::ics04_channel::packet::Sequence;
 use crate::ics10_grandpa::client_state::ClientState;
@@ -21,7 +22,6 @@ use crate::ics10_grandpa::header::Header;
 use crate::ics23_commitment::commitment::{CommitmentPrefix, CommitmentProofBytes, CommitmentRoot};
 use crate::ics24_host::identifier::ConnectionId;
 use crate::ics24_host::identifier::{ChannelId, ClientId, PortId};
-use crate::ics03_connection::context::ConnectionReader;
 use crate::Height;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -47,7 +47,7 @@ impl ClientDef for GrandpaClient {
         // }
 
         if client_state.latest_commitment.payload.is_empty() {
-            return Err(Error::empty_mmr_root())
+            return Err(Error::empty_mmr_root());
         }
 
         let mut mmr_root = [0u8; 32];
@@ -104,8 +104,14 @@ impl ClientDef for GrandpaClient {
             ..client_state
         };
 
-        tracing::info!("in client_def: [check_header_and_update_state] >> client_state = {:?}", client_state);
-        tracing::info!("in client_def: [check_header_and_update_state] >> consensus_state = {:?}", ConsensusState::from(header.clone()));
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> client_state = {:?}",
+            client_state
+        );
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
+            ConsensusState::from(header.clone())
+        );
 
         Ok((client_state, ConsensusState::from(header.clone())))
     }
@@ -133,12 +139,20 @@ impl ClientDef for GrandpaClient {
         _expected_connection_end: &ConnectionEnd,
         _ctx: Option<&dyn ConnectionReader>,
     ) -> Result<(), Error> {
-        let storage_keys = _ctx.unwrap().connection_storage_key(_connection_id.unwrap()).unwrap();
-        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, storage_keys).unwrap();
+        let storage_keys = _ctx
+            .unwrap()
+            .connection_storage_key(_connection_id.unwrap())
+            .unwrap();
+        let storage_result =
+            Self::get_storage_via_proof(_client_state, _height, _proof, storage_keys).unwrap();
         let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
-        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}", connection_end);
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
+            connection_end
+        );
 
-        if !(connection_end.encode_vec().unwrap() == _expected_connection_end.encode_vec().unwrap()) {
+        if !(connection_end.encode_vec().unwrap() == _expected_connection_end.encode_vec().unwrap())
+        {
             return Err(Error::invalid_connection_state());
         }
         Ok(())
@@ -234,20 +248,23 @@ impl ClientDef for GrandpaClient {
 
 impl GrandpaClient {
     /// Extract on-chain storage value by proof, path, and state root
-    fn get_storage_via_proof(_client_state: &ClientState, _height: Height, _proof: &CommitmentProofBytes, storage_keys: Vec<u8>)
-                             -> Result<Vec<u8>, Error>
-    {
-        use sp_runtime::traits::BlakeTwo256;
-        use sp_trie::StorageProof;
+    fn get_storage_via_proof(
+        _client_state: &ClientState,
+        _height: Height,
+        _proof: &CommitmentProofBytes,
+        storage_keys: Vec<u8>,
+    ) -> Result<Vec<u8>, Error> {
         use crate::ics10_grandpa::state_machine::read_proof_check;
+        use core::convert::TryFrom;
         use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
         use ibc_proto::ics23::commitment_proof::Proof::Exist;
-        use core::convert::TryFrom;
+        use sp_runtime::traits::BlakeTwo256;
+        use sp_trie::StorageProof;
 
         /*        while _client_state.block_number < (_height.revision_height as u32) {
-                    let sleep_duration = Duration::from_micros(500);
-                    // wasm_timer::sleep(sleep_duration);
-                }*/
+            let sleep_duration = Duration::from_micros(500);
+            // wasm_timer::sleep(sleep_duration);
+        }*/
         use serde::{Deserialize, Serialize};
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         #[serde(rename_all = "camelCase")]
@@ -261,29 +278,52 @@ impl GrandpaClient {
         let storage_proof = match _merkel_proof {
             Exist(_exist_proof) => {
                 let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
-                tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _proof_str: {:?}", _proof_str);
+                tracing::info!(
+                    "In ics10-client_def.rs: [extract_verify_beefy_proof] >> _proof_str: {:?}",
+                    _proof_str
+                );
                 let _storage_proof: ReadProofU8 = serde_json::from_str(&_proof_str).unwrap();
-                tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> leaf_proof: {:?}", _storage_proof);
+                tracing::info!(
+                    "In ics10-client_def.rs: [extract_verify_beefy_proof] >> leaf_proof: {:?}",
+                    _storage_proof
+                );
                 _storage_proof
             }
-            _ => unimplemented!()
+            _ => unimplemented!(),
         };
 
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}", storage_keys);
+        tracing::info!(
+            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}",
+            storage_keys
+        );
         let state_root = _client_state.clone().block_header.state_root;
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root: {:?}", state_root);
+        tracing::info!(
+            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root: {:?}",
+            state_root
+        );
         let state_root_ = vector_to_array::<u8, 32>(state_root);
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root: {:?}", state_root_);
+        tracing::info!(
+            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root: {:?}",
+            state_root_
+        );
 
         let storage_result = read_proof_check::<BlakeTwo256>(
             sp_core::H256::from(state_root_),
             StorageProof::new(storage_proof.proof),
             &storage_keys,
-        ).unwrap().unwrap();
+        )
+        .unwrap()
+        .unwrap();
 
-        tracing::info!("In ics10-client_def.rs: [verify_storage_proof] >> storage_result: {:?}", storage_result);
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_storage_proof] >> storage_result: {:?}",
+            storage_result
+        );
         let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
-        tracing::info!("In ics10-client_def.rs: [verify_storage_proof] >> connection_end: {:?}", connection_end);
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_storage_proof] >> connection_end: {:?}",
+            connection_end
+        );
 
         Ok(connection_end.encode_vec().unwrap())
     }

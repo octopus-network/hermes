@@ -7,9 +7,9 @@ use core::time::Duration;
 // mock grandpa as tendermint
 use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawClientState;
 
+use super::help::BlockHeader;
 use super::help::Commitment;
 use super::help::ValidatorSet;
-use super::help::BlockHeader;
 
 use crate::ics02_client::client_state::AnyClientState;
 use crate::ics02_client::client_type::ClientType;

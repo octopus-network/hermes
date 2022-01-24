@@ -47,8 +47,14 @@ pub fn process(
 
     let latest_height = client_state.latest_height();
     let consensus_state = ctx.consensus_state(&client_id, latest_height)?;
-    tracing::info!("in ics02_client: [update_client] >> client_state = {:?}", client_state);
-    tracing::info!("in ics02_client: [update_client] >> consensus_state  = {:?}", consensus_state);
+    tracing::info!(
+        "in ics02_client: [update_client] >> client_state = {:?}",
+        client_state
+    );
+    tracing::info!(
+        "in ics02_client: [update_client] >> consensus_state  = {:?}",
+        consensus_state
+    );
 
     // Use client_state to validate the new header against the latest consensus_state.
     // This function will return the new client_state (its latest_height changed) and a
@@ -57,8 +63,11 @@ pub fn process(
         .check_header_and_update_state(client_state, header.clone())
         .map_err(|e| Error::header_verification_failure(e.to_string()))?;
 
-    tracing::info!("in ics02_client: [update_client] >> new_client_state = {:?}, new_consensus_state = {:?}",
-        new_client_state, new_consensus_state);
+    tracing::info!(
+        "in ics02_client: [update_client] >> new_client_state = {:?}, new_consensus_state = {:?}",
+        new_client_state,
+        new_consensus_state
+    );
 
     let result = ClientResult::Update(Result {
         client_id: client_id.clone(),
