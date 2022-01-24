@@ -66,7 +66,6 @@ impl ClientDef for TendermintClient {
         _proof: &CommitmentProofBytes,
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
-        _ctx: Option<&dyn ConnectionReader>,
     ) -> Result<(), Error> {
         Ok(())
     }

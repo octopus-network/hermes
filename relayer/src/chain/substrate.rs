@@ -298,17 +298,15 @@ impl SubstrateChain {
 
     /// Retrieve the storage proof according to storage keys
     /// And convert the proof to IBC compatible type
-    fn generate_storage_proof<F: StorageEntry>(
-        &self,
-        storage_entry: &F,
-        height: &Height,
-    ) -> MerkleProof
-    where
-        <F as StorageEntry>::Value: serde::Serialize,
+    fn generate_storage_proof<F: StorageEntry>
+        (&self, storage_entry: &F, height: &Height) -> MerkleProof
+        where <F as StorageEntry>::Value: serde::Serialize + core::fmt::Debug
     {
         let generate_storage_proof = async {
+            use subxt::{BlockNumber, sp_core::H256, rpc::NumberOrHex, storage::StorageKeyPrefix};
             use sp_core::{storage::StorageKey, Bytes};
-            use subxt::{rpc::NumberOrHex, sp_core::H256, BlockNumber};
+            use serde::{Deserialize, Serialize};
+
 
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
@@ -317,28 +315,13 @@ impl SubstrateChain {
                 .unwrap();
 
             let _height = NumberOrHex::Number(height.revision_height);
-            let block_hash: Option<H256> = client
-                .rpc()
-                .block_hash(Some(BlockNumber::from(_height)))
-                .await
-                .unwrap();
-            let storage_key = client
-                .storage()
-                .fetch(storage_entry, block_hash)
-                .await
-                .unwrap()
-                .unwrap();
-            tracing::debug!(
-                "In substrate: [generate_storage_proof] >> block_hash : {:?}, storage key: ",
-                block_hash /*, storage_key*/
-            );
+            let block_hash: Option<H256> = client.rpc().block_hash(Some(BlockNumber::from(_height))).await.unwrap();
+            let storage_key = storage_entry.key().final_key(StorageKeyPrefix::new::<F>());
+            tracing::debug!("In substrate: [generate_storage_proof] >> block_hash : {:?}, storage key: {:?}", block_hash, storage_key);
 
             use jsonrpsee::types::to_json_value;
-            let params = &[
-                to_json_value(storage_key).unwrap(),
-                to_json_value(block_hash.unwrap()).unwrap(),
-            ];
-            use serde::{Deserialize, Serialize};
+            let params = &[to_json_value(vec![storage_key]).unwrap(), to_json_value(block_hash.unwrap()).unwrap()];
+
             #[derive(Debug, PartialEq, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
             pub struct ReadProof_ {

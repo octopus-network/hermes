@@ -68,7 +68,6 @@ pub trait ClientDef: Clone {
         proof: &CommitmentProofBytes,
         connection_id: Option<&ConnectionId>,
         expected_connection_end: &ConnectionEnd,
-        ctx: Option<&dyn ConnectionReader>,
     ) -> Result<(), Error>;
 
     /// Verify a `proof` that a channel state matches that of the input `channel_end`.
@@ -305,7 +304,6 @@ impl ClientDef for AnyClient {
         proof: &CommitmentProofBytes,
         connection_id: Option<&ConnectionId>,
         expected_connection_end: &ConnectionEnd,
-        ctx: Option<&dyn ConnectionReader>,
     ) -> Result<(), Error> {
         match self {
             Self::Tendermint(client) => {
@@ -319,7 +317,6 @@ impl ClientDef for AnyClient {
                     proof,
                     connection_id,
                     expected_connection_end,
-                    ctx,
                 )
             }
             Self::Grandpa(client) => {
@@ -333,7 +330,6 @@ impl ClientDef for AnyClient {
                     proof,
                     connection_id,
                     expected_connection_end,
-                    ctx,
                 )
             }
 
@@ -349,7 +345,6 @@ impl ClientDef for AnyClient {
                     proof,
                     connection_id,
                     expected_connection_end,
-                    None,
                 )
             }
         }
