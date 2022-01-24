@@ -1525,7 +1525,7 @@ impl ChainEndpoint for SubstrateChain {
         // ensure target_height > trust_height
         assert!(target_height > trusted_height);
 
-        for block_number in trusted_height.revision_height..target_height.revision_height {
+        // for block_number in trusted_height.revision_height..target_height.revision_height {
             let result = async {
                 let client = ClientBuilder::new()
                     .set_url(&self.websocket_url.clone())
@@ -1534,7 +1534,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 // get block header
-                let block_header = octopusxt::call_ibc::get_block_header_by_block_number(client.clone(), target_height.revision_height as u32).await.unwrap();
+                let block_header = octopusxt::call_ibc::get_block_header_by_block_number(client.clone(), trusted_height.revision_height as u32).await.unwrap();
 
                 let api = client.clone().to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
@@ -1542,7 +1542,7 @@ impl ChainEndpoint for SubstrateChain {
                 assert_eq!(block_header.block_number, target_height.revision_height as u32);
 
                 // block hash by block number
-                let block_hash: Option<sp_core::H256> = api.client.rpc().block_hash(Some(BlockNumber::from(target_height.revision_height as u32))).await.unwrap();
+                let block_hash: Option<sp_core::H256> = api.client.rpc().block_hash(Some(BlockNumber::from(trusted_height.revision_height as u32))).await.unwrap();
 
                 // get mmr_leaf and mmr_leaf_proof
                 let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_header.block_number - 1) as u64, block_hash, client).await.unwrap();
@@ -1552,8 +1552,8 @@ impl ChainEndpoint for SubstrateChain {
 
             let result = self.block_on(result);
             tracing::info!("in substrate [build header] >> block header = {:?}, mmr_leaf = {:?}, mmr_leaf_proof = {:?}",
-            result.0, result.1.0, result.1.1
-        );
+                result.0, result.1.0, result.1.1
+            );
 
             let grandpa_client_state = match client_state {
                 AnyClientState::Grandpa(state) => state,
@@ -1567,14 +1567,14 @@ impl ChainEndpoint for SubstrateChain {
             let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
             let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut mmr_leaf_proof).unwrap();
 
-            let grandpa_header = GPHeader {
+            let grandpa_header_temp = GPHeader {
                 block_header: result.0,
                 mmr_leaf: mmr_leaf.into(),
                 mmr_leaf_proof: mmr_leaf_proof.into(),
             };
 
-            support_header.push(grandpa_header);
-        }
+            support_header.push(grandpa_header_temp);
+        // }
 
         Ok((grandpa_header, support_header))
     }
