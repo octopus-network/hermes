@@ -1327,8 +1327,7 @@ impl ChainEndpoint for SubstrateChain {
         }
 
         let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes().to_vec());
-        // Ok((new_connection_end, self.generate_storage_proof(&storage_entry, &height)))
-        Ok((new_connection_end, get_dummy_merkle_proof()))
+        Ok((new_connection_end, self.generate_storage_proof(&storage_entry, &height)))
     }
 
     fn proven_client_consensus(
@@ -1406,10 +1405,8 @@ impl ChainEndpoint for SubstrateChain {
 
         let channel_end = self.block_on(channel_end);
 
-        // let storage_entry = ibc_node::ibc::storage::Channels(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec());
-        let storage_entry = ibc_node::ibc::storage::Connections(port_id.as_bytes().to_vec()); // Todo: Hotfix!!!
-                                                                                              // Ok((channel_end, self.generate_storage_proof(&storage_entry, &height)))
-        Ok((channel_end, get_dummy_merkle_proof()))
+        let storage_entry = ibc_node::ibc::storage::Channels(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec());
+        Ok((channel_end, self.generate_storage_proof(&storage_entry, &height)))
     }
 
     fn proven_packet(

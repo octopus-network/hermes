@@ -139,7 +139,7 @@ impl ClientDef for GrandpaClient {
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
 
-        let key_encoded: &[u8] = &_connection_id.unwrap().as_bytes().encode();
+        let key_encoded: &[u8] = &_connection_id.unwrap().as_bytes().to_vec().encode();
         let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, key_encoded).unwrap();
         let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
         tracing::info!(
@@ -164,6 +164,14 @@ impl ClientDef for GrandpaClient {
         _channel_id: &ChannelId,
         _expected_channel_end: &ChannelEnd,
     ) -> Result<(), Error> {
+        let key_encoded: &[u8] = &(_port_id.as_bytes().to_vec(), _channel_id.as_bytes().to_vec()).encode();
+        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, key_encoded).unwrap();
+        let channel_end = ChannelEnd::decode(&mut &*storage_result).unwrap();
+        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> channel_end: {:?}", channel_end);
+
+        if !(channel_end.encode_vec().unwrap() == _expected_channel_end.encode_vec().unwrap()) {
+            return Err(Error::invalid_connection_state());
+        }
         Ok(())
     }
 
@@ -255,7 +263,7 @@ impl GrandpaClient {
         use sp_runtime::traits::BlakeTwo256;
         use sp_trie::StorageProof;
 
-        let _storage_keys = Self::storagge_map_final_key(_key_encoded);
+        let _storage_keys = Self::storage_map_final_key(_key_encoded);
         /*        while _client_state.block_number < (_height.revision_height as u32) {
             let sleep_duration = Duration::from_micros(500);
             // wasm_timer::sleep(sleep_duration);
@@ -287,12 +295,12 @@ impl GrandpaClient {
         tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}", _storage_keys);
         let state_root = _client_state.clone().block_header.state_root;
         tracing::info!(
-            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root: {:?}",
+            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> state_root: {:?}",
             state_root
         );
         let state_root_ = vector_to_array::<u8, 32>(state_root);
 
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root_: {:?}", state_root_);
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> state_root_: {:?}", state_root_);
 
         let storage_result = read_proof_check::<BlakeTwo256>(
             sp_core::H256::from(state_root_),
@@ -312,12 +320,12 @@ impl GrandpaClient {
     }
 
     /// Migrate from substrate: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
-    fn storagge_map_final_key(_key_encoded: &[u8]) -> Vec<u8> {
+    fn storage_map_final_key(_key_encoded: &[u8]) -> Vec<u8> {
         use frame_support::{Blake2_128Concat, StorageHasher};
         use frame_support::storage::storage_prefix;
 
         let key_hashed: &[u8] = &Blake2_128Concat::hash(_key_encoded);
-        let storage_prefix = storage_prefix("Babe".as_bytes(), "NextEpochConfig".as_bytes());
+        let storage_prefix = storage_prefix("pallet-ibc".as_bytes(), "Connections".as_bytes());
         let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
         final_key.extend_from_slice(&storage_prefix);
         final_key.extend_from_slice(key_hashed.as_ref());
