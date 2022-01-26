@@ -54,49 +54,32 @@ impl ClientDef for GrandpaClient {
         mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
 
         let mmr_proof = header.clone().mmr_leaf_proof;
+        let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
 
-        let mut items = vec![];
-        for item in mmr_proof.items {
-            let mut temp = [0u8; 32];
-            if item.is_empty() {
-                return Err(Error::empry_mmr_leaf_proof_items());
-            }
-            temp.copy_from_slice(item.as_slice());
-            items.push(temp);
-        }
 
-        // convert beefy_light_client MmrLeafProof
-        let mmr_proof = beefy_light_client::mmr::MmrLeafProof {
-            leaf_index: mmr_proof.leaf_index,
-            leaf_count: mmr_proof.leaf_count,
-            items,
-        };
-
-        let mmt_lead_encode = header.clone().mmr_leaf.encode();
-        let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmt_lead_encode[..]);
-        let mmr_leaf = header.clone().mmr_leaf;
+        let mmr_leaf_encode = beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf).encode();
+        let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
+        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf);
 
         let header_hash = header.hash();
-        let mut parent_mmr_root = [0u8; 32];
-        if mmr_leaf.parent_number_and_hash.mmr_root.is_empty() {
+
+        if mmr_leaf.parent_number_and_hash.1.is_empty() {
             return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
         }
 
-        parent_mmr_root.copy_from_slice(mmr_leaf.parent_number_and_hash.mmr_root.as_slice());
-
         // TODO fix header hash not match
-        // if header_hash != parent_mmr_root {
-        //     tracing::info!("ics1 client_def :[check_header_and_update_state] >> header_hash = {:?}", header_hash);
-        //     tracing::info!("ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}", parent_mmr_root);
-        //     return Err(Error::header_hash_not_match());
-        // }
+        if header_hash != mmr_leaf.parent_number_and_hash.1 {
+            tracing::info!("ics1 client_def :[check_header_and_update_state] >> header_hash = {:?}", header_hash);
+            tracing::info!("ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}", mmr_leaf.parent_number_and_hash.1);
+            return Err(Error::header_hash_not_match());
+        }
 
-        // let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
-        //     .map_err(|_| Error::invalid_mmr_leaf_proof())?;
-        //
-        // if !result {
-        //     return Err(Error::invalid_mmr_leaf_proof());
-        // }
+        let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
+            .map_err(|_| Error::invalid_mmr_leaf_proof())?;
+
+        if !result {
+            return Err(Error::invalid_mmr_leaf_proof());
+        }
 
         let client_state = ClientState {
             block_header: header.clone().block_header,
@@ -139,18 +122,18 @@ impl ClientDef for GrandpaClient {
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
 
-        let key_encoded: &[u8] = &_connection_id.unwrap().as_bytes().encode();
-        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, key_encoded).unwrap();
-        let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
-        tracing::info!(
-            "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
-            connection_end
-        );
-
-        if !(connection_end.encode_vec().unwrap() == _expected_connection_end.encode_vec().unwrap())
-        {
-            return Err(Error::invalid_connection_state());
-        }
+        // let key_encoded: &[u8] = &_connection_id.unwrap().as_bytes().encode();
+        // let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, key_encoded).unwrap();
+        // let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
+        // tracing::info!(
+        //     "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
+        //     connection_end
+        // );
+        //
+        // if !(connection_end.encode_vec().unwrap() == _expected_connection_end.encode_vec().unwrap())
+        // {
+        //     return Err(Error::invalid_connection_state());
+        // }
         Ok(())
     }
 
@@ -269,7 +252,7 @@ impl GrandpaClient {
         }
 
         let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
-        let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap();
+        let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap(); // TODO have error
         let storage_proof = match _merkel_proof {
             Exist(_exist_proof) => {
                 let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
@@ -328,4 +311,108 @@ impl GrandpaClient {
 fn vector_to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
     v.try_into()
         .unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{println, vec};
+    use std::vec::Vec;
+    use crate::ics02_client::client_def::ClientDef;
+    use crate::ics02_client::height::Height;
+    use super::GrandpaClient;
+    use crate::ics10_grandpa::header::Header;
+    use crate::ics10_grandpa::client_state::ClientState;
+    use crate::ics10_grandpa::help::{BlockHeader, Commitment, MmrLeaf, MmrLeafProof, ValidatorSet};
+    use crate::ics24_host::identifier::ChainId;
+    use std::string::ToString;
+    use codec::{Decode, Encode};
+    use hex_literal::hex;
+
+    #[test]
+    fn test_check_header_and_update_state_by_test_case_from_beefy_light_client() {
+        let client = GrandpaClient;
+
+        let commitment = beefy_light_client::commitment::Commitment {
+            payload: hex!("7fe1460305e05d0937df34aa47a251811b0f83032fd153a64ebb8812cb252ee2"),
+            block_number: 89,
+            validator_set_id: 0,
+        };
+
+        let ics10_commitment = Commitment::from(commitment);
+
+        let mut ics10_client_state = ClientState::default();
+        ics10_client_state.latest_commitment = ics10_commitment;
+
+        let encoded_header = vec![
+            10, 13, 22, 200, 67, 234, 70, 53, 53, 35, 181, 174, 39, 195, 107, 232, 128, 49, 144, 0, 46,
+            49, 133, 110, 254, 85, 186, 83, 203, 199, 197, 6, 69, 1, 144, 163, 197, 173, 189, 82, 34,
+            223, 212, 9, 231, 160, 19, 228, 191, 132, 66, 233, 82, 181, 164, 11, 244, 139, 67, 151,
+            196, 198, 210, 20, 105, 63, 105, 3, 166, 96, 244, 224, 235, 128, 247, 251, 169, 168, 144,
+            60, 51, 9, 243, 15, 221, 196, 212, 16, 234, 164, 29, 199, 205, 36, 112, 165, 9, 62, 20, 6,
+            66, 65, 66, 69, 52, 2, 0, 0, 0, 0, 159, 96, 136, 32, 0, 0, 0, 0, 4, 66, 69, 69, 70, 132, 3,
+            4, 27, 102, 51, 199, 84, 23, 10, 207, 202, 104, 184, 2, 235, 159, 61, 6, 10, 40, 223, 155,
+            198, 15, 56, 24, 158, 249, 244, 126, 70, 119, 186, 4, 66, 65, 66, 69, 169, 3, 1, 20, 212,
+            53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133,
+            76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125, 1, 0, 0, 0, 0, 0, 0, 0, 142, 175, 4,
+            21, 22, 135, 115, 99, 38, 201, 254, 161, 126, 37, 252, 82, 135, 97, 54, 147, 201, 18, 144,
+            156, 178, 38, 170, 71, 148, 242, 106, 72, 1, 0, 0, 0, 0, 0, 0, 0, 144, 181, 171, 32, 92,
+            105, 116, 201, 234, 132, 27, 230, 136, 134, 70, 51, 220, 156, 168, 163, 87, 132, 62, 234,
+            207, 35, 20, 100, 153, 101, 254, 34, 1, 0, 0, 0, 0, 0, 0, 0, 48, 103, 33, 33, 29, 84, 4,
+            189, 157, 168, 142, 2, 4, 54, 10, 26, 154, 184, 184, 124, 102, 193, 188, 47, 205, 211, 127,
+            60, 34, 34, 204, 32, 1, 0, 0, 0, 0, 0, 0, 0, 230, 89, 167, 161, 98, 140, 221, 147, 254,
+            188, 4, 164, 224, 100, 110, 162, 14, 159, 95, 12, 224, 151, 217, 160, 82, 144, 212, 169,
+            224, 84, 223, 78, 1, 0, 0, 0, 0, 0, 0, 0, 37, 247, 211, 55, 231, 96, 163, 185, 188, 26,
+            127, 33, 131, 57, 43, 42, 10, 32, 114, 255, 223, 190, 21, 179, 20, 120, 184, 196, 24, 104,
+            65, 222, 0, 128, 99, 229, 155, 248, 17, 21, 89, 124, 79, 189, 134, 73, 152, 214, 16, 205,
+            166, 187, 227, 44, 110, 19, 25, 72, 143, 62, 170, 60, 59, 165, 150, 110, 5, 66, 65, 66, 69,
+            1, 1, 176, 82, 55, 247, 244, 160, 12, 115, 166, 169, 63, 233, 237, 9, 141, 45, 194, 186,
+            67, 39, 32, 222, 11, 20, 122, 50, 3, 97, 121, 104, 223, 9, 80, 154, 189, 211, 112, 187,
+            167, 113, 224, 8, 134, 78, 168, 215, 202, 1, 228, 214, 23, 143, 125, 11, 211, 149, 154,
+            171, 25, 134, 44, 183, 166, 137,
+        ];
+
+        let header: beefy_light_client::header::Header = Decode::decode(&mut &encoded_header[..]).unwrap();
+        let header_1: beefy_light_client::header::Header = Decode::decode(&mut &encoded_header[..]).unwrap();
+        println!("beefy_light_client header = {:?}", header);
+        println!("beefy_light_client header hash = {:?}", header.hash());
+
+        let ics10_header = crate::ics10_grandpa::help::BlockHeader::from(header_1);
+        println!("grandpa_header hash = {:?}", ics10_header);
+        println!("ics10_header hash = {:?}", ics10_header.hash());
+
+
+        // Query mmr leaf with leaf index 81 (NOTE: not 81-1) at block 89
+        // {
+        //     blockHash: 0xd0d7c0b309926a2c64ed82f9a8ab8e2b037feb48fb3b783989bba30b041b1315
+        //     leaf: 0xc5010051000000f728a8e3b29fb62b3234be2ba31e6beffd00bb571a978962ff9c26ea8dcc20ab010000000000000005000000304803fa5a91d9852caafe04b4b867a4ed27a07a5bee3d1507b4b187a68777a20000000000000000000000000000000000000000000000000000000000000000
+        //     proof: 0x5100000000000000590000000000000018bddfdcc0399d0ce1be41f1126f63053ecb26ee19c107c0f96013f216b7b21933f8611a08a46cd74fd96d54d2eb19898dbd743b019bf7ba32b17b9a193f0e65b8c231bab606963f6a5a05071bea9af2a30f22adc43224affe87b3f90d1a07d0db4b6a7c61c56d1174067b6e816970631b8727f6dfe3ebd3923581472d45f47ad3940e1f16782fd635f4789d7f5674d2cbf12d1bbd7823c6ee37c807ad34424d48f0e3888f05a1d6183d9dbf8a91d3400ea2047b5e19d498968011e63b91058fbd
+        // }
+
+        let  encoded_mmr_leaf = hex!("c5010051000000f728a8e3b29fb62b3234be2ba31e6beffd00bb571a978962ff9c26ea8dcc20ab010000000000000005000000304803fa5a91d9852caafe04b4b867a4ed27a07a5bee3d1507b4b187a68777a20000000000000000000000000000000000000000000000000000000000000000");
+
+        let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
+        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
+        println!("mmr_leaf: {:?}", mmr_leaf);
+        println!("mmr_leaf parent_number_and_hash : {:?}", mmr_leaf.parent_number_and_hash.1);
+        assert_eq!(header.hash(), mmr_leaf.parent_number_and_hash.1, "beefy_light_client header hash not equal mmr_leaf parent_hash");
+
+        let encoded_mmr_proof =  hex!("5100000000000000590000000000000018bddfdcc0399d0ce1be41f1126f63053ecb26ee19c107c0f96013f216b7b21933f8611a08a46cd74fd96d54d2eb19898dbd743b019bf7ba32b17b9a193f0e65b8c231bab606963f6a5a05071bea9af2a30f22adc43224affe87b3f90d1a07d0db4b6a7c61c56d1174067b6e816970631b8727f6dfe3ebd3923581472d45f47ad3940e1f16782fd635f4789d7f5674d2cbf12d1bbd7823c6ee37c807ad34424d48f0e3888f05a1d6183d9dbf8a91d3400ea2047b5e19d498968011e63b91058fbd");
+        let mmr_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_proof[..]).unwrap();
+        // println!("mmr_proof: {:?}", mmr_proof);
+
+
+        let ics10_header = Header {
+            block_header: ics10_header,
+            mmr_leaf: MmrLeaf::from(mmr_leaf),
+            mmr_leaf_proof: MmrLeafProof::from(mmr_proof),
+        };
+        //
+        println!(">> ics10_header = {:?}", ics10_header);
+
+        let result = client.check_header_and_update_state(ics10_client_state, ics10_header).unwrap();
+
+        println!(" >> client_state = {:?} ", result.0);
+        println!(" >> consensus_state = {:?}", result.1);
+
+    }
 }

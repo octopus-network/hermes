@@ -161,8 +161,8 @@ impl From<beefy_light_client::mmr::MmrLeaf> for MmrLeaf {
         Self {
             version: value.version.0 as u32,
             parent_number_and_hash: ParentNumberAndHash {
-                block_number: value.parent_number_and_hash.0,
-                mmr_root: Vec::from(value.parent_number_and_hash.1),
+                parent_header_number: value.parent_number_and_hash.0,
+                parent_header_hash: Vec::from(value.parent_number_and_hash.1),
             },
             beefy_next_authority_set: ValidatorSet::from(value.beefy_next_authority_set),
             parachain_heads: Vec::from(value.parachain_heads),
@@ -175,8 +175,8 @@ impl From<MmrLeaf> for beefy_light_client::mmr::MmrLeaf {
         Self {
             version: MmrLeafVersion(value.version as u8),
             parent_number_and_hash: (
-                value.parent_number_and_hash.block_number,
-                Hash::try_from(value.parent_number_and_hash.mmr_root).unwrap(),
+                value.parent_number_and_hash.parent_header_number,
+                Hash::try_from(value.parent_number_and_hash.parent_header_hash).unwrap(),
             ),
             beefy_next_authority_set:
                 beefy_light_client::validator_set::BeefyNextAuthoritySet::from(
@@ -224,16 +224,16 @@ use ibc_proto::ibc::lightclients::grandpa::v1::ParentNumberAndHash as RawParentN
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct ParentNumberAndHash {
-    pub block_number: u32,
+    pub parent_header_number: u32,
     /// header hash
-    pub mmr_root: Vec<u8>,
+    pub parent_header_hash: Vec<u8>,
 }
 
 impl Default for ParentNumberAndHash {
     fn default() -> Self {
         Self {
-            block_number: 0,
-            mmr_root: vec![],
+            parent_header_number: 0,
+            parent_header_hash: vec![],
         }
     }
 }
@@ -241,8 +241,8 @@ impl Default for ParentNumberAndHash {
 impl From<RawParentNumberAndHash> for ParentNumberAndHash {
     fn from(raw: RawParentNumberAndHash) -> Self {
         Self {
-            block_number: raw.block_number,
-            mmr_root: raw.mmr_root,
+            parent_header_number: raw.block_number,
+            parent_header_hash: raw.mmr_root,
         }
     }
 }
@@ -250,8 +250,8 @@ impl From<RawParentNumberAndHash> for ParentNumberAndHash {
 impl From<ParentNumberAndHash> for RawParentNumberAndHash {
     fn from(value: ParentNumberAndHash) -> Self {
         Self {
-            block_number: value.block_number,
-            mmr_root: value.mmr_root,
+            block_number: value.parent_header_number,
+            mmr_root: value.parent_header_hash,
         }
     }
 }
@@ -544,20 +544,64 @@ impl Default for MmrLeafProof {
 use ibc_proto::ibc::lightclients::grandpa::v1::BlockHeader as RawBlockHeader;
 
 /// Block Header
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode)]
+#[derive(Clone, Debug, PartialEq, Eq,  Serialize, Deserialize, Decode, Encode)]
 pub struct BlockHeader {
     //// The parent hash.
     pub parent_hash: Vec<u8>,
     //// The block number.
+    #[codec(compact)]
     pub block_number: u32,
     //// The state trie merkle root
     pub state_root: Vec<u8>,
     //// The merkle root of the extrinsics.
     pub extrinsics_root: Vec<u8>,
     //// A chain-specific digest of data useful for light clients or referencing auxiliary data.
-    pub digest: Vec<u8>,
+    pub digest: Digest,
 }
 
+/// Do a Blake2 256-bit hash and place result in `dest`.
+fn blake2_256_into(data: &[u8], dest: &mut [u8; 32]) {
+    dest.copy_from_slice(blake2_rfc::blake2b::blake2b(32, &[], data).as_bytes());
+}
+/// Do a Blake2 256-bit hash and return result.
+fn blake2_256(data: &[u8]) -> [u8; 32] {
+    let mut r = [0; 32];
+    blake2_256_into(data, &mut r);
+    r
+}
+
+impl BlockHeader {
+    pub fn hash(&self) -> Hash {
+        let beefy_header = beefy_light_client::header::Header::from(self.clone());
+        beefy_header.hash()
+    }
+}
+
+
+impl  From<beefy_light_client::header::Header> for BlockHeader {
+    fn from(value : beefy_light_client::header::Header) -> Self {
+        Self {
+            parent_hash: Vec::from(value.parent_hash),
+            block_number: value.number,
+            state_root: Vec::from(value.state_root),
+            extrinsics_root: Vec::from(value.extrinsics_root),
+            digest: value.digest.into(),
+        }
+    }
+}
+
+impl From<BlockHeader> for beefy_light_client::header::Header {
+    fn from(value : BlockHeader) -> Self {
+        Self {
+            parent_hash: Hash::try_from(value.parent_hash).unwrap(),
+            number: value.block_number,
+            state_root: Hash::try_from(value.state_root).unwrap(),
+            extrinsics_root: Hash::try_from(value.extrinsics_root).unwrap(),
+            digest: value.digest.into(),
+        }
+    }
+
+}
 impl Default for BlockHeader {
     fn default() -> Self {
         Self {
@@ -565,7 +609,7 @@ impl Default for BlockHeader {
             block_number: 0,
             state_root: vec![],
             extrinsics_root: vec![],
-            digest: vec![],
+            digest: Digest::default(),
         }
     }
 }
@@ -577,7 +621,7 @@ impl From<RawBlockHeader> for BlockHeader {
             block_number: raw.block_number,
             state_root: raw.state_root,
             extrinsics_root: raw.extrinsics_root,
-            digest: raw.digest,
+            digest: Digest::default(),
         }
     }
 }
@@ -589,9 +633,205 @@ impl From<BlockHeader> for RawBlockHeader {
             block_number: value.block_number,
             state_root: value.state_root,
             extrinsics_root: value.extrinsics_root,
-            digest: value.digest,
+            digest: vec![],
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct Digest {
+    /// A list of logs in the digest.
+    pub logs: Vec<DigestItem>,
+}
+
+impl Default for Digest {
+    fn default() -> Self {
+        Self {
+            logs: vec![],
+        }
+    }
+}
+
+impl From<beefy_light_client::header::Digest> for Digest{
+    fn from(value : beefy_light_client::header::Digest) -> Self {
+        Self {
+            logs: value.logs.into_iter().map(|value| value.into()).collect(),
+        }
+    }
+}
+
+impl From<Digest> for beefy_light_client::header::Digest {
+    fn from(value : Digest) -> Self {
+        Self {
+            logs: value.logs.into_iter().map(|value| value.into()).collect(),
+        }
+    }
+}
+
+/// Consensus engine unique ID.
+pub type ConsensusEngineId = [u8; 4];
+
+#[derive(Clone, Debug,PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum DigestItem {
+    /// System digest item that contains the root of changes trie at given
+    /// block. It is created for every block iff runtime supports changes
+    /// trie creation.
+    ChangesTrieRoot(Hash),
+
+    /// A pre-runtime digest.
+    ///
+    /// These are messages from the consensus engine to the runtime, although
+    /// the consensus engine can (and should) read them itself to avoid
+    /// code and state duplication. It is erroneous for a runtime to produce
+    /// these, but this is not (yet) checked.
+    ///
+    /// NOTE: the runtime is not allowed to panic or fail in an `on_initialize`
+    /// call if an expected `PreRuntime` digest is not present. It is the
+    /// responsibility of a external block verifier to check this. Runtime API calls
+    /// will initialize the block without pre-runtime digests, so initialization
+    /// cannot fail when they are missing.
+    PreRuntime(ConsensusEngineId, Vec<u8>),
+
+    /// A message from the runtime to the consensus engine. This should *never*
+    /// be generated by the native code of any consensus engine, but this is not
+    /// checked (yet).
+    Consensus(ConsensusEngineId, Vec<u8>),
+
+    /// Put a Seal on it. This is only used by native code, and is never seen
+    /// by runtimes.
+    Seal(ConsensusEngineId, Vec<u8>),
+
+    /// Digest item that contains signal from changes tries manager to the
+    /// native code.
+    ChangesTrieSignal(ChangesTrieSignal),
+
+    /// Some other thing. Unsupported and experimental.
+    Other(Vec<u8>),
+
+    /// An indication for the light clients that the runtime execution
+    /// environment is updated.
+    ///
+    /// Currently this is triggered when:
+    /// 1. Runtime code blob is changed or
+    /// 2. `heap_pages` value is changed.
+    RuntimeEnvironmentUpdated,
+}
+
+impl From<beefy_light_client::header::DigestItem> for DigestItem {
+    fn from(value : beefy_light_client::header::DigestItem) -> Self {
+        match value  {
+            beefy_light_client::header::DigestItem::ChangesTrieRoot(value) => {
+                DigestItem::ChangesTrieRoot(value)
+            },
+            beefy_light_client::header::DigestItem::PreRuntime(consensus_engine_id, value) => {
+                DigestItem::PreRuntime(consensus_engine_id, value)
+            },
+            beefy_light_client::header::DigestItem::Consensus(consensus_engine_id,value) => {
+                DigestItem::Consensus(consensus_engine_id, value)
+            },
+            beefy_light_client::header::DigestItem::Seal(consensus_engine_id, value) => {
+                DigestItem::Seal(consensus_engine_id, value)
+            },
+            beefy_light_client::header::DigestItem::ChangesTrieSignal(value) => {
+                DigestItem::ChangesTrieSignal(value.into())
+            },
+            beefy_light_client::header::DigestItem::Other(value) => DigestItem::Other(value),
+
+            beefy_light_client::header::DigestItem::RuntimeEnvironmentUpdated => DigestItem::RuntimeEnvironmentUpdated,
+        }
+    }
+}
+
+impl From<DigestItem> for beefy_light_client::header::DigestItem {
+    fn from(value : DigestItem) -> Self {
+        match value {
+            DigestItem::ChangesTrieRoot(value) => {beefy_light_client::header::DigestItem::ChangesTrieRoot(value)}
+            DigestItem::PreRuntime(consensus_engine_id,value ) => {beefy_light_client::header::DigestItem::PreRuntime(consensus_engine_id, value)}
+            DigestItem::Consensus(consensus_engine_id, value) => {beefy_light_client::header::DigestItem::Consensus(consensus_engine_id, value)}
+            DigestItem::Seal(consensus_engine_id, value ) => {beefy_light_client::header::DigestItem::Seal(consensus_engine_id, value)},
+            DigestItem::ChangesTrieSignal(value) => {beefy_light_client::header::DigestItem::ChangesTrieSignal(value.into())}
+            DigestItem::Other(value) => {beefy_light_client::header::DigestItem::Other(value)}
+            DigestItem::RuntimeEnvironmentUpdated => {beefy_light_client::header::DigestItem::RuntimeEnvironmentUpdated}
+        }
+    }
+
+}
+#[derive(Clone, Debug,PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum ChangesTrieSignal {
+    /// New changes trie configuration is enacted, starting from **next block**.
+    ///
+    /// The block that emits this signal will contain changes trie (CT) that covers
+    /// blocks range [BEGIN; current block], where BEGIN is (order matters):
+    /// - LAST_TOP_LEVEL_DIGEST_BLOCK+1 if top level digest CT has ever been created using current
+    ///   configuration AND the last top level digest CT has been created at block
+    ///   LAST_TOP_LEVEL_DIGEST_BLOCK;
+    /// - LAST_CONFIGURATION_CHANGE_BLOCK+1 if there has been CT configuration change before and
+    ///   the last configuration change happened at block LAST_CONFIGURATION_CHANGE_BLOCK;
+    /// - 1 otherwise.
+    NewConfiguration(Option<ChangesTrieConfiguration>),
+}
+
+impl From<beefy_light_client::header::ChangesTrieSignal> for ChangesTrieSignal {
+    fn from(value : beefy_light_client::header::ChangesTrieSignal) -> Self {
+        match value {
+            beefy_light_client::header::ChangesTrieSignal::NewConfiguration(value) => {
+                if value.is_some() {
+                    ChangesTrieSignal::NewConfiguration(Some(value.unwrap().into()))
+                } else {
+                    ChangesTrieSignal::NewConfiguration(None)
+                }
+            }
+        }
+    }
+}
+
+impl From<ChangesTrieSignal>  for beefy_light_client::header::ChangesTrieSignal {
+    fn from(value : ChangesTrieSignal) -> Self {
+        match value {
+            ChangesTrieSignal::NewConfiguration(value) => {
+                if value.is_some() {
+                    beefy_light_client::header::ChangesTrieSignal::NewConfiguration(Some(value.unwrap().into()))
+                } else {
+                    beefy_light_client::header::ChangesTrieSignal::NewConfiguration(None)
+                }
+            }
+        }
+    }
+
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct ChangesTrieConfiguration {
+    /// Interval (in blocks) at which level1-digests are created. Digests are not
+    /// created when this is less or equal to 1.
+    pub digest_interval: u32,
+    /// Maximal number of digest levels in hierarchy. 0 means that digests are not
+    /// created at all (even level1 digests). 1 means only level1-digests are created.
+    /// 2 means that every digest_interval^2 there will be a level2-digest, and so on.
+    /// Please ensure that maximum digest interval (i.e. digest_interval^digest_levels)
+    /// is within `u32` limits. Otherwise you'll never see digests covering such intervals
+    /// && maximal digests interval will be truncated to the last interval that fits
+    /// `u32` limits.
+    pub digest_levels: u32,
+}
+
+impl From<beefy_light_client::header::ChangesTrieConfiguration> for ChangesTrieConfiguration {
+    fn from(value : beefy_light_client::header::ChangesTrieConfiguration) -> Self {
+        Self {
+            digest_interval: value.digest_interval,
+            digest_levels: value.digest_levels,
+        }
+    }
+}
+
+impl From<ChangesTrieConfiguration> for beefy_light_client::header::ChangesTrieConfiguration {
+    fn from(value : ChangesTrieConfiguration) -> Self {
+        Self {
+            digest_interval: value.digest_interval,
+            digest_levels: value.digest_levels,
+        }
+    }
+
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]

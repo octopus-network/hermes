@@ -49,23 +49,12 @@ impl Header {
     }
 
     pub fn hash(&self) -> Hash {
-        blake2_256(&codec::Encode::encode(&self.block_header))
+        self.block_header.hash()
     }
 
     pub fn height(&self) -> Height {
         Height::new(0, self.block_header.block_number as u64)
     }
-}
-
-/// Do a Blake2 256-bit hash and place result in `dest`.
-fn blake2_256_into(data: &[u8], dest: &mut [u8; 32]) {
-    dest.copy_from_slice(blake2_rfc::blake2b::blake2b(32, &[], data).as_bytes());
-}
-/// Do a Blake2 256-bit hash and return result.
-fn blake2_256(data: &[u8]) -> [u8; 32] {
-    let mut r = [0; 32];
-    blake2_256_into(data, &mut r);
-    r
 }
 
 impl crate::ics02_client::header::Header for Header {
