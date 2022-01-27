@@ -1492,7 +1492,7 @@ impl ChainEndpoint for SubstrateChain {
                 grandpa_client_state.block_number as u64,
             ));
         }
-
+        
         // build target height header
         let result = async {
             let client = ClientBuilder::new()
@@ -1500,6 +1500,33 @@ impl ChainEndpoint for SubstrateChain {
                 .build::<ibc_node::DefaultConfig>()
                 .await
                 .unwrap();
+
+            let raw_signed_commitment = octopusxt::subscribe_beefy(client.clone()).await.unwrap();
+
+            let signed_commitment: beefy_light_client::commitment::SignedCommitment =
+                <beefy_light_client::commitment::SignedCommitment as codec::Decode>::decode(
+                    &mut &raw_signed_commitment.clone().0[..],
+                )
+                    .unwrap();
+
+            // get commitment
+            let mut mmr_root_height = signed_commitment.commitment.block_number;
+
+            loop {
+                if mmr_root_height < target_height.revision_height as u32 {
+                    let raw_signed_commitment = octopusxt::subscribe_beefy(client.clone()).await.unwrap();
+                    let signed_commitment: beefy_light_client::commitment::SignedCommitment =
+                        <beefy_light_client::commitment::SignedCommitment as codec::Decode>::decode(
+                            &mut &raw_signed_commitment.clone().0[..],
+                        ).unwrap();
+                    // get commitment height
+                    mmr_root_height = signed_commitment.commitment.block_number;
+                } else {
+                    // if mmr_root_height > target_height break
+                    break;
+                }
+            }
+
 
             // get block header
             let block_header = octopusxt::call_ibc::get_block_header_by_block_number(
@@ -1546,8 +1573,8 @@ impl ChainEndpoint for SubstrateChain {
             result.0, result.1.0, result.1.1
         );
 
-        let mut mmr_leaf: &[u8] = &result.1 .0;
-        let mut mmr_leaf_proof: &[u8] = &result.1 .1;
+        let mut mmr_leaf: &[u8] = &result.1.1;
+        let mut mmr_leaf_proof: &[u8] = &result.1.2;
 
         let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
         let mmr_leaf_proof =
@@ -1624,8 +1651,8 @@ impl ChainEndpoint for SubstrateChain {
         };
         // assert!(result.0.block_number <= grandpa_client_state.block_number);
 
-        let mut mmr_leaf: &[u8] = &result.1 .0;
-        let mut mmr_leaf_proof: &[u8] = &result.1 .1;
+        let mut mmr_leaf: &[u8] = &result.1.1;
+        let mut mmr_leaf_proof: &[u8] = &result.1.2;
 
         let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
         let mmr_leaf_proof =
