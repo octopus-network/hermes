@@ -54,7 +54,17 @@ define_error! {
             | _ | { "invalid Mmr Lead Proof" },
 
         InvalidCommitment
-            | _ | { "Invalid commitment"}
+            | _ | { "Invalid commitment"},
 
+        InvalidStorageProof
+            | _ | { "invalid storage Proof" },
+
+        GetStorageByProofErr
+            {
+                e: String,
+            }
+            | e | {
+                format_args!("failed to get storage by proof: {0}",e)
+            },
     }
 }

@@ -13,7 +13,6 @@ use crate::ics02_client::client_def::ClientDef;
 use crate::ics02_client::client_state::AnyClientState;
 use crate::ics02_client::error::Error;
 use crate::ics03_connection::connection::ConnectionEnd;
-use crate::ics03_connection::context::ConnectionReader;
 use crate::ics04_channel::channel::ChannelEnd;
 use crate::ics04_channel::packet::Sequence;
 use crate::ics10_grandpa::client_state::ClientState;
@@ -138,7 +137,6 @@ impl ClientDef for GrandpaClient {
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
-
         let key_encoded: &[u8] = &_connection_id.unwrap().as_bytes().to_vec().encode();
         let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, key_encoded).unwrap();
         let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
@@ -294,29 +292,16 @@ impl GrandpaClient {
 
         tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}", _storage_keys);
         let state_root = _client_state.clone().block_header.state_root;
-        tracing::info!(
-            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> state_root: {:?}",
-            state_root
-        );
-        let state_root_ = vector_to_array::<u8, 32>(state_root);
-
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> state_root_: {:?}", state_root_);
+        let state_root = vector_to_array::<u8, 32>(state_root);
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> state_root: {:?}", state_root);
 
         let storage_result = read_proof_check::<BlakeTwo256>(
-            sp_core::H256::from(state_root_),
+            sp_core::H256::from(state_root),
             StorageProof::new(storage_proof.proof),
             &_storage_keys,
         ).unwrap().unwrap();
 
-        tracing::info!("In ics10-client_def.rs: [verify_storage_proof] >> storage_result: {:?}", storage_result);
-
-        let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
-        tracing::info!(
-            "In ics10-client_def.rs: [verify_storage_proof] >> connection_end: {:?}",
-            connection_end
-        );
-
-        Ok(connection_end.encode_vec().unwrap())
+        Ok(storage_result)
     }
 
     /// Migrate from substrate: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
@@ -325,7 +310,7 @@ impl GrandpaClient {
         use frame_support::storage::storage_prefix;
 
         let key_hashed: &[u8] = &Blake2_128Concat::hash(_key_encoded);
-        let storage_prefix = storage_prefix("pallet-ibc".as_bytes(), "Connections".as_bytes());
+        let storage_prefix = storage_prefix("Ibc".as_bytes(), "Connections".as_bytes());
         let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
         final_key.extend_from_slice(&storage_prefix);
         final_key.extend_from_slice(key_hashed.as_ref());

@@ -317,7 +317,7 @@ impl SubstrateChain {
             let _height = NumberOrHex::Number(height.revision_height);
             let block_hash: Option<H256> = client.rpc().block_hash(Some(BlockNumber::from(_height))).await.unwrap();
             let storage_key = storage_entry.key().final_key(StorageKeyPrefix::new::<F>());
-            tracing::debug!("In substrate: [generate_storage_proof] >> block_hash : {:?}, storage key: {:?}", block_hash, storage_key);
+            tracing::debug!("In substrate: [generate_storage_proof] >> height: {:?}, block_hash: {:?}, storage key: {:?}", height, block_hash, storage_key);
 
             use jsonrpsee::types::to_json_value;
             let params = &[to_json_value(vec![storage_key]).unwrap(), to_json_value(block_hash.unwrap()).unwrap()];
