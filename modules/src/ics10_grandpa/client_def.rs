@@ -139,7 +139,7 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         let key_encoded: &[u8] = &_connection_id.unwrap().as_bytes().to_vec().encode();
         let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, key_encoded).unwrap();
-        let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
+        let connection_end = ConnectionEnd::decode_vec( &*storage_result).unwrap();
         tracing::info!(
             "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
             connection_end
@@ -295,11 +295,16 @@ impl GrandpaClient {
         let state_root = vector_to_array::<u8, 32>(state_root);
         tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> state_root: {:?}", state_root);
 
-        let storage_result = read_proof_check::<BlakeTwo256>(
+        let mut storage_result = read_proof_check::<BlakeTwo256>(
             sp_core::H256::from(state_root),
             StorageProof::new(storage_proof.proof),
             &_storage_keys,
         ).unwrap().unwrap();
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_result: {:?}", storage_result);
+
+        // Todo: The first 2 bytes are redundant data. Not written by substrate-ibc pallet. To figure out why.
+        storage_result.remove(0);storage_result.remove(0);
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_result truncated: {:?}", storage_result);
 
         Ok(storage_result)
     }
