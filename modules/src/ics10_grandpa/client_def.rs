@@ -412,7 +412,7 @@ mod tests {
         println!("beefy_light_client header hash = {:?}", header.hash());
 
         let ics10_header = crate::ics10_grandpa::help::BlockHeader::from(header_1);
-        println!("grandpa_header hash = {:?}", ics10_header);
+        println!("grandpa_header  = {:?}", ics10_header);
         println!("ics10_header hash = {:?}", ics10_header.hash());
 
         // Query mmr leaf with leaf index 81 (NOTE: not 81-1) at block 89
@@ -459,7 +459,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_check_header_and_update_state_by_test_case_from_beefy_light_client_1() {
+    async fn test_check_header_and_update_state_by_test_case_from_substrate() {
         let grandpa_client = GrandpaClient;
 
         let commitment = beefy_light_client::commitment::Commitment {
@@ -481,7 +481,7 @@ mod tests {
 
         // get block header
         let ics10_header =
-            octopusxt::call_ibc::get_block_header_by_block_number(client.clone(), 81)
+            octopusxt::call_ibc::get_header_by_block_number(client.clone(), Some(BlockNumber::from(81)))
                 .await
                 .unwrap();
         println!("block_header = {:?}", ics10_header);
@@ -494,13 +494,13 @@ mod tests {
         let block_hash: Option<sp_core::H256> = api
             .client
             .rpc()
-            .block_hash(Some(BlockNumber::from(81)))
+            .block_hash(Some(BlockNumber::from(82)))
             .await
             .unwrap();
 
         // get mmr_leaf and mmr_leaf_proof
         let mmr_leaf_and_mmr_leaf_proof =
-            octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(81 - 1, block_hash, client)
+            octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(81, block_hash, client)
                 .await
                 .unwrap();
         println!(
@@ -520,11 +520,17 @@ mod tests {
         println!("mmr_leaf_proof = {:?}", mmr_leaf_proof);
 
         let ics10_header = Header {
-            block_header: ics10_header,
+            block_header: BlockHeader {
+                parent_hash: ics10_header.parent_hash,
+                block_number: ics10_header.block_number,
+                state_root: ics10_header.state_root,
+                extrinsics_root: ics10_header.extrinsics_root,
+                digest: ics10_header.digest
+            },
             mmr_leaf: MmrLeaf::from(mmr_leaf),
             mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
         };
-        //
+
         println!(">> ics10_header = {:?}", ics10_header);
 
         let result = grandpa_client
