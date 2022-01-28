@@ -544,7 +544,7 @@ impl Default for MmrLeafProof {
 use ibc_proto::ibc::lightclients::grandpa::v1::BlockHeader as RawBlockHeader;
 
 /// Block Header
-#[derive(Clone, Debug, PartialEq, Eq,  Serialize, Deserialize, Decode, Encode)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode)]
 pub struct BlockHeader {
     //// The parent hash.
     pub parent_hash: Vec<u8>,
@@ -577,9 +577,8 @@ impl BlockHeader {
     }
 }
 
-
-impl  From<beefy_light_client::header::Header> for BlockHeader {
-    fn from(value : beefy_light_client::header::Header) -> Self {
+impl From<beefy_light_client::header::Header> for BlockHeader {
+    fn from(value: beefy_light_client::header::Header) -> Self {
         Self {
             parent_hash: Vec::from(value.parent_hash),
             block_number: value.number,
@@ -591,8 +590,8 @@ impl  From<beefy_light_client::header::Header> for BlockHeader {
 }
 
 impl From<BlockHeader> for beefy_light_client::header::Header {
-    fn from(value : BlockHeader) -> Self {
-        let digest = beefy_light_client::header::Digest::decode(&mut  &value.digest[..]).unwrap();
+    fn from(value: BlockHeader) -> Self {
+        let digest = beefy_light_client::header::Digest::decode(&mut &value.digest[..]).unwrap();
         Self {
             parent_hash: Hash::try_from(value.parent_hash).unwrap(),
             number: value.block_number,
@@ -601,7 +600,6 @@ impl From<BlockHeader> for beefy_light_client::header::Header {
             digest: digest,
         }
     }
-
 }
 impl Default for BlockHeader {
     fn default() -> Self {

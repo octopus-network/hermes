@@ -61,8 +61,8 @@ impl ClientDef for GrandpaClient {
         let mmr_proof = header.clone().mmr_leaf_proof;
         let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
 
-
-        let mmr_leaf_encode = beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf).encode();
+        let mmr_leaf_encode =
+            beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf).encode();
         let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
         let mmr_leaf = beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf);
 
@@ -74,8 +74,14 @@ impl ClientDef for GrandpaClient {
 
         // TODO fix header hash not match
         if header_hash != mmr_leaf.parent_number_and_hash.1 {
-            tracing::info!("ics1 client_def :[check_header_and_update_state] >> header_hash = {:?}", header_hash);
-            tracing::info!("ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}", mmr_leaf.parent_number_and_hash.1);
+            tracing::info!(
+                "ics1 client_def :[check_header_and_update_state] >> header_hash = {:?}",
+                header_hash
+            );
+            tracing::info!(
+                "ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}",
+                mmr_leaf.parent_number_and_hash.1
+            );
             return Err(Error::header_hash_not_match());
         }
 
@@ -126,7 +132,6 @@ impl ClientDef for GrandpaClient {
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
-
         // let key_encoded: &[u8] = &_connection_id.unwrap().as_bytes().encode();
         // let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, key_encoded).unwrap();
         // let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
@@ -232,9 +237,12 @@ impl ClientDef for GrandpaClient {
 
 impl GrandpaClient {
     /// Extract on-chain storage value by proof, path, and state root
-    fn get_storage_via_proof(_client_state: &ClientState, _height: Height, _proof: &CommitmentProofBytes, _key_encoded: &[u8])
-                             -> Result<Vec<u8>, Error>
-    {
+    fn get_storage_via_proof(
+        _client_state: &ClientState,
+        _height: Height,
+        _proof: &CommitmentProofBytes,
+        _key_encoded: &[u8],
+    ) -> Result<Vec<u8>, Error> {
         tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _client_state: {:?}, _height: {:?}, _key_encoded: {:?}", _client_state, _height, _key_encoded);
         use crate::ics10_grandpa::state_machine::read_proof_check;
         use core::convert::TryFrom;
@@ -266,13 +274,19 @@ impl GrandpaClient {
                     _proof_str
                 );
                 let _storage_proof: ReadProofU8 = serde_json::from_str(&_proof_str).unwrap();
-                tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _storage_proof: {:?}", _storage_proof);
+                tracing::info!(
+                    "In ics10-client_def.rs: [extract_verify_beefy_proof] >> _storage_proof: {:?}",
+                    _storage_proof
+                );
                 _storage_proof
             }
             _ => unimplemented!(),
         };
 
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}", _storage_keys);
+        tracing::info!(
+            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}",
+            _storage_keys
+        );
         let state_root = _client_state.clone().block_header.state_root;
         tracing::info!(
             "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root: {:?}",
@@ -280,15 +294,23 @@ impl GrandpaClient {
         );
         let state_root_ = vector_to_array::<u8, 32>(state_root);
 
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root_: {:?}", state_root_);
+        tracing::info!(
+            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root_: {:?}",
+            state_root_
+        );
 
         let storage_result = read_proof_check::<BlakeTwo256>(
             sp_core::H256::from(state_root_),
             StorageProof::new(storage_proof.proof),
             &_storage_keys,
-        ).unwrap().unwrap();
+        )
+        .unwrap()
+        .unwrap();
 
-        tracing::info!("In ics10-client_def.rs: [verify_storage_proof] >> storage_result: {:?}", storage_result);
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_storage_proof] >> storage_result: {:?}",
+            storage_result
+        );
 
         let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
         tracing::info!(
@@ -301,8 +323,8 @@ impl GrandpaClient {
 
     /// Migrate from substrate: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
     fn storagge_map_final_key(_key_encoded: &[u8]) -> Vec<u8> {
-        use frame_support::{Blake2_128Concat, StorageHasher};
         use frame_support::storage::storage_prefix;
+        use frame_support::{Blake2_128Concat, StorageHasher};
 
         let key_hashed: &[u8] = &Blake2_128Concat::hash(_key_encoded);
         let storage_prefix = storage_prefix("Babe".as_bytes(), "NextEpochConfig".as_bytes());
@@ -320,18 +342,23 @@ fn vector_to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
 
 #[cfg(test)]
 mod tests {
-    use std::{println, vec};
-    use std::vec::Vec;
+    use super::GrandpaClient;
     use crate::ics02_client::client_def::ClientDef;
     use crate::ics02_client::height::Height;
-    use super::GrandpaClient;
-    use crate::ics10_grandpa::header::Header;
     use crate::ics10_grandpa::client_state::ClientState;
-    use crate::ics10_grandpa::help::{BlockHeader, Commitment, MmrLeaf, MmrLeafProof, ValidatorSet};
+    use crate::ics10_grandpa::header::Header;
+    use crate::ics10_grandpa::help::{
+        BlockHeader, Commitment, MmrLeaf, MmrLeafProof, ValidatorSet,
+    };
     use crate::ics24_host::identifier::ChainId;
-    use std::string::ToString;
     use codec::{Decode, Encode};
     use hex_literal::hex;
+    use octopusxt::ibc_node;
+    use std::string::ToString;
+    use std::vec::Vec;
+    use std::{println, vec};
+    use subxt::BlockNumber;
+    use subxt::ClientBuilder;
 
     #[test]
     fn test_check_header_and_update_state_by_test_case_from_beefy_light_client() {
@@ -349,42 +376,44 @@ mod tests {
         ics10_client_state.latest_commitment = ics10_commitment;
 
         let encoded_header = vec![
-            10, 13, 22, 200, 67, 234, 70, 53, 53, 35, 181, 174, 39, 195, 107, 232, 128, 49, 144, 0, 46,
-            49, 133, 110, 254, 85, 186, 83, 203, 199, 197, 6, 69, 1, 144, 163, 197, 173, 189, 82, 34,
-            223, 212, 9, 231, 160, 19, 228, 191, 132, 66, 233, 82, 181, 164, 11, 244, 139, 67, 151,
-            196, 198, 210, 20, 105, 63, 105, 3, 166, 96, 244, 224, 235, 128, 247, 251, 169, 168, 144,
-            60, 51, 9, 243, 15, 221, 196, 212, 16, 234, 164, 29, 199, 205, 36, 112, 165, 9, 62, 20, 6,
-            66, 65, 66, 69, 52, 2, 0, 0, 0, 0, 159, 96, 136, 32, 0, 0, 0, 0, 4, 66, 69, 69, 70, 132, 3,
-            4, 27, 102, 51, 199, 84, 23, 10, 207, 202, 104, 184, 2, 235, 159, 61, 6, 10, 40, 223, 155,
-            198, 15, 56, 24, 158, 249, 244, 126, 70, 119, 186, 4, 66, 65, 66, 69, 169, 3, 1, 20, 212,
-            53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133,
-            76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125, 1, 0, 0, 0, 0, 0, 0, 0, 142, 175, 4,
-            21, 22, 135, 115, 99, 38, 201, 254, 161, 126, 37, 252, 82, 135, 97, 54, 147, 201, 18, 144,
-            156, 178, 38, 170, 71, 148, 242, 106, 72, 1, 0, 0, 0, 0, 0, 0, 0, 144, 181, 171, 32, 92,
-            105, 116, 201, 234, 132, 27, 230, 136, 134, 70, 51, 220, 156, 168, 163, 87, 132, 62, 234,
-            207, 35, 20, 100, 153, 101, 254, 34, 1, 0, 0, 0, 0, 0, 0, 0, 48, 103, 33, 33, 29, 84, 4,
-            189, 157, 168, 142, 2, 4, 54, 10, 26, 154, 184, 184, 124, 102, 193, 188, 47, 205, 211, 127,
-            60, 34, 34, 204, 32, 1, 0, 0, 0, 0, 0, 0, 0, 230, 89, 167, 161, 98, 140, 221, 147, 254,
-            188, 4, 164, 224, 100, 110, 162, 14, 159, 95, 12, 224, 151, 217, 160, 82, 144, 212, 169,
-            224, 84, 223, 78, 1, 0, 0, 0, 0, 0, 0, 0, 37, 247, 211, 55, 231, 96, 163, 185, 188, 26,
-            127, 33, 131, 57, 43, 42, 10, 32, 114, 255, 223, 190, 21, 179, 20, 120, 184, 196, 24, 104,
-            65, 222, 0, 128, 99, 229, 155, 248, 17, 21, 89, 124, 79, 189, 134, 73, 152, 214, 16, 205,
-            166, 187, 227, 44, 110, 19, 25, 72, 143, 62, 170, 60, 59, 165, 150, 110, 5, 66, 65, 66, 69,
-            1, 1, 176, 82, 55, 247, 244, 160, 12, 115, 166, 169, 63, 233, 237, 9, 141, 45, 194, 186,
-            67, 39, 32, 222, 11, 20, 122, 50, 3, 97, 121, 104, 223, 9, 80, 154, 189, 211, 112, 187,
-            167, 113, 224, 8, 134, 78, 168, 215, 202, 1, 228, 214, 23, 143, 125, 11, 211, 149, 154,
-            171, 25, 134, 44, 183, 166, 137,
+            10, 13, 22, 200, 67, 234, 70, 53, 53, 35, 181, 174, 39, 195, 107, 232, 128, 49, 144, 0,
+            46, 49, 133, 110, 254, 85, 186, 83, 203, 199, 197, 6, 69, 1, 144, 163, 197, 173, 189,
+            82, 34, 223, 212, 9, 231, 160, 19, 228, 191, 132, 66, 233, 82, 181, 164, 11, 244, 139,
+            67, 151, 196, 198, 210, 20, 105, 63, 105, 3, 166, 96, 244, 224, 235, 128, 247, 251,
+            169, 168, 144, 60, 51, 9, 243, 15, 221, 196, 212, 16, 234, 164, 29, 199, 205, 36, 112,
+            165, 9, 62, 20, 6, 66, 65, 66, 69, 52, 2, 0, 0, 0, 0, 159, 96, 136, 32, 0, 0, 0, 0, 4,
+            66, 69, 69, 70, 132, 3, 4, 27, 102, 51, 199, 84, 23, 10, 207, 202, 104, 184, 2, 235,
+            159, 61, 6, 10, 40, 223, 155, 198, 15, 56, 24, 158, 249, 244, 126, 70, 119, 186, 4, 66,
+            65, 66, 69, 169, 3, 1, 20, 212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4,
+            169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162,
+            125, 1, 0, 0, 0, 0, 0, 0, 0, 142, 175, 4, 21, 22, 135, 115, 99, 38, 201, 254, 161, 126,
+            37, 252, 82, 135, 97, 54, 147, 201, 18, 144, 156, 178, 38, 170, 71, 148, 242, 106, 72,
+            1, 0, 0, 0, 0, 0, 0, 0, 144, 181, 171, 32, 92, 105, 116, 201, 234, 132, 27, 230, 136,
+            134, 70, 51, 220, 156, 168, 163, 87, 132, 62, 234, 207, 35, 20, 100, 153, 101, 254, 34,
+            1, 0, 0, 0, 0, 0, 0, 0, 48, 103, 33, 33, 29, 84, 4, 189, 157, 168, 142, 2, 4, 54, 10,
+            26, 154, 184, 184, 124, 102, 193, 188, 47, 205, 211, 127, 60, 34, 34, 204, 32, 1, 0, 0,
+            0, 0, 0, 0, 0, 230, 89, 167, 161, 98, 140, 221, 147, 254, 188, 4, 164, 224, 100, 110,
+            162, 14, 159, 95, 12, 224, 151, 217, 160, 82, 144, 212, 169, 224, 84, 223, 78, 1, 0, 0,
+            0, 0, 0, 0, 0, 37, 247, 211, 55, 231, 96, 163, 185, 188, 26, 127, 33, 131, 57, 43, 42,
+            10, 32, 114, 255, 223, 190, 21, 179, 20, 120, 184, 196, 24, 104, 65, 222, 0, 128, 99,
+            229, 155, 248, 17, 21, 89, 124, 79, 189, 134, 73, 152, 214, 16, 205, 166, 187, 227, 44,
+            110, 19, 25, 72, 143, 62, 170, 60, 59, 165, 150, 110, 5, 66, 65, 66, 69, 1, 1, 176, 82,
+            55, 247, 244, 160, 12, 115, 166, 169, 63, 233, 237, 9, 141, 45, 194, 186, 67, 39, 32,
+            222, 11, 20, 122, 50, 3, 97, 121, 104, 223, 9, 80, 154, 189, 211, 112, 187, 167, 113,
+            224, 8, 134, 78, 168, 215, 202, 1, 228, 214, 23, 143, 125, 11, 211, 149, 154, 171, 25,
+            134, 44, 183, 166, 137,
         ];
 
-        let header: beefy_light_client::header::Header = Decode::decode(&mut &encoded_header[..]).unwrap();
-        let header_1: beefy_light_client::header::Header = Decode::decode(&mut &encoded_header[..]).unwrap();
+        let header: beefy_light_client::header::Header =
+            Decode::decode(&mut &encoded_header[..]).unwrap();
+        let header_1: beefy_light_client::header::Header =
+            Decode::decode(&mut &encoded_header[..]).unwrap();
         println!("beefy_light_client header = {:?}", header);
         println!("beefy_light_client header hash = {:?}", header.hash());
 
         let ics10_header = crate::ics10_grandpa::help::BlockHeader::from(header_1);
         println!("grandpa_header hash = {:?}", ics10_header);
         println!("ics10_header hash = {:?}", ics10_header.hash());
-
 
         // Query mmr leaf with leaf index 81 (NOTE: not 81-1) at block 89
         // {
@@ -398,13 +427,20 @@ mod tests {
         let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
         let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
         println!("mmr_leaf: {:?}", mmr_leaf);
-        println!("mmr_leaf parent_number_and_hash : {:?}", mmr_leaf.parent_number_and_hash.1);
-        assert_eq!(header.hash(), mmr_leaf.parent_number_and_hash.1, "beefy_light_client header hash not equal mmr_leaf parent_hash");
+        println!(
+            "mmr_leaf parent_number_and_hash : {:?}",
+            mmr_leaf.parent_number_and_hash.1
+        );
+        assert_eq!(
+            header.hash(),
+            mmr_leaf.parent_number_and_hash.1,
+            "beefy_light_client header hash not equal mmr_leaf parent_hash"
+        );
 
         let encoded_mmr_proof =  hex!("5100000000000000590000000000000018bddfdcc0399d0ce1be41f1126f63053ecb26ee19c107c0f96013f216b7b21933f8611a08a46cd74fd96d54d2eb19898dbd743b019bf7ba32b17b9a193f0e65b8c231bab606963f6a5a05071bea9af2a30f22adc43224affe87b3f90d1a07d0db4b6a7c61c56d1174067b6e816970631b8727f6dfe3ebd3923581472d45f47ad3940e1f16782fd635f4789d7f5674d2cbf12d1bbd7823c6ee37c807ad34424d48f0e3888f05a1d6183d9dbf8a91d3400ea2047b5e19d498968011e63b91058fbd");
-        let mmr_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_proof[..]).unwrap();
+        let mmr_proof =
+            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_proof[..]).unwrap();
         // println!("mmr_proof: {:?}", mmr_proof);
-
 
         let ics10_header = Header {
             block_header: ics10_header,
@@ -414,10 +450,88 @@ mod tests {
         //
         println!(">> ics10_header = {:?}", ics10_header);
 
-        let result = client.check_header_and_update_state(ics10_client_state, ics10_header).unwrap();
+        let result = client
+            .check_header_and_update_state(ics10_client_state, ics10_header)
+            .unwrap();
 
         println!(" >> client_state = {:?} ", result.0);
         println!(" >> consensus_state = {:?}", result.1);
+    }
 
+    #[tokio::test]
+    async fn test_check_header_and_update_state_by_test_case_from_beefy_light_client_1() {
+        let grandpa_client = GrandpaClient;
+
+        let commitment = beefy_light_client::commitment::Commitment {
+            payload: hex!("7fe1460305e05d0937df34aa47a251811b0f83032fd153a64ebb8812cb252ee2"),
+            block_number: 89,
+            validator_set_id: 0,
+        };
+
+        let ics10_commitment = Commitment::from(commitment);
+
+        let mut ics10_client_state = ClientState::default();
+        ics10_client_state.latest_commitment = ics10_commitment;
+
+        let client = ClientBuilder::new()
+            .set_url("ws://localhost:9944")
+            .build::<ibc_node::DefaultConfig>()
+            .await
+            .unwrap();
+
+        // get block header
+        let ics10_header =
+            octopusxt::call_ibc::get_block_header_by_block_number(client.clone(), 81)
+                .await
+                .unwrap();
+        println!("block_header = {:?}", ics10_header);
+
+        let api = client
+            .clone()
+            .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+
+        // block hash by block number
+        let block_hash: Option<sp_core::H256> = api
+            .client
+            .rpc()
+            .block_hash(Some(BlockNumber::from(81)))
+            .await
+            .unwrap();
+
+        // get mmr_leaf and mmr_leaf_proof
+        let mmr_leaf_and_mmr_leaf_proof =
+            octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(81 - 1, block_hash, client)
+                .await
+                .unwrap();
+        println!(
+            "mmr_leaf_and_mmr_leaf_proof = {:?}",
+            mmr_leaf_and_mmr_leaf_proof
+        );
+
+        let mut encoded_mmr_leaf = mmr_leaf_and_mmr_leaf_proof.1;
+        let mut encode_mmr_leaf_proof = mmr_leaf_and_mmr_leaf_proof.2;
+
+        let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
+        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
+        println!("mmr_leaf = {:?}", mmr_leaf);
+
+        let mmr_leaf_proof =
+            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encode_mmr_leaf_proof[..]).unwrap();
+        println!("mmr_leaf_proof = {:?}", mmr_leaf_proof);
+
+        let ics10_header = Header {
+            block_header: ics10_header,
+            mmr_leaf: MmrLeaf::from(mmr_leaf),
+            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
+        };
+        //
+        println!(">> ics10_header = {:?}", ics10_header);
+
+        let result = grandpa_client
+            .check_header_and_update_state(ics10_client_state, ics10_header)
+            .unwrap();
+
+        println!(" >> client_state = {:?} ", result.0);
+        println!(" >> consensus_state = {:?}", result.1);
     }
 }
