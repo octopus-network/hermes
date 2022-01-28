@@ -13,7 +13,7 @@ use crate::ics02_client::client_consensus::AnyConsensusState;
 use crate::ics02_client::client_type::ClientType;
 use crate::ics10_grandpa::error::Error;
 use crate::ics10_grandpa::header::Header;
-use crate::ics10_grandpa::help::{BlockHeader, Digest};
+use crate::ics10_grandpa::help::BlockHeader;
 use crate::ics23_commitment::commitment::CommitmentRoot;
 use tendermint_proto::Protobuf;
 

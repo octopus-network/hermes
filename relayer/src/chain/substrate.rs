@@ -1492,7 +1492,7 @@ impl ChainEndpoint for SubstrateChain {
                 grandpa_client_state.block_number as u64,
             ));
         }
-        
+
         // build target height header
         let result = async {
             let client = ClientBuilder::new()
@@ -1573,17 +1573,19 @@ impl ChainEndpoint for SubstrateChain {
             result.0, result.1.0, result.1.1
         );
 
-        let mut mmr_leaf: &[u8] = &result.1.1;
-        let mut mmr_leaf_proof: &[u8] = &result.1.2;
+        let mut encoded_mmr_leaf = result.1.1;
+        let mut encoded_mmr_leaf_proof = result.1.2;
 
-        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
+        let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
+        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
+
         let mmr_leaf_proof =
-            beefy_light_client::mmr::MmrLeafProof::decode(&mut mmr_leaf_proof).unwrap();
+            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..]).unwrap();
 
         let grandpa_header = GPHeader {
             block_header: result.0,
-            mmr_leaf: mmr_leaf.into(),
-            mmr_leaf_proof: mmr_leaf_proof.into(),
+            mmr_leaf: MmrLeaf::from(mmr_leaf),
+            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
         };
 
         // build support header
@@ -1651,17 +1653,19 @@ impl ChainEndpoint for SubstrateChain {
         };
         // assert!(result.0.block_number <= grandpa_client_state.block_number);
 
-        let mut mmr_leaf: &[u8] = &result.1.1;
-        let mut mmr_leaf_proof: &[u8] = &result.1.2;
+        let mut encode_mmr_leaf = result.1.1;
+        let mut encode_mmr_leaf_proof = result.1.2;
 
-        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
+        let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
+        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
+
         let mmr_leaf_proof =
-            beefy_light_client::mmr::MmrLeafProof::decode(&mut mmr_leaf_proof).unwrap();
+            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encode_mmr_leaf_proof[..]).unwrap();
 
         let grandpa_header_temp = GPHeader {
             block_header: result.0,
-            mmr_leaf: mmr_leaf.into(),
-            mmr_leaf_proof: mmr_leaf_proof.into(),
+            mmr_leaf: MmrLeaf::from(mmr_leaf),
+            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
         };
 
         support_header.push(grandpa_header_temp);
