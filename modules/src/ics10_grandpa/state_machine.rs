@@ -40,6 +40,7 @@ pub fn read_proof_check<H>(
 #[test]
 fn create_proof_check_backend_works() {
     use sp_runtime::traits::BlakeTwo256;
+    use codec::{Decode, Encode};
 
     let key: Vec<u8> = vec![101, 204, 242, 3, 105, 192, 221, 218, 216, 45, 16, 3, 82, 58, 196, 142, 47, 99, 99, 80, 87, 249, 175, 51, 232, 228, 192, 128, 156, 156, 52, 197, 83, 68, 105, 160, 53, 236, 227, 28, 226, 64, 250, 25, 185, 226, 109, 66, 48, 99, 111, 110, 110, 101, 99, 116, 105, 111, 110, 45, 48];
     let state_root: [u8; 32] = [249, 132, 94, 43, 77, 149, 90, 95, 219, 102, 214, 18, 162, 227, 15, 122, 192, 216, 194, 6, 72, 47, 16, 134, 28, 241, 21, 141, 224, 243, 92, 16];
@@ -47,4 +48,7 @@ fn create_proof_check_backend_works() {
     let storage_value = read_proof_check::<BlakeTwo256>(sp_core::H256::from(state_root), StorageProof::new(proof), &key).unwrap().unwrap();
     let _storage_value: Vec<u8> = vec![49, 1, 10, 12, 49, 48, 45, 103, 114, 97, 110, 100, 112, 97, 45, 48, 18, 35, 10, 1, 49, 18, 13, 79, 82, 68, 69, 82, 95, 79, 82, 68, 69, 82, 69, 68, 18, 15, 79, 82, 68, 69, 82, 95, 85, 78, 79, 82, 68, 69, 82, 69, 68, 24, 1, 34, 21, 10, 12, 49, 48, 45, 103, 114, 97, 110, 100, 112, 97, 45, 48, 26, 5, 10, 3, 105, 98, 99];
     assert_eq!(storage_value, _storage_value);
+
+    println!("b\"bar\".to_vec(): {:?}", b"bar".to_vec());
+    println!("\"bar\".to_vec(): {:?}", "bar".as_bytes().to_vec());
 }
