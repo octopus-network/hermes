@@ -49,6 +49,6 @@ fn create_proof_check_backend_works() {
     let _storage_value: Vec<u8> = vec![49, 1, 10, 12, 49, 48, 45, 103, 114, 97, 110, 100, 112, 97, 45, 48, 18, 35, 10, 1, 49, 18, 13, 79, 82, 68, 69, 82, 95, 79, 82, 68, 69, 82, 69, 68, 18, 15, 79, 82, 68, 69, 82, 95, 85, 78, 79, 82, 68, 69, 82, 69, 68, 24, 1, 34, 21, 10, 12, 49, 48, 45, 103, 114, 97, 110, 100, 112, 97, 45, 48, 26, 5, 10, 3, 105, 98, 99];
     assert_eq!(storage_value, _storage_value);
 
-    println!("b\"bar\".to_vec(): {:?}", b"bar".to_vec());
-    println!("\"bar\".to_vec(): {:?}", "bar".as_bytes().to_vec());
+    // println!("b\"bar\".to_vec(): {:?}", b"bar".to_vec());
+    // println!("\"bar\".to_vec(): {:?}", "bar".as_bytes().to_vec());
 }

@@ -197,10 +197,9 @@ impl ClientDef for GrandpaClient {
             _expected_client_state
         );
 
-        // Todo: to uncomment below
-/*        if !(anyClientState.encode_vec().unwrap() == _expected_client_state.encode_vec().unwrap()) {
+        if !(anyClientState.encode_vec().unwrap() == _expected_client_state.encode_vec().unwrap()) {
             return Err(Error::invalid_client_state());
-        }*/
+        }
         Ok(())
     }
 
