@@ -1667,34 +1667,6 @@ pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     MerkleProof { proofs: mproofs }
 }
 
-#[test]
-fn test_compose_ibc_merkle_proof() {
-    use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
-    use core::convert::TryFrom;
-    use serde::{Deserialize, Serialize};
-    use ibc_proto::ics23::commitment_proof::Proof::Exist;
-
-    let ibc_proof = compose_ibc_merkle_proof("proof".to_string());
-    let merkel_proof = RawMerkleProof::try_from(ibc_proof).unwrap();
-    let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap();
-
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct ReadProofU8 {
-        pub at: String,
-        pub proof: Vec<Vec<u8>>,
-    }
-
-    match _merkel_proof {
-        Exist(_exist_proof) => {
-            let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
-            assert_eq!(_proof_str, "proof".to_string());
-        }
-        _ => unimplemented!(),
-    };
-
-}
-
 /// Returns a dummy `MerkleProof`, for testing only!
 pub fn get_dummy_merkle_proof() -> MerkleProof {
     tracing::info!("in substrate: [get_dummy_merk_proof]");
@@ -1744,4 +1716,32 @@ pub fn get_dummy_ics07_header() -> tHeader {
         trusted_height: Height::new(0, 1),
         trusted_validator_set: vs,
     }
+}
+
+#[test]
+fn test_compose_ibc_merkle_proof() {
+    use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
+    use core::convert::TryFrom;
+    use serde::{Deserialize, Serialize};
+    use ibc_proto::ics23::commitment_proof::Proof::Exist;
+
+    let ibc_proof = compose_ibc_merkle_proof("proof".to_string());
+    let merkel_proof = RawMerkleProof::try_from(ibc_proof).unwrap();
+    let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap();
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ReadProofU8 {
+        pub at: String,
+        pub proof: Vec<Vec<u8>>,
+    }
+
+    match _merkel_proof {
+        Exist(_exist_proof) => {
+            let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
+            assert_eq!(_proof_str, "proof".to_string());
+        }
+        _ => unimplemented!(),
+    };
+
 }
