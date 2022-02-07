@@ -357,8 +357,10 @@ mod tests {
     use std::string::ToString;
     use std::vec::Vec;
     use std::{println, vec};
+    use prost::Message;
     use subxt::BlockNumber;
     use subxt::ClientBuilder;
+    use octopusxt::subscribe_beefy;
 
     #[test]
     fn test_check_header_and_update_state_by_test_case_from_beefy_light_client() {
@@ -462,11 +464,34 @@ mod tests {
     async fn test_check_header_and_update_state_by_test_case_from_substrate() {
         let grandpa_client = GrandpaClient;
 
-        let commitment = beefy_light_client::commitment::Commitment {
-            payload: hex!("7fe1460305e05d0937df34aa47a251811b0f83032fd153a64ebb8812cb252ee2"),
-            block_number: 89,
-            validator_set_id: 0,
-        };
+        let client = ClientBuilder::new()
+            .set_url("ws://localhost:9944")
+            .build::<ibc_node::DefaultConfig>()
+            .await.unwrap();
+
+        // subscribe beefy justification
+        let signed_commitment_raw = subscribe_beefy(client.clone()).await.unwrap().0;
+
+        let signed_commitment =
+            beefy_light_client::commitment::SignedCommitment::decode(&mut &signed_commitment_raw.clone()[..]).unwrap();
+
+        let beefy_light_client::commitment::Commitment {
+            payload,
+            block_number,
+            validator_set_id,
+        } = signed_commitment.commitment;
+
+        // get mmr root
+        let mmr_root = payload;
+
+        // let commitment = beefy_light_client::commitment::Commitment {
+        //     payload: hex!("7fe1460305e05d0937df34aa47a251811b0f83032fd153a64ebb8812cb252ee2"),
+        //     block_number: 89,
+        //     validator_set_id: 0,
+        // };
+        let commitment = signed_commitment.commitment.clone();
+        let block_number = block_number;
+        println!("commitment = {:?}", commitment);
 
         let ics10_commitment = Commitment::from(commitment);
 
@@ -481,10 +506,11 @@ mod tests {
 
         // get block header
         let ics10_header =
-            octopusxt::call_ibc::get_header_by_block_number(client.clone(), Some(BlockNumber::from(81)))
+            octopusxt::call_ibc::get_header_by_block_number(client.clone(), Some(BlockNumber::from(block_number - 1)))
                 .await
                 .unwrap();
         println!("block_header = {:?}", ics10_header);
+        println!("block_header hash = {:?}", ics10_header.hash());
 
         let api = client
             .clone()
@@ -494,13 +520,13 @@ mod tests {
         let block_hash: Option<sp_core::H256> = api
             .client
             .rpc()
-            .block_hash(Some(BlockNumber::from(82)))
+            .block_hash(Some(BlockNumber::from(block_number)))
             .await
             .unwrap();
 
         // get mmr_leaf and mmr_leaf_proof
         let mmr_leaf_and_mmr_leaf_proof =
-            octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(81, block_hash, client)
+            octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_number - 1) as u64, block_hash, client)
                 .await
                 .unwrap();
         println!(
@@ -508,8 +534,8 @@ mod tests {
             mmr_leaf_and_mmr_leaf_proof
         );
 
-        let mut encoded_mmr_leaf = mmr_leaf_and_mmr_leaf_proof.1;
-        let mut encode_mmr_leaf_proof = mmr_leaf_and_mmr_leaf_proof.2;
+        let encoded_mmr_leaf = mmr_leaf_and_mmr_leaf_proof.1;
+        let encode_mmr_leaf_proof = mmr_leaf_and_mmr_leaf_proof.2;
 
         let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
         let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
