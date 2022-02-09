@@ -18,15 +18,6 @@ pub(crate) fn process(
 ) -> HandlerResult<ConnectionResult, Error> {
     let mut output = HandlerOutput::builder();
 
-    // Todo: to delete code block below
-    match msg.previous_connection_id() {
-        Some(prev_id) => {
-            let old_connection_end = ctx.connection_end(prev_id)?;
-            tracing::info!("in conn_open_try, old_connection_end: {:?}", old_connection_end);
-        }
-        _ => {}
-    }
-
     // Check that consensus height (for client proof) in message is not too advanced nor too old.
     // TODO! future must to be handle
     // check_client_consensus_height(ctx, msg.consensus_height())?;
