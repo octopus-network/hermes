@@ -185,8 +185,8 @@ impl ClientDef for GrandpaClient {
         _proof: &CommitmentProofBytes,
         _expected_client_state: &AnyClientState,
     ) -> Result<(), Error> {
-        let key_encoded: Vec<Vec<u8>> = vec![_client_id.as_bytes().to_vec()];
-        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, key_encoded, "ClientStates").unwrap();
+        let keys: Vec<Vec<u8>> = vec![_client_id.as_bytes().to_vec()];
+        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "ClientStates").unwrap();
         let anyClientState = AnyClientState::decode_vec(&storage_result).unwrap();
         tracing::info!(
             "In ics10-client_def.rs: [verify_client_full_state] >> decoded client_state: {:?}",
@@ -316,16 +316,7 @@ impl GrandpaClient {
         ).unwrap().unwrap();
         tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> {:?}-storage_result: {:?}", _storage_name, storage_result);
 
-        // Todo: The first 1 or 2 bytes are redundant data. Not written by substrate-ibc pallet. To figure out why.
-        // Possible reason: the value needs to be decoded when retrieved from storage, https://github.com/paritytech/substrate/blob/59649dd117969467d8046df86afe56810f596545/frame/support/src/storage/unhashed.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L26
-        if storage_result.len() <= 65 {  // 65 == 256 / 4 + 1
-            storage_result.remove(0);
-        } else if storage_result.len() > 65 && storage_result.len() <= 16385 { // 16385 == 256 x 256 / 4 - 1 + 2
-            storage_result.remove(0);storage_result.remove(0);
-        } else {
-            return Err(Error::storage_size_exceed(storage_result.len().try_into().unwrap()));
-        }
-
+        let storage_result = <Vec<u8>>::decode(&mut &storage_result[..]).unwrap();
         tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_result truncated: {:?}", storage_result);
 
         Ok(storage_result)
