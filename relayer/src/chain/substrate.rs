@@ -1433,6 +1433,34 @@ impl ChainEndpoint for SubstrateChain {
         );
 
         use ibc::ics10_grandpa::help::Commitment;
+        use sp_core::Public;
+
+        let public_key = async {
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
+
+            let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+
+            let authorities = api.storage().beefy().authorities(None).await.unwrap();
+            tracing::info!("authorities length : {:?}", authorities.len());
+            let result: Vec<String> = authorities
+                .into_iter()
+                .map(|val| {
+                    format!(
+                        "0x{}",
+                        subxt::sp_core::hexdisplay::HexDisplay::from(&val.to_raw_vec())
+                    )
+                })
+                .collect();
+            tracing::info!("authorities member: {:?}", result);
+            result
+        };
+        let public_key = self.block_on(public_key);
+
+        let beefy_light_client = beefy_light_client::new(public_key);
 
         // Build client state
         let client_state = GPClientState::new(
@@ -1441,7 +1469,7 @@ impl ChainEndpoint for SubstrateChain {
             Height::zero(),
             BlockHeader::default(),
             Commitment::default(),
-            ValidatorSet::default(),
+            beefy_light_client.validator_set.into(),
         )
         .map_err(Error::ics10)?;
 
