@@ -420,7 +420,8 @@ pub trait ChainEndpoint: Sized {
                 client_proof,
                 consensus_proof,
                 None,
-                height.increment(),
+                // height.increment(),
+                height, // Todo: To figure out why increment()
             )
             .map_err(Error::malformed_proof)?,
         ))
@@ -437,7 +438,8 @@ pub trait ChainEndpoint: Sized {
         let channel_proof =
             CommitmentProofBytes::from(self.proven_channel(port_id, channel_id, height)?.1);
 
-        Proofs::new(channel_proof, None, None, None, height.increment())
+        // Todo: To figure out why increment()
+        Proofs::new(channel_proof, None, None, None, height/*height.increment()*/)
             .map_err(Error::malformed_proof)
     }
 
@@ -466,7 +468,8 @@ pub trait ChainEndpoint: Sized {
             None,
             None,
             channel_proof,
-            height.increment(),
+            // height.increment(),
+            height, // Todo: To figure out why increment()
         )
         .map_err(Error::malformed_proof)?;
 

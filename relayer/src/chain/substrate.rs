@@ -316,7 +316,7 @@ impl SubstrateChain {
             let _height = NumberOrHex::Number(height.revision_height);
             let block_hash: Option<H256> = client.rpc().block_hash(Some(BlockNumber::from(_height))).await.unwrap();
             let storage_key = storage_entry.key().final_key(StorageKeyPrefix::new::<F>());
-            tracing::debug!("In substrate: [generate_storage_proof] >> block_hash : {:?}, storage key: {:?}", block_hash, storage_key);
+            tracing::debug!("In substrate: [generate_storage_proof] >> height: {:?}, block_hash: {:?}, storage key: {:?}", height, block_hash, storage_key);
 
             use jsonrpsee::types::to_json_value;
             let params = &[to_json_value(vec![storage_key]).unwrap(), to_json_value(block_hash.unwrap()).unwrap()];
@@ -1266,7 +1266,8 @@ impl ChainEndpoint for SubstrateChain {
 
         let client_state = self.block_on(client_state);
 
-        Ok((client_state, get_dummy_merkle_proof()))
+        let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes().to_vec());
+        Ok((client_state, self.generate_storage_proof(&storage_entry, &height)))
     }
 
     fn proven_connection(
@@ -1326,8 +1327,7 @@ impl ChainEndpoint for SubstrateChain {
         }
 
         let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes().to_vec());
-        // Ok((new_connection_end, self.generate_storage_proof(&storage_entry, &height)))
-        Ok((new_connection_end, get_dummy_merkle_proof()))
+        Ok((new_connection_end, self.generate_storage_proof(&storage_entry, &height)))
     }
 
     fn proven_client_consensus(
@@ -1367,8 +1367,8 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         let consensus_state = self.block_on(consensus_state);
-
-        Ok((consensus_state, get_dummy_merkle_proof()))
+        let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes().to_vec());
+        Ok((consensus_state, self.generate_storage_proof(&storage_entry, &height)))
     }
 
     fn proven_channel(
@@ -1405,10 +1405,8 @@ impl ChainEndpoint for SubstrateChain {
 
         let channel_end = self.block_on(channel_end);
 
-        // let storage_entry = ibc_node::ibc::storage::Channels(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec());
-        let storage_entry = ibc_node::ibc::storage::Connections(port_id.as_bytes().to_vec()); // Todo: Hotfix!!!
-                                                                                              // Ok((channel_end, self.generate_storage_proof(&storage_entry, &height)))
-        Ok((channel_end, get_dummy_merkle_proof()))
+        let storage_entry = ibc_node::ibc::storage::Channels(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec());
+        Ok((channel_end, self.generate_storage_proof(&storage_entry, &height)))
     }
 
     fn proven_packet(
@@ -1793,4 +1791,32 @@ pub fn get_dummy_ics07_header() -> tHeader {
         trusted_height: Height::new(0, 1),
         trusted_validator_set: vs,
     }
+}
+
+#[test]
+fn test_compose_ibc_merkle_proof() {
+    use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
+    use core::convert::TryFrom;
+    use serde::{Deserialize, Serialize};
+    use ibc_proto::ics23::commitment_proof::Proof::Exist;
+
+    let ibc_proof = compose_ibc_merkle_proof("proof".to_string());
+    let merkel_proof = RawMerkleProof::try_from(ibc_proof).unwrap();
+    let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap();
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ReadProofU8 {
+        pub at: String,
+        pub proof: Vec<Vec<u8>>,
+    }
+
+    match _merkel_proof {
+        Exist(_exist_proof) => {
+            let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
+            assert_eq!(_proof_str, "proof".to_string());
+        }
+        _ => unimplemented!(),
+    };
+
 }
