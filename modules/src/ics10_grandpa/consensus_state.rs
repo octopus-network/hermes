@@ -57,6 +57,19 @@ impl ConsensusState {
     // }
 }
 
+
+impl Default for ConsensusState {
+    fn default() -> Self {
+        Self {
+            parent_hash: vec![0; 10],
+            block_number: 0,
+            state_root: vec![0; 10],
+            extrinsics_root: vec![0; 10],
+            digest: vec![0; 10],
+            root: CommitmentRoot::from(vec![1, 2, 3])
+        }
+    }
+}
 impl Protobuf<RawConsensusState> for ConsensusState {}
 
 impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
@@ -122,7 +135,7 @@ impl From<Header> for ConsensusState {
             block_number: header.clone().block_header.block_number,
             state_root: header.clone().block_header.state_root,
             extrinsics_root: header.clone().block_header.extrinsics_root,
-            digest: vec![],
+            digest: header.clone().block_header.digest,
             root: CommitmentRoot::from(header.block_header.extrinsics_root),
         }
     }

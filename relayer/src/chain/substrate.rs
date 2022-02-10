@@ -111,6 +111,7 @@ impl SubstrateChain {
         client: Client<ibc_node::DefaultConfig>,
     ) -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_connection_end]");
+        tracing::info!("in Substrate: [get_connection_end] >> connection_id = {:?}", connection_identifier);
 
         octopusxt::get_connection_end(connection_identifier, client).await
     }
@@ -141,6 +142,7 @@ impl SubstrateChain {
         client: Client<ibc_node::DefaultConfig>,
     ) -> Result<Receipt, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_packet_receipt]");
+        tracing::info!("in Substrate: [get_packet_receipt] >> port_id = {:?}, channel_id = {:?}, seq = {:?}", port_id, channel_id, seq);
 
         octopusxt::get_packet_receipt(port_id, channel_id, seq, client).await
     }
@@ -682,7 +684,7 @@ impl ChainEndpoint for SubstrateChain {
         height: ICSHeight,
     ) -> Result<Self::ClientState, Error> {
         tracing::info!("in Substrate: [query_client_state]");
-        tracing::info!("in Substrate: [query_client_state] >> height: {:?}", height);
+        tracing::info!("in Substrate: [query_client_state] >> client_id = {:?}, height = {:?}", client_id, height);
 
         let client_state = async {
             let client = ClientBuilder::new()
