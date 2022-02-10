@@ -1530,13 +1530,6 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
-            let raw_signed_commitment = octopusxt::subscribe_beefy(client.clone()).await.unwrap();
-
-            let signed_commitment: beefy_light_client::commitment::SignedCommitment =
-                <beefy_light_client::commitment::SignedCommitment as codec::Decode>::decode(
-                    &mut &raw_signed_commitment.clone().0[..],
-                )
-                    .unwrap();
 
             // TODO
             // 这里需要异步的把这个commitment设置在clientstate中
@@ -1544,31 +1537,15 @@ impl ChainEndpoint for SubstrateChain {
                 payload,
                 block_number,
                 validator_set_id,
-            } = signed_commitment.commitment;
+            } = grandpa_client_state.latest_commitment.clone().into();
 
 
             // get commitment
             // let mut mmr_root_height = signed_commitment.commitment.block_number;
             let mut mmr_root_height = block_number;
 
-            // enable mmr_root_height  equal target_height revision_height
-            loop {
-                if mmr_root_height < target_height.revision_height as u32 {
-                    let raw_signed_commitment = octopusxt::subscribe_beefy(client.clone()).await.unwrap();
-                    let signed_commitment: beefy_light_client::commitment::SignedCommitment =
-                        <beefy_light_client::commitment::SignedCommitment as codec::Decode>::decode(
-                            &mut &raw_signed_commitment.clone().0[..],
-                        ).unwrap();
-                    // get commitment height
-                    mmr_root_height = block_number;
-                } else {
-                    // if mmr_root_height > target_height break
-                    break;
-                }
-            }
-
             // assert eq mmr_root_height target_height.reversion_height
-            assert!(target_height.revision_height as u32 <= mmr_root_height);
+            // assert!(target_height.revision_height as u32 <= mmr_root_height);
 
 
             // get block header
