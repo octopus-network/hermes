@@ -230,6 +230,27 @@ define_error! {
         InvalidConnectionState
             | _ | { "invalid connection state"},
 
+        InvalidClientState
+            | _ | { "invalid client state"},
+
+        WrongKeyNumber
+            {
+                key_number: u8,
+            }
+            | e | {
+                format_args!("Key number of hashmap or doublehashmap must be 1 or 2, but {0} found",
+                    e.key_number)
+            },
+
+        StorageSizeExceed
+            {
+                storage_size: u32,
+            }
+            | e | {
+                format_args!("Storage size is {0}, which is over limit",
+                    e.storage_size)
+            },
+
         HeaderHashNotMatch
             | _ | { "Header hash not match" },
 

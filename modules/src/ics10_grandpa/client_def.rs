@@ -13,7 +13,6 @@ use crate::ics02_client::client_def::ClientDef;
 use crate::ics02_client::client_state::AnyClientState;
 use crate::ics02_client::error::Error;
 use crate::ics03_connection::connection::ConnectionEnd;
-use crate::ics03_connection::context::ConnectionReader;
 use crate::ics04_channel::channel::ChannelEnd;
 use crate::ics04_channel::packet::Sequence;
 use crate::ics10_grandpa::client_state::ClientState;
@@ -132,18 +131,20 @@ impl ClientDef for GrandpaClient {
         _connection_id: Option<&ConnectionId>,
         _expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
-        // let key_encoded: &[u8] = &_connection_id.unwrap().as_bytes().encode();
-        // let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, key_encoded).unwrap();
-        // let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
-        // tracing::info!(
-        //     "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
-        //     connection_end
-        // );
-        //
-        // if !(connection_end.encode_vec().unwrap() == _expected_connection_end.encode_vec().unwrap())
-        // {
-        //     return Err(Error::invalid_connection_state());
-        // }
+        // Todo: the _connection_id is None in `tx raw conn-ack`, as the _connection_id is not set in `tx raw conn-init`
+        // https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/modules/src/ics03_connection/handler/conn_open_init.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L33
+        // let keys: Vec<Vec<u8>> = vec![_connection_id.unwrap().as_bytes().to_vec()];
+        let keys: Vec<Vec<u8>> = vec!["connection-0".as_bytes().to_vec()];
+        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "Connections").unwrap();
+        let connection_end = ConnectionEnd::decode_vec( &storage_result).unwrap();
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
+            connection_end
+        );
+
+        if !(connection_end.encode_vec().unwrap() == _expected_connection_end.encode_vec().unwrap()) {
+            return Err(Error::invalid_connection_state());
+        }
         Ok(())
     }
 
@@ -157,6 +158,14 @@ impl ClientDef for GrandpaClient {
         _channel_id: &ChannelId,
         _expected_channel_end: &ChannelEnd,
     ) -> Result<(), Error> {
+        let keys: Vec<Vec<u8>> = vec![_port_id.as_bytes().to_vec(), _channel_id.as_bytes().to_vec()];
+        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "Channels").unwrap();
+        let channel_end = ChannelEnd::decode_vec(&storage_result).unwrap();
+        tracing::info!("In ics10-client_def.rs: [verify_connection_state] >> channel_end: {:?}", channel_end);
+
+        if !(channel_end.encode_vec().unwrap() == _expected_channel_end.encode_vec().unwrap()) {
+            return Err(Error::invalid_connection_state());
+        }
         Ok(())
     }
 
@@ -170,6 +179,21 @@ impl ClientDef for GrandpaClient {
         _proof: &CommitmentProofBytes,
         _expected_client_state: &AnyClientState,
     ) -> Result<(), Error> {
+        let keys: Vec<Vec<u8>> = vec![_client_id.as_bytes().to_vec()];
+        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "ClientStates").unwrap();
+        let anyClientState = AnyClientState::decode_vec(&storage_result).unwrap();
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_client_full_state] >> decoded client_state: {:?}",
+            anyClientState
+        );
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_client_full_state] >>  _expected_client_state: {:?}",
+            _expected_client_state
+        );
+
+        if !(anyClientState.encode_vec().unwrap() == _expected_client_state.encode_vec().unwrap()) {
+            return Err(Error::invalid_client_state());
+        }
         Ok(())
     }
 
@@ -237,13 +261,12 @@ impl ClientDef for GrandpaClient {
 
 impl GrandpaClient {
     /// Extract on-chain storage value by proof, path, and state root
-    fn get_storage_via_proof(
-        _client_state: &ClientState,
-        _height: Height,
-        _proof: &CommitmentProofBytes,
-        _key_encoded: &[u8],
-    ) -> Result<Vec<u8>, Error> {
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _client_state: {:?}, _height: {:?}, _key_encoded: {:?}", _client_state, _height, _key_encoded);
+    fn get_storage_via_proof(_client_state: &ClientState, _height: Height, _proof: &CommitmentProofBytes, _keys: Vec<Vec<u8>>, _storage_name: &str)
+                             -> Result<Vec<u8>, Error>
+    {
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _client_state: {:?}, _height: {:?}, _keys: {:?}, _storage_name: {:?}",
+            _client_state, _height, _keys, _storage_name);
+
         use crate::ics10_grandpa::state_machine::read_proof_check;
         use core::convert::TryFrom;
         use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
@@ -251,11 +274,6 @@ impl GrandpaClient {
         use sp_runtime::traits::BlakeTwo256;
         use sp_trie::StorageProof;
 
-        let _storage_keys = Self::storagge_map_final_key(_key_encoded);
-        /*        while _client_state.block_number < (_height.revision_height as u32) {
-            let sleep_duration = Duration::from_micros(500);
-            // wasm_timer::sleep(sleep_duration);
-        }*/
         use serde::{Deserialize, Serialize};
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
         #[serde(rename_all = "camelCase")]
@@ -283,55 +301,50 @@ impl GrandpaClient {
             _ => unimplemented!(),
         };
 
-        tracing::info!(
-            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}",
-            _storage_keys
-        );
+        let _storage_keys = Self::storage_map_final_key(_keys, _storage_name)?;
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}", _storage_keys);
         let state_root = _client_state.clone().block_header.state_root;
-        tracing::info!(
-            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root: {:?}",
-            state_root
-        );
-        let state_root_ = vector_to_array::<u8, 32>(state_root);
+        let state_root = vector_to_array::<u8, 32>(state_root);
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> state_root: {:?}", state_root);
 
-        tracing::info!(
-            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_root_: {:?}",
-            state_root_
-        );
-
-        let storage_result = read_proof_check::<BlakeTwo256>(
-            sp_core::H256::from(state_root_),
+        let mut storage_result = read_proof_check::<BlakeTwo256>(
+            sp_core::H256::from(state_root),
             StorageProof::new(storage_proof.proof),
             &_storage_keys,
-        )
-        .unwrap()
-        .unwrap();
+        ).unwrap().unwrap();
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> {:?}-storage_result: {:?}", _storage_name, storage_result);
 
-        tracing::info!(
-            "In ics10-client_def.rs: [verify_storage_proof] >> storage_result: {:?}",
-            storage_result
-        );
+        let storage_result = <Vec<u8>>::decode(&mut &storage_result[..]).unwrap();
+        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_result truncated: {:?}", storage_result);
 
-        let connection_end = ConnectionEnd::decode(&mut &*storage_result).unwrap();
-        tracing::info!(
-            "In ics10-client_def.rs: [verify_storage_proof] >> connection_end: {:?}",
-            connection_end
-        );
-
-        Ok(connection_end.encode_vec().unwrap())
+        Ok(storage_result)
     }
 
     /// Migrate from substrate: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
-    fn storagge_map_final_key(_key_encoded: &[u8]) -> Vec<u8> {
-        use frame_support::storage::storage_prefix;
+    fn storage_map_final_key(_keys: Vec<Vec<u8>>, _storage_name: &str) -> Result<Vec<u8>, Error> {
         use frame_support::{Blake2_128Concat, StorageHasher};
+        use frame_support::storage::storage_prefix;
+        if _keys.len() == 1 {
+            let key_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[0].encode());
+            let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
+            let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
+            final_key.extend_from_slice(&storage_prefix);
+            final_key.extend_from_slice(key_hashed.as_ref());
+            return Ok(final_key);
+        }
 
-        let key_hashed: &[u8] = &Blake2_128Concat::hash(_key_encoded);
-        let storage_prefix = storage_prefix("Babe".as_bytes(), "NextEpochConfig".as_bytes());
-        let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
-        final_key.extend_from_slice(&storage_prefix);
-        final_key.extend_from_slice(key_hashed.as_ref());
-        final_key
+        if _keys.len() == 2 {
+            let key1_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[0].encode());
+            let key2_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[1].encode());
+            let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
+            let mut final_key = Vec::with_capacity(storage_prefix.len() + key1_hashed.as_ref().len() + key2_hashed.as_ref().len());
+            final_key.extend_from_slice(&storage_prefix);
+            final_key.extend_from_slice(key1_hashed.as_ref());
+            final_key.extend_from_slice(key2_hashed.as_ref());
+            return Ok(final_key);
+        }
+
+        return Err(Error::wrong_key_number(_keys.len().try_into().unwrap()));
     }
 }
 
