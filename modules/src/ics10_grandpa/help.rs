@@ -161,8 +161,8 @@ impl From<beefy_light_client::mmr::MmrLeaf> for MmrLeaf {
         Self {
             version: value.version.0 as u32,
             parent_number_and_hash: ParentNumberAndHash {
-                block_number: value.parent_number_and_hash.0,
-                mmr_root: Vec::from(value.parent_number_and_hash.1),
+                parent_header_number: value.parent_number_and_hash.0,
+                parent_header_hash: Vec::from(value.parent_number_and_hash.1),
             },
             beefy_next_authority_set: ValidatorSet::from(value.beefy_next_authority_set),
             parachain_heads: Vec::from(value.parachain_heads),
@@ -175,8 +175,8 @@ impl From<MmrLeaf> for beefy_light_client::mmr::MmrLeaf {
         Self {
             version: MmrLeafVersion(value.version as u8),
             parent_number_and_hash: (
-                value.parent_number_and_hash.block_number,
-                Hash::try_from(value.parent_number_and_hash.mmr_root).unwrap(),
+                value.parent_number_and_hash.parent_header_number,
+                Hash::try_from(value.parent_number_and_hash.parent_header_hash).unwrap(),
             ),
             beefy_next_authority_set:
                 beefy_light_client::validator_set::BeefyNextAuthoritySet::from(
@@ -224,16 +224,16 @@ use ibc_proto::ibc::lightclients::grandpa::v1::ParentNumberAndHash as RawParentN
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct ParentNumberAndHash {
-    pub block_number: u32,
+    pub parent_header_number: u32,
     /// header hash
-    pub mmr_root: Vec<u8>,
+    pub parent_header_hash: Vec<u8>,
 }
 
 impl Default for ParentNumberAndHash {
     fn default() -> Self {
         Self {
-            block_number: 0,
-            mmr_root: vec![],
+            parent_header_number: 0,
+            parent_header_hash: vec![],
         }
     }
 }
@@ -241,8 +241,8 @@ impl Default for ParentNumberAndHash {
 impl From<RawParentNumberAndHash> for ParentNumberAndHash {
     fn from(raw: RawParentNumberAndHash) -> Self {
         Self {
-            block_number: raw.block_number,
-            mmr_root: raw.mmr_root,
+            parent_header_number: raw.block_number,
+            parent_header_hash: raw.mmr_root,
         }
     }
 }
@@ -250,8 +250,8 @@ impl From<RawParentNumberAndHash> for ParentNumberAndHash {
 impl From<ParentNumberAndHash> for RawParentNumberAndHash {
     fn from(value: ParentNumberAndHash) -> Self {
         Self {
-            block_number: value.block_number,
-            mmr_root: value.mmr_root,
+            block_number: value.parent_header_number,
+            mmr_root: value.parent_header_hash,
         }
     }
 }
@@ -549,6 +549,7 @@ pub struct BlockHeader {
     //// The parent hash.
     pub parent_hash: Vec<u8>,
     //// The block number.
+    #[codec(compact)]
     pub block_number: u32,
     //// The state trie merkle root
     pub state_root: Vec<u8>,
@@ -558,6 +559,37 @@ pub struct BlockHeader {
     pub digest: Vec<u8>,
 }
 
+impl BlockHeader {
+    pub fn hash(&self) -> Hash {
+        let beefy_header = beefy_light_client::header::Header::from(self.clone());
+        beefy_header.hash()
+    }
+}
+
+impl From<beefy_light_client::header::Header> for BlockHeader {
+    fn from(value: beefy_light_client::header::Header) -> Self {
+        Self {
+            parent_hash: Vec::from(value.parent_hash),
+            block_number: value.number,
+            state_root: Vec::from(value.state_root),
+            extrinsics_root: Vec::from(value.extrinsics_root),
+            digest: value.digest.encode(),
+        }
+    }
+}
+
+impl From<BlockHeader> for beefy_light_client::header::Header {
+    fn from(value: BlockHeader) -> Self {
+        let digest = beefy_light_client::header::Digest::decode(&mut &value.digest[..]).unwrap();
+        Self {
+            parent_hash: Hash::try_from(value.parent_hash).unwrap(),
+            number: value.block_number,
+            state_root: Hash::try_from(value.state_root).unwrap(),
+            extrinsics_root: Hash::try_from(value.extrinsics_root).unwrap(),
+            digest: digest,
+        }
+    }
+}
 impl Default for BlockHeader {
     fn default() -> Self {
         Self {

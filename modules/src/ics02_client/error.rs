@@ -267,6 +267,15 @@ define_error! {
             | _ | { "Empty Mmr Proof Items" },
 
         EmptyMmrLeafParentHashMmrRoot
-            | _ | { "empty Mmr Leaf parent hash Mmr Root" }
+            | _ | { "empty Mmr Leaf parent hash Mmr Root" },
+
+        InvalidMmrRootHeight
+            {
+                mmr_root_height: u32,
+                header_height: u32,
+            }
+            | e | { format!("invalid Mmr Root height, it's not can verify header, header height ({0})> mmr root height ({1})",
+                e.header_height, e.mmr_root_height)
+            }
     }
 }

@@ -40,7 +40,7 @@ impl ConsensusState {
             block_number: header.clone().block_number,
             state_root: header.clone().state_root,
             extrinsics_root: header.clone().extrinsics_root,
-            digest: header.clone().digest,
+            digest: vec![],
             root: CommitmentRoot::from(header.extrinsics_root.clone()),
         }
     }
@@ -122,7 +122,7 @@ impl From<Header> for ConsensusState {
             block_number: header.clone().block_header.block_number,
             state_root: header.clone().block_header.state_root,
             extrinsics_root: header.clone().block_header.extrinsics_root,
-            digest: header.clone().block_header.digest,
+            digest: vec![],
             root: CommitmentRoot::from(header.block_header.extrinsics_root),
         }
     }

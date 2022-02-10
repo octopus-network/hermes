@@ -12,7 +12,6 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bech32::{ToBase32, Variant};
-use beefy_light_client::commitment::Commitment;
 use chrono::offset::Utc;
 use codec::{Decode, Encode};
 use core::future::Future;
@@ -1432,6 +1431,34 @@ impl ChainEndpoint for SubstrateChain {
         );
 
         use ibc::ics10_grandpa::help::Commitment;
+        use sp_core::Public;
+
+        let public_key = async {
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
+
+            let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+
+            let authorities = api.storage().beefy().authorities(None).await.unwrap();
+            tracing::info!("authorities length : {:?}", authorities.len());
+            let result: Vec<String> = authorities
+                .into_iter()
+                .map(|val| {
+                    format!(
+                        "0x{}",
+                        subxt::sp_core::hexdisplay::HexDisplay::from(&val.to_raw_vec())
+                    )
+                })
+                .collect();
+            tracing::info!("authorities member: {:?}", result);
+            result
+        };
+        let public_key = self.block_on(public_key);
+
+        let beefy_light_client = beefy_light_client::new(public_key);
 
         // Build client state
         let client_state = GPClientState::new(
@@ -1440,7 +1467,7 @@ impl ChainEndpoint for SubstrateChain {
             Height::zero(),
             BlockHeader::default(),
             Commitment::default(),
-            ValidatorSet::default(),
+            beefy_light_client.validator_set.into(),
         )
         .map_err(Error::ics10)?;
 
@@ -1479,6 +1506,8 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [build_header] >> Trusted_height: {:?}, Target_height: {:?}, client_state: {:?}",
             trusted_height, target_height, client_state);
 
+        assert!(trusted_height.revision_height < target_height.revision_height);
+
         let grandpa_client_state = match client_state {
             AnyClientState::Grandpa(state) => state,
             _ => todo!(),
@@ -1499,10 +1528,51 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
+            let raw_signed_commitment = octopusxt::subscribe_beefy(client.clone()).await.unwrap();
+
+            let signed_commitment: beefy_light_client::commitment::SignedCommitment =
+                <beefy_light_client::commitment::SignedCommitment as codec::Decode>::decode(
+                    &mut &raw_signed_commitment.clone().0[..],
+                )
+                    .unwrap();
+
+            // TODO
+            // 这里需要异步的把这个commitment设置在clientstate中
+            let beefy_light_client::commitment::Commitment {
+                payload,
+                block_number,
+                validator_set_id,
+            } = signed_commitment.commitment;
+
+
+            // get commitment
+            // let mut mmr_root_height = signed_commitment.commitment.block_number;
+            let mut mmr_root_height = block_number;
+
+            // enable mmr_root_height  equal target_height revision_height
+            loop {
+                if mmr_root_height < target_height.revision_height as u32 {
+                    let raw_signed_commitment = octopusxt::subscribe_beefy(client.clone()).await.unwrap();
+                    let signed_commitment: beefy_light_client::commitment::SignedCommitment =
+                        <beefy_light_client::commitment::SignedCommitment as codec::Decode>::decode(
+                            &mut &raw_signed_commitment.clone().0[..],
+                        ).unwrap();
+                    // get commitment height
+                    mmr_root_height = block_number;
+                } else {
+                    // if mmr_root_height > target_height break
+                    break;
+                }
+            }
+
+            // assert eq mmr_root_height target_height.reversion_height
+            assert!(target_height.revision_height as u32 <= mmr_root_height);
+
+
             // get block header
-            let block_header = octopusxt::call_ibc::get_block_header_by_block_number(
+            let block_header = octopusxt::call_ibc::get_header_by_block_number(
                 client.clone(),
-                target_height.revision_height as u32,
+                Some(BlockNumber::from((target_height.revision_height - 1)  as u32)),
             )
             .await
             .unwrap();
@@ -1513,7 +1583,7 @@ impl ChainEndpoint for SubstrateChain {
 
             // assert block_header.block_number == target_height
             assert_eq!(
-                block_header.block_number,
+                block_header.block_number + 1,
                 target_height.revision_height as u32
             );
 
@@ -1544,101 +1614,106 @@ impl ChainEndpoint for SubstrateChain {
             result.0, result.1.0, result.1.1
         );
 
-        let mut mmr_leaf: &[u8] = &result.1 .0;
-        let mut mmr_leaf_proof: &[u8] = &result.1 .1;
+        let mut encoded_mmr_leaf = result.1.1;
+        let mut encoded_mmr_leaf_proof = result.1.2;
 
-        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
+        let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
+        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
+
         let mmr_leaf_proof =
-            beefy_light_client::mmr::MmrLeafProof::decode(&mut mmr_leaf_proof).unwrap();
+            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..]).unwrap();
 
         let grandpa_header = GPHeader {
             block_header: result.0,
-            mmr_leaf: mmr_leaf.into(),
-            mmr_leaf_proof: mmr_leaf_proof.into(),
+            mmr_leaf: MmrLeaf::from(mmr_leaf),
+            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
         };
 
-        // build support header
-        let mut support_header = vec![];
+        // // build support header
+        // let mut support_header = vec![];
+        //
+        // // ensure target_height > trust_height
+        // assert!(target_height > trusted_height);
+        //
+        // // for block_number in trusted_height.revision_height..target_height.revision_height {
+        // let result = async {
+        //     let client = ClientBuilder::new()
+        //         .set_url(&self.websocket_url.clone())
+        //         .build::<ibc_node::DefaultConfig>()
+        //         .await
+        //         .unwrap();
+        //
+        //     // get block header
+        //     let block_header = octopusxt::call_ibc::get_header_by_block_number(
+        //         client.clone(),
+        //         Some(BlockNumber::from(trusted_height.revision_height as u32)),
+        //     )
+        //     .await
+        //     .unwrap();
+        //
+        //     let api = client
+        //         .clone()
+        //         .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+        //
+        //     // assert block_header.block_number == target_height
+        //     assert_eq!(
+        //         block_header.block_number,
+        //         trusted_height.revision_height as u32
+        //     );
+        //
+        //     // block hash by block number
+        //     let block_hash: Option<sp_core::H256> = api
+        //         .client
+        //         .rpc()
+        //         .block_hash(Some(BlockNumber::from(
+        //             trusted_height.revision_height as u32,
+        //         )))
+        //         .await
+        //         .unwrap();
+        //
+        //     // get mmr_leaf and mmr_leaf_proof
+        //     let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
+        //         trusted_height.revision_height - 1,
+        //         block_hash,
+        //         client,
+        //     )
+        //     .await
+        //     .unwrap();
+        //
+        //     (block_header, mmr_leaf_and_mmr_leaf_proof)
+        // };
+        //
+        // let result = self.block_on(result);
+        // tracing::info!("in substrate [build header] >> block header = {:?}, mmr_leaf = {:?}, mmr_leaf_proof = {:?}",
+        //         result.0, result.1.0, result.1.1
+        //     );
+        //
+        // let grandpa_client_state = match client_state {
+        //     AnyClientState::Grandpa(state) => state,
+        //     _ => todo!(),
+        // };
+        // // assert!(result.0.block_number <= grandpa_client_state.block_number);
+        //
+        // let mut encode_mmr_leaf = result.1.1;
+        // let mut encode_mmr_leaf_proof = result.1.2;
+        //
+        // let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
+        // let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
+        //
+        // let mmr_leaf_proof =
+        //     beefy_light_client::mmr::MmrLeafProof::decode(&mut &encode_mmr_leaf_proof[..]).unwrap();
+        //
+        // let grandpa_header_temp = GPHeader {
+        //     block_header: result.0,
+        //     mmr_leaf: MmrLeaf::from(mmr_leaf),
+        //     mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
+        // };
+        //
+        // support_header.push(grandpa_header_temp);
+        // // }
+        //
 
-        // ensure target_height > trust_height
-        assert!(target_height > trusted_height);
-
-        // for block_number in trusted_height.revision_height..target_height.revision_height {
-        let result = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
-
-            // get block header
-            let block_header = octopusxt::call_ibc::get_block_header_by_block_number(
-                client.clone(),
-                trusted_height.revision_height as u32,
-            )
-            .await
-            .unwrap();
-
-            let api = client
-                .clone()
-                .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
-
-            // assert block_header.block_number == target_height
-            assert_eq!(
-                block_header.block_number,
-                trusted_height.revision_height as u32
-            );
-
-            // block hash by block number
-            let block_hash: Option<sp_core::H256> = api
-                .client
-                .rpc()
-                .block_hash(Some(BlockNumber::from(
-                    trusted_height.revision_height as u32,
-                )))
-                .await
-                .unwrap();
-
-            // get mmr_leaf and mmr_leaf_proof
-            let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
-                trusted_height.revision_height - 1,
-                block_hash,
-                client,
-            )
-            .await
-            .unwrap();
-
-            (block_header, mmr_leaf_and_mmr_leaf_proof)
-        };
-
-        let result = self.block_on(result);
-        tracing::info!("in substrate [build header] >> block header = {:?}, mmr_leaf = {:?}, mmr_leaf_proof = {:?}",
-                result.0, result.1.0, result.1.1
-            );
-
-        let grandpa_client_state = match client_state {
-            AnyClientState::Grandpa(state) => state,
-            _ => todo!(),
-        };
-        // assert!(result.0.block_number <= grandpa_client_state.block_number);
-
-        let mut mmr_leaf: &[u8] = &result.1 .0;
-        let mut mmr_leaf_proof: &[u8] = &result.1 .1;
-
-        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::decode(&mut mmr_leaf).unwrap();
-        let mmr_leaf_proof =
-            beefy_light_client::mmr::MmrLeafProof::decode(&mut mmr_leaf_proof).unwrap();
-
-        let grandpa_header_temp = GPHeader {
-            block_header: result.0,
-            mmr_leaf: mmr_leaf.into(),
-            mmr_leaf_proof: mmr_leaf_proof.into(),
-        };
-
-        support_header.push(grandpa_header_temp);
-        // }
-
-        Ok((grandpa_header, support_header))
+        Ok((grandpa_header, vec![]))
     }
 }
 
