@@ -1,3 +1,8 @@
+use std::future::Future;
+use std::sync::Arc;
+use octopusxt::ibc_node;
+use subxt::{BlockNumber, ClientBuilder};
+use tokio::runtime::Runtime as TokioRuntime;
 use crate::chain::SubstrateChain;
 use crate::error::Error;
 
@@ -16,18 +21,29 @@ use ibc::Height;
 
 pub struct LightClient {
     chain_id: ChainId,
+    websocket_url: String,
+    rt: Arc<TokioRuntime>,
     beefy_light_client: beefy_light_client::LightClient,
 }
 
 impl LightClient {
-    pub fn from_config(config: &ChainConfig, initial_public_keys: Vec<String>) -> Self {
+    pub fn from_config(config: &ChainConfig, websocket_url: String, rt: Arc<TokioRuntime>, initial_public_keys: Vec<String>) -> Self {
         let chain_id = config.id.clone();
         let beefy_light_client = beefy_light_client::new(initial_public_keys);
         Self {
             chain_id,
+            websocket_url,
+            rt,
             beefy_light_client,
         }
     }
+
+    /// Run a future to completion on the Tokio runtime.
+    pub fn block_on<F: Future>(&self, f: F) -> F::Output {
+        crate::time!("block_on");
+        self.rt.block_on(f)
+    }
+
 }
 
 impl super::LightClient<SubstrateChain> for LightClient {
@@ -75,8 +91,35 @@ impl super::LightClient<SubstrateChain> for LightClient {
     ) -> Result<Verified<GPHeader>, Error> {
         tracing::info!("In grandpa: [verify]");
 
+
+        let block_header = async {
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
+
+            // get block header
+            let block_header = octopusxt::call_ibc::get_header_by_block_number(
+                client.clone(),
+                Some(BlockNumber::from(target.revision_height  as u32)),
+            )
+                .await
+                .unwrap();
+
+            block_header
+        };
+
+        let result = self.block_on(block_header);
+
+
+
         Ok(Verified {
-            target: GPHeader::default(),
+            target: GPHeader {
+                block_header: result,
+                mmr_leaf: Default::default(),
+                mmr_leaf_proof: Default::default()
+            },
             supporting: Vec::new(),
         })
     }

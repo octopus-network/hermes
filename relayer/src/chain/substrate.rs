@@ -427,7 +427,12 @@ impl ChainEndpoint for SubstrateChain {
         let public_key = self.block_on(public_key);
 
         let initial_public_keys = public_key;
-        let light_client = GPLightClient::from_config(&config, initial_public_keys);
+        let light_client = GPLightClient::from_config(
+            &config,
+            self.websocket_url.clone(),
+            self.rt.clone(),
+            initial_public_keys
+        );
         Ok(light_client)
     }
 
@@ -1549,7 +1554,7 @@ impl ChainEndpoint for SubstrateChain {
             // get block header
             let block_header = octopusxt::call_ibc::get_header_by_block_number(
                 client.clone(),
-                Some(BlockNumber::from((target_height.revision_height - 1)  as u32)),
+                Some(BlockNumber::from(target_height.revision_height  as u32)),
             )
             .await
             .unwrap();
@@ -1560,7 +1565,7 @@ impl ChainEndpoint for SubstrateChain {
 
             // assert block_header.block_number == target_height
             assert_eq!(
-                block_header.block_number + 1,
+                block_header.block_number,
                 target_height.revision_height as u32
             );
 
@@ -1569,14 +1574,14 @@ impl ChainEndpoint for SubstrateChain {
                 .client
                 .rpc()
                 .block_hash(Some(BlockNumber::from(
-                    target_height.revision_height as u32,
+                    (target_height.revision_height  + 1) as u32,
                 )))
                 .await
                 .unwrap();
 
             // get mmr_leaf and mmr_leaf_proof
             let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
-                target_height.revision_height - 1,
+                target_height.revision_height,
                 block_hash,
                 client,
             )

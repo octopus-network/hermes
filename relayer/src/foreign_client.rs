@@ -743,7 +743,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                         };
                         temp_client_state = client_state;
                     } else {
-                        break AnyClientState::Grandpa(client_state);
+                        break temp_client_state;
                     }
                 };
                 result
