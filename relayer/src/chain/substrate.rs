@@ -176,7 +176,7 @@ impl SubstrateChain {
         height: ICSHeight,
         client: Client<ibc_node::DefaultConfig>,
     ) -> Result<AnyConsensusState, Box<dyn std::error::Error>> {
-        tracing::info!("in Substrate: [get_client_consensus]");
+        tracing::info!("in Substrate: [get_client_consensus] client_id = {:?}, height = {:?}", client_id, height);
 
         octopusxt::get_client_consensus(client_id, height, client).await
     }
@@ -1513,7 +1513,7 @@ impl ChainEndpoint for SubstrateChain {
 
         assert!(trusted_height.revision_height < target_height.revision_height);
 
-        let grandpa_client_state = match client_state {
+        let grandpa_client_state = match client_state { // 73
             AnyClientState::Grandpa(state) => state,
             _ => todo!(),
         };
@@ -1545,7 +1545,7 @@ impl ChainEndpoint for SubstrateChain {
 
             // get commitment
             // let mut mmr_root_height = signed_commitment.commitment.block_number;
-            let mut mmr_root_height = block_number;
+            let mut mmr_root_height = block_number; // 73
 
             // assert eq mmr_root_height target_height.reversion_height
             // assert!(target_height.revision_height as u32 <= mmr_root_height);
@@ -1554,7 +1554,7 @@ impl ChainEndpoint for SubstrateChain {
             // get block header
             let block_header = octopusxt::call_ibc::get_header_by_block_number(
                 client.clone(),
-                Some(BlockNumber::from(target_height.revision_height  as u32)),
+                Some(BlockNumber::from(trusted_height.revision_height  as u32)), // 65
             )
             .await
             .unwrap();
@@ -1566,28 +1566,29 @@ impl ChainEndpoint for SubstrateChain {
             // assert block_header.block_number == target_height
             assert_eq!(
                 block_header.block_number,
-                target_height.revision_height as u32
+                trusted_height.revision_height as u32
             );
 
             // block hash by block number
-            let block_hash: Option<sp_core::H256> = api
+            let block_hash: Option<sp_core::H256> = api // 73
                 .client
                 .rpc()
                 .block_hash(Some(BlockNumber::from(
-                    (target_height.revision_height  + 1) as u32,
+                    // (target_height.revision_height  + 1) as u32, // 73
+                    mmr_root_height, // 73
                 )))
                 .await
                 .unwrap();
 
             // get mmr_leaf and mmr_leaf_proof
             let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
-                target_height.revision_height,
-                block_hash,
+                trusted_height.revision_height, // 65
+                block_hash, // 73
                 client,
             )
             .await
             .unwrap();
-
+            // 65
             (block_header, mmr_leaf_and_mmr_leaf_proof)
         };
 
@@ -1607,8 +1608,8 @@ impl ChainEndpoint for SubstrateChain {
 
         let grandpa_header = GPHeader {
             block_header: result.0,
-            mmr_leaf: MmrLeaf::from(mmr_leaf),
-            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
+            mmr_leaf: MmrLeaf::from(mmr_leaf), // 65->73
+            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof), // 65->73
         };
 
         // // build support header
