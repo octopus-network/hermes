@@ -36,7 +36,9 @@ impl ClientDef for GrandpaClient {
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-        tracing::info!("in ics10 client_def[check_header_and_update_state]");
+        tracing::info!("in ics10 client_def [check_header_and_update_state]");
+        tracing::info!("in ics10 client_def [check_header_and_update_state] >> Header block_header block_number\
+         = {:?}, ClientState latest_commitment block_number = {:?}", header.block_header.block_number, client_state.latest_commitment.block_number);
 
         // if client_state.latest_height() >= header.height() {
         //     return Err(Error::low_header_height(
@@ -45,10 +47,10 @@ impl ClientDef for GrandpaClient {
         //     ));
         // }
 
-        // TODO
-        // if header.block_header.block_number > client_state.latest_commitment.block_number {
-        //     return Err(Error::invalid_mmr_root_height(client_state.latest_commitment.block_number, header.block_header.block_number));
-        // }
+        // TODO in the future
+        if header.block_header.block_number > client_state.latest_commitment.block_number {
+            return Err(Error::invalid_mmr_root_height(client_state.latest_commitment.block_number, header.block_header.block_number));
+        }
 
         if client_state.latest_commitment.payload.is_empty() {
             return Err(Error::empty_mmr_root());
@@ -83,7 +85,9 @@ impl ClientDef for GrandpaClient {
             );
             return Err(Error::header_hash_not_match());
         }
-
+        tracing::info!("mmr_root = {:?}", mmr_root.clone());
+        tracing::info!("mmr_leaf_hash = {:?}", mmr_leaf_hash.clone());
+        tracing::info!("mmr_proof = {:?}", mmr_proof.clone());
         let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
             .map_err(|_| Error::invalid_mmr_leaf_proof())?;
 
