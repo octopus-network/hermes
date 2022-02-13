@@ -39,6 +39,10 @@ impl ClientDef for GrandpaClient {
         tracing::info!("in ics10 client_def [check_header_and_update_state]");
         tracing::info!("in ics10 client_def [check_header_and_update_state] >> Header block_header block_number\
          = {:?}, ClientState latest_commitment block_number = {:?}", header.block_header.block_number, client_state.latest_commitment.block_number);
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> client_state = {:?}, header = {:?}",
+            client_state, header
+        );
 
         // if client_state.latest_height() >= header.height() {
         //     return Err(Error::low_header_height(
@@ -185,17 +189,17 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![_client_id.as_bytes().to_vec()];
         let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "ClientStates").unwrap();
-        let anyClientState = AnyClientState::decode_vec(&storage_result).unwrap();
+        let any_client_state = AnyClientState::decode_vec(&storage_result).unwrap();
         tracing::info!(
             "In ics10-client_def.rs: [verify_client_full_state] >> decoded client_state: {:?}",
-            anyClientState
+            any_client_state
         );
         tracing::info!(
             "In ics10-client_def.rs: [verify_client_full_state] >>  _expected_client_state: {:?}",
             _expected_client_state
         );
 
-        if !(anyClientState.encode_vec().unwrap() == _expected_client_state.encode_vec().unwrap()) {
+        if !(any_client_state.encode_vec().unwrap() == _expected_client_state.encode_vec().unwrap()) {
             return Err(Error::invalid_client_state());
         }
         Ok(())
@@ -378,6 +382,10 @@ mod tests {
     use subxt::BlockNumber;
     use subxt::ClientBuilder;
     use octopusxt::subscribe_beefy;
+    use std::format;
+    use subxt::sp_core::hexdisplay::HexDisplay;
+    use alloc::boxed::Box;
+    use beefy_merkle_tree::Keccak256;
 
     #[test]
     fn test_check_header_and_update_state_by_test_case_from_beefy_light_client() {
@@ -479,7 +487,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_check_header_and_update_state_by_test_case_from_substrate() {
-        let grandpa_client = GrandpaClient;
 
         let client = ClientBuilder::new()
             .set_url("ws://localhost:9944")
@@ -492,23 +499,25 @@ mod tests {
         let signed_commitment =
             beefy_light_client::commitment::SignedCommitment::decode(&mut &signed_commitment_raw.clone()[..]).unwrap();
 
+        println!("signed_commitment = {:?}", signed_commitment);
+
         let beefy_light_client::commitment::Commitment {
             payload,
             block_number,
             validator_set_id,
         } = signed_commitment.commitment;
 
-        // get mmr root
-        let mmr_root = payload;
-
         // let commitment = beefy_light_client::commitment::Commitment {
         //     payload: hex!("7fe1460305e05d0937df34aa47a251811b0f83032fd153a64ebb8812cb252ee2"),
         //     block_number: 89,
         //     validator_set_id: 0,
         // };
+
+        let grandpa_client = GrandpaClient;
         let commitment = signed_commitment.commitment.clone();
-        let block_number = block_number;
+        let block_number = block_number - 10;
         println!("commitment = {:?}", commitment);
+        println!("block_number = {:?}", block_number);
 
         let ics10_commitment = Commitment::from(commitment);
 
@@ -582,5 +591,195 @@ mod tests {
 
         println!(" >> client_state = {:?} ", result.0);
         println!(" >> consensus_state = {:?}", result.1);
+    }
+
+    #[tokio::test]
+    async fn verify_leaf_proof_works_2() -> Result<(), Box<dyn std::error::Error>> {
+        let client = ClientBuilder::new()
+            .set_url("ws://localhost:9944")
+            .build::<ibc_node::DefaultConfig>()
+            .await?;
+
+        // subscribe beefy justification
+        let signed_commitment_raw = subscribe_beefy(client.clone()).await.unwrap().0 .0;
+        println!(
+            "signed_commitment = {:?}",
+            HexDisplay::from(&signed_commitment_raw)
+        );
+        // decode signed_commitment
+        let signed_commitment =
+            beefy_light_client::commitment::SignedCommitment::decode(&mut &signed_commitment_raw.clone()[..]).unwrap();
+        println!("signed_commitment = {:?}", signed_commitment);
+
+        let beefy_light_client::commitment::Commitment {
+            payload,
+            block_number,
+            validator_set_id,
+        } = signed_commitment.commitment;
+
+        // get mmr root
+        let mmr_root = payload;
+        println!(
+            "root_hash(signed commitment payload) : {:?}
+signed commitment block_number : {}
+signed commitment validator_set_id : {}",
+            format!("{}", HexDisplay::from(&mmr_root)),
+            block_number,
+            validator_set_id
+        );
+
+        let api = client
+            .clone()
+            .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+
+        //get block hash by block_number
+        let block_hash: sp_core::H256 = api
+            .client
+            .rpc()
+            .block_hash(Some(BlockNumber::from(block_number)))
+            .await?
+            .unwrap();
+        println!(
+            "block number : {} -> block hash : {:?}",
+            block_number, block_hash
+        );
+
+        //get mmr leaf and proof
+        // Note: target height=block_number - 1
+        let target_height = (block_number - 1) as u64;
+        let (block_hash, mmr_leaf, mmr_leaf_proof) =
+            octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(target_height, Some(block_hash), client.clone()).await?;
+        println!("generate_proof block hash : {:?}", block_hash);
+
+        // mmr leaf proof
+        println!(
+            "generated the mmr leaf proof = {:?}",
+            format!("{}", HexDisplay::from(&mmr_leaf_proof))
+        );
+        let decode_mmr_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..]).unwrap();
+        println!("decode the mmr leaf proof = {:?}", decode_mmr_proof);
+
+        // mmr leaf
+        println!(
+            "generated the mmr leaf  = {:?}",
+            format!("{}", HexDisplay::from(&mmr_leaf))
+        );
+
+        let mmr_leaf: Vec<u8> = Decode::decode(&mut &mmr_leaf[..]).unwrap();
+        println!(
+            "decode the mmr leaf vec<u8> = {:?}",
+            format!("{}", HexDisplay::from(&mmr_leaf))
+        );
+
+        let mmr_leaf_hash = Keccak256::hash(&mmr_leaf[..]);
+        println!(
+            "the mmr leaf hash = {:?}",
+            format!("{}", HexDisplay::from(&mmr_leaf_hash))
+        );
+
+        let mmr_leaf_2: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*mmr_leaf).unwrap();
+        println!("decode the mmr leaf  = {:?}", mmr_leaf_2);
+        println!("parent_number  = {}", mmr_leaf_2.parent_number_and_hash.0);
+        println!(
+            "parent_hash  = {:?}",
+            HexDisplay::from(&mmr_leaf_2.parent_number_and_hash.1)
+        );
+
+        let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, decode_mmr_proof);
+
+        match result {
+            Ok(b) => {
+                if !b {
+                    println!("mmr::verify_leaf_proof failure:InvalidMmrLeafProof! ");
+                } else {
+                    println!("mmr::verify_leaf_proof succees! ");
+                }
+            }
+
+            Err(e) => println!("mr::verify_leaf_proof error! : {:?}", e),
+        }
+
+        println!("********************************************************************************");
+
+        let grandpa_client = GrandpaClient;
+        let commitment = signed_commitment.commitment.clone();
+        let block_number = block_number - 1;
+        println!("commitment = {:?}", commitment);
+        println!("block_number = {:?}", block_number);
+
+        let ics10_commitment = Commitment::from(commitment);
+
+        let mut ics10_client_state = ClientState::default();
+        ics10_client_state.latest_commitment = ics10_commitment;
+
+        let client = ClientBuilder::new()
+            .set_url("ws://localhost:9944")
+            .build::<ibc_node::DefaultConfig>()
+            .await
+            .unwrap();
+
+        // get block header
+        let ics10_header =
+            octopusxt::call_ibc::get_header_by_block_number(client.clone(), Some(BlockNumber::from(block_number - 1)))
+                .await
+                .unwrap();
+        println!("block_header = {:?}", ics10_header);
+        println!("block_header hash = {:?}", ics10_header.hash());
+
+        let api = client
+            .clone()
+            .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+
+        // block hash by block number
+        let block_hash: Option<sp_core::H256> = api
+            .client
+            .rpc()
+            .block_hash(Some(BlockNumber::from(block_number)))
+            .await
+            .unwrap();
+
+        // get mmr_leaf and mmr_leaf_proof
+        let mmr_leaf_and_mmr_leaf_proof =
+            octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_number - 1) as u64, block_hash, client)
+                .await
+                .unwrap();
+        println!(
+            "mmr_leaf_and_mmr_leaf_proof = {:?}",
+            mmr_leaf_and_mmr_leaf_proof
+        );
+
+        let encoded_mmr_leaf = mmr_leaf_and_mmr_leaf_proof.1;
+        let encode_mmr_leaf_proof = mmr_leaf_and_mmr_leaf_proof.2;
+
+        let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
+        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
+        println!("mmr_leaf = {:?}", mmr_leaf);
+
+        let mmr_leaf_proof =
+            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encode_mmr_leaf_proof[..]).unwrap();
+        println!("mmr_leaf_proof = {:?}", mmr_leaf_proof);
+
+        let ics10_header = Header {
+            block_header: BlockHeader {
+                parent_hash: ics10_header.parent_hash,
+                block_number: ics10_header.block_number,
+                state_root: ics10_header.state_root,
+                extrinsics_root: ics10_header.extrinsics_root,
+                digest: ics10_header.digest
+            },
+            mmr_leaf: MmrLeaf::from(mmr_leaf),
+            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
+        };
+
+        println!(">> ics10_header = {:?}", ics10_header);
+
+        let result = grandpa_client
+            .check_header_and_update_state(ics10_client_state, ics10_header)
+            .unwrap();
+
+        println!(" >> client_state = {:?} ", result.0);
+        println!(" >> consensus_state = {:?}", result.1);
+
+        Ok(())
     }
 }

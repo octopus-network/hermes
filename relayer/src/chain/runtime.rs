@@ -526,7 +526,7 @@ where
             .build_client_state(height)
             .map(|cs| cs.wrap_any());
         tracing::info!(
-            "In runtime: [build client state] >> client_state: [{:#?}]",
+            "In runtime: [build client state] >> client_state: [{:?}]",
             client_state
         );
 
@@ -549,7 +549,7 @@ where
             .build_consensus_state(verified.target)
             .map(|cs| cs.wrap_any());
         tracing::info!(
-            "In runtime: [build_conesnsus_state] >> consensus_state: [{:#?}]",
+            "In runtime: [build_conesnsus_state] >> consensus_state: [{:?}]",
             consensus_state
         );
 
