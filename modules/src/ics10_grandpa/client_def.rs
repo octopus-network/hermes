@@ -49,6 +49,10 @@ impl ClientDef for GrandpaClient {
         // if header.block_header.block_number > client_state.latest_commitment.block_number {
         //     return Err(Error::invalid_mmr_root_height(client_state.latest_commitment.block_number, header.block_header.block_number));
         // }
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> client_state = {:?}, header = {:?}",
+            client_state, header
+        );
 
         if client_state.latest_commitment.payload.is_empty() {
             return Err(Error::empty_mmr_root());

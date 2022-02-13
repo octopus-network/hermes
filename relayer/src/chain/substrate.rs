@@ -1554,7 +1554,7 @@ impl ChainEndpoint for SubstrateChain {
             // get block header
             let block_header = octopusxt::call_ibc::get_header_by_block_number(
                 client.clone(),
-                Some(BlockNumber::from(trusted_height.revision_height  as u32)), // 65
+                Some(BlockNumber::from(target_height.revision_height  as u32)), // 66
             )
             .await
             .unwrap();
@@ -1566,7 +1566,7 @@ impl ChainEndpoint for SubstrateChain {
             // assert block_header.block_number == target_height
             assert_eq!(
                 block_header.block_number,
-                trusted_height.revision_height as u32
+                target_height.revision_height as u32
             );
 
             // block hash by block number
@@ -1582,7 +1582,7 @@ impl ChainEndpoint for SubstrateChain {
 
             // get mmr_leaf and mmr_leaf_proof
             let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
-                trusted_height.revision_height, // 65
+                target_height.revision_height, // 66
                 block_hash, // 73
                 client,
             )
@@ -1608,8 +1608,8 @@ impl ChainEndpoint for SubstrateChain {
 
         let grandpa_header = GPHeader {
             block_header: result.0,
-            mmr_leaf: MmrLeaf::from(mmr_leaf), // 65->73
-            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof), // 65->73
+            mmr_leaf: MmrLeaf::from(mmr_leaf), // 66->73
+            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof), // 66->73
         };
 
         // // build support header
