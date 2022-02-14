@@ -526,7 +526,7 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
-            sleep(Duration::from_secs(4)).await;
+            sleep(Duration::from_secs(20)).await;
 
             let result = self.deliever(proto_msgs, client).await.unwrap();
 

@@ -44,17 +44,19 @@ impl ConsensusState {
             root: CommitmentRoot::from(header.extrinsics_root.clone()),
         }
     }
+}
 
-    // pub fn from_commit(root_commit: Commitment) -> Self {
-    //     let encode_root_commit = serde_json::to_string(&root_commit)
-    //         .unwrap()
-    //         .as_bytes()
-    //         .to_vec();
-    //
-    //     Self {
-    //         root: CommitmentRoot::from_bytes(&encode_root_commit),
-    //     }
-    // }
+impl Default for ConsensusState {
+    fn default() -> Self {
+        Self {
+            parent_hash: vec![0;10],
+            block_number: 0,
+            state_root: vec![0;10],
+            extrinsics_root: vec![0;10],
+            digest: vec![0;10],
+            root: CommitmentRoot::from(vec![1, 2, 3])
+        }
+    }
 }
 
 
