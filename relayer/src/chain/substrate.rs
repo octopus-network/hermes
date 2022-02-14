@@ -506,7 +506,7 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
-            sleep(Duration::from_secs(4)).await;
+            sleep(Duration::from_secs(20)).await;
 
             let result = self.deliever(proto_msgs, client).await.unwrap();
 
@@ -1548,7 +1548,7 @@ impl ChainEndpoint for SubstrateChain {
             let mut mmr_root_height = block_number; // 73
 
             // assert eq mmr_root_height target_height.reversion_height
-            // assert!(target_height.revision_height as u32 <= mmr_root_height);
+            assert!((target_height.revision_height as u32) < mmr_root_height);
 
 
             // get block header
