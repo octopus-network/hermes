@@ -39,10 +39,8 @@ impl ClientDef for GrandpaClient {
         tracing::info!("in ics10 client_def [check_header_and_update_state]");
         tracing::info!("in ics10 client_def [check_header_and_update_state] >> Header block_header block_number\
          = {:?}, ClientState latest_commitment block_number = {:?}", header.block_header.block_number, client_state.latest_commitment.block_number);
-        tracing::info!(
-            "in client_def: [check_header_and_update_state] >> client_state = {:?}, header = {:?}",
-            client_state, header
-        );
+        tracing::info!("in client_def: [check_header_and_update_state] >> client_state = {:?}",client_state);
+        tracing::info!("in client_def: [check_header_and_update_state] >> header = {:?}", header);
 
         // if client_state.latest_height() >= header.height() {
         //     return Err(Error::low_header_height(
@@ -51,14 +49,9 @@ impl ClientDef for GrandpaClient {
         //     ));
         // }
 
-        // TODO in the future
         if header.block_header.block_number > client_state.latest_commitment.block_number {
             return Err(Error::invalid_mmr_root_height(client_state.latest_commitment.block_number, header.block_header.block_number));
         }
-        tracing::info!(
-            "in client_def: [check_header_and_update_state] >> client_state = {:?}, header = {:?}",
-            client_state, header
-        );
 
         if client_state.latest_commitment.payload.is_empty() {
             return Err(Error::empty_mmr_root());
@@ -80,22 +73,24 @@ impl ClientDef for GrandpaClient {
         if mmr_leaf.parent_number_and_hash.1.is_empty() {
             return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
         }
-
-        // TODO fix header hash not match
-        if header_hash != mmr_leaf.parent_number_and_hash.1 {
-            tracing::info!(
+        tracing::info!(
                 "ics1 client_def :[check_header_and_update_state] >> header_hash = {:?}",
                 header_hash
-            );
-            tracing::info!(
+        );
+        tracing::info!(
                 "ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}",
                 mmr_leaf.parent_number_and_hash.1
-            );
+        );
+
+        if header_hash != mmr_leaf.parent_number_and_hash.1 {
+
             return Err(Error::header_hash_not_match());
         }
-        tracing::info!("mmr_root = {:?}", mmr_root.clone());
-        tracing::info!("mmr_leaf_hash = {:?}", mmr_leaf_hash.clone());
-        tracing::info!("mmr_proof = {:?}", mmr_proof.clone());
+
+
+        tracing::info!("in client_def: [check_header_and_update_state] >> mmr_root = {:?}", mmr_root.clone());
+        tracing::info!("in client_def: [check_header_and_update_state] >> mmr_leaf_hash = {:?}", mmr_leaf_hash.clone());
+        tracing::info!("in client_def: [check_header_and_update_state] >> mmr_proof = {:?}", mmr_proof.clone());
         let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
             .map_err(|_| Error::invalid_mmr_leaf_proof())?;
 
@@ -519,9 +514,9 @@ mod tests {
 
         let grandpa_client = GrandpaClient;
         let commitment = signed_commitment.commitment.clone();
-        let block_number = block_number - 10;
+        let temp_block_number = block_number - 10;
         println!("commitment = {:?}", commitment);
-        println!("block_number = {:?}", block_number);
+        println!("block_number = {:?}", temp_block_number);
 
         let ics10_commitment = Commitment::from(commitment);
 
@@ -536,7 +531,7 @@ mod tests {
 
         // get block header
         let ics10_header =
-            octopusxt::call_ibc::get_header_by_block_number(client.clone(), Some(BlockNumber::from(block_number - 1)))
+            octopusxt::call_ibc::get_header_by_block_number(client.clone(), Some(BlockNumber::from(temp_block_number - 1)))
                 .await
                 .unwrap();
         println!("block_header = {:?}", ics10_header);
@@ -556,7 +551,7 @@ mod tests {
 
         // get mmr_leaf and mmr_leaf_proof
         let mmr_leaf_and_mmr_leaf_proof =
-            octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_number - 1) as u64, block_hash, client)
+            octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((temp_block_number - 1) as u64, block_hash, client)
                 .await
                 .unwrap();
         println!(
@@ -707,9 +702,9 @@ signed commitment validator_set_id : {}",
 
         let grandpa_client = GrandpaClient;
         let commitment = signed_commitment.commitment.clone();
-        let block_number = block_number - 1;
+        let temp_block_number = block_number - 1;
         println!("commitment = {:?}", commitment);
-        println!("block_number = {:?}", block_number);
+        println!("block_number = {:?}", temp_block_number);
 
         let ics10_commitment = Commitment::from(commitment);
 
@@ -724,7 +719,7 @@ signed commitment validator_set_id : {}",
 
         // get block header
         let ics10_header =
-            octopusxt::call_ibc::get_header_by_block_number(client.clone(), Some(BlockNumber::from(block_number - 1)))
+            octopusxt::call_ibc::get_header_by_block_number(client.clone(), Some(BlockNumber::from(temp_block_number - 1)))
                 .await
                 .unwrap();
         println!("block_header = {:?}", ics10_header);
@@ -744,9 +739,10 @@ signed commitment validator_set_id : {}",
 
         // get mmr_leaf and mmr_leaf_proof
         let mmr_leaf_and_mmr_leaf_proof =
-            octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((block_number - 1) as u64, block_hash, client)
+            octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof((temp_block_number - 1) as u64, block_hash, client)
                 .await
                 .unwrap();
+
         println!(
             "mmr_leaf_and_mmr_leaf_proof = {:?}",
             mmr_leaf_and_mmr_leaf_proof
@@ -775,7 +771,7 @@ signed commitment validator_set_id : {}",
             mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
         };
 
-        println!(">> ics10_header = {:?}", ics10_header);
+        // println!(">> ics10_header = {:?}", ics10_header);
 
         let result = grandpa_client
             .check_header_and_update_state(ics10_client_state, ics10_header)

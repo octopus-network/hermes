@@ -722,7 +722,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 let mut mmr_root_height = client_state.latest_commitment.block_number;
                 let mut temp_client_state = AnyClientState::Grandpa(client_state.clone());
                 let result = loop {
-                    if mmr_root_height < target_height.revision_height as u32 {
+                    if mmr_root_height <= target_height.revision_height as u32 {
                         // Get the latest client state on destination.
                         let client_state = self
                             .dst_chain()
@@ -965,12 +965,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             })?;
         consensus_states.sort_by_key(|a| std::cmp::Reverse(a.height));
 
-        for state in consensus_states.iter() {
-            tracing::info!(
-                "in foreign_client: [consensus_states] >> consensus_states : {:?}",
-                state
-            );
-        }
 
         Ok(consensus_states)
     }

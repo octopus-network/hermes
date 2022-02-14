@@ -526,7 +526,7 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
-            sleep(Duration::from_secs(10)).await;
+            sleep(Duration::from_secs(4)).await;
 
             let result = self.deliever(proto_msgs, client).await.unwrap();
 
@@ -1592,6 +1592,7 @@ impl ChainEndpoint for SubstrateChain {
             AnyClientState::Grandpa(state) => state,
             _ => todo!(),
         };
+
         // assert trust_height <= grandpa_client_state height
         if trusted_height.revision_height > grandpa_client_state.block_number as u64 {
             return Err(Error::trust_height_miss_match_client_state_height(
@@ -1609,8 +1610,6 @@ impl ChainEndpoint for SubstrateChain {
                 .unwrap();
 
 
-            // TODO
-            // 这里需要异步的把这个commitment设置在clientstate中
             let beefy_light_client::commitment::Commitment {
                 payload,
                 block_number,
@@ -1623,7 +1622,7 @@ impl ChainEndpoint for SubstrateChain {
             let mut mmr_root_height = block_number; // 73
 
             // assert eq mmr_root_height target_height.reversion_height
-            // assert!(target_height.revision_height as u32 <= mmr_root_height);
+            assert!((target_height.revision_height as u32) < mmr_root_height);
 
 
             // get block header
@@ -1645,12 +1644,12 @@ impl ChainEndpoint for SubstrateChain {
             );
 
             tracing::info!("in Substrate: [build_header] >> mmr_root_height = {:?}, target_height = {:?}", mmr_root_height, target_height);
+
             // block hash by block number
             let block_hash: Option<sp_core::H256> = api // 73
                 .client
                 .rpc()
                 .block_hash(Some(BlockNumber::from(
-                    // (target_height.revision_height  + 1) as u32, // 73
                     mmr_root_height, // 73
                 )))
                 .await
