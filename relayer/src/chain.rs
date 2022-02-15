@@ -1,4 +1,5 @@
 use alloc::sync::Arc;
+use anyhow::Chain;
 use prost_types::Any;
 use tendermint::block::Height;
 use tokio::runtime::Runtime as TokioRuntime;
@@ -265,6 +266,10 @@ pub trait ChainEndpoint: Sized {
     ) -> Result<Sequence, Error>;
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error>;
+
+    fn websocket_url(&self) -> Result<String, Error>;
+
+    fn update_mmr_root(&self, src_chain_websocket_url: String, dst_chain_websocket_url: String) -> Result<(), Error>;
 
     // Provable queries
     fn proven_client_state(

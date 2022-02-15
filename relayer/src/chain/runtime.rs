@@ -58,6 +58,7 @@ use super::{
     ChainEndpoint, HealthCheck,
 };
 use std::thread::sleep;
+use ibc::ics24_host::identifier::ChainId;
 
 pub struct Threads {
     pub chain_runtime: thread::JoinHandle<()>,
@@ -397,6 +398,14 @@ where
 
                 Ok(ChainRequest::QueryPacketEventData { request, reply_to }) => {
                     self.query_txs(request, reply_to)?
+                }
+
+                Ok(ChainRequest::WebSocketUrl {reply_to}) => {
+                    self.websocket_url(reply_to)?
+                }
+
+                Ok(ChainRequest::UpdateMmrRoot {src_chain_websocket_url, dst_chain_websocket_url, reply_to}) => {
+                    self.update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url, reply_to)?
                 }
 
                 Err(e) => {
@@ -889,4 +898,18 @@ where
         let result = self.chain.query_txs(request);
         reply_to.send(result).map_err(Error::send)
     }
+
+    fn websocket_url(&self, reply_to: ReplyTo<String>) -> Result<(), Error> {
+        tracing::info!("in runtime: [websocket_url]");
+        let result = self.chain.websocket_url();
+        reply_to.send(result).map_err(Error::send)
+    }
+
+    fn update_mmr_root(&self, src_chain_websocket_url: String, dst_chain_websocket_url: String, reply_to: ReplyTo<()>) -> Result<(), Error> {
+        tracing::info!("in runtime: [update_update_mmr_root]");
+        let result = self.chain.update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url);
+        reply_to.send(result).map_err(Error::send)
+    }
+
+
 }

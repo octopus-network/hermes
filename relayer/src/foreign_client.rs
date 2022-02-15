@@ -701,6 +701,8 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             thread::sleep(Duration::from_millis(200))
         }
 
+
+
         // Get the latest client state on destination.
         let client_state = self
             .dst_chain()
@@ -712,7 +714,21 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     e,
                 )
             })?;
+
         info!("foreign_client: [build_update_client_with_trusted] >> client_state = {:?}", client_state);
+
+
+        // if grandpa client state process this code
+        if let AnyClientState::Grandpa(state) = client_state.clone() {
+            // 根据client state的类型对应的客户端的类型来选择执行
+            // if client state is grandpa client run this code
+
+            // need remove unwrap
+            let src_chain_websocket_url = self.src_chain().websocket_url().unwrap();
+            let dst_chain_websocket_url = self.dst_chain().websocket_url().unwrap();
+            let result = self.src_chain().update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url).unwrap();
+        }
+
 
         let client_state = match client_state {
             AnyClientState::Tendermint(client_state) => {
@@ -752,7 +768,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         };
         info!("foreign_client: [build_update_client_with_trusted] >> client_state = {:?}, target_height = {:?}",
             client_state, target_height);
-        // info!("@@@@@ client_state = {:?}, trage_height = {:?}", &client_state, target_height);
 
         let trusted_height = if trusted_height == Height::zero() {
             self.solve_trusted_height(target_height, &client_state)?

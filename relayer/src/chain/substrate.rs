@@ -1518,33 +1518,12 @@ impl ChainEndpoint for SubstrateChain {
         let public_key = self.block_on(public_key);
 
         let beefy_light_client = beefy_light_client::new(public_key);
-        //
-        // let block_header = async {
-        //
-        //     let client = ClientBuilder::new()
-        //         .set_url(&self.websocket_url.clone())
-        //         .build::<ibc_node::DefaultConfig>()
-        //         .await
-        //         .unwrap();
-        //
-        //     // get block header
-        //     let block_header = octopusxt::call_ibc::get_header_by_block_number(
-        //         client.clone(),
-        //         Some(BlockNumber::from(height.revision_height  as u32)),
-        //     )
-        //         .await
-        //         .unwrap();
-        //
-        //     block_header
-        // };
-        //
-        // let block_header = self.block_on(block_header);
 
         // Build client state
         let client_state = GPClientState::new(
             self.id().clone(),
             height.revision_height as u32,
-            Height::zero(),
+            Height::new(0, 0), // set frozen_height is zero height
             BlockHeader::default(),
             Commitment::default(),
             beefy_light_client.validator_set.into(),
@@ -1777,6 +1756,35 @@ impl ChainEndpoint for SubstrateChain {
 
         Ok((grandpa_header, vec![]/*support_header*/))
     }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        tracing::info!("in substrate: [websocket_url]");
+
+        Ok(self.websocket_url.clone().to_string())
+    }
+
+    fn update_mmr_root(&self, src_chain_websocket_url: String, dst_chain_websocket_url: String) -> Result<(), Error> {
+        tracing::info!("in substrate: [update_mmr_root]");
+        let result = async {
+            let chain_a = ClientBuilder::new()
+                .set_url(src_chain_websocket_url)
+                .build::<ibc_node::DefaultConfig>()
+                .await.unwrap();
+            let chain_b = ClientBuilder::new()
+                .set_url(dst_chain_websocket_url)
+                .build::<ibc_node::DefaultConfig>()
+                .await.unwrap();
+
+            octopusxt::update_client_state::update_client_state(chain_a.clone(), chain_b.clone()).await.unwrap();
+            octopusxt::update_client_state::update_client_state(chain_b.clone(), chain_a.clone()).await.unwrap();
+
+            ()
+        };
+
+        let ret = self.block_on(result);
+
+        Ok(ret)
+    }
 }
 
 /// Compose merkle proof according to ibc proto
@@ -1820,6 +1828,9 @@ use ibc::ics10_grandpa::help::{
 use retry::delay::Fixed;
 use subxt::sp_core::storage::StorageKey;
 use tendermint_light_client::types::Validator;
+use ibc::ics03_connection::version::Version;
+use ibc::proofs::Proofs;
+use crate::connection::ConnectionMsgType;
 
 pub fn get_dummy_ics07_header() -> tHeader {
     use tendermint::block::signed_header::SignedHeader;
