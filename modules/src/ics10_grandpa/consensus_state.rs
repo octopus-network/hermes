@@ -57,7 +57,6 @@ impl ConsensusState {
     // }
 }
 
-
 impl Default for ConsensusState {
     fn default() -> Self {
         Self {
@@ -66,7 +65,7 @@ impl Default for ConsensusState {
             state_root: vec![0; 10],
             extrinsics_root: vec![0; 10],
             digest: vec![0; 10],
-            root: CommitmentRoot::from(vec![1, 2, 3])
+            root: CommitmentRoot::from(vec![1, 2, 3]),
         }
     }
 }

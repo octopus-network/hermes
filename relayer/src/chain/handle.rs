@@ -316,7 +316,7 @@ pub enum ChainRequest {
         src_chain_websocket_url: String,
         dst_chain_websocket_url: String,
         reply_to: ReplyTo<()>,
-    }
+    },
 }
 
 pub trait ChainHandle: Clone + Send + Sync + Serialize + Debug {
@@ -533,5 +533,9 @@ pub trait ChainHandle: Clone + Send + Sync + Serialize + Debug {
     fn websocket_url(&self) -> Result<String, Error>;
 
     // only used by ics10-grandpa
-    fn update_mmr_root(&self, src_chain_websocket_url: String, dst_chain_websocket_url: String) -> Result<(), Error>;
+    fn update_mmr_root(
+        &self,
+        src_chain_websocket_url: String,
+        dst_chain_websocket_url: String,
+    ) -> Result<(), Error>;
 }
