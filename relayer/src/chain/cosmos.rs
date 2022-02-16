@@ -50,6 +50,8 @@ use ibc::ics24_host::{ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY
 use ibc::query::{QueryTxHash, QueryTxRequest};
 use ibc::signer::Signer;
 use ibc::Height as ICSHeight;
+use ibc::ics03_connection::version::Version;
+use ibc::proofs::Proofs;
 use ibc_proto::cosmos::auth::v1beta1::{BaseAccount, EthAccount, QueryAccountRequest};
 use ibc_proto::cosmos::base::tendermint::v1beta1::service_client::ServiceClient;
 use ibc_proto::cosmos::base::tendermint::v1beta1::GetNodeInfoRequest;
@@ -82,6 +84,7 @@ use crate::{
     config::{AddressType, ChainConfig, GasPrice},
     sdk_error::sdk_error_from_tx_sync_error_code,
 };
+use crate::connection::ConnectionMsgType;
 
 use super::{ChainEndpoint, HealthCheck};
 
@@ -1724,6 +1727,14 @@ impl ChainEndpoint for CosmosSdkChain {
             light_client.header_and_minimal_set(trusted_height, target_height, client_state)?;
 
         Ok((target, supporting))
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        Ok(self.config.websocket_addr.clone().to_string())
+    }
+
+    fn update_mmr_root(&self, src_chain_websocket_url: String, dst_chain_websocket_url: String) -> Result<(), Error> {
+        todo!()
     }
 }
 
