@@ -1141,7 +1141,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             proofs,
             signer,
         };
-        tracing::info!("in connection [build_conn_confirm] >> new_msg = {:?}", new_msg);
+        tracing::info!(
+            "in connection [build_conn_confirm] >> new_msg = {:?}",
+            new_msg
+        );
 
         msgs.push(new_msg.to_any());
         Ok(msgs)

@@ -35,6 +35,7 @@ use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::ics02_client::client_type::ClientType;
 use ibc::ics02_client::events as ClientEvents;
 use ibc::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd};
+use ibc::ics03_connection::version::Version;
 use ibc::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd, QueryPacketEventDataRequest};
 use ibc::ics04_channel::events as ChannelEvents;
 use ibc::ics04_channel::packet::{PacketMsgType, Sequence};
@@ -47,11 +48,10 @@ use ibc::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, Po
 use ibc::ics24_host::Path::ClientConsensusState as ClientConsensusPath;
 use ibc::ics24_host::Path::ClientState as ClientStatePath;
 use ibc::ics24_host::{ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH};
+use ibc::proofs::Proofs;
 use ibc::query::{QueryTxHash, QueryTxRequest};
 use ibc::signer::Signer;
 use ibc::Height as ICSHeight;
-use ibc::ics03_connection::version::Version;
-use ibc::proofs::Proofs;
 use ibc_proto::cosmos::auth::v1beta1::{BaseAccount, EthAccount, QueryAccountRequest};
 use ibc_proto::cosmos::base::tendermint::v1beta1::service_client::ServiceClient;
 use ibc_proto::cosmos::base::tendermint::v1beta1::GetNodeInfoRequest;
@@ -73,6 +73,7 @@ use ibc_proto::ibc::core::connection::v1::{
     QueryClientConnectionsRequest, QueryConnectionsRequest,
 };
 
+use crate::connection::ConnectionMsgType;
 use crate::error::Error;
 use crate::event::monitor::{EventMonitor, EventReceiver};
 use crate::keyring::{KeyEntry, KeyRing, Store};
@@ -84,7 +85,6 @@ use crate::{
     config::{AddressType, ChainConfig, GasPrice},
     sdk_error::sdk_error_from_tx_sync_error_code,
 };
-use crate::connection::ConnectionMsgType;
 
 use super::{ChainEndpoint, HealthCheck};
 
@@ -1733,7 +1733,11 @@ impl ChainEndpoint for CosmosSdkChain {
         Ok(self.config.websocket_addr.clone().to_string())
     }
 
-    fn update_mmr_root(&self, src_chain_websocket_url: String, dst_chain_websocket_url: String) -> Result<(), Error> {
+    fn update_mmr_root(
+        &self,
+        src_chain_websocket_url: String,
+        dst_chain_websocket_url: String,
+    ) -> Result<(), Error> {
         todo!()
     }
 }
