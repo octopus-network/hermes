@@ -5,6 +5,7 @@ use core::num::TryFromIntError;
 use flex_error::{define_error, TraceError};
 
 use crate::ics02_client::client_type::ClientType;
+use crate::ics04_channel::packet::Sequence;
 use crate::ics07_tendermint::error::Error as Ics07Error;
 use crate::ics10_grandpa::error::Error as Ics10Error;
 use crate::ics23_commitment::error::Error as Ics23Error;
@@ -276,6 +277,15 @@ define_error! {
             }
             | e | { format!("invalid Mmr Root height, it's not can verify header, header height ({0})> mmr root height ({1})",
                 e.header_height, e.mmr_root_height)
-            }
+            },
+
+        InvalidPacketCommitment
+            { sequence: Sequence }
+            | e | {
+                format_args!(
+                    "The stored commitment of the packet {0} is invaid",
+                    e.sequence)
+            },
+
     }
 }

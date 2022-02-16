@@ -1478,8 +1478,49 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [proven_packet] >> sequence = {:?}", sequence);
         tracing::info!("in Substrate: [proven_packet] >> height = {:?}", height);
 
-        // TODO This is Mock
-        Ok((vec![0], get_dummy_merkle_proof()))
+        let packet_result = async {
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
+
+            sleep(Duration::from_secs(4)).await;
+
+            let packet_result:Vec<u8> = match packet_type {
+                PacketMsgType::Recv => {
+                    let data = octopusxt::call_ibc::get_packet_commitment(&port_id, &channel_id, sequence.0, client).await.unwrap();
+                    tracing::info!(
+                        "In Substrate: [proven_packet] >> packet_commitment: {:?}", String::from_utf8(data.clone()).unwrap()
+                    );
+                    data
+                }
+                PacketMsgType::Ack => {
+                    let data = octopusxt::call_ibc::get_packet_ack(&port_id, &channel_id, sequence.0, client).await.unwrap();
+                    tracing::info!(
+                        "In Substrate: [proven_packet] >> packet_ack: {:?}", String::from_utf8(data.clone()).unwrap()
+                    );
+                    data
+                }
+                _ => unimplemented!(),
+            };
+
+            packet_result
+        };
+
+        let packet_result = self.block_on(packet_result);
+
+        match packet_type {
+            PacketMsgType::Recv => {
+                let storage_entry = ibc_node::ibc::storage::PacketCommitment(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
+                Ok((packet_result, self.generate_storage_proof(&storage_entry, &height)))
+            }
+            PacketMsgType::Ack => {
+                let storage_entry = ibc_node::ibc::storage::Acknowledgements(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
+                Ok((packet_result, self.generate_storage_proof(&storage_entry, &height)))
+            }
+            _ => unimplemented!(),
+        }
     }
 
     fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {

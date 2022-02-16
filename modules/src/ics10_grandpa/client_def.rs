@@ -214,7 +214,23 @@ impl ClientDef for GrandpaClient {
         _seq: &Sequence,
         _data: String,
     ) -> Result<(), Error> {
-        Ok(()) // Todo:
+        let _encoded:Vec<u8> = (_port_id.as_bytes().to_vec(), _channel_id.as_bytes().to_vec(), _seq.0.encode()).encode();
+        let keys: Vec<Vec<u8>> = vec![_encoded];
+        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "PacketCommitment").unwrap();
+        let packet_commitment_returned = String::from_utf8(storage_result).unwrap();
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
+            packet_commitment_returned
+        );
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_packet_data] >>  expected packet_commitment: {:?}",
+            _data
+        );
+
+        if !(packet_commitment_returned.eq(&_data)) {
+            return Err(Error::invalid_packet_commitment(*_seq));
+        }
+        Ok(())
     }
 
     fn verify_packet_acknowledgement(
