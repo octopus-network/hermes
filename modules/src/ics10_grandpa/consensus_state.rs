@@ -49,20 +49,6 @@ impl ConsensusState {
 impl Default for ConsensusState {
     fn default() -> Self {
         Self {
-            parent_hash: vec![0;10],
-            block_number: 0,
-            state_root: vec![0;10],
-            extrinsics_root: vec![0;10],
-            digest: vec![0;10],
-            root: CommitmentRoot::from(vec![1, 2, 3])
-        }
-    }
-}
-
-
-impl Default for ConsensusState {
-    fn default() -> Self {
-        Self {
             parent_hash: vec![0; 10],
             block_number: 0,
             state_root: vec![0; 10],
@@ -72,6 +58,7 @@ impl Default for ConsensusState {
         }
     }
 }
+
 impl Protobuf<RawConsensusState> for ConsensusState {}
 
 impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
