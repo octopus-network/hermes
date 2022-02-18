@@ -1,13 +1,13 @@
 use flex_error::define_error;
+use ibc::core::ics02_client::error::Error as Ics02Error;
+use ibc::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
 use ibc::events::IbcEvent;
-use ibc::ics02_client::error::Error as Ics02Error;
-use ibc::ics24_host::identifier::{ChainId, ChannelId};
 use ibc::Height;
 
 use crate::channel::ChannelError;
 use crate::connection::ConnectionError;
 use crate::error::Error;
-use crate::foreign_client::ForeignClientError;
+use crate::foreign_client::{ForeignClientError, HasExpiredOrFrozenError};
 use crate::supervisor::Error as SupervisorError;
 use crate::transfer::PacketError;
 
@@ -45,13 +45,14 @@ define_error! {
 
         ChannelNotFound
             {
+                port_id: PortId,
                 channel_id: ChannelId,
                 chain_id: ChainId,
             }
             [ Error ]
             |e| {
-                format!("channel {} does not exist on chain {}",
-                    e.channel_id, e.chain_id)
+                format!("channel {}/{} does not exist on chain {}",
+                    e.port_id, e.channel_id, e.chain_id)
             },
 
         Connection
@@ -82,7 +83,9 @@ define_error! {
             },
 
         Signer
-            { chain_id: ChainId }
+            {
+                chain_id: ChainId
+            }
             [ Error ]
             |e| {
                 format!("could not retrieve signer from src chain {}", e.chain_id)
@@ -140,5 +143,20 @@ define_error! {
                     e.channel_id, e.chain_id)
             },
 
+    }
+}
+
+impl HasExpiredOrFrozenError for LinkErrorDetail {
+    fn is_expired_or_frozen_error(&self) -> bool {
+        match self {
+            Self::Client(e) => e.source.is_expired_or_frozen_error(),
+            _ => false,
+        }
+    }
+}
+
+impl HasExpiredOrFrozenError for LinkError {
+    fn is_expired_or_frozen_error(&self) -> bool {
+        self.detail().is_expired_or_frozen_error()
     }
 }

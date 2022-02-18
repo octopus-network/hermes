@@ -1,4 +1,6 @@
 /// WeightedVoteOption defines a unit of vote for vote split.
+///
+/// Since: cosmos-sdk 0.43
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct WeightedVoteOption {
     #[prost(enumeration = "VoteOption", tag = "1")]
@@ -68,6 +70,13 @@ pub struct Vote {
     pub proposal_id: u64,
     #[prost(string, tag = "2")]
     pub voter: ::prost::alloc::string::String,
+    /// Deprecated: Prefer to use `options` instead. This field is set in queries
+    /// if and only if `len(options) == 1` and that option has weight 1. In all
+    /// other cases, this field will default to VOTE_OPTION_UNSPECIFIED.
+    #[deprecated]
+    #[prost(enumeration = "VoteOption", tag = "3")]
+    pub option: i32,
+    /// Since: cosmos-sdk 0.43
     #[prost(message, repeated, tag = "4")]
     pub options: ::prost::alloc::vec::Vec<WeightedVoteOption>,
 }
@@ -141,31 +150,6 @@ pub enum ProposalStatus {
     /// failed.
     Failed = 5,
 }
-/// GenesisState defines the gov module's genesis state.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GenesisState {
-    /// starting_proposal_id is the ID of the starting proposal.
-    #[prost(uint64, tag = "1")]
-    pub starting_proposal_id: u64,
-    /// deposits defines all the deposits present at genesis.
-    #[prost(message, repeated, tag = "2")]
-    pub deposits: ::prost::alloc::vec::Vec<Deposit>,
-    /// votes defines all the votes present at genesis.
-    #[prost(message, repeated, tag = "3")]
-    pub votes: ::prost::alloc::vec::Vec<Vote>,
-    /// proposals defines all the proposals present at genesis.
-    #[prost(message, repeated, tag = "4")]
-    pub proposals: ::prost::alloc::vec::Vec<Proposal>,
-    /// params defines all the paramaters of related to deposit.
-    #[prost(message, optional, tag = "5")]
-    pub deposit_params: ::core::option::Option<DepositParams>,
-    /// params defines all the paramaters of related to voting.
-    #[prost(message, optional, tag = "6")]
-    pub voting_params: ::core::option::Option<VotingParams>,
-    /// params defines all the paramaters of related to tally.
-    #[prost(message, optional, tag = "7")]
-    pub tally_params: ::core::option::Option<TallyParams>,
-}
 /// MsgSubmitProposal defines an sdk.Msg type that supports submitting arbitrary
 /// proposal Content.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -197,6 +181,8 @@ pub struct MsgVote {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MsgVoteResponse {}
 /// MsgVoteWeighted defines a message to cast a vote.
+///
+/// Since: cosmos-sdk 0.43
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MsgVoteWeighted {
     #[prost(uint64, tag = "1")]
@@ -207,6 +193,8 @@ pub struct MsgVoteWeighted {
     pub options: ::prost::alloc::vec::Vec<WeightedVoteOption>,
 }
 /// MsgVoteWeightedResponse defines the Msg/VoteWeighted response type.
+///
+/// Since: cosmos-sdk 0.43
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MsgVoteWeightedResponse {}
 /// MsgDeposit defines a message to submit a deposit to an existing proposal.
@@ -234,35 +222,35 @@ pub mod msg_client {
     impl MsgClient<tonic::transport::Channel> {
         #[doc = r" Attempt to create a new client by connecting to a given endpoint."]
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
-        where
-            D: std::convert::TryInto<tonic::transport::Endpoint>,
-            D::Error: Into<StdError>,
+            where
+                D: std::convert::TryInto<tonic::transport::Endpoint>,
+                D::Error: Into<StdError>,
         {
             let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
             Ok(Self::new(conn))
         }
     }
     impl<T> MsgClient<T>
-    where
-        T: tonic::client::GrpcService<tonic::body::BoxBody>,
-        T::ResponseBody: Body + Send + Sync + 'static,
-        T::Error: Into<StdError>,
-        <T::ResponseBody as Body>::Error: Into<StdError> + Send,
+        where
+            T: tonic::client::GrpcService<tonic::body::BoxBody>,
+            T::ResponseBody: Body + Send + 'static,
+            T::Error: Into<StdError>,
+            <T::ResponseBody as Body>::Error: Into<StdError> + Send,
     {
         pub fn new(inner: T) -> Self {
             let inner = tonic::client::Grpc::new(inner);
             Self { inner }
         }
         pub fn with_interceptor<F>(inner: T, interceptor: F) -> MsgClient<InterceptedService<T, F>>
-        where
-            F: tonic::service::Interceptor,
-            T: tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-                Response = http::Response<
-                    <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
+            where
+                F: tonic::service::Interceptor,
+                T: tonic::codegen::Service<
+                    http::Request<tonic::body::BoxBody>,
+                    Response = http::Response<
+                        <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
+                    >,
                 >,
-            >,
-            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
                 Into<StdError> + Send + Sync,
         {
             MsgClient::new(InterceptedService::new(inner, interceptor))
@@ -312,6 +300,8 @@ pub mod msg_client {
             self.inner.unary(request.into_request(), path, codec).await
         }
         #[doc = " VoteWeighted defines a method to add a weighted vote on a specific proposal."]
+        #[doc = ""]
+        #[doc = " Since: cosmos-sdk 0.43"]
         pub async fn vote_weighted(
             &mut self,
             request: impl tonic::IntoRequest<super::MsgVoteWeighted>,
@@ -502,20 +492,20 @@ pub mod query_client {
     impl QueryClient<tonic::transport::Channel> {
         #[doc = r" Attempt to create a new client by connecting to a given endpoint."]
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
-        where
-            D: std::convert::TryInto<tonic::transport::Endpoint>,
-            D::Error: Into<StdError>,
+            where
+                D: std::convert::TryInto<tonic::transport::Endpoint>,
+                D::Error: Into<StdError>,
         {
             let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
             Ok(Self::new(conn))
         }
     }
     impl<T> QueryClient<T>
-    where
-        T: tonic::client::GrpcService<tonic::body::BoxBody>,
-        T::ResponseBody: Body + Send + Sync + 'static,
-        T::Error: Into<StdError>,
-        <T::ResponseBody as Body>::Error: Into<StdError> + Send,
+        where
+            T: tonic::client::GrpcService<tonic::body::BoxBody>,
+            T::ResponseBody: Body + Send + 'static,
+            T::Error: Into<StdError>,
+            <T::ResponseBody as Body>::Error: Into<StdError> + Send,
     {
         pub fn new(inner: T) -> Self {
             let inner = tonic::client::Grpc::new(inner);
@@ -525,15 +515,15 @@ pub mod query_client {
             inner: T,
             interceptor: F,
         ) -> QueryClient<InterceptedService<T, F>>
-        where
-            F: tonic::service::Interceptor,
-            T: tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-                Response = http::Response<
-                    <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
+            where
+                F: tonic::service::Interceptor,
+                T: tonic::codegen::Service<
+                    http::Request<tonic::body::BoxBody>,
+                    Response = http::Response<
+                        <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
+                    >,
                 >,
-            >,
-            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
                 Into<StdError> + Send + Sync,
         {
             QueryClient::new(InterceptedService::new(inner, interceptor))
@@ -673,4 +663,29 @@ pub mod query_client {
             self.inner.unary(request.into_request(), path, codec).await
         }
     }
+}
+/// GenesisState defines the gov module's genesis state.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GenesisState {
+    /// starting_proposal_id is the ID of the starting proposal.
+    #[prost(uint64, tag = "1")]
+    pub starting_proposal_id: u64,
+    /// deposits defines all the deposits present at genesis.
+    #[prost(message, repeated, tag = "2")]
+    pub deposits: ::prost::alloc::vec::Vec<Deposit>,
+    /// votes defines all the votes present at genesis.
+    #[prost(message, repeated, tag = "3")]
+    pub votes: ::prost::alloc::vec::Vec<Vote>,
+    /// proposals defines all the proposals present at genesis.
+    #[prost(message, repeated, tag = "4")]
+    pub proposals: ::prost::alloc::vec::Vec<Proposal>,
+    /// params defines all the paramaters of related to deposit.
+    #[prost(message, optional, tag = "5")]
+    pub deposit_params: ::core::option::Option<DepositParams>,
+    /// params defines all the paramaters of related to voting.
+    #[prost(message, optional, tag = "6")]
+    pub voting_params: ::core::option::Option<VotingParams>,
+    /// params defines all the paramaters of related to tally.
+    #[prost(message, optional, tag = "7")]
+    pub tally_params: ::core::option::Option<TallyParams>,
 }

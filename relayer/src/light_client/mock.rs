@@ -1,10 +1,10 @@
-use ibc::ics02_client::misbehaviour::MisbehaviourEvidence;
+use ibc::core::ics02_client::misbehaviour::MisbehaviourEvidence;
 use tendermint_testgen::light_block::TmLightBlock;
 
-use ibc::ics02_client::client_state::AnyClientState;
-use ibc::ics02_client::events::UpdateClient;
-use ibc::ics07_tendermint::header::Header as TmHeader;
-use ibc::ics24_host::identifier::ChainId;
+use ibc::clients::ics07_tendermint::header::Header as TmHeader;
+use ibc::core::ics02_client::client_state::AnyClientState;
+use ibc::core::ics02_client::events::UpdateClient;
+use ibc::core::ics24_host::identifier::ChainId;
 use ibc::mock::host::HostBlock;
 use ibc::Height;
 
@@ -13,6 +13,7 @@ use crate::chain::ChainEndpoint;
 use crate::error::Error;
 
 use super::Verified;
+use ibc::timestamp::Timestamp;
 
 /// A light client serving a mock chain.
 pub struct LightClient {
@@ -28,7 +29,7 @@ impl LightClient {
 
     /// Returns a LightBlock at the requested height `h`.
     fn light_block(&self, h: Height) -> TmLightBlock {
-        HostBlock::generate_tm_block(self.chain_id.clone(), h.revision_height)
+        HostBlock::generate_tm_block(self.chain_id.clone(), h.revision_height, Timestamp::now())
     }
 }
 

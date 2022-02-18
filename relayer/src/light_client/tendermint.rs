@@ -1,32 +1,33 @@
-use core::convert::{TryFrom, TryInto};
-
 use itertools::Itertools;
 
 use tendermint_light_client::{
     components::{self, io::AtHeight},
-    light_client::{LightClient as TmLightClient, Options as TmOptions},
-    operations,
+    light_client::LightClient as TmLightClient,
     state::State as LightClientState,
     store::{memory::MemoryStore, LightStore},
-    types::Height as TMHeight,
-    types::{LightBlock, PeerId, Status},
 };
+use tendermint_light_client_verifier::operations;
+use tendermint_light_client_verifier::options::Options as TmOptions;
+use tendermint_light_client_verifier::types::{Height as TMHeight, LightBlock, PeerId, Status};
+use tendermint_light_client_verifier::ProdVerifier;
 use tendermint_rpc as rpc;
 
 use ibc::{
-    downcast,
-    ics02_client::{
-        client_state::AnyClientState,
-        client_type::ClientType,
-        events::UpdateClient,
-        header::{AnyHeader, Header},
-        misbehaviour::{Misbehaviour, MisbehaviourEvidence},
-    },
-    ics07_tendermint::{
+    clients::ics07_tendermint::{
         header::{headers_compatible, Header as TmHeader},
         misbehaviour::Misbehaviour as TmMisbehaviour,
     },
-    ics24_host::identifier::ChainId,
+    core::{
+        ics02_client::{
+            client_state::AnyClientState,
+            client_type::ClientType,
+            events::UpdateClient,
+            header::{AnyHeader, Header},
+            misbehaviour::{Misbehaviour, MisbehaviourEvidence},
+        },
+        ics24_host::identifier::ChainId,
+    },
+    downcast,
 };
 use tracing::trace;
 
@@ -180,7 +181,7 @@ impl LightClient {
     fn prepare_client(&self, client_state: &AnyClientState) -> Result<TmLightClient, Error> {
         let clock = components::clock::SystemClock;
         let hasher = operations::hasher::ProdHasher;
-        let verifier = components::verifier::ProdVerifier::default();
+        let verifier = ProdVerifier::default();
         let scheduler = components::scheduler::basic_bisecting_schedule;
 
         let client_state =

@@ -117,8 +117,26 @@ Below is an example of a configuration file.
 
 ```toml
 [global]
-strategy = "packets"
 log_level = "error"
+
+[mode]
+
+[mode.clients]
+enabled = true
+refresh = true
+misbehaviour = true
+
+[mode.connections]
+enabled = false
+
+[mode.channels]
+enabled = false
+
+[mode.packets]
+enabled = true
+clear_interval = 100
+clear_on_start = true
+tx_confirmation = true
 
 [[chains]]
   id = "chain_A"
@@ -172,14 +190,7 @@ pub struct Config {
     pub connections: Option<Vec<Connection>>, 
 }
 
-pub enum Strategy {
-    Packets,
-    HandshakeAndPackets,
-}
-
 pub struct GlobalConfig {
-    pub strategy: Strategy,
-
     /// All valid log levels, as defined in tracing:
     /// https://docs.rs/tracing-core/0.1.17/tracing_core/struct.Level.html
     pub log_level: String,

@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::ics23_commitment::commitment::CommitmentProofBytes;
+use crate::core::ics23_commitment::commitment::CommitmentProofBytes;
 use crate::Height;
 use flex_error::define_error;
 
@@ -39,10 +39,6 @@ impl Proofs {
     ) -> Result<Self, ProofError> {
         if height.is_zero() {
             return Err(ProofError::zero_height());
-        }
-
-        if object_proof.is_empty() {
-            return Err(ProofError::empty_proof());
         }
 
         Ok(Self {
@@ -95,9 +91,6 @@ impl ConsensusProof {
     ) -> Result<Self, ProofError> {
         if consensus_height.is_zero() {
             return Err(ProofError::zero_height());
-        }
-        if consensus_proof.is_empty() {
-            return Err(ProofError::empty_proof());
         }
 
         Ok(Self {

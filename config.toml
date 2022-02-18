@@ -1,41 +1,62 @@
 # The global section has parameters that apply globally to the relayer operation.
 [global]
 
-# Specify the strategy to be used by the relayer. Default: 'packets'
-# Two options are currently supported:
-#   - 'all': Relay packets and perform channel and connection handshakes.
-#   - 'packets': Relay packets only.
-strategy = 'all'
-
-# Enable or disable the filtering mechanism. Default: 'false'
-# Valid options are 'true', 'false'.
-# Currently Hermes supports two filters:
-# 1. Packet filtering on a per-chain basis; see the chain-specific
-#   filter specification below in [chains.packet_filter].
-# 2. Filter for all activities based on client state trust threshold; this filter
-#   is parametrized with (numerator = 1, denominator = 3), so that clients with
-#   thresholds different than this will be ignored.
-# If set to 'true', both of the above filters will be enabled.
-filter = false
-
 # Specify the verbosity for the relayer logging output. Default: 'info'
 # Valid options are 'error', 'warn', 'info', 'debug', 'trace'.
 log_level = 'debug'
 
+
+# Specify the mode to be used by the relayer. [Required]
+[mode]
+
+# Specify the client mode.
+[mode.clients]
+
+# Whether or not to enable the client workers. [Required]
+enabled = true
+
+# Whether or not to enable periodic refresh of clients. [Default: true]
+# Note: Even if this is disabled, clients will be refreshed automatically if
+#      there is activity on a connection or channel they are involved with.
+refresh = true
+
+# Whether or not to enable misbehaviour detection for clients. [Default: false]
+misbehaviour = true
+
+# Specify the connections mode.
+[mode.connections]
+
+# Whether or not to enable the connection workers for handshake completion. [Required]
+enabled = false
+
+# Specify the channels mode.
+[mode.channels]
+
+# Whether or not to enable the channel workers for handshake completion. [Required]
+enabled = false
+
+# Specify the packets mode.
+[mode.packets]
+
+# Whether or not to enable the packet workers. [Required]
+enabled = true
+
 # Parametrize the periodic packet clearing feature.
 # Interval (in number of blocks) at which pending packets
 # should be eagerly cleared. A value of '0' will disable
-# periodic packet clearing. Default: 100
-clear_packets_interval = 100
+# periodic packet clearing. [Default: 100]
+clear_interval = 100
+
+# Whether or not to clear packets on start. [Default: false]
+clear_on_start = true
 
 # Toggle the transaction confirmation mechanism.
 # The tx confirmation mechanism periodically queries the `/tx_search` RPC
 # endpoint to check that previously-submitted transactions
 # (to any chain in this config file) have delivered successfully.
 # Experimental feature. Affects telemetry if set to false.
-# Default: true.
+# [Default: true]
 tx_confirmation = true
-
 
 # The REST section defines parameters for Hermes' built-in RESTful API.
 # https://hermes.informal.systems/rest.html
@@ -88,6 +109,8 @@ websocket_addr = 'ws://127.0.0.1:9944/websocket'
 
 # Specify the maximum amount of time (duration) that the RPC requests should
 # take before timing out. Default: 10s (10 seconds)
+# Note: Hermes uses this parameter _only_ in `start` mode; for all other CLIs,
+# Hermes uses a large preconfigured timeout (on the order of minutes).
 rpc_timeout = '10s'
 
 # Specify the prefix used by the chain. Required
@@ -104,11 +127,11 @@ key_name = 'testkey'
 # 3) the message signing method.
 # The current configuration options are for Cosmos SDK and Ethermint.
 #
-# Example configuration for Ethermint:
+# Example configuration for chains based on Ethermint library:
 #
 # address_type = { derivation = 'ethermint', proto_type = { pk_type = '/injective.crypto.v1beta1.ethsecp256k1.PubKey' } }
 #
-# Default: { derivation = 'cosmos' }, i.e. address derivation as in Cosmos SDK
+# Default: { derivation = 'cosmos' }, i.e. address derivation as in Cosmos SDK.
 # Warning: This is an advanced feature! Modify with caution.
 address_type = { derivation = 'cosmos' }
 
@@ -116,17 +139,23 @@ address_type = { derivation = 'cosmos' }
 # Recommended value for Cosmos SDK: 'ibc'
 store_prefix = 'ibc'
 
+# Specify the default amount of gas to be used in case the tx simulation fails,
+# and Hermes cannot estimate the amount of gas needed.
+# Default: 100 000
+default_gas = 100000
+
 # Specify the maximum amount of gas to be used as the gas limit for a transaction.
-# Default: 300000
-max_gas = 3000000
+# Default: 400 000
+max_gas = 400000
 
 # Specify the price per gas used of the fee to submit a transaction and
 # the denomination of the fee. Required
 gas_price = { price = 0.001, denom = 'stake' }
 
-# Specify by ratio to increase the gas estimate used to compute the fee,
+# Specify the ratio by which to increase the gas estimate used to compute the fee,
 # to account for potential estimation error. Default: 0.1, ie. 10%.
-gas_adjustment = 0.1
+# Valid range: 0.0 to 1.0 (inclusive)
+gas_adjustment = 1.0
 
 # Specify how many IBC messages at most to include in a single transaction.
 # Default: 30
@@ -141,6 +170,12 @@ max_tx_size = 2097152
 # can drift into the future. Default: 5s
 clock_drift = '5s'
 
+# Specify the maximum time per block for this chain.
+# The block time together with the clock drift are added to the source drift to estimate
+# the maximum clock drift when creating a client on this chain. Default: 10s
+# For cosmos-SDK chains a good approximation is `timeout_propose` + `timeout_commit`
+max_block_time = '10s'
+
 # Specify the amount of time to be used as the light client trusting period.
 # It should be significantly less than the unbonding period
 # (e.g. unbonding period = 3 weeks, trusting period = 2 weeks).
@@ -153,10 +188,16 @@ trusting_period = '14days'
 # Warning: This is an advanced feature! Modify with caution.
 trust_threshold = { numerator = '1', denominator = '3' }
 
+# Specify a string that Hermes will use as a memo for each transaction it submits
+# to this chain. The string is limited to 50 characters. Default: '' (empty).
+# Note: Hermes will append to the string defined here additional
+# operational debugging information, e.g., relayer build version.
+memo_prefix = ''
+
 # This section specifies the filters for policy based relaying.
-# Default: no policy/ filters
-# The section is ignored if the global 'filter' option is set to 'false'.
-# If the global 'filter' option is set to 'true' and this section is missing then no filtering is performed for this chain.
+#
+# Default: no policy / filters, allow all packets on all channels.
+#
 # Only packet filtering based on channel identifier can be specified.
 # A channel filter has two fields:
 # 1. `policy` - one of two types are supported:
@@ -172,6 +213,11 @@ trust_threshold = { numerator = '1', denominator = '3' }
 #   ['transfer', 'channel-0'],
 # ]
 
+# Specify that the transaction fees should be payed from this fee granter's account.
+# Optional. If unspecified (the default behavior), then no fee granter is used, and
+# the account specified in `key_name` will pay the tx fees for all transactions
+# submitted to this chain.
+# fee_granter = ''
 
 [[chains]]
 id = 'ibc-1'
@@ -183,12 +229,14 @@ rpc_timeout = '10s'
 account_prefix = 'substrate'
 key_name = 'testkey'
 store_prefix = 'ibc'
-max_gas = 3000000
+default_gas = 100000
+max_gas = 400000
 gas_price = { price = 0.001, denom = 'stake' }
 gas_adjustment = 0.1
 max_msg_num = 30
 max_tx_size = 2097152
 clock_drift = '5s'
+max_block_time = '10s'
 trusting_period = '14days'
 trust_threshold = { numerator = '1', denominator = '3' }
 address_type = { derivation = 'cosmos' }

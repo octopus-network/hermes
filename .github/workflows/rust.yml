@@ -4,6 +4,7 @@ on:
     paths:
       - .github/workflows/rust.yml
       - Cargo.toml
+      - Cargo.lock
       - ci/**
       - e2e/**
       - proto/**
@@ -12,11 +13,13 @@ on:
       - relayer-cli/**
       - relayer-rest/**
       - telemetry/**
+      - tools/**
   push:
     branches: master
     paths:
       - .github/workflows/rust.yml
       - Cargo.toml
+      - Cargo.lock
       - ci/**
       - e2e/**
       - proto/**
@@ -25,6 +28,7 @@ on:
       - relayer-cli/**
       - relayer-rest/**
       - telemetry/**
+      - tools/**
 
 env:
   CARGO_INCREMENTAL: 0
@@ -102,7 +106,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features --no-fail-fast -- --nocapture
+          args: --all-features --no-fail-fast --workspace --exclude ibc-integration-test -- --nocapture
 
   # test-coverage:
   #   runs-on: ubuntu-latest

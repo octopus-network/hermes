@@ -1,10 +1,13 @@
 use ibc::{
+    core::{
+        ics03_connection::connection::State as ConnectionState,
+        ics04_channel::channel::State as ChannelState,
+        ics24_host::identifier::{ChannelId, PortChannelId, PortId},
+    },
     events::IbcEvent,
-    ics03_connection::connection::State as ConnectionState,
-    ics04_channel::channel::State as ChannelState,
-    ics24_host::identifier::{ChannelId, PortChannelId, PortId},
     Height,
 };
+use tracing::error_span;
 
 use crate::chain::counterparty::check_channel_counterparty;
 use crate::chain::handle::ChainHandle;
@@ -13,7 +16,7 @@ use crate::link::error::LinkError;
 use crate::link::relay_path::RelayPath;
 
 pub mod error;
-mod operational_data;
+pub mod operational_data;
 mod pending;
 mod relay_path;
 mod relay_sender;
@@ -52,7 +55,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Link<ChainA, ChainB> {
             .src_chain()
             .query_channel(self.a_to_b.src_port_id(), a_channel_id, Height::default())
             .map_err(|e| {
-                LinkError::channel_not_found(a_channel_id.clone(), self.a_to_b.src_chain().id(), e)
+                LinkError::channel_not_found(
+                    self.a_to_b.src_port_id().clone(),
+                    a_channel_id.clone(),
+                    self.a_to_b.src_chain().id(),
+                    e,
+                )
             })?;
 
         let b_channel_id = self.a_to_b.dst_channel_id();
@@ -62,7 +70,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Link<ChainA, ChainB> {
             .dst_chain()
             .query_channel(self.a_to_b.dst_port_id(), b_channel_id, Height::default())
             .map_err(|e| {
-                LinkError::channel_not_found(b_channel_id.clone(), self.a_to_b.dst_chain().id(), e)
+                LinkError::channel_not_found(
+                    self.a_to_b.dst_port_id().clone(),
+                    b_channel_id.clone(),
+                    self.a_to_b.dst_chain().id(),
+                    e,
+                )
             })?;
 
         if a_channel.state_matches(&ChannelState::Closed)
@@ -82,9 +95,17 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Link<ChainA, ChainB> {
     ) -> Result<Link<ChainA, ChainB>, LinkError> {
         // Check that the packet's channel on source chain is Open
         let a_channel_id = &opts.src_channel_id;
+        let a_port_id = &opts.src_port_id;
         let a_channel = a_chain
-            .query_channel(&opts.src_port_id, a_channel_id, Height::default())
-            .map_err(|e| LinkError::channel_not_found(a_channel_id.clone(), a_chain.id(), e))?;
+            .query_channel(a_port_id, a_channel_id, Height::default())
+            .map_err(|e| {
+                LinkError::channel_not_found(
+                    a_port_id.clone(),
+                    a_channel_id.clone(),
+                    a_chain.id(),
+                    e,
+                )
+            })?;
 
         if !a_channel.state_matches(&ChannelState::Open)
             && !a_channel.state_matches(&ChannelState::Closed)
@@ -143,6 +164,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Link<ChainA, ChainB> {
                 a_connection_id,
                 opts.src_port_id.clone(),
                 Some(opts.src_channel_id.clone()),
+                None,
             ),
             b_side: ChannelSide::new(
                 b_chain,
@@ -150,16 +172,40 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Link<ChainA, ChainB> {
                 a_connection.counterparty().connection_id().unwrap().clone(),
                 a_channel.counterparty().port_id.clone(),
                 Some(b_channel_id),
+                None,
             ),
             connection_delay: a_connection.delay_period(),
-            version: None,
         };
 
         Link::new(channel, with_tx_confirmation)
     }
 
+    /// Constructs a link around the channel that is reverse to the channel
+    /// in this link.
+    pub fn reverse(&self, with_tx_confirmation: bool) -> Result<Link<ChainB, ChainA>, LinkError> {
+        let opts = LinkParameters {
+            src_port_id: self.a_to_b.dst_port_id().clone(),
+            src_channel_id: self.a_to_b.dst_channel_id().clone(),
+        };
+        let chain_b = self.a_to_b.dst_chain().clone();
+        let chain_a = self.a_to_b.src_chain().clone();
+
+        // Some of the checks and initializations may be redundant;
+        // going slowly, but reliably.
+        Link::new_from_opts(chain_b, chain_a, opts, with_tx_confirmation)
+    }
+
     /// Implements the `packet-recv` CLI
-    pub fn build_and_send_recv_packet_messages(&mut self) -> Result<Vec<IbcEvent>, LinkError> {
+    pub fn build_and_send_recv_packet_messages(&self) -> Result<Vec<IbcEvent>, LinkError> {
+        let _span = error_span!(
+            "PacketRecvCmd",
+            src_chain = %self.a_to_b.src_chain().id(),
+            src_port = %self.a_to_b.src_port_id(),
+            src_channel = %self.a_to_b.src_channel_id(),
+            dst_chain = %self.a_to_b.dst_chain().id(),
+        )
+        .entered();
+
         self.a_to_b.build_recv_packet_and_timeout_msgs(None)?;
 
         let mut results = vec![];
@@ -176,7 +222,16 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Link<ChainA, ChainB> {
     }
 
     /// Implements the `packet-ack` CLI
-    pub fn build_and_send_ack_packet_messages(&mut self) -> Result<Vec<IbcEvent>, LinkError> {
+    pub fn build_and_send_ack_packet_messages(&self) -> Result<Vec<IbcEvent>, LinkError> {
+        let _span = error_span!(
+            "PacketAckCmd",
+            src_chain = %self.a_to_b.src_chain().id(),
+            src_port = %self.a_to_b.src_port_id(),
+            src_channel = %self.a_to_b.src_channel_id(),
+            dst_chain = %self.a_to_b.dst_chain().id(),
+        )
+        .entered();
+
         self.a_to_b.build_packet_ack_msgs(None)?;
 
         let mut results = vec![];

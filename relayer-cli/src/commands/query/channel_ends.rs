@@ -1,11 +1,12 @@
-use abscissa_core::{Command, Options, Runnable};
+use abscissa_core::clap::Parser;
+use abscissa_core::{Command, Runnable};
 use serde::{Deserialize, Serialize};
 
-use ibc::ics02_client::client_state::{AnyClientState, ClientState};
-use ibc::ics03_connection::connection::ConnectionEnd;
-use ibc::ics04_channel::channel::{ChannelEnd, State};
-use ibc::ics24_host::identifier::ChainId;
-use ibc::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
+use ibc::core::ics02_client::client_state::{AnyClientState, ClientState};
+use ibc::core::ics03_connection::connection::ConnectionEnd;
+use ibc::core::ics04_channel::channel::{ChannelEnd, State};
+use ibc::core::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
 use ibc::Height;
 use ibc_relayer::chain::handle::{ChainHandle, ProdChainHandle};
 use ibc_relayer::registry::Registry;
@@ -13,23 +14,24 @@ use ibc_relayer::registry::Registry;
 use crate::conclude::Output;
 use crate::prelude::*;
 
-#[derive(Clone, Command, Debug, Options)]
+#[derive(Clone, Command, Debug, Parser)]
 pub struct QueryChannelEndsCmd {
-    #[options(free, required, help = "identifier of the chain to query")]
+    #[clap(required = true, help = "identifier of the chain to query")]
     chain_id: ChainId,
 
-    #[options(free, required, help = "identifier of the port to query")]
+    #[clap(required = true, help = "identifier of the port to query")]
     port_id: PortId,
 
-    #[options(free, required, help = "identifier of the channel to query")]
+    #[clap(required = true, help = "identifier of the channel to query")]
     channel_id: ChannelId,
 
-    #[options(help = "height of the state to query", short = "h")]
+    #[clap(short = 'H', long, help = "height of the state to query")]
     height: Option<u64>,
 
-    #[options(
-        help = "enable verbose output, displaying all details of channels, connections & clients",
-        short = "v"
+    #[clap(
+        short = 'v',
+        long,
+        help = "enable verbose output, displaying all details of channels, connections & clients"
     )]
     verbose: bool,
 }
@@ -171,8 +173,6 @@ fn do_run<Chain: ChainHandle>(cmd: &QueryChannelEndsCmd) -> Result<(), Box<dyn s
 
         Output::success(res).exit();
     }
-
-    Ok(())
 }
 
 impl Runnable for QueryChannelEndsCmd {
