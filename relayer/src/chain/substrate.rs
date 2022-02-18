@@ -2040,6 +2040,7 @@ impl ChainEndpoint for SubstrateChain {
         todo!()
     }
 
+    // TODO add query latest height
     fn query_status(&self) -> Result<StatusResponse, Error> {
         todo!()
     }

@@ -68,7 +68,7 @@ impl crate::core::ics02_client::header::Header for Header {
     }
 
     fn timestamp(&self) -> Timestamp {
-        Timestamp::now()
+        Timestamp::none()
     }
 
     fn wrap_any(self) -> AnyHeader {
