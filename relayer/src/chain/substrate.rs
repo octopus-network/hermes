@@ -64,7 +64,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 use tokio::task;
 use tokio::time::sleep;
 
-const MAX_QUERY_TIMES: u64 = 40;
+const MAX_QUERY_TIMES: u64 = 100;
 
 #[derive(Debug)]
 pub struct SubstrateChain {
@@ -584,7 +584,7 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
-            sleep(Duration::from_secs(4)).await;
+            // sleep(Duration::from_secs(4)).await;
 
             let result = self.deliever(proto_msgs, client).await.unwrap();
 
@@ -637,7 +637,7 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
-            sleep(Duration::from_secs(4)).await;
+            // sleep(Duration::from_secs(4)).await;
 
             let result = self.deliever(proto_msgs, client).await.unwrap();
 
@@ -702,28 +702,27 @@ impl ChainEndpoint for SubstrateChain {
     fn query_latest_height(&self) -> Result<ICSHeight, Error> {
         tracing::info!("in Substrate: [query_latest_height]");
 
-        let height = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
 
-            let latest_height = async {
+            let result = async {
                 let client = ClientBuilder::new()
                     .set_url(&self.websocket_url.clone())
                     .build::<ibc_node::DefaultConfig>()
                     .await
                     .unwrap();
-                // sleep(Duration::from_secs(4)).await;
                 self.get_latest_height(client).await
             };
 
-            match self.block_on(latest_height) {
-                Ok(_v) => RetryResult::Ok(_v),
-                Err(_e) => RetryResult::Retry("Fail to retry"),
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
             }
         });
 
-        let latest_height = Height::new(0, height.unwrap());
+        let latest_height = Height::new(0, result.unwrap());
         Ok(latest_height)
     }
 
@@ -734,25 +733,30 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [query_clients]");
         tracing::info!("in Substrate: [query_clients] >> request = {:?}", request);
 
-        let clients = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            sleep(Duration::from_secs(4)).await;
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            let clients = self.get_clients(client).await.unwrap();
+                self.get_clients(client).await
+            };
 
-            clients
-        };
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
-        let clients = self.block_on(clients);
+        tracing::info!("in Substrate: [query_clients] >> clients: {:?}", result);
 
-        tracing::info!("in Substrate: [query_clients] >> clients: {:?}", clients);
-
-        Ok(clients)
+        Ok(result.unwrap())
     }
 
     fn query_client_state(
@@ -770,26 +774,32 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let client_state = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
-            sleep(Duration::from_secs(4)).await;
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            let client_state = self.get_client_state(client_id, client).await.unwrap();
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
+                self.get_client_state(client_id, client).await
+            };
 
-            client_state
-        };
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
-        let client_state = self.block_on(client_state);
         tracing::info!(
             "in Substrate: [query_client_state] >> client_state: {:?}",
-            client_state
+            result
         );
 
-        Ok(client_state)
+        Ok(result.unwrap())
     }
 
     fn query_consensus_states(
@@ -803,27 +813,32 @@ impl ChainEndpoint for SubstrateChain {
         );
         let request_client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
 
-        let consensus_state = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            sleep(Duration::from_secs(4)).await;
-            let consensus_state = self
-                .get_consensus_state_with_height(&request_client_id, client)
-                .await
-                .unwrap();
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            consensus_state
-        };
+                self.get_consensus_state_with_height(&request_client_id, client)
+                    .await
+            };
 
-        let consensus_state: Vec<(Height, AnyConsensusState)> = self.block_on(consensus_state);
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
+
+        let consensus_state: Vec<(Height, AnyConsensusState)> = result.unwrap();
 
         let mut any_consensus_state_with_height = vec![];
         for (height, consensus_state) in consensus_state.into_iter() {
-            // let consensus_state = AnyConsensusState::Grandpa(consensus_state);
             let tmp = AnyConsensusStateWithHeight {
                 height: height,
                 consensus_state,
@@ -904,28 +919,32 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let connections = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            sleep(Duration::from_secs(4)).await;
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            let connections = self.get_connections(client).await.unwrap();
+                let connections = self.get_connections(client).await;
 
-            connections
-        };
+                connections
+            };
 
-        let connections = self.block_on(connections);
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
-        tracing::info!(
-            "in Substrate: [query_connections] >> clients: {:?}",
-            connections
-        );
+        tracing::info!("in Substrate: [query_connections] >> clients: {:?}", result);
 
-        Ok(connections)
+        Ok(result.unwrap())
     }
 
     fn query_client_connections(
@@ -938,34 +957,38 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-        let client_connections = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+            let client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
 
-            sleep(Duration::from_secs(4)).await;
-            let client_connections = self
-                .get_client_connections(client_id, client)
-                .await
-                .unwrap();
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            tracing::info!(
-                "In substrate: [query_client_connections] >> client_connections: {:#?}",
-                client_connections
-            );
+                self.get_client_connections(client_id, client).await
+            };
 
-            client_connections
-        };
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
-        let client_connections = self.block_on(client_connections);
+        tracing::info!(
+            "In substrate: [query_client_connections] >> client_connections: {:#?}",
+            result
+        );
 
-        Ok(client_connections)
+        Ok(result.unwrap())
     }
 
+    // TODO fo substrate
     fn query_connection(
         &self,
         connection_id: &ConnectionId,
@@ -991,17 +1014,18 @@ impl ChainEndpoint for SubstrateChain {
                 .get_connection_end(connection_id, client)
                 .await
                 .unwrap();
-            tracing::info!(
-                "In Substrate: [query_connection] \
-                >> connection_id: {:?}, connection_end: {:?}",
-                connection_id,
-                connection_end
-            );
 
             connection_end
         };
 
         let connection_end = self.block_on(connection_end);
+
+        tracing::info!(
+            "In Substrate: [query_connection] \
+                >> connection_id: {:?}, connection_end: {:?}",
+            connection_id,
+            connection_end
+        );
 
         Ok(connection_end)
     }
@@ -1016,32 +1040,35 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let connection_id = request.connection;
-        let connection_id = ConnectionId::from_str(connection_id.as_str()).unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-        let connection_channels = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
-            sleep(Duration::from_secs(4)).await;
+            let connection_id = ConnectionId::from_str(&request.connection).unwrap();
 
-            let connection_channels = self
-                .get_connection_channels(connection_id, client)
-                .await
-                .unwrap();
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            tracing::info!(
-                "In substrate: [query_connection_channels] >> connection_channels: {:?}",
-                connection_channels
-            );
-            connection_channels
-        };
+                self.get_connection_channels(connection_id, client).await
+            };
 
-        let connection_channels = self.block_on(connection_channels);
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
-        Ok(connection_channels)
+        tracing::info!(
+            "In substrate: [query_connection_channels] >> connection_channels: {:?}",
+            result
+        );
+
+        Ok(result.unwrap())
     }
 
     fn query_channels(
@@ -1051,29 +1078,34 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [query_channels]");
         tracing::info!("in Substrate: [query_channels] >> request = {:?}", request);
 
-        let channels = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            sleep(Duration::from_secs(4)).await;
-            let channels = self.get_channels(client).await.unwrap();
+                let channels = self.get_channels(client).await;
 
-            channels
-        };
+                channels
+            };
 
-        let channels = self.block_on(channels);
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
-        tracing::info!(
-            "in Substrate: [query_connections] >> clients: {:?}",
-            channels
-        );
+        tracing::info!("in Substrate: [query_connections] >> clients: {:?}", result);
 
-        Ok(channels)
+        Ok(result.unwrap())
     }
 
+    // todo for substrate
     fn query_channel(
         &self,
         port_id: &PortId,
@@ -1095,7 +1127,7 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
-            sleep(Duration::from_secs(4)).await;
+            sleep(Duration::from_secs(10)).await;
 
             let channel_end = self
                 .get_channel_end(port_id, channel_id, client)
@@ -1140,24 +1172,30 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let packet_commitments = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
-            sleep(Duration::from_secs(4)).await;
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            let packet_commitments = self.get_commitment_packet_state(client).await.unwrap();
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            packet_commitments
-        };
+                self.get_commitment_packet_state(client).await
+            };
 
-        let packet_commitments = self.block_on(packet_commitments);
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
         let last_height = self.query_latest_height().unwrap();
 
-        Ok((packet_commitments, last_height))
+        Ok((result.unwrap(), last_height))
     }
 
     fn query_unreceived_packets(
@@ -1170,30 +1208,33 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let port_id = PortId::from_str(request.port_id.as_str()).unwrap();
-        let channel_id = ChannelId::from_str(request.channel_id.as_str()).unwrap();
-        let seqs = request.packet_commitment_sequences.clone();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-        let unreceived_packets = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+            let port_id = PortId::from_str(request.port_id.as_str()).unwrap();
+            let channel_id = ChannelId::from_str(request.channel_id.as_str()).unwrap();
+            let seqs = request.packet_commitment_sequences.clone();
 
-            sleep(Duration::from_secs(4)).await;
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            let unreceived_packets = self
-                .get_unreceipt_packet(&port_id, &channel_id, seqs, client)
-                .await
-                .unwrap();
+                self.get_unreceipt_packet(&port_id, &channel_id, seqs, client)
+                    .await
+            };
 
-            unreceived_packets
-        };
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
-        let result = self.block_on(unreceived_packets);
-
-        Ok(result)
+        Ok(result.unwrap())
     }
 
     fn query_packet_acknowledgements(
@@ -1206,25 +1247,30 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let packet_acknowledgements = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            sleep(Duration::from_secs(4)).await;
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            let packet_acknowledgements = self.get_acknowledge_packet_state(client).await.unwrap();
+                self.get_acknowledge_packet_state(client).await
+            };
 
-            packet_acknowledgements
-        };
-
-        let packet_acknowledgements = self.block_on(packet_acknowledgements);
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
         let last_height = self.query_latest_height().unwrap();
 
-        Ok((packet_acknowledgements, last_height))
+        Ok((result.unwrap(), last_height))
     }
 
     fn query_unreceived_acknowledgements(
@@ -1249,8 +1295,6 @@ impl ChainEndpoint for SubstrateChain {
                 .build::<ibc_node::DefaultConfig>()
                 .await
                 .unwrap();
-
-            sleep(Duration::from_secs(4)).await;
 
             for _seq in seqs {
                 let _cmt = self
@@ -1418,30 +1462,36 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let client_state = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            sleep(Duration::from_secs(4)).await;
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            let client_state = self.get_client_state(client_id, client).await.unwrap();
-            tracing::info!(
-                "In Substrate: [proven_client_state] \
+                self.get_client_state(client_id, client).await
+            };
+
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
+
+        tracing::info!(
+            "In Substrate: [proven_client_state] \
                 >> client_state : {:?}",
-                client_state
-            );
-
-            client_state
-        };
-
-        let client_state = self.block_on(client_state);
+            result
+        );
 
         let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes().to_vec());
         Ok((
-            client_state,
+            result.unwrap(),
             self.generate_storage_proof(&storage_entry, &height),
         ))
     }
@@ -1458,29 +1508,33 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [proven_connection] >> height = {:?}", height);
 
-        let connection_end = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            sleep(Duration::from_secs(4)).await;
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            let connection_end = self
-                .get_connection_end(connection_id, client)
-                .await
-                .unwrap();
-            tracing::info!(
-                "In Substrate: [proven_connection] \
+                self.get_connection_end(connection_id, client).await
+            };
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
+
+        tracing::info!(
+            "In Substrate: [proven_connection] \
                 >> connection_end: {:?}",
-                connection_end
-            );
+            result
+        );
 
-            connection_end
-        };
-
-        let connection_end = self.block_on(connection_end);
+        let connection_end = result.unwrap();
 
         let mut new_connection_end;
 
@@ -1534,32 +1588,36 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let consensus_state = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            sleep(Duration::from_secs(4)).await;
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            let consensus_state = self
-                .get_client_consensus(client_id, consensus_height, client)
-                .await
-                .unwrap();
-            tracing::info!(
-                "In Substrate: [proven_client_consensus] \
+                self.get_client_consensus(client_id, consensus_height, client)
+                    .await
+            };
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
+
+        tracing::info!(
+            "In Substrate: [proven_client_consensus] \
                 >> consensus_state : {:?}",
-                consensus_state
-            );
+            result
+        );
 
-            consensus_state
-        };
-
-        let consensus_state = self.block_on(consensus_state);
         let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes().to_vec());
         Ok((
-            consensus_state,
+            result.unwrap(),
             self.generate_storage_proof(&storage_entry, &height),
         ))
     }
@@ -1578,38 +1636,41 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [proven_channel] >> height = {:?}", height);
 
-        let channel_end = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            sleep(Duration::from_secs(4)).await;
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            let channel_end = self
-                .get_channel_end(port_id, channel_id, client)
-                .await
-                .unwrap();
-            tracing::info!(
-                "In Substrate: [query_channel] \
+                self.get_channel_end(port_id, channel_id, client).await
+            };
+
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
+
+        tracing::info!(
+            "In Substrate: [query_channel] \
                 >> port_id: {:?}, channel_id: {:?}, channel_end: {:?}",
-                port_id,
-                channel_id,
-                channel_end
-            );
-
-            channel_end
-        };
-
-        let channel_end = self.block_on(channel_end);
+            port_id,
+            channel_id,
+            result
+        );
 
         let storage_entry = ibc_node::ibc::storage::Channels(
             port_id.as_bytes().to_vec(),
             channel_id.as_bytes().to_vec(),
         );
         Ok((
-            channel_end,
+            result.unwrap(),
             self.generate_storage_proof(&storage_entry, &height),
         ))
     }
