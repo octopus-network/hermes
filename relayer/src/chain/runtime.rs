@@ -61,7 +61,7 @@ use super::{
     tx::TrackedMsgs,
     ChainEndpoint, HealthCheck,
 };
-use ibc::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ChainId;
 use std::thread::sleep;
 
 pub struct Threads {
@@ -247,7 +247,7 @@ where
                             reply_to.send(res)
                                 .map_err(Error::send)?;
 
-                            break;
+                            break Ok(());
                         }
 
                         Ok(ChainRequest::HealthCheck { reply_to }) => {
@@ -418,25 +418,19 @@ where
                         Ok(ChainRequest::QueryPacketEventDataFromBlocks { request, reply_to }) => {
                             self.query_blocks(request, reply_to)?
                         },
-                        Ok(ChainRequest::WebSocketUrl { reply_to }) => {self.websocket_url(reply_to)?},
+                        Ok(ChainRequest::WebSocketUrl { reply_to }) => {
+                            self.websocket_url(reply_to)?
+                        },
 
-                        Ok(ChainRequest::UpdateMmrRoot {
-                            src_chain_websocket_url,
-                            dst_chain_websocket_url,
-                            reply_to,
-                        }) => {self.update_mmr_root(
-                            src_chain_websocket_url,
-                            dst_chain_websocket_url,
-                            reply_to,
-                        )?},
+                        Ok(ChainRequest::UpdateMmrRoot { src_chain_websocket_url, dst_chain_websocket_url, reply_to }) => {
+                            self.update_mmr_root(src_chain_websocket_url,dst_chain_websocket_url,reply_to,)?
+                        },
 
                         Err(e) => error!("received error via chain request channel: {}", e),
                     }
-                };
-            }
+                }
+            };
         }
-
-        Ok(())
     }
 
     fn health_check(&mut self, reply_to: ReplyTo<HealthCheck>) -> Result<(), Error> {
@@ -937,8 +931,6 @@ where
             .chain
             .update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url);
         reply_to.send(result).map_err(Error::send)
-
-        Ok(())
     }
 
     fn query_blocks(

@@ -29,7 +29,6 @@ use ibc::{
     clients::ics07_tendermint::error as tendermint_error,
     clients::ics10_grandpa::error as grandpa_error,
     relayer::ics18_relayer::error as relayer_error,
-    upstream,
 };
 
 use crate::chain::cosmos::version;
@@ -37,6 +36,7 @@ use crate::chain::cosmos::GENESIS_MAX_BYTES_MAX_FRACTION;
 use crate::event::monitor;
 use crate::keyring::errors::Error as KeyringError;
 use crate::sdk_error::SdkError;
+use ibc::proofs::ProofError;
 
 define_error! {
     Error {

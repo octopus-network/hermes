@@ -28,6 +28,5 @@ where
         ClientMsg::UpdateClient(msg) => update_client::process(ctx, msg),
         ClientMsg::UpgradeClient(msg) => upgrade_client::process(ctx, msg),
         ClientMsg::Misbehaviour(msg) => misbehavior::process(ctx, msg),
-        _ => unimplemented!(),
     }
 }

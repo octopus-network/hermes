@@ -1,4 +1,4 @@
-use crate::ics10_grandpa::error::Error;
+use crate::clients::ics10_grandpa::error::Error;
 use alloc::vec;
 use alloc::vec::Vec;
 use beefy_light_client::mmr::MmrLeafVersion;

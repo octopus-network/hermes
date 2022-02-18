@@ -55,7 +55,7 @@ pub(crate) fn process(
     conn_end.set_state(State::Open);
 
     let result = ConnectionResult {
-        connection_id: msg.connection_id,
+        connection_id: msg.connection_id.clone(),
         connection_id_state: ConnectionIdState::Reused,
         connection_end: conn_end.clone(),
     };
@@ -66,7 +66,7 @@ pub(crate) fn process(
 
     let event_attributes = Attributes {
         height: ctx.host_current_height().clone(),
-        connection_id: Some(msg.connection_id().clone()),
+        connection_id: Some(msg.connection_id),
         client_id: conn_end.client_id().clone(),
         counterparty_client_id: conn_end.counterparty().client_id.clone(),
         counterparty_connection_id: conn_end.counterparty().connection_id.clone(),

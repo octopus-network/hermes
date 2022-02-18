@@ -2,17 +2,17 @@
 
 use crate::events::IbcEvent;
 use crate::handler::{HandlerOutput, HandlerResult};
-use crate::ics02_client::client_consensus::AnyConsensusState;
-use crate::ics02_client::client_def::{AnyClient, ClientDef};
-use crate::ics02_client::client_state::AnyClientState;
-use crate::ics02_client::client_type::ClientType;
-use crate::ics02_client::context::ClientReader;
-use crate::ics02_client::error::Error;
-use crate::ics02_client::events::Attributes;
-use crate::ics02_client::handler::ClientResult;
-use crate::ics02_client::msgs::misbehavior::MsgSubmitAnyMisbehaviour;
-use crate::ics10_grandpa::client_state::ClientState;
-use crate::ics24_host::identifier::ClientId;
+use crate::core::ics02_client::client_consensus::AnyConsensusState;
+use crate::core::ics02_client::client_def::{AnyClient, ClientDef};
+use crate::core::ics02_client::client_state::AnyClientState;
+use crate::core::ics02_client::client_type::ClientType;
+use crate::core::ics02_client::context::ClientReader;
+use crate::core::ics02_client::error::Error;
+use crate::core::ics02_client::events::Attributes;
+use crate::core::ics02_client::handler::ClientResult;
+use crate::core::ics02_client::msgs::misbehavior::MsgSubmitAnyMisbehaviour;
+use crate::clients::ics10_grandpa::client_state::ClientState;
+use crate::core::ics24_host::identifier::ClientId;
 
 /// The result following the successful processing of a `MsgCreateAnyClient` message. Preferably
 /// this data type should be used with a qualified name `create_client::Result` to avoid ambiguity.

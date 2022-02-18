@@ -9,12 +9,12 @@ use serde::Serialize;
 use ibc_proto::ibc::lightclients::grandpa::v1::ConsensusState as RawConsensusState;
 
 use super::help::Commitment;
-use crate::ics02_client::client_consensus::AnyConsensusState;
-use crate::ics02_client::client_type::ClientType;
-use crate::ics10_grandpa::error::Error;
-use crate::ics10_grandpa::header::Header;
-use crate::ics10_grandpa::help::BlockHeader;
-use crate::ics23_commitment::commitment::CommitmentRoot;
+use crate::core::ics02_client::client_consensus::AnyConsensusState;
+use crate::core::ics02_client::client_type::ClientType;
+use crate::clients::ics10_grandpa::error::Error;
+use crate::clients::ics10_grandpa::header::Header;
+use crate::clients::ics10_grandpa::help::BlockHeader;
+use crate::core::ics23_commitment::commitment::CommitmentRoot;
 use tendermint_proto::Protobuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -71,7 +71,7 @@ impl Default for ConsensusState {
 }
 impl Protobuf<RawConsensusState> for ConsensusState {}
 
-impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
+impl crate::core::ics02_client::client_consensus::ConsensusState for ConsensusState {
     type Error = Infallible;
 
     fn client_type(&self) -> ClientType {
@@ -80,10 +80,6 @@ impl crate::ics02_client::client_consensus::ConsensusState for ConsensusState {
 
     fn root(&self) -> &CommitmentRoot {
         &self.root
-    }
-
-    fn validate_basic(&self) -> Result<(), Self::Error> {
-        unimplemented!()
     }
 
     fn wrap_any(self) -> AnyConsensusState {

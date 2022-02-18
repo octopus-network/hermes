@@ -39,7 +39,7 @@ use ibc_proto::ibc::core::client::v1::QueryConsensusStatesRequest;
 use tendermint_light_client_verifier::types::TrustThreshold;
 
 use crate::chain::handle::ChainHandle;
-use ibc::ics02_client::client_type::ClientType;
+use ibc::core::ics02_client::client_type::ClientType;
 use ibc::signer::Signer;
 
 const MAX_MISBEHAVIOUR_CHECK_DURATION: Duration = Duration::from_secs(120);
@@ -944,7 +944,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 };
                 result
             }
-            _ => unreachable!(),
         };
         info!("foreign_client: [build_update_client_with_trusted] >> client_state = {:?}, target_height = {:?}",
             client_state, target_height);

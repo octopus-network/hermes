@@ -60,24 +60,16 @@ pub(crate) fn process(
     output.log("success: no channel found");
 
     let result = ChannelResult {
-        port_id: msg.port_id,
+        port_id: msg.port_id.clone(),
         channel_id: chan_id.clone(),
         channel_end: new_channel_end,
         channel_id_state: ChannelIdState::Generated,
         channel_cap,
     };
 
-    // pub struct Attributes {
-    //     pub height: Height,
-    //     pub port_id: PortId,
-    //     pub channel_id: Option<ChannelId>,
-    //     pub connection_id: ConnectionId,
-    //     pub counterparty_port_id: PortId,
-    //     pub counterparty_channel_id: Option<ChannelId>,
-    // }
     let event_attributes = Attributes {
         height: ctx.host_height().clone(),
-        port_id: msg.port_id.clone(),
+        port_id: msg.port_id,
         channel_id: Some(chan_id),
         connection_id: msg.channel.connection_hops[0].clone(),
         counterparty_port_id: msg.channel.counterparty().port_id.clone(),

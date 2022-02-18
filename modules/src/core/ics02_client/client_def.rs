@@ -227,7 +227,7 @@ impl ClientDef for AnyClient {
                 .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 let (new_state, new_consensus) =
-                    client.check_header_and_update_state(client_state, header)?;
+                    client.check_header_and_update_state(ctx, client_id, client_state, header)?;
 
                 Ok((
                     AnyClientState::Grandpa(new_state),
@@ -295,6 +295,7 @@ impl ClientDef for AnyClient {
                     height,
                     prefix,
                     proof,
+                    root,
                     client_id,
                     consensus_height,
                     expected_consensus_state,
@@ -356,6 +357,7 @@ impl ClientDef for AnyClient {
                     height,
                     prefix,
                     proof,
+                    root,
                     connection_id,
                     expected_connection_end,
                 )
@@ -415,6 +417,7 @@ impl ClientDef for AnyClient {
                     height,
                     prefix,
                     proof,
+                    root,
                     port_id,
                     channel_id,
                     expected_channel_end,
@@ -476,10 +479,10 @@ impl ClientDef for AnyClient {
                 client.verify_client_full_state(
                     client_state,
                     height,
-                    root,
                     prefix,
-                    client_id,
                     proof,
+                    root,
+                    client_id,
                     client_state_on_counterparty,
                 )
             }
@@ -543,12 +546,15 @@ impl ClientDef for AnyClient {
                 .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 client.verify_packet_data(
+                    ctx,
                     client_state,
                     height,
+                    connection_end,
                     proof,
+                    root,
                     port_id,
                     channel_id,
-                    seq,
+                    sequence,
                     commitment,
                 )
             }
@@ -616,12 +622,15 @@ impl ClientDef for AnyClient {
                 .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 client.verify_packet_acknowledgement(
+                    ctx,
                     client_state,
                     height,
+                    connection_end,
                     proof,
+                    root,
                     port_id,
                     channel_id,
-                    seq,
+                    sequence,
                     ack,
                 )
             }
@@ -688,12 +697,15 @@ impl ClientDef for AnyClient {
                 .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 client.verify_next_sequence_recv(
+                    ctx,
                     client_state,
                     height,
+                    connection_end,
                     proof,
+                    root,
                     port_id,
                     channel_id,
-                    seq,
+                    sequence,
                 )
             }
 
@@ -756,12 +768,15 @@ impl ClientDef for AnyClient {
                 .ok_or_else(|| Error::client_args_type_mismatch(ClientType::Grandpa))?;
 
                 client.verify_packet_receipt_absence(
+                    ctx,
                     client_state,
                     height,
+                    connection_end,
                     proof,
+                    root,
                     port_id,
                     channel_id,
-                    seq,
+                    sequence,
                 )
             }
 

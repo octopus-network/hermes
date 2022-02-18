@@ -103,11 +103,11 @@ pub fn listen(
     let rt = Arc::new(TokioRuntime::new()?);
     let (event_monitor, rx) = subscribe(config, rt)?;
 
-    info!(
-        "[{}] listening for queries {}",
-        config.id,
-        event_monitor.queries().iter().format(", "),
-    );
+    // info!(
+    //     "[{}] listening for queries {}",
+    //     config.id,
+    //     event_monitor.queries().iter().format(", "),
+    // );
 
     thread::spawn(|| event_monitor.run());
 

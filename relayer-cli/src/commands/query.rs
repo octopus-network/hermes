@@ -6,7 +6,6 @@ use abscissa_core::{Command, Runnable};
 use crate::commands::query::channel_ends::QueryChannelEndsCmd;
 use crate::commands::query::channels::QueryChannelsCmd;
 use crate::commands::query::packet::QueryPacketCmds;
-use ibc_relayer::chain::{CosmosSdkChain, SubstrateChain};
 
 mod channel;
 mod channel_ends;

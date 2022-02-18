@@ -129,7 +129,7 @@ impl Runnable for QueryClientConsensusCmd {
                     match chain.query_client_state(&self.client_id, Height::zero()) {
                         Ok(cs) => cs.chain_id(),
                         Err(e) => {
-                            return Output::error(format!(
+                            Output::error(format!(
                                 "Failed while querying client '{}' on chain '{}' with error: {}",
                                 self.client_id, self.chain_id, e
                             ))
@@ -182,7 +182,7 @@ impl Runnable for QueryClientConsensusCmd {
                     match chain.query_client_state(&self.client_id, Height::zero()) {
                         Ok(cs) => cs.chain_id(),
                         Err(e) => {
-                            return Output::error(format!(
+                            Output::error(format!(
                                 "Failed while querying client '{}' on chain '{}' with error: {}",
                                 self.client_id, self.chain_id, e
                             ))
@@ -275,7 +275,7 @@ impl Runnable for QueryClientHeaderCmd {
                     match chain.query_client_state(&self.client_id, Height::zero()) {
                         Ok(cs) => cs.chain_id(),
                         Err(e) => {
-                            return Output::error(format!(
+                            Output::error(format!(
                                 "Failed while querying client '{}' on chain '{}' with error: {}",
                                 self.client_id, self.chain_id, e
                             ))
@@ -289,7 +289,7 @@ impl Runnable for QueryClientHeaderCmd {
 
                 let res = chain.query_txs(QueryTxRequest::Client(QueryClientEventRequest {
                     height,
-                    event_id: IbcEventType::UpdateClient,
+                    event_id: WithBlockDataType::UpdateClient,
                     client_id: self.client_id.clone(),
                     consensus_height,
                 }));
@@ -306,7 +306,7 @@ impl Runnable for QueryClientHeaderCmd {
                     match chain.query_client_state(&self.client_id, Height::zero()) {
                         Ok(cs) => cs.chain_id(),
                         Err(e) => {
-                            return Output::error(format!(
+                            Output::error(format!(
                                 "Failed while querying client '{}' on chain '{}' with error: {}",
                                 self.client_id, self.chain_id, e
                             ))

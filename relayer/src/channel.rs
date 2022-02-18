@@ -869,7 +869,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         );
 
         // Channel must exist on source
-        let mut src_channel = self
+        let src_channel = self
             .src_chain()
             .query_channel(self.src_port_id(), src_channel_id, Height::zero())
             .map_err(|e| ChannelError::query(self.src_chain().id(), e))?;

@@ -149,20 +149,6 @@ impl core::fmt::Display for Packet {
     }
 }
 
-impl Default for Packet {
-    fn default() -> Self {
-        Packet {
-            sequence: Sequence(0),
-            source_port: Default::default(),
-            source_channel: Default::default(),
-            destination_port: Default::default(),
-            destination_channel: Default::default(),
-            data: Vec::new(),
-            timeout_height: Default::default(),
-            timeout_timestamp: Default::default(),
-        }
-    }
-}
 
 impl Protobuf<RawPacket> for Packet {}
 

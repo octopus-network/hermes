@@ -4,10 +4,10 @@ use core::fmt;
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Misbehaviour as RawMisbehaviour;
 
-use crate::ics02_client::misbehaviour::AnyMisbehaviour;
-use crate::ics10_grandpa::error::Error;
-use crate::ics10_grandpa::header::Header;
-use crate::ics24_host::identifier::ClientId;
+use crate::core::ics02_client::misbehaviour::AnyMisbehaviour;
+use crate::clients::ics10_grandpa::error::Error;
+use crate::clients::ics10_grandpa::header::Header;
+use crate::core::ics24_host::identifier::ClientId;
 use crate::Height;
 use tendermint_proto::Protobuf;
 
@@ -18,7 +18,7 @@ pub struct Misbehaviour {
     pub header2: Header,
 }
 
-impl crate::ics02_client::misbehaviour::Misbehaviour for Misbehaviour {
+impl crate::core::ics02_client::misbehaviour::Misbehaviour for Misbehaviour {
     fn client_id(&self) -> &ClientId {
         &self.client_id
     }

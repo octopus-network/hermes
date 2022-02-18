@@ -93,12 +93,6 @@ impl ChainHandle for ProdChainHandle {
         Self::new(chain_id, sender)
     }
 
-    fn send_messages_no_wait(&self, proto_msgs: Vec<prost_types::Any>) {
-        self.send_async(|reply_to| ChainRequest::SendMessagesAndWaitCommit {
-            proto_msgs,
-            reply_to,
-        });
-    }
 
     fn id(&self) -> ChainId {
         self.chain_id.clone()

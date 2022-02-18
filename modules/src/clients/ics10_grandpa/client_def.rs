@@ -8,19 +8,21 @@ use tendermint_proto::Protobuf;
 
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
-use crate::ics02_client::client_consensus::AnyConsensusState;
-use crate::ics02_client::client_def::ClientDef;
-use crate::ics02_client::client_state::AnyClientState;
-use crate::ics02_client::error::Error;
-use crate::ics03_connection::connection::ConnectionEnd;
-use crate::ics04_channel::channel::ChannelEnd;
-use crate::ics04_channel::packet::Sequence;
-use crate::ics10_grandpa::client_state::ClientState;
-use crate::ics10_grandpa::consensus_state::ConsensusState;
-use crate::ics10_grandpa::header::Header;
-use crate::ics23_commitment::commitment::{CommitmentPrefix, CommitmentProofBytes, CommitmentRoot};
-use crate::ics24_host::identifier::ConnectionId;
-use crate::ics24_host::identifier::{ChannelId, ClientId, PortId};
+use crate::core::ics02_client::client_consensus::AnyConsensusState;
+use crate::core::ics02_client::client_def::ClientDef;
+use crate::core::ics02_client::client_state::AnyClientState;
+use crate::core::ics02_client::error::Error;
+use crate::core::ics03_connection::connection::ConnectionEnd;
+use crate::core::ics04_channel::channel::ChannelEnd;
+use crate::core::ics04_channel::packet::Sequence;
+use crate::clients::ics10_grandpa::client_state::ClientState;
+use crate::clients::ics10_grandpa::consensus_state::ConsensusState;
+use crate::clients::ics10_grandpa::header::Header;
+use crate::core::ics02_client::context::ClientReader;
+use crate::core::ics04_channel::context::ChannelReader;
+use crate::core::ics23_commitment::commitment::{CommitmentPrefix, CommitmentProofBytes, CommitmentRoot};
+use crate::core::ics24_host::identifier::ConnectionId;
+use crate::core::ics24_host::identifier::{ChannelId, ClientId, PortId};
 use crate::Height;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -33,265 +35,304 @@ impl ClientDef for GrandpaClient {
 
     fn check_header_and_update_state(
         &self,
+        ctx: &dyn ClientReader,
+        client_id: ClientId,
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-        tracing::info!("in ics10 client_def [check_header_and_update_state]");
-        tracing::info!("in ics10 client_def [check_header_and_update_state] >> Header block_header block_number\
-         = {:?}, ClientState latest_commitment block_number = {:?}", header.block_header.block_number, client_state.latest_commitment.block_number);
-        tracing::info!(
-            "in client_def: [check_header_and_update_state] >> client_state = {:?}",
-            client_state
-        );
-        tracing::info!(
-            "in client_def: [check_header_and_update_state] >> header = {:?}",
-            header
-        );
+            tracing::info!("in ics10 client_def [check_header_and_update_state]");
+            tracing::info!("in ics10 client_def [check_header_and_update_state] >> Header block_header block_number\
+             = {:?}, ClientState latest_commitment block_number = {:?}", header.block_header.block_number, client_state.latest_commitment.block_number);
+            tracing::info!(
+                "in client_def: [check_header_and_update_state] >> client_state = {:?}",
+                client_state
+            );
+            tracing::info!(
+                "in client_def: [check_header_and_update_state] >> header = {:?}",
+                header
+            );
 
-        // if client_state.latest_height() >= header.height() {
-        //     return Err(Error::low_header_height(
-        //         header.height(),
-        //         client_state.latest_height(),
-        //     ));
-        // }
+            // if client_state.latest_height() >= header.height() {
+            //     return Err(Error::low_header_height(
+            //         header.height(),
+            //         client_state.latest_height(),
+            //     ));
+            // }
 
-        if header.block_header.block_number > client_state.latest_commitment.block_number {
-            return Err(Error::invalid_mmr_root_height(
-                client_state.latest_commitment.block_number,
-                header.block_header.block_number,
-            ));
-        }
+            if header.block_header.block_number > client_state.latest_commitment.block_number {
+                return Err(Error::invalid_mmr_root_height(
+                    client_state.latest_commitment.block_number,
+                    header.block_header.block_number,
+                ));
+            }
 
-        if client_state.latest_commitment.payload.is_empty() {
-            return Err(Error::empty_mmr_root());
-        }
+            if client_state.latest_commitment.payload.is_empty() {
+                return Err(Error::empty_mmr_root());
+            }
 
-        let mut mmr_root = [0u8; 32];
-        mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
+            let mut mmr_root = [0u8; 32];
+            mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
 
-        let mmr_proof = header.clone().mmr_leaf_proof;
-        let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
+            let mmr_proof = header.clone().mmr_leaf_proof;
+            let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
 
-        let mmr_leaf_encode =
-            beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf).encode();
-        let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
-        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf);
+            let mmr_leaf_encode =
+                beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf).encode();
+            let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
+            let mmr_leaf = beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf);
 
-        let header_hash = header.hash();
+            let header_hash = header.hash();
 
-        if mmr_leaf.parent_number_and_hash.1.is_empty() {
-            return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
-        }
-        tracing::info!(
-            "ics1 client_def :[check_header_and_update_state] >> header_hash = {:?}",
-            header_hash
-        );
-        tracing::info!(
-            "ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}",
-            mmr_leaf.parent_number_and_hash.1
-        );
+            if mmr_leaf.parent_number_and_hash.1.is_empty() {
+                return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
+            }
+            tracing::info!(
+                "ics1 client_def :[check_header_and_update_state] >> header_hash = {:?}",
+                header_hash
+            );
+            tracing::info!(
+                "ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}",
+                mmr_leaf.parent_number_and_hash.1
+            );
 
-        if header_hash != mmr_leaf.parent_number_and_hash.1 {
-            return Err(Error::header_hash_not_match());
-        }
+            if header_hash != mmr_leaf.parent_number_and_hash.1 {
+                return Err(Error::header_hash_not_match());
+            }
 
-        tracing::info!(
-            "in client_def: [check_header_and_update_state] >> mmr_root = {:?}",
-            mmr_root.clone()
-        );
-        tracing::info!(
-            "in client_def: [check_header_and_update_state] >> mmr_leaf_hash = {:?}",
-            mmr_leaf_hash.clone()
-        );
-        tracing::info!(
-            "in client_def: [check_header_and_update_state] >> mmr_proof = {:?}",
-            mmr_proof.clone()
-        );
-        let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
-            .map_err(|_| Error::invalid_mmr_leaf_proof())?;
+            tracing::info!(
+                "in client_def: [check_header_and_update_state] >> mmr_root = {:?}",
+                mmr_root.clone()
+            );
+            tracing::info!(
+                "in client_def: [check_header_and_update_state] >> mmr_leaf_hash = {:?}",
+                mmr_leaf_hash.clone()
+            );
+            tracing::info!(
+                "in client_def: [check_header_and_update_state] >> mmr_proof = {:?}",
+                mmr_proof.clone()
+            );
+            let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
+                .map_err(|_| Error::invalid_mmr_leaf_proof())?;
 
-        if !result {
-            return Err(Error::invalid_mmr_leaf_proof());
-        }
+            if !result {
+                return Err(Error::invalid_mmr_leaf_proof());
+            }
 
-        let client_state = ClientState {
-            block_header: header.clone().block_header,
-            block_number: header.clone().block_header.block_number,
-            ..client_state
-        };
+            let client_state = ClientState {
+                block_header: header.clone().block_header,
+                block_number: header.clone().block_header.block_number,
+                ..client_state
+            };
 
-        tracing::info!(
-            "in client_def: [check_header_and_update_state] >> client_state = {:?}",
-            client_state
-        );
-        tracing::info!(
-            "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
-            ConsensusState::from(header.clone())
-        );
+            tracing::info!(
+                "in client_def: [check_header_and_update_state] >> client_state = {:?}",
+                client_state
+            );
+            tracing::info!(
+                "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
+                ConsensusState::from(header.clone())
+            );
 
-        Ok((client_state, ConsensusState::from(header.clone())))
+            Ok((client_state, ConsensusState::from(header.clone())))
     }
 
-    fn verify_client_consensus_state(
-        &self,
-        _client_state: &Self::ClientState,
-        _height: Height,
-        _prefix: &CommitmentPrefix,
-        _proof: &CommitmentProofBytes,
-        _client_id: &ClientId,
-        _consensus_height: Height,
-        _expected_consensus_state: &AnyConsensusState,
-    ) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn verify_connection_state(
-        &self,
-        _client_state: &Self::ClientState,
-        _height: Height,
-        _prefix: &CommitmentPrefix,
-        _proof: &CommitmentProofBytes,
-        _connection_id: Option<&ConnectionId>,
-        _expected_connection_end: &ConnectionEnd,
-    ) -> Result<(), Error> {
-        // Todo: the _connection_id is None in `tx raw conn-ack`, as the _connection_id is not set in `tx raw conn-init`
-        // https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/modules/src/ics03_connection/handler/conn_open_init.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L33
-        // let keys: Vec<Vec<u8>> = vec![_connection_id.unwrap().as_bytes().to_vec()];
-        let keys: Vec<Vec<u8>> = vec!["connection-0".as_bytes().to_vec()];
-        let storage_result =
-            Self::get_storage_via_proof(_client_state, _height, _proof, keys, "Connections")
-                .unwrap();
-        let connection_end = ConnectionEnd::decode_vec(&storage_result).unwrap();
-        tracing::info!(
-            "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
-            connection_end
-        );
-
-        if !(connection_end.encode_vec().unwrap() == _expected_connection_end.encode_vec().unwrap())
-        {
-            return Err(Error::invalid_connection_state());
-        }
-        Ok(())
-    }
-
-    fn verify_channel_state(
-        &self,
-        _client_state: &Self::ClientState,
-        _height: Height,
-        _prefix: &CommitmentPrefix,
-        _proof: &CommitmentProofBytes,
-        _port_id: &PortId,
-        _channel_id: &ChannelId,
-        _expected_channel_end: &ChannelEnd,
-    ) -> Result<(), Error> {
-        let keys: Vec<Vec<u8>> = vec![
-            _port_id.as_bytes().to_vec(),
-            _channel_id.as_bytes().to_vec(),
-        ];
-        let storage_result =
-            Self::get_storage_via_proof(_client_state, _height, _proof, keys, "Channels").unwrap();
-        let channel_end = ChannelEnd::decode_vec(&storage_result).unwrap();
-        tracing::info!(
-            "In ics10-client_def.rs: [verify_connection_state] >> channel_end: {:?}",
-            channel_end
-        );
-
-        if !(channel_end.encode_vec().unwrap() == _expected_channel_end.encode_vec().unwrap()) {
-            return Err(Error::invalid_connection_state());
-        }
-        Ok(())
-    }
-
-    fn verify_client_full_state(
-        &self,
-        _client_state: &Self::ClientState,
-        _height: Height,
-        _root: &CommitmentRoot,
-        _prefix: &CommitmentPrefix,
-        _client_id: &ClientId,
-        _proof: &CommitmentProofBytes,
-        _expected_client_state: &AnyClientState,
-    ) -> Result<(), Error> {
-        let keys: Vec<Vec<u8>> = vec![_client_id.as_bytes().to_vec()];
-        let storage_result =
-            Self::get_storage_via_proof(_client_state, _height, _proof, keys, "ClientStates")
-                .unwrap();
-        let any_client_state = AnyClientState::decode_vec(&storage_result).unwrap();
-        tracing::info!(
-            "In ics10-client_def.rs: [verify_client_full_state] >> decoded client_state: {:?}",
-            any_client_state
-        );
-        tracing::info!(
-            "In ics10-client_def.rs: [verify_client_full_state] >>  _expected_client_state: {:?}",
-            _expected_client_state
-        );
-
-        if !(any_client_state.encode_vec().unwrap() == _expected_client_state.encode_vec().unwrap())
-        {
-            return Err(Error::invalid_client_state());
-        }
-        Ok(())
-    }
-
-    fn verify_packet_data(
-        &self,
-        _client_state: &Self::ClientState,
-        _height: Height,
-        _proof: &CommitmentProofBytes,
-        _port_id: &PortId,
-        _channel_id: &ChannelId,
-        _seq: &Sequence,
-        _data: String,
-    ) -> Result<(), Error> {
-        Ok(()) // Todo:
-    }
-
-    fn verify_packet_acknowledgement(
-        &self,
-        _client_state: &Self::ClientState,
-        _height: Height,
-        _proof: &CommitmentProofBytes,
-        _port_id: &PortId,
-        _channel_id: &ChannelId,
-        _seq: &Sequence,
-        _data: Vec<u8>,
-    ) -> Result<(), Error> {
-        Ok(()) // todo!()
-    }
-
-    fn verify_next_sequence_recv(
-        &self,
-        _client_state: &Self::ClientState,
-        _height: Height,
-        _proof: &CommitmentProofBytes,
-        _port_id: &PortId,
-        _channel_id: &ChannelId,
-        _seq: &Sequence,
-    ) -> Result<(), Error> {
-        Ok(()) // todo!()
-    }
-
-    fn verify_packet_receipt_absence(
-        &self,
-        _client_state: &Self::ClientState,
-        _height: Height,
-        _proof: &CommitmentProofBytes,
-        _port_id: &PortId,
-        _channel_id: &ChannelId,
-        _seq: &Sequence,
-    ) -> Result<(), Error> {
-        Ok(()) // todo:
-    }
-
+    /// TODO
     fn verify_upgrade_and_update_state(
         &self,
         client_state: &Self::ClientState,
         consensus_state: &Self::ConsensusState,
-        _proof_upgrade_client: MerkleProof,
-        _proof_upgrade_consensus_state: MerkleProof,
+        proof_upgrade_client: MerkleProof,
+        proof_upgrade_consensus_state: MerkleProof,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-        // TODO
         Ok((client_state.clone(), consensus_state.clone()))
+    }
+
+    /// Verification functions as specified in:
+    /// <https://github.com/cosmos/ibc/tree/master/spec/ics-002-client-semantics>
+    ///
+    /// Verify a `proof` that the consensus state of a given client (at height `consensus_height`)
+    /// matches the input `consensus_state`. The parameter `counterparty_height` represent the
+    /// height of the counterparty chain that this proof assumes (i.e., the height at which this
+    /// proof was computed).
+    #[allow(clippy::too_many_arguments)]
+    fn verify_client_consensus_state(
+        &self,
+        client_state: &Self::ClientState,
+        height: Height,
+        prefix: &CommitmentPrefix,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        client_id: &ClientId,
+        consensus_height: Height,
+        expected_consensus_state: &AnyConsensusState,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
+
+    /// Verify a `proof` that a connection state matches that of the input `connection_end`.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_connection_state(
+        &self,
+        client_state: &Self::ClientState,
+        height: Height,
+        prefix: &CommitmentPrefix,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        connection_id: &ConnectionId,
+        expected_connection_end: &ConnectionEnd,
+    ) -> Result<(), Error> {
+            // Todo: the _connection_id is None in `tx raw conn-ack`, as the _connection_id is not set in `tx raw conn-init`
+            // https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/modules/src/ics03_connection/handler/conn_open_init.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L33
+            // let keys: Vec<Vec<u8>> = vec![_connection_id.unwrap().as_bytes().to_vec()];
+            let keys: Vec<Vec<u8>> = vec!["connection-0".as_bytes().to_vec()];
+            let storage_result =
+                Self::get_storage_via_proof(client_state, height, proof, keys, "Connections")
+                    .unwrap();
+            let connection_end = ConnectionEnd::decode_vec(&storage_result).unwrap();
+            tracing::info!(
+                "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
+                connection_end
+            );
+
+            if !(connection_end.encode_vec().unwrap() == expected_connection_end.encode_vec().unwrap())
+            {
+                return Err(Error::invalid_connection_state());
+            }
+            Ok(())
+    }
+
+    /// Verify a `proof` that a channel state matches that of the input `channel_end`.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_channel_state(
+        &self,
+        client_state: &Self::ClientState,
+        height: Height,
+        prefix: &CommitmentPrefix,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        expected_channel_end: &ChannelEnd,
+    ) -> Result<(), Error> {
+            let keys: Vec<Vec<u8>> = vec![
+                port_id.as_bytes().to_vec(),
+                channel_id.as_bytes().to_vec(),
+            ];
+            let storage_result =
+                Self::get_storage_via_proof(client_state, height, proof, keys, "Channels").unwrap();
+            let channel_end = ChannelEnd::decode_vec(&storage_result).unwrap();
+            tracing::info!(
+                "In ics10-client_def.rs: [verify_connection_state] >> channel_end: {:?}",
+                channel_end
+            );
+
+            if !(channel_end.encode_vec().unwrap() == expected_channel_end.encode_vec().unwrap()) {
+                return Err(Error::invalid_connection_state());
+            }
+            Ok(())
+    }
+
+    /// Verify the client state for this chain that it is stored on the counterparty chain.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_client_full_state(
+        &self,
+        client_state: &Self::ClientState,
+        height: Height,
+        prefix: &CommitmentPrefix,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        client_id: &ClientId,
+        expected_client_state: &AnyClientState,
+    ) -> Result<(), Error> {
+            let keys: Vec<Vec<u8>> = vec![client_id.as_bytes().to_vec()];
+            let storage_result =
+                Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates")
+                    .unwrap();
+            let any_client_state = AnyClientState::decode_vec(&storage_result).unwrap();
+            tracing::info!(
+                "In ics10-client_def.rs: [verify_client_full_state] >> decoded client_state: {:?}",
+                any_client_state
+            );
+            tracing::info!(
+                "In ics10-client_def.rs: [verify_client_full_state] >>  _expected_client_state: {:?}",
+                expected_client_state
+            );
+
+            if !(any_client_state.encode_vec().unwrap() == expected_client_state.encode_vec().unwrap())
+            {
+                return Err(Error::invalid_client_state());
+            }
+            Ok(())
+    }
+
+    /// Verify a `proof` that a packet has been commited.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_packet_data(
+        &self,
+        ctx: &dyn ChannelReader,
+        client_state: &Self::ClientState,
+        height: Height,
+        connection_end: &ConnectionEnd,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: Sequence,
+        commitment: String,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
+
+    /// Verify a `proof` that a packet has been commited.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_packet_acknowledgement(
+        &self,
+        ctx: &dyn ChannelReader,
+        client_state: &Self::ClientState,
+        height: Height,
+        connection_end: &ConnectionEnd,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: Sequence,
+        ack: Vec<u8>,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
+
+    /// Verify a `proof` that of the next_seq_received.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_next_sequence_recv(
+        &self,
+        ctx: &dyn ChannelReader,
+        client_state: &Self::ClientState,
+        height: Height,
+        connection_end: &ConnectionEnd,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: Sequence,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
+
+    /// Verify a `proof` that a packet has not been received.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_packet_receipt_absence(
+        &self,
+        ctx: &dyn ChannelReader,
+        client_state: &Self::ClientState,
+        height: Height,
+        connection_end: &ConnectionEnd,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: Sequence,
+    ) -> Result<(), Error> {
+       Ok(())
     }
 }
 
@@ -307,7 +348,7 @@ impl GrandpaClient {
         tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _client_state: {:?}, _height: {:?}, _keys: {:?}, _storage_name: {:?}",
             _client_state, _height, _keys, _storage_name);
 
-        use crate::ics10_grandpa::state_machine::read_proof_check;
+        use crate::clients::ics10_grandpa::state_machine::read_proof_check;
         use core::convert::TryFrom;
         use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
         use ibc_proto::ics23::commitment_proof::Proof::Exist;
@@ -353,7 +394,7 @@ impl GrandpaClient {
             state_root
         );
 
-        let mut storage_result = read_proof_check::<BlakeTwo256>(
+        let storage_result = read_proof_check::<BlakeTwo256>(
             sp_core::H256::from(state_root),
             StorageProof::new(storage_proof.proof),
             &_storage_keys,
@@ -411,14 +452,14 @@ fn vector_to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
 #[cfg(test)]
 mod tests {
     use super::GrandpaClient;
-    use crate::ics02_client::client_def::ClientDef;
-    use crate::ics02_client::height::Height;
-    use crate::ics10_grandpa::client_state::ClientState;
-    use crate::ics10_grandpa::header::Header;
-    use crate::ics10_grandpa::help::{
+    use crate::core::ics02_client::client_def::ClientDef;
+    use crate::core::ics02_client::height::Height;
+    use crate::clients::ics10_grandpa::client_state::ClientState;
+    use crate::clients::ics10_grandpa::header::Header;
+    use crate::clients::ics10_grandpa::help::{
         BlockHeader, Commitment, MmrLeaf, MmrLeafProof, ValidatorSet,
     };
-    use crate::ics24_host::identifier::ChainId;
+    use crate::core::ics24_host::identifier::ChainId;
     use alloc::boxed::Box;
     use beefy_merkle_tree::Keccak256;
     use codec::{Decode, Encode};
@@ -485,7 +526,7 @@ mod tests {
         println!("beefy_light_client header = {:?}", header);
         println!("beefy_light_client header hash = {:?}", header.hash());
 
-        let ics10_header = crate::ics10_grandpa::help::BlockHeader::from(header_1);
+        let ics10_header = crate::clients::ics10_grandpa::help::BlockHeader::from(header_1);
         println!("grandpa_header  = {:?}", ics10_header);
         println!("ics10_header hash = {:?}", ics10_header.hash());
 

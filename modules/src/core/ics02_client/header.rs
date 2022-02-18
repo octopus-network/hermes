@@ -2,6 +2,7 @@ use core::ops::Deref;
 
 use prost_types::Any;
 use serde_derive::{Deserialize, Serialize};
+use serde_json::to_string;
 use subtle_encoding::hex;
 use tendermint_proto::Protobuf;
 
@@ -68,6 +69,8 @@ impl Header for AnyHeader {
     fn timestamp(&self) -> Timestamp {
         match self {
             Self::Tendermint(header) => header.timestamp(),
+            Self::Grandpa(header) => todo!(),
+
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(header) => header.timestamp(),
         }

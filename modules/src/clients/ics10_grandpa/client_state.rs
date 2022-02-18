@@ -11,11 +11,11 @@ use super::help::BlockHeader;
 use super::help::Commitment;
 use super::help::ValidatorSet;
 
-use crate::ics02_client::client_state::AnyClientState;
-use crate::ics02_client::client_type::ClientType;
-use crate::ics10_grandpa::error::Error;
-use crate::ics10_grandpa::header::Header;
-use crate::ics24_host::identifier::ChainId;
+use crate::core::ics02_client::client_state::AnyClientState;
+use crate::core::ics02_client::client_type::ClientType;
+use crate::clients::ics10_grandpa::error::Error;
+use crate::clients::ics10_grandpa::header::Header;
+use crate::core::ics24_host::identifier::ChainId;
 use crate::Height;
 use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
@@ -95,7 +95,9 @@ impl ClientState {
 
 impl Protobuf<RawClientState> for ClientState {}
 
-impl crate::ics02_client::client_state::ClientState for ClientState {
+impl crate::core::ics02_client::client_state::ClientState for ClientState {
+    type UpgradeOptions = ();
+
     fn chain_id(&self) -> ChainId {
         self.chain_id.clone()
     }
@@ -111,6 +113,14 @@ impl crate::ics02_client::client_state::ClientState for ClientState {
     fn is_frozen(&self) -> bool {
         // If 'frozen_height' is set to a non-zero value, then the client state is frozen.
         !self.frozen_height.is_zero()
+    }
+
+    fn frozen_height(&self) -> Option<Height> {
+        Some(self.frozen_height)
+    }
+
+    fn upgrade(self, upgrade_height: Height, upgrade_options: Self::UpgradeOptions, chain_id: ChainId) -> Self {
+        todo!()
     }
 
     fn wrap_any(self) -> AnyClientState {
