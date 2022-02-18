@@ -687,7 +687,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         target_height: Height,
         trusted_height: Height,
     ) -> Result<Vec<Any>, ForeignClientError> {
-        info!("foreign_client: [build_update_client_with_trusted]");
+        trace!("foreign_client: [build_update_client_with_trusted], target_height = {:?}, trusted_height = {:?}", target_height, trusted_height);
 
         // Wait for source chain to reach `target_height`
         while self.src_chain().query_latest_height().map_err(|e| {

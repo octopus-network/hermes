@@ -330,7 +330,7 @@ impl GrandpaClient {
         let state_root = vector_to_array::<u8, 32>(state_root);
         tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> state_root: {:?}", state_root);
 
-        let mut storage_result = read_proof_check::<BlakeTwo256>(
+        let storage_result = read_proof_check::<BlakeTwo256>(
             sp_core::H256::from(state_root),
             StorageProof::new(storage_proof.proof),
             &_storage_keys,
@@ -366,6 +366,24 @@ impl GrandpaClient {
             final_key.extend_from_slice(key2_hashed.as_ref());
             return Ok(final_key);
         }
+
+/*        if _keys.len() == 3 {
+            let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
+            let mut key_hashed:Vec<u8> = Vec::new();
+            let mut iter = (_keys[0], _keys[1], _keys[2]).to_encoded_iter();
+            for_tuples!(
+                #(
+                    let next_encoded = iter.next().expect("KArg number should be equal to Key number");
+                    final_key.extend_from_slice(&Tuple::final_hash(&next_encoded));
+                )*
+            );
+            let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
+
+            final_key.extend_from_slice(&storage_prefix);
+            final_key.extend_from_slice(key_hashed.as_ref());
+
+            return Ok(final_key)
+        }*/
 
         return Err(Error::wrong_key_number(_keys.len().try_into().unwrap()));
     }

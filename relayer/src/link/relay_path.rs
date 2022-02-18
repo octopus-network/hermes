@@ -244,6 +244,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     // Determines if the events received are relevant and should be processed.
     // Only events for a port/channel matching one of the channel ends should be processed.
     fn filter_relaying_events(&self, events: Vec<IbcEvent>) -> Vec<IbcEvent> {
+        tracing::trace!("In relay_path, [filter_relaying_events], events = {:?}", events);
         let src_channel_id = self.src_channel_id();
 
         let mut result = vec![];
@@ -674,15 +675,16 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
 
     /// Checks if a packet commitment has been cleared on source.
     /// The packet commitment is cleared when either an acknowledgment or a timeout is received on source.
-    fn send_packet_commitment_cleared_on_src(&self, packet: &Packet) -> Result<bool, LinkError> {
+    fn send_packet_commitment_cleared_on_src(&self, sendPacket: &SendPacket) -> Result<bool, LinkError> {
+        trace!("In relay_path: [send_packet_commitment_cleared_on_src]. self.src_chain = {:?}, packet = {:?}", self.src_chain(), sendPacket);
         let (bytes, _) = self
             .src_chain()
             .build_packet_proofs(
                 PacketMsgType::Recv,
                 self.src_port_id(),
                 self.src_channel_id(),
-                packet.sequence,
-                Height::zero(),
+                sendPacket.packet.sequence,
+                sendPacket.height,
             )
             .map_err(LinkError::relayer)?;
 
@@ -692,7 +694,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     /// Checks if a send packet event has already been handled (e.g. by another relayer).
     fn send_packet_event_handled(&self, sp: &SendPacket) -> Result<bool, LinkError> {
         Ok(self.send_packet_received_on_dst(&sp.packet)?
-            || self.send_packet_commitment_cleared_on_src(&sp.packet)?)
+            || self.send_packet_commitment_cleared_on_src(sp)?)
     }
 
     /// Checks if an acknowledgement for the given packet has been received on
@@ -999,6 +1001,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     }
 
     fn build_recv_packet(&self, packet: &Packet, height: Height) -> Result<Option<Any>, LinkError> {
+        trace!("In relay_path: [send_packet_commitment_cleared_on_src]. self.src_chain = {:?}, packet = {:?}, height = {:?}", self.src_chain(), packet, height);
         let (_, proofs) = self
             .src_chain()
             .build_packet_proofs(

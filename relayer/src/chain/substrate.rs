@@ -318,7 +318,7 @@ impl SubstrateChain {
     /// Retrieve the storage proof according to storage keys
     /// And convert the proof to IBC compatible type
     fn generate_storage_proof<F: StorageEntry>
-        (&self, storage_entry: &F, height: &Height) -> MerkleProof
+        (&self, storage_entry: &F, height: &Height, storage_name: &str) -> MerkleProof
         where <F as StorageEntry>::Value: serde::Serialize + core::fmt::Debug
     {
         let generate_storage_proof = async {
@@ -336,7 +336,8 @@ impl SubstrateChain {
             let _height = NumberOrHex::Number(height.revision_height);
             let block_hash: Option<H256> = client.rpc().block_hash(Some(BlockNumber::from(_height))).await.unwrap();
             let storage_key = storage_entry.key().final_key(StorageKeyPrefix::new::<F>());
-            tracing::debug!("In substrate: [generate_storage_proof] >> height: {:?}, block_hash: {:?}, storage key: {:?}", height, block_hash, storage_key);
+            tracing::debug!("In substrate: [generate_storage_proof] >> height: {:?}, block_hash: {:?}, storage key: {:?}, storage_name = {:?}",
+                height, block_hash, storage_key, storage_name);
 
             use jsonrpsee::types::to_json_value;
             let params = &[to_json_value(vec![storage_key]).unwrap(), to_json_value(block_hash.unwrap()).unwrap()];
@@ -353,7 +354,7 @@ impl SubstrateChain {
                 .request("state_getReadProof", params)
                 .await
                 .unwrap();
-            tracing::debug!(
+            tracing::trace!(
                 "In Substrate: [generate_storage_proof] >> storage_proof : {:?}",
                 storage_proof
             );
@@ -372,13 +373,13 @@ impl SubstrateChain {
                     .map(|val| val.clone().0)
                     .collect::<Vec<Vec<u8>>>(),
             };
-            tracing::info!(
+            tracing::trace!(
                 "In Substrate: [generate_storage_proof] >> storage_proof_ : {:?}",
                 storage_proof_
             );
 
             let storage_proof_str = serde_json::to_string(&storage_proof_).unwrap();
-            tracing::info!(
+            tracing::trace!(
                 "In Substrate: [generate_storage_proof] >> storage_proof_str: {:?}",
                 storage_proof_str
             );
@@ -584,7 +585,7 @@ impl ChainEndpoint for SubstrateChain {
             let result = self.deliever(proto_msgs, client).await.unwrap();
 
             tracing::info!(
-                "in Substrate: [send_messages_and_wait_commit] >> result : {:?}",
+                "in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}",
                 result
             );
 
@@ -1319,7 +1320,7 @@ impl ChainEndpoint for SubstrateChain {
         let client_state = self.block_on(client_state);
 
         let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes().to_vec());
-        Ok((client_state, self.generate_storage_proof(&storage_entry, &height)))
+        Ok((client_state, self.generate_storage_proof(&storage_entry, &height, "ClientStates")))
     }
 
     fn proven_connection(
@@ -1381,7 +1382,7 @@ impl ChainEndpoint for SubstrateChain {
         }
 
         let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes().to_vec());
-        Ok((new_connection_end, self.generate_storage_proof(&storage_entry, &height)))
+        Ok((new_connection_end, self.generate_storage_proof(&storage_entry, &height, "Connections")))
     }
 
     fn proven_client_consensus(
@@ -1419,7 +1420,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let consensus_state = self.block_on(consensus_state);
         let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes().to_vec());
-        Ok((consensus_state, self.generate_storage_proof(&storage_entry, &height)))
+        Ok((consensus_state, self.generate_storage_proof(&storage_entry, &consensus_height, "ConsensusStates")))
     }
 
     fn proven_channel(
@@ -1460,7 +1461,7 @@ impl ChainEndpoint for SubstrateChain {
         let channel_end = self.block_on(channel_end);
 
         let storage_entry = ibc_node::ibc::storage::Channels(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec());
-        Ok((channel_end, self.generate_storage_proof(&storage_entry, &height)))
+        Ok((channel_end, self.generate_storage_proof(&storage_entry, &height, "Channels")))
     }
 
     fn proven_packet(
@@ -1513,11 +1514,11 @@ impl ChainEndpoint for SubstrateChain {
         match packet_type {
             PacketMsgType::Recv => {
                 let storage_entry = ibc_node::ibc::storage::PacketCommitment(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
-                Ok((packet_result, self.generate_storage_proof(&storage_entry, &height)))
+                Ok((packet_result, self.generate_storage_proof(&storage_entry, &height, "PacketCommitment")))
             }
             PacketMsgType::Ack => {
                 let storage_entry = ibc_node::ibc::storage::Acknowledgements(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
-                Ok((packet_result, self.generate_storage_proof(&storage_entry, &height)))
+                Ok((packet_result, self.generate_storage_proof(&storage_entry, &height, "Acknowledgements")))
             }
             _ => unimplemented!(),
         }
