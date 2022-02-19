@@ -22,6 +22,12 @@ use crate::ics23_commitment::commitment::{CommitmentPrefix, CommitmentProofBytes
 use crate::ics24_host::identifier::ConnectionId;
 use crate::ics24_host::identifier::{ChannelId, ClientId, PortId};
 use crate::Height;
+use frame_support::storage::storage_prefix;
+use frame_support::{Blake2_128Concat, StorageHasher};
+use frame_support::storage::types::EncodeLikeTuple;
+use frame_support::storage::types::TupleToEncodedIter;
+use frame_support::storage::Key;
+use frame_support::storage::types::KeyGenerator;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GrandpaClient;
@@ -374,8 +380,8 @@ impl GrandpaClient {
 
     /// Migrate from substrate: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
     fn storage_map_final_key(_keys: Vec<Vec<u8>>, _storage_name: &str) -> Result<Vec<u8>, Error> {
-        use frame_support::storage::storage_prefix;
-        use frame_support::{Blake2_128Concat, StorageHasher};
+
+
         if _keys.len() == 1 {
             let key_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[0].encode());
             let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
@@ -397,6 +403,20 @@ impl GrandpaClient {
             final_key.extend_from_slice(key1_hashed.as_ref());
             final_key.extend_from_slice(key2_hashed.as_ref());
             return Ok(final_key);
+        }
+
+        if _keys.len() == 3 {
+            let result_keys = (_keys[0].clone(), _keys[0].clone(), _keys[0].clone());
+            let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
+
+            let key_hashed = <(Key<Blake2_128Concat, Vec<u8>>, Key<Blake2_128Concat, Vec<u8>>,Key<Blake2_128Concat, Vec<u8>>) as KeyGenerator>::final_key(result_keys);
+
+            let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
+
+            final_key.extend_from_slice(&storage_prefix);
+            final_key.extend_from_slice(key_hashed.as_ref());
+
+            return Ok(final_key)
         }
 
         return Err(Error::wrong_key_number(_keys.len().try_into().unwrap()));
