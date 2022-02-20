@@ -326,7 +326,6 @@ impl SubstrateChain {
             use sp_core::{storage::StorageKey, Bytes};
             use serde::{Deserialize, Serialize};
 
-
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
