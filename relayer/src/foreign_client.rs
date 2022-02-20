@@ -701,8 +701,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             thread::sleep(Duration::from_millis(200))
         }
 
-
-
         // Get the latest client state on destination.
         let client_state = self
             .dst_chain()
@@ -715,8 +713,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })?;
 
-        info!("foreign_client: [build_update_client_with_trusted] >> client_state = {:?}", client_state);
-
+        info!(
+            "foreign_client: [build_update_client_with_trusted] >> client_state = {:?}",
+            client_state
+        );
 
         // if grandpa client state process this code
         if let AnyClientState::Grandpa(state) = client_state.clone() {
@@ -726,14 +726,14 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             // need remove unwrap
             let src_chain_websocket_url = self.src_chain().websocket_url().unwrap();
             let dst_chain_websocket_url = self.dst_chain().websocket_url().unwrap();
-            let result = self.src_chain().update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url).unwrap();
+            let result = self
+                .src_chain()
+                .update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url)
+                .unwrap();
         }
 
-
         let client_state = match client_state {
-            AnyClientState::Tendermint(client_state) => {
-                AnyClientState::Tendermint(client_state)
-            }
+            AnyClientState::Tendermint(client_state) => AnyClientState::Tendermint(client_state),
             AnyClientState::Grandpa(client_state) => {
                 let mut mmr_root_height = client_state.latest_commitment.block_number;
                 let mut temp_client_state = AnyClientState::Grandpa(client_state.clone());
@@ -752,10 +752,8 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                             })?;
 
                         mmr_root_height = match client_state.clone() {
-                            AnyClientState::Grandpa(state) => {
-                              state.latest_commitment.block_number
-                            },
-                            _  => unreachable!(),
+                            AnyClientState::Grandpa(state) => state.latest_commitment.block_number,
+                            _ => unreachable!(),
                         };
                         temp_client_state = client_state;
                     } else {
@@ -764,7 +762,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 };
                 result
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         };
         info!("foreign_client: [build_update_client_with_trusted] >> client_state = {:?}, target_height = {:?}",
             client_state, target_height);
@@ -795,7 +793,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })?;
 
-        info!("foreign_client: [build_update_client_with_trusted] >> header = {:?}, support = {:?}", header , support);
+        info!(
+            "foreign_client: [build_update_client_with_trusted] >> header = {:?}, support = {:?}",
+            header, support
+        );
 
         let signer = self.dst_chain().get_signer().map_err(|e| {
             ForeignClientError::client_update(
@@ -840,7 +841,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             .to_any(),
         );
 
-        info!("foreign_client: [build_update_client_with_trusted] >> Msg = {:?}", msgs);
+        info!(
+            "foreign_client: [build_update_client_with_trusted] >> Msg = {:?}",
+            msgs
+        );
 
         Ok(msgs)
     }
@@ -979,7 +983,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 ForeignClientError::client_query(self.id().clone(), self.src_chain.id(), e)
             })?;
         consensus_states.sort_by_key(|a| std::cmp::Reverse(a.height));
-
 
         Ok(consensus_states)
     }

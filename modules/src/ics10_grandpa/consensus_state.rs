@@ -51,10 +51,10 @@ impl Default for ConsensusState {
         Self {
             parent_hash: vec![0;10],
             block_number: 0,
-            state_root: vec![0;10],
-            extrinsics_root: vec![0;10],
-            digest: vec![0;10],
-            root: CommitmentRoot::from(vec![1, 2, 3])
+            state_root: vec![0; 10],
+            extrinsics_root: vec![0; 10],
+            digest: vec![0; 10],
+            root: CommitmentRoot::from(vec![1, 2, 3]),
         }
     }
 }
