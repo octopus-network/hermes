@@ -269,7 +269,11 @@ pub trait ChainEndpoint: Sized {
 
     fn websocket_url(&self) -> Result<String, Error>;
 
-    fn update_mmr_root(&self, src_chain_websocket_url: String, dst_chain_websocket_url: String) -> Result<(), Error>;
+    fn update_mmr_root(
+        &self,
+        src_chain_websocket_url: String,
+        dst_chain_websocket_url: String,
+    ) -> Result<(), Error>;
 
     // Provable queries
     fn proven_client_state(
@@ -444,8 +448,14 @@ pub trait ChainEndpoint: Sized {
             CommitmentProofBytes::from(self.proven_channel(port_id, channel_id, height)?.1);
 
         // Todo: To figure out why increment()
-        Proofs::new(channel_proof, None, None, None, height/*height.increment()*/)
-            .map_err(Error::malformed_proof)
+        Proofs::new(
+            channel_proof,
+            None,
+            None,
+            None,
+            height, /*height.increment()*/
+        )
+        .map_err(Error::malformed_proof)
     }
 
     /// Builds the proof for packet messages.
