@@ -244,7 +244,8 @@ impl ClientDef for GrandpaClient {
         _data: String,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![_port_id.as_bytes().to_vec(), _channel_id.as_bytes().to_vec(), _seq.0.encode()];
-        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "PacketCommitment").unwrap();
+        let mut storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "PacketCommitment").unwrap();
+        storage_result.remove(0);storage_result.remove(0); // Todo: to remove this line
         let packet_commitment_returned = String::from_utf8(storage_result).unwrap();
         tracing::info!(
             "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
@@ -271,7 +272,23 @@ impl ClientDef for GrandpaClient {
         _seq: &Sequence,
         _data: Vec<u8>,
     ) -> Result<(), Error> {
-        Ok(()) // todo!()
+        let keys: Vec<Vec<u8>> = vec![_port_id.as_bytes().to_vec(), _channel_id.as_bytes().to_vec(), _seq.0.encode()];
+        let mut storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "Acknowledgements").unwrap();
+        storage_result.remove(0);storage_result.remove(0); // Todo: to remove this line
+        // let packet_ack_returned = String::from_utf8(storage_result).unwrap();
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
+            String::from_utf8(storage_result.clone()).unwrap()
+        );
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_packet_data] >>  expected packet_commitment: {:?}",
+            String::from_utf8(_data.clone()).unwrap()
+        );
+
+        if !(storage_result == _data) {
+            return Err(Error::invalid_packet_ack(*_seq));
+        }
+        Ok(())
     }
 
     fn verify_next_sequence_recv(

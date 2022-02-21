@@ -287,5 +287,12 @@ define_error! {
                     e.sequence)
             },
 
+        InvalidPacketAck
+            { sequence: Sequence }
+            | e | {
+                format_args!(
+                    "The stored ack of the packet {0} is invaid",
+                    e.sequence)
+            },
     }
 }

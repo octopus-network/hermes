@@ -370,6 +370,8 @@ impl SubstrateChain {
         where <F as StorageEntry>::Value: serde::Serialize + core::fmt::Debug
     {
         let generate_storage_proof = async {
+            use subxt::{BlockNumber, sp_core::H256, rpc::NumberOrHex, storage::StorageKeyPrefix};
+            use sp_core::{storage::StorageKey, Bytes};
             use serde::{Deserialize, Serialize};
 
             let client = ClientBuilder::new()
@@ -983,7 +985,6 @@ impl ChainEndpoint for SubstrateChain {
         Ok(result.unwrap())
     }
 
-    // TODO fo substrate
     fn query_connection(
         &self,
         connection_id: &ConnectionId,
@@ -996,33 +997,33 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_connection] >> height = {:?}", height);
 
-        let connection_end = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            sleep(Duration::from_secs(10)).await;
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            let connection_end = self
-                .get_connection_end(connection_id, client)
-                .await
-                .unwrap();
+                self.get_connection_end(connection_id, client).await
+            };
 
-            connection_end
-        };
-
-        let connection_end = self.block_on(connection_end);
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
         tracing::info!(
-            "In Substrate: [query_connection] \
-                >> connection_id: {:?}, connection_end: {:?}",
-            connection_id,
-            connection_end
+            "In substrate: [query_connection] >> connection_end: {:#?}",
+            result
         );
 
-        Ok(connection_end)
+        Ok(result.unwrap())
     }
 
     fn query_connection_channels(
@@ -1100,7 +1101,6 @@ impl ChainEndpoint for SubstrateChain {
         Ok(result.unwrap())
     }
 
-    // todo for substrate
     fn query_channel(
         &self,
         port_id: &PortId,
@@ -1115,33 +1115,33 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_channel] >> height = {:?}", height);
 
-        let channel_end = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .unwrap();
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-            sleep(Duration::from_secs(10)).await;
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
 
-            let channel_end = self
-                .get_channel_end(port_id, channel_id, client)
-                .await
-                .unwrap();
-            tracing::info!(
-                "In Substrate: [query_channel] \
-                >> port_id: {:?}, channel_id: {:?}, channel_end: {:?}",
-                port_id,
-                channel_id,
-                channel_end
-            );
+                self.get_channel_end(port_id, channel_id, client).await
+            };
 
-            channel_end
-        };
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
 
-        let channel_end = self.block_on(channel_end);
+        tracing::info!(
+            "In substrate: [query_channel] >> channel_end: {:#?}",
+            result
+        );
 
-        Ok(channel_end)
+        Ok(result.unwrap())
     }
 
     fn query_channel_client_state(
@@ -1485,7 +1485,7 @@ impl ChainEndpoint for SubstrateChain {
         );
 
         let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes().to_vec());
-        Ok((client_state, self.generate_storage_proof(&storage_entry, &height, "ClientStates")))
+        Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "ClientStates")))
     }
 
     fn proven_connection(
@@ -1607,7 +1607,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes().to_vec());
 
-        Ok((consensus_state, self.generate_storage_proof(&storage_entry, &consensus_height, "ConsensusStates")))
+        Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &consensus_height, "ConsensusStates")))
 
     }
 
@@ -1655,7 +1655,7 @@ impl ChainEndpoint for SubstrateChain {
         );
 
         let storage_entry = ibc_node::ibc::storage::Channels(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec());
-        Ok((channel_end, self.generate_storage_proof(&storage_entry, &height, "Channels")))
+        Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "Channels")))
 
     }
 
