@@ -172,7 +172,7 @@ substrate-build-script-utils = { git = "https://github.com/octopus-network/subst
 beefy-merkle-tree = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 
 
-## for tendermint
+
 tendermint              = { git = "https://github.com/informalsystems/tendermint-rs", branch = "v0.23.x" }
 tendermint-rpc          = { git = "https://github.com/informalsystems/tendermint-rs", branch = "v0.23.x" }
 tendermint-proto        = { git = "https://github.com/informalsystems/tendermint-rs", branch = "v0.23.x" }
