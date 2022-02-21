@@ -74,6 +74,7 @@ use tendermint_light_client::types::Validator;
 use crate::chain::StatusResponse;
 use super::tx::TrackedMsgs;
 use semver::Version;
+use ibc::timestamp::Timestamp;
 
 const MAX_QUERY_TIMES: u64 = 40;
 

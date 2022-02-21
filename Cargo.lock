@@ -569,8 +569,6 @@ dependencies = [
  "libc",
  "num-integer",
  "num-traits",
- "serde",
- "time 0.1.43",
  "winapi",
 ]
 
@@ -1848,10 +1846,9 @@ dependencies = [
  "ics23",
  "modelator",
  "num-traits",
- "octopusxt 0.1.0 (git+https://github.com/octopus-network/octopusxt.git?branch=main)",
  "parity-scale-codec",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost",
+ "prost-types",
  "safe-regex",
  "serde",
  "serde_derive",
@@ -1865,11 +1862,11 @@ dependencies = [
  "subxt",
  "tendermint",
  "tendermint-light-client-verifier",
- "tendermint-proto 0.23.5",
+ "tendermint-proto",
  "tendermint-rpc",
  "tendermint-testgen",
  "test-log",
- "time 0.3.7",
+ "time",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.9",
@@ -1889,9 +1886,9 @@ dependencies = [
  "ibc-proto",
  "ibc-relayer",
  "ibc-relayer-cli",
- "itertools 0.10.3",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "itertools",
+ "prost",
+ "prost-types",
  "rand 0.8.5",
  "semver",
  "serde",
@@ -1912,10 +1909,10 @@ name = "ibc-proto"
 version = "0.15.0"
 dependencies = [
  "bytes",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost",
+ "prost-types",
  "serde",
- "tendermint-proto 0.23.5",
+ "tendermint-proto",
  "tonic",
 ]
 
@@ -1942,17 +1939,17 @@ dependencies = [
  "ibc",
  "ibc-proto",
  "ibc-telemetry",
- "itertools 0.10.3",
+ "itertools",
  "jsonrpsee",
  "k256",
  "nanoid",
  "num-bigint 0.4.3",
  "num-rational 0.4.0",
- "octopusxt 0.1.0 (git+https://github.com/octopus-network/octopusxt.git?branch=feature/dep-ibc-rs)",
+ "octopusxt",
  "pallet-mmr-rpc",
  "parity-scale-codec",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost",
+ "prost-types",
  "retry",
  "ripemd160",
  "semver",
@@ -1968,7 +1965,7 @@ dependencies = [
  "tendermint",
  "tendermint-light-client",
  "tendermint-light-client-verifier",
- "tendermint-proto 0.23.5",
+ "tendermint-proto",
  "tendermint-rpc",
  "tendermint-testgen",
  "test-log",
@@ -2004,11 +2001,11 @@ dependencies = [
  "ibc-relayer",
  "ibc-relayer-rest",
  "ibc-telemetry",
- "itertools 0.10.3",
+ "itertools",
  "once_cell",
  "oneline-eyre",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost",
+ "prost-types",
  "regex",
  "serde",
  "serde_derive",
@@ -2018,7 +2015,7 @@ dependencies = [
  "tendermint",
  "tendermint-light-client",
  "tendermint-light-client-verifier",
- "tendermint-proto 0.23.5",
+ "tendermint-proto",
  "tendermint-rpc",
  "tokio",
  "toml",
@@ -2063,7 +2060,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "hex",
- "prost 0.9.0",
+ "prost",
  "ripemd160",
  "sha2 0.9.9",
  "sha3",
@@ -2144,39 +2141,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "informalsystems-prost"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5620e41d3653c27671bee3e07822407365cae5d97f4a391a1c87cb2a4caf647b"
-dependencies = [
- "bytes",
- "informalsystems-prost-derive",
-]
-
-[[package]]
-name = "informalsystems-prost-derive"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c6af6594ef5bc7f879ba098055e084bf3562077b6dc83fcc96b579cdd319eba"
-dependencies = [
- "anyhow",
- "itertools 0.10.3",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "informalsystems-prost-types"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41b094d80f1836c54e192146a58ef1ef1803b1a50a055ab6303ec757e034431a"
-dependencies = [
- "bytes",
- "informalsystems-prost",
-]
-
-[[package]]
 name = "input_buffer"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2201,15 +2165,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "276ec31bcb4a9ee45f58bec6f9ec700ae4cf4f4f8f2fa7e06cb406bd5ffdd770"
 dependencies = [
  "num-traits",
-]
-
-[[package]]
-name = "itertools"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
-dependencies = [
- "either",
 ]
 
 [[package]]
@@ -2989,40 +2944,13 @@ dependencies = [
  "libsecp256k1 0.7.0",
  "pallet-mmr-rpc",
  "parity-scale-codec",
- "prost-types 0.9.0",
+ "prost-types",
  "serde",
  "sp-core",
  "sp-keyring",
  "sp-runtime",
  "subxt",
- "tendermint-proto 0.23.5",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "octopusxt"
-version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=main#a8355c353282ae6ca6e152b60089b4a455fe7d5a"
-dependencies = [
- "beefy-light-client",
- "beefy-merkle-tree",
- "beefy-primitives",
- "env_logger 0.8.4",
- "hex",
- "ibc",
- "ibc-proto",
- "informalsystems-prost-types",
- "jsonrpsee",
- "libsecp256k1 0.7.0",
- "pallet-mmr-rpc",
- "parity-scale-codec",
- "serde",
- "sp-core",
- "sp-keyring",
- "sp-runtime",
- "subxt",
- "tendermint-proto 0.22.0",
+ "tendermint-proto",
  "tokio",
  "tracing",
 ]
@@ -3440,35 +3368,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e6984d2f1a23009bd270b8bb56d0926810a3d483f59c987d77969e9d8e840b2"
-dependencies = [
- "bytes",
- "prost-derive 0.7.0",
-]
-
-[[package]]
-name = "prost"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "444879275cb4fd84958b1a1d5420d15e6fcf7c235fe47f053c9c2a80aceb6001"
 dependencies = [
  "bytes",
- "prost-derive 0.9.0",
-]
-
-[[package]]
-name = "prost-derive"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "169a15f3008ecb5160cba7d37bcd690a7601b6d30cfb87a117d45e59d52af5d4"
-dependencies = [
- "anyhow",
- "itertools 0.9.0",
- "proc-macro2",
- "quote",
- "syn",
+ "prost-derive",
 ]
 
 [[package]]
@@ -3478,20 +3383,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9cc1a3263e07e0bf68e96268f37665207b49560d98739662cdfaae215c720fe"
 dependencies = [
  "anyhow",
- "itertools 0.10.3",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b518d7cdd93dab1d1122cf07fa9a60771836c668dde9d9e2a139f957f0d9f1bb"
-dependencies = [
- "bytes",
- "prost 0.7.0",
 ]
 
 [[package]]
@@ -3501,7 +3396,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "534b7a0e836e3c482d2693070f982e39e7611da9695d4d1f5a4b186b51faef0a"
 dependencies = [
  "bytes",
- "prost 0.9.0",
+ "prost",
 ]
 
 [[package]]
@@ -3774,7 +3669,7 @@ dependencies = [
  "serde_json",
  "sha1",
  "threadpool",
- "time 0.3.7",
+ "time",
  "tiny_http",
  "url 2.2.2",
 ]
@@ -4981,8 +4876,8 @@ dependencies = [
  "k256",
  "num-traits",
  "once_cell",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost",
+ "prost-types",
  "ripemd160",
  "serde",
  "serde_bytes",
@@ -4992,8 +4887,8 @@ dependencies = [
  "signature",
  "subtle",
  "subtle-encoding",
- "tendermint-proto 0.23.5",
- "time 0.3.7",
+ "tendermint-proto",
+ "time",
  "zeroize",
 ]
 
@@ -5027,7 +4922,7 @@ dependencies = [
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-rpc",
- "time 0.3.7",
+ "time",
  "tokio",
 ]
 
@@ -5040,25 +4935,7 @@ dependencies = [
  "flex-error",
  "serde",
  "tendermint",
- "time 0.3.7",
-]
-
-[[package]]
-name = "tendermint-proto"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c36f58bd68be7a6e3221c49cc1a14cbc619c189bb26a43425f544831922d2be"
-dependencies = [
- "bytes",
- "chrono",
- "flex-error",
- "num-derive",
- "num-traits",
- "prost 0.7.0",
- "prost-types 0.7.0",
- "serde",
- "serde_bytes",
- "subtle-encoding",
+ "time",
 ]
 
 [[package]]
@@ -5070,12 +4947,12 @@ dependencies = [
  "flex-error",
  "num-derive",
  "num-traits",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost",
+ "prost-types",
  "serde",
  "serde_bytes",
  "subtle-encoding",
- "time 0.3.7",
+ "time",
 ]
 
 [[package]]
@@ -5101,9 +4978,9 @@ dependencies = [
  "subtle-encoding",
  "tendermint",
  "tendermint-config",
- "tendermint-proto 0.23.5",
+ "tendermint-proto",
  "thiserror",
- "time 0.3.7",
+ "time",
  "tokio",
  "tracing",
  "url 2.2.2",
@@ -5123,7 +5000,7 @@ dependencies = [
  "simple-error",
  "tempfile",
  "tendermint",
- "time 0.3.7",
+ "time",
 ]
 
 [[package]]
@@ -5188,16 +5065,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d050e60b33d41c19108b32cea32164033a9013fe3b46cbd4457559bfbf77afaa"
 dependencies = [
  "num_cpus",
-]
-
-[[package]]
-name = "time"
-version = "0.1.43"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca8a50ef2360fbd1eeb0ecd46795a87a19024eb4b53c5dc916ca1fd95fe62438"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -5404,8 +5271,8 @@ dependencies = [
  "hyper-timeout",
  "percent-encoding 2.1.0",
  "pin-project",
- "prost 0.9.0",
- "prost-derive 0.9.0",
+ "prost",
+ "prost-derive",
  "rustls-native-certs 0.5.0",
  "tokio",
  "tokio-rustls 0.22.0",
