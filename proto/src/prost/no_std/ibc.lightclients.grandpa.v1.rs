@@ -131,8 +131,8 @@ pub struct ClientState {
     #[prost(uint32, tag = "2")]
     pub block_number: u32,
     /// Block height when the client was frozen due to a misbehaviour
-    #[prost(uint32, tag = "3")]
-    pub frozen_height: u32,
+    #[prost(message, tag = "3")]
+    pub frozen_height: ::core::option::Option<super::super::super::core::client::v1::Height>,
     #[prost(message, optional, tag = "4")]
     pub block_header: ::core::option::Option<BlockHeader>,
     ///latest_commitment: Option<Commitment>

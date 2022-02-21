@@ -58,11 +58,7 @@ impl AnyConsensusState {
     pub fn timestamp(&self) -> Timestamp {
         match self {
             Self::Tendermint(cs_state) => cs_state.timestamp.into(),
-
-            Self::Grandpa(cs_state) => {
-                // TODO ibc02 MUST
-                Timestamp::none()
-            }
+            Self::Grandpa(_cs_state) => Timestamp::from_nanoseconds(1_000).unwrap(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(mock_state) => mock_state.timestamp(),

@@ -26,7 +26,7 @@ pub struct ClientState {
     /// block_number is height?
     pub block_number: u32,
     /// Block height when the client was frozen due to a misbehaviour
-    pub frozen_height: Height,
+    pub frozen_height: Option<Height>,
     pub block_header: BlockHeader,
     pub latest_commitment: Commitment,
     pub validator_set: ValidatorSet,
@@ -37,7 +37,7 @@ impl Default for ClientState {
         Self {
             chain_id: ChainId::default(),
             block_number: u32::default(),
-            frozen_height: Height::default(),
+            frozen_height: None,
             block_header: BlockHeader::default(),
             latest_commitment: Commitment::default(),
             validator_set: ValidatorSet::default(),
@@ -49,7 +49,6 @@ impl ClientState {
     pub fn new(
         chain_id: ChainId,
         block_number: u32,
-        frozen_height: Height,
         block_header: BlockHeader,
         latest_commitment: Commitment,
         validator_set: ValidatorSet,
@@ -57,10 +56,10 @@ impl ClientState {
         let client_state = ClientState {
             chain_id,
             block_number,
-            frozen_height,
             block_header,
             latest_commitment,
             validator_set,
+            frozen_height: None,
         };
 
         Ok(client_state)
@@ -110,13 +109,8 @@ impl crate::core::ics02_client::client_state::ClientState for ClientState {
         Height::new(0, self.block_number as u64)
     }
 
-    fn is_frozen(&self) -> bool {
-        // If 'frozen_height' is set to a non-zero value, then the client state is frozen.
-        !self.frozen_height.is_zero()
-    }
-
     fn frozen_height(&self) -> Option<Height> {
-        Some(self.frozen_height)
+        self.frozen_height
     }
 
     fn upgrade(self, upgrade_height: Height, upgrade_options: Self::UpgradeOptions, chain_id: ChainId) -> Self {
@@ -132,10 +126,19 @@ impl TryFrom<RawClientState> for ClientState {
     type Error = Error;
 
     fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
+        let frozen_height = raw.frozen_height.and_then(|raw_height| {
+            let height = raw_height.into();
+            if height == Height::zero() {
+                None
+            } else {
+                Some(height)
+            }
+        });
+
         Ok(Self {
             chain_id: ChainId::from_str(raw.chain_id.as_str()).unwrap(),
             block_number: raw.block_number,
-            frozen_height: Height::new(0, raw.frozen_height as u64),
+            frozen_height,
             block_header: raw.block_header.unwrap().into(),
             latest_commitment: raw.latest_commitment.unwrap().into(),
             validator_set: raw.validator_set.unwrap().into(),
@@ -148,7 +151,7 @@ impl From<ClientState> for RawClientState {
         Self {
             chain_id: value.chain_id.to_string(),
             block_number: value.block_number,
-            frozen_height: value.frozen_height.revision_height as u32,
+            frozen_height: Some(value.frozen_height.unwrap_or_else(Height::zero).into()),
             block_header: Some(value.block_header.into()),
             latest_commitment: Some(value.latest_commitment.into()),
             validator_set: Some(value.validator_set.into()),

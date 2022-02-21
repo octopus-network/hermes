@@ -126,7 +126,7 @@ impl AnyClientState {
     pub fn max_clock_drift(&self) -> Duration {
         match self {
             AnyClientState::Tendermint(state) => state.max_clock_drift,
-            AnyClientState::Grandpa(state) => todo!(),
+            AnyClientState::Grandpa(state) => Duration::new(0, 0),
 
             #[cfg(any(test, feature = "mocks"))]
             AnyClientState::Mock(_) => Duration::new(0, 0),

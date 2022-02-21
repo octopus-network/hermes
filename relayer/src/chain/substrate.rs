@@ -1735,7 +1735,6 @@ impl ChainEndpoint for SubstrateChain {
         let client_state = GPClientState::new(
             self.id().clone(),
             height.revision_height as u32,
-            Height::new(0, 0), // set frozen_height is zero height
             BlockHeader::default(),
             Commitment::default(),
             beefy_light_client.validator_set.into(),
@@ -2029,11 +2028,15 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn config(&self) -> ChainConfig {
-        todo!()
+        self.config.clone()
     }
 
     fn add_key(&mut self, key_name: &str, key: KeyEntry) -> Result<(), Error> {
-        todo!()
+        self.keybase_mut()
+            .add_key(key_name, key)
+            .map_err(Error::key_base)?;
+
+        Ok(())
     }
 
     fn ibc_version(&self) -> Result<Option<Version>, Error> {
@@ -2042,7 +2045,36 @@ impl ChainEndpoint for SubstrateChain {
 
     // TODO add query latest height
     fn query_status(&self) -> Result<StatusResponse, Error> {
-        todo!()
+        tracing::info!("in Substrate: [query_status]");
+
+        let height = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
+
+            let latest_height = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
+
+                self.get_latest_height(client).await
+            };
+
+            match self.block_on(latest_height) {
+                Ok(_v) => RetryResult::Ok(_v),
+                Err(_e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
+
+        let latest_height = Height::new(0, height.unwrap());
+        tracing::info!("in substrate: [query_status] >> latest_height = {:?}", latest_height);
+
+        Ok(StatusResponse {
+            height: latest_height,
+            timestamp: Default::default()
+        })
     }
 
     fn query_blocks(&self, request: QueryBlockRequest) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error> {

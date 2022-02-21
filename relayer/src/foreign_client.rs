@@ -674,6 +674,8 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         // Compute the duration since the last update of this client
         let elapsed = Timestamp::now().duration_since(&last_update_time);
 
+        tracing::info!("in foreign_client: [validated_client_state] >> client_state is_frozen = {:?}", client_state.is_frozen());
+
         if client_state.is_frozen() || client_state.expired(elapsed.unwrap_or_default()) {
             return Err(ForeignClientError::expired_or_frozen(
                 self.id().clone(),

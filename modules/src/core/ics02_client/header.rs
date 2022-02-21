@@ -69,7 +69,7 @@ impl Header for AnyHeader {
     fn timestamp(&self) -> Timestamp {
         match self {
             Self::Tendermint(header) => header.timestamp(),
-            Self::Grandpa(header) => todo!(),
+            Self::Grandpa(header) => header.timestamp(),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock(header) => header.timestamp(),
