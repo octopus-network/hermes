@@ -1231,7 +1231,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let latest_height = Height::new(0, height.unwrap());
 
-        Ok((result.unwrap(), last_height))
+        Ok((result.unwrap(), latest_height))
     }
 
     fn query_unreceived_packets(
