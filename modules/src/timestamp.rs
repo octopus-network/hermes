@@ -1,27 +1,39 @@
 use crate::prelude::*;
-use core::convert::TryInto;
+
 use core::fmt::Display;
-use core::num::{ParseIntError, TryFromIntError};
+use core::hash::{Hash, Hasher};
+use core::num::ParseIntError;
 use core::ops::{Add, Sub};
 use core::str::FromStr;
 use core::time::Duration;
 
-use chrono::{offset::Utc, DateTime, TimeZone};
 use flex_error::{define_error, TraceError};
 use serde_derive::{Deserialize, Serialize};
+use tendermint::Time;
+use time::OffsetDateTime;
 
 pub const ZERO_DURATION: Duration = Duration::from_secs(0);
 
-/// A newtype wrapper over `Option<DateTime<Utc>>` to keep track of
+/// A newtype wrapper over `Option<Time>` to keep track of
 /// IBC packet timeout.
 ///
 /// We use an explicit `Option` type to distinguish this when converting between
 /// a `u64` value and a raw timestamp. In protocol buffer, the timestamp is
 /// represented as a `u64` Unix timestamp in nanoseconds, with 0 representing the absence
 /// of timestamp.
-#[derive(PartialEq, Eq, Copy, Clone, Debug, Deserialize, Serialize, Hash)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Timestamp {
-    pub time: Option<DateTime<Utc>>,
+    time: Option<Time>,
+}
+
+// TODO: derive when tendermint::Time supports it:
+// https://github.com/informalsystems/tendermint-rs/pull/1054
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for Timestamp {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let odt: Option<OffsetDateTime> = self.time.map(Into::into);
+        odt.hash(state);
+    }
 }
 
 /// The expiry result when comparing two timestamps.
@@ -39,24 +51,32 @@ pub enum Expiry {
 }
 
 impl Timestamp {
-    /// When used in IBC, all raw timestamps are represented as u64 Unix timestamp in nanoseconds.
+    /// The IBC protocol represents timestamps as u64 Unix
+    /// timestamps in nanoseconds.
     ///
-    /// A value of 0 indicates that the timestamp is not set, and result in the underlying
-    /// type being None.
+    /// A protocol value of 0 indicates that the timestamp
+    /// is not set. In this case, our domain type takes the
+    /// value of None.
     ///
-    /// The underlying library [`chrono::DateTime`] allows conversion from nanoseconds only
-    /// from an `i64` value. In practice, `i64` still have sufficient precision for our purpose.
-    /// However we have to handle the case of `u64` overflowing in `i64`, to prevent
-    /// malicious packets from crashing the relayer.
-    pub fn from_nanoseconds(nanoseconds: u64) -> Result<Timestamp, TryFromIntError> {
+    pub fn from_nanoseconds(nanoseconds: u64) -> Result<Timestamp, ParseTimestampError> {
         if nanoseconds == 0 {
             Ok(Timestamp { time: None })
         } else {
-            let nanoseconds = nanoseconds.try_into()?;
-            Ok(Timestamp {
-                time: Some(Utc.timestamp_nanos(nanoseconds)),
-            })
+            // As the `u64` representation can only represent times up to
+            // about year 2554, there is no risk of overflowing `Time`
+            // or `OffsetDateTime`.
+            let ts = OffsetDateTime::from_unix_timestamp_nanos(nanoseconds as i128)
+                .unwrap()
+                .try_into()
+                .unwrap();
+            Ok(Timestamp { time: Some(ts) })
         }
+    }
+
+    /// Returns a `Timestamp` representation of the current time.
+    #[cfg(feature = "clock")]
+    pub fn now() -> Timestamp {
+        Time::now().into()
     }
 
     /// Returns a `Timestamp` representation of a timestamp not being set.
@@ -70,25 +90,52 @@ impl Timestamp {
     /// than the current or if either of the `Timestamp`s is not set.
     pub fn duration_since(&self, other: &Timestamp) -> Option<Duration> {
         match (self.time, other.time) {
-            (Some(time1), Some(time2)) => time1.signed_duration_since(time2).to_std().ok(),
+            (Some(time1), Some(time2)) => time1.duration_since(time2).ok(),
             _ => None,
         }
     }
 
-    /// Convert a `Timestamp` from [`chrono::DateTime<Utc>`].
-    pub fn from_datetime(time: DateTime<Utc>) -> Timestamp {
-        Timestamp { time: Some(time) }
+    /// Convert a `Timestamp` to `u64` value in nanoseconds. If no timestamp
+    /// is set, the result is 0.
+    ///
+    #[deprecated(since = "0.9.1", note = "use `nanoseconds` instead")]
+    pub fn as_nanoseconds(&self) -> u64 {
+        (*self).nanoseconds()
     }
 
     /// Convert a `Timestamp` to `u64` value in nanoseconds. If no timestamp
     /// is set, the result is 0.
-    pub fn as_nanoseconds(&self) -> u64 {
-        self.time
-            .map_or(0, |time| time.timestamp_nanos().try_into().unwrap())
+    /// ```
+    /// use ibc::timestamp::Timestamp;
+    ///
+    /// let max = u64::MAX;
+    /// let tx = Timestamp::from_nanoseconds(max).unwrap();
+    /// let utx = tx.nanoseconds();
+    /// assert_eq!(utx, max);
+    /// let min = u64::MIN;
+    /// let ti = Timestamp::from_nanoseconds(min).unwrap();
+    /// let uti = ti.nanoseconds();
+    /// assert_eq!(uti, min);
+    /// let tz = Timestamp::default();
+    /// let utz = tz.nanoseconds();
+    /// assert_eq!(utz, 0);
+    /// ```
+    pub fn nanoseconds(self) -> u64 {
+        self.time.map_or(0, |time| {
+            let t: OffsetDateTime = time.into();
+            let s = t.unix_timestamp_nanos();
+            assert!(s >= 0, "time {:?} has negative `.timestamp()`", time);
+            s.try_into().unwrap()
+        })
     }
 
-    /// Convert a `Timestamp` to an optional [`chrono::DateTime<Utc>`]
-    pub fn as_datetime(&self) -> Option<DateTime<Utc>> {
+    /// Convert a `Timestamp` to an optional [`OffsetDateTime`]
+    pub fn into_datetime(self) -> Option<OffsetDateTime> {
+        self.time.map(Into::into)
+    }
+
+    /// Convert a `Timestamp` to an optional [`tendermint::Time`]
+    pub fn into_tm_time(self) -> Option<Time> {
         self.time
     }
 
@@ -106,6 +153,16 @@ impl Timestamp {
             _ => Expiry::InvalidTimestamp,
         }
     }
+
+    /// Checks whether the current timestamp is strictly more advanced
+    /// than the `other` timestamp. Return true if so, and false
+    /// otherwise.
+    pub fn after(&self, other: &Timestamp) -> bool {
+        match (self.time, other.time) {
+            (Some(time1), Some(time2)) => time1 > time2,
+            _ => false,
+        }
+    }
 }
 
 impl Display for Timestamp {
@@ -120,6 +177,7 @@ impl Display for Timestamp {
 }
 
 define_error! {
+    #[derive(Debug, PartialEq, Eq)]
     TimestampOverflowError {
         TimestampOverflow
             |_| { "Timestamp overflow when modifying with duration" }
@@ -129,12 +187,12 @@ define_error! {
 impl Add<Duration> for Timestamp {
     type Output = Result<Timestamp, TimestampOverflowError>;
 
-    fn add(self, duration: Duration) -> Self::Output {
-        match self.as_datetime() {
-            Some(datetime) => {
-                let duration2 = chrono::Duration::from_std(duration)
-                    .map_err(|_| TimestampOverflowError::timestamp_overflow())?;
-                Ok(Self::from_datetime(datetime + duration2))
+    fn add(self, duration: Duration) -> Result<Timestamp, TimestampOverflowError> {
+        match self.time {
+            Some(time) => {
+                let time =
+                    (time + duration).map_err(|_| TimestampOverflowError::timestamp_overflow())?;
+                Ok(Timestamp { time: Some(time) })
             }
             None => Ok(self),
         }
@@ -144,12 +202,13 @@ impl Add<Duration> for Timestamp {
 impl Sub<Duration> for Timestamp {
     type Output = Result<Timestamp, TimestampOverflowError>;
 
-    fn sub(self, duration: Duration) -> Self::Output {
-        match self.as_datetime() {
-            Some(datetime) => {
-                let duration2 = chrono::Duration::from_std(duration)
-                    .map_err(|_| TimestampOverflowError::timestamp_overflow())?;
-                Ok(Self::from_datetime(datetime - duration2))
+    fn sub(self, duration: Duration) -> Result<Timestamp, TimestampOverflowError> {
+        match self.time {
+            Some(time) => {
+                let time =
+                    (time - duration).map_err(|_| TimestampOverflowError::timestamp_overflow())?;
+                Ok(Timestamp { time: Some(time) })
+
             }
             None => Ok(self),
         }
@@ -157,14 +216,11 @@ impl Sub<Duration> for Timestamp {
 }
 
 define_error! {
+    #[derive(Debug, PartialEq, Eq)]
     ParseTimestampError {
         ParseInt
             [ TraceError<ParseIntError> ]
-            | _ | { "error parsing integer from string"},
-
-        TryFromInt
-            [ TraceError<TryFromIntError> ]
-            | _ | { "error converting from u64 to i64" },
+            | _ | { "error parsing u64 integer from string"},
     }
 }
 
@@ -172,25 +228,27 @@ impl FromStr for Timestamp {
     type Err = ParseTimestampError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let seconds = u64::from_str(s).map_err(ParseTimestampError::parse_int)?;
+        let nanoseconds = u64::from_str(s).map_err(ParseTimestampError::parse_int)?;
 
-        Timestamp::from_nanoseconds(seconds).map_err(ParseTimestampError::try_from_int)
+        Timestamp::from_nanoseconds(nanoseconds)
     }
 }
 
-impl Default for Timestamp {
-    fn default() -> Self {
-        Timestamp { time: None }
+impl From<Time> for Timestamp {
+    fn from(tendermint_time: Time) -> Timestamp {
+        Timestamp {
+            time: Some(tendermint_time),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
-    use core::convert::TryInto;
+    use time::OffsetDateTime;
+
     use core::time::Duration;
     use std::thread::sleep;
-    use test_env_log::test;
+    use test_log::test;
 
     use super::{Expiry, Timestamp, ZERO_DURATION};
 
@@ -198,20 +256,19 @@ mod tests {
     fn test_timestamp_comparisons() {
         let nil_timestamp = Timestamp::from_nanoseconds(0).unwrap();
         assert_eq!(nil_timestamp.time, None);
-        assert_eq!(nil_timestamp.as_nanoseconds(), 0);
+        assert_eq!(nil_timestamp.nanoseconds(), 0);
 
         let timestamp1 = Timestamp::from_nanoseconds(1).unwrap();
-        assert_eq!(timestamp1.time.unwrap().timestamp(), 0);
-        assert_eq!(timestamp1.time.unwrap().timestamp_millis(), 0);
-        assert_eq!(timestamp1.time.unwrap().timestamp_nanos(), 1);
-        assert_eq!(timestamp1.as_nanoseconds(), 1);
+        let dt: OffsetDateTime = timestamp1.time.unwrap().into();
+        assert_eq!(dt.unix_timestamp_nanos(), 1);
+        assert_eq!(timestamp1.nanoseconds(), 1);
 
         let timestamp2 = Timestamp::from_nanoseconds(1_000_000_000).unwrap();
-        assert_eq!(timestamp2.time.unwrap().timestamp(), 1);
-        assert_eq!(timestamp2.time.unwrap().timestamp_millis(), 1_000);
-        assert_eq!(timestamp2.as_nanoseconds(), 1_000_000_000);
+        let dt: OffsetDateTime = timestamp2.time.unwrap().into();
+        assert_eq!(dt.unix_timestamp_nanos(), 1_000_000_000);
+        assert_eq!(timestamp2.nanoseconds(), 1_000_000_000);
 
-        assert!(Timestamp::from_nanoseconds(u64::MAX).is_err());
+        assert!(Timestamp::from_nanoseconds(u64::MAX).is_ok());
         assert!(Timestamp::from_nanoseconds(i64::MAX.try_into().unwrap()).is_ok());
 
         assert_eq!(timestamp1.check_expiry(&timestamp2), Expiry::NotExpired);
@@ -251,9 +308,9 @@ mod tests {
     fn subtract_compare() {
         let sleep_duration = Duration::from_micros(100);
 
-        let start = Timestamp::from_datetime(Utc::now());
+        let start = Timestamp::now();
         sleep(sleep_duration);
-        let end = Timestamp::from_datetime(Utc::now());
+        let end = Timestamp::now();
 
         let res = end.duration_since(&start);
         assert!(res.is_some());

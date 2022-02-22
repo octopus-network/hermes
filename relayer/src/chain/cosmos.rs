@@ -6,6 +6,8 @@ use core::{
     str::FromStr,
     time::Duration,
 };
+use num_bigint::BigInt;
+use num_rational::BigRational;
 use std::{fmt, thread, time::Instant};
 
 use bech32::{ToBase32, Variant};
@@ -13,42 +15,47 @@ use bitcoin::hashes::hex::ToHex;
 use itertools::Itertools;
 use prost::Message;
 use prost_types::Any;
-use tendermint::abci::Path as TendermintABCIPath;
 use tendermint::account::Id as AccountId;
 use tendermint::block::Height;
-use tendermint::consensus::Params;
-use tendermint_light_client::types::LightBlock as TMLightBlock;
+use tendermint::consensus::Params as ConsensusParams;
+use tendermint::{
+    abci::{Code, Event, Path as TendermintABCIPath},
+    node::info::TxIndexStatus,
+};
+use tendermint_light_client_verifier::types::LightBlock as TMLightBlock;
 use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::tx::Response as ResultTx;
-use tendermint_rpc::query::{EventType, Query};
-use tendermint_rpc::{endpoint::broadcast::tx_sync::Response, Client, HttpClient, Order};
+use tendermint_rpc::query::Query;
+use tendermint_rpc::Url;
+use tendermint_rpc::{
+    endpoint::broadcast::tx_sync::Response, endpoint::status, Client, HttpClient, Order,
+};
 use tokio::runtime::Runtime as TokioRuntime;
 use tonic::codegen::http::Uri;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, info, span, trace, warn, Level};
 
-use ibc::downcast;
-use ibc::events::{from_tx_response_event, IbcEvent};
-use ibc::ics02_client::client_consensus::{
+use ibc::clients::ics07_tendermint::client_state::{AllowUpdate, ClientState};
+use ibc::clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
+use ibc::clients::ics07_tendermint::header::Header as TmHeader;
+use ibc::core::ics02_client::client_consensus::{
     AnyConsensusState, AnyConsensusStateWithHeight, QueryClientEventRequest,
 };
-use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
-use ibc::ics02_client::client_type::ClientType;
-use ibc::ics02_client::events as ClientEvents;
-use ibc::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd};
-use ibc::ics03_connection::version::Version;
-use ibc::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd, QueryPacketEventDataRequest};
-use ibc::ics04_channel::events as ChannelEvents;
-use ibc::ics04_channel::packet::{PacketMsgType, Sequence};
-use ibc::ics07_tendermint::client_state::{AllowUpdate, ClientState};
-use ibc::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
-use ibc::ics07_tendermint::header::Header as TmHeader;
-use ibc::ics23_commitment::commitment::CommitmentPrefix;
-use ibc::ics23_commitment::merkle::convert_tm_to_ics_merkle_proof;
-use ibc::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
-use ibc::ics24_host::Path::ClientConsensusState as ClientConsensusPath;
-use ibc::ics24_host::Path::ClientState as ClientStatePath;
-use ibc::ics24_host::{ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH};
-use ibc::proofs::Proofs;
+use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
+use ibc::core::ics02_client::client_type::ClientType;
+use ibc::core::ics02_client::error::Error as ClientError;
+use ibc::core::ics02_client::events as ClientEvents;
+use ibc::core::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd};
+use ibc::core::ics04_channel::channel::{
+    ChannelEnd, IdentifiedChannelEnd, QueryPacketEventDataRequest,
+};
+use ibc::core::ics04_channel::events as ChannelEvents;
+use ibc::core::ics04_channel::packet::{Packet, PacketMsgType, Sequence};
+use ibc::core::ics23_commitment::commitment::CommitmentPrefix;
+use ibc::core::ics23_commitment::merkle::convert_tm_to_ics_merkle_proof;
+use ibc::core::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
+use ibc::core::ics24_host::{ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH};
+use ibc::events::{from_tx_response_event, IbcEvent};
+use ibc::query::QueryBlockRequest;
 use ibc::query::{QueryTxHash, QueryTxRequest};
 use ibc::signer::Signer;
 use ibc::Height as ICSHeight;
@@ -56,6 +63,7 @@ use ibc_proto::cosmos::auth::v1beta1::{BaseAccount, EthAccount, QueryAccountRequ
 use ibc_proto::cosmos::base::tendermint::v1beta1::service_client::ServiceClient;
 use ibc_proto::cosmos::base::tendermint::v1beta1::GetNodeInfoRequest;
 use ibc_proto::cosmos::base::v1beta1::Coin;
+use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
 use ibc_proto::cosmos::tx::v1beta1::mode_info::{Single, Sum};
 use ibc_proto::cosmos::tx::v1beta1::{
     AuthInfo, Fee, ModeInfo, SignDoc, SignerInfo, SimulateRequest, SimulateResponse, Tx, TxBody,
@@ -73,36 +81,55 @@ use ibc_proto::ibc::core::connection::v1::{
     QueryClientConnectionsRequest, QueryConnectionsRequest,
 };
 
-use crate::connection::ConnectionMsgType;
-use crate::error::Error;
 use crate::event::monitor::{EventMonitor, EventReceiver};
-use crate::keyring::{KeyEntry, KeyRing, Store};
+use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::tendermint::LightClient as TmLightClient;
 use crate::light_client::LightClient;
 use crate::light_client::Verified;
-use crate::{chain::QueryResponse, event::monitor::TxMonitorCmd};
+use crate::util::retry::{retry_with_index, RetryResult};
+use crate::{chain::QueryResponse, chain::StatusResponse, event::monitor::TxMonitorCmd};
+use crate::{config::types::Memo, error::Error};
 use crate::{
     config::{AddressType, ChainConfig, GasPrice},
     sdk_error::sdk_error_from_tx_sync_error_code,
 };
 
-use super::{ChainEndpoint, HealthCheck};
+use super::{tx::TrackedMsgs, ChainEndpoint, HealthCheck};
+use ibc::core::ics24_host::path::{
+    AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
+    ConnectionsPath, ReceiptsPath, SeqRecvsPath,
+};
 
 mod compatibility;
+pub mod version;
 
 /// Default gas limit when submitting a transaction.
-const DEFAULT_MAX_GAS: u64 = 300_000;
+const DEFAULT_MAX_GAS: u64 = 400_000;
 
-/// Fraction of the estimated gas to add to the gas limit when submitting a transaction.
+/// Fraction of the estimated gas to add to the estimated gas amount when submitting a transaction.
 const DEFAULT_GAS_PRICE_ADJUSTMENT: f64 = 0.1;
+
+const DEFAULT_FEE_GRANTER: &str = "";
 
 /// Upper limit on the size of transactions submitted by Hermes, expressed as a
 /// fraction of the maximum block size defined in the Tendermint core consensus parameters.
 pub const GENESIS_MAX_BYTES_MAX_FRACTION: f64 = 0.9;
 
+// The error "incorrect account sequence" is defined as the unique error code 32 in cosmos-sdk:
+// https://github.com/cosmos/cosmos-sdk/blob/v0.44.0/types/errors/errors.go#L115-L117
+pub const INCORRECT_ACCOUNT_SEQUENCE_ERR: u32 = 32;
+
 mod retry_strategy {
     use crate::util::retry::Fixed;
     use core::time::Duration;
+
+    // Maximum number of retries for send_tx in the case of
+    // an account sequence mismatch at broadcast step.
+    pub const MAX_ACCOUNT_SEQUENCE_RETRY: u32 = 1;
+
+    // Backoff multiplier to apply while retrying in the case
+    // of account sequence mismatch.
+    pub const BACKOFF_MULTIPLIER_ACCOUNT_SEQUENCE_RETRY: u64 = 300;
 
     pub fn wait_for_block_commits(max_total_wait: Duration) -> impl Iterator<Item = Duration> {
         let backoff_millis = 300; // The periodic backoff
@@ -122,15 +149,56 @@ pub struct CosmosSdkChain {
 }
 
 impl CosmosSdkChain {
+    /// Get a reference to the configuration for this chain.
+    pub fn config(&self) -> &ChainConfig {
+        &self.config
+    }
+
     /// Performs validation of chain-specific configuration
     /// parameters against the chain's genesis configuration.
     ///
     /// Currently, validates the following:
-    ///     - the configured `max_tx_size` is appropriate.
+    ///     - the configured `max_tx_size` is appropriate
+    ///     - the trusting period is greater than zero
+    ///     - the trusting period is smaller than the unbonding period
+    ///     - the default gas is smaller than the max gas
     ///
     /// Emits a log warning in case any error is encountered and
     /// exits early without doing subsequent validations.
     pub fn validate_params(&self) -> Result<(), Error> {
+        let unbonding_period = self.unbonding_period()?;
+        let trusting_period = self.trusting_period(unbonding_period);
+
+        // Check that the trusting period is greater than zero
+        if trusting_period <= Duration::ZERO {
+            return Err(Error::config_validation_trusting_period_smaller_than_zero(
+                self.id().clone(),
+                trusting_period,
+            ));
+        }
+
+        // Check that the trusting period is smaller than the unbounding period
+        if trusting_period >= unbonding_period {
+            return Err(
+                Error::config_validation_trusting_period_greater_than_unbonding_period(
+                    self.id().clone(),
+                    trusting_period,
+                    unbonding_period,
+                ),
+            );
+        }
+
+        // If the default gas is strictly greater than the max gas and the tx simulation fails,
+        // Hermes won't be able to ever submit that tx because the gas amount wanted will be
+        // greater than the max gas.
+        if self.default_gas() > self.max_gas() {
+            return Err(Error::config_validation_default_gas_too_high(
+                self.id().clone(),
+                self.default_gas(),
+                self.max_gas(),
+            ));
+        }
+
         // Get the latest height and convert to tendermint Height
         let latest_height = Height::try_from(self.query_latest_height()?.revision_height)
             .map_err(Error::invalid_height)?;
@@ -148,9 +216,10 @@ impl CosmosSdkChain {
             })?;
 
         let max_bound = result.consensus_params.block.max_bytes;
-        let max_allowed = mul_ceil(max_bound, GENESIS_MAX_BYTES_MAX_FRACTION) as usize;
+        let max_allowed = mul_ceil(max_bound, GENESIS_MAX_BYTES_MAX_FRACTION);
+        let max_tx_size = BigInt::from(self.max_tx_size());
 
-        if self.max_tx_size() > max_allowed {
+        if max_tx_size > max_allowed {
             return Err(Error::config_validation_tx_size_out_of_bounds(
                 self.id().clone(),
                 self.max_tx_size(),
@@ -158,12 +227,31 @@ impl CosmosSdkChain {
             ));
         }
 
+        // Check that the configured max gas is lower or equal to the consensus params max gas.
+        let consensus_max_gas = result.consensus_params.block.max_gas;
+
+        // If the consensus max gas is < 0, we don't need to perform the check.
+        if consensus_max_gas >= 0 {
+            let consensus_max_gas: u64 = consensus_max_gas
+                .try_into()
+                .expect("cannot over or underflow because it is positive");
+
+            if self.max_gas() > consensus_max_gas {
+                return Err(Error::config_validation_max_gas_too_high(
+                    self.id().clone(),
+                    self.max_gas(),
+                    result.consensus_params.block.max_gas,
+                ));
+            }
+        }
+
         Ok(())
     }
 
-    /// The unbonding period of this chain
-    pub fn unbonding_period(&self) -> Result<Duration, Error> {
-        crate::time!("unbonding_period");
+    /// Query the chain staking parameters
+    pub fn query_staking_params(&self) -> Result<StakingParams, Error> {
+        crate::time!("query_staking_params");
+        crate::telemetry!(query, self.id(), "query_staking_params");
 
         let mut client = self
             .block_on(
@@ -180,31 +268,43 @@ impl CosmosSdkChain {
             .block_on(client.params(request))
             .map_err(Error::grpc_status)?;
 
-        let res = response
+        let params = response
             .into_inner()
             .params
-            .ok_or_else(|| Error::grpc_response_param("none staking params".to_string()))?
-            .unbonding_time
-            .ok_or_else(|| Error::grpc_response_param("none unbonding time".to_string()))?;
+            .ok_or_else(|| Error::grpc_response_param("no staking params".to_string()))?;
 
-        Ok(Duration::new(res.seconds as u64, res.nanos as u32))
+        Ok(params)
     }
 
-    fn rpc_client(&self) -> &HttpClient {
-        &self.rpc_client
+    /// The unbonding period of this chain
+    pub fn unbonding_period(&self) -> Result<Duration, Error> {
+        crate::time!("unbonding_period");
+
+        let unbonding_time = self.query_staking_params()?.unbonding_time.ok_or_else(|| {
+            Error::grpc_response_param("no unbonding time in staking params".to_string())
+        })?;
+
+        Ok(Duration::new(
+            unbonding_time.seconds as u64,
+            unbonding_time.nanos as u32,
+        ))
     }
 
-    pub fn config(&self) -> &ChainConfig {
-        &self.config
+    /// The number of historical entries kept by this chain
+    pub fn historical_entries(&self) -> Result<u32, Error> {
+        crate::time!("historical_entries");
+
+        self.query_staking_params().map(|p| p.historical_entries)
     }
 
     /// Query the consensus parameters via an RPC query
     /// Specific to the SDK and used only for Tendermint client create
-    pub fn query_consensus_params(&self) -> Result<Params, Error> {
+    pub fn query_consensus_params(&self) -> Result<ConsensusParams, Error> {
         crate::time!("query_consensus_params");
+        crate::telemetry!(query, self.id(), "query_consensus_params");
 
         Ok(self
-            .block_on(self.rpc_client().genesis())
+            .block_on(self.rpc_client.genesis())
             .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?
             .consensus_params)
     }
@@ -215,59 +315,41 @@ impl CosmosSdkChain {
         self.rt.block_on(f)
     }
 
-    fn send_tx(&mut self, proto_msgs: Vec<Any>) -> Result<Response, Error> {
-        crate::time!("send_tx");
-
-        let account_seq = self.account_sequence()?;
-
+    fn send_tx_with_account_sequence(
+        &mut self,
+        proto_msgs: Vec<Any>,
+        account_seq: u64,
+    ) -> Result<Response, Error> {
         debug!(
-            "[{}] send_tx: sending {} messages using account sequence {}",
-            self.id(),
+            "sending {} messages using account sequence {}",
             proto_msgs.len(),
             account_seq,
         );
 
         let signer_info = self.signer(account_seq)?;
-        let default_fee = self.default_fee();
+        let max_fee = self.max_fee();
 
-        debug!("[{}] default fee: {}", self.id(), PrettyFee(&default_fee));
+        debug!("max fee, for use in tx simulation: {}", PrettyFee(&max_fee));
 
-        let (body, body_buf) = tx_body_and_bytes(proto_msgs)?;
+        let (body, body_buf) = tx_body_and_bytes(proto_msgs, self.tx_memo())?;
 
-        let (auth_info, auth_buf) = auth_info_and_bytes(signer_info.clone(), default_fee.clone())?;
+        let (auth_info, auth_buf) = auth_info_and_bytes(signer_info.clone(), max_fee)?;
         let signed_doc = self.signed_doc(body_buf.clone(), auth_buf, account_seq)?;
 
-        // Try to simulate the Tx.
-        // It is possible that a batch of messages are fragmented by the caller (`send_msgs`) such that
-        // they do not individually verify. For example for the following batch
-        // [`MsgUpdateClient`, `MsgRecvPacket`, ..., `MsgRecvPacket`]
-        // if the batch is split in two TX-es, the second one will fail the simulation in `deliverTx` check
-        // In this case we just leave the gas un-adjusted, i.e. use `self.max_gas()`
-        let estimated_gas = self
-            .send_tx_simulate(Tx {
-                body: Some(body),
-                auth_info: Some(auth_info),
-                signatures: vec![signed_doc],
-            })
-            .map(|sr| sr.gas_info);
+        let simulate_tx = Tx {
+            body: Some(body),
+            auth_info: Some(auth_info),
+            signatures: vec![signed_doc],
+        };
 
-        debug!("[{}] simulated gas: {:?}", self.id(), estimated_gas);
-
-        let estimated_gas = estimated_gas.map_or_else(
-            |e| {
-                error!(
-                    "[{}] failed to estimate gas, falling back on max gas, error: {}",
-                    self.id(),
-                    e
-                );
-
-                self.max_gas()
-            },
-            |gas_info| gas_info.map_or(self.max_gas(), |g| g.gas_used),
-        );
+        // This may result in an account sequence mismatch error
+        let estimated_gas = self.estimate_gas(simulate_tx)?;
 
         if estimated_gas > self.max_gas() {
-            debug!(estimated = ?estimated_gas, max = ?self.max_gas(), "[{}] estimated gas is higher than max gas", self.id());
+            debug!(
+                id = %self.id(), estimated = ?estimated_gas, max = ?self.max_gas(),
+                "send_tx: estimated gas is higher than max gas"
+            );
 
             return Err(Error::tx_simulate_gas_estimate_exceeded(
                 self.id().clone(),
@@ -278,10 +360,10 @@ impl CosmosSdkChain {
 
         let adjusted_fee = self.fee_with_gas(estimated_gas);
 
-        trace!(
-            "[{}] send_tx: based on the estimated gas, adjusting fee from {} to {}",
-            self.id(),
-            PrettyFee(&default_fee),
+        debug!(
+            id = %self.id(),
+            "send_tx: using {} gas, fee {}",
+            estimated_gas,
             PrettyFee(&adjusted_fee)
         );
 
@@ -297,34 +379,188 @@ impl CosmosSdkChain {
         };
 
         let mut tx_bytes = Vec::new();
-        prost::Message::encode(&tx_raw, &mut tx_bytes).unwrap();
+        prost::Message::encode(&tx_raw, &mut tx_bytes)
+            .map_err(|e| Error::protobuf_encode(String::from("Transaction"), e))?;
 
-        let response = self.block_on(broadcast_tx_sync(self, tx_bytes))?;
+        self.block_on(broadcast_tx_sync(
+            &self.rpc_client,
+            &self.config.rpc_addr,
+            tx_bytes,
+        ))
+    }
 
-        match response.code {
-            tendermint::abci::Code::Ok => {
-                // A success means the account s.n. was increased
-                self.incr_account_sequence()?;
-                debug!("[{}] send_tx: broadcast_tx_sync: {:?}", self.id(), response);
+    /// Try to `send_tx` with retry on account sequence error.
+    /// An account sequence error can occur if the account sequence that
+    /// the relayer caches becomes outdated. This may happen if the relayer
+    /// wallet is used concurrently elsewhere, or when tx fees are mis-configured
+    /// leading to transactions hanging in the mempool.
+    ///
+    /// Account sequence mismatch error can occur at two separate steps:
+    ///   1. as Err variant, propagated from the `estimate_gas` step.
+    ///   2. as an Ok variant, with an Code::Err response, propagated from
+    ///     the `broadcast_tx_sync` step.
+    ///
+    /// We treat both cases by re-fetching the account sequence number
+    /// from the full node.
+    /// Upon case #1, we do not retry submitting the same tx (retry happens
+    /// nonetheless at the worker `step` level). Upon case #2, we retry
+    /// submitting the same transaction.
+    fn send_tx_with_account_sequence_retry(
+        &mut self,
+        proto_msgs: Vec<Any>,
+        retry_counter: u32,
+    ) -> Result<Response, Error> {
+        let account_sequence = self.account_sequence()?;
+
+        match self.send_tx_with_account_sequence(proto_msgs.clone(), account_sequence) {
+            // Gas estimation failed with acct. s.n. mismatch at estimate gas step.
+            // This indicates that the full node did not yet push the previous tx out of its
+            // mempool. Possible explanations: fees too low, network congested, or full node
+            // congested. Whichever the case, it is more expedient in production to drop the tx
+            // and refresh the s.n., to allow proceeding to the other transactions. A separate
+            // retry at the worker-level will handle retrying.
+            Err(e) if mismatching_account_sequence_number(&e) => {
+                warn!("failed at estimate_gas step mismatching account sequence: dropping the tx & refreshing account sequence number");
+                self.refresh_account()?;
+                // Note: propagating error here can lead to bug & dropped packets:
+                // https://github.com/informalsystems/ibc-rs/issues/1153
+                // But periodic packet clearing will catch any dropped packets.
+                Err(e)
             }
-            tendermint::abci::Code::Err(code) => {
-                // Avoid increasing the account s.n. if CheckTx failed
-                // Log the error
-                error!(
-                    "[{}] send_tx: broadcast_tx_sync: {:?}: diagnostic: {:?}",
-                    self.id(),
-                    response,
-                    sdk_error_from_tx_sync_error_code(code)
+
+            // Gas estimation succeeded. Broadcasting failed with a retry-able error.
+            Ok(response) if response.code == Code::Err(INCORRECT_ACCOUNT_SEQUENCE_ERR) => {
+                if retry_counter < retry_strategy::MAX_ACCOUNT_SEQUENCE_RETRY {
+                    let retry_counter = retry_counter + 1;
+                    warn!("failed at broadcast step with incorrect account sequence. retrying ({}/{})",
+                        retry_counter, retry_strategy::MAX_ACCOUNT_SEQUENCE_RETRY);
+                    // Backoff & re-fetch the account s.n.
+                    let backoff = (retry_counter as u64)
+                        * retry_strategy::BACKOFF_MULTIPLIER_ACCOUNT_SEQUENCE_RETRY;
+                    thread::sleep(Duration::from_millis(backoff));
+                    self.refresh_account()?;
+
+                    // Now retry.
+                    self.send_tx_with_account_sequence_retry(proto_msgs, retry_counter + 1)
+                } else {
+                    // If after the max retry we still get an account sequence mismatch error,
+                    // we ignore the error and return the original response to downstream.
+                    // We do not return an error here, because the current convention
+                    // let the caller handle error responses separately.
+                    error!("failed due to account sequence errors. the relayer wallet may be used elsewhere concurrently.");
+                    Ok(response)
+                }
+            }
+
+            // Catch-all arm for the Ok variant.
+            // This is the case when gas estimation succeeded.
+            Ok(response) => {
+                // Complete success.
+                match response.code {
+                    tendermint::abci::Code::Ok => {
+                        debug!("broadcast_tx_sync: {:?}", response);
+
+                        self.incr_account_sequence();
+                        Ok(response)
+                    }
+                    // Gas estimation succeeded, but broadcasting failed with unrecoverable error.
+                    tendermint::abci::Code::Err(code) => {
+                        // Avoid increasing the account s.n. if CheckTx failed
+                        // Log the error
+                        error!(
+                            "broadcast_tx_sync: {:?}: diagnostic: {:?}",
+                            response,
+                            sdk_error_from_tx_sync_error_code(code)
+                        );
+                        Ok(response)
+                    }
+                }
+            }
+
+            // Catch-all case for the Err variant.
+            // Gas estimation failure or other unrecoverable error, propagate.
+            Err(e) => Err(e),
+        }
+    }
+
+    fn send_tx(&mut self, proto_msgs: Vec<Any>) -> Result<Response, Error> {
+        crate::time!("send_tx");
+        let _span = span!(Level::ERROR, "send_tx", id = %self.id()).entered();
+
+        self.send_tx_with_account_sequence_retry(proto_msgs, 0)
+    }
+
+    /// Try to simulate the given tx in order to estimate how much gas will be needed to submit it.
+    ///
+    /// It is possible that a batch of messages are fragmented by the caller (`send_msgs`) such that
+    /// they do not individually verify. For example for the following batch:
+    /// [`MsgUpdateClient`, `MsgRecvPacket`, ..., `MsgRecvPacket`]
+    ///
+    /// If the batch is split in two TX-es, the second one will fail the simulation in `deliverTx` check.
+    /// In this case we use the `default_gas` param.
+    fn estimate_gas(&mut self, tx: Tx) -> Result<u64, Error> {
+        let simulated_gas = self.send_tx_simulate(tx).map(|sr| sr.gas_info);
+        let _span = span!(Level::ERROR, "estimate_gas").entered();
+
+        match simulated_gas {
+            Ok(Some(gas_info)) => {
+                debug!(
+                    "tx simulation successful, gas amount used: {:?}",
+                    gas_info.gas_used
                 );
+
+                Ok(gas_info.gas_used)
+            }
+
+            Ok(None) => {
+                warn!(
+                    "tx simulation successful but no gas amount used was returned, falling back on default gas: {}",
+                    self.default_gas()
+                );
+
+                Ok(self.default_gas())
+            }
+
+            // If there is a chance that the tx will be accepted once actually submitted, we fall
+            // back on the max gas and will attempt to send it anyway.
+            // See `can_recover_from_simulation_failure` for more info.
+            Err(e) if can_recover_from_simulation_failure(&e) => {
+                warn!(
+                    "failed to simulate tx, falling back on default gas because the error is potentially recoverable: {}",
+                    e.detail()
+                );
+
+                Ok(self.default_gas())
+            }
+
+            Err(e) => {
+                error!(
+                    "failed to simulate tx. propagating error to caller: {}",
+                    e.detail()
+                );
+                // Propagate the error, the retrying mechanism at caller may catch & retry.
+                Err(e)
             }
         }
+    }
 
-        Ok(response)
+    /// The default amount of gas the relayer is willing to pay for a transaction,
+    /// when it cannot simulate the tx and therefore estimate the gas amount needed.
+    fn default_gas(&self) -> u64 {
+        self.config.default_gas.unwrap_or_else(|| self.max_gas())
     }
 
     /// The maximum amount of gas the relayer is willing to pay for a transaction
     fn max_gas(&self) -> u64 {
         self.config.max_gas.unwrap_or(DEFAULT_MAX_GAS)
+    }
+
+    /// Get the fee granter address
+    fn fee_granter(&self) -> &str {
+        self.config
+            .fee_granter
+            .as_deref()
+            .unwrap_or(DEFAULT_FEE_GRANTER)
     }
 
     /// The gas price
@@ -343,10 +579,15 @@ impl CosmosSdkChain {
     /// The actual gas cost, when a transaction is executed, may be slightly higher than the
     /// one returned by the simulation.
     fn apply_adjustment_to_gas(&self, gas_amount: u64) -> u64 {
-        min(
-            gas_amount + mul_ceil(gas_amount, self.gas_adjustment()),
-            self.max_gas(),
-        )
+        assert!(self.gas_adjustment() <= 1.0);
+
+        let (_, digits) = mul_ceil(gas_amount, self.gas_adjustment()).to_u64_digits();
+        assert!(digits.len() == 1);
+
+        let adjustment = digits[0];
+        let gas = gas_amount.checked_add(adjustment).unwrap_or(u64::MAX);
+
+        min(gas, self.max_gas())
     }
 
     /// The maximum fee the relayer pays for a transaction
@@ -369,13 +610,21 @@ impl CosmosSdkChain {
         self.config.max_tx_size.into()
     }
 
-    fn query(&self, data: Path, height: ICSHeight, prove: bool) -> Result<QueryResponse, Error> {
+    fn query(
+        &self,
+        data: impl Into<Path>,
+        height: ICSHeight,
+        prove: bool,
+    ) -> Result<QueryResponse, Error> {
         crate::time!("query");
 
-        let path = TendermintABCIPath::from_str(IBC_QUERY_PATH).unwrap();
+        // SAFETY: Creating a Path from a constant; this should never fail
+        let path = TendermintABCIPath::from_str(IBC_QUERY_PATH)
+            .expect("Turning IBC query path constant into a Tendermint ABCI path");
 
         let height = Height::try_from(height.revision_height).map_err(Error::invalid_height)?;
 
+        let data = data.into();
         if !data.is_provable() & prove {
             return Err(Error::private_store());
         }
@@ -401,7 +650,9 @@ impl CosmosSdkChain {
     ) -> Result<(Vec<u8>, MerkleProof), Error> {
         let prev_height = Height::try_from(height.value() - 1).map_err(Error::invalid_height)?;
 
-        let path = TendermintABCIPath::from_str(SDK_UPGRADE_QUERY_PATH).unwrap();
+        // SAFETY: Creating a Path from a constant; this should never fail
+        let path = TendermintABCIPath::from_str(SDK_UPGRADE_QUERY_PATH)
+            .expect("Turning SDK upgrade query path constant into a Tendermint ABCI path");
         let response: QueryResponse = self.block_on(abci_query(
             self,
             path,
@@ -416,11 +667,14 @@ impl CosmosSdkChain {
     }
 
     fn send_tx_simulate(&self, tx: Tx) -> Result<SimulateResponse, Error> {
-        crate::time!("tx simulate");
+        crate::time!("send_tx_simulate");
+
+        use ibc_proto::cosmos::tx::v1beta1::service_client::ServiceClient;
 
         // The `tx` field of `SimulateRequest` was deprecated in Cosmos SDK 0.43 in favor of `tx_bytes`.
         let mut tx_bytes = vec![];
-        prost::Message::encode(&tx, &mut tx_bytes).unwrap();
+        prost::Message::encode(&tx, &mut tx_bytes)
+            .map_err(|e| Error::protobuf_encode(String::from("Transaction"), e))?;
 
         #[allow(deprecated)]
         let req = SimulateRequest {
@@ -429,11 +683,7 @@ impl CosmosSdkChain {
         };
 
         let mut client = self
-            .block_on(
-                ibc_proto::cosmos::tx::v1beta1::service_client::ServiceClient::connect(
-                    self.grpc_addr.clone(),
-                ),
-            )
+            .block_on(ServiceClient::connect(self.grpc_addr.clone()))
             .map_err(Error::grpc_transport)?;
 
         let request = tonic::Request::new(req);
@@ -453,7 +703,8 @@ impl CosmosSdkChain {
 
     fn key_bytes(&self, key: &KeyEntry) -> Result<Vec<u8>, Error> {
         let mut pk_buf = Vec::new();
-        prost::Message::encode(&key.public_key.public_key.to_bytes(), &mut pk_buf).unwrap();
+        prost::Message::encode(&key.public_key.public_key.to_bytes(), &mut pk_buf)
+            .map_err(|e| Error::protobuf_encode(String::from("Key bytes"), e))?;
         Ok(pk_buf)
     }
 
@@ -463,21 +714,26 @@ impl CosmosSdkChain {
         Ok((key, key_bytes))
     }
 
-    fn account(&mut self) -> Result<&mut BaseAccount, Error> {
+    fn refresh_account(&mut self) -> Result<(), Error> {
+        let account = self.block_on(query_account(self, self.key()?.account))?;
+        info!(
+            sequence = %account.sequence,
+            number = %account.account_number,
+            "refresh: retrieved account",
+        );
+
+        self.account = Some(account);
+        Ok(())
+    }
+
+    fn account(&mut self) -> Result<&BaseAccount, Error> {
         if self.account == None {
-            let account = self.block_on(query_account(self, self.key()?.account))?;
-            debug!(
-                sequence = %account.sequence,
-                number = %account.account_number,
-                "[{}] send_tx: retrieved account",
-                self.id()
-            );
-            self.account = Some(account);
+            self.refresh_account()?;
         }
 
         Ok(self
             .account
-            .as_mut()
+            .as_ref()
             .expect("account was supposedly just cached"))
     }
 
@@ -489,9 +745,10 @@ impl CosmosSdkChain {
         Ok(self.account()?.sequence)
     }
 
-    fn incr_account_sequence(&mut self) -> Result<(), Error> {
-        self.account()?.sequence += 1;
-        Ok(())
+    fn incr_account_sequence(&mut self) {
+        if let Some(account) = &mut self.account {
+            account.sequence += 1;
+        }
     }
 
     fn signer(&self, sequence: u64) -> Result<SignerInfo, Error> {
@@ -517,21 +774,23 @@ impl CosmosSdkChain {
         Ok(signer_info)
     }
 
-    fn default_fee(&self) -> Fee {
+    fn max_fee(&self) -> Fee {
         Fee {
             amount: vec![self.max_fee_in_coins()],
             gas_limit: self.max_gas(),
             payer: "".to_string(),
-            granter: "".to_string(),
+            granter: self.fee_granter().to_string(),
         }
     }
 
     fn fee_with_gas(&self, gas_limit: u64) -> Fee {
         let adjusted_gas_limit = self.apply_adjustment_to_gas(gas_limit);
+
         Fee {
             amount: vec![self.fee_from_gas_in_coins(adjusted_gas_limit)],
             gas_limit: adjusted_gas_limit,
-            ..self.default_fee()
+            payer: "".to_string(),
+            granter: self.fee_granter().to_string(),
         }
     }
 
@@ -550,7 +809,8 @@ impl CosmosSdkChain {
 
         // A protobuf serialization of a SignDoc
         let mut signdoc_buf = Vec::new();
-        prost::Message::encode(&sign_doc, &mut signdoc_buf).unwrap();
+        prost::Message::encode(&sign_doc, &mut signdoc_buf)
+            .map_err(|e| Error::protobuf_encode(String::from("SignDoc"), e))?;
 
         // Sign doc
         let signed = self
@@ -572,16 +832,14 @@ impl CosmosSdkChain {
         &self,
         mut tx_sync_results: Vec<TxSyncResult>,
     ) -> Result<Vec<TxSyncResult>, Error> {
-        use crate::util::retry::{retry_with_index, RetryResult};
-
         let hashes = tx_sync_results
             .iter()
             .map(|res| res.response.hash.to_string())
             .join(", ");
 
-        warn!(
-            "[{}] waiting for commit of tx hashes(s) {}",
-            self.id(),
+        info!(
+            id = %self.id(),
+            "wait_for_block_commits: waiting for commit of tx hashes(s) {}",
             hashes
         );
 
@@ -594,8 +852,8 @@ impl CosmosSdkChain {
             |index| {
                 if all_tx_results_found(&tx_sync_results) {
                     trace!(
-                        "[{}] wait_for_block_commits: retrieved {} tx results after {} tries ({}ms)",
-                        self.id(),
+                        id = %self.id(),
+                        "wait_for_block_commits: retrieved {} tx results after {} tries ({}ms)",
                         tx_sync_results.len(),
                         index,
                         start.elapsed().as_millis()
@@ -613,11 +871,11 @@ impl CosmosSdkChain {
                         // so that we don't attempt to resolve the transaction later on.
                         if response.code.value() != 0 {
                             *events = vec![IbcEvent::ChainError(format!(
-                            "deliver_tx on chain {} for Tx hash {} reports error: code={:?}, log={:?}",
-                            self.id(), response.hash, response.code, response.log
-                        ))];
+                                "deliver_tx on chain {} for Tx hash {} reports error: code={:?}, log={:?}",
+                                self.id(), response.hash, response.code, response.log
+                            ))];
 
-                        // Otherwise, try to resolve transaction hash to the corresponding events.
+                            // Otherwise, try to resolve transaction hash to the corresponding events.
                         } else if let Ok(events_per_tx) =
                             self.query_txs(QueryTxRequest::Transaction(QueryTxHash(response.hash)))
                         {
@@ -647,6 +905,43 @@ impl CosmosSdkChain {
             .trusting_period
             .unwrap_or(2 * unbonding_period / 3)
     }
+
+    /// Returns the preconfigured memo to be used for every submitted transaction
+    fn tx_memo(&self) -> &Memo {
+        &self.config.memo_prefix
+    }
+
+    /// Query the chain status via an RPC query.
+    ///
+    /// Returns an error if the node is still syncing and has not caught up,
+    /// ie. if `sync_info.catching_up` is `true`.
+    fn status(&self) -> Result<status::Response, Error> {
+        let status = self
+            .block_on(self.rpc_client.status())
+            .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
+
+        if status.sync_info.catching_up {
+            return Err(Error::chain_not_caught_up(
+                self.config.rpc_addr.to_string(),
+                self.config().id.clone(),
+            ));
+        }
+
+        Ok(status)
+    }
+
+    /// Query the chain's latest height
+    pub fn query_latest_height(&self) -> Result<ICSHeight, Error> {
+        crate::time!("query_latest_height");
+        crate::telemetry!(query, self.id(), "query_latest_height");
+
+        let status = self.status()?;
+
+        Ok(ICSHeight {
+            revision_number: ChainId::chain_version(status.node_info.network.as_str()),
+            revision_height: u64::from(status.sync_info.latest_block_height),
+        })
+    }
 }
 
 fn empty_event_present(events: &[IbcEvent]) -> bool {
@@ -671,11 +966,13 @@ impl ChainEndpoint for CosmosSdkChain {
             .map_err(|e| Error::rpc(config.rpc_addr.clone(), e))?;
 
         // Initialize key store and load key
-        let keybase = KeyRing::new(Store::Test, &config.account_prefix, &config.id)
+        let keybase = KeyRing::new(config.key_store_type, &config.account_prefix, &config.id)
             .map_err(Error::key_base)?;
 
         let grpc_addr = Uri::from_str(&config.grpc_addr.to_string())
             .map_err(|e| Error::invalid_uri(config.grpc_addr.to_string(), e))?;
+
+        // Retrieve the version specification of this chain
 
         let chain = Self {
             config,
@@ -690,7 +987,7 @@ impl ChainEndpoint for CosmosSdkChain {
     }
 
     fn init_light_client(&self) -> Result<Self::LightClient, Error> {
-        use tendermint_light_client::types::PeerId;
+        use tendermint_light_client_verifier::types::PeerId;
 
         crate::time!("init_light_client");
 
@@ -753,7 +1050,7 @@ impl ChainEndpoint for CosmosSdkChain {
     /// Exits early if any health check fails, without doing any
     /// further checks.
     fn health_check(&self) -> Result<HealthCheck, Error> {
-        if let Err(e) = self.block_on(do_health_check(self)) {
+        if let Err(e) = do_health_check(self) {
             warn!("Health checkup for chain '{}' failed", self.id());
             warn!("    Reason: {}", e.detail());
             warn!("    Some Hermes features may not work in this mode!");
@@ -782,13 +1079,14 @@ impl ChainEndpoint for CosmosSdkChain {
     /// msgs in a Tx until any of the max size, max num msgs, max fee are exceeded.
     fn send_messages_and_wait_commit(
         &mut self,
-        proto_msgs: Vec<Any>,
+        tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEvent>, Error> {
         crate::time!("send_messages_and_wait_commit");
-        debug!(
-            "send_messages_and_wait_commit with {} messages",
-            proto_msgs.len()
-        );
+
+        let _span =
+            span!(Level::DEBUG, "send_tx_commit", id = %tracked_msgs.tracking_id()).entered();
+
+        let proto_msgs = tracked_msgs.messages();
 
         if proto_msgs.is_empty() {
             return Ok(vec![]);
@@ -801,11 +1099,12 @@ impl ChainEndpoint for CosmosSdkChain {
         for msg in proto_msgs.iter() {
             msg_batch.push(msg.clone());
             let mut buf = Vec::new();
-            prost::Message::encode(msg, &mut buf).unwrap();
+            prost::Message::encode(msg, &mut buf)
+                .map_err(|e| Error::protobuf_encode(String::from("Message"), e))?;
             n += 1;
             size += buf.len();
             if n >= self.max_msg_num() || size >= self.max_tx_size() {
-                let events_per_tx = vec![IbcEvent::Empty("".to_string()); msg_batch.len()];
+                let events_per_tx = vec![IbcEvent::default(); msg_batch.len()];
                 let tx_sync_result = self.send_tx(msg_batch)?;
                 tx_sync_results.push(TxSyncResult {
                     response: tx_sync_result,
@@ -817,7 +1116,7 @@ impl ChainEndpoint for CosmosSdkChain {
             }
         }
         if !msg_batch.is_empty() {
-            let events_per_tx = vec![IbcEvent::Empty("".to_string()); msg_batch.len()];
+            let events_per_tx = vec![IbcEvent::default(); msg_batch.len()];
             let tx_sync_result = self.send_tx(msg_batch)?;
             tx_sync_results.push(TxSyncResult {
                 response: tx_sync_result,
@@ -838,13 +1137,14 @@ impl ChainEndpoint for CosmosSdkChain {
 
     fn send_messages_and_wait_check_tx(
         &mut self,
-        proto_msgs: Vec<Any>,
+        tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<Response>, Error> {
         crate::time!("send_messages_and_wait_check_tx");
-        debug!(
-            "send_messages_and_wait_check_tx with {} messages",
-            proto_msgs.len()
-        );
+
+        let span = span!(Level::DEBUG, "send_tx_check", id = %tracked_msgs.tracking_id());
+        let _enter = span.enter();
+
+        let proto_msgs = tracked_msgs.messages();
 
         if proto_msgs.is_empty() {
             return Ok(vec![]);
@@ -857,7 +1157,8 @@ impl ChainEndpoint for CosmosSdkChain {
         for msg in proto_msgs.iter() {
             msg_batch.push(msg.clone());
             let mut buf = Vec::new();
-            prost::Message::encode(msg, &mut buf).unwrap();
+            prost::Message::encode(msg, &mut buf)
+                .map_err(|e| Error::protobuf_encode(String::from("Messages"), e))?;
             n += 1;
             size += buf.len();
             if n >= self.max_msg_num() || size >= self.max_tx_size() {
@@ -883,10 +1184,15 @@ impl ChainEndpoint for CosmosSdkChain {
         let key = self
             .keybase()
             .get_key(&self.config.key_name)
-            .map_err(Error::key_base)?;
+            .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
 
         let bech32 = encode_to_bech32(&key.address.to_hex(), &self.config.account_prefix)?;
         Ok(Signer::new(bech32))
+    }
+
+    /// Get the chain configuration
+    fn config(&self) -> ChainConfig {
+        self.config.clone()
     }
 
     /// Get the signing key
@@ -897,38 +1203,49 @@ impl ChainEndpoint for CosmosSdkChain {
         let key = self
             .keybase()
             .get_key(&self.config.key_name)
-            .map_err(Error::key_base)?;
+            .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
 
         Ok(key)
     }
 
-    fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
-        crate::time!("query_commitment_prefix");
+    fn add_key(&mut self, key_name: &str, key: KeyEntry) -> Result<(), Error> {
+        self.keybase_mut()
+            .add_key(key_name, key)
+            .map_err(Error::key_base)?;
 
-        // TODO - do a real chain query
-        Ok(CommitmentPrefix::from(
-            self.config().store_prefix.as_bytes().to_vec(),
-        ))
+        Ok(())
     }
 
-    /// Query the latest height the chain is at via a RPC query
-    fn query_latest_height(&self) -> Result<ICSHeight, Error> {
-        crate::time!("query_latest_height");
+    fn ibc_version(&self) -> Result<Option<semver::Version>, Error> {
+        let version_specs = self.block_on(fetch_version_specs(self.id(), &self.grpc_addr))?;
+        Ok(version_specs.ibc_go_version)
+    }
 
-        let status = self
-            .block_on(self.rpc_client().status())
-            .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
+    fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
+        crate::time!("query_commitment_prefix");
+        crate::telemetry!(query, self.id(), "query_commitment_prefix");
 
-        if status.sync_info.catching_up {
-            return Err(Error::chain_not_caught_up(
-                self.config.rpc_addr.to_string(),
-                self.config().id.clone(),
-            ));
-        }
+        // TODO - do a real chain query
+        CommitmentPrefix::try_from(self.config().store_prefix.as_bytes().to_vec())
+            .map_err(|_| Error::ics02(ClientError::empty_prefix()))
+    }
 
-        Ok(ICSHeight {
+    /// Query the chain status
+    fn query_status(&self) -> Result<StatusResponse, Error> {
+        crate::time!("query_status");
+        crate::telemetry!(query, self.id(), "query_status");
+
+        let status = self.status()?;
+
+        let time = status.sync_info.latest_block_time;
+        let height = ICSHeight {
             revision_number: ChainId::chain_version(status.node_info.network.as_str()),
             revision_height: u64::from(status.sync_info.latest_block_height),
+        };
+
+        Ok(StatusResponse {
+            height,
+            timestamp: time.into(),
         })
     }
 
@@ -937,6 +1254,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryClientStatesRequest,
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
         crate::time!("query_clients");
+        crate::telemetry!(query, self.id(), "query_clients");
 
         let mut client = self
             .block_on(
@@ -969,14 +1287,13 @@ impl ChainEndpoint for CosmosSdkChain {
         &self,
         client_id: &ClientId,
         height: ICSHeight,
-    ) -> Result<Self::ClientState, Error> {
+    ) -> Result<AnyClientState, Error> {
         crate::time!("query_client_state");
+        crate::telemetry!(query, self.id(), "query_client_state");
 
         let client_state = self
             .query(ClientStatePath(client_id.clone()), height, false)
             .and_then(|v| AnyClientState::decode_vec(&v.value).map_err(Error::decode))?;
-        // let client_state = downcast!(client_state.clone() => AnyClientState::Tendermint)
-        //     .ok_or_else(|| Error::client_state_type(format!("{:?}", client_state)))?;
 
         Ok(client_state)
     }
@@ -984,8 +1301,9 @@ impl ChainEndpoint for CosmosSdkChain {
     fn query_upgraded_client_state(
         &self,
         height: ICSHeight,
-    ) -> Result<(Self::ClientState, MerkleProof), Error> {
+    ) -> Result<(AnyClientState, MerkleProof), Error> {
         crate::time!("query_upgraded_client_state");
+        crate::telemetry!(query, self.id(), "query_upgraded_client_state");
 
         // Query for the value and the proof.
         let tm_height = Height::try_from(height.revision_height).map_err(Error::invalid_height)?;
@@ -997,18 +1315,15 @@ impl ChainEndpoint for CosmosSdkChain {
         let client_state = AnyClientState::decode_vec(&upgraded_client_state_raw)
             .map_err(Error::conversion_from_any)?;
 
-        // let client_type = client_state.client_type();
-        // let tm_client_state = downcast!(client_state => AnyClientState::Tendermint)
-        //     .ok_or_else(|| Error::client_type_mismatch(ClientType::Tendermint, client_type))?;
-
         Ok((client_state, proof))
     }
 
     fn query_upgraded_consensus_state(
         &self,
         height: ICSHeight,
-    ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
+    ) -> Result<(AnyConsensusState, MerkleProof), Error> {
         crate::time!("query_upgraded_consensus_state");
+        crate::telemetry!(query, self.id(), "query_upgraded_consensus_state");
 
         let tm_height = Height::try_from(height.revision_height).map_err(Error::invalid_height)?;
 
@@ -1021,12 +1336,6 @@ impl ChainEndpoint for CosmosSdkChain {
         let consensus_state = AnyConsensusState::decode_vec(&upgraded_consensus_state_raw)
             .map_err(Error::conversion_from_any)?;
 
-        // let cs_client_type = consensus_state.client_type();
-        // let tm_consensus_state = downcast!(consensus_state => AnyConsensusState::Tendermint)
-        //     .ok_or_else(|| {
-        //         Error::consensus_state_type_mismatch(ClientType::Tendermint, cs_client_type)
-        //     })?;
-
         Ok((consensus_state, proof))
     }
 
@@ -1036,6 +1345,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryConsensusStatesRequest,
     ) -> Result<Vec<AnyConsensusStateWithHeight>, Error> {
         crate::time!("query_consensus_states");
+        crate::telemetry!(query, self.id(), "query_consensus_states");
 
         let mut client = self
             .block_on(
@@ -1068,11 +1378,11 @@ impl ChainEndpoint for CosmosSdkChain {
         query_height: ICSHeight,
     ) -> Result<AnyConsensusState, Error> {
         crate::time!("query_consensus_state");
+        crate::telemetry!(query, self.id(), "query_consensus_state");
 
-        let consensus_state = self
-            .proven_client_consensus(&client_id, consensus_height, query_height)?
-            .0;
-        // Ok(AnyConsensusState::Tendermint(consensus_state))
+        let (consensus_state, _proof) =
+            self.proven_client_consensus(&client_id, consensus_height, query_height)?;
+
         Ok(consensus_state)
     }
 
@@ -1080,7 +1390,8 @@ impl ChainEndpoint for CosmosSdkChain {
         &self,
         request: QueryClientConnectionsRequest,
     ) -> Result<Vec<ConnectionId>, Error> {
-        crate::time!("query_connections");
+        crate::time!("query_client_connections");
+        crate::telemetry!(query, self.id(), "query_client_connections");
 
         let mut client = self
             .block_on(
@@ -1115,6 +1426,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryConnectionsRequest,
     ) -> Result<Vec<IdentifiedConnectionEnd>, Error> {
         crate::time!("query_connections");
+        crate::telemetry!(query, self.id(), "query_connections");
 
         let mut client = self
             .block_on(
@@ -1148,6 +1460,9 @@ impl ChainEndpoint for CosmosSdkChain {
         connection_id: &ConnectionId,
         height: ICSHeight,
     ) -> Result<ConnectionEnd, Error> {
+        crate::time!("query_connection");
+        crate::telemetry!(query, self.id(), "query_connection");
+
         async fn do_query_connection(
             chain: &CosmosSdkChain,
             connection_id: &ConnectionId,
@@ -1205,6 +1520,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryConnectionChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         crate::time!("query_connection_channels");
+        crate::telemetry!(query, self.id(), "query_connection_channels");
 
         let mut client = self
             .block_on(
@@ -1236,7 +1552,8 @@ impl ChainEndpoint for CosmosSdkChain {
         &self,
         request: QueryChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-        crate::time!("query_connections");
+        crate::time!("query_channels");
+        crate::telemetry!(query, self.id(), "query_channels");
 
         let mut client = self
             .block_on(
@@ -1267,8 +1584,11 @@ impl ChainEndpoint for CosmosSdkChain {
         channel_id: &ChannelId,
         height: ICSHeight,
     ) -> Result<ChannelEnd, Error> {
+        crate::time!("query_channel");
+        crate::telemetry!(query, self.id(), "query_channel");
+
         let res = self.query(
-            Path::ChannelEnds(port_id.clone(), channel_id.clone()),
+            ChannelEndsPath(port_id.clone(), channel_id.clone()),
             height,
             false,
         )?;
@@ -1282,6 +1602,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryChannelClientStateRequest,
     ) -> Result<Option<IdentifiedAnyClientState>, Error> {
         crate::time!("query_channel_client_state");
+        crate::telemetry!(query, self.id(), "query_channel_client_state");
 
         let mut client = self
             .block_on(
@@ -1311,6 +1632,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryPacketCommitmentsRequest,
     ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
         crate::time!("query_packet_commitments");
+        crate::telemetry!(query, self.id(), "query_packet_commitments");
 
         let mut client = self
             .block_on(
@@ -1327,7 +1649,8 @@ impl ChainEndpoint for CosmosSdkChain {
             .map_err(Error::grpc_status)?
             .into_inner();
 
-        let pc = response.commitments;
+        let mut pc = response.commitments;
+        pc.sort_by_key(|ps| ps.sequence);
 
         let height = response
             .height
@@ -1343,6 +1666,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryUnreceivedPacketsRequest,
     ) -> Result<Vec<u64>, Error> {
         crate::time!("query_unreceived_packets");
+        crate::telemetry!(query, self.id(), "query_unreceived_packets");
 
         let mut client = self
             .block_on(
@@ -1369,6 +1693,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryPacketAcknowledgementsRequest,
     ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
         crate::time!("query_packet_acknowledgements");
+        crate::telemetry!(query, self.id(), "query_packet_acknowledgements");
 
         let mut client = self
             .block_on(
@@ -1401,6 +1726,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryUnreceivedAcksRequest,
     ) -> Result<Vec<u64>, Error> {
         crate::time!("query_unreceived_acknowledgements");
+        crate::telemetry!(query, self.id(), "query_unreceived_acknowledgements");
 
         let mut client = self
             .block_on(
@@ -1426,6 +1752,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryNextSequenceReceiveRequest,
     ) -> Result<Sequence, Error> {
         crate::time!("query_next_sequence_receive");
+        crate::telemetry!(query, self.id(), "query_next_sequence_receive");
 
         let mut client = self
             .block_on(
@@ -1458,6 +1785,7 @@ impl ChainEndpoint for CosmosSdkChain {
     ///    packets ever sent.
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error> {
         crate::time!("query_txs");
+        crate::telemetry!(query, self.id(), "query_txs");
 
         match request {
             QueryTxRequest::Packet(request) => {
@@ -1554,19 +1882,81 @@ impl ChainEndpoint for CosmosSdkChain {
         }
     }
 
+    fn query_blocks(
+        &self,
+        request: QueryBlockRequest,
+    ) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error> {
+        crate::time!("query_blocks");
+        crate::telemetry!(query, self.id(), "query_blocks");
+
+        match request {
+            QueryBlockRequest::Packet(request) => {
+                crate::time!("query_blocks: query block packet events");
+
+                let mut begin_block_events: Vec<IbcEvent> = vec![];
+                let mut end_block_events: Vec<IbcEvent> = vec![];
+
+                for seq in &request.sequences {
+                    let response = self
+                        .block_on(self.rpc_client.block_search(
+                            packet_query(&request, *seq),
+                            1,
+                            1, // there should only be a single match for this query
+                            Order::Ascending,
+                        ))
+                        .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
+
+                    assert!(
+                        response.blocks.len() <= 1,
+                        "block_results: unexpected number of blocks"
+                    );
+
+                    if let Some(block) = response.blocks.first().map(|first| &first.block) {
+                        let response_height =
+                            ICSHeight::new(self.id().version(), u64::from(block.header.height));
+
+                        if request.height != ICSHeight::zero() && response_height > request.height {
+                            continue;
+                        }
+
+                        let response = self
+                            .block_on(self.rpc_client.block_results(block.header.height))
+                            .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
+
+                        begin_block_events.append(
+                            &mut response
+                                .begin_block_events
+                                .unwrap_or_default()
+                                .into_iter()
+                                .filter_map(|ev| filter_matching_event(ev, &request, *seq))
+                                .collect(),
+                        );
+
+                        end_block_events.append(
+                            &mut response
+                                .end_block_events
+                                .unwrap_or_default()
+                                .into_iter()
+                                .filter_map(|ev| filter_matching_event(ev, &request, *seq))
+                                .collect(),
+                        );
+                    }
+                }
+                Ok((begin_block_events, end_block_events))
+            }
+        }
+    }
+
     fn proven_client_state(
         &self,
         client_id: &ClientId,
         height: ICSHeight,
-    ) -> Result<(Self::ClientState, MerkleProof), Error> {
+    ) -> Result<(AnyClientState, MerkleProof), Error> {
         crate::time!("proven_client_state");
 
         let res = self.query(ClientStatePath(client_id.clone()), height, true)?;
 
         let client_state = AnyClientState::decode_vec(&res.value).map_err(Error::decode)?;
-
-        // let client_state = downcast!(client_state.clone() => AnyClientState::Tendermint)
-        //     .ok_or_else(|| Error::client_state_type(format!("{:?}", client_state)))?;
 
         Ok((
             client_state,
@@ -1579,11 +1969,11 @@ impl ChainEndpoint for CosmosSdkChain {
         client_id: &ClientId,
         consensus_height: ICSHeight,
         height: ICSHeight,
-    ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
+    ) -> Result<(AnyConsensusState, MerkleProof), Error> {
         crate::time!("proven_client_consensus");
 
         let res = self.query(
-            ClientConsensusPath {
+            ClientConsensusStatePath {
                 client_id: client_id.clone(),
                 epoch: consensus_height.revision_number,
                 height: consensus_height.revision_height,
@@ -1594,14 +1984,17 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let consensus_state = AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
 
-        // let consensus_state =
-        //     downcast!(consensus_state.clone() => AnyConsensusState::Tendermint)
-        //         .ok_or_else(|| Error::client_state_type(format!("{:?}", consensus_state)))?;
 
-        Ok((
-            consensus_state,
-            res.proof.ok_or_else(Error::empty_response_proof)?,
-        ))
+        if !matches!(consensus_state, AnyConsensusState::Tendermint(_)) {
+            return Err(Error::consensus_state_type_mismatch(
+                ClientType::Tendermint,
+                consensus_state.client_type(),
+            ));
+        }
+
+        let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
+
+        Ok((consensus_state, proof))
     }
 
     fn proven_connection(
@@ -1609,7 +2002,7 @@ impl ChainEndpoint for CosmosSdkChain {
         connection_id: &ConnectionId,
         height: ICSHeight,
     ) -> Result<(ConnectionEnd, MerkleProof), Error> {
-        let res = self.query(Path::Connections(connection_id.clone()), height, true)?;
+        let res = self.query(ConnectionsPath(connection_id.clone()), height, true)?;
         let connection_end = ConnectionEnd::decode_vec(&res.value).map_err(Error::decode)?;
 
         Ok((
@@ -1625,7 +2018,7 @@ impl ChainEndpoint for CosmosSdkChain {
         height: ICSHeight,
     ) -> Result<(ChannelEnd, MerkleProof), Error> {
         let res = self.query(
-            Path::ChannelEnds(port_id.clone(), channel_id.clone()),
+            ChannelEndsPath(port_id.clone(), channel_id.clone()),
             height,
             true,
         )?;
@@ -1646,31 +2039,32 @@ impl ChainEndpoint for CosmosSdkChain {
         sequence: Sequence,
         height: ICSHeight,
     ) -> Result<(Vec<u8>, MerkleProof), Error> {
-        let data = match packet_type {
-            PacketMsgType::Recv => Path::Commitments {
+        let data: Path = match packet_type {
+            PacketMsgType::Recv => CommitmentsPath {
                 port_id,
                 channel_id,
                 sequence,
-            },
-            PacketMsgType::Ack => Path::Acks {
+            }
+            .into(),
+            PacketMsgType::Ack => AcksPath {
                 port_id,
                 channel_id,
                 sequence,
-            },
-            PacketMsgType::TimeoutUnordered => Path::Receipts {
+            }
+            .into(),
+            PacketMsgType::TimeoutUnordered => ReceiptsPath {
                 port_id,
                 channel_id,
                 sequence,
-            },
-            PacketMsgType::TimeoutOrdered => Path::SeqRecvs {
-                0: port_id,
-                1: channel_id,
-            },
-            PacketMsgType::TimeoutOnClose => Path::Receipts {
+            }
+            .into(),
+            PacketMsgType::TimeoutOrdered => SeqRecvsPath(port_id, channel_id).into(),
+            PacketMsgType::TimeoutOnClose => ReceiptsPath {
                 port_id,
                 channel_id,
                 sequence,
-            },
+            }
+            .into(),
         };
 
         let res = self.query(data, height, true)?;
@@ -1680,17 +2074,24 @@ impl ChainEndpoint for CosmosSdkChain {
         Ok((res.value, commitment_proof_bytes))
     }
 
-    fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
+    fn build_client_state(
+        &self,
+        height: ICSHeight,
+        dst_config: ChainConfig,
+    ) -> Result<Self::ClientState, Error> {
         let unbonding_period = self.unbonding_period()?;
+
+        let max_clock_drift = calculate_client_state_drift(self.config(), &dst_config);
+
         // Build the client state.
         let client_state = ClientState::new(
             self.id().clone(),
             self.config.trust_threshold.into(),
             self.trusting_period(unbonding_period),
             unbonding_period,
-            self.config.clock_drift,
+            max_clock_drift,
             height,
-            ICSHeight::zero(),
+            self.config.proof_specs.clone(),
             vec!["upgrade".to_string(), "upgradedIBCState".to_string()],
             AllowUpdate {
                 after_expiry: true,
@@ -1805,23 +2206,7 @@ fn packet_from_tx_search_response(
         .tx_result
         .events
         .into_iter()
-        .filter(|abci_event| abci_event.type_str == request.event_id.as_str())
-        .flat_map(|abci_event| ChannelEvents::try_from_tx(&abci_event))
-        .find(|event| {
-            let packet = match event {
-                IbcEvent::SendPacket(send_ev) => Some(&send_ev.packet),
-                IbcEvent::WriteAcknowledgement(ack_ev) => Some(&ack_ev.packet),
-                _ => None,
-            };
-
-            packet.map_or(false, |packet| {
-                packet.source_port == request.source_port_id
-                    && packet.source_channel == request.source_channel_id
-                    && packet.destination_port == request.destination_port_id
-                    && packet.destination_channel == request.destination_channel_id
-                    && packet.sequence == seq
-            })
-        })
+        .find_map(|ev| filter_matching_event(ev, request, seq))
 }
 
 // Extracts from the Tx the update client event for the requested client and height.
@@ -1881,6 +2266,41 @@ fn all_ibc_events_from_tx_search_response(chain_id: &ChainId, response: ResultTx
     result
 }
 
+fn filter_matching_event(
+    event: Event,
+    request: &QueryPacketEventDataRequest,
+    seq: Sequence,
+) -> Option<IbcEvent> {
+    fn matches_packet(
+        request: &QueryPacketEventDataRequest,
+        seq: Sequence,
+        packet: &Packet,
+    ) -> bool {
+        packet.source_port == request.source_port_id
+            && packet.source_channel == request.source_channel_id
+            && packet.destination_port == request.destination_port_id
+            && packet.destination_channel == request.destination_channel_id
+            && packet.sequence == seq
+    }
+
+    if event.type_str != request.event_id.as_str() {
+        return None;
+    }
+
+    let ibc_event = ChannelEvents::try_from_tx(&event)?;
+    match ibc_event {
+        IbcEvent::SendPacket(ref send_ev) if matches_packet(request, seq, &send_ev.packet) => {
+            Some(ibc_event)
+        }
+        IbcEvent::WriteAcknowledgement(ref ack_ev)
+            if matches_packet(request, seq, &ack_ev.packet) =>
+        {
+            Some(ibc_event)
+        }
+        _ => None,
+    }
+}
+
 /// Perform a generic `abci_query`, and return the corresponding deserialized response data.
 async fn abci_query(
     chain: &CosmosSdkChain,
@@ -1897,7 +2317,7 @@ async fn abci_query(
 
     // Use the Tendermint-rs RPC client to do the query.
     let response = chain
-        .rpc_client()
+        .rpc_client
         .abci_query(Some(path), data.into_bytes(), height, prove)
         .await
         .map_err(|e| Error::rpc(chain.config.rpc_addr.clone(), e))?;
@@ -1928,32 +2348,41 @@ async fn abci_query(
 }
 
 /// Perform a `broadcast_tx_sync`, and return the corresponding deserialized response data.
-async fn broadcast_tx_sync(chain: &CosmosSdkChain, data: Vec<u8>) -> Result<Response, Error> {
-    let response = chain
-        .rpc_client()
+pub async fn broadcast_tx_sync(
+    rpc_client: &HttpClient,
+    rpc_address: &Url,
+    data: Vec<u8>,
+) -> Result<Response, Error> {
+    let response = rpc_client
         .broadcast_tx_sync(data.into())
         .await
-        .map_err(|e| Error::rpc(chain.config.rpc_addr.clone(), e))?;
+        .map_err(|e| Error::rpc(rpc_address.clone(), e))?;
 
     Ok(response)
 }
 
 /// Uses the GRPC client to retrieve the account sequence
 async fn query_account(chain: &CosmosSdkChain, address: String) -> Result<BaseAccount, Error> {
+    crate::telemetry!(query, chain.id(), "query_account");
+
     let mut client = ibc_proto::cosmos::auth::v1beta1::query_client::QueryClient::connect(
         chain.grpc_addr.clone(),
     )
     .await
     .map_err(Error::grpc_transport)?;
 
-    let request = tonic::Request::new(QueryAccountRequest { address });
+    let request = tonic::Request::new(QueryAccountRequest {
+        address: address.clone(),
+    });
 
     let response = client.account(request).await;
-    let resp_account = response
-        .map_err(Error::grpc_status)?
-        .into_inner()
-        .account
-        .unwrap();
+
+    // Querying for an account might fail, i.e. if the account doesn't actually exist
+    let resp_account = match response.map_err(Error::grpc_status)?.into_inner().account {
+        Some(account) => account,
+        None => return Err(Error::empty_query_account(address)),
+    };
+
     if resp_account.type_url == "/cosmos.auth.v1beta1.BaseAccount" {
         Ok(BaseAccount::decode(resp_account.value.as_slice())
             .map_err(|e| Error::protobuf_decode("BaseAccount".to_string(), e))?)
@@ -1996,7 +2425,10 @@ pub struct TxSyncResult {
     events: Vec<IbcEvent>,
 }
 
-fn auth_info_and_bytes(signer_info: SignerInfo, fee: Fee) -> Result<(AuthInfo, Vec<u8>), Error> {
+pub fn auth_info_and_bytes(
+    signer_info: SignerInfo,
+    fee: Fee,
+) -> Result<(AuthInfo, Vec<u8>), Error> {
     let auth_info = AuthInfo {
         signer_infos: vec![signer_info],
         fee: Some(fee),
@@ -2004,32 +2436,35 @@ fn auth_info_and_bytes(signer_info: SignerInfo, fee: Fee) -> Result<(AuthInfo, V
 
     // A protobuf serialization of a AuthInfo
     let mut auth_buf = Vec::new();
-    prost::Message::encode(&auth_info, &mut auth_buf).unwrap();
+    prost::Message::encode(&auth_info, &mut auth_buf)
+        .map_err(|e| Error::protobuf_encode(String::from("AuthInfo"), e))?;
     Ok((auth_info, auth_buf))
 }
 
-fn tx_body_and_bytes(proto_msgs: Vec<Any>) -> Result<(TxBody, Vec<u8>), Error> {
+pub fn tx_body_and_bytes(proto_msgs: Vec<Any>, memo: &Memo) -> Result<(TxBody, Vec<u8>), Error> {
     // Create TxBody
     let body = TxBody {
         messages: proto_msgs.to_vec(),
-        memo: "".to_string(),
+        memo: memo.to_string(),
         timeout_height: 0_u64,
         extension_options: Vec::<Any>::new(),
         non_critical_extension_options: Vec::<Any>::new(),
     };
+
     // A protobuf serialization of a TxBody
     let mut body_buf = Vec::new();
-    prost::Message::encode(&body, &mut body_buf).unwrap();
+    prost::Message::encode(&body, &mut body_buf)
+        .map_err(|e| Error::protobuf_encode(String::from("TxBody"), e))?;
     Ok((body, body_buf))
 }
 
-async fn do_health_check(chain: &CosmosSdkChain) -> Result<(), Error> {
+fn do_health_check(chain: &CosmosSdkChain) -> Result<(), Error> {
     let chain_id = chain.id();
     let grpc_address = chain.grpc_addr.to_string();
     let rpc_address = chain.config.rpc_addr.to_string();
 
     // Checkup on the self-reported health endpoint
-    chain.rpc_client.health().await.map_err(|e| {
+    chain.block_on(chain.rpc_client.health()).map_err(|e| {
         Error::health_check_json_rpc(
             chain_id.clone(),
             rpc_address.clone(),
@@ -2038,33 +2473,48 @@ async fn do_health_check(chain: &CosmosSdkChain) -> Result<(), Error> {
         )
     })?;
 
-    // Checkup on transaction indexing
-    chain
-        .rpc_client
-        .tx_search(
-            Query::from(EventType::NewBlock),
-            false,
-            1,
-            1,
-            Order::Ascending,
-        )
-        .await
-        .map_err(|e| {
-            Error::health_check_json_rpc(
-                chain_id.clone(),
-                rpc_address.clone(),
-                "/tx_search".to_string(),
-                e,
-            )
-        })?;
+    // Check that the staking module maintains some historical entries, meaning that
+    // local header information is stored in the IBC state and therefore client
+    // proofs that are part of the connection handshake messages can be verified.
+    if chain.historical_entries()? == 0 {
+        return Err(Error::no_historical_entries(chain_id.clone()));
+    }
 
-    // Construct a grpc client
-    let mut client = ServiceClient::connect(chain.grpc_addr.clone())
+    let status = chain.status()?;
+
+    // Check that transaction indexing is enabled
+    if status.node_info.other.tx_index != TxIndexStatus::On {
+        return Err(Error::tx_indexing_disabled(chain_id.clone()));
+    }
+
+    let version_specs = chain.block_on(fetch_version_specs(&chain.config.id, &chain.grpc_addr))?;
+
+    // Checkup on the underlying SDK & IBC-go versions
+    if let Err(diagnostic) = compatibility::run_diagnostic(&version_specs) {
+        return Err(Error::sdk_module_version(
+            chain_id.clone(),
+            grpc_address,
+            diagnostic.to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+/// Queries the chain to obtain the version information.
+async fn fetch_version_specs(
+    chain_id: &ChainId,
+    grpc_address: &Uri,
+) -> Result<version::Specs, Error> {
+    let grpc_addr_string = grpc_address.to_string();
+
+    // Construct a gRPC client
+    let mut client = ServiceClient::connect(grpc_address.clone())
         .await
         .map_err(|e| {
-            Error::health_check_grpc_transport(
+            Error::fetch_version_grpc_transport(
                 chain_id.clone(),
-                rpc_address.clone(),
+                grpc_addr_string.clone(),
                 "tendermint::ServiceClient".to_string(),
                 e,
             )
@@ -2073,35 +2523,53 @@ async fn do_health_check(chain: &CosmosSdkChain) -> Result<(), Error> {
     let request = tonic::Request::new(GetNodeInfoRequest {});
 
     let response = client.get_node_info(request).await.map_err(|e| {
-        Error::health_check_grpc_status(
+        Error::fetch_version_grpc_status(
             chain_id.clone(),
-            rpc_address.clone(),
+            grpc_addr_string.clone(),
             "tendermint::ServiceClient".to_string(),
             e,
         )
     })?;
 
     let version = response.into_inner().application_version.ok_or_else(|| {
-        Error::health_check_invalid_version(
+        Error::fetch_version_invalid_version_response(
             chain_id.clone(),
-            rpc_address.clone(),
+            grpc_addr_string.clone(),
             "tendermint::GetNodeInfoRequest".to_string(),
         )
     })?;
 
-    // Checkup on the underlying SDK version
-    if let Err(diagnostic) = compatibility::run_diagnostic(version) {
-        return Err(Error::sdk_module_version(
-            chain_id.clone(),
-            grpc_address.clone(),
-            diagnostic.to_string(),
-        ));
-    }
+    // Parse the raw version info into a domain-type `version::Specs`
+    version
+        .try_into()
+        .map_err(|e| Error::fetch_version_parsing(chain_id.clone(), grpc_addr_string.clone(), e))
+}
 
-    Ok(())
+/// Determine whether the given error yielded by `tx_simulate`
+/// can be recovered from by submitting the tx anyway.
+fn can_recover_from_simulation_failure(e: &Error) -> bool {
+    use crate::error::ErrorDetail::*;
+
+    match e.detail() {
+        GrpcStatus(detail) => detail.is_client_state_height_too_low(),
+        _ => false,
+    }
+}
+
+/// Determine whether the given error yielded by `tx_simulate`
+/// indicates that the current sequence number cached in Hermes
+/// may be out-of-sync with the full node's version of the s.n.
+fn mismatching_account_sequence_number(e: &Error) -> bool {
+    use crate::error::ErrorDetail::*;
+
+    match e.detail() {
+        GrpcStatus(detail) => detail.is_account_sequence_mismatch(),
+        _ => false,
+    }
 }
 
 struct PrettyFee<'a>(&'a Fee);
+
 impl fmt::Display for PrettyFee<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let amount = match self.0.amount.get(0) {
@@ -2125,38 +2593,81 @@ fn calculate_fee(adjusted_gas_amount: u64, gas_price: &GasPrice) -> Coin {
     }
 }
 
-/// Multiply `a` with `f` and round to result up to the nearest integer.
-fn mul_ceil(a: u64, f: f64) -> u64 {
-    use fraction::Fraction as F;
+/// Multiply `a` with `f` and round the result up to the nearest integer.
+fn mul_ceil(a: u64, f: f64) -> BigInt {
+    assert!(f.is_finite());
 
-    // Safe to unwrap below as are multiplying two finite fractions
-    // together, and rounding them to the nearest integer.
-    let n = (F::from(a) * F::from(f)).ceil();
-    n.numer().unwrap() / n.denom().unwrap()
+    let a = BigInt::from(a);
+    let f = BigRational::from_float(f).expect("f is finite");
+    (f * a).ceil().to_integer()
+}
+
+/// Compute the `max_clock_drift` for a (new) client state
+/// as a function of the configuration of the source chain
+/// and the destination chain configuration.
+///
+/// The client state clock drift must account for destination
+/// chain block frequency and clock drift on source and dest.
+/// https://github.com/informalsystems/ibc-rs/issues/1445
+fn calculate_client_state_drift(
+    src_chain_config: &ChainConfig,
+    dst_chain_config: &ChainConfig,
+) -> Duration {
+    src_chain_config.clock_drift + dst_chain_config.clock_drift + dst_chain_config.max_block_time
 }
 
 #[cfg(test)]
 mod tests {
     use ibc::{
-        ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState},
-        ics02_client::client_type::ClientType,
-        ics24_host::identifier::ClientId,
+        core::{
+            ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState},
+            ics02_client::client_type::ClientType,
+            ics24_host::identifier::ClientId,
+        },
         mock::client_state::MockClientState,
         mock::header::MockHeader,
         Height,
     };
 
-    use crate::chain::cosmos::client_id_suffix;
+    use crate::{chain::cosmos::client_id_suffix, config::GasPrice};
+
+    use super::calculate_fee;
 
     #[test]
     fn mul_ceil() {
-        assert_eq!(super::mul_ceil(300_000, 0.001), 300);
-        assert_eq!(super::mul_ceil(300_004, 0.001), 301);
-        assert_eq!(super::mul_ceil(300_040, 0.001), 301);
-        assert_eq!(super::mul_ceil(300_400, 0.001), 301);
-        assert_eq!(super::mul_ceil(304_000, 0.001), 304);
-        assert_eq!(super::mul_ceil(340_000, 0.001), 340);
-        assert_eq!(super::mul_ceil(340_001, 0.001), 341);
+        // Because 0.001 cannot be expressed precisely
+        // as a 64-bit floating point number (it is
+        // stored as 0.001000000047497451305389404296875),
+        // `num_rational::BigRational` will represent it as
+        // 1152921504606847/1152921504606846976 instead
+        // which will sometimes round up to the next
+        // integer in the computations below.
+        // This is not a problem for the way we compute the fee
+        // and gas adjustment as those are already based on simulated
+        // gas which is not 100% precise.
+        assert_eq!(super::mul_ceil(300_000, 0.001), 301.into());
+        assert_eq!(super::mul_ceil(300_004, 0.001), 301.into());
+        assert_eq!(super::mul_ceil(300_040, 0.001), 301.into());
+        assert_eq!(super::mul_ceil(300_400, 0.001), 301.into());
+        assert_eq!(super::mul_ceil(304_000, 0.001), 305.into());
+        assert_eq!(super::mul_ceil(340_000, 0.001), 341.into());
+        assert_eq!(super::mul_ceil(340_001, 0.001), 341.into());
+    }
+
+    /// Before https://github.com/informalsystems/ibc-rs/pull/1568,
+    /// this test would have panic'ed with:
+    ///
+    /// thread 'chain::cosmos::tests::fee_overflow' panicked at 'attempt to multiply with overflow'
+    #[test]
+    fn fee_overflow() {
+        let gas_amount = 90000000000000_u64;
+        let gas_price = GasPrice {
+            price: 1000000000000.0,
+            denom: "uatom".to_string(),
+        };
+
+        let fee = calculate_fee(gas_amount, &gas_price);
+        assert_eq!(&fee.amount, "90000000000000000000000000");
     }
 
     #[test]
@@ -2164,15 +2675,15 @@ mod tests {
         let mut clients: Vec<IdentifiedAnyClientState> = vec![
             IdentifiedAnyClientState::new(
                 ClientId::new(ClientType::Tendermint, 4).unwrap(),
-                AnyClientState::Mock(MockClientState(MockHeader::new(Height::new(0, 0)))),
+                AnyClientState::Mock(MockClientState::new(MockHeader::new(Height::new(0, 0)))),
             ),
             IdentifiedAnyClientState::new(
                 ClientId::new(ClientType::Tendermint, 1).unwrap(),
-                AnyClientState::Mock(MockClientState(MockHeader::new(Height::new(0, 0)))),
+                AnyClientState::Mock(MockClientState::new(MockHeader::new(Height::new(0, 0)))),
             ),
             IdentifiedAnyClientState::new(
                 ClientId::new(ClientType::Tendermint, 7).unwrap(),
-                AnyClientState::Mock(MockClientState(MockHeader::new(Height::new(0, 0)))),
+                AnyClientState::Mock(MockClientState::new(MockHeader::new(Height::new(0, 0)))),
             ),
         ];
         clients.sort_by_cached_key(|c| client_id_suffix(&c.client_id).unwrap_or(0));

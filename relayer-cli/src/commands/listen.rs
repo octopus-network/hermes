@@ -2,12 +2,13 @@ use alloc::sync::Arc;
 use core::{fmt, ops::Deref, str::FromStr};
 use std::thread;
 
-use abscissa_core::{application::fatal_error, Command, Options, Runnable};
+use abscissa_core::clap::Parser;
+use abscissa_core::{application::fatal_error, Runnable};
 use itertools::Itertools;
 use tokio::runtime::Runtime as TokioRuntime;
 use tracing::{error, info};
 
-use ibc::{events::IbcEvent, ics24_host::identifier::ChainId};
+use ibc::{core::ics24_host::identifier::ChainId, events::IbcEvent};
 
 use ibc_relayer::{
     config::ChainConfig,
@@ -47,7 +48,7 @@ impl fmt::Display for EventFilter {
 }
 
 impl FromStr for EventFilter {
-    type Err = Box<dyn std::error::Error>;
+    type Err = Box<dyn std::error::Error + Send + Sync + 'static>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -58,14 +59,14 @@ impl FromStr for EventFilter {
     }
 }
 
-#[derive(Command, Debug, Options)]
+#[derive(Debug, Parser)]
 pub struct ListenCmd {
     /// Identifier of the chain to listen for events from
-    #[options(free)]
     chain_id: ChainId,
 
-    /// Add an event type to listen for, can be repeated. Listen for all events by default (available: Tx, NewBlock)
-    #[options(short = "e", long = "event", meta = "EVENT")]
+    /// Add an event type to listen for, can be repeated.
+    /// Listen for all events by default (available: Tx, NewBlock).
+    #[clap(short = 'e', long = "event", value_name = "EVENT")]
     events: Vec<EventFilter>,
 }
 
@@ -99,14 +100,14 @@ pub fn listen(
     config: &ChainConfig,
     filters: &[EventFilter],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    info!(
-        "listening for events `{}` on '{}'...",
-        filters.iter().format(", "),
-        config.id
-    );
-
     let rt = Arc::new(TokioRuntime::new()?);
     let (event_monitor, rx) = subscribe(config, rt)?;
+
+    // info!(
+    //     "[{}] listening for queries {}",
+    //     config.id,
+    //     event_monitor.queries().iter().format(", "),
+    // );
 
     thread::spawn(|| event_monitor.run());
 

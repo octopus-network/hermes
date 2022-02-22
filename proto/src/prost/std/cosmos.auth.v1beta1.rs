@@ -36,17 +36,9 @@ pub struct Params {
     #[prost(uint64, tag = "5")]
     pub sig_verify_cost_secp256k1: u64,
 }
-/// GenesisState defines the auth module's genesis state.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GenesisState {
-    /// params defines all the paramaters of the module.
-    #[prost(message, optional, tag = "1")]
-    pub params: ::core::option::Option<Params>,
-    /// accounts are the accounts present at genesis.
-    #[prost(message, repeated, tag = "2")]
-    pub accounts: ::prost::alloc::vec::Vec<::prost_types::Any>,
-}
 /// QueryAccountsRequest is the request type for the Query/Accounts RPC method.
+///
+/// Since: cosmos-sdk 0.43
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryAccountsRequest {
     /// pagination defines an optional pagination for the request.
@@ -54,6 +46,8 @@ pub struct QueryAccountsRequest {
     pub pagination: ::core::option::Option<super::super::base::query::v1beta1::PageRequest>,
 }
 /// QueryAccountsResponse is the response type for the Query/Accounts RPC method.
+///
+/// Since: cosmos-sdk 0.43
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryAccountsResponse {
     /// accounts are the existing accounts
@@ -99,20 +93,20 @@ pub mod query_client {
     impl QueryClient<tonic::transport::Channel> {
         #[doc = r" Attempt to create a new client by connecting to a given endpoint."]
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
-        where
-            D: std::convert::TryInto<tonic::transport::Endpoint>,
-            D::Error: Into<StdError>,
+            where
+                D: std::convert::TryInto<tonic::transport::Endpoint>,
+                D::Error: Into<StdError>,
         {
             let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
             Ok(Self::new(conn))
         }
     }
     impl<T> QueryClient<T>
-    where
-        T: tonic::client::GrpcService<tonic::body::BoxBody>,
-        T::ResponseBody: Body + Send + Sync + 'static,
-        T::Error: Into<StdError>,
-        <T::ResponseBody as Body>::Error: Into<StdError> + Send,
+        where
+            T: tonic::client::GrpcService<tonic::body::BoxBody>,
+            T::ResponseBody: Body + Send + 'static,
+            T::Error: Into<StdError>,
+            <T::ResponseBody as Body>::Error: Into<StdError> + Send,
     {
         pub fn new(inner: T) -> Self {
             let inner = tonic::client::Grpc::new(inner);
@@ -122,15 +116,15 @@ pub mod query_client {
             inner: T,
             interceptor: F,
         ) -> QueryClient<InterceptedService<T, F>>
-        where
-            F: tonic::service::Interceptor,
-            T: tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-                Response = http::Response<
-                    <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
+            where
+                F: tonic::service::Interceptor,
+                T: tonic::codegen::Service<
+                    http::Request<tonic::body::BoxBody>,
+                    Response = http::Response<
+                        <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
+                    >,
                 >,
-            >,
-            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
                 Into<StdError> + Send + Sync,
         {
             QueryClient::new(InterceptedService::new(inner, interceptor))
@@ -149,6 +143,8 @@ pub mod query_client {
             self
         }
         #[doc = " Accounts returns all the existing accounts"]
+        #[doc = ""]
+        #[doc = " Since: cosmos-sdk 0.43"]
         pub async fn accounts(
             &mut self,
             request: impl tonic::IntoRequest<super::QueryAccountsRequest>,
@@ -194,4 +190,14 @@ pub mod query_client {
             self.inner.unary(request.into_request(), path, codec).await
         }
     }
+}
+/// GenesisState defines the auth module's genesis state.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GenesisState {
+    /// params defines all the paramaters of the module.
+    #[prost(message, optional, tag = "1")]
+    pub params: ::core::option::Option<Params>,
+    /// accounts are the accounts present at genesis.
+    #[prost(message, repeated, tag = "2")]
+    pub accounts: ::prost::alloc::vec::Vec<::prost_types::Any>,
 }

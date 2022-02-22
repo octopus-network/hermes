@@ -6,17 +6,17 @@ use std::sync::Arc;
 use subxt::{BlockNumber, ClientBuilder};
 use tokio::runtime::Runtime as TokioRuntime;
 
-use crate::config::{ChainConfig, Strategy};
+use crate::config::ChainConfig;
 use crate::light_client::Verified;
-use ibc::ics02_client::client_state::AnyClientState;
-use ibc::ics02_client::events::UpdateClient;
-use ibc::ics02_client::header::AnyHeader;
-use ibc::ics02_client::header::Header;
-use ibc::ics02_client::misbehaviour::{AnyMisbehaviour, MisbehaviourEvidence};
-use ibc::ics10_grandpa::header::Header as GPHeader;
-use ibc::ics10_grandpa::help::{BlockHeader, Commitment, SignedCommitment};
-use ibc::ics24_host::identifier::ChainId;
-use ibc::ics24_host::identifier::ClientId;
+use ibc::core::ics02_client::client_state::AnyClientState;
+use ibc::core::ics02_client::events::UpdateClient;
+use ibc::core::ics02_client::header::AnyHeader;
+use ibc::core::ics02_client::header::Header;
+use ibc::core::ics02_client::misbehaviour::{AnyMisbehaviour, MisbehaviourEvidence};
+use ibc::clients::ics10_grandpa::header::Header as GPHeader;
+use ibc::clients::ics10_grandpa::help::{BlockHeader, Commitment, SignedCommitment};
+use ibc::core::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ClientId;
 use ibc::Height;
 
 pub struct LightClient {
@@ -58,7 +58,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
         client_state: &AnyClientState,
     ) -> Result<Verified<GPHeader>, Error> {
         tracing::info!("In grandpa: [header_and_minimal_set]");
-        use ibc::ics10_grandpa::help::Commitment;
+        use ibc::clients::ics10_grandpa::help::Commitment;
 
         Ok(Verified {
             // target: GPHeader::new(target.revision_height),

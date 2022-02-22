@@ -12,7 +12,6 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bech32::{ToBase32, Variant};
-use chrono::offset::Utc;
 use codec::{Decode, Encode};
 use core::future::Future;
 use core::str::FromStr;
@@ -20,19 +19,19 @@ use core::time::Duration;
 use ibc::events::IbcEvent;
 
 use crate::light_client::Verified;
-use ibc::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
-use ibc::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
-use ibc::ics02_client::client_type::ClientType;
-use ibc::ics03_connection::connection::{ConnectionEnd, Counterparty, IdentifiedConnectionEnd};
-use ibc::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
-use ibc::ics04_channel::error::Error as Ics04Error;
-use ibc::ics04_channel::packet::{Packet, PacketMsgType, Receipt, Sequence};
-use ibc::ics10_grandpa::client_state::ClientState as GPClientState;
-use ibc::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
-use ibc::ics10_grandpa::header::Header as GPHeader;
-use ibc::ics23_commitment::commitment::{CommitmentPrefix, CommitmentRoot};
-use ibc::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
-use ibc::query::QueryTxRequest;
+use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
+use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
+use ibc::core::ics02_client::client_type::ClientType;
+use ibc::core::ics03_connection::connection::{ConnectionEnd, Counterparty, IdentifiedConnectionEnd};
+use ibc::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
+use ibc::core::ics04_channel::error::Error as Ics04Error;
+use ibc::core::ics04_channel::packet::{Packet, PacketMsgType, Receipt, Sequence};
+use ibc::clients::ics10_grandpa::client_state::ClientState as GPClientState;
+use ibc::clients::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
+use ibc::clients::ics10_grandpa::header::Header as GPHeader;
+use ibc::core::ics23_commitment::commitment::{CommitmentPrefix, CommitmentRoot};
+use ibc::core::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
+use ibc::query::{QueryBlockRequest, QueryTxRequest};
 use ibc::signer::Signer;
 use ibc::Height;
 use ibc::Height as ICSHeight;
@@ -63,6 +62,19 @@ use tokio::runtime::Runtime;
 use tokio::runtime::Runtime as TokioRuntime;
 use tokio::task;
 use tokio::time::sleep;
+use crate::connection::ConnectionMsgType;
+use ibc::clients::ics07_tendermint::header::Header as tHeader;
+use ibc::clients::ics10_grandpa::help::{
+    BlockHeader, MmrLeaf, MmrLeafProof, SignedCommitment, ValidatorMerkleProof, ValidatorSet,
+};
+use ibc::proofs::Proofs;
+use retry::delay::Fixed;
+use subxt::sp_core::storage::StorageKey;
+use tendermint_light_client::types::Validator;
+use crate::chain::StatusResponse;
+use super::tx::TrackedMsgs;
+use semver::Version;
+use ibc::timestamp::Timestamp;
 
 const MAX_QUERY_TIMES: u64 = 100;
 
@@ -569,12 +581,12 @@ impl ChainEndpoint for SubstrateChain {
 
     fn send_messages_and_wait_commit(
         &mut self,
-        proto_msgs: Vec<Any>,
+        proto_msgs : TrackedMsgs,
     ) -> Result<Vec<IbcEvent>, Error> {
         tracing::info!("in Substrate: [send_messages_and_wait_commit]");
         tracing::info!(
             "in Substrate: proto_msg: {:?}",
-            proto_msgs.first().unwrap().type_url
+            proto_msgs.messages().first().unwrap().type_url
         );
 
         let client = async {
@@ -586,7 +598,7 @@ impl ChainEndpoint for SubstrateChain {
 
             // sleep(Duration::from_secs(4)).await;
 
-            let result = self.deliever(proto_msgs, client).await.unwrap();
+            let result = self.deliever(proto_msgs.messages().to_vec(), client).await.unwrap();
 
             tracing::info!(
                 "in Substrate: [send_messages_and_wait_commit] >> result : {:?}",
@@ -622,7 +634,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn send_messages_and_wait_check_tx(
         &mut self,
-        proto_msgs: Vec<Any>,
+        proto_msgs: TrackedMsgs,
     ) -> Result<Vec<TxResponse>, Error> {
         tracing::info!("in Substrate: [send_messages_and_wait_check_tx]");
         tracing::debug!(
@@ -639,7 +651,7 @@ impl ChainEndpoint for SubstrateChain {
 
             // sleep(Duration::from_secs(4)).await;
 
-            let result = self.deliever(proto_msgs, client).await.unwrap();
+            let result = self.deliever(proto_msgs.messages().to_vec(), client).await.unwrap();
 
             tracing::info!(
                 "in Substrate: [send_messages_and_wait_commit] >> result : {:?}",
@@ -694,37 +706,38 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [query_commitment_prefix]");
 
         // TODO - do a real chain query
-        Ok(CommitmentPrefix::from(
+        Ok(CommitmentPrefix::try_from(
             self.config().store_prefix.as_bytes().to_vec(),
-        ))
+        ).unwrap())
     }
 
-    fn query_latest_height(&self) -> Result<ICSHeight, Error> {
-        tracing::info!("in Substrate: [query_latest_height]");
-
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
-
-            let result = async {
-                let client = ClientBuilder::new()
-                    .set_url(&self.websocket_url.clone())
-                    .build::<ibc_node::DefaultConfig>()
-                    .await
-                    .unwrap();
-                self.get_latest_height(client).await
-            };
-
-            match self.block_on(result) {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
-
-        let latest_height = Height::new(0, result.unwrap());
-        Ok(latest_height)
-    }
+    // fn query_latest_height(&self) -> Result<ICSHeight, Error> {
+    //     tracing::info!("in Substrate: [query_latest_height]");
+    //
+    //     let height = retry_with_index(Fixed::from_millis(100), |current_try| {
+    //         if current_try > MAX_QUERY_TIMES {
+    //             return RetryResult::Err("did not succeed within tries");
+    //         }
+    //
+    //         let latest_height = async {
+    //             let client = ClientBuilder::new()
+    //                 .set_url(&self.websocket_url.clone())
+    //                 .build::<ibc_node::DefaultConfig>()
+    //                 .await
+    //                 .unwrap();
+    //             // sleep(Duration::from_secs(4)).await;
+    //             self.get_latest_height(client).await
+    //         };
+    //
+    //         match self.block_on(latest_height) {
+    //             Ok(_v) => RetryResult::Ok(_v),
+    //             Err(_e) => RetryResult::Retry("Fail to retry"),
+    //         }
+    //     });
+    //
+    //     let latest_height = Height::new(0, height.unwrap());
+    //     Ok(latest_height)
+    // }
 
     fn query_clients(
         &self,
@@ -1193,9 +1206,32 @@ impl ChainEndpoint for SubstrateChain {
             }
         });
 
-        let last_height = self.query_latest_height().unwrap();
 
-        Ok((result.unwrap(), last_height))
+        let height = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
+
+            let latest_height = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
+
+
+                self.get_latest_height(client).await
+            };
+
+            match self.block_on(latest_height) {
+                Ok(_v) => RetryResult::Ok(_v),
+                Err(_e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
+
+        let latest_height = Height::new(0, height.unwrap());
+
+        Ok((result.unwrap(), latest_height))
     }
 
     fn query_unreceived_packets(
@@ -1247,7 +1283,7 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let packet_acknowledgements = retry_with_index(Fixed::from_millis(100), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -1268,9 +1304,32 @@ impl ChainEndpoint for SubstrateChain {
             }
         });
 
-        let last_height = self.query_latest_height().unwrap();
+        let height = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
 
-        Ok((result.unwrap(), last_height))
+            let latest_height = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
+
+
+                self.get_latest_height(client).await
+            };
+
+            match self.block_on(latest_height) {
+                Ok(_v) => RetryResult::Ok(_v),
+                Err(_e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
+
+        let latest_height = Height::new(0, height.unwrap());
+
+        Ok((packet_acknowledgements.unwrap(), latest_height))
+
     }
 
     fn query_unreceived_acknowledgements(
@@ -1339,7 +1398,7 @@ impl ChainEndpoint for SubstrateChain {
             QueryTxRequest::Packet(request) => {
                 crate::time!("in Substrate: [query_txs]: query packet events");
 
-                let mut result: Vec<IbcEvent> = vec![];
+                let result: Vec<IbcEvent> = vec![];
                 if request.sequences.is_empty() {
                     return Ok(result);
                 }
@@ -1415,22 +1474,21 @@ impl ChainEndpoint for SubstrateChain {
                 //
                 // let tx = response.txs.remove(0);
                 // let event = update_client_from_tx_search_response(self.id(), &request, tx);
-                use ibc::ics02_client::events::Attributes;
-                use ibc::ics02_client::header::AnyHeader;
+                use ibc::core::ics02_client::events::Attributes;
+                use ibc::core::ics02_client::header::AnyHeader;
 
                 // Todo: the client event below is mock
                 // replace it with real client event replied from a Substrate chain
                 let mut result: Vec<IbcEvent> = vec![];
                 result.push(IbcEvent::UpdateClient(
-                    ibc::ics02_client::events::UpdateClient {
-                        common: Attributes {
+                    ibc::core::ics02_client::events::UpdateClient::from(
+                        Attributes {
                             height: request.height,
                             client_id: request.client_id,
                             client_type: ClientType::Tendermint,
                             consensus_height: request.consensus_height,
-                        },
-                        header: Some(AnyHeader::Tendermint(get_dummy_ics07_header())),
-                    },
+                        }
+                    ),
                 ));
 
                 Ok(result)
@@ -1441,7 +1499,7 @@ impl ChainEndpoint for SubstrateChain {
                 crate::time!("in Substrate: [query_txs]: Transaction");
                 tracing::info!("in Substrate: [query_txs]: Transaction: {:?}", tx);
                 // Todo: https://github.com/octopus-network/ibc-rs/issues/98
-                let mut result: Vec<IbcEvent> = vec![];
+                let result: Vec<IbcEvent> = vec![];
                 Ok(result)
             }
         }
@@ -1536,7 +1594,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let connection_end = result.unwrap();
 
-        let mut new_connection_end;
+        let new_connection_end;
 
         if connection_end
             .counterparty()
@@ -1556,7 +1614,7 @@ impl ChainEndpoint for SubstrateChain {
             let delay_period = connection_end.delay_period().clone();
 
             new_connection_end =
-                ConnectionEnd::new(state, client_id, counterparty, versions, delay_period);
+                ConnectionEnd::new(state, client_id, counterparty, versions.to_vec(), delay_period);
         } else {
             new_connection_end = connection_end;
         }
@@ -1700,14 +1758,14 @@ impl ChainEndpoint for SubstrateChain {
         Ok((vec![0], get_dummy_merkle_proof()))
     }
 
-    fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error> {
+    fn build_client_state(&self, height: ICSHeight, dst_config: ChainConfig) -> Result<Self::ClientState, Error> {
         tracing::info!("in Substrate: [build_client_state]");
         tracing::info!(
             "in Substrate: [build_client_state] >> height = {:?}",
             height
         );
 
-        use ibc::ics10_grandpa::help::Commitment;
+        use ibc::clients::ics10_grandpa::help::Commitment;
         use sp_core::Public;
 
         let public_key = async {
@@ -1741,7 +1799,6 @@ impl ChainEndpoint for SubstrateChain {
         let client_state = GPClientState::new(
             self.id().clone(),
             height.revision_height as u32,
-            Height::new(0, 0), // set frozen_height is zero height
             BlockHeader::default(),
             Commitment::default(),
             beefy_light_client.validator_set.into(),
@@ -1815,7 +1872,7 @@ impl ChainEndpoint for SubstrateChain {
 
             // get commitment
             // let mut mmr_root_height = signed_commitment.commitment.block_number;
-            let mut mmr_root_height = block_number; // 73
+            let mmr_root_height = block_number; // 73
 
             // assert eq mmr_root_height target_height.reversion_height
             assert!((target_height.revision_height as u32) < mmr_root_height);
@@ -1880,8 +1937,8 @@ impl ChainEndpoint for SubstrateChain {
             result.1 .1
         );
 
-        let mut encoded_mmr_leaf = result.1 .1;
-        let mut encoded_mmr_leaf_proof = result.1 .2;
+        let encoded_mmr_leaf = result.1 .1;
+        let encoded_mmr_leaf_proof = result.1 .2;
 
         let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
         let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
@@ -2033,6 +2090,60 @@ impl ChainEndpoint for SubstrateChain {
 
         Ok(ret)
     }
+
+    fn config(&self) -> ChainConfig {
+        self.config.clone()
+    }
+
+    fn add_key(&mut self, key_name: &str, key: KeyEntry) -> Result<(), Error> {
+        self.keybase_mut()
+            .add_key(key_name, key)
+            .map_err(Error::key_base)?;
+
+        Ok(())
+    }
+
+    fn ibc_version(&self) -> Result<Option<Version>, Error> {
+        todo!()
+    }
+
+    // TODO add query latest height
+    fn query_status(&self) -> Result<StatusResponse, Error> {
+        tracing::info!("in Substrate: [query_status]");
+
+        let height = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
+
+            let latest_height = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
+
+                self.get_latest_height(client).await
+            };
+
+            match self.block_on(latest_height) {
+                Ok(_v) => RetryResult::Ok(_v),
+                Err(_e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
+
+        let latest_height = Height::new(0, height.unwrap());
+        tracing::info!("in substrate: [query_status] >> latest_height = {:?}", latest_height);
+
+        Ok(StatusResponse {
+            height: latest_height,
+            timestamp: Default::default()
+        })
+    }
+
+    fn query_blocks(&self, request: QueryBlockRequest) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error> {
+        todo!()
+    }
 }
 
 /// Compose merkle proof according to ibc proto
@@ -2069,16 +2180,6 @@ pub fn get_dummy_merkle_proof() -> MerkleProof {
     MerkleProof { proofs: mproofs }
 }
 
-use crate::connection::ConnectionMsgType;
-use ibc::ics03_connection::version::Version;
-use ibc::ics07_tendermint::header::Header as tHeader;
-use ibc::ics10_grandpa::help::{
-    BlockHeader, MmrLeaf, MmrLeafProof, SignedCommitment, ValidatorMerkleProof, ValidatorSet,
-};
-use ibc::proofs::Proofs;
-use retry::delay::Fixed;
-use subxt::sp_core::storage::StorageKey;
-use tendermint_light_client::types::Validator;
 
 pub fn get_dummy_ics07_header() -> tHeader {
     use tendermint::block::signed_header::SignedHeader;

@@ -1,12 +1,12 @@
 use core::time::Duration;
 use flex_error::define_error;
+use ibc::core::ics02_client::error::Error as ClientError;
+use ibc::core::ics04_channel::channel::State;
+use ibc::core::ics24_host::identifier::{ChainId, ChannelId, ClientId, PortChannelId, PortId};
 use ibc::events::IbcEvent;
-use ibc::ics02_client::error::Error as ClientError;
-use ibc::ics04_channel::channel::State;
-use ibc::ics24_host::identifier::{ChainId, ChannelId, ClientId, PortChannelId, PortId};
 
 use crate::error::Error;
-use crate::foreign_client::ForeignClientError;
+use crate::foreign_client::{ForeignClientError, HasExpiredOrFrozenError};
 use crate::supervisor::Error as SupervisorError;
 
 define_error! {
@@ -191,5 +191,28 @@ define_error! {
                 format_args!("channel object cannot be built from event: {}",
                     e.event)
             },
+
+        InvalidPortId
+            { port_id: PortId }
+            | e | {
+                format_args!("could not resolve channel version because the port is invalid: {0}",
+                    e.port_id)
+            },
+
+    }
+}
+
+impl HasExpiredOrFrozenError for ChannelErrorDetail {
+    fn is_expired_or_frozen_error(&self) -> bool {
+        match self {
+            Self::ClientOperation(e) => e.source.is_expired_or_frozen_error(),
+            _ => false,
+        }
+    }
+}
+
+impl HasExpiredOrFrozenError for ChannelError {
+    fn is_expired_or_frozen_error(&self) -> bool {
+        self.detail().is_expired_or_frozen_error()
     }
 }

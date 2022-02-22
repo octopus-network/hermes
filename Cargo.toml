@@ -1,5 +1,7 @@
 [workspace]
 
+resolver = "2"
+
 members = [
     "modules",
     "relayer",
@@ -7,6 +9,7 @@ members = [
     "relayer-rest",
     "telemetry",
     "proto",
+    "tools/integration-test",
 ]
 
 exclude = [
@@ -14,12 +17,6 @@ exclude = [
     "proto-compiler"
 ]
 
-# [patch.crates-io]
-# tendermint              = { git = "https://github.com/informalsystems/tendermint-rs", branch = "master" }
-# tendermint-rpc          = { git = "https://github.com/informalsystems/tendermint-rs", branch = "master" }
-# tendermint-proto        = { git = "https://github.com/informalsystems/tendermint-rs", branch = "master" }
-# tendermint-light-client = { git = "https://github.com/informalsystems/tendermint-rs", branch = "master" }
-# tendermint-testgen      = { git = "https://github.com/informalsystems/tendermint-rs", branch = "master" }
 [patch."https://github.com/paritytech/substrate"]
 frame-support = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 frame-system = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
@@ -175,24 +172,14 @@ substrate-build-script-utils = { git = "https://github.com/octopus-network/subst
 beefy-merkle-tree = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.12" }
 
 
-## for tendermint
-#tendermint              = { git = "https://github.com/informalsystems/tendermint-rs", branch = "soares/activate-no-std" }
-#tendermint-rpc          = { git = "https://github.com/informalsystems/tendermint-rs", branch = "soares/activate-no-std" }
-#tendermint-proto        = { git = "https://github.com/informalsystems/tendermint-rs", branch = "soares/activate-no-std" }
-#tendermint-light-client = { git = "https://github.com/informalsystems/tendermint-rs", branch = "soares/activate-no-std" }
-#tendermint-testgen      = { git = "https://github.com/informalsystems/tendermint-rs", branch = "soares/activate-no-std" }
-# ics23                   = { git = "https://github.com/informalsystems/ics23.git", branch = "master" }
-# tonic = { package = "informalsystems-tonic", git = "https://github.com/informalsystems/tonic.git", branch = "thane/informal-0.5.2" }
 
-tendermint              = { git = "https://github.com/informalsystems/tendermint-rs", rev = "4f6ef3d6" }
-tendermint-rpc          = { git = "https://github.com/informalsystems/tendermint-rs", rev = "4f6ef3d6" }
-tendermint-proto        = { git = "https://github.com/informalsystems/tendermint-rs", rev = "4f6ef3d6" }
-tendermint-light-client = { git = "https://github.com/informalsystems/tendermint-rs", rev = "4f6ef3d6" }
-tendermint-testgen      = { git = "https://github.com/informalsystems/tendermint-rs", rev = "4f6ef3d6" }
-ics23                   = { git = "https://github.com/informalsystems/ics23.git", rev = "4461b673" }
-tonic = { package = "informalsystems-tonic", git = "https://github.com/informalsystems/tonic.git", rev = "99edfe23" }
+tendermint              = { git = "https://github.com/informalsystems/tendermint-rs", branch = "v0.23.x" }
+tendermint-rpc          = { git = "https://github.com/informalsystems/tendermint-rs", branch = "v0.23.x" }
+tendermint-proto        = { git = "https://github.com/informalsystems/tendermint-rs", branch = "v0.23.x" }
+tendermint-light-client = { git = "https://github.com/informalsystems/tendermint-rs", branch = "v0.23.x" }
+tendermint-light-client-verifier = { git = "https://github.com/informalsystems/tendermint-rs", branch = "v0.23.x" }
+tendermint-testgen      = { git = "https://github.com/informalsystems/tendermint-rs", branch = "v0.23.x" }
 
 [patch."https://github.com/octopus-network/ibc-rs"]
 ibc = { path = "./modules" }
 ibc-proto = { path = "./proto" }
-

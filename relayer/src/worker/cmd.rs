@@ -1,8 +1,8 @@
-use ibc::{ics02_client::events::NewBlock, Height};
+use ibc::{core::ics02_client::events::NewBlock, Height};
 
 use crate::event::monitor::EventBatch;
 
-/// A command for a [`Worker`].
+/// A command for a [`WorkerHandle`](crate::worker::WorkerHandle).
 #[derive(Debug, Clone)]
 pub enum WorkerCmd {
     /// A batch of packet events need to be relayed
@@ -13,7 +13,4 @@ pub enum WorkerCmd {
 
     /// Trigger a pending packets clear
     ClearPendingPackets,
-
-    /// Shutdown the worker
-    Shutdown,
 }

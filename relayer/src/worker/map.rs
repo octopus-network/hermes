@@ -1,9 +1,10 @@
 use alloc::collections::btree_map::BTreeMap as HashMap;
+use core::mem;
 
-use crossbeam_channel::Sender;
-
-use ibc::ics24_host::identifier::ChainId;
-use tracing::{debug, trace, warn};
+use ibc::core::ics02_client::events::NewBlock;
+use ibc::core::ics24_host::identifier::ChainId;
+use ibc::Height;
+use tracing::{debug, trace};
 
 use crate::{
     chain::handle::{ChainHandle, ChainHandlePair},
@@ -12,33 +13,38 @@ use crate::{
     telemetry,
 };
 
-use super::{Worker, WorkerHandle, WorkerId, WorkerMsg};
+use super::{spawn_worker_tasks, WorkerHandle, WorkerId};
 
-/// Manage the lifecycle of [`Worker`]s associated with [`Object`]s.
+/// Manage the lifecycle of [`WorkerHandle`]s associated with [`Object`]s.
 #[derive(Debug)]
 pub struct WorkerMap {
     workers: HashMap<Object, WorkerHandle>,
     latest_worker_id: WorkerId,
-    msg_tx: Sender<WorkerMsg>,
+}
+
+impl Default for WorkerMap {
+    fn default() -> Self {
+        Self {
+            workers: HashMap::new(),
+            latest_worker_id: WorkerId::new(0),
+        }
+    }
 }
 
 impl WorkerMap {
     /// Create a new worker map, which will spawn workers with
-    /// the given channel for sending messages back to the [`Supervisor`].
-    pub fn new(msg_tx: Sender<WorkerMsg>) -> Self {
-        Self {
-            workers: HashMap::new(),
-            latest_worker_id: WorkerId::new(0),
-            msg_tx,
-        }
+    /// the given channel for sending messages back to the
+    /// [supervisor](crate::supervisor::SupervisorHandle).
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Returns `true` if there is a spawned [`Worker`] associated with the given [`Object`].
+    /// Returns `true` if there is a spawned [`WorkerHandle`] associated with the given [`Object`].
     pub fn contains(&self, object: &Object) -> bool {
         self.workers.contains_key(object)
     }
 
-    /// Remove the [`Worker`] associated with the given [`Object`] from
+    /// Remove the [`WorkerHandle`] associated with the given [`Object`] from
     /// the map and wait for its thread to terminate.
     pub fn remove_stopped(&mut self, id: WorkerId, object: Object) -> bool {
         match self.workers.remove(&object) {
@@ -83,7 +89,7 @@ impl WorkerMap {
         }
     }
 
-    /// Returns all the [`Worker`] which are interested in new block events originating
+    /// Returns all the [`WorkerHandle`] which are interested in new block events originating
     /// from the chain with the given [`ChainId`].
     /// See: [`Object::notify_new_block`]
     pub fn to_notify<'a>(
@@ -91,7 +97,7 @@ impl WorkerMap {
         src_chain_id: &'a ChainId,
     ) -> impl Iterator<Item = &'a WorkerHandle> {
         self.workers.iter().filter_map(move |(o, w)| {
-            if o.notify_new_block(src_chain_id) {
+            if !w.is_stopped() && o.notify_new_block(src_chain_id) {
                 Some(w)
             } else {
                 None
@@ -99,11 +105,19 @@ impl WorkerMap {
         })
     }
 
+    pub fn notify_new_block(&self, src_chain_id: &ChainId, height: Height, new_block: NewBlock) {
+        for worker in self.to_notify(src_chain_id) {
+            // Ignore send error if the worker task handling
+            // NewBlock cmd has been terminated.
+            let _ = worker.send_new_block(height, new_block);
+        }
+    }
+
     /// Get a handle to the worker in charge of handling events associated
     /// with the given [`Object`].
     ///
-    /// This function will spawn a new [`Worker`] if one does not exists already.
-    pub fn get_or_spawn<Chain: ChainHandle + 'static>(
+    /// This function will spawn a new [`WorkerHandle`] if one does not exists already.
+    pub fn get_or_spawn<Chain: ChainHandle>(
         &mut self,
         object: Object,
         src: Chain,
@@ -118,10 +132,10 @@ impl WorkerMap {
         }
     }
 
-    /// Spawn a new [`Worker`], only if one does not exists already.
+    /// Spawn a new [`WorkerHandle`], only if one does not exists already.
     ///
     /// Returns whether or not the worker was actually spawned.
-    pub fn spawn<Chain: ChainHandle + 'static>(
+    pub fn spawn<Chain: ChainHandle>(
         &mut self,
         src: Chain,
         dst: Chain,
@@ -138,7 +152,7 @@ impl WorkerMap {
     }
 
     /// Force spawn a worker for the given [`Object`].
-    fn spawn_worker<Chain: ChainHandle + 'static>(
+    fn spawn_worker<Chain: ChainHandle>(
         &mut self,
         src: Chain,
         dst: Chain,
@@ -147,11 +161,10 @@ impl WorkerMap {
     ) -> WorkerHandle {
         telemetry!(worker, metric_type(object), 1);
 
-        Worker::spawn(
+        spawn_worker_tasks(
             ChainHandlePair { a: src, b: dst },
             self.next_worker_id(),
             object.clone(),
-            self.msg_tx.clone(),
             config,
         )
     }
@@ -185,16 +198,9 @@ impl WorkerMap {
         if let Some(handle) = self.workers.remove(object) {
             telemetry!(worker, metric_type(object), -1);
 
-            match handle.shutdown() {
-                Ok(()) => {
-                    trace!(object = %object.short_name(), "waiting for worker to exit");
-                    let _ = handle.join();
-                }
-                Err(e) => {
-                    warn!(object = %object.short_name(), "a worker may have failed to shutdown properly: {}", e);
-                }
-            }
+            handle.shutdown_and_wait();
         }
+        // Drop handle automatically handles the waiting for tasks to terminate.
     }
 
     /// Get an iterator over the worker map's objects.
@@ -202,6 +208,22 @@ impl WorkerMap {
         self.workers
             .iter()
             .map(|(object, handle)| (handle.id(), object))
+    }
+
+    pub fn shutdown(&mut self) {
+        let workers = mem::take(&mut self.workers);
+        for worker in workers.values() {
+            // Send shutdown signal to all tasks in parallel.
+            worker.shutdown();
+        }
+    }
+}
+
+// Drop handle to send shutdown signals to background tasks in parallel
+// before waiting for all of them to terminate.
+impl Drop for WorkerMap {
+    fn drop(&mut self) {
+        self.shutdown()
     }
 }
 

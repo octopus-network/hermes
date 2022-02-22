@@ -1,5 +1,5 @@
 // ICS03 - Connection Data Structures as defined in
-// <https://github.com/cosmos/ics/tree/master/spec/ics-003-connection-semantics#data-structures>
+// <https://github.com/cosmos/ibc/blob/master/spec/core/ics-003-connection-semantics#data-structures>
 
 /// ConnectionEnd defines a stateful object on a chain connected to another
 /// separate one.
@@ -322,7 +322,7 @@ pub struct QueryConnectionClientStateResponse {
     /// client state associated with the channel
     #[prost(message, optional, tag = "1")]
     pub identified_client_state:
-        ::core::option::Option<super::super::client::v1::IdentifiedClientState>,
+    ::core::option::Option<super::super::client::v1::IdentifiedClientState>,
     /// merkle proof of existence
     #[prost(bytes = "vec", tag = "2")]
     pub proof: ::prost::alloc::vec::Vec<u8>,

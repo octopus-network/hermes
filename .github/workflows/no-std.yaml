@@ -2,16 +2,18 @@ name: no_std check
 on:
   pull_request:
     paths:
-      - .github/workflows/rust.yml
+      - .github/workflows/no-std.yml
       - Cargo.toml
+      - Cargo.lock
       - ci/**
       - proto/**
       - modules/**
   push:
     branches: master
     paths:
-      - .github/workflows/rust.yml
+      - .github/workflows/no-std.yml
       - Cargo.toml
+      - Cargo.lock
       - ci/**
       - proto/**
       - modules/**
@@ -36,8 +38,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly-2021-09-01
+        with:=
+          toolchain: nightly
           target: wasm32-unknown-unknown
           override: true
       - run: |

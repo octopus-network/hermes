@@ -1,27 +1,29 @@
 use alloc::sync::Arc;
-use anyhow::Chain;
-use prost_types::Any;
+use core::convert::TryFrom;
 use tendermint::block::Height;
 use tokio::runtime::Runtime as TokioRuntime;
 
 pub use cosmos::CosmosSdkChain;
 pub use substrate::SubstrateChain;
 
-use ibc::events::IbcEvent;
-use ibc::ics02_client::client_consensus::{
+use ibc::core::ics02_client::client_consensus::{
     AnyConsensusState, AnyConsensusStateWithHeight, ConsensusState,
 };
-use ibc::ics02_client::client_state::{AnyClientState, ClientState, IdentifiedAnyClientState};
-use ibc::ics02_client::header::Header;
-use ibc::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd, State};
-use ibc::ics03_connection::version::{get_compatible_versions, Version};
-use ibc::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
-use ibc::ics04_channel::packet::{PacketMsgType, Sequence};
-use ibc::ics23_commitment::commitment::{CommitmentPrefix, CommitmentProofBytes};
-use ibc::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
+use ibc::core::ics02_client::client_state::{
+    AnyClientState, ClientState, IdentifiedAnyClientState,
+};
+use ibc::core::ics02_client::header::Header;
+use ibc::core::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd, State};
+use ibc::core::ics03_connection::version::{get_compatible_versions, Version};
+use ibc::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
+use ibc::core::ics04_channel::packet::{PacketMsgType, Sequence};
+use ibc::core::ics23_commitment::commitment::{CommitmentPrefix, CommitmentProofBytes};
+use ibc::core::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
+use ibc::events::IbcEvent;
 use ibc::proofs::{ConsensusProof, Proofs};
-use ibc::query::QueryTxRequest;
+use ibc::query::{QueryBlockRequest, QueryTxRequest};
 use ibc::signer::Signer;
+use ibc::timestamp::Timestamp;
 use ibc::Height as ICSHeight;
 use ibc_proto::ibc::core::channel::v1::{
     PacketState, QueryChannelClientStateRequest, QueryChannelsRequest,
@@ -43,11 +45,14 @@ use crate::light_client::LightClient;
 use crate::{config::ChainConfig, event::monitor::EventReceiver};
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 
-pub(crate) mod cosmos;
+use self::tx::TrackedMsgs;
+
+pub mod cosmos;
 pub mod counterparty;
 pub mod handle;
 pub mod runtime;
-pub(crate) mod substrate;
+pub mod substrate;
+pub mod tx;
 
 #[cfg(test)]
 pub mod mock;
@@ -59,6 +64,13 @@ pub enum HealthCheck {
     Unhealthy(Box<Error>),
 }
 
+/// The result of a chain status query.
+#[derive(Clone, Debug)]
+pub struct StatusResponse {
+    pub height: ICSHeight,
+    pub timestamp: Timestamp,
+}
+
 /// Generic query response type
 /// TODO - will slowly move to GRPC protobuf specs for queries
 #[derive(Clone, Debug, PartialEq)]
@@ -66,14 +78,6 @@ pub struct QueryResponse {
     pub value: Vec<u8>,
     pub proof: Option<MerkleProof>,
     pub height: Height,
-}
-
-/// Packet query options
-#[derive(Debug)]
-pub struct QueryPacketOptions {
-    pub port_id: PortId,
-    pub channel_id: ChannelId,
-    pub height: u64,
 }
 
 /// Defines a blockchain as understood by the relayer
@@ -121,22 +125,29 @@ pub trait ChainEndpoint: Sized {
     fn keybase_mut(&mut self) -> &mut KeyRing;
 
     /// Sends one or more transactions with `msgs` to chain and
-    // synchronously wait for it to be committed.
+    /// synchronously wait for it to be committed.
     fn send_messages_and_wait_commit(
         &mut self,
-        proto_msgs: Vec<Any>,
+        tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEvent>, Error>;
 
     /// Sends one or more transactions with `msgs` to chain.
     /// Non-blocking alternative to `send_messages_and_wait_commit` interface.
     fn send_messages_and_wait_check_tx(
         &mut self,
-        proto_msgs: Vec<Any>,
+        tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<TxResponse>, Error>;
 
     fn get_signer(&mut self) -> Result<Signer, Error>;
 
+    fn config(&self) -> ChainConfig;
+
     fn get_key(&mut self) -> Result<KeyEntry, Error>;
+
+    fn add_key(&mut self, key_name: &str, key: KeyEntry) -> Result<(), Error>;
+
+    /// Return the version of the IBC protocol that this chain is running, if known.
+    fn ibc_version(&self) -> Result<Option<semver::Version>, Error>;
 
     // Queries
 
@@ -147,8 +158,8 @@ pub trait ChainEndpoint: Sized {
         Ok(get_compatible_versions())
     }
 
-    /// Query the latest height the chain is at
-    fn query_latest_height(&self) -> Result<ICSHeight, Error>;
+    /// Query the latest height and timestamp the chain is at
+    fn query_status(&self) -> Result<StatusResponse, Error>;
 
     /// Performs a query to retrieve the state of all clients that a chain hosts.
     fn query_clients(
@@ -160,7 +171,7 @@ pub trait ChainEndpoint: Sized {
         &self,
         client_id: &ClientId,
         height: ICSHeight,
-    ) -> Result<Self::ClientState, Error>;
+    ) -> Result<AnyClientState, Error>;
 
     fn query_consensus_states(
         &self,
@@ -179,12 +190,12 @@ pub trait ChainEndpoint: Sized {
     fn query_upgraded_client_state(
         &self,
         height: ICSHeight,
-    ) -> Result<(Self::ClientState, MerkleProof), Error>;
+    ) -> Result<(AnyClientState, MerkleProof), Error>;
 
     fn query_upgraded_consensus_state(
         &self,
         height: ICSHeight,
-    ) -> Result<(Self::ConsensusState, MerkleProof), Error>;
+    ) -> Result<(AnyConsensusState, MerkleProof), Error>;
 
     /// Performs a query to retrieve the identifiers of all connections.
     fn query_connections(
@@ -222,18 +233,6 @@ pub trait ChainEndpoint: Sized {
         channel_id: &ChannelId,
         height: ICSHeight,
     ) -> Result<ChannelEnd, Error>;
-
-    // TODO: Introduce a newtype for the module version string
-    fn query_module_version(&self, port_id: &PortId) -> String {
-        // TODO - query the chain, currently hardcoded
-        if port_id.as_str() == "transfer" {
-            "ics20-1".to_string()
-        } else if port_id.as_str() == "ibcaccount" {
-            "ics27-1".to_string()
-        } else {
-            "".to_string()
-        }
-    }
 
     fn query_channel_client_state(
         &self,
@@ -275,12 +274,17 @@ pub trait ChainEndpoint: Sized {
         dst_chain_websocket_url: String,
     ) -> Result<(), Error>;
 
+    fn query_blocks(
+        &self,
+        request: QueryBlockRequest,
+    ) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error>;
+
     // Provable queries
     fn proven_client_state(
         &self,
         client_id: &ClientId,
         height: ICSHeight,
-    ) -> Result<(Self::ClientState, MerkleProof), Error>;
+    ) -> Result<(AnyClientState, MerkleProof), Error>;
 
     fn proven_connection(
         &self,
@@ -293,7 +297,7 @@ pub trait ChainEndpoint: Sized {
         client_id: &ClientId,
         consensus_height: ICSHeight,
         height: ICSHeight,
-    ) -> Result<(Self::ConsensusState, MerkleProof), Error>;
+    ) -> Result<(AnyConsensusState, MerkleProof), Error>;
 
     fn proven_channel(
         &self,
@@ -311,7 +315,11 @@ pub trait ChainEndpoint: Sized {
         height: ICSHeight,
     ) -> Result<(Vec<u8>, MerkleProof), Error>;
 
-    fn build_client_state(&self, height: ICSHeight) -> Result<Self::ClientState, Error>;
+    fn build_client_state(
+        &self,
+        height: ICSHeight,
+        dst_config: ChainConfig,
+    ) -> Result<Self::ClientState, Error>;
 
     fn build_consensus_state(
         &self,
@@ -339,16 +347,7 @@ pub trait ChainEndpoint: Sized {
         connection_id: &ConnectionId,
         client_id: &ClientId,
         height: ICSHeight,
-    ) -> Result<(Option<Self::ClientState>, Proofs), Error> {
-        tracing::info!(
-            "in chain: [build_connection_proofs_and_client_state] >> message_type = {:?}, \
-            connection_id = {:?}, client_id = {:?}, height = {:?}",
-            message_type,
-            connection_id,
-            client_id,
-            height
-        );
-
+    ) -> Result<(Option<AnyClientState>, Proofs), Error> {
         let (connection_end, connection_proof) = self.proven_connection(connection_id, height)?;
 
         // Check that the connection state is compatible with the message
@@ -398,7 +397,10 @@ pub trait ChainEndpoint: Sized {
                     client_state_value.latest_height()
                 );
 
-                client_proof = Some(CommitmentProofBytes::from(client_state_proof));
+                client_proof = Some(
+                    CommitmentProofBytes::try_from(client_state_proof)
+                        .map_err(Error::malformed_proof)?,
+                );
 
                 let consensus_state_proof = self
                     .proven_client_consensus(client_id, client_state_value.latest_height(), height)?
@@ -410,7 +412,8 @@ pub trait ChainEndpoint: Sized {
 
                 consensus_proof = Option::from(
                     ConsensusProof::new(
-                        CommitmentProofBytes::from(consensus_state_proof),
+                        CommitmentProofBytes::try_from(consensus_state_proof)
+                            .map_err(Error::malformed_proof)?,
                         client_state_value.latest_height(),
                     )
                     .map_err(Error::consensus_proof)?,
@@ -425,7 +428,7 @@ pub trait ChainEndpoint: Sized {
         Ok((
             client_state,
             Proofs::new(
-                CommitmentProofBytes::from(connection_proof),
+                CommitmentProofBytes::try_from(connection_proof).map_err(Error::malformed_proof)?,
                 client_proof,
                 consensus_proof,
                 None,
@@ -445,7 +448,8 @@ pub trait ChainEndpoint: Sized {
     ) -> Result<Proofs, Error> {
         // Collect all proofs as required
         let channel_proof =
-            CommitmentProofBytes::from(self.proven_channel(port_id, channel_id, height)?.1);
+            CommitmentProofBytes::try_from(self.proven_channel(port_id, channel_id, height)?.1)
+                .map_err(Error::malformed_proof)?;
 
         // Todo: To figure out why increment()
         Proofs::new(
@@ -468,9 +472,12 @@ pub trait ChainEndpoint: Sized {
         height: ICSHeight,
     ) -> Result<(Vec<u8>, Proofs), Error> {
         let channel_proof = if packet_type == PacketMsgType::TimeoutOnClose {
-            Some(CommitmentProofBytes::from(
-                self.proven_channel(&port_id, &channel_id, height)?.1,
-            ))
+            Some(
+                CommitmentProofBytes::try_from(
+                    self.proven_channel(&port_id, &channel_id, height)?.1,
+                )
+                .map_err(Error::malformed_proof)?,
+            )
         } else {
             None
         };
@@ -479,7 +486,7 @@ pub trait ChainEndpoint: Sized {
             self.proven_packet(packet_type, port_id, channel_id, sequence, height)?;
 
         let proofs = Proofs::new(
-            CommitmentProofBytes::from(packet_proof),
+            CommitmentProofBytes::try_from(packet_proof).map_err(Error::malformed_proof)?,
             None,
             None,
             channel_proof,

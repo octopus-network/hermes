@@ -7,7 +7,7 @@ use crossbeam_channel::Sender;
 use itertools::Itertools;
 use thiserror::Error;
 
-use ibc::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ChainId;
 use tracing::debug;
 
 use crate::{
@@ -20,7 +20,7 @@ use super::{ChainConfig, Config};
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("failed to load configuration from disk")]
-    LoadFailed(#[source] crate::error::Error),
+    LoadFailed(#[source] super::error::Error),
 
     #[error("configuration is inconsistent, did not find config for added/updated chain {0}")]
     InconsistentConfig(ChainId),
@@ -43,7 +43,7 @@ impl ConfigReload {
     /// the path to the configuration file to reload,
     /// the current configuration and a channel through which
     /// to send the computed [`ConfigUpdate`]s to the
-    /// [`crate::supervisor::Supervisor`].
+    /// supervisor.
     pub fn new(
         path: impl Into<PathBuf>,
         current: Arc<RwLock<Config>>,
@@ -60,7 +60,7 @@ impl ConfigReload {
     /// This method will read and parse the configuration from the
     /// file, then perform a diff between the current configuration
     /// and the newly parsed one, and finally send the computed
-    /// [`ConfigUpdate`]s to the [`crate::supervisor::Supervisor`].
+    /// [`ConfigUpdate`]s to the supervisor.
     ///
     /// See also: [`ConfigReload::update_config`]
     pub fn reload(&self) -> Result<bool, Error> {
@@ -69,7 +69,7 @@ impl ConfigReload {
     }
 
     /// Compute a diff between the current configuration and the given one,
-    /// and send the computed [`ConfigUpdate`]s to the [`crate::supervisor::Supervisor`].
+    /// and send the computed [`ConfigUpdate`]s to the supervisor.
     pub fn update_config(&self, new: Config) -> Result<bool, Error> {
         let updates = self.compute_updates(&new)?;
 
@@ -80,7 +80,7 @@ impl ConfigReload {
         for update in updates {
             if self
                 .tx_cmd
-                .send(SupervisorCmd::UpdateConfig(update))
+                .send(SupervisorCmd::UpdateConfig(Box::new(update)))
                 .is_err()
             {
                 debug!("failed to send config update to supervisor, channel is closed");

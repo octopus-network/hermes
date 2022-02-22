@@ -1,11 +1,11 @@
 use flex_error::define_error;
 
-use ibc::ics03_connection::connection::Counterparty;
-use ibc::ics24_host::identifier::{ChainId, ChannelId, ConnectionId, PortId};
+use ibc::core::ics03_connection::connection::Counterparty;
+use ibc::core::ics24_host::identifier::{ChainId, ChannelId, ConnectionId, PortId};
 
 use crate::error::Error as RelayerError;
 use crate::registry::SpawnError;
-use crate::worker::WorkerError;
+use crate::supervisor::scan::Error as ScanError;
 
 define_error! {
     Error {
@@ -16,8 +16,8 @@ define_error! {
                 chain_id: ChainId,
             }
             |e| {
-                format_args!("channel {0} on chain {1} is not open",
-                    e.channel_id, e.chain_id)
+                format_args!("channel {0}/{1} on chain {2} is not open",
+                    e.port_id, e.channel_id, e.chain_id)
             },
 
         ChannelConnectionUninitialized
@@ -66,8 +66,8 @@ define_error! {
             [ SpawnError ]
             |_| { "supervisor was not able to connect to any chains" },
 
-        Worker
-            [ WorkerError ]
-            |_| { "worker error" },
+        Scan
+            [ ScanError ]
+            |_| { "supervisor encountered an error when scanning chains" },
     }
 }
