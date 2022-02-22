@@ -699,7 +699,7 @@ impl ChainEndpoint for SubstrateChain {
     fn query_latest_height(&self) -> Result<ICSHeight, Error> {
         tracing::info!("in Substrate: [query_latest_height]");
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -730,7 +730,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [query_clients]");
         tracing::info!("in Substrate: [query_clients] >> request = {:?}", request);
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -771,7 +771,7 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -810,7 +810,7 @@ impl ChainEndpoint for SubstrateChain {
         );
         let request_client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -916,7 +916,7 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -954,7 +954,7 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -997,7 +997,7 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_connection] >> height = {:?}", height);
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -1036,7 +1036,7 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -1074,7 +1074,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [query_channels]");
         tracing::info!("in Substrate: [query_channels] >> request = {:?}", request);
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -1115,7 +1115,7 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_channel] >> height = {:?}", height);
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -1167,7 +1167,7 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -1203,7 +1203,7 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -1242,7 +1242,7 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -1457,7 +1457,7 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -1500,7 +1500,7 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [proven_connection] >> height = {:?}", height);
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -1578,7 +1578,7 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -1625,7 +1625,7 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [proven_channel] >> height = {:?}", height);
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
