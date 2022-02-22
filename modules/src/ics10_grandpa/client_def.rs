@@ -244,19 +244,18 @@ impl ClientDef for GrandpaClient {
         _data: String,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![_port_id.as_bytes().to_vec(), _channel_id.as_bytes().to_vec(), _seq.0.encode()];
-        let mut storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "PacketCommitment").unwrap();
-        storage_result.remove(0);storage_result.remove(0); // Todo: to remove this line
-        let packet_commitment_returned = String::from_utf8(storage_result).unwrap();
+        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "PacketCommitment").unwrap();
+
         tracing::info!(
             "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
-            packet_commitment_returned
+            String::from_utf8(storage_result.clone()).unwrap()
         );
         tracing::info!(
             "In ics10-client_def.rs: [verify_packet_data] >>  expected packet_commitment: {:?}",
-            _data
+            _data.clone()
         );
 
-        if !(packet_commitment_returned.eq(&_data)) {
+        if !(storage_result == _data.encode()) {
             return Err(Error::invalid_packet_commitment(*_seq));
         }
         Ok(())
@@ -273,9 +272,7 @@ impl ClientDef for GrandpaClient {
         _data: Vec<u8>,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![_port_id.as_bytes().to_vec(), _channel_id.as_bytes().to_vec(), _seq.0.encode()];
-        let mut storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "Acknowledgements").unwrap();
-        storage_result.remove(0);storage_result.remove(0); // Todo: to remove this line
-        // let packet_ack_returned = String::from_utf8(storage_result).unwrap();
+        let storage_result = Self::get_storage_via_proof(_client_state, _height, _proof, keys, "Acknowledgements").unwrap();
         tracing::info!(
             "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
             String::from_utf8(storage_result.clone()).unwrap()
