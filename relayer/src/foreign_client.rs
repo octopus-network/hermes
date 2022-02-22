@@ -738,7 +738,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 let mut mmr_root_height = client_state.latest_commitment.block_number;
                 let mut temp_client_state = AnyClientState::Grandpa(client_state.clone());
                 let result = loop {
-                    if mmr_root_height <= target_height.revision_height as u32 {
+                    if mmr_root_height < target_height.revision_height as u32 {
                         // Get the latest client state on destination.
                         let client_state = self
                             .dst_chain()
