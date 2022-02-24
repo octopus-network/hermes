@@ -109,6 +109,27 @@ impl SubstrateChain {
         self.block_on(client)
     }
 
+    fn retry_wapper<O, Op>(&self, operation: Op) -> Result<O, retry::Error<&str>>
+        where
+            Op: FnOnce() -> Result<O, Box<dyn std::error::Error>> + Copy
+
+    {
+        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
+
+            let result = operation();
+
+            match result{
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
+
+        result
+    }
+
     /// Subscribe Events
     fn subscribe_ibc_events(
         &self,
@@ -251,7 +272,7 @@ impl SubstrateChain {
     fn get_client_consensus(
         &self,
         client_id: &ClientId,
-        height: ICSHeight,
+        height: &ICSHeight,
     ) -> Result<AnyConsensusState, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_client_consensus]");
         tracing::info!(
@@ -264,7 +285,7 @@ impl SubstrateChain {
         );
 
         let result = async {
-            octopusxt::get_client_consensus(client_id, height, self.get_client()).await
+            octopusxt::get_client_consensus(client_id, height.clone(), self.get_client()).await
         };
 
         self.block_on(result)
@@ -291,7 +312,7 @@ impl SubstrateChain {
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
-        seqs: Vec<u64>,
+        seqs: &[u64],
     ) -> Result<Vec<u64>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_unreceipt_packet]");
         tracing::info!(
@@ -305,7 +326,7 @@ impl SubstrateChain {
         tracing::info!("in Substrate: [get_unreceipt_packet] >> seqs = {:?}", &seqs);
 
         let result = async {
-            octopusxt::get_unreceipt_packet(port_id, channel_id, seqs, self.get_client()).await
+            octopusxt::get_unreceipt_packet(port_id, channel_id, seqs.to_vec(), self.get_client()).await
         };
 
         self.block_on(result)
@@ -404,7 +425,7 @@ impl SubstrateChain {
     /// get connection_identifier vector according by client_identifier
     fn get_client_connections(
         &self,
-        client_id: ClientId,
+        client_id: &ClientId,
     ) -> Result<Vec<ConnectionId>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_client_connections]");
         tracing::info!(
@@ -413,7 +434,7 @@ impl SubstrateChain {
         );
 
         let result = async {
-            octopusxt::get_client_connections(client_id, self.get_client()).await
+            octopusxt::get_client_connections(client_id.clone(), self.get_client()).await
         };
 
         self.block_on(result)
@@ -421,7 +442,7 @@ impl SubstrateChain {
 
     fn get_connection_channels(
         &self,
-        connection_id: ConnectionId,
+        connection_id: &ConnectionId,
     ) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_connection_channels]");
         tracing::info!(
@@ -430,7 +451,7 @@ impl SubstrateChain {
         );
 
         let result = async {
-            octopusxt::get_connection_channels(connection_id, self.get_client()).await
+            octopusxt::get_connection_channels(connection_id.clone(), self.get_client()).await
         };
 
         self.block_on(result)
@@ -742,18 +763,8 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [query_clients]");
         tracing::info!("in Substrate: [query_clients] >> request = {:?}", request);
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
+        let result = self.retry_wapper(|| self.get_clients());
 
-            let result = self.get_clients();
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
 
         tracing::info!("in Substrate: [query_clients] >> clients: {:?}", result);
 
@@ -775,18 +786,7 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
-
-            let result = self.get_client_state(client_id);
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
+        let result = self.retry_wapper(|| self.get_client_state(client_id));
 
         tracing::info!(
             "in Substrate: [query_client_state] >> client_state: {:?}",
@@ -807,19 +807,8 @@ impl ChainEndpoint for SubstrateChain {
         );
         let request_client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
+        let result = self.retry_wapper(|| self.get_consensus_state_with_height(&request_client_id));
 
-
-            let result = self.get_consensus_state_with_height(&request_client_id);
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
 
         let consensus_state: Vec<(Height, AnyConsensusState)> = result.unwrap();
 
@@ -905,19 +894,8 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
+        let result = self.retry_wapper(|| self.get_connections());
 
-
-            let result = self.get_connections();
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
 
         tracing::info!("in Substrate: [query_connections] >> clients: {:?}", result);
 
@@ -934,21 +912,10 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
+        let client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
 
-            let client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
-
-            let result = self.get_client_connections(client_id);
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
-
+        let result = self.retry_wapper(|| self.get_client_connections(&client_id));
+        
         tracing::info!(
             "In substrate: [query_client_connections] >> client_connections: {:#?}",
             result
@@ -994,20 +961,8 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
-
-            let connection_id = ConnectionId::from_str(&request.connection).unwrap();
-
-            let result = self.get_connection_channels(connection_id);
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
+        let connection_id = ConnectionId::from_str(&request.connection).unwrap();
+        let result = self.retry_wapper(|| self.get_connection_channels(&connection_id));
 
         tracing::info!(
             "In substrate: [query_connection_channels] >> connection_channels: {:?}",
@@ -1024,19 +979,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [query_channels]");
         tracing::info!("in Substrate: [query_channels] >> request = {:?}", request);
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
-
-
-            let result = self.get_channels();
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
+        let result = self.retry_wapper(|| self.get_channels());
 
         tracing::info!("in Substrate: [query_connections] >> clients: {:?}", result);
 
@@ -1094,32 +1037,9 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
+        let result = self.retry_wapper(|| self.get_commitment_packet_state());
 
-            let result = self.get_commitment_packet_state();
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
-
-
-        let height = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
-
-            let latest_height = self.get_latest_height();
-
-            match latest_height {
-                Ok(_v) => RetryResult::Ok(_v),
-                Err(_e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
+        let height = self.retry_wapper(|| self.get_latest_height());
 
         let latest_height = Height::new(0, height.unwrap());
 
@@ -1136,23 +1056,11 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
+        let port_id = PortId::from_str(request.port_id.as_str()).unwrap();
+        let channel_id = ChannelId::from_str(request.channel_id.as_str()).unwrap();
+        let seqs = request.packet_commitment_sequences.clone();
 
-            let port_id = PortId::from_str(request.port_id.as_str()).unwrap();
-            let channel_id = ChannelId::from_str(request.channel_id.as_str()).unwrap();
-            let seqs = request.packet_commitment_sequences.clone();
-
-
-            let result = self.get_unreceipt_packet(&port_id, &channel_id, seqs);
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
+        let result = self.retry_wapper(|| self.get_unreceipt_packet(&port_id, &channel_id, &seqs));
 
         Ok(result.unwrap())
     }
@@ -1167,32 +1075,9 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let packet_acknowledgements = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
+        let packet_acknowledgements =  self.retry_wapper(|| self.get_acknowledge_packet_state());
 
-
-            let result = self.get_acknowledge_packet_state();
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
-
-        let height = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
-
-            let result = self.get_latest_height();
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
+        let height = self.retry_wapper(|| self.get_latest_height());
 
         let latest_height = Height::new(0, height.unwrap());
 
@@ -1375,17 +1260,7 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
-
-            let result = self.get_client_state(client_id);
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
+        let result = self.retry_wapper(|| self.get_client_state(client_id));
 
         tracing::info!(
             "In Substrate: [proven_client_state] \
@@ -1412,17 +1287,8 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [proven_connection] >> height = {:?}", height);
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
 
-            let result = self.get_connection_end(connection_id);
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
+        let result = self.retry_wapper(|| self.get_connection_end(connection_id));
 
         tracing::info!(
             "In Substrate: [proven_connection] \
@@ -1484,17 +1350,7 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
-
-            let result = self.get_client_consensus(client_id, consensus_height);
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
+        let result = self.retry_wapper(|| self.get_client_consensus(client_id, &consensus_height));
 
         tracing::info!(
             "In Substrate: [proven_client_consensus] \
@@ -1523,18 +1379,7 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [proven_channel] >> height = {:?}", height);
 
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
-
-            let result = self.get_channel_end(port_id, channel_id);
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
+        let result = self.retry_wapper(|| self.get_channel_end(port_id, channel_id));
 
         tracing::info!(
             "In Substrate: [query_channel] \
@@ -1849,18 +1694,7 @@ impl ChainEndpoint for SubstrateChain {
     fn query_status(&self) -> Result<StatusResponse, Error> {
         tracing::info!("in Substrate: [query_status]");
 
-        let height = retry_with_index(Fixed::from_millis(100), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries");
-            }
-
-            let result = self.get_latest_height();
-
-            match result{
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry"),
-            }
-        });
+        let height = self.retry_wapper(|| self.get_latest_height());
 
         let latest_height = Height::new(0, height.unwrap());
         tracing::info!("in substrate: [query_status] >> latest_height = {:?}", latest_height);
