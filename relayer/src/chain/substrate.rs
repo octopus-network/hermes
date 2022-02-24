@@ -1971,7 +1971,7 @@ impl ChainEndpoint for SubstrateChain {
 /// Compose merkle proof according to ibc proto
 pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     use ibc_proto::ics23::{commitment_proof, ExistenceProof, InnerOp};
-    tracing::info!("in substrate: [get_dummy_merk_proof]");
+    tracing::info!("in substrate: [compose_ibc_merkle_proof]");
 
     let _inner_op = InnerOp {
         hash: 0,
@@ -1989,15 +1989,6 @@ pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     let parsed = ibc_proto::ics23::CommitmentProof {
         proof: Some(_proof),
     };
-    let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
-    MerkleProof { proofs: mproofs }
-}
-
-/// Returns a dummy `MerkleProof`, for testing only!
-pub fn get_dummy_merkle_proof() -> MerkleProof {
-    tracing::info!("in substrate: [get_dummy_merk_proof]");
-
-    let parsed = ibc_proto::ics23::CommitmentProof { proof: None };
     let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
     MerkleProof { proofs: mproofs }
 }
