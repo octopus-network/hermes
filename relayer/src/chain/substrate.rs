@@ -49,6 +49,7 @@ use ibc_proto::ibc::core::connection::v1::{
 use octopusxt::ibc_node;
 use prost_types::Any;
 use std::thread;
+use std::thread::sleep;
 use subxt::sp_runtime::generic::Header;
 use subxt::sp_runtime::traits::BlakeTwo256;
 use subxt::storage::StorageEntry;
@@ -61,7 +62,7 @@ use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime;
 use tokio::runtime::Runtime as TokioRuntime;
 use tokio::task;
-use tokio::time::sleep;
+// use tokio::time::sleep;
 use crate::connection::ConnectionMsgType;
 use ibc::clients::ics07_tendermint::header::Header as tHeader;
 use ibc::clients::ics10_grandpa::help::{
@@ -110,11 +111,9 @@ impl SubstrateChain {
     }
 
     fn retry_wapper<O, Op>(&self, operation: Op) -> Result<O, retry::Error<&str>>
-        where
-            Op: FnOnce() -> Result<O, Box<dyn std::error::Error>> + Copy
-
+        where Op: FnOnce() -> Result<O, Box<dyn std::error::Error>> + Copy
     {
-        let result = retry_with_index(Fixed::from_millis(100), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(1000), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -136,11 +135,7 @@ impl SubstrateChain {
     ) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
         tracing::info!("In Substrate: [subscribe_ibc_events]");
 
-        let result = async {
-            octopusxt::subscribe_ibc_event(self.get_client()).await
-        };
-
-        self.block_on(result)
+        self.block_on(octopusxt::subscribe_ibc_event(self.get_client()))
     }
 
     /// get latest height used by subscribe_blocks
@@ -149,11 +144,7 @@ impl SubstrateChain {
     ) -> Result<u64, Box<dyn std::error::Error>> {
         tracing::info!("In Substrate: [get_latest_height]");
 
-        let result = async {
-            octopusxt::get_latest_height(self.get_client()).await
-        };
-
-        self.block_on(result)
+        self.block_on(octopusxt::get_latest_height(self.get_client()))
     }
 
     /// get connectionEnd according by connection_identifier and read Connections StorageMaps
@@ -167,14 +158,7 @@ impl SubstrateChain {
             connection_identifier
         );
 
-        let result = async {
-
-            sleep(Duration::from_secs(10)).await;
-
-            octopusxt::get_connection_end(connection_identifier, self.get_client()).await
-        };
-
-        self.block_on(result)
+        self.block_on(octopusxt::get_connection_end(connection_identifier, self.get_client()))
     }
 
     /// get channelEnd according by port_identifier, channel_identifier and read Channles StorageMaps
@@ -190,13 +174,7 @@ impl SubstrateChain {
             channel_id
         );
 
-        let result = async {
-            sleep(Duration::from_secs(10)).await;
-
-            octopusxt::get_channel_end(port_id, channel_id, self.get_client()).await
-        };
-
-        self.block_on(result)
+        self.block_on(octopusxt::get_channel_end(port_id, channel_id, self.get_client()))
     }
 
     /// get packet receipt by port_id, channel_id and sequence
@@ -217,11 +195,7 @@ impl SubstrateChain {
         );
         tracing::info!("in Substrate: [get_packet_receipt] >> seq = {:?}", seq);
 
-        let result = async {
-            octopusxt::get_packet_receipt(port_id, channel_id, seq, self.get_client()).await
-        };
-
-        self.block_on(result)
+        self.block_on(octopusxt::get_packet_receipt(port_id, channel_id, seq, self.get_client()))
     }
 
     /// get send packet event by port_id, channel_id and sequence
@@ -242,11 +216,7 @@ impl SubstrateChain {
         );
         tracing::info!("in Substrate: [get_send_packet_event] >> seq = {:?}", seq);
 
-        let result = async {
-            octopusxt::get_send_packet_event(port_id, channel_id, seq, self.get_client()).await
-        };
-
-        self.block_on(result)
+        self.block_on(octopusxt::get_send_packet_event(port_id, channel_id, seq, self.get_client()))
     }
 
     /// get client_state according by client_id, and read ClientStates StoraageMap
@@ -260,11 +230,8 @@ impl SubstrateChain {
             client_id
         );
 
-        let result = async {
-            octopusxt::get_client_state(client_id, self.get_client()).await
-        };
+        self.block_on(octopusxt::get_client_state(client_id, self.get_client()))
 
-        self.block_on(result)
     }
 
     /// get appoint height consensus_state according by client_identifier and height
@@ -284,11 +251,8 @@ impl SubstrateChain {
             height
         );
 
-        let result = async {
-            octopusxt::get_client_consensus(client_id, height.clone(), self.get_client()).await
-        };
 
-        self.block_on(result)
+        self.block_on(octopusxt::get_client_consensus(client_id, height.clone(), self.get_client()))
     }
 
     fn get_consensus_state_with_height(
@@ -301,11 +265,7 @@ impl SubstrateChain {
             client_id
         );
 
-        let result = async {
-            octopusxt::get_consensus_state_with_height(client_id, self.get_client()).await
-        };
-
-        self.block_on(result)
+        self.block_on(octopusxt::get_consensus_state_with_height(client_id, self.get_client()))
     }
 
     fn get_unreceipt_packet(
@@ -325,11 +285,8 @@ impl SubstrateChain {
         );
         tracing::info!("in Substrate: [get_unreceipt_packet] >> seqs = {:?}", &seqs);
 
-        let result = async {
-            octopusxt::get_unreceipt_packet(port_id, channel_id, seqs.to_vec(), self.get_client()).await
-        };
 
-        self.block_on(result)
+        self.block_on(octopusxt::get_unreceipt_packet(port_id, channel_id, seqs.to_vec(), self.get_client()))
     }
 
     /// get key-value pair (client_identifier, client_state) construct IdentifieredAnyClientstate
@@ -338,11 +295,7 @@ impl SubstrateChain {
     ) -> Result<Vec<IdentifiedAnyClientState>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_clients]");
 
-        let result = async {
-            octopusxt::get_clients(self.get_client()).await
-        };
-
-        self.block_on(result)
+        self.block_on(octopusxt::get_clients(self.get_client()))
     }
 
     /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
@@ -351,11 +304,8 @@ impl SubstrateChain {
     ) -> Result<Vec<IdentifiedConnectionEnd>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_connections]");
 
-        let result = async {
-            octopusxt::get_connections(self.get_client()).await
-        };
 
-        self.block_on(result)
+        self.block_on(octopusxt::get_connections(self.get_client()))
     }
 
     /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
@@ -364,24 +314,18 @@ impl SubstrateChain {
     ) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_channels]");
 
-        let result = async {
-            octopusxt::get_channels(self.get_client()).await
-        };
 
-        self.block_on(result)
+        self.block_on(octopusxt::get_channels(self.get_client()))
     }
 
-    // get get_commitment_packet_state
+    /// get get_commitment_packet_state
     fn get_commitment_packet_state(
         &self,
     ) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_commitment_packet_state]");
 
-        let result = async {
-            octopusxt::get_commitment_packet_state(self.get_client()).await
-        };
 
-        self.block_on(result)
+        self.block_on(octopusxt::get_commitment_packet_state(self.get_client()))
     }
 
     /// get packet commitment by port_id, channel_id and sequence to verify if the ack has been received by the sending chain
@@ -402,24 +346,17 @@ impl SubstrateChain {
         );
         tracing::info!("in Substrate: [get_packet_commitment] >> seq = {:?}", seq);
 
-        let result = async {
-            octopusxt::get_packet_commitment(port_id, channel_id, seq, self.get_client()).await
-        };
-
-        self.block_on(result)
+        self.block_on(octopusxt::get_packet_commitment(port_id, channel_id, seq, self.get_client()))
     }
 
-    // get get_commitment_packet_state
+    /// get get_commitment_packet_state
     fn get_acknowledge_packet_state(
         &self,
     ) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_acknowledge_packet_state]");
 
-        let result = async {
-            octopusxt::get_acknowledge_packet_state(self.get_client()).await
-        };
 
-        self.block_on(result)
+        self.block_on(octopusxt::get_acknowledge_packet_state(self.get_client()))
     }
 
     /// get connection_identifier vector according by client_identifier
@@ -433,11 +370,7 @@ impl SubstrateChain {
             client_id
         );
 
-        let result = async {
-            octopusxt::get_client_connections(client_id.clone(), self.get_client()).await
-        };
-
-        self.block_on(result)
+        self.block_on(octopusxt::get_client_connections(client_id.clone(), self.get_client()))
     }
 
     fn get_connection_channels(
@@ -450,11 +383,8 @@ impl SubstrateChain {
             connection_id
         );
 
-        let result = async {
-            octopusxt::get_connection_channels(connection_id.clone(), self.get_client()).await
-        };
 
-        self.block_on(result)
+        self.block_on(octopusxt::get_connection_channels(connection_id.clone(), self.get_client()))
     }
 
     fn deliever(
@@ -464,11 +394,8 @@ impl SubstrateChain {
         tracing::info!("in Substrate: [deliever]");
         tracing::info!("in Substrate: [deliever] = {:?}", msg);
 
-        let result = async {
-            octopusxt::deliver(msg, self.get_client()).await
-        };
 
-        self.block_on(result)
+        self.block_on(octopusxt::deliver(msg, self.get_client()))
     }
 
     /// Retrieve the storage proof according to storage keys
@@ -685,7 +612,7 @@ impl ChainEndpoint for SubstrateChain {
             proto_msgs.messages().first().unwrap().type_url
         );
 
-        let result = self.deliever(proto_msgs.messages().to_vec());
+        let result = self.deliever(proto_msgs.messages().to_vec()).unwrap();
 
         tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}",result);
 
@@ -763,8 +690,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [query_clients]");
         tracing::info!("in Substrate: [query_clients] >> request = {:?}", request);
 
-        let result = self.retry_wapper(|| self.get_clients());
-
+        let result = self.retry_wapper(|| self.get_clients() );
 
         tracing::info!("in Substrate: [query_clients] >> clients: {:?}", result);
 
@@ -915,7 +841,8 @@ impl ChainEndpoint for SubstrateChain {
         let client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
 
         let result = self.retry_wapper(|| self.get_client_connections(&client_id));
-        
+
+
         tracing::info!(
             "In substrate: [query_client_connections] >> client_connections: {:#?}",
             result
@@ -937,6 +864,8 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_connection] >> height = {:?}", height);
 
+
+        sleep(Duration::from_secs(10));
 
         let connection_end = self.get_connection_end(connection_id).unwrap();
 
@@ -962,7 +891,7 @@ impl ChainEndpoint for SubstrateChain {
         );
 
         let connection_id = ConnectionId::from_str(&request.connection).unwrap();
-        let result = self.retry_wapper(|| self.get_connection_channels(&connection_id));
+        let result = self.retry_wapper(||  self.get_connection_channels(&connection_id));
 
         tracing::info!(
             "In substrate: [query_connection_channels] >> connection_channels: {:?}",
@@ -979,7 +908,9 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [query_channels]");
         tracing::info!("in Substrate: [query_channels] >> request = {:?}", request);
 
+
         let result = self.retry_wapper(|| self.get_channels());
+
 
         tracing::info!("in Substrate: [query_connections] >> clients: {:?}", result);
 
@@ -1000,6 +931,8 @@ impl ChainEndpoint for SubstrateChain {
             channel_id
         );
         tracing::info!("in Substrate: [query_channel] >> height = {:?}", height);
+
+        sleep(Duration::from_secs(10));
 
         let channel_end = self.get_channel_end(port_id, channel_id).unwrap();
 
@@ -1037,13 +970,15 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = self.retry_wapper(|| self.get_commitment_packet_state());
+        let packet_commitments = self.retry_wapper(|| self.get_commitment_packet_state());
+
 
         let height = self.retry_wapper(|| self.get_latest_height());
 
+
         let latest_height = Height::new(0, height.unwrap());
 
-        Ok((result.unwrap(), latest_height))
+        Ok((packet_commitments.unwrap(), latest_height))
     }
 
     fn query_unreceived_packets(
@@ -1079,6 +1014,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let height = self.retry_wapper(|| self.get_latest_height());
 
+
         let latest_height = Height::new(0, height.unwrap());
 
         Ok((packet_acknowledgements.unwrap(), latest_height))
@@ -1102,7 +1038,8 @@ impl ChainEndpoint for SubstrateChain {
         let mut unreceived_seqs: Vec<u64> = vec![];
 
         for seq in seqs {
-            let cmt = self.get_packet_commitment(&port_id, &channel_id, seq);
+            let cmt = self.retry_wapper(|| self.get_packet_commitment(&port_id, &channel_id, seq));
+
             // if packet commitment still exists on the original sending chain, then packet ack is unreceived
             // since processing the ack will delete the packet commitment
             match cmt {
