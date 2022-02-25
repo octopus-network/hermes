@@ -614,6 +614,7 @@ impl ChainEndpoint for SubstrateChain {
             proto_msgs.messages().first().unwrap().type_url
         );
 
+        sleep(Duration::from_secs(4));
         let result = self.deliever(proto_msgs.messages().to_vec()).unwrap();
 
         tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}",result);
@@ -867,16 +868,10 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_connection] >> height = {:?}", height);
 
-
-        sleep(Duration::from_secs(10));
-
-        let connection_end = self.get_connection_end(connection_id).unwrap();
-
+        let connection_end = self.retry_wapper(|| self.get_connection_end(connection_id)).unwrap();
 
         tracing::info!(
-            "In Substrate: [query_connection] \
-                >> connection_id: {:?}, connection_end: {:?}",
-            connection_id,
+            "In substrate: [query_connection] >> connection_end: {:#?}",
             connection_end
         );
 
@@ -935,16 +930,11 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_channel] >> height = {:?}", height);
 
-        sleep(Duration::from_secs(10));
-
-        let channel_end = self.get_channel_end(port_id, channel_id).unwrap();
+        let channel_end = self.retry_wapper(|| self.get_channel_end(port_id, channel_id)).unwrap();
 
         tracing::info!(
-                "In Substrate: [query_channel] \
-                >> port_id: {:?}, channel_id: {:?}, channel_end: {:?}",
-                port_id,
-                channel_id,
-                channel_end
+            "In substrate: [query_channel] >> channel_end: {:#?}",
+            channel_end
         );
 
         Ok(channel_end)
@@ -1360,8 +1350,47 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [proven_packet] >> sequence = {:?}", sequence);
         tracing::info!("in Substrate: [proven_packet] >> height = {:?}", height);
 
-        // TODO This is Mock
-        Ok((vec![0], get_dummy_merkle_proof()))
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
+            if current_try > MAX_QUERY_TIMES {
+                return RetryResult::Err("did not succeed within tries");
+            }
+
+            let result = async {
+                let client = ClientBuilder::new()
+                    .set_url(&self.websocket_url.clone())
+                    .build::<ibc_node::DefaultConfig>()
+                    .await
+                    .unwrap();
+
+                match packet_type {
+                    PacketMsgType::Recv => {
+                        octopusxt::call_ibc::get_packet_commitment(&port_id, &channel_id, u64::from(sequence), client).await
+                    }
+                    PacketMsgType::Ack => {
+                        octopusxt::call_ibc::get_packet_ack(&port_id, &channel_id, u64::from(sequence), client).await
+                    }
+                    _ => unimplemented!(),
+                }
+            };
+
+            match self.block_on(result) {
+                Ok(v) => RetryResult::Ok(v),
+                Err(e) => RetryResult::Retry("Fail to retry"),
+            }
+        });
+        tracing::info!("In Substrate: [proven_packet] >> result: {:?}, packet_type = {:?}", result, packet_type);
+
+        match packet_type {
+            PacketMsgType::Recv => {
+                let storage_entry = ibc_node::ibc::storage::PacketCommitment(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
+                Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "PacketCommitment")))
+            }
+            PacketMsgType::Ack => {
+                let storage_entry = ibc_node::ibc::storage::Acknowledgements(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
+                Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "Acknowledgements")))
+            }
+            _ => unimplemented!(),
+        }
     }
 
     fn build_client_state(&self, height: ICSHeight, dst_config: ChainConfig) -> Result<Self::ClientState, Error> {
@@ -1645,7 +1674,7 @@ impl ChainEndpoint for SubstrateChain {
 /// Compose merkle proof according to ibc proto
 pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     use ibc_proto::ics23::{commitment_proof, ExistenceProof, InnerOp};
-    tracing::info!("in substrate: [get_dummy_merk_proof]");
+    tracing::info!("in substrate: [compose_ibc_merkle_proof]");
 
     let _inner_op = InnerOp {
         hash: 0,
@@ -1666,16 +1695,6 @@ pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
     MerkleProof { proofs: mproofs }
 }
-
-/// Returns a dummy `MerkleProof`, for testing only!
-pub fn get_dummy_merkle_proof() -> MerkleProof {
-    tracing::info!("in substrate: [get_dummy_merk_proof]");
-
-    let parsed = ibc_proto::ics23::CommitmentProof { proof: None };
-    let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
-    MerkleProof { proofs: mproofs }
-}
-
 
 pub fn get_dummy_ics07_header() -> tHeader {
     use tendermint::block::signed_header::SignedHeader;

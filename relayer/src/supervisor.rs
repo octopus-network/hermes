@@ -287,7 +287,7 @@ pub fn spawn_rest_worker<Chain: ChainHandle>(
 /// Returns `false` otherwise.
 fn client_filter_enabled(_config: &Config) -> bool {
     // we currently always enable the client filter
-    true
+    false
 }
 
 /// Returns `true` if the relayer should filter based on
