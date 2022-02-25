@@ -181,10 +181,7 @@ impl ClientDef for GrandpaClient {
         connection_id: &ConnectionId,
         expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
-            // Todo: the _connection_id is None in `tx raw conn-ack`, as the _connection_id is not set in `tx raw conn-init`
-            // https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/modules/src/ics03_connection/handler/conn_open_init.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L33
-            // let keys: Vec<Vec<u8>> = vec![_connection_id.unwrap().as_bytes().to_vec()];
-            let keys: Vec<Vec<u8>> = vec!["connection-0".as_bytes().to_vec()];
+            let keys: Vec<Vec<u8>> = vec![connection_id.as_bytes().to_vec()];
             let storage_result =
                 Self::get_storage_via_proof(client_state, height, proof, keys, "Connections")
                     .unwrap();
@@ -280,6 +277,21 @@ impl ClientDef for GrandpaClient {
         sequence: Sequence,
         commitment: String,
     ) -> Result<(), Error> {
+        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence).encode()];
+        let storage_result = Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment").unwrap();
+
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
+            String::from_utf8(storage_result.clone()).unwrap()
+        );
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_packet_data] >>  expected packet_commitment: {:?}",
+            commitment.clone()
+        );
+
+        if !(storage_result == commitment.encode()) {
+            return Err(Error::invalid_packet_commitment(sequence));
+        }
         Ok(())
     }
 
@@ -298,6 +310,20 @@ impl ClientDef for GrandpaClient {
         sequence: Sequence,
         ack: Vec<u8>,
     ) -> Result<(), Error> {
+        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence).encode()];
+        let storage_result = Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements").unwrap();
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
+            String::from_utf8(storage_result.clone()).unwrap()
+        );
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_packet_data] >>  expected packet_commitment: {:?}",
+            String::from_utf8(ack.clone()).unwrap()
+        );
+
+        if !(storage_result == ack) {
+            return Err(Error::invalid_packet_ack(sequence));
+        }
         Ok(())
     }
 
@@ -417,6 +443,11 @@ impl GrandpaClient {
     fn storage_map_final_key(_keys: Vec<Vec<u8>>, _storage_name: &str) -> Result<Vec<u8>, Error> {
         use frame_support::storage::storage_prefix;
         use frame_support::{Blake2_128Concat, StorageHasher};
+        use frame_support::storage::types::EncodeLikeTuple;
+        use frame_support::storage::types::TupleToEncodedIter;
+        use frame_support::storage::Key;
+        use frame_support::storage::types::KeyGenerator;
+
         if _keys.len() == 1 {
             let key_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[0].encode());
             let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
@@ -438,6 +469,18 @@ impl GrandpaClient {
             final_key.extend_from_slice(key1_hashed.as_ref());
             final_key.extend_from_slice(key2_hashed.as_ref());
             return Ok(final_key);
+        }
+
+        if _keys.len() == 3 {
+            let result_keys = (_keys[0].clone(), _keys[1].clone(), _keys[2].clone());
+            let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
+            let key_hashed = <(Key<Blake2_128Concat, Vec<u8>>, Key<Blake2_128Concat, Vec<u8>>,Key<Blake2_128Concat, Vec<u8>>) as KeyGenerator>::final_key(result_keys);
+
+            let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
+            final_key.extend_from_slice(&storage_prefix);
+            final_key.extend_from_slice(key_hashed.as_ref());
+
+            return Ok(final_key)
         }
 
         return Err(Error::wrong_key_number(_keys.len().try_into().unwrap()));

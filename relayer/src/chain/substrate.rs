@@ -381,6 +381,7 @@ impl SubstrateChain {
         &self,
         storage_entry: &F,
         height: &Height,
+        storage_name: &str
     ) -> MerkleProof
     where
         <F as StorageEntry>::Value: serde::Serialize + core::fmt::Debug,
@@ -403,7 +404,8 @@ impl SubstrateChain {
                 .await
                 .unwrap();
             let storage_key = storage_entry.key().final_key(StorageKeyPrefix::new::<F>());
-            tracing::debug!("In substrate: [generate_storage_proof] >> height: {:?}, block_hash: {:?}, storage key: {:?}", height, block_hash, storage_key);
+            tracing::debug!("In substrate: [generate_storage_proof] >> height: {:?}, block_hash: {:?}, storage key: {:?}, storage_name = {:?}",
+                height, block_hash, storage_key, storage_name);
 
             use jsonrpsee::types::to_json_value;
             let params = &[
@@ -442,13 +444,13 @@ impl SubstrateChain {
                     .map(|val| val.clone().0)
                     .collect::<Vec<Vec<u8>>>(),
             };
-            tracing::info!(
+            tracing::trace!(
                 "In Substrate: [generate_storage_proof] >> storage_proof_ : {:?}",
                 storage_proof_
             );
 
             let storage_proof_str = serde_json::to_string(&storage_proof_).unwrap();
-            tracing::info!(
+            tracing::trace!(
                 "In Substrate: [generate_storage_proof] >> storage_proof_str: {:?}",
                 storage_proof_str
             );
@@ -596,8 +598,6 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
-            // sleep(Duration::from_secs(4)).await;
-
             let result = self.deliever(proto_msgs.messages().to_vec(), client).await.unwrap();
 
             tracing::info!(
@@ -649,12 +649,10 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
-            // sleep(Duration::from_secs(4)).await;
-
             let result = self.deliever(proto_msgs.messages().to_vec(), client).await.unwrap();
 
             tracing::info!(
-                "in Substrate: [send_messages_and_wait_commit] >> result : {:?}",
+                "in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}",
                 result
             );
 
@@ -1550,7 +1548,7 @@ impl ChainEndpoint for SubstrateChain {
         let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes().to_vec());
         Ok((
             result.unwrap(),
-            self.generate_storage_proof(&storage_entry, &height),
+            self.generate_storage_proof(&storage_entry, &height, "ClientStates"),
         ))
     }
 
@@ -1622,7 +1620,7 @@ impl ChainEndpoint for SubstrateChain {
         let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes().to_vec());
         Ok((
             new_connection_end,
-            self.generate_storage_proof(&storage_entry, &height),
+            self.generate_storage_proof(&storage_entry, &height, "Connections"),
         ))
     }
 
@@ -1676,7 +1674,7 @@ impl ChainEndpoint for SubstrateChain {
         let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes().to_vec());
         Ok((
             result.unwrap(),
-            self.generate_storage_proof(&storage_entry, &height),
+            self.generate_storage_proof(&storage_entry, &height, "ConsensusStates"),
         ))
     }
 
@@ -1729,7 +1727,7 @@ impl ChainEndpoint for SubstrateChain {
         );
         Ok((
             result.unwrap(),
-            self.generate_storage_proof(&storage_entry, &height),
+            self.generate_storage_proof(&storage_entry, &height, "Channels"),
         ))
     }
 
@@ -1843,7 +1841,6 @@ impl ChainEndpoint for SubstrateChain {
         assert!(trusted_height.revision_height < target_height.revision_height);
 
         let grandpa_client_state = match client_state {
-            // 73
             AnyClientState::Grandpa(state) => state,
             _ => todo!(),
         };
@@ -1870,17 +1867,13 @@ impl ChainEndpoint for SubstrateChain {
                 validator_set_id,
             } = grandpa_client_state.latest_commitment.clone().into();
 
-            // get commitment
-            // let mut mmr_root_height = signed_commitment.commitment.block_number;
-            let mmr_root_height = block_number; // 73
-
-            // assert eq mmr_root_height target_height.reversion_height
-            assert!((target_height.revision_height as u32) < mmr_root_height);
+            let mmr_root_height = block_number;
+            assert!((target_height.revision_height as u32) <= mmr_root_height);
 
             // get block header
             let block_header = octopusxt::call_ibc::get_header_by_block_number(
                 client.clone(),
-                Some(BlockNumber::from(target_height.revision_height as u32)), // 66
+                Some(BlockNumber::from(target_height.revision_height as u32)),
             )
             .await
             .unwrap();
@@ -1889,7 +1882,6 @@ impl ChainEndpoint for SubstrateChain {
                 .clone()
                 .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
-            // assert block_header.block_number == target_height
             assert_eq!(
                 block_header.block_number,
                 target_height.revision_height as u32
@@ -1901,25 +1893,23 @@ impl ChainEndpoint for SubstrateChain {
                 target_height
             );
 
-            // block hash by block number
-            let block_hash: Option<sp_core::H256> = api // 73
+            let block_hash: Option<sp_core::H256> = api
                 .client
                 .rpc()
                 .block_hash(Some(BlockNumber::from(
-                    mmr_root_height, // 73
+                    mmr_root_height,
                 )))
                 .await
                 .unwrap();
 
-            // get mmr_leaf and mmr_leaf_proof
             let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
-                target_height.revision_height, // 66
-                block_hash,                    // 73
+                target_height.revision_height,
+                block_hash,
                 client,
             )
             .await
             .unwrap();
-            // 65
+
             (block_header, mmr_leaf_and_mmr_leaf_proof)
         };
 
@@ -1957,97 +1947,13 @@ impl ChainEndpoint for SubstrateChain {
 
         let grandpa_header = GPHeader {
             block_header: result.0,
-            mmr_leaf: MmrLeaf::from(mmr_leaf), // 66->73
-            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof), // 66->73
+            mmr_leaf: MmrLeaf::from(mmr_leaf),
+            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
         };
         tracing::info!(
             "in substrate [build header] >> grandpa_header = {:?}",
             grandpa_header.clone()
         );
-
-        // // build support header
-        // let mut support_header = vec![];
-        //
-        // // ensure target_height > trust_height
-        // assert!(target_height > trusted_height);
-        //
-        // // for block_number in trusted_height.revision_height..target_height.revision_height {
-        // let result = async {
-        //     let client = ClientBuilder::new()
-        //         .set_url(&self.websocket_url.clone())
-        //         .build::<ibc_node::DefaultConfig>()
-        //         .await
-        //         .unwrap();
-        //
-        //     // get block header
-        //     let block_header = octopusxt::call_ibc::get_header_by_block_number(
-        //         client.clone(),
-        //         Some(BlockNumber::from(trusted_height.revision_height as u32)),
-        //     )
-        //     .await
-        //     .unwrap();
-        //
-        //     let api = client
-        //         .clone()
-        //         .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
-        //
-        //     // assert block_header.block_number == target_height
-        //     assert_eq!(
-        //         block_header.block_number,
-        //         trusted_height.revision_height as u32
-        //     );
-        //
-        //     // block hash by block number
-        //     let block_hash: Option<sp_core::H256> = api
-        //         .client
-        //         .rpc()
-        //         .block_hash(Some(BlockNumber::from(
-        //             mmr_root_height,
-        //             // trusted_height.revision_height as u32,
-        //         )))
-        //         .await
-        //         .unwrap();
-        //
-        //     // get mmr_leaf and mmr_leaf_proof
-        //     let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
-        //         trusted_height.revision_height - 1,
-        //         block_hash,
-        //         client,
-        //     )
-        //     .await
-        //     .unwrap();
-        //
-        //     (block_header, mmr_leaf_and_mmr_leaf_proof)
-        // };
-        //
-        // let result = self.block_on(result);
-        // tracing::info!("in substrate [build header] >> block header = {:?}, mmr_leaf = {:?}, mmr_leaf_proof = {:?}",
-        //         result.0, result.1.0, result.1.1
-        //     );
-        //
-        // let grandpa_client_state = match client_state {
-        //     AnyClientState::Grandpa(state) => state,
-        //     _ => todo!(),
-        // };
-        // // assert!(result.0.block_number <= grandpa_client_state.block_number);
-        //
-        // let mut encode_mmr_leaf = result.1.1;
-        // let mut encode_mmr_leaf_proof = result.1.2;
-        //
-        // let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
-        // let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
-        //
-        // let mmr_leaf_proof =
-        //     beefy_light_client::mmr::MmrLeafProof::decode(&mut &encode_mmr_leaf_proof[..]).unwrap();
-        //
-        // let grandpa_header_temp = GPHeader {
-        //     block_header: result.0,
-        //     mmr_leaf: MmrLeaf::from(mmr_leaf),
-        //     mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
-        // };
-        //
-        // support_header.push(grandpa_header_temp);
-        // // }
 
         Ok((grandpa_header, vec![] /*support_header*/))
     }

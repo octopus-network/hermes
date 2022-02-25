@@ -142,7 +142,8 @@ impl OperationalData {
     ) -> Result<TrackedMsgs, LinkError> {
         // For zero delay we prepend the client update msgs.
         let client_update_msg = if relay_path.zero_delay() {
-            let update_height = self.proofs_height.increment();
+            // let update_height = self.proofs_height.increment();  // Todo: if increment is only needed for Tendermint
+            let update_height = self.proofs_height;
 
             debug!(
                 "prepending {} client update at height {}",
