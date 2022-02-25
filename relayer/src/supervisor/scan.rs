@@ -569,6 +569,9 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
 
         match permission {
             Ok(Permission::Deny) => {
+                true
+            }
+/*            Ok(Permission::Deny) => {
                 warn!(
                     "skipping workers for chain {}, client {} & conn {}, \
                      reason: client or counterparty client is not allowed",
@@ -578,7 +581,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
                 );
 
                 false
-            }
+            }*/
             Err(e) => {
                 error!(
                     "skipping workers for chain {}, client {} & conn {}, reason: {}",

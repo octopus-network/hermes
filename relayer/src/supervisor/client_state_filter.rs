@@ -158,7 +158,7 @@ impl FilterPolicy {
                     client_id, host_chain
                 );
 
-                Permission::Deny
+                Permission::Allow
             }
             None => {
                 trace!(
@@ -167,7 +167,7 @@ impl FilterPolicy {
                     host_chain
                 );
 
-                Permission::Deny
+                Permission::Allow
             }
         };
 
