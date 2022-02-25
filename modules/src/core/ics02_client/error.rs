@@ -7,6 +7,7 @@ use crate::clients::ics10_grandpa::error::Error as Ics10Error;
 use crate::clients::ics07_tendermint::error::Error as Ics07Error;
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::height::HeightError;
+use crate::core::ics04_channel::packet::Sequence;
 use crate::core::ics23_commitment::error::Error as Ics23Error;
 use crate::core::ics24_host::error::ValidationError;
 use crate::core::ics24_host::identifier::ClientId;
@@ -323,6 +324,21 @@ define_error! {
             { height: Height }
             | e | { format_args!("the local consensus state could not be retrieved for height {}", e.height) },
 
+        InvalidPacketCommitment
+            { sequence: Sequence }
+            | e | {
+                format_args!(
+                    "The stored commitment of the packet {0} is invaid",
+                    e.sequence)
+            },
+
+        InvalidPacketAck
+            { sequence: Sequence }
+            | e | {
+                format_args!(
+                    "The stored acknowledgement of the packet {0} is invaid",
+                    e.sequence)
+            },
     }
 }
 
