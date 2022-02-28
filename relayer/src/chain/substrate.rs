@@ -80,6 +80,7 @@ use ibc::timestamp::Timestamp;
 
 const MAX_QUERY_TIMES: u64 = 100;
 
+/// A struct used to start a Substrate chain instance in relayer
 #[derive(Debug)]
 pub struct SubstrateChain {
     config: ChainConfig,
@@ -138,7 +139,7 @@ impl SubstrateChain {
         self.block_on(octopusxt::subscribe_ibc_event(self.get_client()))
     }
 
-    /// get latest height used by subscribe_blocks
+    /// get latest block height
     fn get_latest_height(
         &self,
     ) -> Result<u64, Box<dyn std::error::Error>> {
@@ -147,12 +148,11 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_latest_height(self.get_client()))
     }
 
-    /// get connectionEnd according by connection_identifier and read Connections StorageMaps
+    /// get connectionEnd by connection_identifier
     fn get_connection_end(
         &self,
         connection_identifier: &ConnectionId,
     ) -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
-        tracing::info!("in Substrate: [get_connection_end]");
         tracing::info!(
             "in Substrate: [get_connection_end] >> connection_id = {:?}",
             connection_identifier
@@ -161,19 +161,13 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_connection_end(connection_identifier, self.get_client()))
     }
 
-    /// get channelEnd according by port_identifier, channel_identifier and read Channles StorageMaps
+    /// get channelEnd  by port_identifier, and channel_identifier
     fn get_channel_end(
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
     ) -> Result<ChannelEnd, Box<dyn std::error::Error>> {
-        tracing::info!("in Substrate: [get_channel_end]");
-        tracing::info!("in Substrate: [get_channel_end] >> port_id = {:?}", port_id);
-        tracing::info!(
-            "in Substrate: [get_channel_end] >> channel_id = {:?}",
-            channel_id
-        );
-
+        tracing::info!("in Substrate: [get_channel_end] >> port_id = {:?}, channel_id = {:?}", port_id, channel_id);
         self.block_on(octopusxt::get_channel_end(port_id, channel_id, self.get_client()))
     }
 
@@ -184,16 +178,10 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         seq: &Sequence,
     ) -> Result<Receipt, Box<dyn std::error::Error>> {
-        tracing::info!("in Substrate: [get_packet_receipt]");
         tracing::info!(
-            "in Substrate: [get_packet_receipt] >> port_id = {:?}",
-            port_id
+            "in Substrate: [get_packet_receipt] >> port_id = {:?}, channel_id = {:?}, seq = {:?}",
+            port_id, channel_id, seq
         );
-        tracing::info!(
-            "in Substrate: [get_packet_receipt] >> channel_id = {:?}",
-            channel_id
-        );
-        tracing::info!("in Substrate: [get_packet_receipt] >> seq = {:?}", seq);
 
         self.block_on(octopusxt::get_packet_receipt(port_id, channel_id, seq, self.get_client()))
     }
@@ -205,7 +193,6 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         seq: &Sequence,
     ) -> Result<Packet, Box<dyn std::error::Error>> {
-        tracing::info!("in Substrate: [get_send_packet_event]");
         tracing::info!(
             "in Substrate: [get_send_packet_event] >> port_id = {:?}",
             port_id
@@ -219,12 +206,11 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_send_packet_event(port_id, channel_id, seq, self.get_client()))
     }
 
-    /// get client_state according by client_id, and read ClientStates StoraageMap
+    /// get client_state by client_id
     fn get_client_state(
         &self,
         client_id: &ClientId,
     ) -> Result<AnyClientState, Box<dyn std::error::Error>> {
-        tracing::info!("in Substrate: [get_client_state]");
         tracing::info!(
             "in Substrate: [get_client_state] >> client_id = {:?}",
             client_id
@@ -234,14 +220,12 @@ impl SubstrateChain {
 
     }
 
-    /// get appoint height consensus_state according by client_identifier and height
-    /// and read ConsensusStates StoreageMap
+    /// get consensus_state by client_identifier and height
     fn get_client_consensus(
         &self,
         client_id: &ClientId,
         height: &ICSHeight,
     ) -> Result<AnyConsensusState, Box<dyn std::error::Error>> {
-        tracing::info!("in Substrate: [get_client_consensus]");
         tracing::info!(
             "in Substrate: [get_client_consensus] >> client_id = {:?}",
             client_id
@@ -251,7 +235,6 @@ impl SubstrateChain {
             height
         );
 
-
         self.block_on(octopusxt::get_client_consensus(client_id, height.clone(), self.get_client()))
     }
 
@@ -259,7 +242,6 @@ impl SubstrateChain {
         &self,
         client_id: &ClientId,
     ) -> Result<Vec<(Height, AnyConsensusState)>, Box<dyn std::error::Error>> {
-        tracing::info!("in Substrate: [get_consensus_state_with_height]");
         tracing::info!(
             "in Substrate: [get_consensus_state_with_height] >> client_id = {:?}",
             client_id
@@ -274,7 +256,6 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         seqs: &[u64],
     ) -> Result<Vec<u64>, Box<dyn std::error::Error>> {
-        tracing::info!("in Substrate: [get_unreceipt_packet]");
         tracing::info!(
             "in Substrate: [get_unreceipt_packet] >> port_id = {:?}",
             port_id
@@ -289,7 +270,6 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_unreceipt_packet(port_id, channel_id, seqs.to_vec(), self.get_client()))
     }
 
-    /// get key-value pair (client_identifier, client_state) construct IdentifieredAnyClientstate
     fn get_clients(
         &self,
     ) -> Result<Vec<IdentifiedAnyClientState>, Box<dyn std::error::Error>> {
@@ -298,44 +278,37 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_clients(self.get_client()))
     }
 
-    /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
     fn get_connections(
         &self,
     ) -> Result<Vec<IdentifiedConnectionEnd>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_connections]");
 
-
         self.block_on(octopusxt::get_connections(self.get_client()))
     }
 
-    /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
     fn get_channels(
         &self,
     ) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_channels]");
 
-
         self.block_on(octopusxt::get_channels(self.get_client()))
     }
 
-    /// get get_commitment_packet_state
     fn get_commitment_packet_state(
         &self,
     ) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_commitment_packet_state]");
 
-
         self.block_on(octopusxt::get_commitment_packet_state(self.get_client()))
     }
 
-    /// get packet commitment by port_id, channel_id and sequence to verify if the ack has been received by the sending chain
+    /// get packet commitment by port_id, channel_id and sequence
     fn get_packet_commitment(
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
         seq: u64,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        tracing::info!("in Substrate: [get_packet_commitment]");
         tracing::info!(
             "in Substrate: [get_packet_commitment] >> port_id = {:?}",
             port_id
@@ -349,17 +322,15 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_packet_commitment(port_id, channel_id, seq, self.get_client()))
     }
 
-    /// get get_commitment_packet_state
     fn get_acknowledge_packet_state(
         &self,
     ) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [get_acknowledge_packet_state]");
 
-
         self.block_on(octopusxt::get_acknowledge_packet_state(self.get_client()))
     }
 
-    /// get connection_identifier vector according by client_identifier
+    /// get connection_identifier vector by client_identifier
     fn get_client_connections(
         &self,
         client_id: &ClientId,
@@ -383,17 +354,16 @@ impl SubstrateChain {
             connection_id
         );
 
-
         self.block_on(octopusxt::get_connection_channels(connection_id.clone(), self.get_client()))
     }
 
+    /// The function to submit IBC request to a Substrate chain
+    /// This function handles most of the IBC reqeusts, except the MMR root update
     fn deliever(
         &self,
         msg: Vec<Any>,
     ) -> Result<subxt::sp_core::H256, Box<dyn std::error::Error>> {
-        tracing::info!("in Substrate: [deliever]");
         tracing::info!("in Substrate: [deliever] = {:?}", msg);
-
 
         self.block_on(octopusxt::deliver(msg, self.get_client()))
     }
@@ -1671,6 +1641,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 }
 
+// Todo: to create a new type in `commitment_proof::Proof`
 /// Compose merkle proof according to ibc proto
 pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     use ibc_proto::ics23::{commitment_proof, ExistenceProof, InnerOp};
