@@ -398,6 +398,44 @@ impl SubstrateChain {
         self.block_on(octopusxt::deliver(msg, self.get_client()))
     }
 
+    fn get_write_ack_packet_event(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: &Sequence
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        tracing::info!("in Substrate: [get_send_packet_event]");
+        tracing::info!("in Substrate: [get_send_packet_event] >> port_id = {:?}, channel_id = {:?}, sequence = {:?}", port_id, channel_id, sequence);
+
+        self.block_on(octopusxt::call_ibc::get_write_ack_packet_event(port_id, channel_id, sequence, self.get_client()))
+    }
+
+    fn get_ibc_send_packet_event(&self, request: ibc::core::ics04_channel::channel::QueryPacketEventDataRequest) -> Vec<IbcEvent> {
+        let mut result_event = vec![];
+        for sequence in &request.sequences {
+            let packet = self.get_send_packet_event(&request.source_port_id, &request.source_channel_id, sequence).unwrap();
+            result_event.push(IbcEvent::SendPacket(ibc::core::ics04_channel::events::SendPacket{
+                height: request.height,
+                packet: packet,
+            }));
+        }
+        result_event
+    }
+
+    fn get_ibc_write_acknowledgement_event(&self, request: ibc::core::ics04_channel::channel::QueryPacketEventDataRequest) -> Vec<IbcEvent> {
+        let mut result_event = vec![];
+        for sequence in &request.sequences {
+            let packet = self.get_send_packet_event(&request.source_port_id, &request.source_channel_id, sequence).unwrap();
+            let ack = self.get_write_ack_packet_event(&request.source_port_id, &request.source_channel_id, sequence).unwrap();
+            result_event.push(IbcEvent::WriteAcknowledgement(ibc::core::ics04_channel::events::WriteAcknowledgement {
+                height: request.height,
+                packet: packet,
+                ack: ack,
+            }));
+        }
+        result_event
+    }
+
     /// Retrieve the storage proof according to storage keys
     /// And convert the proof to IBC compatible type
     fn generate_storage_proof<F: StorageEntry>(
@@ -868,7 +906,10 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_connection] >> height = {:?}", height);
 
-        let connection_end = self.retry_wapper(|| self.get_connection_end(connection_id)).unwrap();
+        // let connection_end = self.retry_wapper(|| self.get_connection_end(connection_id)).unwrap();
+
+        sleep(Duration::from_secs(10));
+        let connection_end = self.get_connection_end(connection_id).unwrap();
 
         tracing::info!(
             "In substrate: [query_connection] >> connection_end: {:#?}",
@@ -930,7 +971,10 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_channel] >> height = {:?}", height);
 
-        let channel_end = self.retry_wapper(|| self.get_channel_end(port_id, channel_id)).unwrap();
+        // let channel_end = self.retry_wapper(|| self.get_channel_end(port_id, channel_id)).unwrap();
+
+        sleep(Duration::from_secs(10));
+        let channel_end = self.get_channel_end(port_id, channel_id).unwrap();
 
         tracing::info!(
             "In substrate: [query_channel] >> channel_end: {:#?}",
@@ -1064,11 +1108,14 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [query_txs]");
         tracing::info!("in Substrate: [query_txs] >> request: {:?}", request);
 
+
+
         match request {
+            // Todo: Related to https://github.com/octopus-network/ibc-rs/issues/88
             QueryTxRequest::Packet(request) => {
                 crate::time!("in Substrate: [query_txs]: query packet events");
 
-                let result: Vec<IbcEvent> = vec![];
+                let mut result: Vec<IbcEvent> = vec![];
                 if request.sequences.is_empty() {
                     return Ok(result);
                 }
@@ -1082,31 +1129,14 @@ impl ChainEndpoint for SubstrateChain {
                     request.sequences
                 );
 
+
+                let mut send_packet_event = self.get_ibc_send_packet_event(request.clone());
+                let mut ack_event = self.get_ibc_write_acknowledgement_event(request);
+
+                result.append(&mut send_packet_event);
+                result.append(&mut ack_event);
+
                 return Ok(result);
-
-                // Todo: Related to https://github.com/octopus-network/ibc-rs/issues/88
-                // To query to event by event type, sequence number and block height
-                // use ibc::ics02_client::events::Attributes;
-                /*                use ibc::ics04_channel::events::Attributes;
-                use ibc::ics02_client::header::AnyHeader;
-                use core::ops::Add;
-
-                result.push(IbcEvent::SendPacket(ibc::ics04_channel::events::SendPacket{
-                    height: request.height,
-                    packet: Packet{
-                        sequence: request.sequences[0],
-                        source_port: request.source_port_id,
-                        source_channel: request.source_channel_id,
-                        destination_port: request.destination_port_id,
-                        destination_channel: request.destination_channel_id,
-                        data: vec![1,3,5],  //Todo
-                        timeout_height: ibc::Height::zero().add( 9999999), //Todo
-                        timeout_timestamp: ibc::timestamp::Timestamp::from_nanoseconds(Utc::now().timestamp_nanos() as u64)
-                            .unwrap().add(Duration::from_secs(99999)).unwrap() //Todo
-                    }
-                }));
-
-                Ok(result)*/
             }
 
             QueryTxRequest::Client(request) => {
@@ -1667,7 +1697,19 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn query_blocks(&self, request: QueryBlockRequest) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error> {
-        todo!()
+        tracing::info!("in substrate: [query_block]");
+        tracing::info!("in substrate: [query_block] >> request = {:?}", request);
+
+        // let result = match request {
+        //     QueryBlockRequest::Packet(request) => {
+        //         let send_packet_event = self.get_ibc_send_packet_event(request.clone());
+        //         let ack_event = self.get_ibc_write_acknowledgement_event(request);
+        //         (send_packet_event, ack_event)
+        //     }
+        // };
+
+        // Ok(result)
+        Ok((vec![], vec![]))
     }
 }
 
