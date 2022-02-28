@@ -45,16 +45,6 @@ impl ConsensusState {
         }
     }
 
-    // pub fn from_commit(root_commit: Commitment) -> Self {
-    //     let encode_root_commit = serde_json::to_string(&root_commit)
-    //         .unwrap()
-    //         .as_bytes()
-    //         .to_vec();
-    //
-    //     Self {
-    //         root: CommitmentRoot::from_bytes(&encode_root_commit),
-    //     }
-    // }
 }
 
 impl Default for ConsensusState {
