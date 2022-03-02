@@ -399,7 +399,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
             from_retry_error(
                 err,
-                format!("Failed to finish channel open init for {:?}", self),
+                format!("failed to finish channel open init for {:?}", self),
             )
         })?;
 
@@ -436,7 +436,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
             from_retry_error(
                 err,
-                format!("Failed to finish channel open try for {:?}", self),
+                format!("failed to finish channel open try for {:?}", self),
             )
         })?;
 
@@ -610,7 +610,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             error!("failed to open channel after {} retries", err);
             from_retry_error(
                 err,
-                format!("Failed to finish channel handshake for {:?}", self),
+                format!("failed to finish channel handshake for {:?}", self),
             )
         })?;
 
@@ -674,7 +674,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                     );
                     RetryResult::Err(index)
                 } else {
-                    error!("Failed Chan{:?} with error: {}", state, e);
+                    error!("failed Chan{:?} with error: {}", state, e);
                     RetryResult::Retry(index)
                 }
             }
@@ -914,8 +914,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         let counterparty =
             Counterparty::new(self.src_port_id().clone(), self.src_channel_id().cloned());
 
-        // Use the source channel version
-        let version = src_channel.version.clone();
+        // Re-use the version that was either set on ChanOpenInit or overwritten by the application.
+        let version = src_channel.version().clone();
 
         let channel = ChannelEnd::new(
             State::TryOpen,
