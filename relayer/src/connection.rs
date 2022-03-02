@@ -138,7 +138,7 @@ define_error! {
 
         MaxRetry
             |_| {
-                format!("Failed to finish connection handshake in {:?} iterations",
+                format!("failed to finish connection handshake in {:?} iterations",
                     MAX_RETRIES)
             },
 
@@ -514,7 +514,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             counter += 1;
             match self.flipped().build_conn_init_and_send() {
                 Err(e) => {
-                    error!("Failed ConnInit {:?}: {}", self.a_side, e);
+                    error!("failed ConnInit {:?}: {}", self.a_side, e);
                     continue;
                 }
                 Ok(result) => {
@@ -531,7 +531,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             counter += 1;
             match self.build_conn_try_and_send() {
                 Err(e) => {
-                    error!("Failed ConnTry {:?}: {}", self.b_side, e);
+                    error!("failed ConnTry {:?}: {}", self.b_side, e);
                     continue;
                 }
                 Ok(result) => {
@@ -585,7 +585,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                 (State::Init, State::TryOpen) | (State::TryOpen, State::TryOpen) => {
                     // Ack to a_chain
                     match self.flipped().build_conn_ack_and_send() {
-                        Err(e) => error!("Failed ConnAck {:?}: {}", self.a_side, e),
+                        Err(e) => error!("failed ConnAck {:?}: {}", self.a_side, e),
                         Ok(event) => {
                             println!("{}  {} => {:#?}\n", done, self.a_side.chain.id(), event)
                         }
@@ -594,7 +594,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                 (State::Open, State::TryOpen) => {
                     // Confirm to b_chain
                     match self.build_conn_confirm_and_send() {
-                        Err(e) => error!("Failed ConnConfirm {:?}: {}", self.b_side, e),
+                        Err(e) => error!("failed ConnConfirm {:?}: {}", self.b_side, e),
                         Ok(event) => {
                             println!("{}  {} => {:#?}\n", done, self.b_side.chain.id(), event)
                         }
@@ -603,7 +603,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                 (State::TryOpen, State::Open) => {
                     // Confirm to a_chain
                     match self.flipped().build_conn_confirm_and_send() {
-                        Err(e) => error!("Failed ConnConfirm {:?}: {}", self.a_side, e),
+                        Err(e) => error!("failed ConnConfirm {:?}: {}", self.a_side, e),
                         Ok(event) => {
                             println!("{}  {} => {:#?}\n", done, self.a_side.chain.id(), event)
                         }
