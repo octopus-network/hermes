@@ -68,26 +68,17 @@ impl ClientDef for GrandpaClient {
                 return Err(Error::empty_mmr_root());
             }
 
-            let mut mmr_root = [0u8; 32];
 
-            // Fetch the desired mmr root from storage if it's different from the mmr root in client_state
-            if header.mmr_leaf_proof.leaf_count != client_state.latest_commitment.block_number as u64 {
-                tracing::info!(
-                    "in client_def: [check_header_and_update_state] >> header.mmr_leaf_proof.leaf_count = {:?}, client_state.latest_commitment.block_number = {:?}",
-                    header.mmr_leaf_proof.leaf_count, client_state.latest_commitment.block_number
-                );
+            let mut mmr_root = [0u8; 32];
+            
+            // if header.block_header.block_number < client_state.block_number 
+            if header.mmr_leaf_proof.leaf_count < client_state.latest_commitment.block_number as u64 {
                 let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
-                let any_consensus_state = ctx.consensus_state(&client_id, height).unwrap();
-                let consensus_state = match any_consensus_state {
-                    AnyConsensusState::Grandpa(_v) => _v,
-                    _ => unimplemented!()
-                };
-                tracing::info!(
-                    "in client_def: [check_header_and_update_state] >> consensus_state queried = {:?}",
-                    consensus_state
-                );
-                mmr_root.copy_from_slice(&consensus_state.digest);
-            } else {
+                // get mmr root from consensus_state
+                let consensus_state = ctx.consensus_state(&client_id, height).unwrap();
+                let inner_consensus_state = consensus_state.root().clone().into_vec();
+                mmr_root.copy_from_slice(&inner_consensus_state);
+            } else { // = 
                 mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
             }
 
@@ -142,16 +133,20 @@ impl ClientDef for GrandpaClient {
                 ..client_state
             };
 
-            tracing::info!(
-                "in client_def: [check_header_and_update_state] >> client_state = {:?}",
-                client_state
-            );
-            tracing::info!(
-                "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
-                ConsensusState::from(header.clone())
-            );
 
-            Ok((client_state, ConsensusState::from(header.clone())))
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> client_state = {:?}",
+            client_state
+        );
+    
+        let consensus_state = GpConsensusState::new(mmr_root.to_vec());
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
+            consensus_state
+        );
+
+        // grandpa consensus_state update from substrate-ibc
+        Ok((client_state, consensus_state))
     }
 
     /// TODO

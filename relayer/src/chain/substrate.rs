@@ -1503,10 +1503,7 @@ impl ChainEndpoint for SubstrateChain {
             "in Substrate: [build_consensus_state] >> Any consensus state = {:?}",
             AnyConsensusState::Grandpa(GPConsensusState::from(light_block.clone()))
         );
-
-        Ok(AnyConsensusState::Grandpa(GPConsensusState::from(
-            light_block,
-        )))
+        Ok(AnyConsensusState::Grandpa(GPConsensusState::default()))
     }
 
     fn build_header(
