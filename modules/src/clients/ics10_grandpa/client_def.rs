@@ -1,6 +1,7 @@
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
+use alloc::format;
 use codec::{Decode, Encode};
 use core::convert::From;
 use core::convert::TryInto;
@@ -68,7 +69,27 @@ impl ClientDef for GrandpaClient {
             }
 
             let mut mmr_root = [0u8; 32];
-            mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
+
+            // Fetch the desired mmr root from storage if it's different from the mmr root in client_state
+            if header.mmr_leaf_proof.leaf_count != client_state.latest_commitment.block_number as u64 {
+                tracing::info!(
+                    "in client_def: [check_header_and_update_state] >> header.mmr_leaf_proof.leaf_count = {:?}, client_state.latest_commitment.block_number = {:?}",
+                    header.mmr_leaf_proof.leaf_count, client_state.latest_commitment.block_number
+                );
+                let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
+                let any_consensus_state = ctx.consensus_state(&client_id, height).unwrap();
+                let consensus_state = match any_consensus_state {
+                    AnyConsensusState::Grandpa(_v) => _v,
+                    _ => unimplemented!()
+                };
+                tracing::info!(
+                    "in client_def: [check_header_and_update_state] >> consensus_state queried = {:?}",
+                    consensus_state
+                );
+                mmr_root.copy_from_slice(&consensus_state.digest);
+            } else {
+                mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
+            }
 
             let mmr_proof = header.clone().mmr_leaf_proof;
             let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
@@ -315,15 +336,20 @@ impl ClientDef for GrandpaClient {
         let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence).encode()];
         let storage_result = Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements").unwrap();
         tracing::info!(
-            "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
-            String::from_utf8(storage_result.clone()).unwrap()
+            "In ics10-client_def.rs: [verify_packet_acknowledgement] >> encoded ack: {:?}",
+            storage_result
         );
         tracing::info!(
-            "In ics10-client_def.rs: [verify_packet_data] >>  expected packet_commitment: {:?}",
-            String::from_utf8(ack.clone()).unwrap()
+            "In ics10-client_def.rs: [verify_packet_acknowledgement] >>  raw ack: {:?}",
+            ack
         );
 
-        if !(storage_result == ack) {
+        let ack = format!("{:?}", ack);
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_packet_acknowledgement] >>  string ack: {:?}",
+            ack.clone()
+        );
+        if !(storage_result == Self::hash(ack).encode()) {
             return Err(Error::invalid_packet_ack(sequence));
         }
         Ok(())
@@ -490,6 +516,20 @@ impl GrandpaClient {
         }
 
         return Err(Error::wrong_key_number(_keys.len().try_into().unwrap()));
+    }
+
+    /// A hashing function for packet commitments
+    fn hash(value: String) -> String {
+        tracing::info!("in client_def: [hash] >> value = {:?}", value.clone());
+
+        let r = sp_io::hashing::sha2_256(value.as_bytes());
+
+        let mut tmp = String::new();
+        for item in r.iter() {
+            tmp.push_str(&format!("{:02x}", item));
+        }
+        tracing::info!("in client_def: [hash] >> result = {:?}", tmp.clone());
+        tmp
     }
 }
 

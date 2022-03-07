@@ -16,7 +16,7 @@ use codec::{Decode, Encode};
 use core::future::Future;
 use core::str::FromStr;
 use core::time::Duration;
-use ibc::events::IbcEvent;
+use ibc::events::{IbcEvent, WithBlockDataType};
 
 use crate::light_client::Verified;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
@@ -113,7 +113,7 @@ impl SubstrateChain {
     fn retry_wapper<O, Op>(&self, operation: Op) -> Result<O, retry::Error<&str>>
         where Op: FnOnce() -> Result<O, Box<dyn std::error::Error>> + Copy
     {
-        let result = retry_with_index(Fixed::from_millis(1000), |current_try| {
+        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
                 return RetryResult::Err("did not succeed within tries");
             }
@@ -672,6 +672,7 @@ impl ChainEndpoint for SubstrateChain {
             proto_msgs
         );
 
+        sleep(Duration::from_secs(4));
         let result = self.deliever(proto_msgs.messages().to_vec()).unwrap();
 
         tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}",result);
@@ -906,11 +907,7 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_connection] >> height = {:?}", height);
 
-        // let connection_end = self.retry_wapper(|| self.get_connection_end(connection_id)).unwrap();
-
-        sleep(Duration::from_secs(10));
-        let connection_end = self.get_connection_end(connection_id).unwrap();
-
+        let connection_end = self.retry_wapper(|| self.get_connection_end(connection_id)).unwrap();
         tracing::info!(
             "In substrate: [query_connection] >> connection_end: {:#?}",
             connection_end
@@ -971,11 +968,7 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_channel] >> height = {:?}", height);
 
-        // let channel_end = self.retry_wapper(|| self.get_channel_end(port_id, channel_id)).unwrap();
-
-        sleep(Duration::from_secs(10));
-        let channel_end = self.get_channel_end(port_id, channel_id).unwrap();
-
+        let channel_end = self.retry_wapper(|| self.get_channel_end(port_id, channel_id)).unwrap();
         tracing::info!(
             "In substrate: [query_channel] >> channel_end: {:#?}",
             channel_end
@@ -1105,10 +1098,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error> {
-        tracing::info!("in Substrate: [query_txs]");
-        tracing::info!("in Substrate: [query_txs] >> request: {:?}", request);
-
-
+        tracing::info!("in Substrate: [query_txs] >> chain_id = {:?}, request = {:?}", self.config.id, request);
 
         match request {
             // Todo: Related to https://github.com/octopus-network/ibc-rs/issues/88
@@ -1129,12 +1119,19 @@ impl ChainEndpoint for SubstrateChain {
                     request.sequences
                 );
 
+                match request.event_id {
+                    WithBlockDataType::SendPacket => {
+                        let mut send_packet_event = self.get_ibc_send_packet_event(request.clone());
+                        result.append(&mut send_packet_event);
+                    }
 
-                let mut send_packet_event = self.get_ibc_send_packet_event(request.clone());
-                let mut ack_event = self.get_ibc_write_acknowledgement_event(request);
+                    WithBlockDataType::WriteAck => {
+                        let mut ack_event = self.get_ibc_write_acknowledgement_event(request);
+                        result.append(&mut ack_event);
+                    }
 
-                result.append(&mut send_packet_event);
-                result.append(&mut ack_event);
+                    _ => unimplemented!()
+                }
 
                 return Ok(result);
             }
@@ -1509,7 +1506,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let grandpa_client_state = match client_state {
             AnyClientState::Grandpa(state) => state,
-            _ => todo!(),
+            _ => unimplemented!(),
         };
 
         // assert trust_height <= grandpa_client_state height
