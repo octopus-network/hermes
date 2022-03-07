@@ -177,8 +177,12 @@ pub fn spawn_supervisor_tasks<Chain: ChainHandle>(
         subscriptions,
         cmd_rx,
     );
+    
+    // TODO
+    // spawn update_mmr_root worket 
+    let update_mmr_root_task = spawn_update_mmr_root_worker(config.clone());
 
-    let mut tasks = vec![batch_task, cmd_task];
+    let mut tasks = vec![batch_task, cmd_task, update_mmr_root_task];
 
     if let Some(rest_rx) = rest_rx {
         let rest_task = spawn_rest_worker(config, registry, workers, rest_rx);
@@ -186,6 +190,84 @@ pub fn spawn_supervisor_tasks<Chain: ChainHandle>(
     }
 
     Ok(tasks)
+}
+
+
+fn spawn_update_mmr_root_worker(
+    config: Arc<RwLock<Config>>,
+) -> TaskHandle {
+
+    use subxt::ClientBuilder;
+
+    spawn_background_task(
+            tracing::Span::none(),
+    Some(Duration::from_millis(500)),
+    move || -> Result<Next, TaskError<Infallible>> {
+
+            let ret = update_client_state_service_worker(config.clone());
+
+            Ok(Next::Continue)
+        }
+    )
+}
+
+fn update_client_state_service_worker(config: Arc<RwLock<Config>>) -> Result<(), Box<dyn std::error::Error>> {
+    use subxt::ClientBuilder;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    let result = async {
+        let chain_id = config.acquire_read().chains.clone();
+        let mut websocket_addrs = vec![];
+        for item in chain_id {
+            websocket_addrs.push(item.websocket_addr.to_string());
+        }
+        
+        // assets chain_id length equal 2
+        assert_eq!(websocket_addrs.len() , 2);
+
+        let websocket_addrs_1 = websocket_addrs.clone();
+
+        //use two tokio task to update client state each other for chian a and chain b
+        let update_task1 = tokio::task::spawn(async move {
+            
+            let chain_a = ClientBuilder::new()
+                .set_url(websocket_addrs_1[0].clone())
+                .build::<octopusxt::ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
+            let chain_b = ClientBuilder::new()
+                .set_url(websocket_addrs_1[1].clone())
+                .build::<octopusxt::ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
+            let _ret = octopusxt::update_client_state::update_client_state_service(chain_a, chain_b).await;
+        });
+
+        let websocket_addrs_2 = websocket_addrs.clone();
+
+        let update_task2 = tokio::task::spawn(async move {
+           
+            let chain_a = ClientBuilder::new()
+                .set_url(websocket_addrs_2[1].clone())
+                .build::<octopusxt::ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
+            let chain_b = ClientBuilder::new()
+                .set_url(websocket_addrs_2[0].clone())
+                .build::<octopusxt::ibc_node::DefaultConfig>()
+                .await
+                .unwrap();
+            let _ret = octopusxt::update_client_state::update_client_state_service(chain_b, chain_a).await;
+        });
+
+        let ret = update_task1.await;
+        let ret = update_task2.await;
+    };
+
+    let ret = rt.block_on(result);
+
+    Ok(())
 }
 
 fn spawn_batch_worker<Chain: ChainHandle>(
