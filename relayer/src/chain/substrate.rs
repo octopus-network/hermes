@@ -924,10 +924,8 @@ impl ChainEndpoint for SubstrateChain {
         );
         tracing::info!("in Substrate: [query_connection] >> height = {:?}", height);
 
-        sleep(Duration::from_secs(10));
 
-        let connection_end = self.get_connection_end(connection_id).unwrap();
-
+        let connection_end = self.retry_wapper(|| self.get_connection_end(connection_id).unwrap()).unwrap();
 
         tracing::info!(
             "In substrate: [query_connection] >> connection_end: {:#?}",
@@ -988,6 +986,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::info!("in Substrate: [query_channel] >> height = {:?}", height);
 
         let channel_end = self.retry_wapper(|| self.get_channel_end(port_id, channel_id)).unwrap();
+
         tracing::info!(
             "In substrate: [query_channel] >> channel_end: {:#?}",
             channel_end
