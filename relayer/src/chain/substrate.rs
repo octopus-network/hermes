@@ -1391,12 +1391,25 @@ impl ChainEndpoint for SubstrateChain {
 
                 match packet_type {
                     PacketMsgType::Recv => {
+                        // PacketCommitment
                         octopusxt::call_ibc::get_packet_commitment(&port_id, &channel_id, u64::from(sequence), client).await
                     }
                     PacketMsgType::Ack => {
+                        // Acknowledgements
                         octopusxt::call_ibc::get_packet_ack(&port_id, &channel_id, u64::from(sequence), client).await
                     }
-                    _ => unimplemented!(),
+                    PacketMsgType::TimeoutOnClose => {
+                        // PacketReceipt
+                        octopusxt::call_ibc::get_packet_receipt_vec(&port_id, &channel_id, &sequence, client).await
+                    }
+                    PacketMsgType::TimeoutUnordered => {
+                        // PacketReceipt
+                        octopusxt::call_ibc::get_packet_receipt_vec(&port_id, &channel_id, &sequence, client).await
+                    }
+                    PacketMsgType::TimeoutOrdered => {
+                        // NextSequenceRecv
+                        octopusxt::call_ibc::get_next_sequence_recv(&port_id, &channel_id, client).await
+                    }
                 }
             };
 
@@ -1416,7 +1429,18 @@ impl ChainEndpoint for SubstrateChain {
                 let storage_entry = ibc_node::ibc::storage::Acknowledgements(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
                 Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "Acknowledgements")))
             }
-            _ => unimplemented!(),
+            PacketMsgType::TimeoutOnClose => {
+                let storage_entry = ibc_node::ibc::storage::PacketReceipt(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
+                Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "PacketReceipt")))
+            }
+            PacketMsgType::TimeoutUnordered => {
+                let storage_entry = ibc_node::ibc::storage::PacketReceipt(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
+                Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "PacketReceipt")))
+            }
+            PacketMsgType::TimeoutOrdered => {
+                let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec());
+                Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "NextSequenceRecv")))
+            }
         }
     }
 
