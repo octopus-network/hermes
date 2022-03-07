@@ -134,7 +134,6 @@ fn spawn_rest_server(config: &Arc<RwLock<Config>>) -> Option<rest::Receiver> {
 }
 
 #[cfg(feature = "telemetry")]
-
 fn spawn_telemetry_server(
     config: &Arc<RwLock<Config>>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {

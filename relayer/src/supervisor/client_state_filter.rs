@@ -123,7 +123,7 @@ impl FilterPolicy {
             .entry(identifier)
             .or_insert(permission);
 
-        Ok(permission)
+        Ok(Permission::Allow)
     }
 
     /// Given a client identifier and its corresponding client state,
@@ -158,7 +158,7 @@ impl FilterPolicy {
                     client_id, host_chain
                 );
 
-                Permission::Deny
+                Permission::Allow
             }
             None => {
                 trace!(
@@ -167,7 +167,7 @@ impl FilterPolicy {
                     host_chain
                 );
 
-                Permission::Deny
+                Permission::Allow
             }
         };
 
@@ -180,7 +180,7 @@ impl FilterPolicy {
             .entry(identifier)
             .or_insert(permission);
 
-        permission
+        Permission::Allow
     }
 
     pub fn control_client_object<Chain: ChainHandle>(
@@ -215,7 +215,8 @@ impl FilterPolicy {
             .query_client_state(&obj.dst_client_id, Height::zero())
             .map_err(FilterError::relayer)?;
 
-        Ok(self.control_client(&obj.dst_chain_id, &obj.dst_client_id, &client_state))
+        // Ok(self.control_client(&obj.dst_chain_id, &obj.dst_client_id, &client_state))
+        Ok(Permission::Allow)
     }
 
     pub fn control_conn_object<Chain: ChainHandle>(
@@ -261,7 +262,9 @@ impl FilterPolicy {
             &client_state,
             &connection_end,
             &obj.src_connection_id,
-        )
+        );
+
+        Ok(Permission::Allow)
     }
 
     fn control_channel<Chain: ChainHandle>(
@@ -324,7 +327,7 @@ impl FilterPolicy {
 
         self.permission_cache.entry(key).or_insert(permission);
 
-        Ok(permission)
+        Ok(Permission::Allow)
     }
 
     pub fn control_chan_object<Chain: ChainHandle>(
@@ -337,7 +340,8 @@ impl FilterPolicy {
             &obj.src_chain_id,
             &obj.src_port_id,
             &obj.src_channel_id,
-        )
+        );
+        Ok(Permission::Allow)
     }
 
     pub fn control_packet_object<Chain: ChainHandle>(
@@ -350,6 +354,7 @@ impl FilterPolicy {
             &obj.src_chain_id,
             &obj.src_port_id,
             &obj.src_channel_id,
-        )
+        );
+        Ok(Permission::Allow)
     }
 }
