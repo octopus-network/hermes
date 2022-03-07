@@ -392,7 +392,8 @@ impl SubstrateChain {
         msg: Vec<Any>,
     ) -> Result<subxt::sp_core::H256, Box<dyn std::error::Error>> {
         tracing::info!("in Substrate: [deliever]");
-        tracing::info!("in Substrate: [deliever] = {:?}", msg);
+        let type_urls = msg.iter().map(|value| value.type_url.clone()).collect::<Vec<String>>();
+        tracing::info!("in Substrate: [deliever] msg.type_url = {:?}", type_urls);
 
 
         self.block_on(octopusxt::deliver(msg, self.get_client()))
@@ -748,11 +749,6 @@ impl ChainEndpoint for SubstrateChain {
                 consensus_state,
             };
             any_consensus_state_with_height.push(tmp.clone());
-
-            tracing::info!(
-                "In Substrate: [query_consensus_state] >> any_consensus_state_with_height: {:?}",
-                tmp
-            );
         }
 
         any_consensus_state_with_height.sort_by(|a, b| a.height.cmp(&b.height));
@@ -1522,36 +1518,36 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         let result = self.block_on(result);
-        tracing::info!(
-            "in substrate [build header] >> block header = {:?}",
-            result.0
-        );
-        tracing::info!(
-            "in substrate [build header] >> mmr_leaf = {:?}",
-            result.1 .0
-        );
-        tracing::info!(
-            "in substrate [build header] >> mmr_leaf_proof = {:?}",
-            result.1 .1
-        );
+        // tracing::info!(
+        //     "in substrate [build header] >> block header = {:?}",
+        //     result.0
+        // );
+        // tracing::info!(
+        //     "in substrate [build header] >> mmr_leaf = {:?}",
+        //     result.1 .0
+        // );
+        // tracing::info!(
+        //     "in substrate [build header] >> mmr_leaf_proof = {:?}",
+        //     result.1 .1
+        // );
 
         let encoded_mmr_leaf = result.1 .1;
         let encoded_mmr_leaf_proof = result.1 .2;
 
         let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
         let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
-        tracing::info!(
-            "in substrate [build header] >> beef_light_client MmrLeaf = {:?}",
-            mmr_leaf.clone()
-        );
+        // tracing::info!(
+        //     "in substrate [build header] >> beef_light_client MmrLeaf = {:?}",
+        //     mmr_leaf.clone()
+        // );
 
         let mmr_leaf_proof =
             beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..])
                 .unwrap();
-        tracing::info!(
-            "in substrate [build header] >> beef_light_client MmrLeafProof = {:?}",
-            mmr_leaf_proof
-        );
+        // tracing::info!(
+        //     "in substrate [build header] >> beef_light_client MmrLeafProof = {:?}",
+        //     mmr_leaf_proof
+        // );
 
         let grandpa_header = GPHeader {
             block_header: result.0,
@@ -1629,6 +1625,7 @@ impl ChainEndpoint for SubstrateChain {
         let height = self.retry_wapper(|| self.get_latest_height());
 
         let latest_height = Height::new(0, height.unwrap());
+
         tracing::info!("in substrate: [query_status] >> latest_height = {:?}", latest_height);
 
         Ok(StatusResponse {
