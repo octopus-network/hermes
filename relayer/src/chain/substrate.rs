@@ -62,7 +62,6 @@ use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime;
 use tokio::runtime::Runtime as TokioRuntime;
 use tokio::task;
-// use tokio::time::sleep;
 use crate::connection::ConnectionMsgType;
 use ibc::clients::ics07_tendermint::header::Header as tHeader;
 use ibc::clients::ics10_grandpa::help::{
@@ -641,14 +640,14 @@ impl ChainEndpoint for SubstrateChain {
 
         use tendermint::abci::transaction; // Todo:
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
-        let txRe = TxResponse {
+        let tx_re = TxResponse {
             code: Code::default(),
             data: serde_json::from_str(json).unwrap(),
             log: Log::from("testtest"),
             hash: transaction::Hash::new(*result.as_fixed_bytes()),
         };
 
-        Ok(vec![txRe])
+        Ok(vec![tx_re])
     }
 
     fn get_signer(&mut self) -> Result<Signer, Error> {
