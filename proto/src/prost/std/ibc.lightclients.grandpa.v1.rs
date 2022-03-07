@@ -152,22 +152,7 @@ pub struct ClientState {
 /// Consensus state
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConsensusState {
-    //// The parent hash.
-    #[prost(bytes = "vec", tag = "1")]
-    pub parent_hash: ::prost::alloc::vec::Vec<u8>,
-    //// The block number.
-    #[prost(uint32, tag = "2")]
-    pub block_number: u32,
-    //// The state trie merkle root
-    #[prost(bytes = "vec", tag = "3")]
-    pub state_root: ::prost::alloc::vec::Vec<u8>,
-    //// The merkle root of the extrinsics.
-    #[prost(bytes = "vec", tag = "4")]
-    pub extrinsics_root: ::prost::alloc::vec::Vec<u8>,
-    //// A chain-specific digest of data useful for light clients or referencing auxiliary data.
-    #[prost(bytes = "vec", tag = "5")]
-    pub digest: ::prost::alloc::vec::Vec<u8>,
-    #[prost(message, optional, tag = "6")]
+    #[prost(message, optional, tag = "1")]
     pub root: ::core::option::Option<super::super::super::core::commitment::v1::MerkleRoot>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

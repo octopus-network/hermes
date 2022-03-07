@@ -9,9 +9,10 @@ use tendermint_proto::Protobuf;
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
 use crate::clients::ics10_grandpa::client_state::ClientState;
-use crate::clients::ics10_grandpa::consensus_state::ConsensusState;
+use crate::clients::ics10_grandpa::consensus_state::ConsensusState as GpConsensusState;
 use crate::clients::ics10_grandpa::header::Header;
 use crate::core::ics02_client::client_consensus::AnyConsensusState;
+use crate::core::ics02_client::client_consensus::ConsensusState;
 use crate::core::ics02_client::client_def::ClientDef;
 use crate::core::ics02_client::client_state::AnyClientState;
 use crate::core::ics02_client::context::ClientReader;
@@ -33,7 +34,7 @@ pub struct GrandpaClient;
 impl ClientDef for GrandpaClient {
     type Header = Header;
     type ClientState = ClientState;
-    type ConsensusState = ConsensusState;
+    type ConsensusState = GpConsensusState;
 
     fn check_header_and_update_state(
         &self,
@@ -72,8 +73,15 @@ impl ClientDef for GrandpaClient {
             return Err(Error::empty_mmr_root());
         }
 
+        // get mmr root from consensus_state
+        let consensus_state = ctx.consensus_state(&client_id, header.height()).unwrap();
         let mut mmr_root = [0u8; 32];
-        mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
+        let inner_consensus_state = consensus_state.root().clone().into_vec();
+        mmr_root.copy_from_slice(&inner_consensus_state);
+    
+
+        // let mut mmr_root = [0u8; 32];
+        // mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
 
         let mmr_proof = header.clone().mmr_leaf_proof;
         let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
@@ -132,10 +140,11 @@ impl ClientDef for GrandpaClient {
         );
         tracing::info!(
             "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
-            ConsensusState::from(header.clone())
+            consensus_state
         );
 
-        Ok((client_state, ConsensusState::from(header.clone())))
+        // grandpa consensus_state update from substrate-ibc
+        Ok((client_state, GpConsensusState::from_commitment_root(consensus_state.root().clone())))
     }
 
     /// TODO

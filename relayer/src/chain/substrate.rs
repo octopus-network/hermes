@@ -1433,20 +1433,19 @@ impl ChainEndpoint for SubstrateChain {
         Ok(AnyClientState::Grandpa(client_state))
     }
 
+    // no use light_block
     fn build_consensus_state(
         &self,
-        light_block: Self::LightBlock,
+        light_block: Self::LightBlock, 
     ) -> Result<Self::ConsensusState, Error> {
         tracing::info!("in Substrate: [build_consensus_state]");
 
         tracing::info!(
             "in Substrate: [build_consensus_state] >> Any consensus state = {:?}",
-            AnyConsensusState::Grandpa(GPConsensusState::from(light_block.clone()))
+            AnyConsensusState::Grandpa(GPConsensusState::default())
         );
 
-        Ok(AnyConsensusState::Grandpa(GPConsensusState::from(
-            light_block,
-        )))
+        Ok(AnyConsensusState::Grandpa(GPConsensusState::default())))
     }
 
     fn build_header(
