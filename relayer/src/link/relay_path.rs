@@ -651,7 +651,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
 
     /// Checks if a packet commitment has been cleared on source.
     /// The packet commitment is cleared when either an acknowledgment or a timeout is received on source.
-    fn send_packet_commitment_cleared_on_src(&self, sendPacket: &SendPacket) -> Result<bool, LinkError> {
+    fn send_packet_commitment_cleared_on_src(
+        &self,
+        sendPacket: &SendPacket,
+    ) -> Result<bool, LinkError> {
         let (bytes, _) = self
             .src_chain()
             .build_packet_proofs(

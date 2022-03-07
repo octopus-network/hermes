@@ -8,8 +8,8 @@ use prost_types::Any;
 use serde::Serialize;
 use tendermint_proto::Protobuf;
 
-use crate::clients::ics10_grandpa;
 use crate::clients::ics07_tendermint::consensus_state;
+use crate::clients::ics10_grandpa;
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::error::Error;
 use crate::core::ics02_client::height::Height;
@@ -25,11 +25,9 @@ use crate::mock::client_state::MockConsensusState;
 pub const TENDERMINT_CONSENSUS_STATE_TYPE_URL: &str =
     "/ibc.lightclients.tendermint.v1.ConsensusState";
 
-pub const GRANDPA_CONSENSUS_STATE_TYPE_URL: &str =
-    "/ibc.lightclients.grandpa.v1.ConsensusState";
+pub const GRANDPA_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.ConsensusState";
 
-pub const MOCK_CONSENSUS_STATE_TYPE_URL: &str =
-    "/ibc.mock.ConsensusState";
+pub const MOCK_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.mock.ConsensusState";
 
 pub trait ConsensusState: Clone + core::fmt::Debug + Send + Sync {
     type Error;
@@ -91,8 +89,10 @@ impl TryFrom<Any> for AnyConsensusState {
             )),
 
             GRANDPA_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Grandpa(
-                crate::clients::ics10_grandpa::consensus_state::ConsensusState::decode_vec(&value.value)
-                    .map_err(Error::decode_raw_client_state)?,
+                crate::clients::ics10_grandpa::consensus_state::ConsensusState::decode_vec(
+                    &value.value,
+                )
+                .map_err(Error::decode_raw_client_state)?,
             )),
 
             #[cfg(any(test, feature = "mocks"))]

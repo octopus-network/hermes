@@ -9,11 +9,11 @@ use serde::Serialize;
 use ibc_proto::ibc::lightclients::grandpa::v1::ConsensusState as RawConsensusState;
 
 use super::help::Commitment;
-use crate::core::ics02_client::client_consensus::AnyConsensusState;
-use crate::core::ics02_client::client_type::ClientType;
 use crate::clients::ics10_grandpa::error::Error;
 use crate::clients::ics10_grandpa::header::Header;
 use crate::clients::ics10_grandpa::help::BlockHeader;
+use crate::core::ics02_client::client_consensus::AnyConsensusState;
+use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics23_commitment::commitment::CommitmentRoot;
 use tendermint_proto::Protobuf;
 

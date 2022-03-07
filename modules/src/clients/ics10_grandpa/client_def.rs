@@ -8,19 +8,21 @@ use tendermint_proto::Protobuf;
 
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
-use crate::core::ics02_client::client_consensus::AnyConsensusState;
-use crate::core::ics02_client::client_def::ClientDef;
-use crate::core::ics02_client::client_state::AnyClientState;
-use crate::core::ics02_client::error::Error;
-use crate::core::ics03_connection::connection::ConnectionEnd;
-use crate::core::ics04_channel::channel::ChannelEnd;
-use crate::core::ics04_channel::packet::Sequence;
 use crate::clients::ics10_grandpa::client_state::ClientState;
 use crate::clients::ics10_grandpa::consensus_state::ConsensusState;
 use crate::clients::ics10_grandpa::header::Header;
+use crate::core::ics02_client::client_consensus::AnyConsensusState;
+use crate::core::ics02_client::client_def::ClientDef;
+use crate::core::ics02_client::client_state::AnyClientState;
 use crate::core::ics02_client::context::ClientReader;
+use crate::core::ics02_client::error::Error;
+use crate::core::ics03_connection::connection::ConnectionEnd;
+use crate::core::ics04_channel::channel::ChannelEnd;
 use crate::core::ics04_channel::context::ChannelReader;
-use crate::core::ics23_commitment::commitment::{CommitmentPrefix, CommitmentProofBytes, CommitmentRoot};
+use crate::core::ics04_channel::packet::Sequence;
+use crate::core::ics23_commitment::commitment::{
+    CommitmentPrefix, CommitmentProofBytes, CommitmentRoot,
+};
 use crate::core::ics24_host::identifier::ConnectionId;
 use crate::core::ics24_host::identifier::{ChannelId, ClientId, PortId};
 use crate::Height;
@@ -40,100 +42,100 @@ impl ClientDef for GrandpaClient {
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-            tracing::info!("in ics10 client_def [check_header_and_update_state]");
-            tracing::info!("in ics10 client_def [check_header_and_update_state] >> Header block_header block_number\
+        tracing::info!("in ics10 client_def [check_header_and_update_state]");
+        tracing::info!("in ics10 client_def [check_header_and_update_state] >> Header block_header block_number\
              = {:?}, ClientState latest_commitment block_number = {:?}", header.block_header.block_number, client_state.latest_commitment.block_number);
-            tracing::info!(
-                "in client_def: [check_header_and_update_state] >> client_state = {:?}",
-                client_state
-            );
-            tracing::info!(
-                "in client_def: [check_header_and_update_state] >> header = {:?}",
-                header
-            );
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> client_state = {:?}",
+            client_state
+        );
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> header = {:?}",
+            header
+        );
 
-            // if client_state.latest_height() >= header.height() {
-            //     return Err(Error::low_header_height(
-            //         header.height(),
-            //         client_state.latest_height(),
-            //     ));
-            // }
+        // if client_state.latest_height() >= header.height() {
+        //     return Err(Error::low_header_height(
+        //         header.height(),
+        //         client_state.latest_height(),
+        //     ));
+        // }
 
-            if header.block_header.block_number > client_state.latest_commitment.block_number {
-                return Err(Error::invalid_mmr_root_height(
-                    client_state.latest_commitment.block_number,
-                    header.block_header.block_number,
-                ));
-            }
+        if header.block_header.block_number > client_state.latest_commitment.block_number {
+            return Err(Error::invalid_mmr_root_height(
+                client_state.latest_commitment.block_number,
+                header.block_header.block_number,
+            ));
+        }
 
-            if client_state.latest_commitment.payload.is_empty() {
-                return Err(Error::empty_mmr_root());
-            }
+        if client_state.latest_commitment.payload.is_empty() {
+            return Err(Error::empty_mmr_root());
+        }
 
-            let mut mmr_root = [0u8; 32];
-            mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
+        let mut mmr_root = [0u8; 32];
+        mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
 
-            let mmr_proof = header.clone().mmr_leaf_proof;
-            let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
+        let mmr_proof = header.clone().mmr_leaf_proof;
+        let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
 
-            let mmr_leaf_encode =
-                beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf).encode();
-            let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
-            let mmr_leaf = beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf);
+        let mmr_leaf_encode =
+            beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf).encode();
+        let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
+        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf);
 
-            let header_hash = header.hash();
+        let header_hash = header.hash();
 
-            if mmr_leaf.parent_number_and_hash.1.is_empty() {
-                return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
-            }
-            tracing::info!(
-                "ics1 client_def :[check_header_and_update_state] >> header_hash = {:?}",
-                header_hash
-            );
-            tracing::info!(
-                "ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}",
-                mmr_leaf.parent_number_and_hash.1
-            );
+        if mmr_leaf.parent_number_and_hash.1.is_empty() {
+            return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
+        }
+        tracing::info!(
+            "ics1 client_def :[check_header_and_update_state] >> header_hash = {:?}",
+            header_hash
+        );
+        tracing::info!(
+            "ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}",
+            mmr_leaf.parent_number_and_hash.1
+        );
 
-            if header_hash != mmr_leaf.parent_number_and_hash.1 {
-                return Err(Error::header_hash_not_match());
-            }
+        if header_hash != mmr_leaf.parent_number_and_hash.1 {
+            return Err(Error::header_hash_not_match());
+        }
 
-            tracing::info!(
-                "in client_def: [check_header_and_update_state] >> mmr_root = {:?}",
-                mmr_root.clone()
-            );
-            tracing::info!(
-                "in client_def: [check_header_and_update_state] >> mmr_leaf_hash = {:?}",
-                mmr_leaf_hash.clone()
-            );
-            tracing::info!(
-                "in client_def: [check_header_and_update_state] >> mmr_proof = {:?}",
-                mmr_proof.clone()
-            );
-            let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
-                .map_err(|_| Error::invalid_mmr_leaf_proof())?;
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> mmr_root = {:?}",
+            mmr_root.clone()
+        );
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> mmr_leaf_hash = {:?}",
+            mmr_leaf_hash.clone()
+        );
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> mmr_proof = {:?}",
+            mmr_proof.clone()
+        );
+        let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
+            .map_err(|_| Error::invalid_mmr_leaf_proof())?;
 
-            if !result {
-                return Err(Error::invalid_mmr_leaf_proof());
-            }
+        if !result {
+            return Err(Error::invalid_mmr_leaf_proof());
+        }
 
-            let client_state = ClientState {
-                block_header: header.clone().block_header,
-                block_number: header.clone().block_header.block_number,
-                ..client_state
-            };
+        let client_state = ClientState {
+            block_header: header.clone().block_header,
+            block_number: header.clone().block_header.block_number,
+            ..client_state
+        };
 
-            tracing::info!(
-                "in client_def: [check_header_and_update_state] >> client_state = {:?}",
-                client_state
-            );
-            tracing::info!(
-                "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
-                ConsensusState::from(header.clone())
-            );
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> client_state = {:?}",
+            client_state
+        );
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
+            ConsensusState::from(header.clone())
+        );
 
-            Ok((client_state, ConsensusState::from(header.clone())))
+        Ok((client_state, ConsensusState::from(header.clone())))
     }
 
     /// TODO
@@ -181,21 +183,20 @@ impl ClientDef for GrandpaClient {
         connection_id: &ConnectionId,
         expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
-            let keys: Vec<Vec<u8>> = vec![connection_id.as_bytes().to_vec()];
-            let storage_result =
-                Self::get_storage_via_proof(client_state, height, proof, keys, "Connections")
-                    .unwrap();
-            let connection_end = ConnectionEnd::decode_vec(&storage_result).unwrap();
-            tracing::info!(
-                "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
-                connection_end
-            );
+        let keys: Vec<Vec<u8>> = vec![connection_id.as_bytes().to_vec()];
+        let storage_result =
+            Self::get_storage_via_proof(client_state, height, proof, keys, "Connections").unwrap();
+        let connection_end = ConnectionEnd::decode_vec(&storage_result).unwrap();
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
+            connection_end
+        );
 
-            if !(connection_end.encode_vec().unwrap() == expected_connection_end.encode_vec().unwrap())
-            {
-                return Err(Error::invalid_connection_state());
-            }
-            Ok(())
+        if !(connection_end.encode_vec().unwrap() == expected_connection_end.encode_vec().unwrap())
+        {
+            return Err(Error::invalid_connection_state());
+        }
+        Ok(())
     }
 
     /// Verify a `proof` that a channel state matches that of the input `channel_end`.
@@ -211,22 +212,19 @@ impl ClientDef for GrandpaClient {
         channel_id: &ChannelId,
         expected_channel_end: &ChannelEnd,
     ) -> Result<(), Error> {
-            let keys: Vec<Vec<u8>> = vec![
-                port_id.as_bytes().to_vec(),
-                channel_id.as_bytes().to_vec(),
-            ];
-            let storage_result =
-                Self::get_storage_via_proof(client_state, height, proof, keys, "Channels").unwrap();
-            let channel_end = ChannelEnd::decode_vec(&storage_result).unwrap();
-            tracing::info!(
-                "In ics10-client_def.rs: [verify_connection_state] >> channel_end: {:?}",
-                channel_end
-            );
+        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
+        let storage_result =
+            Self::get_storage_via_proof(client_state, height, proof, keys, "Channels").unwrap();
+        let channel_end = ChannelEnd::decode_vec(&storage_result).unwrap();
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_connection_state] >> channel_end: {:?}",
+            channel_end
+        );
 
-            if !(channel_end.encode_vec().unwrap() == expected_channel_end.encode_vec().unwrap()) {
-                return Err(Error::invalid_connection_state());
-            }
-            Ok(())
+        if !(channel_end.encode_vec().unwrap() == expected_channel_end.encode_vec().unwrap()) {
+            return Err(Error::invalid_connection_state());
+        }
+        Ok(())
     }
 
     /// Verify the client state for this chain that it is stored on the counterparty chain.
@@ -241,25 +239,24 @@ impl ClientDef for GrandpaClient {
         client_id: &ClientId,
         expected_client_state: &AnyClientState,
     ) -> Result<(), Error> {
-            let keys: Vec<Vec<u8>> = vec![client_id.as_bytes().to_vec()];
-            let storage_result =
-                Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates")
-                    .unwrap();
-            let any_client_state = AnyClientState::decode_vec(&storage_result).unwrap();
-            tracing::info!(
-                "In ics10-client_def.rs: [verify_client_full_state] >> decoded client_state: {:?}",
-                any_client_state
-            );
-            tracing::info!(
-                "In ics10-client_def.rs: [verify_client_full_state] >>  _expected_client_state: {:?}",
-                expected_client_state
-            );
+        let keys: Vec<Vec<u8>> = vec![client_id.as_bytes().to_vec()];
+        let storage_result =
+            Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates").unwrap();
+        let any_client_state = AnyClientState::decode_vec(&storage_result).unwrap();
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_client_full_state] >> decoded client_state: {:?}",
+            any_client_state
+        );
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_client_full_state] >>  _expected_client_state: {:?}",
+            expected_client_state
+        );
 
-            if !(any_client_state.encode_vec().unwrap() == expected_client_state.encode_vec().unwrap())
-            {
-                return Err(Error::invalid_client_state());
-            }
-            Ok(())
+        if !(any_client_state.encode_vec().unwrap() == expected_client_state.encode_vec().unwrap())
+        {
+            return Err(Error::invalid_client_state());
+        }
+        Ok(())
     }
 
     /// Verify a `proof` that a packet has been commited.
@@ -277,8 +274,14 @@ impl ClientDef for GrandpaClient {
         sequence: Sequence,
         commitment: String,
     ) -> Result<(), Error> {
-        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence).encode()];
-        let storage_result = Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment").unwrap();
+        let keys: Vec<Vec<u8>> = vec![
+            port_id.as_bytes().to_vec(),
+            channel_id.as_bytes().to_vec(),
+            u64::from(sequence).encode(),
+        ];
+        let storage_result =
+            Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment")
+                .unwrap();
 
         tracing::info!(
             "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
@@ -310,8 +313,14 @@ impl ClientDef for GrandpaClient {
         sequence: Sequence,
         ack: Vec<u8>,
     ) -> Result<(), Error> {
-        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence).encode()];
-        let storage_result = Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements").unwrap();
+        let keys: Vec<Vec<u8>> = vec![
+            port_id.as_bytes().to_vec(),
+            channel_id.as_bytes().to_vec(),
+            u64::from(sequence).encode(),
+        ];
+        let storage_result =
+            Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")
+                .unwrap();
         tracing::info!(
             "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
             String::from_utf8(storage_result.clone()).unwrap()
@@ -358,7 +367,7 @@ impl ClientDef for GrandpaClient {
         channel_id: &ChannelId,
         sequence: Sequence,
     ) -> Result<(), Error> {
-       Ok(())
+        Ok(())
     }
 }
 
@@ -442,11 +451,11 @@ impl GrandpaClient {
     /// Migrate from substrate: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
     fn storage_map_final_key(_keys: Vec<Vec<u8>>, _storage_name: &str) -> Result<Vec<u8>, Error> {
         use frame_support::storage::storage_prefix;
-        use frame_support::{Blake2_128Concat, StorageHasher};
         use frame_support::storage::types::EncodeLikeTuple;
+        use frame_support::storage::types::KeyGenerator;
         use frame_support::storage::types::TupleToEncodedIter;
         use frame_support::storage::Key;
-        use frame_support::storage::types::KeyGenerator;
+        use frame_support::{Blake2_128Concat, StorageHasher};
 
         if _keys.len() == 1 {
             let key_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[0].encode());
@@ -474,13 +483,17 @@ impl GrandpaClient {
         if _keys.len() == 3 {
             let result_keys = (_keys[0].clone(), _keys[1].clone(), _keys[2].clone());
             let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
-            let key_hashed = <(Key<Blake2_128Concat, Vec<u8>>, Key<Blake2_128Concat, Vec<u8>>,Key<Blake2_128Concat, Vec<u8>>) as KeyGenerator>::final_key(result_keys);
+            let key_hashed = <(
+                Key<Blake2_128Concat, Vec<u8>>,
+                Key<Blake2_128Concat, Vec<u8>>,
+                Key<Blake2_128Concat, Vec<u8>>,
+            ) as KeyGenerator>::final_key(result_keys);
 
             let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
             final_key.extend_from_slice(&storage_prefix);
             final_key.extend_from_slice(key_hashed.as_ref());
 
-            return Ok(final_key)
+            return Ok(final_key);
         }
 
         return Err(Error::wrong_key_number(_keys.len().try_into().unwrap()));
@@ -495,13 +508,13 @@ fn vector_to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
 #[cfg(test)]
 mod tests {
     use super::GrandpaClient;
-    use crate::core::ics02_client::client_def::ClientDef;
-    use crate::core::ics02_client::height::Height;
     use crate::clients::ics10_grandpa::client_state::ClientState;
     use crate::clients::ics10_grandpa::header::Header;
     use crate::clients::ics10_grandpa::help::{
         BlockHeader, Commitment, MmrLeaf, MmrLeafProof, ValidatorSet,
     };
+    use crate::core::ics02_client::client_def::ClientDef;
+    use crate::core::ics02_client::height::Height;
     use crate::core::ics24_host::identifier::ChainId;
     use alloc::boxed::Box;
     use beefy_merkle_tree::Keccak256;
