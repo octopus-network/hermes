@@ -1429,14 +1429,8 @@ impl ChainEndpoint for SubstrateChain {
                 let storage_entry = ibc_node::ibc::storage::Acknowledgements(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
                 Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "Acknowledgements")))
             }
-            PacketMsgType::TimeoutOnClose => {
-                let storage_entry = ibc_node::ibc::storage::PacketReceipt(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
-                Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "PacketReceipt")))
-            }
-            PacketMsgType::TimeoutUnordered => {
-                let storage_entry = ibc_node::ibc::storage::PacketReceipt(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
-                Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "PacketReceipt")))
-            }
+            PacketMsgType::TimeoutOnClose => { unimplemented!() }
+            PacketMsgType::TimeoutUnordered => { unimplemented!() }  // Todo: Does Substrate have proof of non-existence?
             PacketMsgType::TimeoutOrdered => {
                 let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec());
                 Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "NextSequenceRecv")))

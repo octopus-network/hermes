@@ -369,6 +369,18 @@ impl ClientDef for GrandpaClient {
         channel_id: &ChannelId,
         sequence: Sequence,
     ) -> Result<(), Error> {
+        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
+        let storage_result = Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv").unwrap();
+        tracing::info!(
+            "In ics10-client_def: [verify_next_sequence_recv] >> storage_result: {:?}",
+            storage_result
+        );
+
+        let sequence_restored: u64 = u64::decode(&mut &storage_result[..]).unwrap();
+        if sequence_restored > u64::from(sequence) {
+            return Err(Error::invalid_next_sequence_recv(sequence_restored, u64::from(sequence)));
+        }
+
         Ok(())
     }
 
