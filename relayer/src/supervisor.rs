@@ -287,7 +287,7 @@ pub fn spawn_rest_worker<Chain: ChainHandle>(
 /// Returns `false` otherwise.
 fn client_filter_enabled(_config: &Config) -> bool {
     // we currently always enable the client filter
-    true
+    false
 }
 
 /// Returns `true` if the relayer should filter based on
@@ -341,14 +341,15 @@ fn relay_on_object<Chain: ChainHandle>(
 
     match client_filter_outcome {
         Ok(Permission::Allow) => true,
-        Ok(Permission::Deny) => {
+        Ok(Permission::Deny) => true,
+/*        Ok(Permission::Deny) => {
             warn!(
                 "client filter denies relaying on object {}",
                 object.short_name()
             );
 
             false
-        }
+        }*/
         Err(e) => {
             warn!(
                 "denying relaying on object {}, caused by: {}",

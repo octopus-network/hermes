@@ -1,6 +1,7 @@
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
+use alloc::format;
 use codec::{Decode, Encode};
 use core::convert::From;
 use core::convert::TryInto;
@@ -33,6 +34,11 @@ impl ClientDef for GrandpaClient {
     type ClientState = ClientState;
     type ConsensusState = ConsensusState;
 
+    /// Verify if the block header is valid via MMR root
+    /// * ctx: interface to read on-chain storage
+    /// * client_id: not used
+    /// * client_state: the current client's state containing MMR root
+    /// * header: the counterpart's block header to be verified
     fn check_header_and_update_state(
         &self,
         ctx: &dyn ClientReader,
@@ -40,7 +46,6 @@ impl ClientDef for GrandpaClient {
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-            tracing::info!("in ics10 client_def [check_header_and_update_state]");
             tracing::info!("in ics10 client_def [check_header_and_update_state] >> Header block_header block_number\
              = {:?}, ClientState latest_commitment block_number = {:?}", header.block_header.block_number, client_state.latest_commitment.block_number);
             tracing::info!(
@@ -51,13 +56,6 @@ impl ClientDef for GrandpaClient {
                 "in client_def: [check_header_and_update_state] >> header = {:?}",
                 header
             );
-
-            // if client_state.latest_height() >= header.height() {
-            //     return Err(Error::low_header_height(
-            //         header.height(),
-            //         client_state.latest_height(),
-            //     ));
-            // }
 
             if header.block_header.block_number > client_state.latest_commitment.block_number {
                 return Err(Error::invalid_mmr_root_height(
@@ -70,8 +68,19 @@ impl ClientDef for GrandpaClient {
                 return Err(Error::empty_mmr_root());
             }
 
+
             let mut mmr_root = [0u8; 32];
-            mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
+            
+            // if header.block_header.block_number < client_state.block_number 
+            if header.mmr_leaf_proof.leaf_count < client_state.latest_commitment.block_number as u64 {
+                let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
+                // get mmr root from consensus_state
+                let consensus_state = ctx.consensus_state(&client_id, height).unwrap();
+                let inner_consensus_state = consensus_state.root().clone().into_vec();
+                mmr_root.copy_from_slice(&inner_consensus_state);
+            } else { // = 
+                mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
+            }
 
             let mmr_proof = header.clone().mmr_leaf_proof;
             let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
@@ -124,16 +133,20 @@ impl ClientDef for GrandpaClient {
                 ..client_state
             };
 
-            tracing::info!(
-                "in client_def: [check_header_and_update_state] >> client_state = {:?}",
-                client_state
-            );
-            tracing::info!(
-                "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
-                ConsensusState::from(header.clone())
-            );
 
-            Ok((client_state, ConsensusState::from(header.clone())))
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> client_state = {:?}",
+            client_state
+        );
+    
+        let consensus_state = GpConsensusState::new(mmr_root.to_vec());
+        tracing::info!(
+            "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
+            consensus_state
+        );
+
+        // grandpa consensus_state update from substrate-ibc
+        Ok((client_state, consensus_state))
     }
 
     /// TODO
@@ -169,7 +182,8 @@ impl ClientDef for GrandpaClient {
         Ok(())
     }
 
-    /// Verify a `proof` that a connection state matches that of the input `connection_end`.
+    /// Verify a `proof` that a connection state reconstructed from storage proof, storage key and state root matches
+    /// the `expected_connection_end` of the counterparty chain.
     #[allow(clippy::too_many_arguments)]
     fn verify_connection_state(
         &self,
@@ -198,7 +212,8 @@ impl ClientDef for GrandpaClient {
             Ok(())
     }
 
-    /// Verify a `proof` that a channel state matches that of the input `channel_end`.
+    /// Verify a `proof` that a channel state reconstructed from storage proof, storage key and state root matches that of
+    /// the `expected_channel_end` of the counterparty chain.
     #[allow(clippy::too_many_arguments)]
     fn verify_channel_state(
         &self,
@@ -229,7 +244,8 @@ impl ClientDef for GrandpaClient {
             Ok(())
     }
 
-    /// Verify the client state for this chain that it is stored on the counterparty chain.
+    /// Verify a `proof` that a client state reconstructed from storage proof, storage key and state root matches that of
+    /// the `expected_client_state` of the counterparty chain.
     #[allow(clippy::too_many_arguments)]
     fn verify_client_full_state(
         &self,
@@ -262,7 +278,8 @@ impl ClientDef for GrandpaClient {
             Ok(())
     }
 
-    /// Verify a `proof` that a packet has been commited.
+    /// Verify a `proof` that a packet reconstructed from storage proof, storage key and state root matches that of
+    /// the packet stored the counterparty chain.
     #[allow(clippy::too_many_arguments)]
     fn verify_packet_data(
         &self,
@@ -295,7 +312,8 @@ impl ClientDef for GrandpaClient {
         Ok(())
     }
 
-    /// Verify a `proof` that a packet has been commited.
+    /// Verify a `proof` that a packet reconstructed from storage proof, storage key and state root matches that of
+    /// the packet stored the counterparty chain.
     #[allow(clippy::too_many_arguments)]
     fn verify_packet_acknowledgement(
         &self,
@@ -313,15 +331,20 @@ impl ClientDef for GrandpaClient {
         let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence).encode()];
         let storage_result = Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements").unwrap();
         tracing::info!(
-            "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
-            String::from_utf8(storage_result.clone()).unwrap()
+            "In ics10-client_def.rs: [verify_packet_acknowledgement] >> encoded ack: {:?}",
+            storage_result
         );
         tracing::info!(
-            "In ics10-client_def.rs: [verify_packet_data] >>  expected packet_commitment: {:?}",
-            String::from_utf8(ack.clone()).unwrap()
+            "In ics10-client_def.rs: [verify_packet_acknowledgement] >>  raw ack: {:?}",
+            ack
         );
 
-        if !(storage_result == ack) {
+        let ack = format!("{:?}", ack);
+        tracing::info!(
+            "In ics10-client_def.rs: [verify_packet_acknowledgement] >>  string ack: {:?}",
+            ack.clone()
+        );
+        if !(storage_result == Self::hash(ack).encode()) {
             return Err(Error::invalid_packet_ack(sequence));
         }
         Ok(())
@@ -341,6 +364,18 @@ impl ClientDef for GrandpaClient {
         channel_id: &ChannelId,
         sequence: Sequence,
     ) -> Result<(), Error> {
+        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
+        let storage_result = Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv").unwrap();
+        tracing::info!(
+            "In ics10-client_def: [verify_next_sequence_recv] >> storage_result: {:?}",
+            storage_result
+        );
+
+        let sequence_restored: u64 = u64::decode(&mut &storage_result[..]).unwrap();
+        if sequence_restored > u64::from(sequence) {
+            return Err(Error::invalid_next_sequence_recv(sequence_restored, u64::from(sequence)));
+        }
+
         Ok(())
     }
 
@@ -363,7 +398,7 @@ impl ClientDef for GrandpaClient {
 }
 
 impl GrandpaClient {
-    /// Extract on-chain storage value by proof, path, and state root
+    /// Reconstruct on-chain storage value by proof, key(path), and state root
     fn get_storage_via_proof(
         _client_state: &ClientState,
         _height: Height,
@@ -439,7 +474,7 @@ impl GrandpaClient {
         Ok(storage_result)
     }
 
-    /// Migrate from substrate: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
+    /// Calculate the storage's final key
     fn storage_map_final_key(_keys: Vec<Vec<u8>>, _storage_name: &str) -> Result<Vec<u8>, Error> {
         use frame_support::storage::storage_prefix;
         use frame_support::{Blake2_128Concat, StorageHasher};
@@ -448,6 +483,7 @@ impl GrandpaClient {
         use frame_support::storage::Key;
         use frame_support::storage::types::KeyGenerator;
 
+        // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
         if _keys.len() == 1 {
             let key_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[0].encode());
             let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
@@ -458,6 +494,7 @@ impl GrandpaClient {
             return Ok(final_key);
         }
 
+        // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/double_map.rs#L92
         if _keys.len() == 2 {
             let key1_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[0].encode());
             let key2_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[1].encode());
@@ -471,6 +508,8 @@ impl GrandpaClient {
             return Ok(final_key);
         }
 
+        // Todo: expand the capability of the code to handle key length of more than 3
+        // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/nmap.rs#L100
         if _keys.len() == 3 {
             let result_keys = (_keys[0].clone(), _keys[1].clone(), _keys[2].clone());
             let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
@@ -484,6 +523,20 @@ impl GrandpaClient {
         }
 
         return Err(Error::wrong_key_number(_keys.len().try_into().unwrap()));
+    }
+
+    /// A hashing function for packet commitments
+    fn hash(value: String) -> String {
+        tracing::info!("in client_def: [hash] >> value = {:?}", value.clone());
+
+        let r = sp_io::hashing::sha2_256(value.as_bytes());
+
+        let mut tmp = String::new();
+        for item in r.iter() {
+            tmp.push_str(&format!("{:02x}", item));
+        }
+        tracing::info!("in client_def: [hash] >> result = {:?}", tmp.clone());
+        tmp
     }
 }
 

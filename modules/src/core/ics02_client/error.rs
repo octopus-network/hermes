@@ -339,6 +339,14 @@ define_error! {
                     "The stored acknowledgement of the packet {0} is invaid",
                     e.sequence)
             },
+
+        InvalidNextSequenceRecv
+            { sequence_restored: u64, sequence: u64}
+            | e | {
+                format_args!(
+                    "The next_sequence_recv is {0}, which is should not be greater than the current sequence {1} in packet timeout verification of ordered channel",
+                    e.sequence_restored, e.sequence)
+            },
     }
 }
 
