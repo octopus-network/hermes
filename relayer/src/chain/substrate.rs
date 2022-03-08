@@ -1429,8 +1429,8 @@ impl ChainEndpoint for SubstrateChain {
                 let storage_entry = ibc_node::ibc::storage::Acknowledgements(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec(), u64::from(sequence.clone()).encode());
                 Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "Acknowledgements")))
             }
-            PacketMsgType::TimeoutOnClose => { unimplemented!() }
-            PacketMsgType::TimeoutUnordered => { unimplemented!() }  // Todo: Does Substrate have proof of non-existence?
+            PacketMsgType::TimeoutOnClose => { unimplemented!() }   // Todo: https://github.com/cosmos/ibc/issues/620
+            PacketMsgType::TimeoutUnordered => { unimplemented!() }  // Todo: https://github.com/cosmos/ibc/issues/620
             PacketMsgType::TimeoutOrdered => {
                 let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec());
                 Ok((result.unwrap(), self.generate_storage_proof(&storage_entry, &height, "NextSequenceRecv")))
