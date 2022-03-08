@@ -17,7 +17,7 @@ use crate::core::ics03_connection::connection::ConnectionEnd;
 use crate::core::ics04_channel::channel::ChannelEnd;
 use crate::core::ics04_channel::packet::Sequence;
 use crate::clients::ics10_grandpa::client_state::ClientState;
-use crate::clients::ics10_grandpa::consensus_state::ConsensusState;
+use crate::clients::ics10_grandpa::consensus_state::ConsensusState as GpConsensusState;
 use crate::clients::ics10_grandpa::header::Header;
 use crate::core::ics02_client::context::ClientReader;
 use crate::core::ics04_channel::context::ChannelReader;
@@ -32,7 +32,7 @@ pub struct GrandpaClient;
 impl ClientDef for GrandpaClient {
     type Header = Header;
     type ClientState = ClientState;
-    type ConsensusState = ConsensusState;
+    type ConsensusState = GpConsensusState;
 
     /// Verify if the block header is valid via MMR root
     /// * ctx: interface to read on-chain storage
@@ -71,14 +71,24 @@ impl ClientDef for GrandpaClient {
 
             let mut mmr_root = [0u8; 32];
             
-            // if header.block_header.block_number < client_state.block_number 
-            if header.mmr_leaf_proof.leaf_count < client_state.latest_commitment.block_number as u64 {
+            // Fetch the desired mmr root from storage if it's different from the mmr root in client_state
+            if header.mmr_leaf_proof.leaf_count != client_state.latest_commitment.block_number as u64 {
+                tracing::info!(
+                    "in client_def: [check_header_and_update_state] >> header.mmr_leaf_proof.leaf_count = {:?}, client_state.latest_commitment.block_number = {:?}",
+                    header.mmr_leaf_proof.leaf_count, client_state.latest_commitment.block_number
+                );
                 let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
-                // get mmr root from consensus_state
-                let consensus_state = ctx.consensus_state(&client_id, height).unwrap();
-                let inner_consensus_state = consensus_state.root().clone().into_vec();
-                mmr_root.copy_from_slice(&inner_consensus_state);
-            } else { // = 
+                let any_consensus_state = ctx.consensus_state(&client_id, height).unwrap();
+                let consensus_state = match any_consensus_state {
+                    AnyConsensusState::Grandpa(_v) => _v,
+                    _ => unimplemented!()
+                };
+                tracing::info!(
+                    "in client_def: [check_header_and_update_state] >> consensus_state queried = {:?}",
+                    consensus_state
+                );
+                mmr_root.copy_from_slice(&consensus_state.digest);
+            } else {
                 mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
             }
 
@@ -139,14 +149,13 @@ impl ClientDef for GrandpaClient {
             client_state
         );
     
-        let consensus_state = GpConsensusState::new(mmr_root.to_vec());
         tracing::info!(
             "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
-            consensus_state
+            GpConsensusState::from(header.clone())
         );
 
         // grandpa consensus_state update from substrate-ibc
-        Ok((client_state, consensus_state))
+        Ok((client_state, GpConsensusState::from(header.clone())))
     }
 
     /// TODO
