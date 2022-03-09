@@ -1846,6 +1846,7 @@ dependencies = [
  "ics23",
  "modelator",
  "num-traits",
+ "octopusxt",
  "parity-scale-codec",
  "prost",
  "prost-types",

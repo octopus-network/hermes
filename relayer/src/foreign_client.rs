@@ -674,7 +674,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         // Compute the duration since the last update of this client
         let elapsed = Timestamp::now().duration_since(&last_update_time);
 
-        tracing::info!("in foreign_client: [validated_client_state] >> client_state is_frozen = {:?}", client_state.is_frozen());
+        tracing::info!(
+            "in foreign_client: [validated_client_state] >> client_state is_frozen = {:?}",
+            client_state.is_frozen()
+        );
 
         if client_state.is_frozen() || client_state.expired(elapsed.unwrap_or_default()) {
             return Err(ForeignClientError::expired_or_frozen(
@@ -878,7 +881,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         target_height: Height,
         trusted_height: Height,
     ) -> Result<Vec<Any>, ForeignClientError> {
-
         let latest_height = || {
             self.src_chain().query_latest_height().map_err(|e| {
                 ForeignClientError::client_create(
@@ -917,6 +919,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         }
 
         let client_state = match client_state {
+            AnyClientState::Mock(client_state) => AnyClientState::Mock(client_state),
             AnyClientState::Tendermint(client_state) => AnyClientState::Tendermint(client_state),
             AnyClientState::Grandpa(client_state) => {
                 let mut mmr_root_height = client_state.latest_commitment.block_number;

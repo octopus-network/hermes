@@ -342,7 +342,7 @@ fn relay_on_object<Chain: ChainHandle>(
     match client_filter_outcome {
         Ok(Permission::Allow) => true,
         Ok(Permission::Deny) => true,
-/*        Ok(Permission::Deny) => {
+        /*        Ok(Permission::Deny) => {
             warn!(
                 "client filter denies relaying on object {}",
                 object.short_name()

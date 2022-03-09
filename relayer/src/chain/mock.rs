@@ -440,6 +440,18 @@ impl ChainEndpoint for MockChain {
     ) -> Result<(AnyConsensusState, MerkleProof), Error> {
         unimplemented!()
     }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        unimplemented!()
+    }
+
+    fn update_mmr_root(
+        &self,
+        src_chain_websocket_url: String,
+        dst_chain_websocket_url: String,
+    ) -> Result<(), Error> {
+        unimplemented!()
+    }
 }
 
 // For integration tests with the modules

@@ -60,7 +60,8 @@ impl Runnable for QueryAllClientsCmd {
         let chain_type = chain_config.account_prefix.clone();
         let res = match chain_type.as_str() {
             "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap_or_else(exit_with_unrecoverable_error);
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt)
+                    .unwrap_or_else(exit_with_unrecoverable_error);
                 let req = QueryClientStatesRequest {
                     pagination: ibc_proto::cosmos::base::query::pagination::all(),
                 };
@@ -69,7 +70,8 @@ impl Runnable for QueryAllClientsCmd {
                 res
             }
             "cosmos" => {
-                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt).unwrap_or_else(exit_with_unrecoverable_error);
+                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt)
+                    .unwrap_or_else(exit_with_unrecoverable_error);
                 let req = QueryClientStatesRequest {
                     pagination: ibc_proto::cosmos::base::query::pagination::all(),
                 };

@@ -7,8 +7,8 @@ use tendermint_proto::Protobuf;
 
 use ibc_proto::ibc::core::client::v1::IdentifiedClientState;
 
-use crate::clients::ics10_grandpa;
 use crate::clients::ics07_tendermint::client_state;
+use crate::clients::ics10_grandpa;
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::error::Error;
 use crate::core::ics02_client::trust_threshold::TrustThreshold;

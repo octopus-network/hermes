@@ -208,7 +208,6 @@ impl Sub<Duration> for Timestamp {
                 let time =
                     (time - duration).map_err(|_| TimestampOverflowError::timestamp_overflow())?;
                 Ok(Timestamp { time: Some(time) })
-
             }
             None => Ok(self),
         }

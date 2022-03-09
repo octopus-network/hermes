@@ -19,9 +19,9 @@ use subxt::{
     Client, ClientBuilder, Error as SubstrateError, EventSubscription, PairSigner, RawEvent,
 };
 
-use ibc::events::IbcEvent;
 use ibc::core::ics02_client::height::Height;
 use ibc::core::ics24_host::identifier::ChainId;
+use ibc::events::IbcEvent;
 
 use crate::util::{
     retry::{retry_count, retry_with_index, RetryResult},
@@ -160,7 +160,8 @@ impl EventMonitor {
 
         let subscription = self
             .rt
-            .block_on(subscribe_events(self.client.clone())).unwrap();
+            .block_on(subscribe_events(self.client.clone()))
+            .unwrap();
 
         tracing::info!(
             "in substrate_mointor: [subscribe] subscription: {:?}",
@@ -496,13 +497,14 @@ fn from_raw_event_to_batch_event(
             let consensus_height = event.3;
 
             use ibc::core::ics02_client::events::Attributes;
-            let event =
-                IbcEvent::CreateClient(ibc::core::ics02_client::events::CreateClient::from(Attributes {
+            let event = IbcEvent::CreateClient(
+                ibc::core::ics02_client::events::CreateClient::from(Attributes {
                     height: height.to_ibc_height(),
                     client_id: client_id.to_ibc_client_id(),
                     client_type: client_type.to_ibc_client_type(),
                     consensus_height: consensus_height.to_ibc_height(),
-                }));
+                }),
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -527,14 +529,14 @@ fn from_raw_event_to_batch_event(
             let consensus_height = event.3;
 
             use ibc::core::ics02_client::events::Attributes;
-            let event = IbcEvent::UpdateClient(ibc::core::ics02_client::events::UpdateClient::from(
-                Attributes {
+            let event = IbcEvent::UpdateClient(
+                ibc::core::ics02_client::events::UpdateClient::from(Attributes {
                     height: height.to_ibc_height(),
                     client_id: client_id.to_ibc_client_id(),
                     client_type: client_type.to_ibc_client_type(),
                     consensus_height: consensus_height.to_ibc_height(),
-                }
-            ));
+                }),
+            );
             EventBatch {
                 height: height.to_ibc_height(),
                 events: vec![event],
@@ -592,14 +594,15 @@ fn from_raw_event_to_batch_event(
             let counterparty_client_id = event.4;
 
             use ibc::core::ics03_connection::events::Attributes;
-            let event =
-                IbcEvent::OpenInitConnection(ibc::core::ics03_connection::events::OpenInit::from(Attributes {
+            let event = IbcEvent::OpenInitConnection(
+                ibc::core::ics03_connection::events::OpenInit::from(Attributes {
                     height: height.to_ibc_height(),
                     connection_id,
                     client_id: client_id.to_ibc_client_id(),
                     counterparty_connection_id,
                     counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-                }));
+                }),
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -626,14 +629,15 @@ fn from_raw_event_to_batch_event(
             let counterparty_client_id = event.4;
 
             use ibc::core::ics03_connection::events::Attributes;
-            let event =
-                IbcEvent::OpenTryConnection(ibc::core::ics03_connection::events::OpenTry::from(Attributes {
+            let event = IbcEvent::OpenTryConnection(
+                ibc::core::ics03_connection::events::OpenTry::from(Attributes {
                     height: height.to_ibc_height(),
                     connection_id,
                     client_id: client_id.to_ibc_client_id(),
                     counterparty_connection_id,
                     counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-                }));
+                }),
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -660,14 +664,15 @@ fn from_raw_event_to_batch_event(
             let counterparty_client_id = event.4;
 
             use ibc::core::ics03_connection::events::Attributes;
-            let event =
-                IbcEvent::OpenAckConnection(ibc::core::ics03_connection::events::OpenAck::from(Attributes {
+            let event = IbcEvent::OpenAckConnection(
+                ibc::core::ics03_connection::events::OpenAck::from(Attributes {
                     height: height.to_ibc_height(),
                     connection_id,
                     client_id: client_id.to_ibc_client_id(),
                     counterparty_connection_id,
                     counterparty_client_id: counterparty_client_id.to_ibc_client_id(),
-                }));
+                }),
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -734,15 +739,16 @@ fn from_raw_event_to_batch_event(
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::core::ics04_channel::events::Attributes;
-            let event =
-                IbcEvent::OpenInitChannel(ibc::core::ics04_channel::events::OpenInit::from(Attributes {
+            let event = IbcEvent::OpenInitChannel(
+                ibc::core::ics04_channel::events::OpenInit::from(Attributes {
                     height: height.to_ibc_height(),
                     port_id: port_id.to_ibc_port_id(),
                     channel_id: channel_id,
                     connection_id: connection_id.to_ibc_connection_id(),
                     counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
                     counterparty_channel_id: counterparty_channel_id,
-                }));
+                }),
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -771,14 +777,16 @@ fn from_raw_event_to_batch_event(
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::core::ics04_channel::events::Attributes;
-            let event = IbcEvent::OpenTryChannel(ibc::core::ics04_channel::events::OpenTry::from(Attributes {
-                height: height.to_ibc_height(),
-                port_id: port_id.to_ibc_port_id(),
-                channel_id: channel_id,
-                connection_id: connection_id.to_ibc_connection_id(),
-                counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                counterparty_channel_id: counterparty_channel_id,
-            }));
+            let event = IbcEvent::OpenTryChannel(ibc::core::ics04_channel::events::OpenTry::from(
+                Attributes {
+                    height: height.to_ibc_height(),
+                    port_id: port_id.to_ibc_port_id(),
+                    channel_id: channel_id,
+                    connection_id: connection_id.to_ibc_connection_id(),
+                    counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                    counterparty_channel_id: counterparty_channel_id,
+                },
+            ));
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -807,14 +815,16 @@ fn from_raw_event_to_batch_event(
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::core::ics04_channel::events::Attributes;
-            let event = IbcEvent::OpenAckChannel(ibc::core::ics04_channel::events::OpenAck::from(Attributes {
-                height: height.to_ibc_height(),
-                port_id: port_id.to_ibc_port_id(),
-                channel_id: channel_id,
-                connection_id: connection_id.to_ibc_connection_id(),
-                counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                counterparty_channel_id: counterparty_channel_id,
-            }));
+            let event = IbcEvent::OpenAckChannel(ibc::core::ics04_channel::events::OpenAck::from(
+                Attributes {
+                    height: height.to_ibc_height(),
+                    port_id: port_id.to_ibc_port_id(),
+                    channel_id: channel_id,
+                    connection_id: connection_id.to_ibc_connection_id(),
+                    counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                    counterparty_channel_id: counterparty_channel_id,
+                },
+            ));
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -843,15 +853,16 @@ fn from_raw_event_to_batch_event(
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::core::ics04_channel::events::Attributes;
-            let event =
-                IbcEvent::OpenConfirmChannel(ibc::core::ics04_channel::events::OpenConfirm::from(Attributes {
+            let event = IbcEvent::OpenConfirmChannel(
+                ibc::core::ics04_channel::events::OpenConfirm::from(Attributes {
                     height: height.to_ibc_height(),
                     port_id: port_id.to_ibc_port_id(),
                     channel_id: channel_id,
                     connection_id: connection_id.to_ibc_connection_id(),
                     counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
                     counterparty_channel_id: counterparty_channel_id,
-                }));
+                }),
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -880,15 +891,16 @@ fn from_raw_event_to_batch_event(
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::core::ics04_channel::events::Attributes;
-            let event =
-                IbcEvent::CloseInitChannel(ibc::core::ics04_channel::events::CloseInit::from(Attributes {
+            let event = IbcEvent::CloseInitChannel(
+                ibc::core::ics04_channel::events::CloseInit::from(Attributes {
                     height: height.to_ibc_height(),
                     port_id: port_id.to_ibc_port_id(),
                     channel_id: channel_id,
                     connection_id: connection_id.to_ibc_connection_id(),
                     counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
                     counterparty_channel_id: counterparty_channel_id,
-                }));
+                }),
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -917,16 +929,16 @@ fn from_raw_event_to_batch_event(
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
             use ibc::core::ics04_channel::events::Attributes;
-            let event = IbcEvent::CloseConfirmChannel(ibc::core::ics04_channel::events::CloseConfirm::from(
-                Attributes {
+            let event = IbcEvent::CloseConfirmChannel(
+                ibc::core::ics04_channel::events::CloseConfirm::from(Attributes {
                     height: height.to_ibc_height(),
                     port_id: port_id.to_ibc_port_id(),
                     channel_id: channel_id,
                     connection_id: connection_id.to_ibc_connection_id(),
                     counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
                     counterparty_channel_id: counterparty_channel_id,
-                },
-            ));
+                }),
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -995,12 +1007,13 @@ fn from_raw_event_to_batch_event(
 
             let ack = event.2;
 
-            let event =
-                IbcEvent::WriteAcknowledgement(ibc::core::ics04_channel::events::WriteAcknowledgement {
+            let event = IbcEvent::WriteAcknowledgement(
+                ibc::core::ics04_channel::events::WriteAcknowledgement {
                     height: height.to_ibc_height(),
                     packet: packet.to_ibc_packet(),
                     ack: ack,
-                });
+                },
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -1069,11 +1082,12 @@ fn from_raw_event_to_batch_event(
             // let packet = event.packet;
             let packet = event.1;
 
-            let event =
-                IbcEvent::TimeoutOnClosePacket(ibc::core::ics04_channel::events::TimeoutOnClosePacket {
+            let event = IbcEvent::TimeoutOnClosePacket(
+                ibc::core::ics04_channel::events::TimeoutOnClosePacket {
                     height: height.to_ibc_height(),
                     packet: packet.to_ibc_packet(),
-                });
+                },
+            );
 
             EventBatch {
                 height: height.to_ibc_height(),

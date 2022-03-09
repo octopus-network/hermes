@@ -160,6 +160,7 @@ mod tests {
                     hheader.wrap_any()
                 }
                 AnyHeader::Mock(header) => header.wrap_any(),
+                AnyHeader::Grandpa(_) => unimplemented!(),
             };
 
             assert_eq!(

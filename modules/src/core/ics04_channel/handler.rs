@@ -1,6 +1,5 @@
 //! This module implements the processing logic for ICS4 (channel) messages.
 
-
 use crate::core::ics04_channel::channel::ChannelEnd;
 use crate::core::ics04_channel::context::ChannelReader;
 use crate::core::ics04_channel::error::Error;

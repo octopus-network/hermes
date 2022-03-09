@@ -3,8 +3,8 @@ use crate::prelude::*;
 use prost_types::Any;
 use tendermint_proto::Protobuf;
 
-use crate::clients::ics10_grandpa::misbehaviour::Misbehaviour as GpMisbehaviour;
 use crate::clients::ics07_tendermint::misbehaviour::Misbehaviour as TmMisbehaviour;
+use crate::clients::ics10_grandpa::misbehaviour::Misbehaviour as GpMisbehaviour;
 use crate::core::ics02_client::error::Error;
 
 #[cfg(any(test, feature = "mocks"))]

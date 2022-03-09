@@ -93,7 +93,6 @@ impl ChainHandle for ProdChainHandle {
         Self::new(chain_id, sender)
     }
 
-
     fn id(&self) -> ChainId {
         self.chain_id.clone()
     }
