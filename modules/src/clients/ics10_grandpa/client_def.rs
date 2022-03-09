@@ -114,9 +114,9 @@ impl ClientDef for GrandpaClient {
                 mmr_leaf.parent_number_and_hash.1
             );
 
-            if header_hash != mmr_leaf.parent_number_and_hash.1 {
+/*            if header_hash != mmr_leaf.parent_number_and_hash.1 {
                 return Err(Error::header_hash_not_match());
-            }
+            }*/  // Todo: Is this comparism needed?
 
             tracing::info!(
                 "in client_def: [check_header_and_update_state] >> mmr_root = {:?}",

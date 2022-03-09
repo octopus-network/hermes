@@ -423,15 +423,13 @@ impl SubstrateChain {
     }
 
     fn get_ibc_write_acknowledgement_event(&self, request: ibc::core::ics04_channel::channel::QueryPacketEventDataRequest) -> Vec<IbcEvent> {
+        use ibc::core::ics04_channel::events::WriteAcknowledgement;
         let mut result_event = vec![];
         for sequence in &request.sequences {
-            let packet = self.get_send_packet_event(&request.source_port_id, &request.source_channel_id, sequence).unwrap();
-            let ack = self.get_write_ack_packet_event(&request.source_port_id, &request.source_channel_id, sequence).unwrap();
-            result_event.push(IbcEvent::WriteAcknowledgement(ibc::core::ics04_channel::events::WriteAcknowledgement {
-                height: request.height,
-                packet: packet,
-                ack: ack,
-            }));
+            let write_ack = self.get_write_ack_packet_event(&request.source_port_id, &request.source_channel_id, sequence).unwrap();
+            let write_ack = String::from_utf8(write_ack).unwrap();
+            let write_ack: WriteAcknowledgement = serde_json::from_str(&write_ack).unwrap();
+            result_event.push(IbcEvent::WriteAcknowledgement(write_ack));
         }
         result_event
     }
@@ -1577,7 +1575,7 @@ impl ChainEndpoint for SubstrateChain {
                 .unwrap();
 
             let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
-                target_height.revision_height,
+                target_height.revision_height - 1,
                 block_hash,
                 client,
             )
