@@ -58,21 +58,18 @@ class Cmd(Generic[T]):
         return f"{self.name} {' '.join(self.args())}"
 
     def run(self, config: Config, retries: int = 0) -> CmdResult[T]:
-        full_cmd = f'{config.relayer_cmd} -c {config.config_file} -j'.split(' ')
+        full_cmd = f'{config.relayer_cmd} -c {config.config_file} --json'.split(' ')
         full_cmd.extend(self.name.split(' '))
         full_cmd.extend(self.args())
-        cmd = ' '.join(full_cmd)
-        print()
-        print('\033[32;1m{msg}\033[0m'.format(msg=cmd))
-        print()
-        # l.debug(cmd)
+        l.debug(' '.join(full_cmd))
 
-        ret = subprocess.check_output(cmd,
-                                      text=True,
-                                      shell=True,
-                                      encoding="utf-8")
+        ret = subprocess.run(full_cmd, capture_output=True, text=True)
+        lines = ret.stdout.splitlines()
+        last_line = ''.join(lines[-1:])
+        # l.debug(last_line)
+
         # l.debug(ret)
-        js = json.loads(ret)
+        js = json.loads(last_line)
         print('\033[36;1m{msg}\033[0m'.format(msg=json.dumps(js, indent=2)))
 
         return CmdResult(cmd=self, config=config, retries=retries, result=js)

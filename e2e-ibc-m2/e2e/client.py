@@ -61,9 +61,9 @@ class AllowUpdate:
 @dataclass
 class ClientState:
     chain_id: ChainId
-    frozen_height: Height
-    latest_height: Height
-    type: str
+    frozen_height: Optional[Height]
+    # block_number: int
+    # type: str
     # max_clock_drift: Duration
     # trust_level: TrustLevel
     # trusting_period: Duration
