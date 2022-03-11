@@ -505,6 +505,16 @@ impl GrandpaClient {
         use frame_support::storage::Key;
         use frame_support::{Blake2_128Concat, StorageHasher};
 
+        // Todo: To justify different types of keys by an enum like below, instead of _keys.len()
+        /*
+            enum StorageMapKeys<KArg> where KArg: EncodeLikeTuple<Vec<u8>> + TupleToEncodedIter
+            {
+                HashMapKey([Vec<u8>; 1]),
+                DoubleHashMapKey([Vec<u8>; 2]),
+                NHashMapKey(KArg)
+            }
+        */
+
         // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
         if _keys.len() == 1 {
             let key_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[0].encode());
