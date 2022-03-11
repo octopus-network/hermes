@@ -681,16 +681,16 @@ impl ChainEndpoint for SubstrateChain {
         );
 
         sleep(Duration::from_secs(4));
-        let result = self.deliever(proto_msgs.messages().to_vec()).unwrap();
+        let result = self.deliever(proto_msgs.messages().to_vec());
 
-        tracing::info!(
-            "in Substrate: [send_messages_and_wait_commit] >> result : {:?}",
-            result
-        );
-
-        let ret = self.subscribe_ibc_events().unwrap();
-
-        Ok(ret)
+        if result.is_ok() {
+            tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}",result);
+            let ret = self.subscribe_ibc_events().unwrap();
+            return Ok(ret);
+        } else {  // Todo: ibc-rs' regular scanning for the unhandled events already act like retry, does the RPC request error need to be handled?
+        tracing::error!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}",result.err());
+            return Ok(vec![]);
+        }
     }
 
     fn send_messages_and_wait_check_tx(
@@ -704,14 +704,17 @@ impl ChainEndpoint for SubstrateChain {
         );
 
         sleep(Duration::from_secs(4));
-        let result = self.deliever(proto_msgs.messages().to_vec()).unwrap();
+        let result = self.deliever(proto_msgs.messages().to_vec());
 
-        tracing::info!(
-            "in Substrate: [send_messages_and_wait_commit] >> result : {:?}",
-            result
-        );
+        if !result.is_ok() {  // Todo: ibc-rs' regular scanning for the unhandled events already act like retry, does the RPC request error need to be handled?
+        tracing::error!("in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}",result.err());
+            return Ok(vec![]);
+        }
 
-        use tendermint::abci::transaction; // Todo:
+        let result = result.unwrap();
+        tracing::info!("in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}",result.clone());
+
+        use tendermint::abci::transaction; // Todo: apply with real responses
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
         let tx_re = TxResponse {
             code: Code::default(),
