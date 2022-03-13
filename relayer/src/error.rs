@@ -513,6 +513,10 @@ define_error! {
                     e.chain_id
                 )
             },
+
+        SubTxError
+            { reason: String }
+            |e| { format!("failed to submit tx to Substrate chain: {0}", e.reason) },
     }
 }
 

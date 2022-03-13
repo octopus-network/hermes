@@ -457,8 +457,7 @@ impl SubstrateChain {
                     sequence,
                 )
                 .unwrap();
-            let write_ack = String::from_utf8(write_ack).unwrap();
-            let write_ack: WriteAcknowledgement = serde_json::from_str(&write_ack).unwrap();
+            let write_ack = WriteAcknowledgement::decode(&*write_ack).unwrap();
             result_event.push(IbcEvent::WriteAcknowledgement(write_ack));
         }
         result_event
@@ -680,16 +679,21 @@ impl ChainEndpoint for SubstrateChain {
             proto_msgs.messages().first().unwrap().type_url
         );
 
-        sleep(Duration::from_secs(4));
+        // sleep(Duration::from_secs(4));
         let result = self.deliever(proto_msgs.messages().to_vec());
 
         if result.is_ok() {
             tracing::info!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}",result);
             let ret = self.subscribe_ibc_events().unwrap();
             return Ok(ret);
-        } else {  // Todo: ibc-rs' regular scanning for the unhandled events already act like retry, does the RPC request error need to be handled?
-        tracing::error!("in Substrate: [send_messages_and_wait_commit] >> result : {:?}",result.err());
+        }
+
+        let err_str = result.err().unwrap().to_string();
+        if err_str.contains("Priority is too low") { // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
+            tracing::error!("in Substrate: [send_messages_and_wait_check_tx] >> error : {:?}",err_str);
             return Ok(vec![]);
+        } else {
+            return Err(Error::sub_tx_error(err_str));
         }
     }
 
@@ -703,12 +707,17 @@ impl ChainEndpoint for SubstrateChain {
             proto_msgs
         );
 
-        sleep(Duration::from_secs(4));
+        // sleep(Duration::from_secs(4));
         let result = self.deliever(proto_msgs.messages().to_vec());
 
-        if !result.is_ok() {  // Todo: ibc-rs' regular scanning for the unhandled events already act like retry, does the RPC request error need to be handled?
-        tracing::error!("in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}",result.err());
-            return Ok(vec![]);
+        if !result.is_ok() {
+            let err_str = result.err().unwrap().to_string();
+            if err_str.contains("Priority is too low") { // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
+                tracing::error!("in Substrate: [send_messages_and_wait_check_tx] >> error : {:?}",err_str);
+                return Ok(vec![]);
+            } else {
+                return Err(Error::sub_tx_error(err_str));
+            }
         }
 
         let result = result.unwrap();
@@ -1507,10 +1516,10 @@ impl ChainEndpoint for SubstrateChain {
                 ))
             }
             PacketMsgType::TimeoutOnClose => {
-                unimplemented!()
+                Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
             } // Todo: https://github.com/cosmos/ibc/issues/620
             PacketMsgType::TimeoutUnordered => {
-                unimplemented!()
+                Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
             } // Todo: https://github.com/cosmos/ibc/issues/620
             PacketMsgType::TimeoutOrdered => {
                 let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(
@@ -1521,7 +1530,7 @@ impl ChainEndpoint for SubstrateChain {
                     result.unwrap(),
                     self.generate_storage_proof(&storage_entry, &height, "NextSequenceRecv"),
                 ))
-            }
+            } // Todo: Ordered channel not supported in ibc-rs. https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/link.rs#L135
         }
     }
 
