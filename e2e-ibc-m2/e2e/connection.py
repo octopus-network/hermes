@@ -225,7 +225,7 @@ def handshake(c: Config, side_a: ChainId, side_b: ChainId, client_a: ClientId,
             f'Incorrect connection id returned from conn ack: expected=({a_conn_id})/got=({ack_res})'
         )
         exit(1)
-
+    sleep(30)
     split()
 
     confirm_res = conn_confirm(c, side_b, side_a, client_b, client_a, b_conn_id,
