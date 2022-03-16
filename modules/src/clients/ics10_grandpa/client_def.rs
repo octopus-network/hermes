@@ -48,15 +48,9 @@ impl ClientDef for GrandpaClient {
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-        tracing::info!("in ics10 client_def [check_header_and_update_state] >> Header block_header block_number\
-             = {:?}, ClientState latest_commitment block_number = {:?}", header.block_header.block_number, client_state.latest_commitment.block_number);
-        tracing::info!(
-            "in client_def: [check_header_and_update_state] >> client_state = {:?}",
-            client_state
-        );
-        tracing::info!(
-            "in client_def: [check_header_and_update_state] >> header = {:?}",
-            header
+        tracing::trace!(
+            "in client_def: [check_header_and_update_state] >> client_state = {:?}, header = {:?}",
+            client_state, header
         );
 
         if header.block_header.block_number > client_state.latest_commitment.block_number {
@@ -74,7 +68,7 @@ impl ClientDef for GrandpaClient {
 
         // Fetch the desired mmr root from storage if it's different from the mmr root in client_state
         if header.mmr_leaf_proof.leaf_count != client_state.latest_commitment.block_number as u64 {
-            tracing::info!(
+            tracing::trace!(
                     "in client_def: [check_header_and_update_state] >> header.mmr_leaf_proof.leaf_count = {:?}, client_state.latest_commitment.block_number = {:?}",
                     header.mmr_leaf_proof.leaf_count, client_state.latest_commitment.block_number
                 );
@@ -84,7 +78,7 @@ impl ClientDef for GrandpaClient {
                 AnyConsensusState::Grandpa(_v) => _v,
                 _ => unimplemented!(),
             };
-            tracing::info!(
+            tracing::trace!(
                 "in client_def: [check_header_and_update_state] >> consensus_state queried = {:?}",
                 consensus_state
             );
@@ -106,11 +100,11 @@ impl ClientDef for GrandpaClient {
         if mmr_leaf.parent_number_and_hash.1.is_empty() {
             return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
         }
-        tracing::info!(
+        tracing::trace!(
             "ics1 client_def :[check_header_and_update_state] >> header_hash = {:?}",
             header_hash
         );
-        tracing::info!(
+        tracing::trace!(
             "ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}",
             mmr_leaf.parent_number_and_hash.1
         );
@@ -120,15 +114,15 @@ impl ClientDef for GrandpaClient {
         }*/
         // Todo: Is this comparism needed?
 
-        tracing::info!(
+        tracing::trace!(
             "in client_def: [check_header_and_update_state] >> mmr_root = {:?}",
             mmr_root.clone()
         );
-        tracing::info!(
+        tracing::trace!(
             "in client_def: [check_header_and_update_state] >> mmr_leaf_hash = {:?}",
             mmr_leaf_hash.clone()
         );
-        tracing::info!(
+        tracing::trace!(
             "in client_def: [check_header_and_update_state] >> mmr_proof = {:?}",
             mmr_proof.clone()
         );
@@ -145,12 +139,12 @@ impl ClientDef for GrandpaClient {
             ..client_state
         };
 
-        tracing::info!(
+        tracing::trace!(
             "in client_def: [check_header_and_update_state] >> client_state = {:?}",
             client_state
         );
 
-        tracing::info!(
+        tracing::trace!(
             "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
             GpConsensusState::from(header.clone())
         );
@@ -209,7 +203,7 @@ impl ClientDef for GrandpaClient {
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Connections").unwrap();
         let connection_end = ConnectionEnd::decode_vec(&storage_result).unwrap();
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
             connection_end
         );
@@ -239,7 +233,7 @@ impl ClientDef for GrandpaClient {
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Channels").unwrap();
         let channel_end = ChannelEnd::decode_vec(&storage_result).unwrap();
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def.rs: [verify_connection_state] >> channel_end: {:?}",
             channel_end
         );
@@ -267,11 +261,11 @@ impl ClientDef for GrandpaClient {
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates").unwrap();
         let any_client_state = AnyClientState::decode_vec(&storage_result).unwrap();
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def.rs: [verify_client_full_state] >> decoded client_state: {:?}",
             any_client_state
         );
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def.rs: [verify_client_full_state] >>  _expected_client_state: {:?}",
             expected_client_state
         );
@@ -308,11 +302,11 @@ impl ClientDef for GrandpaClient {
             Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment")
                 .unwrap();
 
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
             String::from_utf8(storage_result.clone()).unwrap()
         );
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def.rs: [verify_packet_data] >>  expected packet_commitment: {:?}",
             commitment.clone()
         );
@@ -347,20 +341,16 @@ impl ClientDef for GrandpaClient {
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")
                 .unwrap();
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def.rs: [verify_packet_acknowledgement] >> encoded ack: {:?}",
             storage_result
         );
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def.rs: [verify_packet_acknowledgement] >>  raw ack: {:?}",
             ack
         );
 
         let ack = format!("{:?}", ack);
-        tracing::info!(
-            "In ics10-client_def.rs: [verify_packet_acknowledgement] >>  string ack: {:?}",
-            ack.clone()
-        );
         if !(storage_result == Self::hash(ack).encode()) {
             return Err(Error::invalid_packet_ack(sequence));
         }
@@ -385,7 +375,7 @@ impl ClientDef for GrandpaClient {
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")
                 .unwrap();
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def: [verify_next_sequence_recv] >> storage_result: {:?}",
             storage_result
         );
@@ -428,7 +418,7 @@ impl GrandpaClient {
         _keys: Vec<Vec<u8>>,
         _storage_name: &str,
     ) -> Result<Vec<u8>, Error> {
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _client_state: {:?}, _height: {:?}, _keys: {:?}, _storage_name: {:?}",
+        tracing::trace!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _client_state: {:?}, _height: {:?}, _keys: {:?}, _storage_name: {:?}",
             _client_state, _height, _keys, _storage_name);
 
         use crate::clients::ics10_grandpa::state_machine::read_proof_check;
@@ -451,28 +441,24 @@ impl GrandpaClient {
         let storage_proof = match _merkel_proof {
             Exist(_exist_proof) => {
                 let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
-                tracing::info!(
+                tracing::trace!(
                     "In ics10-client_def.rs: [extract_verify_beefy_proof] >> _proof_str: {:?}",
                     _proof_str
                 );
                 let _storage_proof: ReadProofU8 = serde_json::from_str(&_proof_str).unwrap();
-                tracing::info!(
-                    "In ics10-client_def.rs: [extract_verify_beefy_proof] >> _storage_proof: {:?}",
-                    _storage_proof
-                );
                 _storage_proof
             }
             _ => unimplemented!(),
         };
 
         let _storage_keys = Self::storage_map_final_key(_keys, _storage_name)?;
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}",
             _storage_keys
         );
         let state_root = _client_state.clone().block_header.state_root;
         let state_root = vector_to_array::<u8, 32>(state_root);
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def.rs: [extract_verify_beefy_proof] >> state_root: {:?}",
             state_root
         );
@@ -484,14 +470,14 @@ impl GrandpaClient {
         )
         .unwrap()
         .unwrap();
-        tracing::info!(
+        tracing::trace!(
             "In ics10-client_def.rs: [extract_verify_beefy_proof] >> {:?}-storage_result: {:?}",
             _storage_name,
             storage_result
         );
 
         let storage_result = <Vec<u8>>::decode(&mut &storage_result[..]).unwrap();
-        tracing::info!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_result truncated: {:?}", storage_result);
+        tracing::trace!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_result truncated: {:?}", storage_result);
 
         Ok(storage_result)
     }
@@ -563,7 +549,7 @@ impl GrandpaClient {
 
     /// A hashing function for packet commitments
     fn hash(value: String) -> String {
-        tracing::info!("in client_def: [hash] >> value = {:?}", value.clone());
+        tracing::trace!("in client_def: [hash] >> value = {:?}", value.clone());
 
         let r = sp_io::hashing::sha2_256(value.as_bytes());
 
@@ -571,7 +557,7 @@ impl GrandpaClient {
         for item in r.iter() {
             tmp.push_str(&format!("{:02x}", item));
         }
-        tracing::info!("in client_def: [hash] >> result = {:?}", tmp.clone());
+        tracing::trace!("in client_def: [hash] >> result = {:?}", tmp.clone());
         tmp
     }
 }
