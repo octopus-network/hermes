@@ -36,13 +36,19 @@ where
 
     //TODO: Application LOGIC.
 
+    //TODO: build packet data 
+    // refer to ibc-go https://github.com/octopus-network/ibc-go/blob/e40cdec6a3413fb3c8ea2a7ccad5e363ecd5a695/modules/apps/transfer/keeper/relay.go#L146
+    // packetData := types.NewFungibleTokenPacketData(
+    // 	fullDenomPath, token.Amount.String(), sender.String(), receiver,
+    // )
+
     let packet = Packet {
         sequence,
         source_port: msg.source_port,
         source_channel: msg.source_channel,
         destination_port,
         destination_channel: destination_channel.clone(),
-        data: vec![0],
+        data: vec![0], //TODO: replace with packet data
         timeout_height: msg.timeout_height,
         timeout_timestamp: msg.timeout_timestamp,
     };
