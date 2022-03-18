@@ -75,22 +75,15 @@ where
         PacketMsg::RecvPacket(msg) => {
             use alloc::vec;
             let recv_handler_out = recv_packet::process(ctx, msg.clone())?;
-            // store_packet_result not really unimploment!
             ctx.store_packet_result(recv_handler_out.result)?;
 
-            // TODO: callback and return ack
+            // TODO: callback and return ack in the application module. e.g. ics20
             // let act = ctx.OnRecvPacket(msg.packet);
             // handle write ack
             let ack = vec![1]; // a mock ack value
             let packet = msg.packet;
             let write_ack_handler_out = write_acknowledgement::process(ctx, packet, ack)?;
 
-            // 把recv packet和write ack两个事件及log合并到一起返回，但result只能返回一个，因此会丢掉另外一个result，M1阶段暂时返回write ack的result
-            // 有两个方案可以考虑把多个result同时返回：
-            // 方案1：修改HandlerOut中的Result类型，改为Vec<HandlerResult>，容纳多个result，但这样以来所有用到handlerout的地方都想需要重构！
-            // 方案2：想办法再调用一次deliever(),然后匹配write_acknowledgement消息，做一次单独处理，改动也不小！
-            // 可能还存在其他解决方案，但是需要结合需求以及目前的架构综合考虑。
-            // 幸好substrate pallet 那边只需要保存height数据，其他暂时用不到，而这个height可以从event中获取！
             Ok(HandlerOutput::builder()
                 .with_log(recv_handler_out.log)
                 .with_events(recv_handler_out.events)
