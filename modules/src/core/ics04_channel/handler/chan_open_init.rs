@@ -75,7 +75,11 @@ pub(crate) fn process(
         counterparty_port_id: msg.channel.counterparty().port_id.clone(),
         counterparty_channel_id: msg.channel.counterparty().channel_id.clone(),
     };
-    output.emit(IbcEvent::OpenInitChannel(event_attributes.into()));
+    output.emit(IbcEvent::OpenInitChannel(
+        event_attributes
+            .try_into()
+            .map_err(|_| Error::missing_channel_id())?,
+    ));
 
     Ok(output.with_result(result))
 }

@@ -8,7 +8,7 @@ use abscissa_core::clap::Parser;
 use abscissa_core::{Command, Runnable};
 use crossbeam_channel::Sender;
 
-use ibc_relayer::chain::handle::{ChainHandle, ProdChainHandle};
+use ibc_relayer::chain::handle::{CachingChainHandle, ChainHandle};
 use ibc_relayer::config::Config;
 use ibc_relayer::registry::SharedRegistry;
 use ibc_relayer::rest;
@@ -34,7 +34,7 @@ impl Runnable for StartCmd {
 
         let config = Arc::new(RwLock::new(config));
 
-        let supervisor_handle = make_supervisor::<ProdChainHandle>(config, self.full_scan)
+        let supervisor_handle = make_supervisor::<CachingChainHandle>(config, self.full_scan)
             .unwrap_or_else(|e| {
                 Output::error(format!("Hermes failed to start, last error: {}", e)).exit()
             });
@@ -63,7 +63,7 @@ fn register_signals(tx_cmd: Sender<SupervisorCmd>) -> Result<(), io::Error> {
     use signal_hook::{consts::signal::*, iterator::Signals};
 
     let sigs = vec![
-        SIGHUP,  // Reload of configuration
+        SIGHUP,  // Reload of configuration (disabled)
         SIGUSR1, // Dump state
     ];
 
@@ -72,9 +72,12 @@ fn register_signals(tx_cmd: Sender<SupervisorCmd>) -> Result<(), io::Error> {
     std::thread::spawn(move || {
         for signal in &mut signals {
             match signal {
-                SIGHUP => warn!("configuration reloading via SIGHUP has been disabled. The signal handler will be removed in the future"),
+                SIGHUP => warn!(
+                    "configuration reloading via SIGHUP has been disabled, \
+                     the signal handler will be removed in the future"
+                ),
                 SIGUSR1 => {
-                    info!("Dumping state (triggered by SIGUSR1)");
+                    info!("dumping state (triggered by SIGUSR1)");
 
                     let (tx, rx) = crossbeam_channel::bounded(1);
                     tx_cmd.try_send(SupervisorCmd::DumpState(tx)).unwrap();

@@ -21,6 +21,7 @@
 
 extern crate alloc;
 
+pub mod cache;
 pub mod chain;
 pub mod channel;
 pub mod config;
