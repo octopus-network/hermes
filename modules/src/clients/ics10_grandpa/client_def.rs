@@ -756,6 +756,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_check_header_and_update_state_by_test_case_from_substrate() {
         let client = ClientBuilder::new()
             .set_url("ws://localhost:9944")
@@ -878,6 +879,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn verify_leaf_proof_works_2() -> Result<(), Box<dyn std::error::Error>> {
         let client = ClientBuilder::new()
             .set_url("ws://localhost:9944")
