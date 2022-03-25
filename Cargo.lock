@@ -289,7 +289,7 @@ dependencies = [
 [[package]]
 name = "beefy-light-client"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/beefy-light-client.git#1c1d9bf910c4333b72e5bba51b8b7ac7aac5072c"
+source = "git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.13#8f6282aaf665d96c32c39e69d7c90ba656f55d56"
 dependencies = [
  "beefy-merkle-tree",
  "blake2-rfc",
@@ -2902,7 +2902,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13#e4074075b72aa1bdd36ea11721b09c0df4efb5f5"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13#fa8445d7052dc86cef000526f5fdbec0fe6ce90e"
 dependencies = [
  "beefy-light-client",
  "beefy-merkle-tree",
@@ -4764,7 +4764,7 @@ dependencies = [
 [[package]]
 name = "subxt"
 version = "0.15.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12#950ce7d90a983c02c8d16167a3bf73d2641e5fc0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13#5170b5572d544ec06a3de13dc156dd9f823dd7c7"
 dependencies = [
  "async-trait",
  "bitvec",
@@ -4794,7 +4794,7 @@ dependencies = [
 [[package]]
 name = "subxt-codegen"
 version = "0.2.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12#950ce7d90a983c02c8d16167a3bf73d2641e5fc0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13#5170b5572d544ec06a3de13dc156dd9f823dd7c7"
 dependencies = [
  "async-trait",
  "darling",
@@ -4812,7 +4812,7 @@ dependencies = [
 [[package]]
 name = "subxt-macro"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12#950ce7d90a983c02c8d16167a3bf73d2641e5fc0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13#5170b5572d544ec06a3de13dc156dd9f823dd7c7"
 dependencies = [
  "async-trait",
  "darling",

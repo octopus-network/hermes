@@ -98,8 +98,7 @@ frame-system = { git = "https://github.com/paritytech/substrate", branch = "polk
 sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.13", default-features = false }
 
 # beefy light client
-beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", default-features = false }
-
+beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.13", default-features = false }
 hex = "0.4.3"
 
 [dependencies.tendermint]
@@ -132,7 +131,7 @@ hex-literal = "0.3.1"
 octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.13"}
 # octopusxt = { path = "../../octopusxt" }
 tokio = { version = "1.0", features = ["rt-multi-thread", "time", "sync"] }
-subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.12' }
+subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.13' }
 
 [[test]]
 name = "mbt"
