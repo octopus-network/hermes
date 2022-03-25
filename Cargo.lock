@@ -2525,7 +2525,6 @@ dependencies = [
  "libsecp256k1-gen-genmult 0.3.0",
  "rand 0.8.5",
  "serde",
- "sha2 0.9.9",
 ]
 
 [[package]]
