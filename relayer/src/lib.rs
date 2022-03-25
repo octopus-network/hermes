@@ -9,6 +9,9 @@
 )]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
+#![allow(unused_must_use)]
+#![allow(unused_assignments)]
+#![allow(dead_code)]
 // TODO: disable unwraps:
 //  https://github.com/informalsystems/ibc-rs/issues/987
 // #![cfg_attr(not(test), deny(clippy::unwrap_used))]

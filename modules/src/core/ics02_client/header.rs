@@ -6,8 +6,8 @@ use serde_json::to_string;
 use subtle_encoding::hex;
 use tendermint_proto::Protobuf;
 
-use crate::clients::ics10_grandpa::header::Header as GrandpaHeader;
 use crate::clients::ics07_tendermint::header::{decode_header, Header as TendermintHeader};
+use crate::clients::ics10_grandpa::header::Header as GrandpaHeader;
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::error::Error;
 #[cfg(any(test, feature = "mocks"))]

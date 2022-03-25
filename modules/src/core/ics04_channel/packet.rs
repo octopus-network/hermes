@@ -149,9 +149,7 @@ impl core::fmt::Display for Packet {
     }
 }
 
-
 impl Protobuf<RawPacket> for Packet {}
-
 
 impl TryFrom<RawPacket> for Packet {
     type Error = Error;

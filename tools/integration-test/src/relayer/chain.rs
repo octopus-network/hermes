@@ -380,7 +380,11 @@ where
         todo!()
     }
 
-    fn update_mmr_root(&self, _src_chain_websocket_url: String, _dst_chain_websocket_url: String) -> Result<(), Error> {
+    fn update_mmr_root(
+        &self,
+        _src_chain_websocket_url: String,
+        _dst_chain_websocket_url: String,
+    ) -> Result<(), Error> {
         todo!()
     }
 

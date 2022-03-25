@@ -9,10 +9,11 @@ use super::help::MmrLeaf;
 use super::help::MmrLeafProof;
 use super::help::SignedCommitment;
 use super::help::ValidatorMerkleProof;
+use crate::clients::ics10_grandpa::error::Error;
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::header::AnyHeader;
-use crate::clients::ics10_grandpa::error::Error;
 use crate::core::ics24_host::identifier::ChainId;
+use crate::timestamp::Timestamp;
 use crate::Height;
 use beefy_merkle_tree::Hash;
 use bytes::Buf;
@@ -20,7 +21,6 @@ use codec::{Decode, Encode};
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
-use crate::timestamp::Timestamp;
 
 /// block header
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Encode, Decode)]

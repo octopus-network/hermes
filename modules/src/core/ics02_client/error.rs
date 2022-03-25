@@ -2,9 +2,8 @@ use crate::prelude::*;
 
 use flex_error::{define_error, TraceError};
 
-
-use crate::clients::ics10_grandpa::error::Error as Ics10Error;
 use crate::clients::ics07_tendermint::error::Error as Ics07Error;
+use crate::clients::ics10_grandpa::error::Error as Ics10Error;
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::height::HeightError;
 use crate::core::ics04_channel::packet::Sequence;
@@ -338,6 +337,14 @@ define_error! {
                 format_args!(
                     "The stored acknowledgement of the packet {0} is invaid",
                     e.sequence)
+            },
+
+        InvalidNextSequenceRecv
+            { sequence_restored: u64, sequence: u64}
+            | e | {
+                format_args!(
+                    "The next_sequence_recv is {0}, which is should not be greater than the current sequence {1} in packet timeout verification of ordered channel",
+                    e.sequence_restored, e.sequence)
             },
     }
 }

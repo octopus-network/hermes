@@ -11,10 +11,10 @@ use super::help::BlockHeader;
 use super::help::Commitment;
 use super::help::ValidatorSet;
 
-use crate::core::ics02_client::client_state::AnyClientState;
-use crate::core::ics02_client::client_type::ClientType;
 use crate::clients::ics10_grandpa::error::Error;
 use crate::clients::ics10_grandpa::header::Header;
+use crate::core::ics02_client::client_state::AnyClientState;
+use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics24_host::identifier::ChainId;
 use crate::Height;
 use serde::{Deserialize, Serialize};
@@ -113,7 +113,12 @@ impl crate::core::ics02_client::client_state::ClientState for ClientState {
         self.frozen_height
     }
 
-    fn upgrade(self, upgrade_height: Height, upgrade_options: Self::UpgradeOptions, chain_id: ChainId) -> Self {
+    fn upgrade(
+        self,
+        upgrade_height: Height,
+        upgrade_options: Self::UpgradeOptions,
+        chain_id: ChainId,
+    ) -> Self {
         todo!()
     }
 

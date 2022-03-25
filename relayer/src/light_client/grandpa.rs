@@ -8,13 +8,13 @@ use tokio::runtime::Runtime as TokioRuntime;
 
 use crate::config::ChainConfig;
 use crate::light_client::Verified;
+use ibc::clients::ics10_grandpa::header::Header as GPHeader;
+use ibc::clients::ics10_grandpa::help::{BlockHeader, Commitment, SignedCommitment};
 use ibc::core::ics02_client::client_state::AnyClientState;
 use ibc::core::ics02_client::events::UpdateClient;
 use ibc::core::ics02_client::header::AnyHeader;
 use ibc::core::ics02_client::header::Header;
 use ibc::core::ics02_client::misbehaviour::{AnyMisbehaviour, MisbehaviourEvidence};
-use ibc::clients::ics10_grandpa::header::Header as GPHeader;
-use ibc::clients::ics10_grandpa::help::{BlockHeader, Commitment, SignedCommitment};
 use ibc::core::ics24_host::identifier::ChainId;
 use ibc::core::ics24_host::identifier::ClientId;
 use ibc::Height;

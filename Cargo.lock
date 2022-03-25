@@ -318,7 +318,7 @@ dependencies = [
 [[package]]
 name = "beefy-primitives"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.12#d76f39995315ec36980908e4b99709bd14927044"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.13#afb74de23dfe2994e7ce38c0870efb9734e966f7"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -1741,9 +1741,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "0.14.17"
+version = "0.14.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "043f0e083e9901b6cc658a77d1eb86f4fc650bbb977a4337dd63192826aa85dd"
+checksum = "b26ae0a80afebe130861d90abf98e3814a4f28a4c6ffeb5ab8ebb2be311e0ef2"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1842,11 +1842,13 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hash-db",
+ "hex",
  "hex-literal",
  "ibc-proto",
  "ics23",
  "modelator",
  "num-traits",
+ "octopusxt",
  "parity-scale-codec",
  "prost",
  "prost-types",
@@ -1856,6 +1858,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.2",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std 4.0.0-dev",
  "sp-trie",
@@ -2608,9 +2611,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.14"
+version = "0.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
+checksum = "6389c490849ff5bc16be905ae24bc913a9c8892e19b2341dbc175e14c341c2b8"
 dependencies = [
  "cfg-if 1.0.0",
 ]
@@ -2949,7 +2952,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=main#a59bf548709b3a80b3951e79e3d54a281862b80e"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13#e4074075b72aa1bdd36ea11721b09c0df4efb5f5"
 dependencies = [
  "beefy-light-client",
  "beefy-merkle-tree",
@@ -3552,9 +3555,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.2.11"
+version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8380fe0152551244f0747b1bf41737e0f8a74f97a14ccefd1148187271634f3c"
+checksum = "8ae183fc1b06c149f0c1793e1eb447c8b04bfe46d48e9e48bfb8d2d7ed64ecf0"
 dependencies = [
  "bitflags",
 ]
@@ -4482,7 +4485,7 @@ dependencies = [
 [[package]]
 name = "sp-keyring"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.12#d76f39995315ec36980908e4b99709bd14927044"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.13#afb74de23dfe2994e7ce38c0870efb9734e966f7"
 dependencies = [
  "lazy_static",
  "sp-core",
@@ -4733,18 +4736,18 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strum"
-version = "0.20.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7318c509b5ba57f18533982607f24070a55d353e90d4cae30c467cdb2ad5ac5c"
+checksum = "f7ac893c7d471c8a21f31cfe213ec4f6d9afeed25537c772e08ef3f005f8729e"
 dependencies = [
  "strum_macros",
 ]
 
 [[package]]
 name = "strum_macros"
-version = "0.20.1"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee8bc6b87a5112aeeab1f4a9f7ab634fe6cbefc4850006df31267f4cfb9e3149"
+checksum = "339f799d8b549e3744c7ac7feb216383e4005d94bdb22561b3ab8f3b808ae9fb"
 dependencies = [
  "heck 0.3.3",
  "proc-macro2",
@@ -4893,7 +4896,7 @@ dependencies = [
 [[package]]
 name = "tendermint"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#bcd57ab6feb0f1c89d940c69b3037d868e2e4d27"
+source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#592bfda625e4422f7f5f1308462fd5e36d2cc823"
 dependencies = [
  "async-trait",
  "bytes",
@@ -4923,7 +4926,7 @@ dependencies = [
 [[package]]
 name = "tendermint-config"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#bcd57ab6feb0f1c89d940c69b3037d868e2e4d27"
+source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#592bfda625e4422f7f5f1308462fd5e36d2cc823"
 dependencies = [
  "flex-error",
  "serde",
@@ -4936,7 +4939,7 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#bcd57ab6feb0f1c89d940c69b3037d868e2e4d27"
+source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#592bfda625e4422f7f5f1308462fd5e36d2cc823"
 dependencies = [
  "contracts",
  "crossbeam-channel 0.4.4",
@@ -4957,7 +4960,7 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client-verifier"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#bcd57ab6feb0f1c89d940c69b3037d868e2e4d27"
+source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#592bfda625e4422f7f5f1308462fd5e36d2cc823"
 dependencies = [
  "derive_more",
  "flex-error",
@@ -4969,7 +4972,7 @@ dependencies = [
 [[package]]
 name = "tendermint-proto"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#bcd57ab6feb0f1c89d940c69b3037d868e2e4d27"
+source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#592bfda625e4422f7f5f1308462fd5e36d2cc823"
 dependencies = [
  "bytes",
  "flex-error",
@@ -4986,7 +4989,7 @@ dependencies = [
 [[package]]
 name = "tendermint-rpc"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#bcd57ab6feb0f1c89d940c69b3037d868e2e4d27"
+source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#592bfda625e4422f7f5f1308462fd5e36d2cc823"
 dependencies = [
  "async-trait",
  "async-tungstenite",
@@ -5019,7 +5022,7 @@ dependencies = [
 [[package]]
 name = "tendermint-testgen"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#bcd57ab6feb0f1c89d940c69b3037d868e2e4d27"
+source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#592bfda625e4422f7f5f1308462fd5e36d2cc823"
 dependencies = [
  "ed25519-dalek",
  "gumdrop",
@@ -5042,9 +5045,9 @@ dependencies = [
 
 [[package]]
 name = "test-log"
-version = "0.2.8"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb78caec569a40f42c078c798c0e35b922d9054ec28e166f0d6ac447563d91a4"
+checksum = "4235dbf7ea878b3ef12dea20a59c134b405a66aafc4fc2c7b9935916e289e735"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5097,9 +5100,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.7"
+version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "004cbc98f30fa233c61a38bc77e96a9106e65c88f2d3bef182ae952027e5753d"
+checksum = "c2702e08a7a860f005826c6815dcac101b19b5eb330c27fe4a5928fec1d20ddd"
 dependencies = [
  "libc",
  "num_threads",
@@ -5108,9 +5111,9 @@ dependencies = [
 
 [[package]]
 name = "time-macros"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25eb0ca3468fc0acc11828786797f6ef9aa1555e4a211a60d64cc8e4d1be47d6"
+checksum = "42657b1a6f4d817cda8e7a0ace261fe0cc946cf3a80314390b22cc61ae080792"
 
 [[package]]
 name = "tiny-bip39"

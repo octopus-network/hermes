@@ -52,8 +52,7 @@ impl Runnable for QueryTxEventsCmd {
                     chain_config.clone(),
                     rt,
                 )
-                    .unwrap_or_else(exit_with_unrecoverable_error);
-
+                .unwrap_or_else(exit_with_unrecoverable_error);
 
                 let res = Hash::from_str(self.hash.as_str())
                     .map_err(|e| Error::invalid_hash(self.hash.clone(), e))

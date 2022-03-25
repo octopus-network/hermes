@@ -6,7 +6,6 @@ use tendermint_proto::Protobuf;
 
 use ibc_proto::ibc::core::client::v1::MsgUpdateClient as RawMsgUpdateClient;
 
-
 use crate::core::ics02_client::error::Error;
 use crate::core::ics02_client::header::AnyHeader;
 use crate::core::ics24_host::error::ValidationError;

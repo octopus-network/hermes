@@ -181,7 +181,6 @@ where
         light_client: Endpoint::LightClient,
         rt: Arc<TokioRuntime>,
     ) -> (Handle, thread::JoinHandle<()>) {
-
         let chain_runtime = Self::new(chain, light_client, rt);
 
         // Get a handle to the runtime
@@ -473,7 +472,6 @@ where
         let result = self.chain.send_messages_and_wait_check_tx(tracked_msgs);
         reply_to.send(result).map_err(Error::send)
     }
-
 
     fn query_status(&self, reply_to: ReplyTo<StatusResponse>) -> Result<(), Error> {
         let latest_timestamp = self.chain.query_status();

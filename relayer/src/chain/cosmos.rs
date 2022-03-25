@@ -1983,7 +1983,6 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let consensus_state = AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
 
-
         if !matches!(consensus_state, AnyConsensusState::Tendermint(_)) {
             return Err(Error::consensus_state_type_mismatch(
                 ClientType::Tendermint,

@@ -1,7 +1,7 @@
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
-use crate::clients::ics10_grandpa::client_def::GrandpaClient;
 use crate::clients::ics07_tendermint::client_def::TendermintClient;
+use crate::clients::ics10_grandpa::client_def::GrandpaClient;
 use crate::core::ics02_client::client_consensus::{AnyConsensusState, ConsensusState};
 use crate::core::ics02_client::client_state::{AnyClientState, ClientState};
 use crate::core::ics02_client::client_type::ClientType;

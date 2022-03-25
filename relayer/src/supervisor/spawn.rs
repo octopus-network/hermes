@@ -295,7 +295,7 @@ impl<'a, Chain: ChainHandle> SpawnContext<'a, Chain> {
         } else {
             Ok(false)
         }
-   }
+    }
 
     pub fn shutdown_workers_for_chain(&mut self, chain_id: &ChainId) {
         tracing::info!("im spawn: [shutdown_workers_for_chain]");

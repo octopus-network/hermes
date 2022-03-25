@@ -386,14 +386,14 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
 
         info!("scanning client...");
 
-        if !self.client_allowed(chain, &client) {
+        /*        if !self.client_allowed(chain, &client) {
             warn!(
                 trust_threshold = ?client.client_state.trust_threshold(),
                 "skipping client, reason: client is not allowed",
             );
 
             return Ok(None);
-        }
+        }*/
 
         let counterparty_chain_id = client.client_state.chain_id();
         let has_counterparty = self.config.has_chain(&counterparty_chain_id);
@@ -568,7 +568,8 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
         );
 
         match permission {
-            Ok(Permission::Deny) => {
+            Ok(Permission::Deny) => true,
+            /*            Ok(Permission::Deny) => {
                 warn!(
                     "skipping workers for chain {}, client {} & conn {}, \
                      reason: client or counterparty client is not allowed",
@@ -578,7 +579,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
                 );
 
                 false
-            }
+            }*/
             Err(e) => {
                 error!(
                     "skipping workers for chain {}, client {} & conn {}, reason: {}",
