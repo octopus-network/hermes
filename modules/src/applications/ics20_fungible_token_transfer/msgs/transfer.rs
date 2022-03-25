@@ -1,5 +1,6 @@
 //! This is the definition of a transfer messages that an application submits to a chain.
 
+use crate::core::ics24_host::error::ValidationError;
 use crate::prelude::*;
 
 use tendermint_proto::Protobuf;
@@ -7,6 +8,7 @@ use tendermint_proto::Protobuf;
 use ibc_proto::ibc::apps::transfer::v1::MsgTransfer as RawMsgTransfer;
 
 use crate::applications::ics20_fungible_token_transfer::error::Error;
+use crate::applications::ics20_fungible_token_transfer::msgs::denom_trace;
 use crate::core::ics02_client::height::Height;
 use crate::core::ics24_host::identifier::{ChannelId, PortId};
 use crate::signer::Signer;
@@ -46,6 +48,43 @@ impl Msg for MsgTransfer {
 
     fn type_url(&self) -> String {
         TYPE_URL.to_string()
+    }
+    // ValidateBasic performs a basic check of the MsgTransfer fields.
+    // NOTE: timeout height or timestamp values can be 0 to disable the timeout.
+    // NOTE: The recipient addresses format is not validated as the format defined by
+    // the chain is not known to IBC.
+
+    fn validate_basic(&self) -> Result<(), ValidationError> {
+        // 	if err := host.PortIdentifierValidator(msg.SourcePort); err != nil {
+        // 		return sdkerrors.Wrap(err, "invalid source port ID")
+        // 	}
+        // 	if err := host.ChannelIdentifierValidator(msg.SourceChannel); err != nil {
+        // 		return sdkerrors.Wrap(err, "invalid source channel ID")
+        // 	}
+        // 	if !msg.Token.IsValid() {
+        // 		return sdkerrors.Wrap(sdkerrors.ErrInvalidCoins, msg.Token.String())
+        // 	}
+        // 	if !msg.Token.IsPositive() {
+        // 		return sdkerrors.Wrap(sdkerrors.ErrInsufficientFunds, msg.Token.String())
+        // 	}
+        // 	// NOTE: sender format must be validated as it is required by the GetSigners function.
+        // 	_, err := sdk.AccAddressFromBech32(msg.Sender)
+        // 	if err != nil {
+        // 		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "string could not be parsed as address: %v", err)
+        // 	}
+        // 	if strings.TrimSpace(msg.Receiver) == "" {
+        // 		return sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, "missing recipient address")
+        // 	}
+        let denom = self
+            .token
+            .as_ref()
+            .map(|coin| coin.denom.as_str())
+            .unwrap_or("");
+
+        if let Err(err) = denom_trace::validate_ibc_denom(denom) {
+            return Err(ValidationError::invalid_denom(err.to_string()));
+        }
+        Ok(())
     }
 }
 

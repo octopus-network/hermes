@@ -299,6 +299,7 @@ impl MockContext {
                 // Return the tuple.
                 (Some(client_state), consensus_state)
             }
+            ClientType::Grandpa => todo!(),
         };
 
         let prev_consensus_state = match client_type {
@@ -313,6 +314,7 @@ impl MockContext {
                 );
                 AnyConsensusState::from(light_block)
             }
+            ClientType::Grandpa => todo!(),
         };
 
         let consensus_states = vec![
@@ -553,7 +555,28 @@ impl MockContext {
 
 impl Ics26Context for MockContext {}
 
-impl Ics20Context for MockContext {}
+impl Ics20Context for MockContext {
+    fn get_denom_trace(
+        &self,
+        denom_trace_hash: &Vec<u8>,
+    ) -> Result<
+        crate::applications::ics20_fungible_token_transfer::msgs::denom_trace::DenomTrace,
+        crate::applications::ics20_fungible_token_transfer::error::Error,
+    > {
+        todo!()
+    }
+
+    fn has_denom_trace(&self, denom_trace_hash: &Vec<u8>) -> bool {
+        todo!()
+    }
+
+    fn set_denom_trace(
+        &self,
+        denom_trace: &crate::applications::ics20_fungible_token_transfer::msgs::denom_trace::DenomTrace,
+    ) -> Result<(), crate::applications::ics20_fungible_token_transfer::error::Error> {
+        todo!()
+    }
+}
 
 impl CapabilityReader for MockContext {
     fn get_capability(&self, _name: &CapabilityName) -> Result<Capability, Ics05Error> {

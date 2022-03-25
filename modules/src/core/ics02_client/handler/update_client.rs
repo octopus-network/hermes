@@ -287,6 +287,7 @@ mod tests {
                 AnyHeader::Tendermint(theader)
             }
             AnyHeader::Mock(m) => AnyHeader::Mock(m),
+            AnyHeader::Grandpa(_) => todo!(),
         };
 
         let msg = MsgUpdateAnyClient {
@@ -364,6 +365,7 @@ mod tests {
                 AnyHeader::Tendermint(theader)
             }
             AnyHeader::Mock(m) => AnyHeader::Mock(m),
+            AnyHeader::Grandpa(_) => todo!(),
         };
 
         let msg = MsgUpdateAnyClient {
@@ -444,6 +446,7 @@ mod tests {
                 AnyHeader::Tendermint(theader)
             }
             AnyHeader::Mock(header) => AnyHeader::Mock(header),
+            AnyHeader::Grandpa(_) => todo!(),
         };
 
         let msg = MsgUpdateAnyClient {

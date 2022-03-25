@@ -42,5 +42,15 @@ define_error! {
         Utf8
             [ DisplayOnly<FromUtf8Error> ]
             | _ | { "utf8 decoding error" },
+
+        DenomTraceNotFound
+            { context: String }
+            | _ | { "denom trace not found" },
+
+        InvalidDenomForTransfer
+             { denom_err: String }
+            | e | { format_args!("{0}", e.denom_err) },
+
+
     }
 }

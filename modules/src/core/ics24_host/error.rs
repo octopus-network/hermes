@@ -30,6 +30,10 @@ define_error! {
             | e | { format_args!("chain identifiers are expected to be in epoch format {0}", e.id) },
 
         InvalidCounterpartyChannelId
-            |_| { "Invalid channel id in counterparty" }
+            |_| { "Invalid channel id in counterparty" },
+
+       InvalidDenom
+            { denom: String }
+            | e | { format_args!("{0}", e.denom) },
     }
 }
