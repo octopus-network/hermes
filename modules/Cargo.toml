@@ -18,7 +18,42 @@ all-features = true
 
 [features]
 default = ["std"]
-std = ["flex-error/std", "flex-error/eyre_tracer", "ibc-proto/std", "clock"]
+std = [
+    "flex-error/std",
+    "flex-error/eyre_tracer",
+    "ibc-proto/std",
+    "clock",
+    "ibc-proto/std",
+    "ics23/std",
+    # "serde_derive/std",
+    "serde/std",
+    "serde_json/std",
+    "tracing/std",
+    "prost/std",
+    "prost-types/std",
+    "bytes/std",
+    # "safe-regex/std",
+    "subtle-encoding/std",
+    "sha2/std",
+    "flex-error/std",
+    "num-traits/std",
+    # "derive_more/std",
+    "beefy-light-client/std",
+    "codec/std",
+    "beefy-merkle-tree/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    "sp-trie/std",
+    "sp-std/std",
+    "hash-db/std",
+    "blake2-rfc/std",
+    "frame-support/std",
+    "frame-system/std",
+    "tendermint/std",
+    # "tendermint-proto/std",
+    # "tendermint-light-client-verifier/std",
+    # "tendermint-testgen/std",
+]
 clock = [
     "tendermint/clock",
     "time/std"
