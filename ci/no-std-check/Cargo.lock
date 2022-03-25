@@ -142,9 +142,9 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "beefy-light-client"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/beefy-light-client.git#1c1d9bf910c4333b72e5bba51b8b7ac7aac5072c"
+source = "git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.13#8f6282aaf665d96c32c39e69d7c90ba656f55d56"
 dependencies = [
- "beefy-merkle-tree 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.12)",
+ "beefy-merkle-tree",
  "blake2-rfc",
  "borsh",
  "byteorder",
@@ -152,14 +152,6 @@ dependencies = [
  "hex",
  "libsecp256k1",
  "parity-scale-codec",
-]
-
-[[package]]
-name = "beefy-merkle-tree"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.12#d76f39995315ec36980908e4b99709bd14927044"
-dependencies = [
- "tiny-keccak",
 ]
 
 [[package]]
@@ -893,7 +885,7 @@ name = "ibc"
 version = "0.12.0"
 dependencies = [
  "beefy-light-client",
- "beefy-merkle-tree 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.13)",
+ "beefy-merkle-tree",
  "blake2-rfc",
  "bytes",
  "derive_more",

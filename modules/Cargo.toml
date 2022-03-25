@@ -99,7 +99,6 @@ sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkado
 
 # beefy light client
 beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.13", default-features = false }
-hex = "0.4.3"
 
 [dependencies.tendermint]
 version = "=0.23.5"

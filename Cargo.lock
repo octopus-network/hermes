@@ -1838,7 +1838,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hash-db",
- "hex",
  "hex-literal",
  "ibc-proto",
  "ics23",
