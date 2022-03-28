@@ -50,7 +50,8 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
         tracing::trace!(
             "in client_def: [check_header_and_update_state] >> client_state = {:?}, header = {:?}",
-            client_state, header
+            client_state,
+            header
         );
 
         if header.block_header.block_number > client_state.latest_commitment.block_number {

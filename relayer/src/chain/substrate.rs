@@ -165,7 +165,11 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
     ) -> Result<ChannelEnd, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_channel_end] >> port_id = {:?}, channel_id = {:?}", port_id, channel_id);
+        tracing::trace!(
+            "in substrate: [get_channel_end] >> port_id = {:?}, channel_id = {:?}",
+            port_id,
+            channel_id
+        );
         self.block_on(octopusxt::get_channel_end(
             port_id,
             channel_id,
@@ -182,7 +186,9 @@ impl SubstrateChain {
     ) -> Result<Receipt, Box<dyn std::error::Error>> {
         tracing::trace!(
             "in substrate: [get_packet_receipt] >> port_id = {:?}, channel_id = {:?}, seq = {:?}",
-            port_id, channel_id, seq
+            port_id,
+            channel_id,
+            seq
         );
 
         self.block_on(octopusxt::get_packet_receipt(
@@ -234,7 +240,8 @@ impl SubstrateChain {
     ) -> Result<AnyConsensusState, Box<dyn std::error::Error>> {
         tracing::trace!(
             "in substrate: [get_client_consensus] >> client_id = {:?}, height = {:?}",
-            client_id, height
+            client_id,
+            height
         );
 
         self.block_on(octopusxt::get_client_consensus(
@@ -644,14 +651,21 @@ impl ChainEndpoint for SubstrateChain {
         let result = self.deliever(proto_msgs.messages().to_vec());
 
         if result.is_ok() {
-            tracing::debug!("in substrate: [send_messages_and_wait_commit] >> result : {:?}",result);
+            tracing::debug!(
+                "in substrate: [send_messages_and_wait_commit] >> result : {:?}",
+                result
+            );
             let ret = self.subscribe_ibc_events().unwrap();
             return Ok(ret);
         }
 
         let err_str = result.err().unwrap().to_string();
-        if err_str.contains("Priority is too low") { // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
-            tracing::error!("in substrate: [send_messages_and_wait_check_tx] >> error : {:?}",err_str);
+        if err_str.contains("Priority is too low") {
+            // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
+            tracing::error!(
+                "in substrate: [send_messages_and_wait_check_tx] >> error : {:?}",
+                err_str
+            );
             return Ok(vec![]);
         } else {
             return Err(Error::sub_tx_error(err_str));
@@ -672,8 +686,12 @@ impl ChainEndpoint for SubstrateChain {
 
         if !result.is_ok() {
             let err_str = result.err().unwrap().to_string();
-            if err_str.contains("Priority is too low") { // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
-                tracing::error!("in substrate: [send_messages_and_wait_check_tx] >> error : {:?}",err_str);
+            if err_str.contains("Priority is too low") {
+                // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
+                tracing::error!(
+                    "in substrate: [send_messages_and_wait_check_tx] >> error : {:?}",
+                    err_str
+                );
                 return Ok(vec![]);
             } else {
                 return Err(Error::sub_tx_error(err_str));
@@ -681,7 +699,10 @@ impl ChainEndpoint for SubstrateChain {
         }
 
         let result = result.unwrap();
-        tracing::debug!("in substrate: [send_messages_and_wait_check_tx] >> result : {:?}",result.clone());
+        tracing::debug!(
+            "in substrate: [send_messages_and_wait_check_tx] >> result : {:?}",
+            result.clone()
+        );
 
         use tendermint::abci::transaction; // Todo: apply with real responses
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
@@ -695,7 +716,8 @@ impl ChainEndpoint for SubstrateChain {
         Ok(vec![tx_re])
     }
 
-    fn get_signer(&mut self) -> Result<Signer, Error> { // Todo: Get signer from config
+    fn get_signer(&mut self) -> Result<Signer, Error> {
+        // Todo: Get signer from config
         tracing::trace!(
             "In Substraet: [get signer] >> key_name: {:?}",
             self.config.key_name.clone()
@@ -748,7 +770,8 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Self::ClientState, Error> {
         tracing::trace!(
             "in substrate: [query_client_state] >> client_id = {:?}, height = {:?}",
-            client_id, height
+            client_id,
+            height
         );
 
         let result = self.retry_wapper(|| self.get_client_state(client_id));
@@ -881,7 +904,8 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<ConnectionEnd, Error> {
         tracing::trace!(
             "in substrate: [query_connection] >> connection_id = {:?}, height = {:?}",
-            connection_id, height
+            connection_id,
+            height
         );
 
         let connection_end = self
@@ -937,7 +961,9 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<ChannelEnd, Error> {
         tracing::trace!(
             "in substrate: [query_channel] >> port_id = {:?}, channel_id = {:?}, height = {:?}",
-            port_id, channel_id, height
+            port_id,
+            channel_id,
+            height
         );
 
         let channel_end = self
@@ -1166,7 +1192,8 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(Self::ClientState, MerkleProof), Error> {
         tracing::trace!(
             "in substrate: [proven_client_state] >> client_id = {:?}, height = {:?}",
-            client_id, height
+            client_id,
+            height
         );
 
         let result = self.retry_wapper(|| self.get_client_state(client_id));
@@ -1190,7 +1217,8 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(ConnectionEnd, MerkleProof), Error> {
         tracing::trace!(
             "in substrate: [proven_connection] >> connection_id = {:?}, height = {:?}",
-            connection_id, height
+            connection_id,
+            height
         );
 
         let result = self.retry_wapper(|| self.get_connection_end(connection_id));
@@ -1270,8 +1298,11 @@ impl ChainEndpoint for SubstrateChain {
         channel_id: &ChannelId,
         height: ICSHeight,
     ) -> Result<(ChannelEnd, MerkleProof), Error> {
-        tracing::trace!("in substrate: [proven_channel] >> port_id = {:?}, channel_id = {:?}, height = {:?}",
-            port_id, channel_id, height
+        tracing::trace!(
+            "in substrate: [proven_channel] >> port_id = {:?}, channel_id = {:?}, height = {:?}",
+            port_id,
+            channel_id,
+            height
         );
 
         let result = self.retry_wapper(|| self.get_channel_end(port_id, channel_id));

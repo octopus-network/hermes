@@ -173,8 +173,7 @@ impl EventMonitor {
     fn try_reconnect(&mut self) -> Result<()> {
         info!(
             "[{}] trying to reconnect to WebSocket endpoint {}",
-            self.chain_id,
-            self.node_addr
+            self.chain_id, self.node_addr
         );
 
         // Try to reconnect
@@ -371,7 +370,11 @@ fn collect_events(
     chain_id: &ChainId,
     event: RpcEvent,
 ) -> impl Stream<Item = Result<(Height, IbcEvent)>> {
-    tracing::trace!("in substrate_mointor: [collect_events]. chain_id = {:?}, event = {:?}", chain_id, event);
+    tracing::trace!(
+        "in substrate_mointor: [collect_events]. chain_id = {:?}, event = {:?}",
+        chain_id,
+        event
+    );
 
     let events = crate::event::rpc::get_all_events(chain_id, event).unwrap_or_default();
     tracing::trace!(
@@ -891,7 +894,9 @@ fn from_raw_event_to_batch_event(
                 &mut &raw_event.data[..],
             )
             .unwrap();
-            tracing::trace!("In substrate_monitor: [subscribe_events] >> CloseConfirmChannel Event");
+            tracing::trace!(
+                "In substrate_monitor: [subscribe_events] >> CloseConfirmChannel Event"
+            );
 
             // let height = event.height;
             let height = event.0;

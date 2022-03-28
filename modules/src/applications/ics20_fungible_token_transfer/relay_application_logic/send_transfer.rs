@@ -36,7 +36,7 @@ where
 
     //TODO: Application LOGIC.
 
-    //TODO: build packet data 
+    //TODO: build packet data
     // refer to ibc-go https://github.com/octopus-network/ibc-go/blob/e40cdec6a3413fb3c8ea2a7ccad5e363ecd5a695/modules/apps/transfer/keeper/relay.go#L146
     // packetData := types.NewFungibleTokenPacketData(
     // 	fullDenomPath, token.Amount.String(), sender.String(), receiver,

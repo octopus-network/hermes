@@ -29,15 +29,14 @@ use crate::{
     signer::Signer,
 };
 
-
 pub trait IBCModule: Clone {
     // OnChanOpenInit will verify that the relayer-chosen parameters are
     // valid and perform any custom INIT logic.It may return an error if
     // the chosen parameters are invalid in which case the handshake is aborted.
     // OnChanOpenInit should return an error if the provided version is invalid.
-    fn on_chan_open_init(
+    fn on_chan_open_init<Ctx>(
         &self,
-        ctx: &dyn Ics20Context,
+        ctx: &Ctx,
         order: Order,
         connection_hops: Vec<ConnectionId>,
         port_id: PortId,
@@ -45,7 +44,9 @@ pub trait IBCModule: Clone {
         channel_cap: &Capability,
         counterparty: Counterparty,
         version: Version,
-    ) -> Result<(), Ics20Error>;
+    ) -> Result<(), Ics20Error>
+    where
+        Ctx: Ics20Context;
 
     // OnChanOpenTry will verify the relayer-chosen parameters along with the
     // counterparty-chosen version string and perform custom TRY logic.
@@ -55,9 +56,9 @@ pub trait IBCModule: Clone {
     // an error to abort the handshake. If the versions are compatible, the try callback
     // must select the final version string and return it to core IBC.
     // OnChanOpenTry may also perform custom initialization logic
-    fn on_chan_open_try(
+    fn on_chan_open_try<Ctx>(
         &self,
-        ctx: &dyn Ics20Context,
+        ctx: &Ctx,
         order: Order,
         connection_hops: Vec<ConnectionId>,
         port_id: PortId,
@@ -65,64 +66,80 @@ pub trait IBCModule: Clone {
         channel_cap: &Capability,
         counterparty: Counterparty,
         counterparty_version: Version,
-    ) -> Result<Version, Ics20Error>;
+    ) -> Result<Version, Ics20Error>
+    where
+        Ctx: Ics20Context;
 
     // OnChanOpenAck will error if the counterparty selected version string
     // is invalid to abort the handshake. It may also perform custom ACK logic.
-    fn on_chan_open_ack(
+    fn on_chan_open_ack<Ctx>(
         &self,
-        ctx: &dyn Ics20Context,
+        ctx: &Ctx,
         port_id: PortId,
         channel_id: ChannelId,
         counterparty_version: Version,
-    ) -> Result<(), Ics20Error>;
+    ) -> Result<(), Ics20Error>
+    where
+        Ctx: Ics20Context;
 
     // OnChanOpenConfirm will perform custom CONFIRM logic and may error to abort the handshake.
-    fn on_chan_open_confirm(
+    fn on_chan_open_confirm<Ctx>(
         &self,
-        ctx: &dyn Ics20Context,
+        ctx: &Ctx,
         port_id: PortId,
         channel_id: ChannelId,
-    ) -> Result<(), Ics20Error>;
+    ) -> Result<(), Ics20Error>
+    where
+        Ctx: Ics20Context;
 
-    fn on_chan_close_init(
+    fn on_chan_close_init<Ctx>(
         &self,
-        ctx: &dyn Ics20Context,
+        ctx: &Ctx,
         port_id: PortId,
         channel_id: ChannelId,
-    ) -> Result<(), Ics20Error>;
+    ) -> Result<(), Ics20Error>
+    where
+        Ctx: Ics20Context;
 
-    fn on_chan_close_confirm(
+    fn on_chan_close_confirm<Ctx>(
         &self,
-        ctx: &dyn Ics20Context,
+        ctx: &Ctx,
         port_id: PortId,
         channel_id: ChannelId,
-    ) -> Result<(), Ics20Error>;
+    ) -> Result<(), Ics20Error>
+    where
+        Ctx: Ics20Context;
 
     // OnRecvPacket must return an acknowledgement that implements the Acknowledgement interface.
     // In the case of an asynchronous acknowledgement, nil should be returned.
     // If the acknowledgement returned is successful, the state changes on callback are written,
     // otherwise the application state changes are discarded. In either case the packet is received
     // and the acknowledgement is written (in synchronous cases).
-    fn on_recv_packet(
+    fn on_recv_packet<Ctx>(
         &self,
-        ctx: &dyn Ics20Context,
+        ctx: &Ctx,
         packet: Packet,
         relayer: Signer,
-    ) -> Result<Vec<u8>, Ics20Error>;
+    ) -> Result<Vec<u8>, Ics20Error>
+    where
+        Ctx: Ics20Context;
 
-    fn on_acknowledgement_packet(
+    fn on_acknowledgement_packet<Ctx>(
         &self,
-        ctx: &dyn Ics20Context,
+        ctx: &Ctx,
         packet: Packet,
         acknowledgement: Vec<u8>,
         relayer: Signer,
-    ) -> Result<(), Ics20Error>;
+    ) -> Result<(), Ics20Error>
+    where
+        Ctx: Ics20Context;
 
-    fn on_timeout_packet(
+    fn on_timeout_packet<Ctx>(
         &self,
-        ctx: &dyn Ics20Context,
+        ctx: &Ctx,
         packet: Packet,
         relayer: Signer,
-    ) -> Result<(), Ics20Error>;
+    ) -> Result<(), Ics20Error>
+    where
+        Ctx: Ics20Context;
 }
