@@ -300,7 +300,6 @@ impl MockContext {
                 // Return the tuple.
                 (Some(client_state), consensus_state)
             }
-            ClientType::Grandpa => todo!(),
         };
 
         let prev_consensus_state = match client_type {
@@ -316,7 +315,6 @@ impl MockContext {
                 );
                 AnyConsensusState::from(light_block)
             }
-            ClientType::Grandpa => todo!(),
         };
 
         let consensus_states = vec![
