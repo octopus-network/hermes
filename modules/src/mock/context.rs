@@ -44,6 +44,7 @@ use crate::relayer::ics18_relayer::error::Error as Ics18Error;
 use crate::signer::Signer;
 use crate::timestamp::Timestamp;
 use crate::Height;
+use crate::clients::ics10_grandpa::{client_state::ClientState, consensus_state::ConsensusState};
 
 pub const DEFAULT_BLOCK_TIME_SECS: u64 = 3;
 
@@ -284,7 +285,6 @@ impl MockContext {
                 Some(MockClientState::new(MockHeader::new(client_state_height)).into()),
                 MockConsensusState::new(MockHeader::new(cs_height)).into(),
             ),
-            ClientType::Grandpa => todo!(),
             // If it's a Tendermint client, we need TM states.
             ClientType::Tendermint => {
                 let light_block = HostBlock::generate_tm_block(
@@ -300,12 +300,16 @@ impl MockContext {
                 // Return the tuple.
                 (Some(client_state), consensus_state)
             }
+            ClientType::Grandpa => {
+                let client_state = AnyClientState::Grandpa(ClientState::default());
+                let consensus_state = AnyConsensusState::Grandpa(ConsensusState::default());
+                (Some(client_state), consensus_state)
+            },
         };
 
         let prev_consensus_state = match client_type {
             // If it's a mock client, create the corresponding mock states.
             ClientType::Mock => MockConsensusState::new(MockHeader::new(prev_cs_height)).into(),
-            ClientType::Grandpa => todo!(),
             // If it's a Tendermint client, we need TM states.
             ClientType::Tendermint => {
                 let light_block = HostBlock::generate_tm_block(
@@ -315,6 +319,7 @@ impl MockContext {
                 );
                 AnyConsensusState::from(light_block)
             }
+            ClientType::Grandpa => AnyConsensusState::Grandpa(ConsensusState::default()),
         };
 
         let consensus_states = vec![
@@ -555,7 +560,8 @@ impl MockContext {
 
 impl Ics26Context for MockContext {}
 
-impl Ics20Context for MockContext {}
+impl Ics20Context for MockContext {
+}
 
 impl CapabilityReader for MockContext {
     fn get_capability(&self, _name: &CapabilityName) -> Result<Capability, Ics05Error> {
