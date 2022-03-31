@@ -51,6 +51,9 @@ define_error! {
              { denom_err: String }
             | e | { format_args!("{0}", e.denom_err) },
 
+        AcknowledgementResponseEmpty
+            | _ | { "acknowledgement response is empty" }
+
 
     }
 }
