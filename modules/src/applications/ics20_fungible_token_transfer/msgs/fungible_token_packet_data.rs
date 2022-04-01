@@ -1,8 +1,11 @@
 
 use crate::prelude::*;
 use tendermint_proto::Protobuf;
-
+use crate::signer::Signer;
+use crate::tx_msg::Msg;
+use crate::core::ics24_host::error::ValidationError;
 use ibc_proto::ibc::apps::transfer::v2::FungibleTokenPacketData as RawFungibleTokenPacketData;
+use crate::applications::ics20_fungible_token_transfer::error::Error;
 
 pub const TYPE_URL: &str = "/ibc.applications.transfer.v2.FungibleTokenPacketData";
 
@@ -19,7 +22,7 @@ pub struct FungibleTokenPacketData {
 }
 
 impl Msg for FungibleTokenPacketData {
-    type ValidationError = Error;
+    type ValidationError = ValidationError;
     type Raw = RawFungibleTokenPacketData;
 
     fn route(&self) -> String {
@@ -27,7 +30,7 @@ impl Msg for FungibleTokenPacketData {
     }
 
     fn type_url(&self) -> String {
-        TYPE_URL_V2.to_string()
+        TYPE_URL.to_string()
     }
     // ValidateBasic performs a basic check of the MsgTransfer fields.
     // NOTE: timeout height or timestamp values can be 0 to disable the timeout.
