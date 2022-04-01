@@ -66,10 +66,10 @@ jsonrpsee = { version = "0.5.1", features = ["macros", "ws-client", "http-client
 octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.13" }
 # octopusxt = { path = "../../octopusxt" }
 subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.13' }
-codec = { package = 'parity-scale-codec', version = '2.0.0', default-features = false, features = ['derive', 'full'] }
-pallet-mmr-rpc = { git = "https://github.com/paritytech/substrate/", branch = "polkadot-v0.9.13", default-features = false}
-beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.13", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.13", default-features = false }
+codec = { package = 'parity-scale-codec', version = '2.0.0', features = ['derive', 'full'] }
+pallet-mmr-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.13" }
+beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.13" }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.13" }
 
 
 [dependencies.num-bigint]

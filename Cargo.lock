@@ -1839,7 +1839,7 @@ dependencies = [
  "frame-system",
  "hash-db",
  "hex-literal",
- "ibc-proto",
+ "ibc-proto 0.16.0",
  "ics23",
  "modelator",
  "num-traits",
@@ -1872,6 +1872,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc"
+version = "0.12.0"
+source = "git+https://github.com/octopus-network/ibc-rs.git?branch=feature/ics20#ea20425a52eb1e955ee587abae9a776e96597ad7"
+dependencies = [
+ "beefy-light-client",
+ "beefy-merkle-tree",
+ "blake2-rfc",
+ "bytes",
+ "derive_more",
+ "flex-error",
+ "frame-support",
+ "frame-system",
+ "hash-db",
+ "ibc-proto 0.16.0 (git+https://github.com/octopus-network/ibc-rs.git?branch=feature/ics20)",
+ "ics23",
+ "num-traits",
+ "parity-scale-codec",
+ "prost",
+ "prost-types",
+ "safe-regex",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sha2 0.10.2",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 4.0.0-dev",
+ "sp-trie",
+ "subtle-encoding",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "tendermint-proto",
+ "time",
+ "tracing",
+]
+
+[[package]]
 name = "ibc-integration-test"
 version = "0.12.0"
 dependencies = [
@@ -1881,8 +1919,8 @@ dependencies = [
  "eyre",
  "flex-error",
  "hex",
- "ibc",
- "ibc-proto",
+ "ibc 0.12.0",
+ "ibc-proto 0.16.0",
  "ibc-relayer",
  "ibc-relayer-cli",
  "itertools",
@@ -1916,6 +1954,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-proto"
+version = "0.16.0"
+source = "git+https://github.com/octopus-network/ibc-rs.git?branch=feature/ics20#ea20425a52eb1e955ee587abae9a776e96597ad7"
+dependencies = [
+ "bytes",
+ "prost",
+ "prost-types",
+ "serde",
+ "tendermint-proto",
+ "tonic",
+]
+
+[[package]]
 name = "ibc-relayer"
 version = "0.12.0"
 dependencies = [
@@ -1935,8 +1986,8 @@ dependencies = [
  "http",
  "humantime",
  "humantime-serde",
- "ibc",
- "ibc-proto",
+ "ibc 0.12.0",
+ "ibc-proto 0.16.0",
  "ibc-telemetry",
  "itertools",
  "jsonrpsee",
@@ -1995,8 +2046,8 @@ dependencies = [
  "futures 0.3.21",
  "hex",
  "humantime",
- "ibc",
- "ibc-proto",
+ "ibc 0.12.0",
+ "ibc-proto 0.16.0",
  "ibc-relayer",
  "ibc-relayer-rest",
  "ibc-telemetry",
@@ -2027,7 +2078,7 @@ name = "ibc-relayer-rest"
 version = "0.12.0"
 dependencies = [
  "crossbeam-channel 0.5.4",
- "ibc",
+ "ibc 0.12.0",
  "ibc-relayer",
  "rouille",
  "serde",
@@ -2042,7 +2093,7 @@ name = "ibc-telemetry"
 version = "0.12.0"
 dependencies = [
  "crossbeam-channel 0.5.4",
- "ibc",
+ "ibc 0.12.0",
  "once_cell",
  "opentelemetry",
  "opentelemetry-prometheus",
@@ -2908,8 +2959,8 @@ dependencies = [
  "beefy-primitives",
  "env_logger 0.8.4",
  "hex",
- "ibc",
- "ibc-proto",
+ "ibc 0.12.0 (git+https://github.com/octopus-network/ibc-rs.git?branch=feature/ics20)",
+ "ibc-proto 0.16.0 (git+https://github.com/octopus-network/ibc-rs.git?branch=feature/ics20)",
  "jsonrpsee",
  "libsecp256k1",
  "pallet-mmr-rpc",
