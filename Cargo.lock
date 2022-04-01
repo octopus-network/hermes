@@ -4875,7 +4875,7 @@ dependencies = [
 [[package]]
 name = "tendermint"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#8a1be63b3a82e1276f40070b0bce4b650e677fec"
+source = "git+https://github.com/informalsystems/tendermint-rs?rev=8a1be63#8a1be63b3a82e1276f40070b0bce4b650e677fec"
 dependencies = [
  "async-trait",
  "bytes",
@@ -4905,7 +4905,7 @@ dependencies = [
 [[package]]
 name = "tendermint-config"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#8a1be63b3a82e1276f40070b0bce4b650e677fec"
+source = "git+https://github.com/informalsystems/tendermint-rs?rev=8a1be63#8a1be63b3a82e1276f40070b0bce4b650e677fec"
 dependencies = [
  "flex-error",
  "serde",
@@ -4918,7 +4918,7 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#8a1be63b3a82e1276f40070b0bce4b650e677fec"
+source = "git+https://github.com/informalsystems/tendermint-rs?rev=8a1be63#8a1be63b3a82e1276f40070b0bce4b650e677fec"
 dependencies = [
  "contracts",
  "crossbeam-channel 0.4.4",
@@ -4939,7 +4939,7 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client-verifier"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#8a1be63b3a82e1276f40070b0bce4b650e677fec"
+source = "git+https://github.com/informalsystems/tendermint-rs?rev=8a1be63#8a1be63b3a82e1276f40070b0bce4b650e677fec"
 dependencies = [
  "derive_more",
  "flex-error",
@@ -4951,7 +4951,7 @@ dependencies = [
 [[package]]
 name = "tendermint-proto"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#8a1be63b3a82e1276f40070b0bce4b650e677fec"
+source = "git+https://github.com/informalsystems/tendermint-rs?rev=8a1be63#8a1be63b3a82e1276f40070b0bce4b650e677fec"
 dependencies = [
  "bytes",
  "flex-error",
@@ -4968,7 +4968,7 @@ dependencies = [
 [[package]]
 name = "tendermint-rpc"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#8a1be63b3a82e1276f40070b0bce4b650e677fec"
+source = "git+https://github.com/informalsystems/tendermint-rs?rev=8a1be63#8a1be63b3a82e1276f40070b0bce4b650e677fec"
 dependencies = [
  "async-trait",
  "async-tungstenite",
@@ -5001,7 +5001,7 @@ dependencies = [
 [[package]]
 name = "tendermint-testgen"
 version = "0.23.5"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#8a1be63b3a82e1276f40070b0bce4b650e677fec"
+source = "git+https://github.com/informalsystems/tendermint-rs?rev=8a1be63#8a1be63b3a82e1276f40070b0bce4b650e677fec"
 dependencies = [
  "ed25519-dalek",
  "gumdrop",

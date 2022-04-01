@@ -919,9 +919,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         }*/
 
         let client_state = match client_state {
-
-
-            AnyClientState::Mock(client_state) => AnyClientState::Mock(client_state),
+            // AnyClientState::Mock(client_state) => AnyClientState::Mock(client_state),
             AnyClientState::Tendermint(client_state) => AnyClientState::Tendermint(client_state),
             AnyClientState::Grandpa(client_state) => {
                 let mut mmr_root_height = client_state.latest_commitment.block_number;
