@@ -13,6 +13,14 @@ pub struct Acknowledgement {
     pub response: Option<acknowledgement::Response>,
 }
 
+impl Acknowledgement {
+    pub fn new(value: Vec<u8>) -> Self {
+        Self {
+            response: Some(acknowledgement::Response::Result(value))
+        }
+    }
+}
+
 /// Nested message and enum types in `Acknowledgement`.
 pub mod acknowledgement {
     use crate::prelude::*;
