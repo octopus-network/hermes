@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 /// Captures all the dependencies which the ICS20 module requires to be able to dispatch and
 /// process IBC messages.
 pub trait Ics20Context: ChannelReader + ChannelKeeper {
-    fn get_denom_trace(&self, denom_trace_hash: &Vec<u8>) -> Result<DenomTrace, Error>;
-    fn has_denom_trace(&self, denom_trace_hash: &Vec<u8>) -> bool;
+    fn get_denom_trace(&self, denom_trace_hash: &[u8]) -> Result<DenomTrace, Error>;
+    fn has_denom_trace(&self, denom_trace_hash: &[u8]) -> bool;
     fn set_denom_trace(&self, denom_trace: &DenomTrace) -> Result<(), Error>;
 }

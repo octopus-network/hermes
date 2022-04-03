@@ -1,11 +1,13 @@
 use crate::applications::ics20_fungible_token_transfer::context::Ics20Context;
 use crate::applications::ics20_fungible_token_transfer::error::Error;
+use crate::applications::ics20_fungible_token_transfer::msgs::fungible_token_packet_data::FungibleTokenPacketData;
 use crate::applications::ics20_fungible_token_transfer::msgs::transfer::MsgTransfer;
 use crate::core::ics04_channel::handler::send_packet::send_packet;
 use crate::core::ics04_channel::packet::Packet;
 use crate::core::ics04_channel::packet::PacketResult;
 use crate::handler::HandlerOutput;
 use crate::prelude::*;
+use crate::signer::Signer;
 
 pub(crate) fn send_transfer<Ctx>(
     ctx: &Ctx,
@@ -42,13 +44,27 @@ where
     // 	fullDenomPath, token.Amount.String(), sender.String(), receiver,
     // )
 
+    let denom = msg.token.clone().unwrap().denom;
+    let amount = msg.token.unwrap().amount;
+
+    // contruct fungible token packet data
+    let packet_data = FungibleTokenPacketData {
+        denom: denom,
+        amount: amount,
+        sender: msg.sender,
+        receiver: msg.receiver,
+    };
+
+    // endocde packet data
+    let encode_packet_data = serde_json::to_vec(&packet_data).unwrap();
+
     let packet = Packet {
         sequence,
         source_port: msg.source_port,
         source_channel: msg.source_channel,
         destination_port,
         destination_channel: destination_channel.clone(),
-        data: vec![0], //TODO: replace with packet data
+        data: encode_packet_data,
         timeout_height: msg.timeout_height,
         timeout_timestamp: msg.timeout_timestamp,
     };

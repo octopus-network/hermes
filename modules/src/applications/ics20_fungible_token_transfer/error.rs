@@ -52,7 +52,11 @@ define_error! {
             | e | { format_args!("{0}", e.denom_err) },
 
         AcknowledgementResponseEmpty
-            | _ | { "acknowledgement response is empty" }
+            | _ | { "acknowledgement response is empty" },
+
+        InvalidValidation 
+            [ ValidationError ]
+            | _ | { "invalid validation error" }
 
 
     }

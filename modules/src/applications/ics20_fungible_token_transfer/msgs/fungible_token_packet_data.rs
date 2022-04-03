@@ -1,15 +1,15 @@
-
+use crate::applications::ics20_fungible_token_transfer::error::Error;
+use crate::core::ics24_host::error::ValidationError;
 use crate::prelude::*;
-use tendermint_proto::Protobuf;
 use crate::signer::Signer;
 use crate::tx_msg::Msg;
-use crate::core::ics24_host::error::ValidationError;
 use ibc_proto::ibc::apps::transfer::v2::FungibleTokenPacketData as RawFungibleTokenPacketData;
-use crate::applications::ics20_fungible_token_transfer::error::Error;
+use serde::{Deserialize, Serialize};
+use tendermint_proto::Protobuf;
 
 pub const TYPE_URL: &str = "/ibc.applications.transfer.v2.FungibleTokenPacketData";
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct FungibleTokenPacketData {
     /// the token denomination to be transferred
     pub denom: String,
@@ -44,12 +44,10 @@ impl Msg for FungibleTokenPacketData {
 
 impl Protobuf<RawFungibleTokenPacketData> for FungibleTokenPacketData {}
 
-
 impl TryFrom<RawFungibleTokenPacketData> for FungibleTokenPacketData {
     type Error = Error;
 
     fn try_from(value: RawFungibleTokenPacketData) -> Result<Self, Self::Error> {
-
         Ok(FungibleTokenPacketData {
             denom: value.denom,
             amount: value.amount,

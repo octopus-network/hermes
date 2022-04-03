@@ -16,7 +16,7 @@ pub struct Acknowledgement {
 impl Acknowledgement {
     pub fn new(value: Vec<u8>) -> Self {
         Self {
-            response: Some(acknowledgement::Response::Result(value))
+            response: Some(acknowledgement::Response::Result(value)),
         }
     }
 }
