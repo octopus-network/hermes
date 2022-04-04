@@ -54,7 +54,7 @@ flex-error = { version = "0.4.2", default-features = false }
 signal-hook = "0.3.10"
 
 [dependencies.tendermint-proto]
-version = "=0.21.0"
+version = "=0.23.6"
 
 [dependencies.tendermint]
 version = "=0.21.0"
