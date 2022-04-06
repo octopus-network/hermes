@@ -333,6 +333,12 @@ impl FromStr for PortId {
     }
 }
 
+impl AsRef<str> for PortId {
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
 impl Default for PortId {
     fn default() -> Self {
         "defaultPort".to_string().parse().unwrap()
@@ -386,6 +392,12 @@ impl FromStr for ChannelId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         validate_channel_identifier(s).map(|_| Self(s.to_string()))
+    }
+}
+
+impl AsRef<str> for ChannelId {
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
     }
 }
 

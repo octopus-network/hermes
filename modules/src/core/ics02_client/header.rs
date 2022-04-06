@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-use prost_types::Any;
+use ibc_proto::google::protobuf::Any;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::to_string;
 use subtle_encoding::hex;

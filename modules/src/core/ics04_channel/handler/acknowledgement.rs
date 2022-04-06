@@ -1,4 +1,3 @@
-use crate::core::ics02_client::height::Height;
 use crate::core::ics03_connection::connection::State as ConnectionState;
 use crate::core::ics04_channel::channel::State;
 use crate::core::ics04_channel::channel::{Counterparty, Order};
@@ -22,7 +21,7 @@ pub struct AckPacketResult {
 
 pub fn process(
     ctx: &dyn ChannelReader,
-    msg: MsgAcknowledgement,
+    msg: &MsgAcknowledgement,
 ) -> HandlerResult<PacketResult, Error> {
     let mut output = HandlerOutput::builder();
 
@@ -238,7 +237,7 @@ mod tests {
         .collect();
 
         for test in tests {
-            let res = process(&test.ctx, test.msg.clone());
+            let res = process(&test.ctx, &test.msg);
             // Additionally check the events and the output objects in the result.
             match res {
                 Ok(proto_output) => {
@@ -254,6 +253,7 @@ mod tests {
 
                     for e in proto_output.events.iter() {
                         assert!(matches!(e, &IbcEvent::AcknowledgePacket(_)));
+                        assert_eq!(e.height(), test.ctx.host_height());
                     }
                 }
                 Err(e) => {
