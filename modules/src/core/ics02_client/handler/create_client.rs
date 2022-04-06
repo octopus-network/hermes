@@ -58,9 +58,8 @@ pub fn process(
 
     // TODO have ibc-rs informal have some different
     let event_attributes = Attributes {
-        height: msg.client_state.latest_height(),
-        client_id,
         height: ctx.host_height(),
+        client_id,
         ..Default::default()
     };
     output.emit(IbcEvent::CreateClient(event_attributes.into()));

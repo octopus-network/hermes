@@ -69,7 +69,7 @@ pub(crate) fn process(
 
     let event_attributes = Attributes {
         height: ctx.host_height().clone(),
-        port_id: msg.port_id,
+        port_id: msg.port_id.clone(),
         channel_id: Some(chan_id),
         connection_id: msg.channel.connection_hops[0].clone(),
         counterparty_port_id: msg.channel.counterparty().port_id.clone(),

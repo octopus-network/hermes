@@ -92,9 +92,8 @@ pub fn process(
     });
 
     let event_attributes = Attributes {
-        height: header.clone().height(),
-        client_id,
         height: ctx.host_height(),
+        client_id,
         ..Default::default()
     };
     output.emit(IbcEvent::UpdateClient(event_attributes.into()));

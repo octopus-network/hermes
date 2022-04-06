@@ -21,6 +21,7 @@ use crate::core::ics03_connection::connection::ConnectionEnd;
 use crate::core::ics04_channel::channel::ChannelEnd;
 use crate::core::ics04_channel::context::ChannelReader;
 use crate::core::ics04_channel::packet::Sequence;
+use crate::core::ics04_channel::msgs::acknowledgement::Acknowledgement;
 use crate::core::ics23_commitment::commitment::{
     CommitmentPrefix, CommitmentProofBytes, CommitmentRoot,
 };
@@ -332,7 +333,7 @@ impl ClientDef for GrandpaClient {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: Sequence,
-        ack: Vec<u8>,
+        ack: Acknowledgement,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![
             port_id.as_bytes().to_vec(),
@@ -351,7 +352,7 @@ impl ClientDef for GrandpaClient {
             ack
         );
 
-        let ack = format!("{:?}", ack);
+        let ack = format!("{:?}", ack.into_bytes());
         if !(storage_result == Self::hash(ack).encode()) {
             return Err(Error::invalid_packet_ack(sequence));
         }

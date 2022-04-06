@@ -144,7 +144,7 @@ pub fn process(ctx: &dyn ChannelReader, msg: &MsgRecvPacket) -> HandlerResult<Pa
 
     output.emit(IbcEvent::ReceivePacket(ReceivePacket {
         height: ctx.host_height(),
-        packet: msg.packet,
+        packet: msg.packet.clone(),
     }));
 
     Ok(output.with_result(result))
