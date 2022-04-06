@@ -54,7 +54,7 @@ define_error! {
         AcknowledgementResponseEmpty
             | _ | { "acknowledgement response is empty" },
 
-        InvalidValidation 
+        InvalidValidation
             [ ValidationError ]
             | _ | { "invalid validation error" }
 
