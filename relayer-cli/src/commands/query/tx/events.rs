@@ -48,7 +48,7 @@ impl Runnable for QueryTxEventsCmd {
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
-                let chain = ChainRuntime::<CosmosSdkChain>::spawn::<ProdChainHandle>(
+                let chain = ChainRuntime::<CosmosSdkChain>::spawn::<BaseChainHandle>(
                     chain_config.clone(),
                     rt,
                 )
@@ -68,7 +68,7 @@ impl Runnable for QueryTxEventsCmd {
                 }
             }
             "substrate" => {
-                let chain = ChainRuntime::<SubstrateChain>::spawn::<ProdChainHandle>(
+                let chain = ChainRuntime::<SubstrateChain>::spawn::<BaseChainHandle>(
                     chain_config.clone(),
                     rt,
                 )

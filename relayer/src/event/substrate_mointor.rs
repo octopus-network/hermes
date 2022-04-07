@@ -719,17 +719,14 @@ fn from_raw_event_to_batch_event(
             // let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
-            use ibc::core::ics04_channel::events::Attributes;
-            let event = IbcEvent::OpenInitChannel(
-                ibc::core::ics04_channel::events::OpenInit::from(Attributes {
-                    height: height.to_ibc_height(),
-                    port_id: port_id.to_ibc_port_id(),
-                    channel_id: channel_id,
-                    connection_id: connection_id.to_ibc_connection_id(),
-                    counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                    counterparty_channel_id: counterparty_channel_id,
-                }),
-            );
+            let event = IbcEvent::OpenInitChannel(ibc::core::ics04_channel::events::OpenInit {
+                height: height.to_ibc_height(),
+                port_id: port_id.to_ibc_port_id(),
+                channel_id: channel_id,
+                connection_id: connection_id.to_ibc_connection_id(),
+                counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                counterparty_channel_id: counterparty_channel_id,
+            });
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -757,17 +754,14 @@ fn from_raw_event_to_batch_event(
             // let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
-            use ibc::core::ics04_channel::events::Attributes;
-            let event = IbcEvent::OpenTryChannel(ibc::core::ics04_channel::events::OpenTry::from(
-                Attributes {
-                    height: height.to_ibc_height(),
-                    port_id: port_id.to_ibc_port_id(),
-                    channel_id: channel_id,
-                    connection_id: connection_id.to_ibc_connection_id(),
-                    counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                    counterparty_channel_id: counterparty_channel_id,
-                },
-            ));
+            let event = IbcEvent::OpenTryChannel(ibc::core::ics04_channel::events::OpenTry {
+                height: height.to_ibc_height(),
+                port_id: port_id.to_ibc_port_id(),
+                channel_id: channel_id,
+                connection_id: connection_id.to_ibc_connection_id(),
+                counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                counterparty_channel_id: counterparty_channel_id,
+            });
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -795,17 +789,14 @@ fn from_raw_event_to_batch_event(
             // let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
-            use ibc::core::ics04_channel::events::Attributes;
-            let event = IbcEvent::OpenAckChannel(ibc::core::ics04_channel::events::OpenAck::from(
-                Attributes {
-                    height: height.to_ibc_height(),
-                    port_id: port_id.to_ibc_port_id(),
-                    channel_id: channel_id,
-                    connection_id: connection_id.to_ibc_connection_id(),
-                    counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                    counterparty_channel_id: counterparty_channel_id,
-                },
-            ));
+            let event = IbcEvent::OpenAckChannel(ibc::core::ics04_channel::events::OpenAck {
+                height: height.to_ibc_height(),
+                port_id: port_id.to_ibc_port_id(),
+                channel_id: channel_id,
+                connection_id: connection_id.to_ibc_connection_id(),
+                counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                counterparty_channel_id: counterparty_channel_id,
+            });
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -833,17 +824,15 @@ fn from_raw_event_to_batch_event(
             // let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
-            use ibc::core::ics04_channel::events::Attributes;
-            let event = IbcEvent::OpenConfirmChannel(
-                ibc::core::ics04_channel::events::OpenConfirm::from(Attributes {
+            let event =
+                IbcEvent::OpenConfirmChannel(ibc::core::ics04_channel::events::OpenConfirm {
                     height: height.to_ibc_height(),
                     port_id: port_id.to_ibc_port_id(),
                     channel_id: channel_id,
                     connection_id: connection_id.to_ibc_connection_id(),
                     counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
                     counterparty_channel_id: counterparty_channel_id,
-                }),
-            );
+                });
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -871,17 +860,14 @@ fn from_raw_event_to_batch_event(
             // let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
-            use ibc::core::ics04_channel::events::Attributes;
-            let event = IbcEvent::CloseInitChannel(
-                ibc::core::ics04_channel::events::CloseInit::from(Attributes {
-                    height: height.to_ibc_height(),
-                    port_id: port_id.to_ibc_port_id(),
-                    channel_id: channel_id,
-                    connection_id: connection_id.to_ibc_connection_id(),
-                    counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
-                    counterparty_channel_id: counterparty_channel_id,
-                }),
-            );
+            let event = IbcEvent::CloseInitChannel(ibc::core::ics04_channel::events::CloseInit {
+                height: height.to_ibc_height(),
+                port_id: port_id.to_ibc_port_id(),
+                channel_id: channel_id.unwrap_or_default(),
+                connection_id: connection_id.to_ibc_connection_id(),
+                counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
+                counterparty_channel_id: counterparty_channel_id,
+            });
 
             EventBatch {
                 height: height.to_ibc_height(),
@@ -911,17 +897,15 @@ fn from_raw_event_to_batch_event(
             // let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.to_ibc_channel_id());
             let counterparty_channel_id = event.5.map(|val| val.to_ibc_channel_id());
 
-            use ibc::core::ics04_channel::events::Attributes;
-            let event = IbcEvent::CloseConfirmChannel(
-                ibc::core::ics04_channel::events::CloseConfirm::from(Attributes {
+            let event =
+                IbcEvent::CloseConfirmChannel(ibc::core::ics04_channel::events::CloseConfirm {
                     height: height.to_ibc_height(),
                     port_id: port_id.to_ibc_port_id(),
                     channel_id: channel_id,
                     connection_id: connection_id.to_ibc_connection_id(),
                     counterparty_port_id: counterparty_port_id.to_ibc_port_id(),
                     counterparty_channel_id: counterparty_channel_id,
-                }),
-            );
+                });
 
             EventBatch {
                 height: height.to_ibc_height(),

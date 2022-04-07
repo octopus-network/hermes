@@ -30,8 +30,6 @@ impl Runnable for StartCmd {
     fn run(&self) {
         let config = (*app_config()).clone();
 
-        let config = Arc::new(RwLock::new(config));
-
         let supervisor_handle = make_supervisor::<CachingChainHandle>(config, self.full_scan)
             .unwrap_or_else(|e| {
                 Output::error(format!("Hermes failed to start, last error: {}", e)).exit()
