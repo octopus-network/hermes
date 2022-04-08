@@ -619,7 +619,7 @@ impl Ics26Context for MockContext {
 impl Ics20Context for MockContext {
     fn get_denom_trace(
         &self,
-        denom_trace_hash: &Vec<u8>,
+        denom_trace_hash: &[u8],
     ) -> Result<
         crate::applications::ics20_fungible_token_transfer::msgs::denom_trace::DenomTrace,
         crate::applications::ics20_fungible_token_transfer::error::Error,
@@ -627,7 +627,7 @@ impl Ics20Context for MockContext {
         todo!()
     }
 
-    fn has_denom_trace(&self, denom_trace_hash: &Vec<u8>) -> bool {
+    fn has_denom_trace(&self, denom_trace_hash: &[u8]) -> bool {
         todo!()
     }
 
