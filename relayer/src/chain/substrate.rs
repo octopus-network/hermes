@@ -58,7 +58,9 @@ use ibc_proto::ibc::core::connection::v1::{
     QueryClientConnectionsRequest, QueryConnectionsRequest,
 };
 use octopusxt::ibc_node;
-use prost_types::Any;
+// use prost_types::Any;
+use super::client::ClientSettings;
+use ibc_proto::google::protobuf::Any;
 use retry::delay::Fixed;
 use retry::OperationResult;
 use semver::Version;
@@ -364,15 +366,24 @@ impl SubstrateChain {
 
     /// The function to submit IBC request to a Substrate chain
     /// This function handles most of the IBC reqeusts, except the MMR root update
-    fn deliever(&self, msg: Vec<Any>) -> Result<subxt::sp_core::H256, Box<dyn std::error::Error>> {
+    fn deliever(
+        &self,
+        msgs: Vec<Any>,
+    ) -> Result<Vec<subxt::sp_core::H256>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [deliever]");
-        let type_urls = msg
-            .iter()
-            .map(|value| value.type_url.clone())
-            .collect::<Vec<String>>();
-        tracing::debug!("in substrate: [deliever] msg.type_url = {:?}", type_urls);
+        // let type_urls = msg
+        //     .iter()
+        //     .map(|value| value.type_url.clone())
+        //     .collect::<Vec<String>>();
+        // tracing::debug!("in substrate: [deliever] msg.type_url = {:?}", type_urls);
+        let mut result_hash = vec![];
 
-        self.block_on(octopusxt::deliver(msg, self.get_client()))
+        for msg in msgs {
+            let ret = self.block_on(octopusxt::deliver(msg, self.get_client()))?;
+            result_hash.push(ret);
+        }
+
+        Ok(result_hash)
     }
 
     fn get_write_ack_packet_event(
@@ -710,7 +721,7 @@ impl ChainEndpoint for SubstrateChain {
             code: Code::default(),
             data: serde_json::from_str(json).unwrap(),
             log: Log::from("testtest"),
-            hash: transaction::Hash::new(*result.as_fixed_bytes()),
+            hash: transaction::Hash::new(*result.as_slice().last().unwrap().as_fixed_bytes()),
         };
 
         Ok(vec![tx_re])
@@ -1454,7 +1465,7 @@ impl ChainEndpoint for SubstrateChain {
     fn build_client_state(
         &self,
         height: ICSHeight,
-        dst_config: ChainConfig,
+        dst_config: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
         tracing::trace!(
             "in substrate: [build_client_state] >> height = {:?}",
@@ -1718,6 +1729,10 @@ impl ChainEndpoint for SubstrateChain {
 
         // Ok(result)
         Ok((vec![], vec![]))
+    }
+
+    fn query_host_consensus_state(&self, height: ICSHeight) -> Result<Self::ConsensusState, Error> {
+        todo!()
     }
 }
 

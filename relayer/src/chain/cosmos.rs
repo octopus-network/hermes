@@ -1945,7 +1945,8 @@ impl ChainEndpoint for CosmosSdkChain {
         let response = self
             .block_on(rpc_call)
             .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
-        Ok(response.block.header.into())
+
+        Ok(AnyConsensusState::Tendermint(response.block.header.into()))
     }
 
     fn proven_client_state(

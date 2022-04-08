@@ -479,6 +479,7 @@ impl ChainHandle for BaseChainHandle {
             dst_chain_websocket_url,
             reply_to,
         })
+    }
 
     fn query_host_consensus_state(&self, height: Height) -> Result<AnyConsensusState, Error> {
         self.send(|reply_to| ChainRequest::QueryHostConsensusState { height, reply_to })
