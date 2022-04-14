@@ -14,9 +14,23 @@ pub struct Acknowledgement {
 }
 
 impl Acknowledgement {
-    pub fn new(value: Vec<u8>) -> Self {
+    pub fn new_success(value: Vec<u8>) -> Self {
         Self {
             response: Some(acknowledgement::Response::Result(value)),
+        }
+    }
+
+    pub fn new_error(value: String) -> Self {
+        Self {
+            response: Some(acknowledgement::Response::Error(value)),
+        }
+    }
+
+    pub fn success(&self) -> bool {
+        // todo unwrap
+        match self.response.as_ref().unwrap() {
+            acknowledgement::Response::Result(_value) => true,
+            acknowledgement::Response::Error(_e) => false,
         }
     }
 }
