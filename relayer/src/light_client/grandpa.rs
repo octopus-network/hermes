@@ -103,6 +103,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
                 .unwrap();
 
             // get block header
+            // todo unwrap
             let block_header = octopusxt::call_ibc::get_header_by_block_number(
                 client.clone(),
                 Some(BlockNumber::from(target.revision_height as u32)),

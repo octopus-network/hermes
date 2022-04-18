@@ -75,6 +75,7 @@ impl ClientDef for GrandpaClient {
                     header.mmr_leaf_proof.leaf_count, client_state.latest_commitment.block_number
                 );
             let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
+            // todo unwrap()
             let any_consensus_state = ctx.consensus_state(&client_id, height).unwrap();
             let consensus_state = match any_consensus_state {
                 AnyConsensusState::Grandpa(_v) => _v,
@@ -111,6 +112,7 @@ impl ClientDef for GrandpaClient {
             mmr_leaf.parent_number_and_hash.1
         );
 
+        // todo 
         /*            if header_hash != mmr_leaf.parent_number_and_hash.1 {
             return Err(Error::header_hash_not_match());
         }*/
@@ -202,14 +204,17 @@ impl ClientDef for GrandpaClient {
         expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![connection_id.as_bytes().to_vec()];
+        // todo unwrap
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Connections").unwrap();
+        // todo unwrap
         let connection_end = ConnectionEnd::decode_vec(&storage_result).unwrap();
         tracing::trace!(
             "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
             connection_end
         );
 
+        // todo unwrap
         if !(connection_end.encode_vec().unwrap() == expected_connection_end.encode_vec().unwrap())
         {
             return Err(Error::invalid_connection_state());
@@ -232,14 +237,17 @@ impl ClientDef for GrandpaClient {
         expected_channel_end: &ChannelEnd,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
+        // todo unwrap
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Channels").unwrap();
+        // todo unwrap
         let channel_end = ChannelEnd::decode_vec(&storage_result).unwrap();
         tracing::trace!(
             "In ics10-client_def.rs: [verify_connection_state] >> channel_end: {:?}",
             channel_end
         );
 
+        // todo unwrap()
         if !(channel_end.encode_vec().unwrap() == expected_channel_end.encode_vec().unwrap()) {
             return Err(Error::invalid_connection_state());
         }
@@ -260,8 +268,10 @@ impl ClientDef for GrandpaClient {
         expected_client_state: &AnyClientState,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![client_id.as_bytes().to_vec()];
+        // todo unwrap
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates").unwrap();
+        // todo unwrap
         let any_client_state = AnyClientState::decode_vec(&storage_result).unwrap();
         tracing::trace!(
             "In ics10-client_def.rs: [verify_client_full_state] >> decoded client_state: {:?}",
@@ -272,6 +282,7 @@ impl ClientDef for GrandpaClient {
             expected_client_state
         );
 
+        // todo unwrap
         if !(any_client_state.encode_vec().unwrap() == expected_client_state.encode_vec().unwrap())
         {
             return Err(Error::invalid_client_state());
@@ -300,10 +311,12 @@ impl ClientDef for GrandpaClient {
             channel_id.as_bytes().to_vec(),
             u64::from(sequence).encode(),
         ];
+        //  todo unwrap
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment")
                 .unwrap();
 
+        // todo unwrap()
         tracing::trace!(
             "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
             String::from_utf8(storage_result.clone()).unwrap()
@@ -340,6 +353,7 @@ impl ClientDef for GrandpaClient {
             channel_id.as_bytes().to_vec(),
             u64::from(sequence).encode(),
         ];
+        // todo unwrap
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")
                 .unwrap();
@@ -374,6 +388,7 @@ impl ClientDef for GrandpaClient {
         sequence: Sequence,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
+        // todo unwrap
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")
                 .unwrap();
@@ -382,6 +397,7 @@ impl ClientDef for GrandpaClient {
             storage_result
         );
 
+        // todo unwrap
         let sequence_restored: u64 = u64::decode(&mut &storage_result[..]).unwrap();
         if sequence_restored > u64::from(sequence) {
             return Err(Error::invalid_next_sequence_recv(
@@ -438,15 +454,19 @@ impl GrandpaClient {
             pub proof: Vec<Vec<u8>>,
         }
 
+        // todo unwrap()
         let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
+        // todo unwrap
         let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap(); // TODO have error
         let storage_proof = match _merkel_proof {
             Exist(_exist_proof) => {
+                // todo unwrap
                 let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
                 tracing::trace!(
                     "In ics10-client_def.rs: [extract_verify_beefy_proof] >> _proof_str: {:?}",
                     _proof_str
                 );
+                // todo unwrap
                 let _storage_proof: ReadProofU8 = serde_json::from_str(&_proof_str).unwrap();
                 _storage_proof
             }
@@ -465,6 +485,7 @@ impl GrandpaClient {
             state_root
         );
 
+        // todo unwrap
         let storage_result = read_proof_check::<BlakeTwo256>(
             sp_core::H256::from(state_root),
             StorageProof::new(storage_proof.proof),
@@ -478,6 +499,7 @@ impl GrandpaClient {
             storage_result
         );
 
+        // todo unwrap
         let storage_result = <Vec<u8>>::decode(&mut &storage_result[..]).unwrap();
         tracing::trace!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_result truncated: {:?}", storage_result);
 

@@ -35,6 +35,7 @@ impl DenomTrace {
         // return hash[:]
         let mut hasher = Sha256::new();
 
+        // todo unwrap()
         hasher.update(self.get_full_denom_path().unwrap().as_bytes());
         let denom_bytes = hasher.finalize();
         // let hash = vec![0u8; 32];
@@ -53,6 +54,7 @@ impl DenomTrace {
     // 'ibc/{hash(tracePath + baseDenom)}'. If the trace is empty, it will return the base denomination.
     pub fn ibc_denom(&self) -> Result<String, Error> {
         if self.path != "" {
+            // todo unwrap()
             let denom_hex =
                 String::from_utf8(hex::encode_upper(self.hash().unwrap())).map_err(Error::utf8)?;
             return Ok(format!("{}/{}", DENOM_PREFIX, denom_hex));

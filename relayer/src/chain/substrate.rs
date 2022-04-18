@@ -461,6 +461,7 @@ impl SubstrateChain {
             use sp_core::{storage::StorageKey, Bytes};
             use subxt::{rpc::NumberOrHex, sp_core::H256, storage::StorageKeyPrefix, BlockNumber};
 
+            // todo unwrap()
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
@@ -468,16 +469,19 @@ impl SubstrateChain {
                 .unwrap();
 
             let _height = NumberOrHex::Number(height.revision_height);
+            // todo unwrap()
             let block_hash: Option<H256> = client
                 .rpc()
                 .block_hash(Some(BlockNumber::from(_height)))
                 .await
                 .unwrap();
+
             let storage_key = storage_entry.key().final_key(StorageKeyPrefix::new::<F>());
             tracing::trace!("in substrate: [generate_storage_proof] >> height: {:?}, block_hash: {:?}, storage key: {:?}, storage_name = {:?}",
                 height, block_hash, storage_key, storage_name);
 
             use jsonrpsee::types::to_json_value;
+            // todo unwrap()
             let params = &[
                 to_json_value(vec![storage_key]).unwrap(),
                 to_json_value(block_hash.unwrap()).unwrap(),
@@ -489,6 +493,7 @@ impl SubstrateChain {
                 pub at: String,
                 pub proof: Vec<Bytes>,
             }
+            // todo unwrap()
             let storage_proof: ReadProof_ = client
                 .rpc()
                 .client
@@ -564,6 +569,7 @@ impl ChainEndpoint for SubstrateChain {
         let config = self.config.clone();
 
         let public_key = async {
+            // todo unwrap
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
@@ -572,6 +578,7 @@ impl ChainEndpoint for SubstrateChain {
 
             let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
+            // todo unwrap
             let authorities = api.storage().beefy().authorities(None).await.unwrap();
             tracing::info!("authorities length : {:?}", authorities.len());
             let result: Vec<String> = authorities
@@ -666,6 +673,7 @@ impl ChainEndpoint for SubstrateChain {
                 "in substrate: [send_messages_and_wait_commit] >> result : {:?}",
                 result
             );
+            // todo unwrap
             let ret = self.subscribe_ibc_events().unwrap();
             return Ok(ret);
         }
@@ -708,7 +716,8 @@ impl ChainEndpoint for SubstrateChain {
                 return Err(Error::sub_tx_error(err_str));
             }
         }
-
+        
+        // todo unwrap
         let result = result.unwrap();
         tracing::debug!(
             "in substrate: [send_messages_and_wait_check_tx] >> result : {:?}",
@@ -719,8 +728,10 @@ impl ChainEndpoint for SubstrateChain {
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
         let tx_re = TxResponse {
             code: Code::default(),
+            // todo unwrap
             data: serde_json::from_str(json).unwrap(),
             log: Log::from("testtest"),
+            // todo unwrap
             hash: transaction::Hash::new(*result.as_slice().last().unwrap().as_fixed_bytes()),
         };
 
@@ -739,6 +750,7 @@ impl ChainEndpoint for SubstrateChain {
         }
 
         pub fn get_dummy_account_id() -> AccountId {
+            // todo unwrap
             AccountId::from_str(&get_dummy_account_id_raw()).unwrap()
         }
 
@@ -758,6 +770,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!("in substrate: [query_commitment_prefix]");
 
         // TODO - do a real chain query
+        // todo unwrap
         Ok(CommitmentPrefix::try_from(self.config().store_prefix.as_bytes().to_vec()).unwrap())
     }
 
@@ -803,10 +816,12 @@ impl ChainEndpoint for SubstrateChain {
             "in substrate: [query_consensus_states] >> request = {:?}",
             request
         );
+        // todo unwrap
         let request_client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
 
         let result = self.retry_wapper(|| self.get_consensus_state_with_height(&request_client_id));
 
+        // todo unwrap
         let consensus_state: Vec<(Height, AnyConsensusState)> = result.unwrap();
 
         let mut any_consensus_state_with_height = vec![];
@@ -895,6 +910,7 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
+        // todo unwrap
         let client_id = ClientId::from_str(request.client_id.as_str()).unwrap();
 
         let result = self.retry_wapper(|| self.get_client_connections(&client_id));
@@ -904,6 +920,7 @@ impl ChainEndpoint for SubstrateChain {
             result
         );
 
+        // todo unwrap
         Ok(result.unwrap())
     }
 
@@ -919,6 +936,7 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
+        // todo unwrap
         let connection_end = self
             .retry_wapper(|| self.get_connection_end(connection_id))
             .unwrap();
@@ -939,6 +957,7 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
+        // todo unwrap
         let connection_id = ConnectionId::from_str(&request.connection).unwrap();
         let result = self.retry_wapper(|| self.get_connection_channels(&connection_id));
 
@@ -947,6 +966,7 @@ impl ChainEndpoint for SubstrateChain {
             result
         );
 
+        // todo unwrap
         Ok(result.unwrap())
     }
 
@@ -960,6 +980,7 @@ impl ChainEndpoint for SubstrateChain {
 
         tracing::trace!("in substrate: [query_connections] >> clients: {:?}", result);
 
+        // todo unwrap
         Ok(result.unwrap())
     }
 
@@ -977,6 +998,7 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
+        // todo unwrap
         let channel_end = self
             .retry_wapper(|| self.get_channel_end(port_id, channel_id))
             .unwrap();
@@ -1013,8 +1035,10 @@ impl ChainEndpoint for SubstrateChain {
 
         let height = self.retry_wapper(|| self.get_latest_height());
 
+        // todo unwrap
         let latest_height = Height::new(0, height.unwrap());
 
+        // todo unwrap
         Ok((packet_commitments.unwrap(), latest_height))
     }
 
@@ -1027,12 +1051,15 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
+        // todo unwrap
         let port_id = PortId::from_str(request.port_id.as_str()).unwrap();
+        // todo unwrap
         let channel_id = ChannelId::from_str(request.channel_id.as_str()).unwrap();
         let seqs = request.packet_commitment_sequences.clone();
 
         let result = self.retry_wapper(|| self.get_unreceipt_packet(&port_id, &channel_id, &seqs));
 
+        // todo unwrap
         Ok(result.unwrap())
     }
 
@@ -1049,8 +1076,10 @@ impl ChainEndpoint for SubstrateChain {
 
         let height = self.retry_wapper(|| self.get_latest_height());
 
+        // todo unwrap
         let latest_height = Height::new(0, height.unwrap());
 
+        // todo unwrap
         Ok((packet_acknowledgements.unwrap(), latest_height))
     }
 
@@ -1063,7 +1092,9 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
+        // todo unwrap
         let port_id = PortId::from_str(request.port_id.as_str()).unwrap();
+        // todo unwrap
         let channel_id = ChannelId::from_str(request.channel_id.as_str()).unwrap();
         let seqs = request.packet_ack_sequences.clone();
 
@@ -1216,7 +1247,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes().to_vec());
         Ok((
-            result.unwrap(),
+            result.unwrap(),// todo unwrap
             self.generate_storage_proof(&storage_entry, &height, "ClientStates"),
         ))
     }
@@ -1239,6 +1270,7 @@ impl ChainEndpoint for SubstrateChain {
             result
         );
 
+        // todo unwrap
         let connection_end = result.unwrap();
 
         let new_connection_end;
@@ -1330,7 +1362,7 @@ impl ChainEndpoint for SubstrateChain {
             channel_id.as_bytes().to_vec(),
         );
         Ok((
-            result.unwrap(),
+            result.unwrap(),// todo unwrap
             self.generate_storage_proof(&storage_entry, &height, "Channels"),
         ))
     }
@@ -1428,7 +1460,7 @@ impl ChainEndpoint for SubstrateChain {
                     u64::from(sequence.clone()).encode(),
                 );
                 Ok((
-                    result.unwrap(),
+                    result.unwrap(),// todo unwrap
                     self.generate_storage_proof(&storage_entry, &height, "PacketCommitment"),
                 ))
             }
@@ -1439,7 +1471,7 @@ impl ChainEndpoint for SubstrateChain {
                     u64::from(sequence.clone()).encode(),
                 );
                 Ok((
-                    result.unwrap(),
+                    result.unwrap(),// todo unwrap
                     self.generate_storage_proof(&storage_entry, &height, "Acknowledgements"),
                 ))
             }
@@ -1455,7 +1487,7 @@ impl ChainEndpoint for SubstrateChain {
                     channel_id.as_bytes().to_vec(),
                 );
                 Ok((
-                    result.unwrap(),
+                    result.unwrap(),// todo unwrap
                     self.generate_storage_proof(&storage_entry, &height, "NextSequenceRecv"),
                 ))
             } // Todo: Ordered channel not supported in ibc-rs. https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/link.rs#L135
@@ -1476,6 +1508,7 @@ impl ChainEndpoint for SubstrateChain {
         use sp_core::Public;
 
         let public_key = async {
+            // todo unwrap
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
@@ -1484,6 +1517,7 @@ impl ChainEndpoint for SubstrateChain {
 
             let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
+            // todo unwrap
             let authorities = api.storage().beefy().authorities(None).await.unwrap();
             tracing::trace!("authorities length : {:?}", authorities.len());
             let result: Vec<String> = authorities
@@ -1559,6 +1593,7 @@ impl ChainEndpoint for SubstrateChain {
 
         // build target height header
         let result = async {
+            // todo unwrap
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
@@ -1575,6 +1610,7 @@ impl ChainEndpoint for SubstrateChain {
             assert!((target_height.revision_height as u32) <= mmr_root_height);
 
             // get block header
+            // todo unwrap
             let block_header = octopusxt::call_ibc::get_header_by_block_number(
                 client.clone(),
                 Some(BlockNumber::from(target_height.revision_height as u32)),
@@ -1597,6 +1633,7 @@ impl ChainEndpoint for SubstrateChain {
                 target_height
             );
 
+            // todo unwrap
             let block_hash: Option<sp_core::H256> = api
                 .client
                 .rpc()
@@ -1604,6 +1641,7 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
 
+                // todo unwrap
             let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
                 target_height.revision_height - 1,
                 block_hash,
@@ -1619,8 +1657,11 @@ impl ChainEndpoint for SubstrateChain {
 
         let encoded_mmr_leaf = result.1 .1;
         let encoded_mmr_leaf_proof = result.1 .2;
+        // todo unwrap
         let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
+        // todo unwrap
         let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
+        // todo unwrap
         let mmr_leaf_proof =
             beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..])
                 .unwrap();
@@ -1653,20 +1694,24 @@ impl ChainEndpoint for SubstrateChain {
             src_chain_websocket_url, dst_chain_websocket_url
         );
         let result = async {
+            // todo unwrap
             let chain_a = ClientBuilder::new()
                 .set_url(src_chain_websocket_url)
                 .build::<ibc_node::DefaultConfig>()
                 .await
                 .unwrap();
+                // todo unwrap
             let chain_b = ClientBuilder::new()
                 .set_url(dst_chain_websocket_url)
                 .build::<ibc_node::DefaultConfig>()
                 .await
                 .unwrap();
 
+                // todo unwrap
             octopusxt::update_client_state::update_client_state(chain_a.clone(), chain_b.clone())
                 .await
                 .unwrap();
+                // todo unwrap
             octopusxt::update_client_state::update_client_state(chain_b.clone(), chain_a.clone())
                 .await
                 .unwrap();
@@ -1700,6 +1745,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let height = self.retry_wapper(|| self.get_latest_height());
 
+        // todo unwrap
         let latest_height = Height::new(0, height.unwrap());
 
         tracing::trace!(

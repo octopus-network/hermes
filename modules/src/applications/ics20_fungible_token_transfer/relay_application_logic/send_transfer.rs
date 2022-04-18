@@ -44,7 +44,9 @@ where
     // 	fullDenomPath, token.Amount.String(), sender.String(), receiver,
     // )
 
+    // todo unwrap
     let denom = msg.token.clone().unwrap().denom;
+    // todo unwrap
     let amount = msg.token.unwrap().amount;
 
     // contruct fungible token packet data

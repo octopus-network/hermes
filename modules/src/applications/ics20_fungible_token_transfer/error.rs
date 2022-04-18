@@ -56,8 +56,11 @@ define_error! {
 
         InvalidValidation
             [ ValidationError ]
-            | _ | { "invalid validation error" }
+            | _ | { "invalid validation error" },
 
+        InvalidSerdeIbcFungibleTokenPacketData
+            [ DisplayOnly<serde_json::Error> ]
+            | _ | { "invalid serde ibc fungible token packet data" }
 
     }
 }
