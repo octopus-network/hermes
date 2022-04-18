@@ -154,6 +154,7 @@ impl EventMonitor {
     pub fn subscribe(&mut self) -> Result<()> {
         let mut subscriptions = vec![];
 
+        // todo unwrap
         let subscription = self
             .rt
             .block_on(subscribe_events(self.client.clone()))
@@ -284,6 +285,7 @@ impl EventMonitor {
         let send_batch = self.tx_batch.clone();
 
         let sub_event = async move {
+            // todo unwrap
             let api = client
                 .clone()
                 .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
@@ -447,6 +449,7 @@ async fn subscribe_events(
     let decoder = api.client.events_decoder();
     let mut sub = EventSubscription::<ibc_node::DefaultConfig>::new(sub, decoder);
 
+    // todo unwrap
     let result = sub.next().await.unwrap();
 
     result

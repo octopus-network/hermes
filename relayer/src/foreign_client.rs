@@ -915,9 +915,11 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             // 根据client state的类型对应的客户端的类型来选择执行
             // if client state is grandpa client run this code
 
-            // need remove unwrap
+            // todo  unwrap
             let src_chain_websocket_url = self.src_chain().websocket_url().unwrap();
+            // tod unwrap
             let dst_chain_websocket_url = self.dst_chain().websocket_url().unwrap();
+            // todo unwrap
             let result = self
                 .src_chain()
                 .update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url)

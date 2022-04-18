@@ -103,6 +103,7 @@ impl SubstrateChain {
 
     fn get_client(&self) -> Client<ibc_node::DefaultConfig> {
         let client = async {
+            // todo unwrap
             ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
@@ -408,6 +409,7 @@ impl SubstrateChain {
     ) -> Vec<IbcEvent> {
         let mut result_event = vec![];
         for sequence in &request.sequences {
+            // todo unwrap
             let packet = self
                 .get_send_packet_event(
                     &request.source_port_id,
@@ -432,6 +434,7 @@ impl SubstrateChain {
         use ibc::core::ics04_channel::events::WriteAcknowledgement;
         let mut result_event = vec![];
         for sequence in &request.sequences {
+            // todo unwrap
             let write_ack = self
                 .get_write_ack_packet_event(
                     &request.source_port_id,
@@ -439,6 +442,7 @@ impl SubstrateChain {
                     sequence,
                 )
                 .unwrap();
+                // todo unwrap
             let write_ack = WriteAcknowledgement::decode(&*write_ack).unwrap();
             result_event.push(IbcEvent::WriteAcknowledgement(write_ack));
         }
@@ -524,6 +528,7 @@ impl SubstrateChain {
                 storage_proof_
             );
 
+            // todo unwrap
             let storage_proof_str = serde_json::to_string(&storage_proof_).unwrap();
             tracing::trace!(
                 "in substrate: [generate_storage_proof] >> storage_proof_str: {:?}",
@@ -660,6 +665,7 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEvent>, Error> {
+        // todo unwrap
         tracing::trace!(
             "in substrate: [send_messages_and_wait_commit]: proto_msg: {:?}",
             proto_msgs.messages().first().unwrap().type_url
@@ -678,6 +684,7 @@ impl ChainEndpoint for SubstrateChain {
             return Ok(ret);
         }
 
+        // todo unwrap
         let err_str = result.err().unwrap().to_string();
         if err_str.contains("Priority is too low") {
             // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
@@ -784,6 +791,7 @@ impl ChainEndpoint for SubstrateChain {
 
         tracing::trace!("in substrate: [query_clients] >> clients: {:?}", result);
 
+        // todo unwrap
         Ok(result.unwrap())
     }
 
@@ -805,6 +813,7 @@ impl ChainEndpoint for SubstrateChain {
             result
         );
 
+        // todo unwrap
         Ok(result.unwrap())
     }
 
@@ -898,6 +907,7 @@ impl ChainEndpoint for SubstrateChain {
 
         tracing::trace!("in substrate: [query_connections] >> clients: {:?}", result);
 
+        // todo unwrap
         Ok(result.unwrap())
     }
 
@@ -1386,6 +1396,7 @@ impl ChainEndpoint for SubstrateChain {
             }
 
             let result = async {
+                // todo unwrap
                 let client = ClientBuilder::new()
                     .set_url(&self.websocket_url.clone())
                     .build::<ibc_node::DefaultConfig>()
@@ -1811,6 +1822,7 @@ pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
 pub fn get_dummy_ics07_header() -> tHeader {
     use tendermint::block::signed_header::SignedHeader;
     // Build a SignedHeader from a JSON file.
+    // todo unwrap
     let shdr = serde_json::from_str::<SignedHeader>(include_str!(
         "../../../modules/tests/support/signed_header.json"
     ))
@@ -1822,6 +1834,7 @@ pub fn get_dummy_ics07_header() -> tHeader {
     use subtle_encoding::hex;
     use tendermint::validator::Info as ValidatorInfo;
     use tendermint::PublicKey;
+    // todo unwrap
     let v1: ValidatorInfo = ValidatorInfo::new(
         PublicKey::from_raw_ed25519(
             &hex::decode_upper("F349539C7E5EF7C49549B09C4BFC2335318AB0FE51FBFAA2433B4F13E816F4A7")
