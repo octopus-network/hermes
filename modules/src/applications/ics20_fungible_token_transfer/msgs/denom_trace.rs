@@ -139,6 +139,7 @@ pub fn parse_hex_hash(hex_hash: &str) -> Result<Vec<u8>, Error> {
     }
     // validate hash returns an error if the hash is not empty, but its
     // size != tmhash.Size.
+    // todo unwrap
     let hash = hash.unwrap();
     if hash.len() > 0 && hash.len() != Sha256::output_size() {
         return Err(Error::invalid_denom_for_transfer(format!(

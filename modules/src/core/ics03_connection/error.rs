@@ -4,7 +4,7 @@ use crate::core::ics24_host::error::ValidationError;
 use crate::core::ics24_host::identifier::{ClientId, ConnectionId};
 use crate::proofs::ProofError;
 use crate::Height;
-use flex_error::define_error;
+use flex_error::{define_error, DisplayOnly};
 
 define_error! {
     #[derive(Debug, PartialEq, Eq)]
@@ -154,5 +154,16 @@ define_error! {
 
         ImplementationSpecific
             | _ | { "implementation specific error" },
+        
+        InvalidDecode 
+            [ DisplayOnly<tendermint_proto::Error>]
+            | _ | { "invalid decode" },
+        
+        InvalidEncode 
+            [ DisplayOnly<tendermint_proto::Error>]
+            | _ | { "invalid encode" },
+
+        InvalidIncrementConnectionCounter
+            |_| { "invalid increment connection counter" },
     }
 }

@@ -1,4 +1,4 @@
-use crate::clients::ics10_grandpa::error::Error;
+use crate::clients::ics10_grandpa::error::Error as Ics10Error;
 use alloc::vec;
 use alloc::vec::Vec;
 use beefy_light_client::mmr::MmrLeafVersion;
@@ -8,6 +8,18 @@ use core::convert::TryFrom;
 use serde::{Deserialize, Serialize};
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Commitment as RawCommitment;
+
+use flex_error::{define_error, TraceError, DisplayOnly};
+use tendermint_proto::Error as TendermintError;
+
+define_error! {
+    #[derive(Debug, PartialEq, Eq)]
+    Error {
+        Invalid
+            | _ | { "invalid"}
+    }
+}
+
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct Commitment {
@@ -176,13 +188,13 @@ impl From<MmrLeaf> for beefy_light_client::mmr::MmrLeaf {
             version: MmrLeafVersion(value.version as u8),
             parent_number_and_hash: (
                 value.parent_number_and_hash.parent_header_number,
-                Hash::try_from(value.parent_number_and_hash.parent_header_hash).unwrap(),
+                Hash::try_from(value.parent_number_and_hash.parent_header_hash).unwrap(), // todo unwrap
             ),
             beefy_next_authority_set:
                 beefy_light_client::validator_set::BeefyNextAuthoritySet::from(
                     value.beefy_next_authority_set,
                 ),
-            parachain_heads: Hash::try_from(value.parachain_heads).unwrap(),
+            parachain_heads: Hash::try_from(value.parachain_heads).unwrap(),// todo unwrap
         }
     }
 }
@@ -191,8 +203,8 @@ impl From<RawMmrLeaf> for MmrLeaf {
     fn from(raw: RawMmrLeaf) -> Self {
         Self {
             version: raw.version,
-            parent_number_and_hash: raw.parent_number_and_hash.unwrap().into(),
-            beefy_next_authority_set: raw.beefy_next_authority_set.unwrap().into(),
+            parent_number_and_hash: raw.parent_number_and_hash.unwrap().into(),// todo unwrap
+            beefy_next_authority_set: raw.beefy_next_authority_set.unwrap().into(),// todo unwrap
             parachain_heads: raw.parachain_heads,
         }
     }
@@ -284,7 +296,7 @@ impl From<beefy_light_client::commitment::SignedCommitment> for SignedCommitment
             signatures: value
                 .signatures
                 .into_iter()
-                .map(|value| Signature::from(value.unwrap()))
+                .map(|value| Signature::from(value.unwrap()))// todo unwrap
                 .collect(),
         }
     }
@@ -293,7 +305,7 @@ impl From<beefy_light_client::commitment::SignedCommitment> for SignedCommitment
 impl From<SignedCommitment> for beefy_light_client::commitment::SignedCommitment {
     fn from(value: SignedCommitment) -> Self {
         Self {
-            commitment: value.commitment.unwrap().into(),
+            commitment: value.commitment.unwrap().into(), // todo unwrap
             signatures: value
                 .signatures
                 .into_iter()
@@ -306,7 +318,7 @@ impl From<SignedCommitment> for beefy_light_client::commitment::SignedCommitment
 impl From<RawSignedCommitment> for SignedCommitment {
     fn from(raw: RawSignedCommitment) -> Self {
         Self {
-            commitment: Some(raw.commitment.unwrap().into()),
+            commitment: Some(raw.commitment.unwrap().into()), // todo unwrap
             signatures: raw
                 .signatures
                 .into_iter()
@@ -319,7 +331,7 @@ impl From<RawSignedCommitment> for SignedCommitment {
 impl From<SignedCommitment> for RawSignedCommitment {
     fn from(value: SignedCommitment) -> Self {
         Self {
-            commitment: Some(value.commitment.unwrap().into()),
+            commitment: Some(value.commitment.unwrap().into()), // todo unwrap
             signatures: value
                 .signatures
                 .into_iter()
@@ -356,7 +368,7 @@ impl From<beefy_light_client::commitment::Signature> for Signature {
 impl From<Signature> for beefy_light_client::commitment::Signature {
     fn from(value: Signature) -> Self {
         Self {
-            0: <[u8; 65]>::try_from(value.signature).unwrap(),
+            0: <[u8; 65]>::try_from(value.signature).unwrap(), // todo unwrap
         }
     }
 }
@@ -505,7 +517,7 @@ impl From<MmrLeafProof> for beefy_light_client::mmr::MmrLeafProof {
             items: value
                 .items
                 .into_iter()
-                .map(|value| Hash::try_from(value).unwrap())
+                .map(|value| Hash::try_from(value).unwrap())// todo unwrap
                 .collect(),
         }
     }
@@ -580,12 +592,12 @@ impl From<beefy_light_client::header::Header> for BlockHeader {
 
 impl From<BlockHeader> for beefy_light_client::header::Header {
     fn from(value: BlockHeader) -> Self {
-        let digest = beefy_light_client::header::Digest::decode(&mut &value.digest[..]).unwrap();
+        let digest = beefy_light_client::header::Digest::decode(&mut &value.digest[..]).unwrap(); // TODO
         Self {
-            parent_hash: Hash::try_from(value.parent_hash).unwrap(),
+            parent_hash: Hash::try_from(value.parent_hash).unwrap(),// todo unwrap
             number: value.block_number,
-            state_root: Hash::try_from(value.state_root).unwrap(),
-            extrinsics_root: Hash::try_from(value.extrinsics_root).unwrap(),
+            state_root: Hash::try_from(value.state_root).unwrap(),// todo unwrap
+            extrinsics_root: Hash::try_from(value.extrinsics_root).unwrap(),// todo unwrap
             digest: digest,
         }
     }

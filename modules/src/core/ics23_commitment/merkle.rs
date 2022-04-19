@@ -43,8 +43,8 @@ impl From<RawMerkleProof> for MerkleProof {
             .into_iter()
             .map(|p| {
                 let mut encoded = Vec::new();
-                prost::Message::encode(&p, &mut encoded).unwrap();
-                prost::Message::decode(&*encoded).unwrap()
+                prost::Message::encode(&p, &mut encoded).unwrap(); // TODO
+                prost::Message::decode(&*encoded).unwrap() // TODO
             })
             .collect();
         Self { proofs }

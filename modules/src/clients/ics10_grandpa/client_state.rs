@@ -141,12 +141,12 @@ impl TryFrom<RawClientState> for ClientState {
         });
 
         Ok(Self {
-            chain_id: ChainId::from_str(raw.chain_id.as_str()).unwrap(),
+            chain_id: ChainId::from_str(raw.chain_id.as_str()).unwrap(),// todo unwrap
             block_number: raw.block_number,
             frozen_height,
-            block_header: raw.block_header.unwrap().into(),
-            latest_commitment: raw.latest_commitment.unwrap().into(),
-            validator_set: raw.validator_set.unwrap().into(),
+            block_header: raw.block_header.unwrap().into(), // todo unwrap
+            latest_commitment: raw.latest_commitment.unwrap().into(),//todo unwrap
+            validator_set: raw.validator_set.unwrap().into(),// todo unwrap
         })
     }
 }

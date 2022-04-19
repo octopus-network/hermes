@@ -83,9 +83,9 @@ impl TryFrom<RawHeader> for Header {
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
         Ok(Self {
-            block_header: raw.block_header.unwrap().into(),
-            mmr_leaf: raw.mmr_leaf.unwrap().into(),
-            mmr_leaf_proof: raw.mmr_leaf_proof.unwrap().into(),
+            block_header: raw.block_header.unwrap().into(),// todo unwrap
+            mmr_leaf: raw.mmr_leaf.unwrap().into(),// todo unwrap
+            mmr_leaf_proof: raw.mmr_leaf_proof.unwrap().into(),//todo unwrap()
         })
     }
 }

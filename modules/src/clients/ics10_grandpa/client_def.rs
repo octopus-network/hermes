@@ -568,6 +568,7 @@ impl GrandpaClient {
             return Ok(final_key);
         }
 
+        // todo unwrap
         return Err(Error::wrong_key_number(_keys.len().try_into().unwrap()));
     }
 

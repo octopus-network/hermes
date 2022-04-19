@@ -58,6 +58,7 @@ where
     };
 
     // endocde packet data
+    // todo unwrap
     let encode_packet_data = serde_json::to_vec(&packet_data).unwrap();
 
     let packet = Packet {

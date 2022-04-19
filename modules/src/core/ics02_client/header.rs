@@ -83,13 +83,13 @@ impl Header for AnyHeader {
 
 impl AnyHeader {
     pub fn encode_to_string(&self) -> String {
-        let buf = Protobuf::encode_vec(self).expect("encoding shouldn't fail");
+        let buf = Protobuf::encode_vec(self).expect("encoding shouldn't fail"); // TODO
         let encoded = hex::encode(buf);
-        String::from_utf8(encoded).expect("hex-encoded string should always be valid UTF-8")
+        String::from_utf8(encoded).expect("hex-encoded string should always be valid UTF-8") // todo unwrap
     }
 
     pub fn decode_from_string(s: &str) -> Result<Self, Error> {
-        let header_bytes = hex::decode(s).unwrap();
+        let header_bytes = hex::decode(s).unwrap();// TODO
         Protobuf::decode(header_bytes.as_ref()).map_err(Error::invalid_raw_header)
     }
 }

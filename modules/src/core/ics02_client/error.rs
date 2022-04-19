@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-use flex_error::{define_error, TraceError};
+use flex_error::{define_error, TraceError, DisplayOnly};
 
 use crate::clients::ics07_tendermint::error::Error as Ics07Error;
 use crate::clients::ics10_grandpa::error::Error as Ics10Error;
@@ -346,6 +346,29 @@ define_error! {
                     "The next_sequence_recv is {0}, which is should not be greater than the current sequence {1} in packet timeout verification of ordered channel",
                     e.sequence_restored, e.sequence)
             },
+
+        InvalidFromUtf8
+            [ TraceError<alloc::string::FromUtf8Error>]
+            | _ | { "invalid from utf8"},
+
+        InvalidDecode
+            [ DisplayOnly<tendermint_proto::Error> ]
+            | _ | { "invalid decode" },
+
+        InvalidCodecDecode
+            [ DisplayOnly<codec::Error> ]
+            |_| { "invalid codec decode" },
+
+        InvalidIncreaseClientCounter
+            | _ | { "invalid client counter" },
+        
+        InvalidEncode
+            [ DisplayOnly<tendermint_proto::Error> ]
+            | _ | { "invalid encode" },
+        
+        InvalidSerdeJsonEncode
+            [ DisplayOnly<serde_json::Error> ]
+            |_| { "invalid serde json encode"},
     }
 }
 

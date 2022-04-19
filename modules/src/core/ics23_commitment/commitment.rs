@@ -16,7 +16,7 @@ pub struct CommitmentRoot {
 
 impl fmt::Debug for CommitmentRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let hex = Hex::upper_case().encode_to_string(&self.bytes).unwrap();
+        let hex = Hex::upper_case().encode_to_string(&self.bytes).unwrap(); // TODO
         f.debug_tuple("CommitmentRoot").field(&hex).finish()
     }
 }

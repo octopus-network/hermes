@@ -44,7 +44,7 @@ pub fn verify_channel_proofs(
             proofs.object_proof(),
             consensus_state.root(),
             channel_end.counterparty().port_id(),
-            channel_end.counterparty().channel_id().unwrap(),
+            channel_end.counterparty().channel_id().unwrap(), // todo
             expected_chan,
         )
         .map_err(Error::verify_channel_failed)
