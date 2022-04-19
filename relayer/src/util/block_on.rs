@@ -7,6 +7,6 @@ pub fn block_on<F: Future>(future: F) -> F::Output {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
-        .unwrap()
+        .unwrap()// todo unwrap
         .block_on(future)
 }

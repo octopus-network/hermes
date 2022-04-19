@@ -711,6 +711,8 @@ impl ChainEndpoint for SubstrateChain {
         let result = self.deliever(proto_msgs.messages().to_vec());
 
         if !result.is_ok() {
+            // todo
+
             let err_str = result.err().unwrap().to_string();
             if err_str.contains("Priority is too low") {
                 // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
@@ -1340,7 +1342,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes().to_vec());
         Ok((
-            result.unwrap(),
+            result.unwrap(), //todo
             self.generate_storage_proof(&storage_entry, &height, "ConsensusStates"),
         ))
     }

@@ -58,7 +58,7 @@ pub fn spawn_packet_worker<ChainA: ChainHandle, ChainB: ChainHandle>(
     link: Arc<Mutex<Link<ChainA, ChainB>>>,
 ) -> TaskHandle {
     let span = {
-        let relay_path = &link.lock().unwrap().a_to_b;
+        let relay_path = &link.lock().unwrap().a_to_b;// todo unwrap
         error_span!(
             "packet",
             src_chain = %relay_path.src_chain().id(),
@@ -69,7 +69,7 @@ pub fn spawn_packet_worker<ChainA: ChainHandle, ChainB: ChainHandle>(
     };
 
     spawn_background_task(span, Some(Duration::from_millis(1000)), move || {
-        let relay_path = &link.lock().unwrap().a_to_b;
+        let relay_path = &link.lock().unwrap().a_to_b;// todo unwrap
 
         relay_path
             .refresh_schedule()
@@ -102,7 +102,7 @@ pub fn spawn_packet_cmd_worker<ChainA: ChainHandle, ChainB: ChainHandle>(
 ) -> TaskHandle {
     let mut is_first_run: bool = true;
     let span = {
-        let relay_path = &link.lock().unwrap().a_to_b;
+        let relay_path = &link.lock().unwrap().a_to_b;// todo unwrap
         error_span!(
             "packet_cmd",
             src_chain = %relay_path.src_chain().id(),
@@ -116,7 +116,7 @@ pub fn spawn_packet_cmd_worker<ChainA: ChainHandle, ChainB: ChainHandle>(
             retry_with_index(retry_strategy::worker_stubborn_strategy(), |index| {
                 handle_packet_cmd(
                     &mut is_first_run,
-                    &link.lock().unwrap(),
+                    &link.lock().unwrap(),// todo unwrap
                     clear_on_start,
                     clear_interval,
                     &path,

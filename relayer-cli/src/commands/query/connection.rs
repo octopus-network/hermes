@@ -44,7 +44,7 @@ impl Runnable for QueryConnectionEndCmd {
 
         debug!("Options: {:?}", self);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());
+        let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
@@ -69,7 +69,7 @@ impl Runnable for QueryConnectionEndCmd {
                 }
             }
             "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();// todo unwrap
 
                 let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
                 let res = chain.query_connection(&self.connection_id, height);
@@ -120,7 +120,7 @@ impl Runnable for QueryConnectionChannelsCmd {
 
         debug!("Options: {:?}", self);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());
+        let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
@@ -150,7 +150,7 @@ impl Runnable for QueryConnectionChannelsCmd {
                 }
             }
             "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();// todo unwrap
 
                 let req = QueryConnectionChannelsRequest {
                     connection: self.connection_id.to_string(),

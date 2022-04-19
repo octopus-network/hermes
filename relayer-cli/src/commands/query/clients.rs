@@ -55,7 +55,7 @@ impl Runnable for QueryAllClientsCmd {
 
         debug!("Options: {:?}", self);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());
+        let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
 
         let chain_type = chain_config.account_prefix.clone();
         let res = match chain_type.as_str() {

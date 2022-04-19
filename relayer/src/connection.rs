@@ -581,7 +581,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                 continue;
             }
 
-            match (a_connection.unwrap().state(), b_connection.unwrap().state()) {
+            match (a_connection.unwrap().state(), b_connection.unwrap().state()) {// todo unwrap
                 (State::Init, State::TryOpen) | (State::TryOpen, State::TryOpen) => {
                     // Ack to a_chain
                     match self.flipped().build_conn_ack_and_send() {

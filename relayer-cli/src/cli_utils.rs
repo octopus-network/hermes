@@ -81,13 +81,13 @@ pub fn spawn_chain_runtime_generic<Chain: ChainHandle>(
 
     let handle = match account_prefix.as_str() {
         "cosmos" | "chaina" | "chainb" => {
-            let rt = Arc::new(TokioRuntime::new().unwrap());
+            let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
             let handle =
                 ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
             handle
         }
         "substrate" => {
-            let rt = Arc::new(TokioRuntime::new().unwrap());
+            let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
             let handle =
                 ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(Error::relayer)?;
             handle

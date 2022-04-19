@@ -71,7 +71,7 @@ pub fn exit_with(out: Output) -> ! {
 
     // Handle the output message
     if json() {
-        println!("{}", serde_json::to_string(&out.into_json()).unwrap());
+        println!("{}", serde_json::to_string(&out.into_json()).unwrap());// todo unwrap
     } else {
         println!("{}: {}", out.status, out.result);
     }

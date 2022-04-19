@@ -100,7 +100,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
                 .await
-                .unwrap();
+                .unwrap();// todo unwrap
 
             // get block header
             // todo unwrap
@@ -109,7 +109,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
                 Some(BlockNumber::from(target.revision_height as u32)),
             )
             .await
-            .unwrap();
+            .unwrap();// todo unwrap
 
             block_header
         };

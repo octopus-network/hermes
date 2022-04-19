@@ -168,7 +168,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Link<ChainA, ChainB> {
             b_side: ChannelSide::new(
                 b_chain,
                 a_connection.counterparty().client_id().clone(),
-                a_connection.counterparty().connection_id().unwrap().clone(),
+                a_connection.counterparty().connection_id().unwrap().clone(),// todo unwrap
                 a_channel.counterparty().port_id.clone(),
                 Some(b_channel_id),
                 None,

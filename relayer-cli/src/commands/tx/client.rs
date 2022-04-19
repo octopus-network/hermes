@@ -76,7 +76,7 @@ impl Runnable for TxCreateClientCmd {
         tracing::info!("In Client: [run] >> ChainHandlePair: {:?}", chains);
 
         let client = ForeignClient::restore(
-            ClientId::new(ClientType::Grandpa, 0).unwrap(),
+            ClientId::new(ClientType::Grandpa, 0).unwrap(),// todo unwrap
             chains.dst,
             chains.src,
         );

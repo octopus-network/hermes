@@ -42,7 +42,7 @@ impl Runnable for QueryChannelEndCmd {
 
         debug!("Options: {:?}", self);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());
+        let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
@@ -67,7 +67,7 @@ impl Runnable for QueryChannelEndCmd {
                 }
             }
             "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();// todo unwrap
 
                 let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
                 let res = chain.query_channel(&self.port_id, &self.channel_id, height);
