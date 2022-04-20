@@ -1969,8 +1969,8 @@ version = "0.17.0"
 dependencies = [
  "base64",
  "bytes",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost 0.10.1",
+ "prost-types 0.10.1",
  "schemars",
  "serde",
  "tendermint-proto",
