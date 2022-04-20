@@ -1921,8 +1921,8 @@ dependencies = [
  "num-traits",
  "octopusxt",
  "parity-scale-codec",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost",
+ "prost-types",
  "safe-regex",
  "serde",
  "serde_derive",
@@ -1969,8 +1969,8 @@ version = "0.17.0"
 dependencies = [
  "base64",
  "bytes",
- "prost 0.10.1",
- "prost-types 0.10.1",
+ "prost",
+ "prost-types",
  "schemars",
  "serde",
  "tendermint-proto",
@@ -2010,8 +2010,8 @@ dependencies = [
  "octopusxt",
  "pallet-mmr-rpc",
  "parity-scale-codec",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost",
+ "prost-types",
  "regex",
  "retry",
  "ripemd160",
@@ -2067,8 +2067,8 @@ dependencies = [
  "itertools",
  "once_cell",
  "oneline-eyre",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost",
+ "prost-types",
  "regex",
  "serde",
  "serde_derive",
@@ -2129,8 +2129,8 @@ dependencies = [
  "ibc-relayer",
  "ibc-relayer-cli",
  "itertools",
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost",
+ "prost-types",
  "rand 0.8.5",
  "semver",
  "serde",
@@ -2155,7 +2155,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "hex",
- "prost 0.9.0",
+ "prost",
  "ripemd160",
  "sha2 0.9.9",
  "sha3",
@@ -3050,7 +3050,7 @@ dependencies = [
  "libsecp256k1",
  "pallet-mmr-rpc",
  "parity-scale-codec",
- "prost-types 0.9.0",
+ "prost-types",
  "serde",
  "sp-core",
  "sp-keyring",
@@ -3476,17 +3476,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "444879275cb4fd84958b1a1d5420d15e6fcf7c235fe47f053c9c2a80aceb6001"
 dependencies = [
  "bytes",
- "prost-derive 0.9.0",
-]
-
-[[package]]
-name = "prost"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a07b0857a71a8cb765763950499cae2413c3f9cede1133478c43600d9e146890"
-dependencies = [
- "bytes",
- "prost-derive 0.10.1",
+ "prost-derive",
 ]
 
 [[package]]
@@ -3503,36 +3493,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "prost-derive"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b670f45da57fb8542ebdbb6105a925fe571b67f9e7ed9f47a06a84e72b4e7cc"
-dependencies = [
- "anyhow",
- "itertools",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "prost-types"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "534b7a0e836e3c482d2693070f982e39e7611da9695d4d1f5a4b186b51faef0a"
 dependencies = [
  "bytes",
- "prost 0.9.0",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d0a014229361011dc8e69c8a1ec6c2e8d0f2af7c91e3ea3f5b2170298461e68"
-dependencies = [
- "bytes",
- "prost 0.10.1",
+ "prost",
 ]
 
 [[package]]
@@ -5139,7 +5106,8 @@ dependencies = [
 [[package]]
 name = "tendermint"
 version = "0.23.6"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#c14e2432c1cdbf6e2b75b73b37fc23ae6f13389c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16a3d617db287955b07e4bf1523b831bf5055e7d3ceab8504174181df40cb143"
 dependencies = [
  "async-trait",
  "bytes",
@@ -5150,8 +5118,8 @@ dependencies = [
  "k256",
  "num-traits",
  "once_cell",
- "prost 0.10.1",
- "prost-types 0.10.1",
+ "prost",
+ "prost-types",
  "ripemd160",
  "serde",
  "serde_bytes",
@@ -5169,7 +5137,8 @@ dependencies = [
 [[package]]
 name = "tendermint-config"
 version = "0.23.6"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#c14e2432c1cdbf6e2b75b73b37fc23ae6f13389c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2ef5088b4f2df8e4dc221da2c37b1018c4d104a40da3027bda70c9f01099783"
 dependencies = [
  "flex-error",
  "serde",
@@ -5182,7 +5151,8 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client"
 version = "0.23.6"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#c14e2432c1cdbf6e2b75b73b37fc23ae6f13389c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "571098c7da376550f19554227e16e00e91b8f5b99438615340e4679343ff18d1"
 dependencies = [
  "contracts",
  "crossbeam-channel 0.4.4",
@@ -5203,7 +5173,8 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client-verifier"
 version = "0.23.6"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#c14e2432c1cdbf6e2b75b73b37fc23ae6f13389c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26787f3d9a6dc1c5e1e5661d7d70bb53613852b01545730df082128fd98e6529"
 dependencies = [
  "derive_more",
  "flex-error",
@@ -5215,14 +5186,15 @@ dependencies = [
 [[package]]
 name = "tendermint-proto"
 version = "0.23.6"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#c14e2432c1cdbf6e2b75b73b37fc23ae6f13389c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8a65da26cc1f24cd53f40d1267372c22d6ce727d9fd40c6c61b879b26154994"
 dependencies = [
  "bytes",
  "flex-error",
  "num-derive",
  "num-traits",
- "prost 0.10.1",
- "prost-types 0.10.1",
+ "prost",
+ "prost-types",
  "serde",
  "serde_bytes",
  "subtle-encoding",
@@ -5232,7 +5204,8 @@ dependencies = [
 [[package]]
 name = "tendermint-rpc"
 version = "0.23.6"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#c14e2432c1cdbf6e2b75b73b37fc23ae6f13389c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47d62bc0bb8f4dfb0c9919f70d1aaa2e40750a5a82bf810aaf6590b40af70f27"
 dependencies = [
  "async-trait",
  "async-tungstenite",
@@ -5265,7 +5238,8 @@ dependencies = [
 [[package]]
 name = "tendermint-testgen"
 version = "0.23.6"
-source = "git+https://github.com/informalsystems/tendermint-rs?branch=v0.23.x#c14e2432c1cdbf6e2b75b73b37fc23ae6f13389c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1514e269ebd2dd1f99e931ac99d96eb9b521a0820d9f03e9b56ac724ca456f19"
 dependencies = [
  "ed25519-dalek",
  "gumdrop",
@@ -5545,8 +5519,8 @@ dependencies = [
  "hyper-timeout",
  "percent-encoding 2.1.0",
  "pin-project",
- "prost 0.9.0",
- "prost-derive 0.9.0",
+ "prost",
+ "prost-derive",
  "rustls-native-certs 0.5.0",
  "tokio",
  "tokio-rustls 0.22.0",
