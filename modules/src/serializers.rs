@@ -6,6 +6,6 @@ where
     S: Serializer,
     T: AsRef<[u8]>,
 {
-    let hex = Hex::upper_case().encode_to_string(data).unwrap();
+    let hex = Hex::upper_case().encode_to_string(data).unwrap();// TODO
     hex.serialize(serializer)
 }

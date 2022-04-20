@@ -128,7 +128,7 @@ impl Runnable for TxIbcUpgradeChainCmd {
         };
         info!("Message {:?}", opts);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());
+        let rt = Arc::new(TokioRuntime::new().unwrap()); // TODO
 
         let src_chain_res = CosmosSdkChain::bootstrap(opts.src_chain_config.clone(), rt.clone())
             .map_err(Error::relayer);

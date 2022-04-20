@@ -369,6 +369,21 @@ define_error! {
         InvalidSerdeJsonEncode
             [ DisplayOnly<serde_json::Error> ]
             |_| { "invalid serde json encode"},
+
+        EmptyProof 
+            | _ | { "empty proof" },
+        
+        InvalidMerkleProof 
+            | _ | { "invalid merkle proof" },
+
+        ReadProofCheck 
+            | _ | {"read proof check error" },
+        
+        InvalidHexDecode 
+            [ DisplayOnly<subtle_encoding::Error> ]
+            | _ | { "invalid hex decode"},
+
+        
     }
 }
 

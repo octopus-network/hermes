@@ -117,6 +117,15 @@ define_error! {
         
         InvalidBurn
             | _ | { "invalid burn" },
+        
+        InvalidHexDecode
+            | _ | { "invalid hex decode" },
+        
+        EmptyToken 
+            | _ | { "empty token" },
+        
+        InvalidSerdeData 
+            | _ | { "invalid serde data" },
 
     }
 }

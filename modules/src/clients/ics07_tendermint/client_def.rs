@@ -114,7 +114,7 @@ impl ClientDef for TendermintClient {
             untrusted_state,
             trusted_state,
             &options,
-            ctx.host_timestamp().into_tm_time().unwrap(), // todo unwrap
+            ctx.host_timestamp().into_tm_time().ok_or(Error::empty_time())?,
         );
 
         match verdict {
@@ -208,7 +208,7 @@ impl ClientDef for TendermintClient {
             epoch: consensus_height.revision_number,
             height: consensus_height.revision_height,
         };
-        let value = expected_consensus_state.encode_vec().unwrap();// TODO
+        let value = expected_consensus_state.encode_vec().map_err(|e| Error::tendermint_proto_encode(e))?;
         verify_membership(client_state, prefix, proof, root, path, value)
     }
 
@@ -225,7 +225,7 @@ impl ClientDef for TendermintClient {
         client_state.verify_height(height)?;
 
         let path = ConnectionsPath(connection_id.clone());
-        let value = expected_connection_end.encode_vec().unwrap();// TODO
+        let value = expected_connection_end.encode_vec().map_err(|e| Error::tendermint_proto_encode(e))?;
         verify_membership(client_state, prefix, proof, root, path, value)
     }
 
@@ -243,7 +243,7 @@ impl ClientDef for TendermintClient {
         client_state.verify_height(height)?;
 
         let path = ChannelEndsPath(port_id.clone(), channel_id.clone());
-        let value = expected_channel_end.encode_vec().unwrap(); // TODO
+        let value = expected_channel_end.encode_vec().map_err(|e| Error::tendermint_proto_encode(e))?;
         verify_membership(client_state, prefix, proof, root, path, value)
     }
 
@@ -260,7 +260,7 @@ impl ClientDef for TendermintClient {
         client_state.verify_height(height)?;
 
         let path = ClientStatePath(client_id.clone());
-        let value = expected_client_state.encode_vec().unwrap(); // TODO
+        let value = expected_client_state.encode_vec().map_err(|e| Error::tendermint_proto_encode(e))?;
         verify_membership(client_state, prefix, proof, root, path, value)
     }
 
@@ -289,7 +289,7 @@ impl ClientDef for TendermintClient {
         let mut commitment_bytes = Vec::new();
         commitment
             .encode(&mut commitment_bytes)
-            .expect("buffer size too small");// todo unwrap
+            .map_err(|e| Error::encode("buffer size too small".to_string(), e))?;
 
         verify_membership(
             client_state,

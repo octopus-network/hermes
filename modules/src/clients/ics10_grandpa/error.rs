@@ -1,5 +1,6 @@
 use alloc::string::String;
 
+use crate::core::ics02_client;
 use crate::core::ics24_host::error::ValidationError;
 use flex_error::{define_error, DisplayOnly, TraceError};
 
@@ -64,7 +65,41 @@ define_error! {
                 e: String,
             }
             | e | {
-                format_args!("failed to get storage by proof: {0}",e)
+                format_args!("failed to get storage by proof: {0}", e)
             },
+        
+        InvalidChainId 
+            | _ | { "invalid chain id" },
+        
+        EmptyBlockHeader 
+            | _ | { "empty block header" },
+        
+        EmptyLatestCommitment
+            | _ | { "empty latest commitment" },
+
+        EmptyValidatorSet 
+            | _ | { "empty validator set" },
+        
+        EmptyMmrLeaf 
+            | _ | { "empty mmr leaf" },
+        
+        EmptyMmrLeafProof
+            | _ | { "empty mmr leaf proof" },
+        
+        InvalidConvertHash 
+            | _ | { "invalid convert hash" },
+        
+        InvalidConvertSignature
+            | _ | { "invalid convert signature" },
+        
+        EmptyParentNumberAndHash 
+            | _ | { "empty parent and hash" },
+        
+        EmptyBeefyNextAuthoritySet
+            | _ | { "empty next authority set" },
+        
+        InvalidCodecDecode
+            [ DisplayOnly<codec::Error> ]
+            |_| { "invalid codec decode" },
     }
 }

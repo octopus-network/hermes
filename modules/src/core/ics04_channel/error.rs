@@ -391,6 +391,9 @@ define_error! {
         
         InvalidDeletePacketCommitmentKeys
             | _ | { "invalid delete packet commitment keys" },
+        
+        EmptyAcknowledgeResponse
+            | _ | { "empty acknowledge response" },
 
 
 

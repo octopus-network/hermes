@@ -44,10 +44,8 @@ where
     // 	fullDenomPath, token.Amount.String(), sender.String(), receiver,
     // )
 
-    // todo unwrap
-    let denom = msg.token.clone().unwrap().denom;
-    // todo unwrap
-    let amount = msg.token.unwrap().amount;
+    let denom = msg.token.clone().ok_or(Error::empty_token())?.denom;
+    let amount = msg.token.ok_or(Error::empty_token())?.amount;
 
     // contruct fungible token packet data
     let packet_data = FungibleTokenPacketData {
@@ -58,8 +56,7 @@ where
     };
 
     // endocde packet data
-    // todo unwrap
-    let encode_packet_data = serde_json::to_vec(&packet_data).unwrap();
+    let encode_packet_data = serde_json::to_vec(&packet_data).map_err(|_|Error::invalid_serde_data())?;
 
     let packet = Packet {
         sequence,

@@ -1,4 +1,4 @@
-use crate::clients::ics10_grandpa::error::Error as Ics10Error;
+use crate::clients::ics10_grandpa::error::Error;
 use alloc::vec;
 use alloc::vec::Vec;
 use beefy_light_client::mmr::MmrLeafVersion;
@@ -11,14 +11,6 @@ use ibc_proto::ibc::lightclients::grandpa::v1::Commitment as RawCommitment;
 
 use flex_error::{define_error, TraceError, DisplayOnly};
 use tendermint_proto::Error as TendermintError;
-
-define_error! {
-    #[derive(Debug, PartialEq, Eq)]
-    Error {
-        Invalid
-            | _ | { "invalid"}
-    }
-}
 
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
@@ -182,31 +174,34 @@ impl From<beefy_light_client::mmr::MmrLeaf> for MmrLeaf {
     }
 }
 
-impl From<MmrLeaf> for beefy_light_client::mmr::MmrLeaf {
-    fn from(value: MmrLeaf) -> Self {
-        Self {
+impl TryFrom<MmrLeaf> for beefy_light_client::mmr::MmrLeaf {
+    type Error = Error;
+
+    fn try_from(value: MmrLeaf) -> Result<Self, Self::Error> {
+        Ok(Self {
             version: MmrLeafVersion(value.version as u8),
             parent_number_and_hash: (
                 value.parent_number_and_hash.parent_header_number,
-                Hash::try_from(value.parent_number_and_hash.parent_header_hash).unwrap(), // todo unwrap
+                Hash::try_from(value.parent_number_and_hash.parent_header_hash).map_err(|_| Error::invalid_convert_hash())?
             ),
             beefy_next_authority_set:
                 beefy_light_client::validator_set::BeefyNextAuthoritySet::from(
                     value.beefy_next_authority_set,
                 ),
-            parachain_heads: Hash::try_from(value.parachain_heads).unwrap(),// todo unwrap
-        }
+            parachain_heads: Hash::try_from(value.parachain_heads).map_err(|_| Error::invalid_convert_hash())?
+        })
     }
 }
 
-impl From<RawMmrLeaf> for MmrLeaf {
-    fn from(raw: RawMmrLeaf) -> Self {
-        Self {
+impl TryFrom<RawMmrLeaf> for MmrLeaf {
+    type Error = Error;
+fn try_from(raw: RawMmrLeaf) -> Result<Self, Self::Error> {
+        Ok(Self {
             version: raw.version,
-            parent_number_and_hash: raw.parent_number_and_hash.unwrap().into(),// todo unwrap
-            beefy_next_authority_set: raw.beefy_next_authority_set.unwrap().into(),// todo unwrap
+            parent_number_and_hash: raw.parent_number_and_hash.ok_or(Error::empty_parent_number_and_hash())?.into(),
+            beefy_next_authority_set: raw.beefy_next_authority_set.ok_or(Error::empty_beefy_next_authority_set())?.into(),
             parachain_heads: raw.parachain_heads,
-        }
+        })
     }
 }
 
@@ -296,48 +291,53 @@ impl From<beefy_light_client::commitment::SignedCommitment> for SignedCommitment
             signatures: value
                 .signatures
                 .into_iter()
-                .map(|value| Signature::from(value.unwrap()))// todo unwrap
+                .map(|value| Signature::from(value.unwrap()))// todo unwrap , cannot remove because map
                 .collect(),
         }
     }
 }
 
-impl From<SignedCommitment> for beefy_light_client::commitment::SignedCommitment {
-    fn from(value: SignedCommitment) -> Self {
-        Self {
-            commitment: value.commitment.unwrap().into(), // todo unwrap
+impl TryFrom<SignedCommitment> for beefy_light_client::commitment::SignedCommitment {
+    type Error = Error;
+
+    fn try_from(value: SignedCommitment) -> Result<Self, Self::Error> {
+        Ok(Self {
+            commitment: value.commitment.ok_or(Error::empty_commitment())?.into(),
             signatures: value
                 .signatures
                 .into_iter()
-                .map(|value| Some(value.into()))
+                .map(|value| Some(value.try_into().unwrap())) // todo unwrap , cannot remove because map
                 .collect(),
-        }
+        })
     }
 }
 
-impl From<RawSignedCommitment> for SignedCommitment {
-    fn from(raw: RawSignedCommitment) -> Self {
-        Self {
-            commitment: Some(raw.commitment.unwrap().into()), // todo unwrap
+impl TryFrom<RawSignedCommitment> for SignedCommitment {
+    type Error = Error;
+
+    fn try_from(raw: RawSignedCommitment) -> Result<Self, Self::Error> {
+        Ok(Self {
+            commitment: Some(raw.commitment.ok_or(Error::empty_commitment())?.into()), 
             signatures: raw
                 .signatures
                 .into_iter()
                 .map(|value| value.into())
                 .collect(),
-        }
+        })
     }
 }
 
-impl From<SignedCommitment> for RawSignedCommitment {
-    fn from(value: SignedCommitment) -> Self {
-        Self {
-            commitment: Some(value.commitment.unwrap().into()), // todo unwrap
+impl TryFrom<SignedCommitment> for RawSignedCommitment {
+    type Error = Error;
+    fn try_from(value: SignedCommitment) -> Result<Self, Self::Error> {
+        Ok(Self {
+            commitment: Some(value.commitment.ok_or(Error::empty_commitment())?.into()),
             signatures: value
                 .signatures
                 .into_iter()
                 .map(|value| value.into())
                 .collect(),
-        }
+        })
     }
 }
 
@@ -365,11 +365,13 @@ impl From<beefy_light_client::commitment::Signature> for Signature {
     }
 }
 
-impl From<Signature> for beefy_light_client::commitment::Signature {
-    fn from(value: Signature) -> Self {
-        Self {
-            0: <[u8; 65]>::try_from(value.signature).unwrap(), // todo unwrap
-        }
+impl TryFrom<Signature> for beefy_light_client::commitment::Signature {
+    type Error = Error;
+
+    fn try_from(value: Signature) -> Result<Self, Self::Error>{
+        Ok(Self {
+            0: <[u8; 65]>::try_from(value.signature).map_err(|_| Error::invalid_convert_signature())?, 
+        })
     }
 }
 
@@ -517,7 +519,7 @@ impl From<MmrLeafProof> for beefy_light_client::mmr::MmrLeafProof {
             items: value
                 .items
                 .into_iter()
-                .map(|value| Hash::try_from(value).unwrap())// todo unwrap
+                .map(|value| Hash::try_from(value).unwrap())// todo unwrap , cannot remove because map
                 .collect(),
         }
     }
@@ -572,9 +574,9 @@ pub struct BlockHeader {
 }
 
 impl BlockHeader {
-    pub fn hash(&self) -> Hash {
-        let beefy_header = beefy_light_client::header::Header::from(self.clone());
-        beefy_header.hash()
+    pub fn hash(&self) -> Result<Hash, Error> {
+        let beefy_header = beefy_light_client::header::Header::try_from(self.clone())?;
+        Ok(beefy_header.hash())
     }
 }
 
@@ -590,16 +592,18 @@ impl From<beefy_light_client::header::Header> for BlockHeader {
     }
 }
 
-impl From<BlockHeader> for beefy_light_client::header::Header {
-    fn from(value: BlockHeader) -> Self {
-        let digest = beefy_light_client::header::Digest::decode(&mut &value.digest[..]).unwrap(); // TODO
-        Self {
-            parent_hash: Hash::try_from(value.parent_hash).unwrap(),// todo unwrap
+impl TryFrom<BlockHeader> for beefy_light_client::header::Header {
+    type Error = Error;
+
+    fn try_from(value: BlockHeader) -> Result<Self, Self::Error> {
+        let digest = beefy_light_client::header::Digest::decode(&mut &value.digest[..]).map_err(|e| Error::invalid_codec_decode(e))?;
+        Ok(Self {
+            parent_hash: Hash::try_from(value.parent_hash).map_err(|_| Error::invalid_convert_hash())?,
             number: value.block_number,
-            state_root: Hash::try_from(value.state_root).unwrap(),// todo unwrap
-            extrinsics_root: Hash::try_from(value.extrinsics_root).unwrap(),// todo unwrap
+            state_root: Hash::try_from(value.state_root).map_err(|_| Error::invalid_convert_hash())?,
+            extrinsics_root: Hash::try_from(value.extrinsics_root).map_err(|_| Error::invalid_convert_hash())?,
             digest: digest,
-        }
+        })
     }
 }
 impl Default for BlockHeader {

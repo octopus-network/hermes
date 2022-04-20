@@ -259,6 +259,14 @@ define_error! {
                 format_args!("failed to update client on destination {} because of error event: {}",
                     e.chain_id, e.event)
             },
+
+        WebsocketUrlError 
+            [ RelayerError]
+            | _|  {"websocket_url error"},
+        
+        UpdateMmrError
+            [ RelayerError]
+            | _|  {"update mmr root error"},
     }
 }
 
@@ -681,7 +689,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         // Compute the duration since the last update of this client
         let elapsed = Timestamp::now().duration_since(&last_update_time);
 
-        if client_state.expired(elapsed.unwrap_or_default()) {// todo unwrap
+        if client_state.expired(elapsed.unwrap_or_default()) {
             return Err(ForeignClientError::expired_or_frozen(
                 self.id().clone(),
                 self.dst_chain.id(),
@@ -915,15 +923,14 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             // 根据client state的类型对应的客户端的类型来选择执行
             // if client state is grandpa client run this code
 
-            // todo  unwrap
-            let src_chain_websocket_url = self.src_chain().websocket_url().unwrap();
-            // tod unwrap
-            let dst_chain_websocket_url = self.dst_chain().websocket_url().unwrap();
-            // todo unwrap
+            let src_chain_websocket_url = self.src_chain().websocket_url().map_err(|e| ForeignClientError::websocket_url_error(e))?;
+            
+            let dst_chain_websocket_url = self.dst_chain().websocket_url().map_err(|e| ForeignClientError::websocket_url_error(e))?;
+            
             let result = self
                 .src_chain()
                 .update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url)
-                .unwrap();
+                .map_err(|e| ForeignClientError::update_mmr_error(e))?;
         }
 
         let client_state = match client_state {

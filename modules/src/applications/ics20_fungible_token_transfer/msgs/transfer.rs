@@ -79,7 +79,8 @@ impl Msg for MsgTransfer {
             .token
             .as_ref()
             .map(|coin| coin.denom.as_str())
-            .unwrap_or("");
+            .unwrap_or_default();
+
 
         if let Err(err) = denom_trace::validate_ibc_denom(denom) {
             return Err(ValidationError::invalid_denom(err.to_string()));

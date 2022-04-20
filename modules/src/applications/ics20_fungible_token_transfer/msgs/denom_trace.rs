@@ -35,8 +35,7 @@ impl DenomTrace {
         // return hash[:]
         let mut hasher = Sha256::new();
 
-        // todo unwrap()
-        hasher.update(self.get_full_denom_path().unwrap().as_bytes());
+        hasher.update(self.get_full_denom_path()?.as_bytes());
         let denom_bytes = hasher.finalize();
         // let hash = vec![0u8; 32];
         Ok(denom_bytes.to_vec())
@@ -54,9 +53,8 @@ impl DenomTrace {
     // 'ibc/{hash(tracePath + baseDenom)}'. If the trace is empty, it will return the base denomination.
     pub fn ibc_denom(&self) -> Result<String, Error> {
         if self.path != "" {
-            // todo unwrap()
             let denom_hex =
-                String::from_utf8(hex::encode_upper(self.hash().unwrap())).map_err(Error::utf8)?;
+                String::from_utf8(hex::encode_upper(self.hash()?)).map_err(Error::utf8)?;
             return Ok(format!("{}/{}", DENOM_PREFIX, denom_hex));
         }
         Ok(self.base_denom.clone())
@@ -133,14 +131,9 @@ pub fn validate_ibc_denom(denom: &str) -> Result<(), Error> {
 
 // ParseHexHash parses a hex hash in string format to bytes and validates its correctness.
 pub fn parse_hex_hash(hex_hash: &str) -> Result<Vec<u8>, Error> {
-    let hash = hex::decode(hex_hash);
-    if let Err(err) = hash {
-        return Err(Error::invalid_denom_for_transfer(err.to_string()));
-    }
+    let hash = hex::decode(hex_hash).map_err(|err| Error::invalid_denom_for_transfer(err.to_string()))?;
     // validate hash returns an error if the hash is not empty, but its
     // size != tmhash.Size.
-    // todo unwrap
-    let hash = hash.unwrap();
     if hash.len() > 0 && hash.len() != Sha256::output_size() {
         return Err(Error::invalid_denom_for_transfer(format!(
             "expected size to be {} bytes, got {} bytes",

@@ -134,7 +134,7 @@ pub fn build_and_send_ibc_upgrade_proposal(
     };
 
     let mut buf_msg = Vec::new();
-    prost::Message::encode(&msg, &mut buf_msg).unwrap();// todo unwrap
+    prost::Message::encode(&msg, &mut buf_msg).unwrap(); // TODO
     let any_msg = Any {
         type_url: "/cosmos.gov.v1beta1.MsgSubmitProposal".to_string(),
         value: buf_msg,

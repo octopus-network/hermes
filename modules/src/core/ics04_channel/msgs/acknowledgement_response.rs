@@ -26,11 +26,10 @@ impl Acknowledgement {
         }
     }
 
-    pub fn success(&self) -> bool {
-        // todo unwrap
-        match self.response.as_ref().unwrap() {
-            acknowledgement::Response::Result(_value) => true,
-            acknowledgement::Response::Error(_e) => false,
+    pub fn success(&self) -> Result<bool, Error> {
+        match self.response.as_ref().ok_or(Error::empty_acknowledge_response())? {
+            acknowledgement::Response::Result(_value) => Ok(true),
+            acknowledgement::Response::Error(_e) => Ok(false),
         }
     }
 }

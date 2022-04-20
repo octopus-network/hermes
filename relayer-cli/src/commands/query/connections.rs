@@ -33,7 +33,7 @@ impl Runnable for QueryConnectionsCmd {
 
         debug!("Options: {:?}", self);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
+        let rt = Arc::new(TokioRuntime::new().unwrap());//TODO
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {

@@ -44,7 +44,7 @@ impl Runnable for QueryTxEventsCmd {
             Ok(result) => result,
         };
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
+        let rt = Arc::new(TokioRuntime::new().unwrap()); // TODO
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
@@ -72,7 +72,7 @@ impl Runnable for QueryTxEventsCmd {
                     chain_config.clone(),
                     rt,
                 )
-                .unwrap();
+                .unwrap(); // TODO
 
                 let res = Hash::from_str(self.hash.as_str())
                     .map_err(|e| Error::invalid_hash(self.hash.clone(), e))

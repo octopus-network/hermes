@@ -75,8 +75,7 @@ impl ClientDef for GrandpaClient {
                     header.mmr_leaf_proof.leaf_count, client_state.latest_commitment.block_number
                 );
             let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
-            // todo unwrap()
-            let any_consensus_state = ctx.consensus_state(&client_id, height).unwrap();
+            let any_consensus_state = ctx.consensus_state(&client_id, height)?;
             let consensus_state = match any_consensus_state {
                 AnyConsensusState::Grandpa(_v) => _v,
                 _ => unimplemented!(),
@@ -94,9 +93,9 @@ impl ClientDef for GrandpaClient {
         let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
 
         let mmr_leaf_encode =
-            beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf).encode();
+            beefy_light_client::mmr::MmrLeaf::try_from(header.clone().mmr_leaf).map_err(|e| Error::grandpa(e))?.encode();
         let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
-        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::from(header.clone().mmr_leaf);
+        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::try_from(header.clone().mmr_leaf).map_err(|e| Error::grandpa(e))?;
 
         let header_hash = header.hash();
 
@@ -204,18 +203,19 @@ impl ClientDef for GrandpaClient {
         expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![connection_id.as_bytes().to_vec()];
-        // todo unwrap
         let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "Connections").unwrap();
-        // todo unwrap
-        let connection_end = ConnectionEnd::decode_vec(&storage_result).unwrap();
+            Self::get_storage_via_proof(client_state, height, proof, keys, "Connections")?;
+        let connection_end = ConnectionEnd::decode_vec(&storage_result).map_err(|e| Error::invalid_decode(e))?;
         tracing::trace!(
             "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
             connection_end
         );
 
-        // todo unwrap
-        if !(connection_end.encode_vec().unwrap() == expected_connection_end.encode_vec().unwrap())
+        if !(
+                connection_end.encode_vec().map_err(|e| Error::invalid_encode(e))?
+                == 
+                expected_connection_end.encode_vec().map_err(|e| Error::invalid_encode(e))?
+            )
         {
             return Err(Error::invalid_connection_state());
         }
@@ -237,18 +237,22 @@ impl ClientDef for GrandpaClient {
         expected_channel_end: &ChannelEnd,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
-        // todo unwrap
+        
         let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "Channels").unwrap();
-        // todo unwrap
-        let channel_end = ChannelEnd::decode_vec(&storage_result).unwrap();
+            Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
+        
+        let channel_end = ChannelEnd::decode_vec(&storage_result).map_err(|e| Error::invalid_decode(e))?;
         tracing::trace!(
             "In ics10-client_def.rs: [verify_connection_state] >> channel_end: {:?}",
             channel_end
         );
 
-        // todo unwrap()
-        if !(channel_end.encode_vec().unwrap() == expected_channel_end.encode_vec().unwrap()) {
+        if !(
+                channel_end.encode_vec().map_err(|e| Error::invalid_encode(e))? 
+                == 
+                expected_channel_end.encode_vec().map_err(|e| Error::invalid_encode(e))?
+            ) 
+        {
             return Err(Error::invalid_connection_state());
         }
         Ok(())
@@ -268,11 +272,10 @@ impl ClientDef for GrandpaClient {
         expected_client_state: &AnyClientState,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![client_id.as_bytes().to_vec()];
-        // todo unwrap
         let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates").unwrap();
-        // todo unwrap
-        let any_client_state = AnyClientState::decode_vec(&storage_result).unwrap();
+            Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates")?;
+        
+        let any_client_state = AnyClientState::decode_vec(&storage_result).map_err(|e| Error::invalid_decode(e))?;
         tracing::trace!(
             "In ics10-client_def.rs: [verify_client_full_state] >> decoded client_state: {:?}",
             any_client_state
@@ -282,8 +285,11 @@ impl ClientDef for GrandpaClient {
             expected_client_state
         );
 
-        // todo unwrap
-        if !(any_client_state.encode_vec().unwrap() == expected_client_state.encode_vec().unwrap())
+        if !(
+                any_client_state.encode_vec().map_err(|e| Error::invalid_encode(e))? 
+                == 
+                expected_client_state.encode_vec().map_err(|e| Error::invalid_encode(e))?
+            )
         {
             return Err(Error::invalid_client_state());
         }
@@ -311,15 +317,13 @@ impl ClientDef for GrandpaClient {
             channel_id.as_bytes().to_vec(),
             u64::from(sequence).encode(),
         ];
-        //  todo unwrap
+    
         let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment")
-                .unwrap();
+            Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment")?;
 
-        // todo unwrap()
         tracing::trace!(
             "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
-            String::from_utf8(storage_result.clone()).unwrap()
+            String::from_utf8(storage_result.clone()).map_err(|e| Error::invalid_from_utf8(e))?
         );
         tracing::trace!(
             "In ics10-client_def.rs: [verify_packet_data] >>  expected packet_commitment: {:?}",
@@ -353,10 +357,9 @@ impl ClientDef for GrandpaClient {
             channel_id.as_bytes().to_vec(),
             u64::from(sequence).encode(),
         ];
-        // todo unwrap
+        
         let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")
-                .unwrap();
+            Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
         tracing::trace!(
             "In ics10-client_def.rs: [verify_packet_acknowledgement] >> encoded ack: {:?}",
             storage_result
@@ -388,17 +391,16 @@ impl ClientDef for GrandpaClient {
         sequence: Sequence,
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
-        // todo unwrap
+        
         let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")
-                .unwrap();
+            Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;
         tracing::trace!(
             "In ics10-client_def: [verify_next_sequence_recv] >> storage_result: {:?}",
             storage_result
         );
 
-        // todo unwrap
-        let sequence_restored: u64 = u64::decode(&mut &storage_result[..]).unwrap();
+        
+        let sequence_restored: u64 = u64::decode(&mut &storage_result[..]).map_err(|e| Error::invalid_codec_decode(e))?;
         if sequence_restored > u64::from(sequence) {
             return Err(Error::invalid_next_sequence_recv(
                 sequence_restored,
@@ -454,20 +456,17 @@ impl GrandpaClient {
             pub proof: Vec<Vec<u8>>,
         }
 
-        // todo unwrap()
-        let merkel_proof = RawMerkleProof::try_from(_proof.clone()).unwrap();
-        // todo unwrap
-        let _merkel_proof = merkel_proof.proofs[0].proof.clone().unwrap(); // TODO have error
+        let merkel_proof = RawMerkleProof::try_from(_proof.clone()).map_err(|_| Error::invalid_merkle_proof())?;
+        let _merkel_proof = merkel_proof.proofs[0].proof.clone().ok_or(Error::empty_proof())?;
         let storage_proof = match _merkel_proof {
             Exist(_exist_proof) => {
-                // todo unwrap
-                let _proof_str = String::from_utf8(_exist_proof.value).unwrap();
+                let _proof_str = String::from_utf8(_exist_proof.value).map_err(|e| Error::invalid_from_utf8(e))?;
                 tracing::trace!(
                     "In ics10-client_def.rs: [extract_verify_beefy_proof] >> _proof_str: {:?}",
                     _proof_str
                 );
-                // todo unwrap
-                let _storage_proof: ReadProofU8 = serde_json::from_str(&_proof_str).unwrap();
+                
+                let _storage_proof: ReadProofU8 = serde_json::from_str(&_proof_str).map_err(|e| Error::invalid_serde_json_encode(e))?;
                 _storage_proof
             }
             _ => unimplemented!(),
@@ -485,22 +484,22 @@ impl GrandpaClient {
             state_root
         );
 
-        // todo unwrap
+      
         let storage_result = read_proof_check::<BlakeTwo256>(
             sp_core::H256::from(state_root),
             StorageProof::new(storage_proof.proof),
             &_storage_keys,
         )
-        .unwrap()
-        .unwrap();
+        .map_err(|_| Error::read_proof_check())?
+        .ok_or(Error::empty_proof())?;
         tracing::trace!(
             "In ics10-client_def.rs: [extract_verify_beefy_proof] >> {:?}-storage_result: {:?}",
             _storage_name,
             storage_result
         );
 
-        // todo unwrap
-        let storage_result = <Vec<u8>>::decode(&mut &storage_result[..]).unwrap();
+        
+        let storage_result = <Vec<u8>>::decode(&mut &storage_result[..]).map_err(|e| Error::invalid_codec_decode(e))?;
         tracing::trace!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_result truncated: {:?}", storage_result);
 
         Ok(storage_result)
@@ -568,8 +567,7 @@ impl GrandpaClient {
             return Ok(final_key);
         }
 
-        // todo unwrap
-        return Err(Error::wrong_key_number(_keys.len().try_into().unwrap()));
+        return Err(Error::wrong_key_number(_keys.len() as u8));
     }
 
     /// A hashing function for packet commitments

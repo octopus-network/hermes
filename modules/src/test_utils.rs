@@ -38,7 +38,7 @@ pub fn get_dummy_proof() -> Vec<u8> {
 }
 
 pub fn get_dummy_account_id() -> Signer {
-    "0CDA3F47EF3C4906693B170EF650EB968C5F4B2C".parse().unwrap() //todo
+    "0CDA3F47EF3C4906693B170EF650EB968C5F4B2C".parse().unwrap()
 }
 
 pub fn get_dummy_bech32_account() -> String {

@@ -48,7 +48,7 @@ impl Runnable for QueryClientStateCmd {
             Some(chain_config) => chain_config,
         };
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
+        let rt = Arc::new(TokioRuntime::new().unwrap());//TODO
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
@@ -120,7 +120,7 @@ impl Runnable for QueryClientConsensusCmd {
 
         debug!("Options: {:?}", self);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
+        let rt = Arc::new(TokioRuntime::new().unwrap());//TODO
 
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
@@ -265,7 +265,7 @@ impl Runnable for QueryClientHeaderCmd {
 
         debug!("Options: {:?}", self);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
+        let rt = Arc::new(TokioRuntime::new().unwrap());// TODO
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
@@ -299,7 +299,7 @@ impl Runnable for QueryClientHeaderCmd {
                 }
             }
             "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();// todo unwrap
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();//TODO
 
                 let counterparty_chain =
                     match chain.query_client_state(&self.client_id, Height::zero()) {
@@ -365,7 +365,7 @@ impl Runnable for QueryClientConnectionsCmd {
 
         debug!("Options: {:?}", self);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());// todo unwrap
+        let rt = Arc::new(TokioRuntime::new().unwrap());// TODO
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
@@ -384,7 +384,7 @@ impl Runnable for QueryClientConnectionsCmd {
                 }
             }
             "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();// todo unwrap
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();// TODO
 
                 let req = QueryClientConnectionsRequest {
                     client_id: self.client_id.to_string(),

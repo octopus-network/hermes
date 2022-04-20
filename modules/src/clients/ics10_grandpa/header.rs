@@ -49,7 +49,7 @@ impl Header {
         }
     }
 
-    pub fn hash(&self) -> Hash {
+    pub fn hash(&self) -> Result<Hash, Error> {
         self.block_header.hash()
     }
 
@@ -83,9 +83,9 @@ impl TryFrom<RawHeader> for Header {
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
         Ok(Self {
-            block_header: raw.block_header.unwrap().into(),// todo unwrap
-            mmr_leaf: raw.mmr_leaf.unwrap().into(),// todo unwrap
-            mmr_leaf_proof: raw.mmr_leaf_proof.unwrap().into(),//todo unwrap()
+            block_header: raw.block_header.ok_or(Error::empty_block_header())?.into(),
+            mmr_leaf: raw.mmr_leaf.ok_or(Error::empty_mmr_leaf())?.try_into()?,
+            mmr_leaf_proof: raw.mmr_leaf_proof.ok_or(Error::empty_mmr_leaf_proof())?.into(),
         })
     }
 }

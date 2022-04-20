@@ -890,7 +890,7 @@ impl TryFrom<RawWriteAcknowledgement> for WriteAcknowledgement {
         let height: Height = raw_wrt_ack.height.ok_or_else(Error::missing_height)?.into();
 
         let packet =
-            Packet::try_from(raw_wrt_ack.packet.unwrap()).map_err(|_| Error::invalid_packet())?;
+            Packet::try_from(raw_wrt_ack.packet.ok_or(Error::missing_packet())?).map_err(|_| Error::invalid_packet())?;
 
         if raw_wrt_ack.ack.is_empty() {
             return Err(Error::zero_packet_data());
