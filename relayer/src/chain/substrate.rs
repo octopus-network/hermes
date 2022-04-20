@@ -699,8 +699,8 @@ impl ChainEndpoint for SubstrateChain {
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<TxResponse>, Error> {
         tracing::debug!(
-            "in substrate: [send_messages_and_wait_check_tx], raw msg to send {:?}",
-            proto_msgs
+            "in substrate: [send_messages_and_wait_check_tx], url of msg to send {:?}",
+            proto_msgs.messages().to_vec().iter().map(|value| value.type_url.clone()).collect::<Vec<String>>()
         );
 
         // sleep(Duration::from_secs(4));

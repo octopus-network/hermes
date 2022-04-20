@@ -97,25 +97,18 @@ impl ClientDef for GrandpaClient {
         let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
         let mmr_leaf = beefy_light_client::mmr::MmrLeaf::try_from(header.clone().mmr_leaf).map_err(|e| Error::grandpa(e))?;
 
-        let header_hash = header.hash();
-
         if mmr_leaf.parent_number_and_hash.1.is_empty() {
             return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
         }
-        tracing::trace!(
-            "ics1 client_def :[check_header_and_update_state] >> header_hash = {:?}",
-            header_hash
-        );
         tracing::trace!(
             "ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}",
             mmr_leaf.parent_number_and_hash.1
         );
 
-        // todo 
-        /*            if header_hash != mmr_leaf.parent_number_and_hash.1 {
+
+        if header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
             return Err(Error::header_hash_not_match());
-        }*/
-        // Todo: Is this comparism needed?
+        }
 
         tracing::trace!(
             "in client_def: [check_header_and_update_state] >> mmr_root = {:?}",
