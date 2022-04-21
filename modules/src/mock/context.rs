@@ -16,6 +16,7 @@ use tracing::debug;
 
 use crate::applications::ics20_fungible_token_transfer::context::Ics20Context;
 use crate::clients::ics07_tendermint::client_state::test_util::get_dummy_tendermint_client_state;
+use crate::clients::ics10_grandpa::{client_state::ClientState, consensus_state::ConsensusState};
 use crate::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use crate::core::ics02_client::client_state::AnyClientState;
 use crate::core::ics02_client::client_type::ClientType;
@@ -49,7 +50,6 @@ use crate::relayer::ics18_relayer::error::Error as Ics18Error;
 use crate::signer::Signer;
 use crate::timestamp::Timestamp;
 use crate::Height;
-use crate::clients::ics10_grandpa::{client_state::ClientState, consensus_state::ConsensusState};
 
 pub const DEFAULT_BLOCK_TIME_SECS: u64 = 3;
 
@@ -313,7 +313,7 @@ impl MockContext {
                 let client_state = AnyClientState::Grandpa(ClientState::default());
                 let consensus_state = AnyConsensusState::Grandpa(ConsensusState::default());
                 (Some(client_state), consensus_state)
-            },
+            }
         };
 
         let prev_consensus_state = match client_type {
@@ -642,7 +642,6 @@ impl Ics20Context for MockContext {
     ) -> Result<(), crate::applications::ics20_fungible_token_transfer::error::Error> {
         todo!()
     }
-
 }
 
 impl CapabilityReader for MockContext {

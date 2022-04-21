@@ -203,7 +203,7 @@ impl FromStr for ClientId {
 
 impl Default for ClientId {
     fn default() -> Self {
-        Self::new(ClientType::Tendermint, 0).unwrap()// TODO
+        Self::new(ClientType::Tendermint, 0).unwrap() // TODO
     }
 }
 
@@ -341,7 +341,7 @@ impl AsRef<str> for PortId {
 
 impl Default for PortId {
     fn default() -> Self {
-        "defaultPort".to_string().parse().unwrap()// TODO
+        "defaultPort".to_string().parse().unwrap() // TODO
     }
 }
 

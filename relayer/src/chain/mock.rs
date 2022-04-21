@@ -426,7 +426,7 @@ impl ChainEndpoint for MockChain {
     ) -> Result<Vec<AnyConsensusStateWithHeight>, Error> {
         Ok(self
             .context
-            .consensus_states(&request.client_id.parse().unwrap()))//todo unwrap
+            .consensus_states(&request.client_id.parse().unwrap())) //todo unwrap
     }
 
     fn query_consensus_state(
@@ -439,7 +439,7 @@ impl ChainEndpoint for MockChain {
         Ok(consensus_states
             .into_iter()
             .find(|s| s.height == consensus_height)
-            .unwrap()//todo
+            .unwrap() //todo
             .consensus_state)
     }
 

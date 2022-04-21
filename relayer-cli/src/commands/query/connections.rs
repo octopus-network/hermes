@@ -33,7 +33,7 @@ impl Runnable for QueryConnectionsCmd {
 
         debug!("Options: {:?}", self);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap());//TODO
+        let rt = Arc::new(TokioRuntime::new().unwrap()); //TODO
         let chain_type = chain_config.account_prefix.clone();
         match chain_type.as_str() {
             "cosmos" => {
@@ -59,7 +59,7 @@ impl Runnable for QueryConnectionsCmd {
                 }
             }
             "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap();// todo unwrap
+                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap(); // todo unwrap
 
                 let req = QueryConnectionsRequest {
                     pagination: ibc_proto::cosmos::base::query::pagination::all(),

@@ -85,7 +85,10 @@ impl TryFrom<RawHeader> for Header {
         Ok(Self {
             block_header: raw.block_header.ok_or(Error::empty_block_header())?.into(),
             mmr_leaf: raw.mmr_leaf.ok_or(Error::empty_mmr_leaf())?.try_into()?,
-            mmr_leaf_proof: raw.mmr_leaf_proof.ok_or(Error::empty_mmr_leaf_proof())?.into(),
+            mmr_leaf_proof: raw
+                .mmr_leaf_proof
+                .ok_or(Error::empty_mmr_leaf_proof())?
+                .into(),
         })
     }
 }

@@ -17,7 +17,7 @@ impl Runnable for HealthCheckCmd {
         let config = (*app_config()).clone();
 
         for ch in config.clone().chains {
-            let rt = Arc::new(TokioRuntime::new().unwrap());//TODO
+            let rt = Arc::new(TokioRuntime::new().unwrap()); //TODO
 
             let chain_config = match config.find_chain(&ch.id) {
                 None => Output::error(format!("chain '{}' not found in configuration file", ch.id))

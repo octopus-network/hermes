@@ -66,9 +66,9 @@ impl Timestamp {
             // about year 2554, there is no risk of overflowing `Time`
             // or `OffsetDateTime`.
             let ts = OffsetDateTime::from_unix_timestamp_nanos(nanoseconds as i128)
-                .unwrap()//TODO
+                .unwrap() //TODO
                 .try_into()
-                .unwrap();// TODO
+                .unwrap(); // TODO
             Ok(Timestamp { time: Some(ts) })
         }
     }

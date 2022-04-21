@@ -67,37 +67,37 @@ define_error! {
             | e | {
                 format_args!("failed to get storage by proof: {0}", e)
             },
-        
-        InvalidChainId 
+
+        InvalidChainId
             | _ | { "invalid chain id" },
-        
-        EmptyBlockHeader 
+
+        EmptyBlockHeader
             | _ | { "empty block header" },
-        
+
         EmptyLatestCommitment
             | _ | { "empty latest commitment" },
 
-        EmptyValidatorSet 
+        EmptyValidatorSet
             | _ | { "empty validator set" },
-        
-        EmptyMmrLeaf 
+
+        EmptyMmrLeaf
             | _ | { "empty mmr leaf" },
-        
+
         EmptyMmrLeafProof
             | _ | { "empty mmr leaf proof" },
-        
-        InvalidConvertHash 
+
+        InvalidConvertHash
             | _ | { "invalid convert hash" },
-        
+
         InvalidConvertSignature
             | _ | { "invalid convert signature" },
-        
-        EmptyParentNumberAndHash 
+
+        EmptyParentNumberAndHash
             | _ | { "empty parent and hash" },
-        
+
         EmptyBeefyNextAuthoritySet
             | _ | { "empty next authority set" },
-        
+
         InvalidCodecDecode
             [ DisplayOnly<codec::Error> ]
             |_| { "invalid codec decode" },

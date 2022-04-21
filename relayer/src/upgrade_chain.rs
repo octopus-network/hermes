@@ -167,7 +167,7 @@ impl Proposal {
             Proposal::Default(p) => prost::Message::encode(p, buf),
             Proposal::Legacy(p) => prost::Message::encode(&p.0, buf),
         }
-        .unwrap()// todo unwrap
+        .unwrap() // todo unwrap
     }
 
     fn type_url(&self) -> String {

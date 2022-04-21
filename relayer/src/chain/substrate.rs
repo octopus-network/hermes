@@ -691,31 +691,38 @@ impl ChainEndpoint for SubstrateChain {
             proto_msgs.messages().first().ok_or(Error::empty_element())?.type_url
         );
 
-        // sleep(Duration::from_secs(4));
-        let result = self.deliever(proto_msgs.messages().to_vec());
+        // sleep(Duration::from_secs(20));
+        let result = self.deliever(proto_msgs.messages().to_vec()).map_err(|_| Error::deliver_error())?;
 
-        if result.is_ok() {
-            tracing::debug!(
-                "in substrate: [send_messages_and_wait_commit] >> result : {:?}",
-                result
-            );
-            
-            let ret = self.subscribe_ibc_events().map_err(|_| Error::subscribe_ibc_events())?;
-            return Ok(ret);
-        }
+        tracing::debug!(
+            "in substrate: [send_messages_and_wait_commit] >> result : {:?}",
+            result
+        );
+        
+        let ret = self.subscribe_ibc_events().map_err(|_| Error::subscribe_ibc_events())?;
+        
+        Ok(ret)
 
-    
-        let err_str = result.err().ok_or(Error::deliver_error())?.to_string();
-        if err_str.contains("Priority is too low") {
-            // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
-            tracing::error!(
-                "in substrate: [send_messages_and_wait_check_tx] >> error : {:?}",
-                err_str
-            );
-            return Ok(vec![]);
-        } else {
-            return Err(Error::sub_tx_error(err_str));
-        }
+        // let err_str = result.err().ok_or(Error::deliver_error())?.to_string();
+        // if err_str.contains("Priority is too low") {
+        //     // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
+        //     tracing::error!(
+        //         "in substrate: [send_messages_and_wait_commit] >> error : {:?}",
+        //         err_str
+        //     );
+        //     let result =  loop {
+        //         let ret = self.subscribe_ibc_events().map_err(|_| Error::subscribe_ibc_events())?;
+
+        //         if ret.is_empty() {
+        //             continue
+        //         } else {
+        //             break ret;
+        //         }
+        //     };
+        //     return Ok(result);
+        // } else {
+        //     return Err(Error::sub_tx_error(err_str));
+        // }
     }
 
     fn send_messages_and_wait_check_tx(
@@ -727,7 +734,7 @@ impl ChainEndpoint for SubstrateChain {
             proto_msgs.messages().to_vec().iter().map(|value| value.type_url.clone()).collect::<Vec<String>>()
         );
 
-        // sleep(Duration::from_secs(4));
+        // sleep(Duration::from_secs(20));
         let result = self.deliever(proto_msgs.messages().to_vec());
 
         if !result.is_ok() {
@@ -738,6 +745,7 @@ impl ChainEndpoint for SubstrateChain {
                     "in substrate: [send_messages_and_wait_check_tx] >> error : {:?}",
                     err_str
                 );
+                
                 return Ok(vec![]);
             } else {
                 return Err(Error::sub_tx_error(err_str));

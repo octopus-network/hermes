@@ -99,14 +99,16 @@ impl super::LightClient<SubstrateChain> for LightClient {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
-                .await.map_err(|_| Error::substrate_client_builder_error())?;
+                .await
+                .map_err(|_| Error::substrate_client_builder_error())?;
 
             // get block header
             let block_header = octopusxt::call_ibc::get_header_by_block_number(
                 client.clone(),
                 Some(BlockNumber::from(target.revision_height as u32)),
             )
-            .await.map_err(|_| Error::get_header_by_block_number_error())?;
+            .await
+            .map_err(|_| Error::get_header_by_block_number_error())?;
 
             Ok(block_header)
         };

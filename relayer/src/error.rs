@@ -517,63 +517,63 @@ define_error! {
         SubTxError
             { reason: String }
             |e| { format!("failed to submit tx to Substrate chain: {0}", e.reason) },
-        
-        SubstrateClientBuilderError 
+
+        SubstrateClientBuilderError
             | _ | {"substrate client builder error" },
-        
-        RetryError 
+
+        RetryError
             [ DisplayOnly<retry::Error<String>> ]
             | _ | { "retry error" },
 
-        UpdateClientStateError 
+        UpdateClientStateError
             | _ | { "update client state error" },
 
-        InvalidCodecDecode 
+        InvalidCodecDecode
             [DisplayOnly<codec::Error>]
             | _ | { "invalid codec decode error" },
-        
-        Identifier 
+
+        Identifier
             [ DisplayOnly<ibc::core::ics24_host::error::ValidationError> ]
             | _ | { "identifier error" },
-        
-        GetSendPacketEventError 
+
+        GetSendPacketEventError
             | _ | { "get send packet event error" },
 
-        GetWriteAckPacketEventError 
+        GetWriteAckPacketEventError
             | _ | { "get write packet event error" },
-        
-        GetBlockHashError 
+
+        GetBlockHashError
             | _ | {"get block hash error"},
-        
-        GetHeaderByBlockNumberError 
+
+        GetHeaderByBlockNumberError
             | _ | {"get header by block number error"},
-        
-        GetMmrLeafAndMmrProofError 
+
+        GetMmrLeafAndMmrProofError
             | _ | {" get mmr leaf and mmr proof error"},
 
-        InvalidSerdeJsonError 
+        InvalidSerdeJsonError
             [ DisplayOnly<serde_json::Error> ]
             | _ | { "invalid serde json error" },
-        
-        EmptyHash 
+
+        EmptyHash
             | _ | { "empty hash error" },
-        
-        GetReadProofError 
+
+        GetReadProofError
             | _ | { "get read proof error" },
-        
+
         Authorities
             | _ | { "authorities error" },
-        
+
         EmptyElement
             | _ | {"empty element error" },
-        
+
         SubscribeIbcEvents
             | _ | { "subscribe ibc events error" },
 
-        DeliverError 
+        DeliverError
             | _ | { "deliver error "},
-        
-        InvalidCommitmentPrefix 
+
+        InvalidCommitmentPrefix
             | _ | { "invalid commitment prefix" },
     }
 }

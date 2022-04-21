@@ -108,12 +108,12 @@ define_error! {
         Decode
             [ TraceError<prost::DecodeError> ]
             | _ | { "decode error" },
-        
-        Encode 
+
+        Encode
             {reason : String }
             [ TraceError<prost::EncodeError> ]
             | e | { format_args!("encode error: {}", e.reason) },
-            
+
         TendermintProtoEncode
             [ TraceError<tendermint_proto::Error> ]
             | _ | { "tendermint proto encode error" },
@@ -279,10 +279,10 @@ define_error! {
             | e | {
                 format_args!("the client is frozen: frozen_height={0} target_height={1}", e.frozen_height, e.target_height)
             },
-        
-        EmptyTime 
+
+        EmptyTime
             |_| { "the time is empty" },
-        
+
     }
 }
 

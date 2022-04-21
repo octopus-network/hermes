@@ -59,6 +59,7 @@ pub fn process(
     // TODO have ibc-rs informal have some different
     let event_attributes = Attributes {
         height: ctx.host_height(),
+        client_type: msg.client_state.client_type(),
         client_id,
         ..Default::default()
     };

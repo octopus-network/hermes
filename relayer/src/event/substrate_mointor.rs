@@ -289,7 +289,7 @@ impl EventMonitor {
             let api = client
                 .clone()
                 .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
-                // todo unwrap
+            // todo unwrap
             let sub = api.client.rpc().subscribe_events().await.unwrap();
             let decoder = api.client.events_decoder();
             let mut sub = EventSubscription::<ibc_node::DefaultConfig>::new(sub, decoder);
@@ -468,8 +468,9 @@ fn from_raw_event_to_batch_event(
         "CreateClient" => {
             let event = <ibc_node::ibc::events::CreateClient as codec::Decode>::decode(
                 &mut &raw_event.data[..],
-            ).map_err(|e| Error::invalid_codec_decode(e))?;
-            
+            )
+            .map_err(|e| Error::invalid_codec_decode(e))?;
+
             tracing::trace!("In substrate_monitor: [subscribe_events] >> CreateClient Event");
 
             // let height = event.height;
@@ -1070,7 +1071,7 @@ fn from_raw_event_to_batch_event(
         "Empty" => {
             let event =
                 <ibc_node::ibc::events::Empty as codec::Decode>::decode(&mut &raw_event.data[..])
-                .map_err(|e| Error::invalid_codec_decode(e))?;
+                    .map_err(|e| Error::invalid_codec_decode(e))?;
             tracing::trace!("in substrate_monitor: [substrate_events] >> Empty Event");
 
             let data = String::from_utf8(event.0).map_err(|_| Error::invalid_from_utf8())?;
@@ -1138,8 +1139,8 @@ async fn get_latest_height(client: Client<ibc_node::DefaultConfig>) -> u64 {
     let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
     let block = api.client.rpc().subscribe_blocks().await;
-    
-    let mut block  = if let Ok(value) = block { 
+
+    let mut block = if let Ok(value) = block {
         value
     } else {
         panic!("subscribe blocks error");
@@ -1186,7 +1187,8 @@ async fn handle_single_event(
             });
         }
     } else {
-        tracing::trace!("in substrate monitor:handle_single_event from_raw_event_to_batch_event error");
+        tracing::trace!(
+            "in substrate monitor:handle_single_event from_raw_event_to_batch_event error"
+        );
     }
-    
 }

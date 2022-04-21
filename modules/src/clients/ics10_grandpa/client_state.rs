@@ -141,12 +141,19 @@ impl TryFrom<RawClientState> for ClientState {
         });
 
         Ok(Self {
-            chain_id: ChainId::from_str(raw.chain_id.as_str()).map_err(|_| Error::invalid_chain_id())?,
+            chain_id: ChainId::from_str(raw.chain_id.as_str())
+                .map_err(|_| Error::invalid_chain_id())?,
             block_number: raw.block_number,
             frozen_height,
             block_header: raw.block_header.ok_or(Error::empty_block_header())?.into(),
-            latest_commitment: raw.latest_commitment.ok_or(Error::empty_latest_commitment())?.into(),
-            validator_set: raw.validator_set.ok_or(Error::empty_validator_set())?.into(),
+            latest_commitment: raw
+                .latest_commitment
+                .ok_or(Error::empty_latest_commitment())?
+                .into(),
+            validator_set: raw
+                .validator_set
+                .ok_or(Error::empty_validator_set())?
+                .into(),
         })
     }
 }

@@ -260,10 +260,10 @@ define_error! {
                     e.chain_id, e.event)
             },
 
-        WebsocketUrlError 
+        WebsocketUrlError
             [ RelayerError]
             | _|  {"websocket_url error"},
-        
+
         UpdateMmrError
             [ RelayerError]
             | _|  {"update mmr root error"},
@@ -925,15 +925,13 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             // if client state is grandpa client run this code
 
             let src_chain_websocket_url = self.src_chain().websocket_url().map_err(|e| ForeignClientError::websocket_url_error(e))?;
-            
+
             let dst_chain_websocket_url = self.dst_chain().websocket_url().map_err(|e| ForeignClientError::websocket_url_error(e))?;
-            
+
             let result = self
                 .src_chain()
                 .update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url)
                 .map_err(|e| ForeignClientError::update_mmr_error(e))?;
-        }
-
         }
         */
 
@@ -946,6 +944,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 let mut temp_client_state = AnyClientState::Grandpa(client_state.clone());
                 let result = loop {
                     if mmr_root_height < target_height.revision_height as u32 {
+                        info!(
+                            "mmr_root_height: {}, target_height: {}",
+                            mmr_root_height, target_height
+                        );
                         thread::sleep(Duration::from_millis(500));
                         // Get the latest client state on destination.
                         let client_state = self

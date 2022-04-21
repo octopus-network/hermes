@@ -154,12 +154,12 @@ define_error! {
 
         ImplementationSpecific
             | _ | { "implementation specific error" },
-        
-        InvalidDecode 
+
+        InvalidDecode
             [ DisplayOnly<tendermint_proto::Error>]
             | _ | { "invalid decode" },
-        
-        InvalidEncode 
+
+        InvalidEncode
             [ DisplayOnly<tendermint_proto::Error>]
             | _ | { "invalid encode" },
 

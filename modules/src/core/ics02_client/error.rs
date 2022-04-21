@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-use flex_error::{define_error, TraceError, DisplayOnly};
+use flex_error::{define_error, DisplayOnly, TraceError};
 
 use crate::clients::ics07_tendermint::error::Error as Ics07Error;
 use crate::clients::ics10_grandpa::error::Error as Ics10Error;
@@ -361,29 +361,29 @@ define_error! {
 
         InvalidIncreaseClientCounter
             | _ | { "invalid client counter" },
-        
+
         InvalidEncode
             [ DisplayOnly<tendermint_proto::Error> ]
             | _ | { "invalid encode" },
-        
+
         InvalidSerdeJsonEncode
             [ DisplayOnly<serde_json::Error> ]
             |_| { "invalid serde json encode"},
 
-        EmptyProof 
+        EmptyProof
             | _ | { "empty proof" },
-        
-        InvalidMerkleProof 
+
+        InvalidMerkleProof
             | _ | { "invalid merkle proof" },
 
-        ReadProofCheck 
+        ReadProofCheck
             | _ | {"read proof check error" },
-        
-        InvalidHexDecode 
+
+        InvalidHexDecode
             [ DisplayOnly<subtle_encoding::Error> ]
             | _ | { "invalid hex decode"},
 
-        
+
     }
 }
 

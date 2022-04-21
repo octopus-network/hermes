@@ -10,7 +10,7 @@ use crate::proofs::ProofError;
 use crate::timestamp::Timestamp;
 use crate::Height;
 
-use flex_error::{define_error, TraceError, DisplayOnly};
+use flex_error::{define_error, DisplayOnly, TraceError};
 use tendermint_proto::Error as TendermintError;
 
 define_error! {
@@ -352,11 +352,11 @@ define_error! {
         InvalidDecode
             [ DisplayOnly<tendermint_proto::Error> ]
             |_| { "invalid decode" },
-        
+
         InvalidCodecDecode
             [ DisplayOnly<codec::Error> ]
             |_| { "invalid codec decode "},
-        
+
         InvalidSerdeJsonDecode
             [ DisplayOnly<serde_json::Error> ]
             |_| { "invalid serde json decode "},
@@ -368,36 +368,36 @@ define_error! {
         InvalidEncode
             | _ | { "invalid encode" },
 
-        PacketCommitmentKeysNotFound 
+        PacketCommitmentKeysNotFound
             | _ | { "packet commitmet keys not found"},
 
-        AcknowledgementsKeysNotFound 
+        AcknowledgementsKeysNotFound
             | _ | { "Acknowldegement keys not found" },
 
         IvalidIncreaseChannelCounter
             | _ | { "invalid increase channel counter" },
-        
-        InvalidStoreChannelsKeys 
+
+        InvalidStoreChannelsKeys
             | _ | { "invalid store channels keys" },
-        
-        InvalidStoreChannelsConnection 
+
+        InvalidStoreChannelsConnection
             | _ | { "invalid store channels connection" },
-        
-        InvalidStoreAcknowledgementsKeys 
+
+        InvalidStoreAcknowledgementsKeys
             | _ | { "invalid store acknowledgement keys" },
-        
+
         InvalidStorePacketCommitmentKeys
             | _ | { "invalid store packet commitment keys" },
-        
+
         InvalidDeletePacketCommitmentKeys
             | _ | { "invalid delete packet commitment keys" },
-        
+
         EmptyAcknowledgeResponse
             | _ | { "empty acknowledge response" },
 
 
 
-        
+
     }
 }
 

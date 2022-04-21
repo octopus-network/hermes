@@ -1,5 +1,5 @@
-use flex_error::{define_error, TraceError};
 use flex_error::DisplayOnly;
+use flex_error::{define_error, TraceError};
 
 use tendermint_rpc::{Error as RpcError, Url};
 
@@ -50,7 +50,7 @@ define_error! {
         InvalidCodecDecode
             [ DisplayOnly<codec::Error>]
             |_ | { "invalid codec decode" },
-        
+
         InvalidFromUtf8
             |_| { "invalid from utf8"}
     }
