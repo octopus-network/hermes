@@ -136,13 +136,16 @@ impl SubstrateChain {
     /// Subscribe Events
     fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [subscribe_ibc_events]");
-        self.block_on(octopusxt::subscribe_ibc_event(self.get_client()?))
+        let client = self.get_client()?;
+        
+        self.block_on(octopusxt::subscribe_ibc_event(client))
     }
 
     /// get latest block height
     fn get_latest_height(&self) -> Result<u64, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_latest_height]");
-        self.block_on(octopusxt::get_latest_height(self.get_client()?))
+        let client = self.get_client()?;
+        self.block_on(octopusxt::get_latest_height(client))
     }
 
     /// get connectionEnd by connection_identifier
@@ -155,9 +158,10 @@ impl SubstrateChain {
             connection_identifier
         );
 
+        let client = self.get_client()?;
         self.block_on(octopusxt::get_connection_end(
             connection_identifier,
-            self.get_client()?,
+            client,
         ))
     }
 
@@ -172,10 +176,11 @@ impl SubstrateChain {
             port_id,
             channel_id
         );
+        let client = self.get_client()?;
         self.block_on(octopusxt::get_channel_end(
             port_id,
             channel_id,
-            self.get_client()?,
+            client,
         ))
     }
 
@@ -193,11 +198,12 @@ impl SubstrateChain {
             seq
         );
 
+        let client = self.get_client()?;
         self.block_on(octopusxt::get_packet_receipt(
             port_id,
             channel_id,
             seq,
-            self.get_client()?,
+            client,
         ))
     }
 
@@ -213,11 +219,12 @@ impl SubstrateChain {
             port_id, channel_id, seq
         );
 
+        let client = self.get_client()?;
         self.block_on(octopusxt::get_send_packet_event(
             port_id,
             channel_id,
             seq,
-            self.get_client()?,
+            client,
         ))
     }
 
@@ -231,7 +238,8 @@ impl SubstrateChain {
             client_id
         );
 
-        self.block_on(octopusxt::get_client_state(client_id, self.get_client()?))
+        let client = self.get_client()?;
+        self.block_on(octopusxt::get_client_state(client_id, client))
     }
 
     /// get consensus_state by client_identifier and height
@@ -246,10 +254,12 @@ impl SubstrateChain {
             height
         );
 
+        let client = self.get_client()?;
+
         self.block_on(octopusxt::get_client_consensus(
             client_id,
             height.clone(),
-            self.get_client()?,
+            client,
         ))
     }
 
@@ -262,9 +272,11 @@ impl SubstrateChain {
             client_id
         );
 
+        let client = self.get_client()?;
+
         self.block_on(octopusxt::get_consensus_state_with_height(
             client_id,
-            self.get_client()?,
+            client,
         ))
     }
 
@@ -279,32 +291,38 @@ impl SubstrateChain {
             port_id, channel_id, &seqs
         );
 
+        let client = self.get_client()?;
+
         self.block_on(octopusxt::get_unreceipt_packet(
             port_id,
             channel_id,
             seqs.to_vec(),
-            self.get_client()?,
+            client,
         ))
     }
 
     fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_clients]");
-        self.block_on(octopusxt::get_clients(self.get_client()?))
+        let client = self.get_client()?;
+        self.block_on(octopusxt::get_clients(client))
     }
 
     fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_connections]");
-        self.block_on(octopusxt::get_connections(self.get_client()?))
+        let client = self.get_client()?;
+        self.block_on(octopusxt::get_connections(client))
     }
 
     fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_channels]");
-        self.block_on(octopusxt::get_channels(self.get_client()?))
+        let client = self.get_client()?;
+        self.block_on(octopusxt::get_channels(client))
     }
 
     fn get_commitment_packet_state(&self) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_commitment_packet_state]");
-        self.block_on(octopusxt::get_commitment_packet_state(self.get_client()?))
+        let client = self.get_client()?;
+        self.block_on(octopusxt::get_commitment_packet_state(client))
     }
 
     /// get packet commitment by port_id, channel_id and sequence
@@ -319,17 +337,19 @@ impl SubstrateChain {
             port_id, channel_id, seq
         );
 
+        let client = self.get_client()?;
         self.block_on(octopusxt::get_packet_commitment(
             port_id,
             channel_id,
             seq,
-            self.get_client()?,
+            client,
         ))
     }
 
     fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_acknowledge_packet_state]");
-        self.block_on(octopusxt::get_acknowledge_packet_state(self.get_client()?))
+        let client = self.get_client()?;
+        self.block_on(octopusxt::get_acknowledge_packet_state(client))
     }
 
     /// get connection_identifier vector by client_identifier
@@ -342,9 +362,12 @@ impl SubstrateChain {
             client_id
         );
 
+        let client = self.get_client()?;
+
+
         self.block_on(octopusxt::get_client_connections(
             client_id.clone(),
-            self.get_client()?,
+            client,
         ))
     }
 
@@ -358,9 +381,10 @@ impl SubstrateChain {
             connection_id
         );
 
+        let client = self.get_client()?;
         self.block_on(octopusxt::get_connection_channels(
             connection_id.clone(),
-            self.get_client()?,
+            client,
         ))
     }
 
@@ -371,15 +395,13 @@ impl SubstrateChain {
         msgs: Vec<Any>,
     ) -> Result<Vec<subxt::sp_core::H256>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [deliever]");
-        // let type_urls = msg
-        //     .iter()
-        //     .map(|value| value.type_url.clone())
-        //     .collect::<Vec<String>>();
-        // tracing::debug!("in substrate: [deliever] msg.type_url = {:?}", type_urls);
+       
         let mut result_hash = vec![];
 
+        let client = self.get_client()?;
+
         for msg in msgs {
-            let ret = self.block_on(octopusxt::deliver(msg, self.get_client()?))?;
+            let ret = self.block_on(octopusxt::deliver(msg, client.clone()))?;
             result_hash.push(ret);
         }
 
@@ -394,11 +416,13 @@ impl SubstrateChain {
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_send_packet_event] >> port_id = {:?}, channel_id = {:?}, sequence = {:?}", port_id, channel_id, sequence);
 
+        let client = self.get_client()?;
+
         self.block_on(octopusxt::call_ibc::get_write_ack_packet_event(
             port_id,
             channel_id,
             sequence,
-            self.get_client()?,
+            client,
         ))
     }
 
