@@ -49,7 +49,6 @@ impl ClientDef for GrandpaClient {
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-
         if header.block_header.block_number > client_state.latest_commitment.block_number {
             return Err(Error::invalid_mmr_root_height(
                 client_state.latest_commitment.block_number,
@@ -65,14 +64,13 @@ impl ClientDef for GrandpaClient {
 
         // Fetch the desired mmr root from storage if it's different from the mmr root in client_state
         if header.mmr_leaf_proof.leaf_count != client_state.latest_commitment.block_number as u64 {
-
             let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
             let any_consensus_state = ctx.consensus_state(&client_id, height)?;
             let consensus_state = match any_consensus_state {
                 AnyConsensusState::Grandpa(_v) => _v,
                 _ => unimplemented!(),
             };
-           
+
             mmr_root.copy_from_slice(&consensus_state.digest);
         } else {
             mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
@@ -107,7 +105,6 @@ impl ClientDef for GrandpaClient {
             block_number: header.clone().block_header.block_number,
             ..client_state
         };
-
 
         // grandpa consensus_state update from substrate-ibc
         Ok((client_state, GpConsensusState::from(header.clone())))
@@ -364,7 +361,6 @@ impl GrandpaClient {
         _keys: Vec<Vec<u8>>,
         _storage_name: &str,
     ) -> Result<Vec<u8>, Error> {
-
         use crate::clients::ics10_grandpa::state_machine::read_proof_check;
         use core::convert::TryFrom;
         use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
@@ -483,7 +479,6 @@ impl GrandpaClient {
 
     /// A hashing function for packet commitments
     fn hash(value: String) -> String {
-
         let r = sp_io::hashing::sha2_256(value.as_bytes());
 
         let mut tmp = String::new();

@@ -42,7 +42,6 @@ pub fn process(
     // Read client state from the host chain store.
     let client_state = ctx.client_state(&client_id)?;
 
-
     let latest_height = client_state.latest_height();
     let consensus_state = ctx.consensus_state(&client_id, latest_height)?;
 

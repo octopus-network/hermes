@@ -161,7 +161,6 @@ where
         config: ChainConfig,
         rt: Arc<TokioRuntime>,
     ) -> Result<Handle, Error> {
-
         // Similar to `from_config`.
         let chain = Endpoint::bootstrap(config, rt.clone())?;
 

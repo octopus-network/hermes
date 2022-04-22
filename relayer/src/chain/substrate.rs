@@ -106,8 +106,8 @@ impl SubstrateChain {
             ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
-                .await.map_err(|_| Error::substrate_client_builder_error())
-
+                .await
+                .map_err(|_| Error::substrate_client_builder_error())
         };
 
         self.block_on(client)
@@ -137,7 +137,7 @@ impl SubstrateChain {
     fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [subscribe_ibc_events]");
         let client = self.get_client()?;
-        
+
         self.block_on(octopusxt::subscribe_ibc_event(client))
     }
 
@@ -159,10 +159,7 @@ impl SubstrateChain {
         );
 
         let client = self.get_client()?;
-        self.block_on(octopusxt::get_connection_end(
-            connection_identifier,
-            client,
-        ))
+        self.block_on(octopusxt::get_connection_end(connection_identifier, client))
     }
 
     /// get channelEnd  by port_identifier, and channel_identifier
@@ -177,11 +174,7 @@ impl SubstrateChain {
             channel_id
         );
         let client = self.get_client()?;
-        self.block_on(octopusxt::get_channel_end(
-            port_id,
-            channel_id,
-            client,
-        ))
+        self.block_on(octopusxt::get_channel_end(port_id, channel_id, client))
     }
 
     /// get packet receipt by port_id, channel_id and sequence
@@ -200,10 +193,7 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
         self.block_on(octopusxt::get_packet_receipt(
-            port_id,
-            channel_id,
-            seq,
-            client,
+            port_id, channel_id, seq, client,
         ))
     }
 
@@ -221,10 +211,7 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
         self.block_on(octopusxt::get_send_packet_event(
-            port_id,
-            channel_id,
-            seq,
-            client,
+            port_id, channel_id, seq, client,
         ))
     }
 
@@ -275,8 +262,7 @@ impl SubstrateChain {
         let client = self.get_client()?;
 
         self.block_on(octopusxt::get_consensus_state_with_height(
-            client_id,
-            client,
+            client_id, client,
         ))
     }
 
@@ -339,10 +325,7 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
         self.block_on(octopusxt::get_packet_commitment(
-            port_id,
-            channel_id,
-            seq,
-            client,
+            port_id, channel_id, seq, client,
         ))
     }
 
@@ -364,11 +347,7 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
 
-
-        self.block_on(octopusxt::get_client_connections(
-            client_id.clone(),
-            client,
-        ))
+        self.block_on(octopusxt::get_client_connections(client_id.clone(), client))
     }
 
     fn get_connection_channels(
@@ -395,7 +374,7 @@ impl SubstrateChain {
         msgs: Vec<Any>,
     ) -> Result<Vec<subxt::sp_core::H256>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [deliever]");
-       
+
         let mut result_hash = vec![];
 
         let client = self.get_client()?;
@@ -417,10 +396,7 @@ impl SubstrateChain {
         let client = self.get_client()?;
 
         self.block_on(octopusxt::call_ibc::get_write_ack_packet_event(
-            port_id,
-            channel_id,
-            sequence,
-            client,
+            port_id, channel_id, sequence, client,
         ))
     }
 
@@ -430,13 +406,13 @@ impl SubstrateChain {
     ) -> Result<Vec<IbcEvent>, Error> {
         let mut result_event = vec![];
         for sequence in &request.sequences {
-            
             let packet = self
                 .get_send_packet_event(
                     &request.source_port_id,
                     &request.source_channel_id,
                     sequence,
-                ).map_err(|_| Error::get_send_packet_event_error())?;
+                )
+                .map_err(|_| Error::get_send_packet_event_error())?;
 
             result_event.push(IbcEvent::SendPacket(
                 ibc::core::ics04_channel::events::SendPacket {
@@ -451,22 +427,23 @@ impl SubstrateChain {
     fn get_ibc_write_acknowledgement_event(
         &self,
         request: ibc::core::ics04_channel::channel::QueryPacketEventDataRequest,
-    ) -> Result<Vec<IbcEvent> , Error> {
+    ) -> Result<Vec<IbcEvent>, Error> {
         use ibc::core::ics04_channel::events::WriteAcknowledgement;
         let mut result_event = vec![];
         for sequence in &request.sequences {
-            
             let write_ack = self
                 .get_write_ack_packet_event(
                     &request.source_port_id,
                     &request.source_channel_id,
                     sequence,
-                ).map_err(|_| Error::get_write_ack_packet_event_error())?;
+                )
+                .map_err(|_| Error::get_write_ack_packet_event_error())?;
 
-            let write_ack = WriteAcknowledgement::decode(&*write_ack).map_err(|e| Error::decode(e))?;
+            let write_ack =
+                WriteAcknowledgement::decode(&*write_ack).map_err(|e| Error::decode(e))?;
             result_event.push(IbcEvent::WriteAcknowledgement(write_ack));
         }
-        
+
         Ok(result_event)
     }
 
@@ -477,7 +454,7 @@ impl SubstrateChain {
         storage_entry: &F,
         height: &Height,
         storage_name: &str,
-    ) -> Result<MerkleProof, Error> 
+    ) -> Result<MerkleProof, Error>
     where
         <F as StorageEntry>::Value: serde::Serialize + core::fmt::Debug,
     {
@@ -486,28 +463,30 @@ impl SubstrateChain {
             use sp_core::{storage::StorageKey, Bytes};
             use subxt::{rpc::NumberOrHex, sp_core::H256, storage::StorageKeyPrefix, BlockNumber};
 
-            
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
-                .await.map_err(|_| Error::substrate_client_builder_error())?;
+                .await
+                .map_err(|_| Error::substrate_client_builder_error())?;
 
             let _height = NumberOrHex::Number(height.revision_height);
-           
+
             let block_hash: H256 = client
                 .rpc()
                 .block_hash(Some(BlockNumber::from(_height)))
-                .await.map_err(|_| Error::get_block_hash_error())?.ok_or(Error::empty_hash())?;
+                .await
+                .map_err(|_| Error::get_block_hash_error())?
+                .ok_or(Error::empty_hash())?;
 
             let storage_key = storage_entry.key().final_key(StorageKeyPrefix::new::<F>());
             tracing::trace!("in substrate: [generate_storage_proof] >> height: {:?}, block_hash: {:?}, storage key: {:?}, storage_name = {:?}",
                 height, block_hash, storage_key, storage_name);
 
             use jsonrpsee::types::to_json_value;
-            
+
             let params = &[
                 to_json_value(vec![storage_key]).map_err(|e| Error::invalid_serde_json_error(e))?,
-                to_json_value(block_hash).map_err(|e| Error::invalid_serde_json_error(e))?
+                to_json_value(block_hash).map_err(|e| Error::invalid_serde_json_error(e))?,
             ];
 
             #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -516,12 +495,13 @@ impl SubstrateChain {
                 pub at: String,
                 pub proof: Vec<Bytes>,
             }
-          
+
             let storage_proof: ReadProof_ = client
                 .rpc()
                 .client
                 .request("state_getReadProof", params)
-                .await.map_err(|_| Error::get_read_proof_error())?;
+                .await
+                .map_err(|_| Error::get_read_proof_error())?;
 
             tracing::trace!(
                 "in substrate: [generate_storage_proof] >> storage_proof : {:?}",
@@ -547,17 +527,18 @@ impl SubstrateChain {
                 storage_proof_
             );
 
-            let storage_proof_str = serde_json::to_string(&storage_proof_).map_err(|e| Error::invalid_serde_json_error(e))?;
+            let storage_proof_str = serde_json::to_string(&storage_proof_)
+                .map_err(|e| Error::invalid_serde_json_error(e))?;
             tracing::trace!(
                 "in substrate: [generate_storage_proof] >> storage_proof_str: {:?}",
                 storage_proof_str
             );
-            
+
             Ok(storage_proof_str)
         };
 
         let storage_proof = self.block_on(generate_storage_proof)?;
-        
+
         Ok(compose_ibc_merkle_proof(storage_proof))
     }
 }
@@ -594,16 +575,20 @@ impl ChainEndpoint for SubstrateChain {
         let config = self.config.clone();
 
         let public_key = async {
-           
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
-                .await.map_err(|e| Error::substrate_client_builder_error())?;
+                .await
+                .map_err(|e| Error::substrate_client_builder_error())?;
 
             let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
-            
-            let authorities = api.storage().beefy().authorities(None).await.map_err(|_| Error::authorities())?;
+            let authorities = api
+                .storage()
+                .beefy()
+                .authorities(None)
+                .await
+                .map_err(|_| Error::authorities())?;
             tracing::info!("authorities length : {:?}", authorities.len());
             let result: Vec<String> = authorities
                 .into_iter()
@@ -686,19 +671,27 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<IbcEvent>, Error> {
         tracing::trace!(
             "in substrate: [send_messages_and_wait_commit]: proto_msg: {:?}",
-            proto_msgs.messages().first().ok_or(Error::empty_element())?.type_url
+            proto_msgs
+                .messages()
+                .first()
+                .ok_or(Error::empty_element())?
+                .type_url
         );
 
         // sleep(Duration::from_secs(20));
-        let result = self.deliever(proto_msgs.messages().to_vec()).map_err(|_| Error::deliver_error())?;
+        let result = self
+            .deliever(proto_msgs.messages().to_vec())
+            .map_err(|_| Error::deliver_error())?;
 
         tracing::debug!(
             "in substrate: [send_messages_and_wait_commit] >> result : {:?}",
             result
         );
-        
-        let ret = self.subscribe_ibc_events().map_err(|_| Error::subscribe_ibc_events())?;
-        
+
+        let ret = self
+            .subscribe_ibc_events()
+            .map_err(|_| Error::subscribe_ibc_events())?;
+
         Ok(ret)
     }
 
@@ -708,7 +701,12 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<TxResponse>, Error> {
         tracing::debug!(
             "in substrate: [send_messages_and_wait_check_tx], url of msg to send {:?}",
-            proto_msgs.messages().to_vec().iter().map(|value| value.type_url.clone()).collect::<Vec<String>>()
+            proto_msgs
+                .messages()
+                .to_vec()
+                .iter()
+                .map(|value| value.type_url.clone())
+                .collect::<Vec<String>>()
         );
 
         // sleep(Duration::from_secs(20));
@@ -722,13 +720,13 @@ impl ChainEndpoint for SubstrateChain {
                     "in substrate: [send_messages_and_wait_check_tx] >> error : {:?}",
                     err_str
                 );
-                
+
                 return Ok(vec![]);
             } else {
                 return Err(Error::sub_tx_error(err_str));
             }
         }
-        
+
         let result = result.map_err(|_| Error::deliver_error())?;
         tracing::debug!(
             "in substrate: [send_messages_and_wait_check_tx] >> result : {:?}",
@@ -741,7 +739,13 @@ impl ChainEndpoint for SubstrateChain {
             code: Code::default(),
             data: serde_json::from_str(json).map_err(|e| Error::invalid_serde_json_error(e))?,
             log: Log::from("testtest"),
-            hash: transaction::Hash::new(*result.as_slice().last().ok_or(Error::empty_element())?.as_fixed_bytes()),
+            hash: transaction::Hash::new(
+                *result
+                    .as_slice()
+                    .last()
+                    .ok_or(Error::empty_element())?
+                    .as_fixed_bytes(),
+            ),
         };
 
         Ok(vec![tx_re])
@@ -759,7 +763,8 @@ impl ChainEndpoint for SubstrateChain {
         }
 
         pub fn get_dummy_account_id() -> Result<AccountId, Error> {
-            AccountId::from_str(&get_dummy_account_id_raw()).map_err(|e| Error::unknown_account_type(get_dummy_account_id_raw()))
+            AccountId::from_str(&get_dummy_account_id_raw())
+                .map_err(|e| Error::unknown_account_type(get_dummy_account_id_raw()))
         }
 
         let signer = Signer::new(get_dummy_account_id()?.to_string());
@@ -778,7 +783,10 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!("in substrate: [query_commitment_prefix]");
 
         // TODO - do a real chain query
-        Ok(CommitmentPrefix::try_from(self.config().store_prefix.as_bytes().to_vec()).map_err(|_| Error::invalid_commitment_prefix())?)
+        Ok(
+            CommitmentPrefix::try_from(self.config().store_prefix.as_bytes().to_vec())
+                .map_err(|_| Error::invalid_commitment_prefix())?,
+        )
     }
 
     fn query_clients(
@@ -787,11 +795,12 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
         tracing::trace!("in substrate: [query_clients] >> request = {:?}", request);
 
-        let result = self.retry_wapper(|| self.get_clients()).map_err(|e| Error::retry_error(e))?;
+        let result = self
+            .retry_wapper(|| self.get_clients())
+            .map_err(|e| Error::retry_error(e))?;
 
         tracing::trace!("in substrate: [query_clients] >> clients: {:?}", result);
 
-        
         Ok(result)
     }
 
@@ -806,7 +815,9 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let result = self.retry_wapper(|| self.get_client_state(client_id)).map_err(|e| Error::retry_error(e))?;
+        let result = self
+            .retry_wapper(|| self.get_client_state(client_id))
+            .map_err(|e| Error::retry_error(e))?;
 
         tracing::trace!(
             "in substrate: [query_client_state] >> client_state: {:?}",
@@ -824,12 +835,14 @@ impl ChainEndpoint for SubstrateChain {
             "in substrate: [query_consensus_states] >> request = {:?}",
             request
         );
-        
-        let request_client_id = ClientId::from_str(request.client_id.as_str()).map_err(|e| Error::identifier(e))?;
 
-        let result = self.retry_wapper(|| self.get_consensus_state_with_height(&request_client_id)).map_err(|e| Error::retry_error(e))?;
+        let request_client_id =
+            ClientId::from_str(request.client_id.as_str()).map_err(|e| Error::identifier(e))?;
 
-    
+        let result = self
+            .retry_wapper(|| self.get_consensus_state_with_height(&request_client_id))
+            .map_err(|e| Error::retry_error(e))?;
+
         let consensus_state: Vec<(Height, AnyConsensusState)> = result;
 
         let mut any_consensus_state_with_height = vec![];
@@ -902,11 +915,12 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let result = self.retry_wapper(|| self.get_connections()).map_err(|e| Error::retry_error(e))?;
+        let result = self
+            .retry_wapper(|| self.get_connections())
+            .map_err(|e| Error::retry_error(e))?;
 
         tracing::trace!("in substrate: [query_connections] >> clients: {:?}", result);
 
-        
         Ok(result)
     }
 
@@ -919,16 +933,18 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let client_id = ClientId::from_str(request.client_id.as_str()).map_err(|e| Error::identifier(e))?;
+        let client_id =
+            ClientId::from_str(request.client_id.as_str()).map_err(|e| Error::identifier(e))?;
 
-        let result = self.retry_wapper(|| self.get_client_connections(&client_id)).map_err(|e| Error::retry_error(e))?;
+        let result = self
+            .retry_wapper(|| self.get_client_connections(&client_id))
+            .map_err(|e| Error::retry_error(e))?;
 
         tracing::trace!(
             "in substrate: [query_client_connections] >> client_connections: {:#?}",
             result
         );
 
-        
         Ok(result)
     }
 
@@ -944,7 +960,6 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-    
         let connection_end = self
             .retry_wapper(|| self.get_connection_end(connection_id))
             .map_err(|e| Error::retry_error(e))?;
@@ -965,15 +980,17 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let connection_id = ConnectionId::from_str(&request.connection).map_err(|e| Error::identifier(e))?;
-        let result = self.retry_wapper(|| self.get_connection_channels(&connection_id)).map_err(|e| Error::retry_error(e))?;
+        let connection_id =
+            ConnectionId::from_str(&request.connection).map_err(|e| Error::identifier(e))?;
+        let result = self
+            .retry_wapper(|| self.get_connection_channels(&connection_id))
+            .map_err(|e| Error::retry_error(e))?;
 
         tracing::trace!(
             "in substrate: [query_connection_channels] >> connection_channels: {:?}",
             result
         );
 
-        
         Ok(result)
     }
 
@@ -983,11 +1000,12 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         tracing::trace!("in substrate: [query_channels] >> request = {:?}", request);
 
-        let result = self.retry_wapper(|| self.get_channels()).map_err(|e| Error::retry_error(e))?;
+        let result = self
+            .retry_wapper(|| self.get_channels())
+            .map_err(|e| Error::retry_error(e))?;
 
         tracing::trace!("in substrate: [query_connections] >> clients: {:?}", result);
 
-        
         Ok(result)
     }
 
@@ -1005,7 +1023,6 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        
         let channel_end = self
             .retry_wapper(|| self.get_channel_end(port_id, channel_id))
             .map_err(|e| Error::retry_error(e))?;
@@ -1039,9 +1056,13 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let packet_commitments = self.retry_wapper(|| self.get_commitment_packet_state()).map_err(|e| Error::retry_error(e))?;
+        let packet_commitments = self
+            .retry_wapper(|| self.get_commitment_packet_state())
+            .map_err(|e| Error::retry_error(e))?;
 
-        let height = self.retry_wapper(|| self.get_latest_height()).map_err(|e| Error::retry_error(e))?;
+        let height = self
+            .retry_wapper(|| self.get_latest_height())
+            .map_err(|e| Error::retry_error(e))?;
 
         let latest_height = Height::new(0, height);
 
@@ -1057,12 +1078,15 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        
-        let port_id = PortId::from_str(request.port_id.as_str()).map_err(|e| Error::identifier(e))?;
-        let channel_id = ChannelId::from_str(request.channel_id.as_str()).map_err(|e| Error::identifier(e))?;
+        let port_id =
+            PortId::from_str(request.port_id.as_str()).map_err(|e| Error::identifier(e))?;
+        let channel_id =
+            ChannelId::from_str(request.channel_id.as_str()).map_err(|e| Error::identifier(e))?;
         let seqs = request.packet_commitment_sequences.clone();
 
-        let result = self.retry_wapper(|| self.get_unreceipt_packet(&port_id, &channel_id, &seqs)).map_err(|e| Error::retry_error(e))?;
+        let result = self
+            .retry_wapper(|| self.get_unreceipt_packet(&port_id, &channel_id, &seqs))
+            .map_err(|e| Error::retry_error(e))?;
 
         Ok(result)
     }
@@ -1076,9 +1100,13 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let packet_acknowledgements = self.retry_wapper(|| self.get_acknowledge_packet_state()).map_err(|e| Error::retry_error(e))?;
+        let packet_acknowledgements = self
+            .retry_wapper(|| self.get_acknowledge_packet_state())
+            .map_err(|e| Error::retry_error(e))?;
 
-        let height = self.retry_wapper(|| self.get_latest_height()).map_err(|e| Error::retry_error(e))?;
+        let height = self
+            .retry_wapper(|| self.get_latest_height())
+            .map_err(|e| Error::retry_error(e))?;
 
         let latest_height = Height::new(0, height);
 
@@ -1094,8 +1122,10 @@ impl ChainEndpoint for SubstrateChain {
             request
         );
 
-        let port_id = PortId::from_str(request.port_id.as_str()).map_err(|e| Error::identifier(e))?;        
-        let channel_id = ChannelId::from_str(request.channel_id.as_str()).map_err(|e| Error::identifier(e))?;
+        let port_id =
+            PortId::from_str(request.port_id.as_str()).map_err(|e| Error::identifier(e))?;
+        let channel_id =
+            ChannelId::from_str(request.channel_id.as_str()).map_err(|e| Error::identifier(e))?;
         let seqs = request.packet_ack_sequences.clone();
 
         let mut unreceived_seqs: Vec<u64> = vec![];
@@ -1150,7 +1180,8 @@ impl ChainEndpoint for SubstrateChain {
 
                 match request.event_id {
                     WithBlockDataType::SendPacket => {
-                        let mut send_packet_event = self.get_ibc_send_packet_event(request.clone())?;
+                        let mut send_packet_event =
+                            self.get_ibc_send_packet_event(request.clone())?;
                         result.append(&mut send_packet_event);
                     }
 
@@ -1238,7 +1269,9 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let result = self.retry_wapper(|| self.get_client_state(client_id)).map_err(|e| Error::retry_error(e))?;
+        let result = self
+            .retry_wapper(|| self.get_client_state(client_id))
+            .map_err(|e| Error::retry_error(e))?;
 
         tracing::trace!(
             "in substrate: [proven_client_state] >> client_state : {:?}",
@@ -1263,7 +1296,9 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let result = self.retry_wapper(|| self.get_connection_end(connection_id)).map_err(|e| Error::retry_error(e))?;
+        let result = self
+            .retry_wapper(|| self.get_connection_end(connection_id))
+            .map_err(|e| Error::retry_error(e))?;
 
         tracing::trace!(
             "in substrate: [proven_connection] >> connection_end: {:?}",
@@ -1320,7 +1355,9 @@ impl ChainEndpoint for SubstrateChain {
             client_id, consensus_height, height
         );
 
-        let result = self.retry_wapper(|| self.get_client_consensus(client_id, &consensus_height)).map_err(|e| Error::retry_error(e))?;
+        let result = self
+            .retry_wapper(|| self.get_client_consensus(client_id, &consensus_height))
+            .map_err(|e| Error::retry_error(e))?;
 
         tracing::trace!(
             "in substrate: [proven_client_consensus] >> consensus_state : {:?}",
@@ -1347,7 +1384,9 @@ impl ChainEndpoint for SubstrateChain {
             height
         );
 
-        let result = self.retry_wapper(|| self.get_channel_end(port_id, channel_id)).map_err(|e| Error::retry_error(e))?;
+        let result = self
+            .retry_wapper(|| self.get_channel_end(port_id, channel_id))
+            .map_err(|e| Error::retry_error(e))?;
 
         tracing::trace!(
             "in substrate: [query_channel] >> port_id: {:?}, channel_id: {:?}, channel_end: {:?}",
@@ -1385,11 +1424,11 @@ impl ChainEndpoint for SubstrateChain {
             }
 
             let result = async {
-                
                 let client = ClientBuilder::new()
                     .set_url(&self.websocket_url.clone())
                     .build::<ibc_node::DefaultConfig>()
-                    .await.map_err(|_| Error::substrate_client_builder_error())?;
+                    .await
+                    .map_err(|_| Error::substrate_client_builder_error())?;
 
                 match packet_type {
                     PacketMsgType::Recv => {
@@ -1444,7 +1483,8 @@ impl ChainEndpoint for SubstrateChain {
                 Ok(v) => RetryResult::Ok(v),
                 Err(e) => RetryResult::Retry("Fail to retry".to_string()),
             }
-        }).map_err(|e| Error::retry_error(e))?;
+        })
+        .map_err(|e| Error::retry_error(e))?;
 
         tracing::trace!(
             "in substrate: [proven_packet] >> result: {:?}, packet_type = {:?}",
@@ -1511,12 +1551,17 @@ impl ChainEndpoint for SubstrateChain {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
-                .await.map_err(|_| Error::substrate_client_builder_error())?;
+                .await
+                .map_err(|_| Error::substrate_client_builder_error())?;
 
             let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
 
-        
-            let authorities = api.storage().beefy().authorities(None).await.map_err(|_| Error::authorities())?;
+            let authorities = api
+                .storage()
+                .beefy()
+                .authorities(None)
+                .await
+                .map_err(|_| Error::authorities())?;
             tracing::trace!("authorities length : {:?}", authorities.len());
             let result: Vec<String> = authorities
                 .into_iter()
@@ -1528,7 +1573,7 @@ impl ChainEndpoint for SubstrateChain {
                 })
                 .collect();
             tracing::trace!("authorities member: {:?}", result);
-            
+
             Ok(result)
         };
         let public_key = self.block_on(public_key)?;
@@ -1592,11 +1637,11 @@ impl ChainEndpoint for SubstrateChain {
 
         // build target height header
         let result = async {
-            
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
-                .await.map_err(|_| Error::substrate_client_builder_error())?;
+                .await
+                .map_err(|_| Error::substrate_client_builder_error())?;
 
             let beefy_light_client::commitment::Commitment {
                 payload,
@@ -1608,12 +1653,13 @@ impl ChainEndpoint for SubstrateChain {
             assert!((target_height.revision_height as u32) <= mmr_root_height);
 
             // get block header
-            
+
             let block_header = octopusxt::call_ibc::get_header_by_block_number(
                 client.clone(),
                 Some(BlockNumber::from(target_height.revision_height as u32)),
             )
-            .await.map_err(|_| Error::get_header_by_block_number_error())?;
+            .await
+            .map_err(|_| Error::get_header_by_block_number_error())?;
 
             let api = client
                 .clone()
@@ -1630,19 +1676,20 @@ impl ChainEndpoint for SubstrateChain {
                 target_height
             );
 
-            
             let block_hash: Option<sp_core::H256> = api
                 .client
                 .rpc()
                 .block_hash(Some(BlockNumber::from(mmr_root_height)))
-                .await.map_err(|_| Error::get_block_hash_error())?;
+                .await
+                .map_err(|_| Error::get_block_hash_error())?;
 
             let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
                 target_height.revision_height - 1,
                 block_hash,
                 client,
             )
-            .await.map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
+            .await
+            .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
 
             Ok((block_header, mmr_leaf_and_mmr_leaf_proof))
         };
@@ -1651,12 +1698,14 @@ impl ChainEndpoint for SubstrateChain {
 
         let encoded_mmr_leaf = result.1 .1;
         let encoded_mmr_leaf_proof = result.1 .2;
-        
-        let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).map_err(|e| Error::invalid_codec_decode(e))?;
-        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).map_err(|e| Error::invalid_codec_decode(e))?;
+
+        let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..])
+            .map_err(|e| Error::invalid_codec_decode(e))?;
+        let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
+            Decode::decode(&mut &*leaf).map_err(|e| Error::invalid_codec_decode(e))?;
         let mmr_leaf_proof =
             beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..])
-            .map_err(|e| Error::invalid_codec_decode(e))?;
+                .map_err(|e| Error::invalid_codec_decode(e))?;
 
         let grandpa_header = GPHeader {
             block_header: result.0,
@@ -1686,25 +1735,25 @@ impl ChainEndpoint for SubstrateChain {
             src_chain_websocket_url, dst_chain_websocket_url
         );
         let result = async {
-            
             let chain_a = ClientBuilder::new()
                 .set_url(src_chain_websocket_url)
                 .build::<ibc_node::DefaultConfig>()
-                .await.map_err(|_| Error::substrate_client_builder_error())?;
+                .await
+                .map_err(|_| Error::substrate_client_builder_error())?;
 
-            
             let chain_b = ClientBuilder::new()
                 .set_url(dst_chain_websocket_url)
                 .build::<ibc_node::DefaultConfig>()
-                .await.map_err(|_| Error::substrate_client_builder_error())?;
+                .await
+                .map_err(|_| Error::substrate_client_builder_error())?;
 
-            
             octopusxt::update_client_state::update_client_state(chain_a.clone(), chain_b.clone())
-                .await.map_err(|_| Error::update_client_state_error())?;
-                
-            octopusxt::update_client_state::update_client_state(chain_b.clone(), chain_a.clone())
-                .await.map_err(|_| Error::update_client_state_error())
+                .await
+                .map_err(|_| Error::update_client_state_error())?;
 
+            octopusxt::update_client_state::update_client_state(chain_b.clone(), chain_a.clone())
+                .await
+                .map_err(|_| Error::update_client_state_error())
         };
 
         let ret = self.block_on(result);
@@ -1731,7 +1780,9 @@ impl ChainEndpoint for SubstrateChain {
     fn query_status(&self) -> Result<StatusResponse, Error> {
         tracing::trace!("in substrate: [query_status]");
 
-        let height = self.retry_wapper(|| self.get_latest_height()).map_err(|e| Error::retry_error(e))?;
+        let height = self
+            .retry_wapper(|| self.get_latest_height())
+            .map_err(|e| Error::retry_error(e))?;
 
         let latest_height = Height::new(0, height);
 
@@ -1809,7 +1860,7 @@ pub fn get_dummy_ics07_header() -> tHeader {
     use subtle_encoding::hex;
     use tendermint::validator::Info as ValidatorInfo;
     use tendermint::PublicKey;
-    
+
     let v1: ValidatorInfo = ValidatorInfo::new(
         PublicKey::from_raw_ed25519(
             &hex::decode_upper("F349539C7E5EF7C49549B09C4BFC2335318AB0FE51FBFAA2433B4F13E816F4A7")

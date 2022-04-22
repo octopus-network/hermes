@@ -712,7 +712,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
     }
 
     pub fn build_chan_open_init(&self) -> Result<Vec<Any>, ChannelError> {
-
         let signer = self
             .dst_chain()
             .get_signer()

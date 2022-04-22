@@ -449,7 +449,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         a_client: &ForeignClient<ChainA, ChainB>,
         b_client: &ForeignClient<ChainB, ChainA>,
     ) -> Result<(), ConnectionError> {
-        
         if a_client.src_chain().id() != b_client.dst_chain().id() {
             return Err(ConnectionError::chain_id_mismatch(
                 a_client.src_chain().id(),
@@ -914,7 +913,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             self.src_connection_id().cloned(),
             prefix,
         );
-        
+
         let previous_connection_id = if src_connection.counterparty().connection_id.is_none() {
             self.b_side.connection_id.clone()
         } else {
@@ -931,7 +930,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             delay_period: delay,
             signer,
         };
-        
 
         msgs.push(new_msg.to_any());
 
