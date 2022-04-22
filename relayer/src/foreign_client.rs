@@ -913,10 +913,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         // Get the latest client state on destination.
         let (client_state, _) = self.validated_client_state()?;
 
-        info!(
-            "foreign_client: [build_update_client_with_trusted] >> client_state = {:?}",
-            client_state
-        );
 
         // if grandpa client state process this code
         
@@ -974,8 +970,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             }
             _ => todo!(),
         };
-        info!("foreign_client: [build_update_client_with_trusted] >> client_state = {:?}, target_height = {:?}",
-            client_state, target_height);
 
         let trusted_height = if trusted_height == Height::zero() {
             self.solve_trusted_height(target_height, &client_state)?
@@ -1003,10 +997,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })?;
 
-        info!(
-            "foreign_client: [build_update_client_with_trusted] >> header = {:?}, support = {:?}",
-            header, support
-        );
 
         let signer = self.dst_chain().get_signer().map_err(|e| {
             ForeignClientError::client_update(
@@ -1053,10 +1043,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             .to_any(),
         );
 
-        info!(
-            "foreign_client: [build_update_client_with_trusted] >> Msg = {:?}",
-            msgs
-        );
 
         Ok(msgs)
     }

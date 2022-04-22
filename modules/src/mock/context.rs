@@ -642,6 +642,10 @@ impl Ics20Context for MockContext {
     ) -> Result<(), crate::applications::ics20_fungible_token_transfer::error::Error> {
         todo!()
     }
+
+    fn get_port(&self) -> Result<PortId, Ics20Error> {
+        todo!()
+    }
 }
 
 impl CapabilityReader for MockContext {

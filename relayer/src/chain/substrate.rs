@@ -400,7 +400,7 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
 
-        let ret = self.block_on(octopusxt::deliver(msg, client.clone()))?;
+        let ret = self.block_on(octopusxt::deliver(msgs, client.clone()))?;
         result_hash.push(ret);
 
         Ok(result_hash)
@@ -700,27 +700,6 @@ impl ChainEndpoint for SubstrateChain {
         let ret = self.subscribe_ibc_events().map_err(|_| Error::subscribe_ibc_events())?;
         
         Ok(ret)
-
-        // let err_str = result.err().ok_or(Error::deliver_error())?.to_string();
-        // if err_str.contains("Priority is too low") {
-        //     // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
-        //     tracing::error!(
-        //         "in substrate: [send_messages_and_wait_commit] >> error : {:?}",
-        //         err_str
-        //     );
-        //     let result =  loop {
-        //         let ret = self.subscribe_ibc_events().map_err(|_| Error::subscribe_ibc_events())?;
-
-        //         if ret.is_empty() {
-        //             continue
-        //         } else {
-        //             break ret;
-        //         }
-        //     };
-        //     return Ok(result);
-        // } else {
-        //     return Err(Error::sub_tx_error(err_str));
-        // }
     }
 
     fn send_messages_and_wait_check_tx(
