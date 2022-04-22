@@ -66,11 +66,6 @@ pub trait ConnectionReader {
 /// for processing any `ConnectionMsg`.
 pub trait ConnectionKeeper {
     fn store_connection_result(&mut self, result: ConnectionResult) -> Result<(), Error> {
-        tracing::info!(
-            "in ics03_connection: [context] >> connection_id: {:?}, connection_end: {:?}",
-            &result.connection_id,
-            &result.connection_end
-        );
         self.store_connection(result.connection_id.clone(), &result.connection_end)?;
 
         // If we generated an identifier, increase the counter & associate this new identifier

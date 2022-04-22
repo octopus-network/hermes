@@ -55,15 +55,7 @@ pub(crate) fn process(
         Counterparty::new(msg.port_id.clone(), Some(msg.channel_id.clone()));
 
     let counterparty = conn.counterparty();
-    tracing::info!(
-        "in ics04_channel: [channel_open_ack] >> counterparty_connection_id: {:?}",
-        counterparty.connection_id()
-    );
     let ccid = counterparty.connection_id().ok_or_else(|| {
-        tracing::info!(
-            "in ics04_channel : [chan_open_ack] >> connection_id: {:?}",
-            channel_end.connection_hops()[0].clone()
-        );
         Error::undefined_connection_counterparty(channel_end.connection_hops()[0].clone())
     })?;
 

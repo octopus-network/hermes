@@ -54,7 +54,6 @@ pub fn process(
         processed_time: ctx.host_timestamp(),
         processed_height: ctx.host_height(),
     });
-    tracing::info!("in ics02_client : [create_client] >> result: {:?}", result);
 
     // TODO have ibc-rs informal have some different
     let event_attributes = Attributes {

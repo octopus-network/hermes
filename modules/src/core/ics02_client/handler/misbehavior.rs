@@ -42,10 +42,6 @@ pub fn process(
     // Read client state from the host chain store.
     let client_state = ctx.client_state(&client_id)?;
 
-    tracing::info!(
-        "In misbehaviour : [process] >> client_state: {:?}",
-        client_state
-    );
 
     let latest_height = client_state.latest_height();
     let consensus_state = ctx.consensus_state(&client_id, latest_height)?;
@@ -62,7 +58,6 @@ pub fn process(
         client_state,
         consensus_state,
     });
-    tracing::info!("in ics02_client: [misbehaviour] >> result : {:?}", result);
 
     let event_attributes = Attributes {
         // height: header.clone().height(),

@@ -80,10 +80,6 @@ pub(crate) fn process(
         connection_id_state: ConnectionIdState::Reused,
         connection_end: conn_end.clone(),
     };
-    tracing::info!(
-        "in ics03_connection: [conn_open_ack] >> result: {:?}",
-        result
-    );
 
     let event_attributes = Attributes {
         height: ctx.host_current_height().clone(),

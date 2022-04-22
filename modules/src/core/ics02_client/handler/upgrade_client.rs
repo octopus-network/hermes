@@ -64,7 +64,6 @@ pub fn process(
         client_state: new_client_state,
         consensus_state: new_consensus_state,
     });
-    tracing::info!("in ics02_client: [upgrade_client] >> result : {:?}", result);
 
     let event_attributes = Attributes {
         client_id,

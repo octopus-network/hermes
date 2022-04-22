@@ -161,7 +161,6 @@ where
         config: ChainConfig,
         rt: Arc<TokioRuntime>,
     ) -> Result<Handle, Error> {
-        tracing::info!("in runtime: [spawn]");
 
         // Similar to `from_config`.
         let chain = Endpoint::bootstrap(config, rt.clone())?;
@@ -188,7 +187,6 @@ where
 
         // Spawn the runtime & return
         let id = handle.id();
-        tracing::info!("in runtime: [init] >> id: {}", id);
         let thread = thread::spawn(move || {
             if let Err(e) = chain_runtime.run() {
                 error!("failed to start runtime for chain '{}': {}", id, e);
@@ -221,7 +219,6 @@ where
     }
 
     fn run(mut self) -> Result<(), Error> {
-        tracing::info!("in runtime: [run]");
         use core::time::Duration;
         loop {
             channel::select! {
@@ -483,7 +480,6 @@ where
     }
 
     fn get_signer(&mut self, reply_to: ReplyTo<Signer>) -> Result<(), Error> {
-        tracing::info!("In Runtime: [get_signer]");
         let result = self.chain.get_signer();
         reply_to.send(result).map_err(Error::send)
     }
@@ -494,7 +490,6 @@ where
     }
 
     fn get_key(&mut self, reply_to: ReplyTo<KeyEntry>) -> Result<(), Error> {
-        tracing::info!("In Runtime: [get_key]");
         let result = self.chain.get_key();
         reply_to.send(result).map_err(Error::send)
     }
@@ -521,7 +516,6 @@ where
         client_state: AnyClientState,
         reply_to: ReplyTo<(AnyHeader, Vec<AnyHeader>)>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [build_header]");
         let result = self
             .chain
             .build_header(
@@ -546,15 +540,10 @@ where
         settings: ClientSettings,
         reply_to: ReplyTo<AnyClientState>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [build_client_state]");
         let client_state = self
             .chain
             .build_client_state(height, settings)
             .map(|cs| cs.wrap_any());
-        tracing::info!(
-            "In runtime: [build client state] >> client_state: [{:?}]",
-            client_state
-        );
 
         reply_to.send(client_state).map_err(Error::send)
     }
@@ -567,17 +556,12 @@ where
         client_state: AnyClientState,
         reply_to: ReplyTo<AnyConsensusState>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [build_consensus_state]");
         let verified = self.light_client.verify(trusted, target, &client_state)?;
 
         let consensus_state = self
             .chain
             .build_consensus_state(verified.target)
             .map(|cs| cs.wrap_any());
-        tracing::info!(
-            "In runtime: [build_conesnsus_state] >> consensus_state: [{:?}]",
-            consensus_state
-        );
 
         reply_to.send(consensus_state).map_err(Error::send)
     }
@@ -589,7 +573,6 @@ where
         client_state: AnyClientState,
         reply_to: ReplyTo<Option<MisbehaviourEvidence>>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [check_misbehaviour]");
         let misbehaviour = self
             .light_client
             .check_misbehaviour(update_event, &client_state);
@@ -605,7 +588,6 @@ where
         height: Height,
         reply_to: ReplyTo<(Option<AnyClientState>, Proofs)>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [build_connection_proofs_and_client_state]");
         let result = self.chain.build_connection_proofs_and_client_state(
             message_type,
             &connection_id,
@@ -624,7 +606,6 @@ where
         request: QueryClientStatesRequest,
         reply_to: ReplyTo<Vec<IdentifiedAnyClientState>>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_clients]");
         let result = self.chain.query_clients(request);
         reply_to.send(result).map_err(Error::send)
     }
@@ -634,7 +615,6 @@ where
         request: QueryClientConnectionsRequest,
         reply_to: ReplyTo<Vec<ConnectionId>>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_client_connections]");
         let result = self.chain.query_client_connections(request);
         reply_to.send(result).map_err(Error::send)
     }
@@ -645,7 +625,6 @@ where
         height: Height,
         reply_to: ReplyTo<AnyClientState>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_client_state]");
         let client_state = self
             .chain
             .query_client_state(&client_id, height)
@@ -659,7 +638,6 @@ where
         height: Height,
         reply_to: ReplyTo<(AnyClientState, MerkleProof)>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_upgraded_client_state]");
         let result = self
             .chain
             .query_upgraded_client_state(height)
@@ -673,7 +651,6 @@ where
         request: QueryConsensusStatesRequest,
         reply_to: ReplyTo<Vec<AnyConsensusStateWithHeight>>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_conesensus_states]");
         let consensus_states = self.chain.query_consensus_states(request);
         reply_to.send(consensus_states).map_err(Error::send)
     }
@@ -685,7 +662,6 @@ where
         query_height: Height,
         reply_to: ReplyTo<AnyConsensusState>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_consensus_state]");
         let consensus_state =
             self.chain
                 .query_consensus_state(client_id, consensus_height, query_height);
@@ -698,7 +674,6 @@ where
         height: Height,
         reply_to: ReplyTo<(AnyConsensusState, MerkleProof)>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_upgraded_consensus_state]");
         let result = self
             .chain
             .query_upgraded_consensus_state(height)
@@ -708,13 +683,11 @@ where
     }
 
     fn query_commitment_prefix(&self, reply_to: ReplyTo<CommitmentPrefix>) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_commitment_prefix]");
         let prefix = self.chain.query_commitment_prefix();
         reply_to.send(prefix).map_err(Error::send)
     }
 
     fn query_compatible_versions(&self, reply_to: ReplyTo<Vec<Version>>) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_compatible_versions]");
         let versions = self.chain.query_compatible_versions();
         reply_to.send(versions).map_err(Error::send)
     }
@@ -725,7 +698,6 @@ where
         height: Height,
         reply_to: ReplyTo<ConnectionEnd>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_connection]");
         let connection_end = self.chain.query_connection(&connection_id, height);
         reply_to.send(connection_end).map_err(Error::send)
     }
@@ -735,7 +707,6 @@ where
         request: QueryConnectionsRequest,
         reply_to: ReplyTo<Vec<IdentifiedConnectionEnd>>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_connections]");
         let result = self.chain.query_connections(request);
         reply_to.send(result).map_err(Error::send)
     }
@@ -745,7 +716,6 @@ where
         request: QueryConnectionChannelsRequest,
         reply_to: ReplyTo<Vec<IdentifiedChannelEnd>>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_connection_channels]");
         let result = self.chain.query_connection_channels(request);
         reply_to.send(result).map_err(Error::send)
     }
@@ -755,7 +725,6 @@ where
         request: QueryChannelsRequest,
         reply_to: ReplyTo<Vec<IdentifiedChannelEnd>>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [qeury_channels]");
         let result = self.chain.query_channels(request);
         reply_to.send(result).map_err(Error::send)
     }
@@ -767,7 +736,6 @@ where
         height: Height,
         reply_to: ReplyTo<ChannelEnd>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_channel]");
         let result = self.chain.query_channel(&port_id, &channel_id, height);
         reply_to.send(result).map_err(Error::send)
     }
@@ -777,7 +745,6 @@ where
         request: QueryChannelClientStateRequest,
         reply_to: ReplyTo<Option<IdentifiedAnyClientState>>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_channel_client_state]");
         let result = self.chain.query_channel_client_state(request);
         reply_to.send(result).map_err(Error::send)
     }
@@ -788,7 +755,6 @@ where
         height: Height,
         reply_to: ReplyTo<(AnyClientState, MerkleProof)>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_client_state]");
         let result = self
             .chain
             .proven_client_state(&client_id, height)
@@ -803,7 +769,6 @@ where
         height: Height,
         reply_to: ReplyTo<(ConnectionEnd, MerkleProof)>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [proven_connection]");
         let result = self.chain.proven_connection(&connection_id, height);
         reply_to.send(result).map_err(Error::send)
     }
@@ -815,7 +780,6 @@ where
         height: Height,
         reply_to: ReplyTo<(AnyConsensusState, MerkleProof)>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [proven_client_consensus]");
         let result = self
             .chain
             .proven_client_consensus(&client_id, consensus_height, height)
@@ -831,7 +795,6 @@ where
         height: Height,
         reply_to: ReplyTo<Proofs>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [build_channel_proofs]");
         let result = self
             .chain
             .build_channel_proofs(&port_id, &channel_id, height);
@@ -848,7 +811,6 @@ where
         height: Height,
         reply_to: ReplyTo<(Vec<u8>, Proofs)>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [build_packet_proofs]");
         let result =
             self.chain
                 .build_packet_proofs(packet_type, port_id, channel_id, sequence, height);
@@ -861,7 +823,6 @@ where
         request: QueryPacketCommitmentsRequest,
         reply_to: ReplyTo<(Vec<PacketState>, Height)>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_packet_commitments]");
         let result = self.chain.query_packet_commitments(request);
         reply_to.send(result).map_err(Error::send)
     }
@@ -871,7 +832,6 @@ where
         request: QueryUnreceivedPacketsRequest,
         reply_to: ReplyTo<Vec<u64>>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_unreceived_packets]");
         let result = self.chain.query_unreceived_packets(request);
         reply_to.send(result).map_err(Error::send)
     }
@@ -881,7 +841,6 @@ where
         request: QueryPacketAcknowledgementsRequest,
         reply_to: ReplyTo<(Vec<PacketState>, Height)>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [qeury_packet_acknowledgements]");
         let result = self.chain.query_packet_acknowledgements(request);
         reply_to.send(result).map_err(Error::send)
     }
@@ -891,7 +850,6 @@ where
         request: QueryUnreceivedAcksRequest,
         reply_to: ReplyTo<Vec<u64>>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_unreceived_acknowledgement]");
         let result = self.chain.query_unreceived_acknowledgements(request);
         reply_to.send(result).map_err(Error::send)
     }
@@ -901,7 +859,6 @@ where
         request: QueryNextSequenceReceiveRequest,
         reply_to: ReplyTo<Sequence>,
     ) -> Result<(), Error> {
-        tracing::info!("In Runtime: [query_next_sequence_receive]");
         let result = self.chain.query_next_sequence_receive(request);
         reply_to.send(result).map_err(Error::send)
     }
@@ -911,13 +868,11 @@ where
         request: QueryTxRequest,
         reply_to: ReplyTo<Vec<IbcEvent>>,
     ) -> Result<(), Error> {
-        tracing::info!("In runtime: [query_txs]");
         let result = self.chain.query_txs(request);
         reply_to.send(result).map_err(Error::send)
     }
 
     fn websocket_url(&self, reply_to: ReplyTo<String>) -> Result<(), Error> {
-        tracing::info!("in runtime: [websocket_url]");
         let result = self.chain.websocket_url();
         reply_to.send(result).map_err(Error::send)
     }
@@ -928,7 +883,6 @@ where
         dst_chain_websocket_url: String,
         reply_to: ReplyTo<()>,
     ) -> Result<(), Error> {
-        tracing::info!("in runtime: [update_update_mmr_root]");
         let result = self
             .chain
             .update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url);

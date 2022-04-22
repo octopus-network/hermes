@@ -400,10 +400,8 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
 
-        for msg in msgs {
-            let ret = self.block_on(octopusxt::deliver(msg, client.clone()))?;
-            result_hash.push(ret);
-        }
+        let ret = self.block_on(octopusxt::deliver(msg, client.clone()))?;
+        result_hash.push(ret);
 
         Ok(result_hash)
     }

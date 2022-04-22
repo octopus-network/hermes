@@ -49,11 +49,6 @@ impl ClientDef for GrandpaClient {
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-        tracing::trace!(
-            "in client_def: [check_header_and_update_state] >> client_state = {:?}, header = {:?}",
-            client_state,
-            header
-        );
 
         if header.block_header.block_number > client_state.latest_commitment.block_number {
             return Err(Error::invalid_mmr_root_height(
@@ -70,20 +65,14 @@ impl ClientDef for GrandpaClient {
 
         // Fetch the desired mmr root from storage if it's different from the mmr root in client_state
         if header.mmr_leaf_proof.leaf_count != client_state.latest_commitment.block_number as u64 {
-            tracing::trace!(
-                    "in client_def: [check_header_and_update_state] >> header.mmr_leaf_proof.leaf_count = {:?}, client_state.latest_commitment.block_number = {:?}",
-                    header.mmr_leaf_proof.leaf_count, client_state.latest_commitment.block_number
-                );
+
             let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
             let any_consensus_state = ctx.consensus_state(&client_id, height)?;
             let consensus_state = match any_consensus_state {
                 AnyConsensusState::Grandpa(_v) => _v,
                 _ => unimplemented!(),
             };
-            tracing::trace!(
-                "in client_def: [check_header_and_update_state] >> consensus_state queried = {:?}",
-                consensus_state
-            );
+           
             mmr_root.copy_from_slice(&consensus_state.digest);
         } else {
             mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
@@ -102,27 +91,10 @@ impl ClientDef for GrandpaClient {
         if mmr_leaf.parent_number_and_hash.1.is_empty() {
             return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
         }
-        tracing::trace!(
-            "ics1 client_def :[check_header_and_update_state] >> parent_mmr_root = {:?}",
-            mmr_leaf.parent_number_and_hash.1
-        );
 
         if header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
             return Err(Error::header_hash_not_match());
         }
-
-        tracing::trace!(
-            "in client_def: [check_header_and_update_state] >> mmr_root = {:?}",
-            mmr_root.clone()
-        );
-        tracing::trace!(
-            "in client_def: [check_header_and_update_state] >> mmr_leaf_hash = {:?}",
-            mmr_leaf_hash.clone()
-        );
-        tracing::trace!(
-            "in client_def: [check_header_and_update_state] >> mmr_proof = {:?}",
-            mmr_proof.clone()
-        );
         let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
             .map_err(|_| Error::invalid_mmr_leaf_proof())?;
 
@@ -136,15 +108,6 @@ impl ClientDef for GrandpaClient {
             ..client_state
         };
 
-        tracing::trace!(
-            "in client_def: [check_header_and_update_state] >> client_state = {:?}",
-            client_state
-        );
-
-        tracing::trace!(
-            "in client_def: [check_header_and_update_state] >> consensus_state = {:?}",
-            GpConsensusState::from(header.clone())
-        );
 
         // grandpa consensus_state update from substrate-ibc
         Ok((client_state, GpConsensusState::from(header.clone())))
@@ -201,10 +164,6 @@ impl ClientDef for GrandpaClient {
             Self::get_storage_via_proof(client_state, height, proof, keys, "Connections")?;
         let connection_end =
             ConnectionEnd::decode_vec(&storage_result).map_err(|e| Error::invalid_decode(e))?;
-        tracing::trace!(
-            "In ics10-client_def.rs: [verify_connection_state] >> connection_end: {:?}",
-            connection_end
-        );
 
         if !(connection_end
             .encode_vec()
@@ -239,10 +198,6 @@ impl ClientDef for GrandpaClient {
 
         let channel_end =
             ChannelEnd::decode_vec(&storage_result).map_err(|e| Error::invalid_decode(e))?;
-        tracing::trace!(
-            "In ics10-client_def.rs: [verify_connection_state] >> channel_end: {:?}",
-            channel_end
-        );
 
         if !(channel_end
             .encode_vec()
@@ -275,14 +230,6 @@ impl ClientDef for GrandpaClient {
 
         let any_client_state =
             AnyClientState::decode_vec(&storage_result).map_err(|e| Error::invalid_decode(e))?;
-        tracing::trace!(
-            "In ics10-client_def.rs: [verify_client_full_state] >> decoded client_state: {:?}",
-            any_client_state
-        );
-        tracing::trace!(
-            "In ics10-client_def.rs: [verify_client_full_state] >>  _expected_client_state: {:?}",
-            expected_client_state
-        );
 
         if !(any_client_state
             .encode_vec()
@@ -321,15 +268,6 @@ impl ClientDef for GrandpaClient {
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment")?;
 
-        tracing::trace!(
-            "In ics10-client_def.rs: [verify_packet_data] >> decoded packet_commitment: {:?}",
-            String::from_utf8(storage_result.clone()).map_err(|e| Error::invalid_from_utf8(e))?
-        );
-        tracing::trace!(
-            "In ics10-client_def.rs: [verify_packet_data] >>  expected packet_commitment: {:?}",
-            commitment.clone()
-        );
-
         if !(storage_result == commitment.encode()) {
             return Err(Error::invalid_packet_commitment(sequence));
         }
@@ -360,14 +298,6 @@ impl ClientDef for GrandpaClient {
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
-        tracing::trace!(
-            "In ics10-client_def.rs: [verify_packet_acknowledgement] >> encoded ack: {:?}",
-            storage_result
-        );
-        tracing::trace!(
-            "In ics10-client_def.rs: [verify_packet_acknowledgement] >>  raw ack: {:?}",
-            ack
-        );
 
         let ack = format!("{:?}", ack.into_bytes());
         if !(storage_result == Self::hash(ack).encode()) {
@@ -394,10 +324,6 @@ impl ClientDef for GrandpaClient {
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;
-        tracing::trace!(
-            "In ics10-client_def: [verify_next_sequence_recv] >> storage_result: {:?}",
-            storage_result
-        );
 
         let sequence_restored: u64 =
             u64::decode(&mut &storage_result[..]).map_err(|e| Error::invalid_codec_decode(e))?;
@@ -438,8 +364,6 @@ impl GrandpaClient {
         _keys: Vec<Vec<u8>>,
         _storage_name: &str,
     ) -> Result<Vec<u8>, Error> {
-        tracing::trace!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> _client_state: {:?}, _height: {:?}, _keys: {:?}, _storage_name: {:?}",
-            _client_state, _height, _keys, _storage_name);
 
         use crate::clients::ics10_grandpa::state_machine::read_proof_check;
         use core::convert::TryFrom;
@@ -466,10 +390,6 @@ impl GrandpaClient {
             Exist(_exist_proof) => {
                 let _proof_str = String::from_utf8(_exist_proof.value)
                     .map_err(|e| Error::invalid_from_utf8(e))?;
-                tracing::trace!(
-                    "In ics10-client_def.rs: [extract_verify_beefy_proof] >> _proof_str: {:?}",
-                    _proof_str
-                );
 
                 let _storage_proof: ReadProofU8 = serde_json::from_str(&_proof_str)
                     .map_err(|e| Error::invalid_serde_json_encode(e))?;
@@ -479,16 +399,8 @@ impl GrandpaClient {
         };
 
         let _storage_keys = Self::storage_map_final_key(_keys, _storage_name)?;
-        tracing::trace!(
-            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_keys: {:?}",
-            _storage_keys
-        );
         let state_root = _client_state.clone().block_header.state_root;
         let state_root = vector_to_array::<u8, 32>(state_root);
-        tracing::trace!(
-            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> state_root: {:?}",
-            state_root
-        );
 
         let storage_result = read_proof_check::<BlakeTwo256>(
             sp_core::H256::from(state_root),
@@ -497,15 +409,9 @@ impl GrandpaClient {
         )
         .map_err(|_| Error::read_proof_check())?
         .ok_or(Error::empty_proof())?;
-        tracing::trace!(
-            "In ics10-client_def.rs: [extract_verify_beefy_proof] >> {:?}-storage_result: {:?}",
-            _storage_name,
-            storage_result
-        );
 
         let storage_result = <Vec<u8>>::decode(&mut &storage_result[..])
             .map_err(|e| Error::invalid_codec_decode(e))?;
-        tracing::trace!("In ics10-client_def.rs: [extract_verify_beefy_proof] >> storage_result truncated: {:?}", storage_result);
 
         Ok(storage_result)
     }
@@ -577,7 +483,6 @@ impl GrandpaClient {
 
     /// A hashing function for packet commitments
     fn hash(value: String) -> String {
-        tracing::trace!("in client_def: [hash] >> value = {:?}", value.clone());
 
         let r = sp_io::hashing::sha2_256(value.as_bytes());
 
@@ -585,7 +490,6 @@ impl GrandpaClient {
         for item in r.iter() {
             tmp.push_str(&format!("{:02x}", item));
         }
-        tracing::trace!("in client_def: [hash] >> result = {:?}", tmp.clone());
         tmp
     }
 }

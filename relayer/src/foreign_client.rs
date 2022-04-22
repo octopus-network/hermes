@@ -919,7 +919,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         );
 
         // if grandpa client state process this code
-        /*
+        
         if let AnyClientState::Grandpa(state) = client_state.clone() {
             // 根据client state的类型对应的客户端的类型来选择执行
             // if client state is grandpa client run this code
@@ -933,7 +933,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 .update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url)
                 .map_err(|e| ForeignClientError::update_mmr_error(e))?;
         }
-        */
+        
 
         let client_state = match client_state {
             // #[cfg(any(test, feature = "mocks"))]

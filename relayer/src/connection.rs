@@ -449,8 +449,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         a_client: &ForeignClient<ChainA, ChainB>,
         b_client: &ForeignClient<ChainB, ChainA>,
     ) -> Result<(), ConnectionError> {
-        tracing::info!("In Connection: [validate_clients]");
-
+        
         if a_client.src_chain().id() != b_client.dst_chain().id() {
             return Err(ConnectionError::chain_id_mismatch(
                 a_client.src_chain().id(),
@@ -502,7 +501,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
     /// Executes a connection handshake protocol (ICS 003) for this connection object
     fn handshake(&mut self) -> Result<(), ConnectionError> {
-        tracing::info!("in connection: [handshake]");
         let done = '🥂';
 
         let a_chain = self.a_side.chain.clone();
@@ -552,31 +550,13 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             let dst_connection_id = self
                 .dst_connection_id()
                 .ok_or_else(ConnectionError::missing_counterparty_connection_id)?;
-            tracing::info!(
-                "in connection: [handshake] >> chain_id: {:?}, src_connection_id = {:?}",
-                self.src_chain(),
-                src_connection_id
-            );
-            tracing::info!(
-                "in connection: [handshake] >> chain_id: {:?}, dst_connection_id = {:?}",
-                self.dst_chain(),
-                dst_connection_id
-            );
 
             // Continue loop if query error
             let a_connection = a_chain.query_connection(&src_connection_id, Height::zero());
-            tracing::info!(
-                "in connection: [handshake] >> a_connection: {:?}",
-                a_connection
-            );
             if a_connection.is_err() {
                 continue;
             }
             let b_connection = b_chain.query_connection(&dst_connection_id, Height::zero());
-            tracing::info!(
-                "in connection: [handshake] >> b_connection: {:?}",
-                b_connection
-            );
             if b_connection.is_err() {
                 continue;
             }
@@ -792,32 +772,24 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
     }
 
     pub fn build_conn_init(&self) -> Result<Vec<Any>, ConnectionError> {
-        tracing::info!("in connection: [build_conn_init]");
         // Get signer
         let signer = self
             .dst_chain()
             .get_signer()
             .map_err(|e| ConnectionError::signer(self.dst_chain().id(), e))?;
-        tracing::info!("in connection: [build_conn_init] >> signer: {:?}", signer);
 
         let prefix = self
             .src_chain()
             .query_commitment_prefix()
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
-        tracing::info!("in connection: [build_conn_init] >> prefix: {:?}", prefix);
 
         let counterparty = Counterparty::new(self.src_client_id().clone(), None, prefix);
-        tracing::info!(
-            "in connection: [build_conn_init] >> counterparty: {:?}",
-            counterparty
-        );
 
         let version = self
             .dst_chain()
             .query_compatible_versions()
             .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?[0]
             .clone();
-        tracing::info!("in connection: [build_conn_init] >> version: {:?}", version);
 
         // Build the domain type message
         let new_msg = MsgConnectionOpenInit {
@@ -827,16 +799,11 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             delay_period: self.delay_period,
             signer,
         };
-        tracing::info!(
-            "in connection: [build_conn_init] >> MsgConnectionOpenInit: {:?}",
-            new_msg.clone()
-        );
 
         Ok(vec![new_msg.to_any()])
     }
 
     pub fn build_conn_init_and_send(&self) -> Result<IbcEvent, ConnectionError> {
-        tracing::info!("In connection: [build_conn_init_and_send]");
         let dst_msgs = self.build_conn_init()?;
 
         let tm = TrackedMsgs::new(dst_msgs, "ConnectionOpenInit");
@@ -865,28 +832,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
     /// Attempts to build a MsgConnOpenTry.
     pub fn build_conn_try(&self) -> Result<Vec<Any>, ConnectionError> {
-        tracing::info!("In connection: [build_conn_try]");
-
         let src_connection_id = self
             .src_connection_id()
             .ok_or_else(ConnectionError::missing_local_connection_id)?;
-        tracing::info!(
-            "In connection: [build_conn_try] >> src_chain_id: {:?}",
-            self.src_chain()
-        );
-        tracing::info!(
-            "In connection: [build_conn_try] >> src_connection_id: {:?}",
-            src_connection_id
-        );
 
         let src_connection = self
             .src_chain()
             .query_connection(src_connection_id, Height::zero())
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
-        tracing::info!(
-            "In connection: [build_conn_try] >> src_connection : {:?}",
-            src_connection
-        );
 
         // TODO - check that the src connection is consistent with the try options
 
@@ -904,7 +857,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         } else {
             self.delay_period
         };
-        tracing::info!("In connection: [build_conn_try] >> delay: {:?}", delay);
 
         // Build add send the message(s) for updating client on source
         // TODO - add check if update client is required
@@ -912,10 +864,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .dst_chain()
             .query_latest_height()
             .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?;
-        tracing::info!(
-            "In connection: [build_conn_try] >> src_client_target_height : {:?}",
-            src_client_target_height
-        );
+
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
 
         let tm = TrackedMsgs::new(client_msgs, "update client on source for ConnectionOpenTry");
@@ -927,10 +876,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .src_chain()
             .query_latest_height()
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
-        tracing::info!(
-            "In connection: [build_conn_try] >> query_height: {:?}",
-            query_height
-        );
 
         let (client_state, proofs) = self
             .src_chain()
@@ -941,11 +886,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                 query_height,
             )
             .map_err(ConnectionError::connection_proof)?;
-        tracing::info!(
-            "In connection: [build_conn_try] >> client_state: {:?}, proofs: {:?}",
-            client_state,
-            proofs
-        );
 
         // Build message(s) for updating client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
@@ -957,47 +897,29 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         } else {
             src_connection.versions().to_vec()
         };
-        tracing::info!(
-            "In connection: [build_conn_try] >> counterparty_versions: {:?}",
-            counterparty_versions
-        );
 
         // Get signer
         let signer = self
             .dst_chain()
             .get_signer()
             .map_err(|e| ConnectionError::signer(self.dst_chain().id(), e))?;
-        tracing::info!("In connection: [build_conn_try] >> signer: {:?}", signer);
 
         let prefix = self
             .src_chain()
             .query_commitment_prefix()
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
-        tracing::info!("In connection: [build_conn_try] >> prefix: {:?}", prefix);
 
         let counterparty = Counterparty::new(
             self.src_client_id().clone(),
             self.src_connection_id().cloned(),
             prefix,
         );
-        tracing::info!(
-            "In connection: [build_conn_try] >> counterparty: src_connection_id {:?}",
-            self.src_connection_id().clone()
-        );
-
-        tracing::info!(
-            "In connection: [build_conn_try] >> counterparty: {:?}",
-            counterparty
-        );
+        
         let previous_connection_id = if src_connection.counterparty().connection_id.is_none() {
             self.b_side.connection_id.clone()
         } else {
             src_connection.counterparty().connection_id.clone()
         };
-        tracing::info!(
-            "In connection: [build_conn_try] >> previous_connection_id: {:?}",
-            previous_connection_id
-        );
 
         let new_msg = MsgConnectionOpenTry {
             client_id: self.dst_client_id().clone(),
@@ -1009,14 +931,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             delay_period: delay,
             signer,
         };
-        tracing::info!("In connection: [build_conn_try] >> new_msg: {:?}", new_msg);
+        
 
         msgs.push(new_msg.to_any());
+
         Ok(msgs)
     }
 
     pub fn build_conn_try_and_send(&self) -> Result<IbcEvent, ConnectionError> {
-        tracing::info!("In connection: [build_conn_try_and_send]");
         let dst_msgs = self.build_conn_try()?;
 
         let tm = TrackedMsgs::new(dst_msgs, "ConnectionOpenTry");
@@ -1047,10 +969,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let src_connection_id = self
             .src_connection_id()
             .ok_or_else(ConnectionError::missing_local_connection_id)?;
-        tracing::info!(
-            "in connection: [build_conn_ack] >> src_connection_id: {:?}",
-            src_connection_id
-        );
 
         let dst_connection_id = self
             .dst_connection_id()
@@ -1112,7 +1030,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             version: src_connection.versions()[0].clone(),
             signer,
         };
-        tracing::info!("in connection [build_conn_ack] >> new_msg = {:?}", new_msg);
 
         msgs.push(new_msg.to_any());
         Ok(msgs)
@@ -1149,18 +1066,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let src_connection_id = self
             .src_connection_id()
             .ok_or_else(ConnectionError::missing_local_connection_id)?;
-        tracing::info!(
-            "in connection: [build_conn_confirm] >> src_connection_id: {:?}",
-            src_connection_id
-        );
 
         let dst_connection_id = self
             .dst_connection_id()
             .ok_or_else(ConnectionError::missing_counterparty_connection_id)?;
-        tracing::info!(
-            "in connection: [build_conn_confirm] >> dst_connection_id: {:?}",
-            dst_connection_id
-        );
 
         let _expected_dst_connection =
             self.validated_expected_connection(ConnectionMsgType::OpenAck)?;
@@ -1201,10 +1110,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             proofs,
             signer,
         };
-        tracing::info!(
-            "in connection [build_conn_confirm] >> new_msg = {:?}",
-            new_msg
-        );
 
         msgs.push(new_msg.to_any());
         Ok(msgs)

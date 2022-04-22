@@ -384,7 +384,6 @@ impl ChainHandle for BaseChainHandle {
         client_id: &ClientId,
         height: Height,
     ) -> Result<(Option<AnyClientState>, Proofs), Error> {
-        tracing::info!("in prod: [build_connection_proofs_and_client_state]");
         self.send(
             |reply_to| ChainRequest::BuildConnectionProofsAndClientState {
                 message_type,

@@ -152,16 +152,7 @@ pub fn spawn_chain_runtime<Chain: ChainHandle>(
         .cloned()
         .ok_or_else(|| SpawnError::missing_chain(chain_id.clone()))?;
 
-    tracing::info!(
-        "in registry: [spawn_chain_runtime_generic] chain_id  = {}",
-        chain_id
-    );
-
     let account_prefix = chain_config.account_prefix.clone();
-    tracing::info!(
-        "in registry: [spawn_chain_runtime_generic] account_prefix: {}",
-        account_prefix
-    );
 
     let handle = match account_prefix.as_str() {
         "cosmos" => {

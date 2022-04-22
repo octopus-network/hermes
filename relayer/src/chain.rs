@@ -360,8 +360,6 @@ pub trait ChainEndpoint: Sized {
                 if !connection_end.state_matches(&State::Init)
                     && !connection_end.state_matches(&State::TryOpen)
                 {
-                    tracing::info!("In chain: [build_connection_proofs_and_client_state] >> ConnectionMsgType::OpenTry");
-                    tracing::warn!("In chain: [build_connection_proofs_and_client_state] >> connection_end: {:?}", connection_end.state);
                     return Err(Error::bad_connection_state());
                 }
             }
@@ -369,21 +367,15 @@ pub trait ChainEndpoint: Sized {
                 if !connection_end.state_matches(&State::TryOpen)
                     && !connection_end.state_matches(&State::Open)
                 {
-                    tracing::info!("In chain: [build_connection_proofs_and_client_state] >> ConnectionMsgType::OpenAck");
                     return Err(Error::bad_connection_state());
                 }
             }
             ConnectionMsgType::OpenConfirm => {
                 if !connection_end.state_matches(&State::Open) {
-                    tracing::info!("In chain: [build_connection_proofs_and_client_state] >> ConnectionMsgType::OpenConfirm");
                     return Err(Error::bad_connection_state());
                 }
             }
         }
-        tracing::info!(
-            "In chain: [build_connection_proof_and_client_state] >> Successful ConnectionEnd: {:?}",
-            connection_end.state
-        );
 
         let mut client_state = None;
         let mut client_proof = None;
@@ -393,13 +385,6 @@ pub trait ChainEndpoint: Sized {
             ConnectionMsgType::OpenTry | ConnectionMsgType::OpenAck => {
                 let (client_state_value, client_state_proof) =
                     self.proven_client_state(client_id, height)?;
-                tracing::info!(
-                    "in chain: [build_connection_proof_and_client_state] >> client_state_value: {:?}", client_state_value.clone()
-                );
-                tracing::warn!(
-                    "in chain: [build_connection_proof_and_client_state] >> latest_height: {}",
-                    client_state_value.latest_height()
-                );
 
                 client_proof = Some(
                     CommitmentProofBytes::try_from(client_state_proof)
@@ -409,10 +394,6 @@ pub trait ChainEndpoint: Sized {
                 let consensus_state_proof = self
                     .proven_client_consensus(client_id, client_state_value.latest_height(), height)?
                     .1;
-
-                tracing::info!(
-                    "in chain: [build_connection_proof_and_client_state] >> consensus_state_proof"
-                );
 
                 consensus_proof = Option::from(
                     ConsensusProof::new(
@@ -427,7 +408,6 @@ pub trait ChainEndpoint: Sized {
             }
             _ => {}
         }
-        tracing::info!("in chain: [build_connection_proof_and_client_state] >> Success");
 
         Ok((
             client_state,

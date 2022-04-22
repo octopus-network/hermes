@@ -110,7 +110,6 @@ pub(crate) fn process(
         },
         connection_end: new_connection_end,
     };
-    tracing::info!("in conn_open_try: [conn_open_try] >> result = {:?}", result);
 
     let event_attributes = Attributes {
         height: ctx.host_current_height().clone(),

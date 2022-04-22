@@ -160,7 +160,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         let src_connection_id = connection
             .src_connection_id()
             .ok_or_else(|| ChannelError::missing_local_connection(connection.src_chain().id()))?;
-        tracing::info!("in channel: src_connection_id: {:?}", src_connection_id);
 
         let dst_connection_id = connection
             .dst_connection_id()
@@ -713,23 +712,13 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
     }
 
     pub fn build_chan_open_init(&self) -> Result<Vec<Any>, ChannelError> {
-        tracing::info!(
-            "build_chan_open_init: src_port_id = {}, dst_port_id = {}",
-            self.src_port_id().clone(),
-            self.dst_port_id().clone()
-        );
 
         let signer = self
             .dst_chain()
             .get_signer()
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
-        tracing::info!("in channel: [build_chan_open_init] >> sigener {:?}", signer);
 
         let counterparty = Counterparty::new(self.src_port_id().clone(), None);
-        tracing::info!(
-            "in channel: [build_chan_open_init] >> counterparty {:?}",
-            counterparty
-        );
 
         // If the user supplied a version, use that.
         // Otherwise, either use the version defined for the `transfer`
@@ -757,18 +746,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             version,
         );
 
-        tracing::info!(
-            "in channel: [build_chan_open_init] >> channel {:?}",
-            channel
-        );
-
         // Build the domain type message
         let new_msg = MsgChannelOpenInit {
             port_id: self.dst_port_id().clone(),
             channel,
             signer,
         };
-        tracing::info!("build_chan_open_init: new_msg = {:?}", new_msg);
 
         Ok(vec![new_msg.to_any()])
     }
@@ -865,24 +848,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         let src_channel_id = self
             .src_channel_id()
             .ok_or_else(ChannelError::missing_local_channel_id)?;
-        tracing::info!(
-            "in channel: [build_chan_open_try] >> src_channel_id {:?}",
-            src_channel_id
-        );
 
         // Channel must exist on source
         let src_channel = self
             .src_chain()
             .query_channel(self.src_port_id(), src_channel_id, Height::zero())
             .map_err(|e| ChannelError::query(self.src_chain().id(), e))?;
-        tracing::info!(
-            "in channel: [build_chan_open_try] >> src_chain {:?}",
-            self.src_chain()
-        );
-        tracing::info!(
-            "in channel: [build_chan_open_try] >> src_channel {:?}",
-            src_channel
-        );
 
         // TODO
         if src_channel.counterparty().port_id() != self.dst_port_id() {
