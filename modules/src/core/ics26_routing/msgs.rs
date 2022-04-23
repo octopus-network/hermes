@@ -44,12 +44,6 @@ impl TryFrom<Any> for Ics26Envelope {
                     .map_err(Error::malformed_message_bytes)?;
                 Ok(Ics26Envelope::Ics2Msg(ClientMsg::UpgradeClient(domain_msg)))
             }
-            // Add Misbehaviour
-            misbehavior::TYPE_URL => {
-                let domain_msg = misbehavior::MsgSubmitAnyMisbehaviour::decode_vec(&any_msg.value)
-                    .map_err(Error::malformed_message_bytes)?;
-                Ok(Ics26Envelope::Ics2Msg(ClientMsg::Misbehaviour(domain_msg)))
-            }
 
             // ICS03
             conn_open_init::TYPE_URL => {

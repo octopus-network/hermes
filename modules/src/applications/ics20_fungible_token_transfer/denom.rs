@@ -118,7 +118,7 @@ impl fmt::Display for TracePath {
 }
 
 /// A type that contains the base denomination for ICS20 and the source tracing information path.
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct DenomTrace {
     /// A series of `{port-id}/{channel-id}`s for tracing the source of the token.
     #[serde(with = "serde_string")]
@@ -238,7 +238,7 @@ impl fmt::Display for DenomTrace {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, From)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, From, Serialize, Deserialize)]
 pub struct HashedDenom(Vec<u8>);
 
 impl From<&DenomTrace> for HashedDenom {
@@ -271,7 +271,7 @@ impl FromStr for HashedDenom {
 
 /// A decimal type for representing token transfer amounts.
 #[derive(
-    Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Display, From, FromStr, Deserialize,
+    Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Display, From, FromStr, Deserialize, Serialize
 )]
 pub struct Decimal(u64);
 
@@ -289,15 +289,15 @@ impl Add<Self> for Decimal {
 }
 
 /// Coin defines a token with a denomination and an amount.
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Deserialize)]
-pub struct Coin<D> {
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Deserialize, Serialize)]
+pub struct Coin<D: Serialize> {
     /// Denomination
     pub denom: D,
     /// Amount
     pub amount: Decimal,
 }
 
-impl<D: FromStr> TryFrom<RawCoin> for Coin<D>
+impl<D: FromStr + Serialize> TryFrom<RawCoin> for Coin<D>
 where
     Error: From<<D as FromStr>::Err>,
 {
@@ -310,7 +310,7 @@ where
     }
 }
 
-impl<D: ToString> From<Coin<D>> for RawCoin {
+impl<D: ToString + Serialize> From<Coin<D>> for RawCoin {
     fn from(coin: Coin<D>) -> RawCoin {
         RawCoin {
             denom: coin.denom.to_string(),

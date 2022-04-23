@@ -26,7 +26,6 @@ pub mod chan_close_init;
 
 // Packet specific messages.
 pub mod acknowledgement;
-pub mod acknowledgement_response;
 pub mod recv_packet;
 pub mod timeout;
 pub mod timeout_on_close;

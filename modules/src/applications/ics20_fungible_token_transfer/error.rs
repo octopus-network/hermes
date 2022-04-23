@@ -50,6 +50,7 @@ define_error! {
             [ DisplayOnly<FromUtf8Error> ]
             | _ | { "utf8 decoding error" },
 
+
         DenomTraceNotFound
             { context: String }
             | _ | { "denom trace not found" },
@@ -132,6 +133,7 @@ define_error! {
         InvalidSerdeData
             | _ | { "invalid serde data" },
 
+
         EmptyBaseDenom
             |_| { "base denomination is empty" },
 
@@ -176,10 +178,6 @@ define_error! {
         ChannelNotUnordered
             { order: Order }
             | e | { format_args!("expected '{0}' channel, got '{1}'", Order::Unordered, e.order) },
-
-        InvalidVersion
-            { version: Version }
-            | e | { format_args!("expected version '{0}', got '{1}'", Version::ics20(), e.version) },
 
         InvalidCounterpartyVersion
             { version: Version }

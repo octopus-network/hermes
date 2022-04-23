@@ -177,7 +177,7 @@ fn validate_transfer_channel_params(
     // TODO(hu55a1n1): check that port_id matches the port_id that the transfer module is bound to
 
     if version != &Version::ics20() {
-        return Err(Ics20Error::invalid_version(version.clone()));
+        return Err(Ics20Error::invalid_version(version.clone(), Version::ics20()));
     }
 
     Ok(())

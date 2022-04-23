@@ -1,6 +1,5 @@
 use crate::applications::ics20_fungible_token_transfer::context::Ics20Context;
 use crate::applications::ics20_fungible_token_transfer::error::Error;
-use crate::applications::ics20_fungible_token_transfer::msgs::fungible_token_packet_data::FungibleTokenPacketData;
 use crate::applications::ics20_fungible_token_transfer::msgs::transfer::MsgTransfer;
 use crate::applications::ics20_fungible_token_transfer::packet::PacketData;
 use crate::applications::ics20_fungible_token_transfer::{Coin, IbcCoin, TracePrefix};
