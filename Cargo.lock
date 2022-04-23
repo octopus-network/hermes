@@ -1917,6 +1917,7 @@ dependencies = [
  "hex-literal",
  "ibc-proto",
  "ics23",
+ "log",
  "modelator",
  "num-traits",
  "octopusxt",
