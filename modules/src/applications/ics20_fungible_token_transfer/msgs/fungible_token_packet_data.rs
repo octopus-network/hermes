@@ -9,7 +9,7 @@ use tendermint_proto::Protobuf;
 
 pub const TYPE_URL: &str = "/ibc.applications.transfer.v2.FungibleTokenPacketData";
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FungibleTokenPacketData {
     /// the token denomination to be transferred
     pub denom: String,
