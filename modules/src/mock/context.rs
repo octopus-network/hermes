@@ -14,7 +14,6 @@ use ibc_proto::google::protobuf::Any;
 use sha2::Digest;
 use tracing::debug;
 
-use crate::applications::ics20_fungible_token_transfer::context::Ics20Context;
 use crate::clients::ics07_tendermint::client_state::test_util::get_dummy_tendermint_client_state;
 use crate::clients::ics10_grandpa::{client_state::ClientState, consensus_state::ConsensusState};
 use crate::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
@@ -621,33 +620,6 @@ impl Ics26Context for MockContext {
     }
 }
 
-impl Ics20Context for MockContext {
-    fn get_denom_trace(
-        &self,
-        denom_trace_hash: &[u8],
-    ) -> Result<
-        crate::applications::ics20_fungible_token_transfer::msgs::denom_trace::DenomTrace,
-        crate::applications::ics20_fungible_token_transfer::error::Error,
-    > {
-        todo!()
-    }
-
-    fn has_denom_trace(&self, denom_trace_hash: &[u8]) -> bool {
-        todo!()
-    }
-
-    fn set_denom_trace(
-        &self,
-        denom_trace: &crate::applications::ics20_fungible_token_transfer::msgs::denom_trace::DenomTrace,
-    ) -> Result<(), crate::applications::ics20_fungible_token_transfer::error::Error> {
-        todo!()
-    }
-
-    fn get_port(&self) -> Result<PortId, Ics20Error> {
-        todo!()
-    }
-}
-
 impl CapabilityReader for MockContext {
     fn get_capability(&self, _name: &CapabilityName) -> Result<Capability, Ics05Error> {
         todo!()
@@ -675,10 +647,7 @@ impl ChannelReader for MockContext {
     fn channel_end(&self, pcid: &(PortId, ChannelId)) -> Result<ChannelEnd, Ics04Error> {
         match self.channels.get(pcid) {
             Some(channel_end) => Ok(channel_end.clone()),
-            None => Err(Ics04Error::channel_not_found(
-                pcid.0.clone(),
-                pcid.1.clone(),
-            )),
+            None => Err(Ics04Error::channel_not_found(pcid.0.clone(), pcid.1)),
         }
     }
 
@@ -1456,6 +1425,7 @@ mod tests {
                 _channel_id: &ChannelId,
                 _channel_cap: &ChannelCapability,
                 _counterparty: &Counterparty,
+                _version: &Version,
                 counterparty_version: &Version,
             ) -> Result<Version, Error> {
                 Ok(counterparty_version.clone())
@@ -1472,6 +1442,7 @@ mod tests {
                     Box::new(|module| {
                         let module = module.downcast_mut::<FooModule>().unwrap();
                         module.counter += 1;
+                        Ok(())
                     }),
                 )
             }
@@ -1490,6 +1461,7 @@ mod tests {
                 _channel_id: &ChannelId,
                 _channel_cap: &ChannelCapability,
                 _counterparty: &Counterparty,
+                _version: &Version,
                 counterparty_version: &Version,
             ) -> Result<Version, Error> {
                 Ok(counterparty_version.clone())
@@ -1535,7 +1507,7 @@ mod tests {
                 _ => None,
             })
             .for_each(|(mid, write_fn)| {
-                write_fn(ctx.router.get_route_mut(&mid).unwrap().as_any_mut())
+                write_fn(ctx.router.get_route_mut(&mid).unwrap().as_any_mut()).unwrap()
             });
     }
 }

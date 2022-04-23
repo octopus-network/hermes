@@ -349,6 +349,7 @@ define_error! {
         ImplementationSpecific
             | _ | { "implementation specific error" },
 
+
         InvalidDecode
             [ DisplayOnly<tendermint_proto::Error> ]
             |_| { "invalid decode" },
@@ -395,9 +396,13 @@ define_error! {
         EmptyAcknowledgeResponse
             | _ | { "empty acknowledge response" },
 
-
-
-
+        AppModule
+            { description: String }
+            | e | {
+                format_args!(
+                    "application module error: {0}",
+                    e.description)
+            },
     }
 }
 

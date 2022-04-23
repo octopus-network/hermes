@@ -2,10 +2,7 @@ use crate::prelude::*;
 
 use ibc_proto::google::protobuf::Any;
 
-use crate::applications::ics20_fungible_token_transfer::msgs::{transfer, transfer::MsgTransfer};
-use crate::core::ics02_client::msgs::{
-    create_client, misbehavior, update_client, upgrade_client, ClientMsg,
-};
+use crate::core::ics02_client::msgs::{create_client, update_client, upgrade_client, ClientMsg};
 use crate::core::ics03_connection::msgs::{
     conn_open_ack, conn_open_confirm, conn_open_init, conn_open_try, ConnectionMsg,
 };
@@ -23,7 +20,6 @@ pub enum Ics26Envelope {
     Ics3Msg(ConnectionMsg),
     Ics4ChannelMsg(ChannelMsg),
     Ics4PacketMsg(PacketMsg),
-    Ics20Msg(MsgTransfer),
 }
 
 impl TryFrom<Any> for Ics26Envelope {
@@ -130,12 +126,6 @@ impl TryFrom<Any> for Ics26Envelope {
                 Ok(Ics26Envelope::Ics4ChannelMsg(
                     ChannelMsg::ChannelCloseConfirm(domain_msg),
                 ))
-            }
-            // ICS20 - 04 - Send packet
-            transfer::TYPE_URL => {
-                let domain_msg = transfer::MsgTransfer::decode_vec(&any_msg.value)
-                    .map_err(Error::malformed_message_bytes)?;
-                Ok(Ics26Envelope::Ics20Msg(domain_msg))
             }
             // ICS04 packet messages
             recv_packet::TYPE_URL => {

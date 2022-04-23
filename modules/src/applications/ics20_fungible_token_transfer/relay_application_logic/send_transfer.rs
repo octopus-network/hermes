@@ -2,6 +2,8 @@ use crate::applications::ics20_fungible_token_transfer::context::Ics20Context;
 use crate::applications::ics20_fungible_token_transfer::error::Error;
 use crate::applications::ics20_fungible_token_transfer::msgs::fungible_token_packet_data::FungibleTokenPacketData;
 use crate::applications::ics20_fungible_token_transfer::msgs::transfer::MsgTransfer;
+use crate::applications::ics20_fungible_token_transfer::packet::PacketData;
+use crate::applications::ics20_fungible_token_transfer::{Coin, IbcCoin, TracePrefix};
 use crate::core::ics04_channel::handler::send_packet::send_packet;
 use crate::core::ics04_channel::packet::Packet;
 use crate::core::ics04_channel::packet::PacketResult;
@@ -9,15 +11,22 @@ use crate::handler::HandlerOutput;
 use crate::prelude::*;
 use crate::signer::Signer;
 
+use subtle_encoding::bech32;
+
+#[allow(unused)]
 pub(crate) fn send_transfer<Ctx>(
-    ctx: &Ctx,
+    ctx: &mut Ctx,
     msg: MsgTransfer,
 ) -> Result<HandlerOutput<PacketResult>, Error>
 where
     Ctx: Ics20Context,
 {
+    if !ctx.is_send_enabled() {
+        return Err(Error::send_disabled());
+    }
+
     let source_channel_end = ctx
-        .channel_end(&(msg.source_port.clone(), msg.source_channel.clone()))
+        .channel_end(&(msg.source_port.clone(), msg.source_channel))
         .map_err(Error::ics04_channel)?;
 
     let destination_port = source_channel_end.counterparty().port_id().clone();
@@ -25,52 +34,65 @@ where
         .counterparty()
         .channel_id()
         .ok_or_else(|| {
-            Error::destination_channel_not_found(
-                msg.source_port.clone(),
-                msg.source_channel.clone(),
-            )
+            Error::destination_channel_not_found(msg.source_port.clone(), msg.source_channel)
         })?;
 
     // get the next sequence
     let sequence = ctx
-        .get_next_sequence_send(&(msg.source_port.clone(), msg.source_channel.clone()))
+        .get_next_sequence_send(&(msg.source_port.clone(), msg.source_channel))
         .map_err(Error::ics04_channel)?;
 
-    tracing::trace!("🤮in ics20 [send_transfer]: sequence = {:?}",sequence);
+    // TODO(hu55a1n1): get channel capability
 
+    let denom = match msg.token.clone() {
+        IbcCoin::Hashed(coin) => ctx
+            .get_denom_trace(coin.denom)
+            .ok_or_else(Error::trace_not_found)?,
+        IbcCoin::Base(coin) => coin.denom.into(),
+    };
 
-    //TODO: Application LOGIC.
+    let sender = {
+        bech32::decode(&msg.sender)
+            .map(|_| ())
+            .map_err(Error::invalid_sender_address)?;
+        msg.sender.to_string().parse()?
+    };
 
-    //TODO: build packet data
-    // refer to ibc-go https://github.com/octopus-network/ibc-go/blob/e40cdec6a3413fb3c8ea2a7ccad5e363ecd5a695/modules/apps/transfer/keeper/relay.go#L146
-    // packetData := types.NewFungibleTokenPacketData(
-    // 	fullDenomPath, token.Amount.String(), sender.String(), receiver,
-    // )
+    let prefix = TracePrefix::new(msg.source_port.clone(), msg.source_channel);
+    if denom.is_sender_chain_source(&prefix) {
+        let escrow_address =
+            ctx.get_channel_escrow_address(msg.source_port.clone(), msg.source_channel)?;
+        ctx.send_coins(&sender, &escrow_address, msg.token.clone())?;
+    } else {
+        ctx.send_coins_from_account_to_module(
+            sender,
+            ctx.get_transfer_account(),
+            msg.token.clone(),
+        )?;
+        ctx.burn_coins(ctx.get_transfer_account(), msg.token.clone())
+            .expect("cannot burn coins after a successful send to a module account");
+    }
 
-    tracing::trace!("🤮in ics20 [send_transfer]: token = {:?}", msg.token.clone());
-    
-    let denom = msg.token.clone().ok_or(Error::empty_token())?.denom;
-    let amount = msg.token.ok_or(Error::empty_token())?.amount;
-
-    // contruct fungible token packet data
-    let packet_data = FungibleTokenPacketData {
-        denom: denom,
-        amount: amount,
-        sender: msg.sender,
-        receiver: msg.receiver,
+    let data = PacketData {
+        token: Coin {
+            denom,
+            amount: msg.token.amount(),
+        },
+        sender: msg.sender.to_string().parse()?,
+        receiver: msg.receiver.to_string().parse()?,
     };
 
     // endocde packet data
-    let encode_packet_data =
-        serde_json::to_vec(&packet_data).map_err(|_| Error::invalid_serde_data())?;
+    let encode_data =
+        serde_json::to_vec(&data).map_err(|_| Error::invalid_serde_data())?;
 
     let packet = Packet {
         sequence,
         source_port: msg.source_port,
         source_channel: msg.source_channel,
         destination_port,
-        destination_channel: destination_channel.clone(),
-        data: encode_packet_data,
+        destination_channel: *destination_channel,
+        data: encode_data,
         timeout_height: msg.timeout_height,
         timeout_timestamp: msg.timeout_timestamp,
     };

@@ -8,7 +8,7 @@ use tendermint_proto::Protobuf;
 use ibc_proto::ibc::apps::transfer::v1::MsgTransfer as RawMsgTransfer;
 
 use crate::applications::ics20_fungible_token_transfer::error::Error;
-use crate::applications::ics20_fungible_token_transfer::msgs::denom_trace;
+use crate::applications::ics20_fungible_token_transfer::IbcCoin;
 use crate::core::ics02_client::height::Height;
 use crate::core::ics24_host::identifier::{ChannelId, PortId};
 use crate::signer::Signer;
@@ -25,7 +25,7 @@ pub struct MsgTransfer {
     /// the channel by which the packet will be sent
     pub source_channel: ChannelId,
     /// the tokens to be transferred
-    pub token: Option<ibc_proto::cosmos::base::v1beta1::Coin>,
+    pub token: IbcCoin,
     /// the sender address
     pub sender: Signer,
     /// the recipient address on the destination chain
@@ -75,15 +75,15 @@ impl Msg for MsgTransfer {
         // 	if strings.TrimSpace(msg.Receiver) == "" {
         // 		return sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, "missing recipient address")
         // 	}
-        let denom = self
-            .token
-            .as_ref()
-            .map(|coin| coin.denom.as_str())
-            .unwrap_or_default();
+        // let denom = self
+        //     .token
+        //     .as_ref()
+        //     .map(|coin| coin.denom.as_str())
+        //     .unwrap_or_default();
 
-        if let Err(err) = denom_trace::validate_ibc_denom(denom) {
-            return Err(ValidationError::invalid_denom(err.to_string()));
-        }
+        // if let Err(err) = denom_trace::validate_ibc_denom(denom) {
+        //     return Err(ValidationError::invalid_denom(err.to_string()));
+        // }
         Ok(())
     }
 }
@@ -104,6 +104,8 @@ impl TryFrom<RawMsgTransfer> for MsgTransfer {
             })?,
         };
 
+        let token = raw_msg.token.ok_or_else(Error::invalid_token)?.try_into()?;
+
         Ok(MsgTransfer {
             source_port: raw_msg
                 .source_port
@@ -113,7 +115,7 @@ impl TryFrom<RawMsgTransfer> for MsgTransfer {
                 .source_channel
                 .parse()
                 .map_err(|e| Error::invalid_channel_id(raw_msg.source_channel.clone(), e))?,
-            token: raw_msg.token,
+            token,
             sender: raw_msg.sender.into(),
             receiver: raw_msg.receiver.into(),
             timeout_height,
@@ -127,7 +129,7 @@ impl From<MsgTransfer> for RawMsgTransfer {
         RawMsgTransfer {
             source_port: domain_msg.source_port.to_string(),
             source_channel: domain_msg.source_channel.to_string(),
-            token: domain_msg.token,
+            token: Some(domain_msg.token.into()),
             sender: domain_msg.sender.to_string(),
             receiver: domain_msg.receiver.to_string(),
             timeout_height: Some(domain_msg.timeout_height.into()),
@@ -142,6 +144,7 @@ pub mod test_util {
     use core::time::Duration;
 
     use crate::{
+        applications::ics20_fungible_token_transfer::{BaseCoin, IbcCoin},
         core::ics24_host::identifier::{ChannelId, PortId},
         test_utils::get_dummy_account_id,
         timestamp::Timestamp,
@@ -157,7 +160,10 @@ pub mod test_util {
         MsgTransfer {
             source_port: PortId::default(),
             source_channel: ChannelId::default(),
-            token: None,
+            token: IbcCoin::Base(BaseCoin {
+                denom: "uatom".parse().unwrap(),
+                amount: 10.into(),
+            }),
             sender: id.clone(),
             receiver: id,
             timeout_timestamp: Timestamp::now().add(Duration::from_secs(10)).unwrap(),
