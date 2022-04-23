@@ -331,19 +331,8 @@ checksum = "9a41df6ad9642c5c15ae312dd3d074de38fd3eb7cc87ad4ce10f90292a83fe4d"
 dependencies = [
  "bech32",
  "bitcoin_hashes",
- "secp256k1 0.20.3",
+ "secp256k1",
  "serde",
-]
-
-[[package]]
-name = "bitcoin"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42b2a9a8e3c7544f5ce2b475f2f56580a3102b37e0ee001558ad4faedcf56cf4"
-dependencies = [
- "bech32",
- "bitcoin_hashes",
- "secp256k1 0.22.1",
 ]
 
 [[package]]
@@ -1708,7 +1697,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72adf5a17a0952ecfcddf8d46d071271d5ee52e78443f07ba0b2dcfe3063a132"
 dependencies = [
- "bitcoin 0.28.0",
+ "bitcoin",
  "byteorder",
 ]
 
@@ -2028,7 +2017,7 @@ dependencies = [
  "async-stream",
  "bech32",
  "beefy-light-client",
- "bitcoin 0.27.1",
+ "bitcoin",
  "bytes",
  "crossbeam-channel 0.5.4",
  "dirs-next",
@@ -3082,7 +3071,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13#5470dfa275cbc787377d084f6c17874f4f06d6f1"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13-1884-ics20#1093768bf0a5f2ce4666805576536edbb388d234"
 dependencies = [
  "beefy-light-client",
  "beefy-merkle-tree",
@@ -4149,17 +4138,8 @@ version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97d03ceae636d0fed5bae6a7f4f664354c5f4fcedf6eef053fef17e49f837d0a"
 dependencies = [
- "secp256k1-sys 0.4.2",
+ "secp256k1-sys",
  "serde",
-]
-
-[[package]]
-name = "secp256k1"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26947345339603ae8395f68e2f3d85a6b0a8ddfe6315818e80b8504415099db0"
-dependencies = [
- "secp256k1-sys 0.5.0",
 ]
 
 [[package]]
@@ -4167,15 +4147,6 @@ name = "secp256k1-sys"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "957da2573cde917463ece3570eab4a0b3f19de6f1646cde62e6fd3868f566036"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "secp256k1-sys"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07b5b9d7322572e1f3aeed208668ce87789b3645dbb73082c5ce99a004103a35"
 dependencies = [
  "cc",
 ]

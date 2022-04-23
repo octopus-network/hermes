@@ -19,7 +19,7 @@ use core::time::Duration;
 use ibc::events::{IbcEvent, WithBlockDataType};
 
 use super::tx::TrackedMsgs;
-use crate::chain::StatusResponse;
+use crate::chain::ChainStatus;
 use crate::connection::ConnectionMsgType;
 use crate::light_client::Verified;
 use ibc::clients::ics07_tendermint::header::Header as tHeader;
@@ -1397,7 +1397,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let storage_entry = ibc_node::ibc::storage::Channels(
             port_id.as_bytes().to_vec(),
-            channel_id.as_bytes().to_vec(),
+            format!("{}", channel_id).as_bytes().to_vec(),
         );
         Ok((
             result,
@@ -1496,7 +1496,7 @@ impl ChainEndpoint for SubstrateChain {
             PacketMsgType::Recv => {
                 let storage_entry = ibc_node::ibc::storage::PacketCommitment(
                     port_id.as_bytes().to_vec(),
-                    channel_id.as_bytes().to_vec(),
+                    format!("{}", channel_id).as_bytes().to_vec(),
                     u64::from(sequence.clone()).encode(),
                 );
                 Ok((
@@ -1507,7 +1507,7 @@ impl ChainEndpoint for SubstrateChain {
             PacketMsgType::Ack => {
                 let storage_entry = ibc_node::ibc::storage::Acknowledgements(
                     port_id.as_bytes().to_vec(),
-                    channel_id.as_bytes().to_vec(),
+                    format!("{}", channel_id).as_bytes().to_vec(),
                     u64::from(sequence.clone()).encode(),
                 );
                 Ok((
@@ -1524,7 +1524,7 @@ impl ChainEndpoint for SubstrateChain {
             PacketMsgType::TimeoutOrdered => {
                 let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(
                     port_id.as_bytes().to_vec(),
-                    channel_id.as_bytes().to_vec(),
+                    format!("{}", channel_id).as_bytes().to_vec(),
                 );
                 Ok((
                     result,
@@ -1777,7 +1777,7 @@ impl ChainEndpoint for SubstrateChain {
         todo!()
     }
 
-    fn query_status(&self) -> Result<StatusResponse, Error> {
+    fn query_status(&self) -> Result<ChainStatus, Error> {
         tracing::trace!("in substrate: [query_status]");
 
         let height = self
@@ -1791,9 +1791,9 @@ impl ChainEndpoint for SubstrateChain {
             latest_height
         );
 
-        Ok(StatusResponse {
+        Ok(ChainStatus {
             height: latest_height,
-            timestamp: Default::default(),
+            timestamp: Timestamp::now(),
         })
     }
 
