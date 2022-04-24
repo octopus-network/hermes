@@ -103,9 +103,9 @@ impl super::LightClient<SubstrateChain> for LightClient {
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
             // get block header
-            let block_header = octopusxt::call_ibc::get_header_by_block_number(
-                client.clone(),
+            let block_header = octopusxt::ibc_rpc::get_header_by_block_number(
                 Some(BlockNumber::from(target.revision_height as u32)),
+                client.clone(),
             )
             .await
             .map_err(|_| Error::get_header_by_block_number_error())?;

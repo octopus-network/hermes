@@ -245,7 +245,7 @@ impl SubstrateChain {
 
         self.block_on(octopusxt::get_client_consensus(
             client_id,
-            height.clone(),
+            height,
             client,
         ))
     }
@@ -270,11 +270,11 @@ impl SubstrateChain {
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
-        seqs: &[u64],
+        sequences: &[Sequence],
     ) -> Result<Vec<u64>, Box<dyn std::error::Error>> {
         tracing::trace!(
             "in substrate: [get_unreceipt_packet] >> port_id = {:?}, channel_id = {:?}, seqs = {:?}",
-            port_id, channel_id, &seqs
+            port_id, channel_id, &sequences
         );
 
         let client = self.get_client()?;
@@ -282,7 +282,7 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_unreceipt_packet(
             port_id,
             channel_id,
-            seqs.to_vec(),
+            sequences.to_vec(),
             client,
         ))
     }
@@ -316,16 +316,16 @@ impl SubstrateChain {
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
-        seq: u64,
+        sequence: &Sequence,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         tracing::trace!(
             "in substrate: [get_packet_commitment] >> port_id = {:?}, channel_id = {:?}, seq = {:?}",
-            port_id, channel_id, seq
+            port_id, channel_id, sequence
         );
 
         let client = self.get_client()?;
         self.block_on(octopusxt::get_packet_commitment(
-            port_id, channel_id, seq, client,
+            port_id, channel_id, sequence, client,
         ))
     }
 
@@ -347,7 +347,7 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
 
-        self.block_on(octopusxt::get_client_connections(client_id.clone(), client))
+        self.block_on(octopusxt::get_client_connections(client_id, client))
     }
 
     fn get_connection_channels(
@@ -362,7 +362,7 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
         self.block_on(octopusxt::get_connection_channels(
-            connection_id.clone(),
+            connection_id,
             client,
         ))
     }
@@ -395,7 +395,7 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
 
-        self.block_on(octopusxt::call_ibc::get_write_ack_packet_event(
+        self.block_on(octopusxt::ibc_rpc::get_write_ack_packet_event(
             port_id, channel_id, sequence, client,
         ))
     }
@@ -1082,10 +1082,10 @@ impl ChainEndpoint for SubstrateChain {
             PortId::from_str(request.port_id.as_str()).map_err(|e| Error::identifier(e))?;
         let channel_id =
             ChannelId::from_str(request.channel_id.as_str()).map_err(|e| Error::identifier(e))?;
-        let seqs = request.packet_commitment_sequences.clone();
+        let sequences = request.packet_commitment_sequences.into_iter().map(|value| Sequence::from(value)).collect::<Vec<_>>();
 
         let result = self
-            .retry_wapper(|| self.get_unreceipt_packet(&port_id, &channel_id, &seqs))
+            .retry_wapper(|| self.get_unreceipt_packet(&port_id, &channel_id, &sequences))
             .map_err(|e| Error::retry_error(e))?;
 
         Ok(result)
@@ -1126,18 +1126,18 @@ impl ChainEndpoint for SubstrateChain {
             PortId::from_str(request.port_id.as_str()).map_err(|e| Error::identifier(e))?;
         let channel_id =
             ChannelId::from_str(request.channel_id.as_str()).map_err(|e| Error::identifier(e))?;
-        let seqs = request.packet_ack_sequences.clone();
+        let sequences = request.packet_ack_sequences.into_iter().map(|value| Sequence::from(value)).collect::<Vec<_>>();
 
         let mut unreceived_seqs: Vec<u64> = vec![];
 
-        for seq in seqs {
-            let cmt = self.retry_wapper(|| self.get_packet_commitment(&port_id, &channel_id, seq));
+        for seq in sequences {
+            let cmt = self.retry_wapper(|| self.get_packet_commitment(&port_id, &channel_id, &seq));
 
             // if packet commitment still exists on the original sending chain, then packet ack is unreceived
             // since processing the ack will delete the packet commitment
             match cmt {
                 Ok(ret) => {
-                    unreceived_seqs.push(seq);
+                    unreceived_seqs.push(u64::from(seq));
                 }
                 Err(_) => {}
             }
@@ -1433,27 +1433,27 @@ impl ChainEndpoint for SubstrateChain {
                 match packet_type {
                     PacketMsgType::Recv => {
                         // PacketCommitment
-                        octopusxt::call_ibc::get_packet_commitment(
+                        octopusxt::ibc_rpc::get_packet_commitment(
                             &port_id,
                             &channel_id,
-                            u64::from(sequence),
+                            &sequence,
                             client,
                         )
                         .await
                     }
                     PacketMsgType::Ack => {
                         // Acknowledgements
-                        octopusxt::call_ibc::get_packet_ack(
+                        octopusxt::ibc_rpc::get_packet_ack(
                             &port_id,
                             &channel_id,
-                            u64::from(sequence),
+                            &sequence,
                             client,
                         )
                         .await
                     }
                     PacketMsgType::TimeoutOnClose => {
                         // PacketReceipt
-                        octopusxt::call_ibc::get_packet_receipt_vec(
+                        octopusxt::ibc_rpc::get_packet_receipt_vec(
                             &port_id,
                             &channel_id,
                             &sequence,
@@ -1463,7 +1463,7 @@ impl ChainEndpoint for SubstrateChain {
                     }
                     PacketMsgType::TimeoutUnordered => {
                         // PacketReceipt
-                        octopusxt::call_ibc::get_packet_receipt_vec(
+                        octopusxt::ibc_rpc::get_packet_receipt_vec(
                             &port_id,
                             &channel_id,
                             &sequence,
@@ -1473,7 +1473,7 @@ impl ChainEndpoint for SubstrateChain {
                     }
                     PacketMsgType::TimeoutOrdered => {
                         // NextSequenceRecv
-                        octopusxt::call_ibc::get_next_sequence_recv(&port_id, &channel_id, client)
+                        octopusxt::ibc_rpc::get_next_sequence_recv(&port_id, &channel_id, client)
                             .await
                     }
                 }
@@ -1497,7 +1497,7 @@ impl ChainEndpoint for SubstrateChain {
                 let storage_entry = ibc_node::ibc::storage::PacketCommitment(
                     port_id.as_bytes().to_vec(),
                     channel_id.as_bytes().to_vec(),
-                    u64::from(sequence.clone()).encode(),
+                    u64::from(sequence.clone()),
                 );
                 Ok((
                     result,
@@ -1508,7 +1508,7 @@ impl ChainEndpoint for SubstrateChain {
                 let storage_entry = ibc_node::ibc::storage::Acknowledgements(
                     port_id.as_bytes().to_vec(),
                     channel_id.as_bytes().to_vec(),
-                    u64::from(sequence.clone()).encode(),
+                    u64::from(sequence.clone()),
                 );
                 Ok((
                     result,
@@ -1654,9 +1654,9 @@ impl ChainEndpoint for SubstrateChain {
 
             // get block header
 
-            let block_header = octopusxt::call_ibc::get_header_by_block_number(
-                client.clone(),
+            let block_header = octopusxt::ibc_rpc::get_header_by_block_number(
                 Some(BlockNumber::from(target_height.revision_height as u32)),
+                client.clone(),
             )
             .await
             .map_err(|_| Error::get_header_by_block_number_error())?;
@@ -1683,8 +1683,8 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .map_err(|_| Error::get_block_hash_error())?;
 
-            let mmr_leaf_and_mmr_leaf_proof = octopusxt::call_ibc::get_mmr_leaf_and_mmr_proof(
-                target_height.revision_height - 1,
+            let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
+                Some(BlockNumber::from((target_height.revision_height - 1) as u32)),
                 block_hash,
                 client,
             )
