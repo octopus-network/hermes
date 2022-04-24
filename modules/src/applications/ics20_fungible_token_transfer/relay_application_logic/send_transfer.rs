@@ -9,7 +9,7 @@ use crate::handler::HandlerOutput;
 use crate::prelude::*;
 use crate::signer::Signer;
 
-pub(crate) fn send_transfer<Ctx>(
+pub fn send_transfer<Ctx>(
     ctx: &Ctx,
     msg: MsgTransfer,
 ) -> Result<HandlerOutput<PacketResult>, Error>
