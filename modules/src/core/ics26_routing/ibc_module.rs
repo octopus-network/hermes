@@ -34,6 +34,7 @@ pub trait IBCModule: Clone {
     // valid and perform any custom INIT logic.It may return an error if
     // the chosen parameters are invalid in which case the handshake is aborted.
     // OnChanOpenInit should return an error if the provided version is invalid.
+    #![allow(clippy::too_many_arguments)]
     fn on_chan_open_init<Ctx>(
         &self,
         ctx: &Ctx,

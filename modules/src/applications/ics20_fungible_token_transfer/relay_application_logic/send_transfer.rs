@@ -9,10 +9,7 @@ use crate::handler::HandlerOutput;
 use crate::prelude::*;
 use crate::signer::Signer;
 
-pub fn send_transfer<Ctx>(
-    ctx: &Ctx,
-    msg: MsgTransfer,
-) -> Result<HandlerOutput<PacketResult>, Error>
+pub fn send_transfer<Ctx>(ctx: &Ctx, msg: MsgTransfer) -> Result<HandlerOutput<PacketResult>, Error>
 where
     Ctx: Ics20Context,
 {
@@ -49,13 +46,13 @@ where
     tracing::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: token = {:?}", msg.token.clone());
     // log::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: token = {:?}", msg.token.clone());
 
-    let denom = msg.token.clone().ok_or(Error::empty_token())?.denom;
-    let amount = msg.token.ok_or(Error::empty_token())?.amount;
+    let denom = msg.token.clone().ok_or_else(Error::empty_token)?.denom;
+    let amount = msg.token.ok_or_else(Error::empty_token)?.amount;
 
     // contruct fungible token packet data
     let packet_data = FungibleTokenPacketData {
-        denom: denom,
-        amount: amount,
+        denom,
+        amount,
         sender: msg.sender,
         receiver: msg.receiver,
     };

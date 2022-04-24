@@ -61,7 +61,7 @@ pub(crate) fn process(
     };
 
     let event_attributes = Attributes {
-        height: ctx.host_current_height().clone(),
+        height: ctx.host_current_height(),
         connection_id: Some(msg.connection_id),
         client_id: conn_end.client_id().clone(),
         counterparty_client_id: conn_end.counterparty().client_id.clone(),

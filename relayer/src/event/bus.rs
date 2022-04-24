@@ -34,7 +34,7 @@ impl<T> EventBus<T> {
 
         for (idx, tx) in self.txs.iter().enumerate() {
             // TODO: Avoid cloning when sending to last subscriber
-            if let Ok(_) = tx.try_send(value.clone()) {
+            if tx.try_send(value.clone()).is_ok() {
                 tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 5), len: {:?}, value: {:?}", tx.len(), value.clone());
             } else {
                 disconnected.push(idx);

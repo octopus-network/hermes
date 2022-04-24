@@ -47,7 +47,7 @@ pub fn verify_channel_proofs(
             channel_end
                 .counterparty()
                 .channel_id()
-                .ok_or(Error::missing_channel_id())?,
+                .ok_or_else(Error::missing_channel_id)?,
             expected_chan,
         )
         .map_err(Error::verify_channel_failed)

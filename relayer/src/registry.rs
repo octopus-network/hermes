@@ -157,15 +157,11 @@ pub fn spawn_chain_runtime<Chain: ChainHandle>(
     let handle = match account_prefix.as_str() {
         "cosmos" => {
             let rt = Arc::new(TokioRuntime::new().unwrap());
-            let handle = ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt)
-                .map_err(SpawnError::relayer)?;
-            handle
+            ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?
         }
         "substrate" => {
             let rt = Arc::new(TokioRuntime::new().unwrap());
-            let handle = ChainRuntime::<SubstrateChain>::spawn(chain_config, rt)
-                .map_err(SpawnError::relayer)?;
-            handle
+            ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?
         }
         _ => panic!("Unknown chain type"),
     };

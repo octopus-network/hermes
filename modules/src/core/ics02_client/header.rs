@@ -89,7 +89,7 @@ impl AnyHeader {
     }
 
     pub fn decode_from_string(s: &str) -> Result<Self, Error> {
-        let header_bytes = hex::decode(s).map_err(|e| Error::invalid_hex_decode(e))?;
+        let header_bytes = hex::decode(s).map_err(Error::invalid_hex_decode)?;
         Protobuf::decode(header_bytes.as_ref()).map_err(Error::invalid_raw_header)
     }
 }

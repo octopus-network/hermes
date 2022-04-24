@@ -43,7 +43,7 @@ impl DenomTrace {
 
     // GetPrefix returns the receiving denomination prefix composed by the trace info and a separator.
     pub fn get_prefix(&self) -> String {
-        if self.path == "" {
+        if self.path.is_empty() {
             return self.path.clone();
         }
         self.path.clone() + "/"
@@ -52,7 +52,7 @@ impl DenomTrace {
     // IBCDenom a coin denomination for an ICS20 fungible token in the format
     // 'ibc/{hash(tracePath + baseDenom)}'. If the trace is empty, it will return the base denomination.
     pub fn ibc_denom(&self) -> Result<String, Error> {
-        if self.path != "" {
+        if !self.path.is_empty() {
             let denom_hex =
                 String::from_utf8(hex::encode_upper(self.hash()?)).map_err(Error::utf8)?;
             return Ok(format!("{}/{}", DENOM_PREFIX, denom_hex));
@@ -64,7 +64,7 @@ impl DenomTrace {
     // tracePath + "/" + baseDenom
     // If there exists no trace then the base denomination is returned.
     pub fn get_full_denom_path(&self) -> Result<String, Error> {
-        if self.path == "" {
+        if self.path.is_empty() {
             return Ok(self.base_denom.clone());
         }
         // self.get_prefix() + &self.base_denom.clone()
@@ -81,7 +81,7 @@ impl DenomTrace {
 // 	- "portidone/channelidone/uatom" => DenomTrace{Path: "portidone/channelidone", BaseDenom: "uatom"}
 // 	- "uatom" => DenomTrace{Path: "", BaseDenom: "uatom"}
 pub fn parse_denom_trace(raw_denom: &str) -> Result<DenomTrace, Error> {
-    let denom_split = raw_denom.split("/").collect::<Vec<&str>>();
+    let denom_split = raw_denom.split('/').collect::<Vec<&str>>();
     if denom_split[0] == raw_denom {
         return Ok(DenomTrace {
             path: "".to_string(),
@@ -89,7 +89,7 @@ pub fn parse_denom_trace(raw_denom: &str) -> Result<DenomTrace, Error> {
         });
     }
     Ok(DenomTrace {
-        path: denom_split[0..denom_split.len() - 1].join("/").to_string(),
+        path: denom_split[0..denom_split.len() - 1].join("/"),
         base_denom: denom_split[denom_split.len() - 1].to_string(),
     })
 }
@@ -110,7 +110,7 @@ pub fn validate_ibc_denom(denom: &str) -> Result<(), Error> {
         ));
     }
 
-    let denom_split = denom.split("/").collect::<Vec<&str>>();
+    let denom_split = denom.split('/').collect::<Vec<&str>>();
 
     if denom_split.len() == 1 && denom_split[0] == denom && denom != DENOM_PREFIX {
         return Ok(());
@@ -118,14 +118,14 @@ pub fn validate_ibc_denom(denom: &str) -> Result<(), Error> {
 
     if denom_split.len() == 2 && denom_split[0] == DENOM_PREFIX && denom_split[1].trim() != "" {
         if let Err(err) = parse_hex_hash(denom_split[1]) {
-            return Err(Error::invalid_denom_for_transfer(err.to_string()));
+            Err(Error::invalid_denom_for_transfer(err.to_string()))
         } else {
-            return Ok(());
+            Ok(())
         }
     } else {
-        return Err(Error::invalid_denom_for_transfer(format!(
-            "denomination should be like: 'ibc/1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'"
-        )));
+        Err(Error::invalid_denom_for_transfer(
+            "denomination should be like: 'ibc/1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'".to_string()
+        ))
     }
 }
 
@@ -135,7 +135,7 @@ pub fn parse_hex_hash(hex_hash: &str) -> Result<Vec<u8>, Error> {
         hex::decode(hex_hash).map_err(|err| Error::invalid_denom_for_transfer(err.to_string()))?;
     // validate hash returns an error if the hash is not empty, but its
     // size != tmhash.Size.
-    if hash.len() > 0 && hash.len() != Sha256::output_size() {
+    if !hash.is_empty() && hash.len() != Sha256::output_size() {
         return Err(Error::invalid_denom_for_transfer(format!(
             "expected size to be {} bytes, got {} bytes",
             Sha256::output_size(),

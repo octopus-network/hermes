@@ -37,11 +37,11 @@ impl ConsensusState {
     pub fn new(header: BlockHeader) -> Self {
         Self {
             parent_hash: header.clone().parent_hash,
-            block_number: header.clone().block_number,
+            block_number: header.block_number,
             state_root: header.clone().state_root,
             extrinsics_root: header.clone().extrinsics_root,
             digest: vec![],
-            root: CommitmentRoot::from(header.extrinsics_root.clone()),
+            root: CommitmentRoot::from(header.extrinsics_root),
         }
     }
 }

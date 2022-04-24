@@ -30,7 +30,7 @@ impl Acknowledgement {
         match self
             .response
             .as_ref()
-            .ok_or(Error::empty_acknowledge_response())?
+            .ok_or_else(Error::empty_acknowledge_response)?
         {
             acknowledgement::Response::Result(_value) => Ok(true),
             acknowledgement::Response::Error(_e) => Ok(false),
@@ -77,7 +77,7 @@ impl TryFrom<RawAcknowledgement> for Acknowledgement {
 
 impl From<Acknowledgement> for RawAcknowledgement {
     fn from(acknowledgement: Acknowledgement) -> Self {
-        let raw_acknowledgement = if acknowledgement.response.is_some() {
+        if acknowledgement.response.is_some() {
             let raw_response = acknowledgement.response.unwrap();
             let inner_response = match raw_response {
                 acknowledgement::Response::Result(value) => RawResponse::Result(value),
@@ -89,8 +89,6 @@ impl From<Acknowledgement> for RawAcknowledgement {
             }
         } else {
             RawAcknowledgement { response: None }
-        };
-
-        raw_acknowledgement
+        }
     }
 }

@@ -440,7 +440,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         debug!(
             "in foregin_client: [upgrade] >> client_state {:?}",
-            client_state.clone()
+            client_state
         );
 
         let (consensus_state, proof_upgrade_consensus_state) = self
@@ -532,7 +532,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         })?;
         tracing::info!(
             "In foreign_client: [build_create_client: signer] >> signer : {}",
-            signer.clone()
+            signer
         );
 
         // Build client create message with the data from source chain at latest height.
@@ -580,7 +580,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             .wrap_any();
         tracing::info!(
             "In foreign_client: [build_create_client] >> client_state: {:?}",
-            client_state.clone()
+            client_state
         );
 
         let consensus_state = self
@@ -601,7 +601,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         tracing::info!(
             "In foreign_client: [build_create_client] >> consensus_state: {:?}",
-            consensus_state.clone()
+            consensus_state
         );
 
         //TODO Get acct_prefix
@@ -610,7 +610,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         tracing::info!(
             "In foreign_client: [build_create_client] >>  MsyCreateAnyClient: {:?}",
-            msg.clone()
+            msg
         );
 
         Ok(msg)
@@ -638,7 +638,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             })?;
         tracing::info!(
             "In foreign_client: [build_create_client_and_send] >> res : {:?}",
-            res.clone()
+            res
         );
 
         assert!(!res.is_empty());
@@ -944,7 +944,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             AnyClientState::Tendermint(client_state) => AnyClientState::Tendermint(client_state),
             AnyClientState::Grandpa(client_state) => {
                 let mut mmr_root_height = client_state.latest_commitment.block_number;
-                let mut temp_client_state = AnyClientState::Grandpa(client_state.clone());
+                let mut temp_client_state = AnyClientState::Grandpa(client_state);
                 let result = loop {
                     if mmr_root_height < target_height.revision_height as u32 {
                         info!(

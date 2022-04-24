@@ -20,7 +20,7 @@ use crate::Height;
 use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct ClientState {
     pub chain_id: ChainId,
     /// block_number is height?
@@ -30,19 +30,6 @@ pub struct ClientState {
     pub block_header: BlockHeader,
     pub latest_commitment: Commitment,
     pub validator_set: ValidatorSet,
-}
-
-impl Default for ClientState {
-    fn default() -> Self {
-        Self {
-            chain_id: ChainId::default(),
-            block_number: u32::default(),
-            frozen_height: None,
-            block_header: BlockHeader::default(),
-            latest_commitment: Commitment::default(),
-            validator_set: ValidatorSet::default(),
-        }
-    }
 }
 
 impl ClientState {
@@ -145,14 +132,17 @@ impl TryFrom<RawClientState> for ClientState {
                 .map_err(|_| Error::invalid_chain_id())?,
             block_number: raw.block_number,
             frozen_height,
-            block_header: raw.block_header.ok_or(Error::empty_block_header())?.into(),
+            block_header: raw
+                .block_header
+                .ok_or_else(Error::empty_block_header)?
+                .into(),
             latest_commitment: raw
                 .latest_commitment
-                .ok_or(Error::empty_latest_commitment())?
+                .ok_or_else(Error::empty_latest_commitment)?
                 .into(),
             validator_set: raw
                 .validator_set
-                .ok_or(Error::empty_validator_set())?
+                .ok_or_else(Error::empty_validator_set)?
                 .into(),
         })
     }

@@ -116,7 +116,7 @@ impl ClientDef for TendermintClient {
             &options,
             ctx.host_timestamp()
                 .into_tm_time()
-                .ok_or(Error::empty_time())?,
+                .ok_or_else(Error::empty_time)?,
         );
 
         match verdict {
@@ -212,7 +212,7 @@ impl ClientDef for TendermintClient {
         };
         let value = expected_consensus_state
             .encode_vec()
-            .map_err(|e| Error::tendermint_proto_encode(e))?;
+            .map_err(Error::tendermint_proto_encode)?;
         verify_membership(client_state, prefix, proof, root, path, value)
     }
 
@@ -231,7 +231,7 @@ impl ClientDef for TendermintClient {
         let path = ConnectionsPath(connection_id.clone());
         let value = expected_connection_end
             .encode_vec()
-            .map_err(|e| Error::tendermint_proto_encode(e))?;
+            .map_err(Error::tendermint_proto_encode)?;
         verify_membership(client_state, prefix, proof, root, path, value)
     }
 
@@ -251,7 +251,7 @@ impl ClientDef for TendermintClient {
         let path = ChannelEndsPath(port_id.clone(), channel_id.clone());
         let value = expected_channel_end
             .encode_vec()
-            .map_err(|e| Error::tendermint_proto_encode(e))?;
+            .map_err(Error::tendermint_proto_encode)?;
         verify_membership(client_state, prefix, proof, root, path, value)
     }
 
@@ -270,7 +270,7 @@ impl ClientDef for TendermintClient {
         let path = ClientStatePath(client_id.clone());
         let value = expected_client_state
             .encode_vec()
-            .map_err(|e| Error::tendermint_proto_encode(e))?;
+            .map_err(Error::tendermint_proto_encode)?;
         verify_membership(client_state, prefix, proof, root, path, value)
     }
 

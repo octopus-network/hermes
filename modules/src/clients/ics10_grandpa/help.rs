@@ -73,7 +73,7 @@ impl From<Commitment> for RawCommitment {
 
 use ibc_proto::ibc::lightclients::grandpa::v1::ValidatorSet as RawValidatorSet;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct ValidatorSet {
     /// Id of the next set.
     ///
@@ -93,16 +93,6 @@ pub struct ValidatorSet {
     /// validator set. Light Clients using interactive protocol, might verify only subset of
     /// signatures, hence don't require the full list here (will receive inclusion proofs).
     pub root: Vec<u8>,
-}
-
-impl Default for ValidatorSet {
-    fn default() -> Self {
-        Self {
-            id: 0,
-            len: 0,
-            root: vec![],
-        }
-    }
 }
 
 impl From<beefy_light_client::validator_set::BeefyNextAuthoritySet> for ValidatorSet {
@@ -146,7 +136,7 @@ impl From<ValidatorSet> for RawValidatorSet {
 
 use ibc_proto::ibc::lightclients::grandpa::v1::MmrLeaf as RawMmrLeaf;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct MmrLeaf {
     //// Version of the leaf format.
     //// Can be used to enable future format migrations and compatibility.
@@ -201,11 +191,11 @@ impl TryFrom<RawMmrLeaf> for MmrLeaf {
             version: raw.version,
             parent_number_and_hash: raw
                 .parent_number_and_hash
-                .ok_or(Error::empty_parent_number_and_hash())?
+                .ok_or_else(Error::empty_parent_number_and_hash)?
                 .into(),
             beefy_next_authority_set: raw
                 .beefy_next_authority_set
-                .ok_or(Error::empty_beefy_next_authority_set())?
+                .ok_or_else(Error::empty_beefy_next_authority_set)?
                 .into(),
             parachain_heads: raw.parachain_heads,
         })
@@ -223,33 +213,13 @@ impl From<MmrLeaf> for RawMmrLeaf {
     }
 }
 
-impl Default for MmrLeaf {
-    fn default() -> Self {
-        Self {
-            version: 0,
-            parent_number_and_hash: ParentNumberAndHash::default(),
-            beefy_next_authority_set: ValidatorSet::default(),
-            parachain_heads: vec![],
-        }
-    }
-}
-
 use ibc_proto::ibc::lightclients::grandpa::v1::ParentNumberAndHash as RawParentNumberAndHash;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct ParentNumberAndHash {
     pub parent_header_number: u32,
     /// header hash
     pub parent_header_hash: Vec<u8>,
-}
-
-impl Default for ParentNumberAndHash {
-    fn default() -> Self {
-        Self {
-            parent_header_number: 0,
-            parent_header_hash: vec![],
-        }
-    }
 }
 
 impl From<RawParentNumberAndHash> for ParentNumberAndHash {
@@ -309,7 +279,7 @@ impl TryFrom<SignedCommitment> for beefy_light_client::commitment::SignedCommitm
 
     fn try_from(value: SignedCommitment) -> Result<Self, Self::Error> {
         Ok(Self {
-            commitment: value.commitment.ok_or(Error::empty_commitment())?.into(),
+            commitment: value.commitment.ok_or_else(Error::empty_commitment)?.into(),
             signatures: value
                 .signatures
                 .into_iter()
@@ -324,7 +294,7 @@ impl TryFrom<RawSignedCommitment> for SignedCommitment {
 
     fn try_from(raw: RawSignedCommitment) -> Result<Self, Self::Error> {
         Ok(Self {
-            commitment: Some(raw.commitment.ok_or(Error::empty_commitment())?.into()),
+            commitment: Some(raw.commitment.ok_or_else(Error::empty_commitment)?.into()),
             signatures: raw
                 .signatures
                 .into_iter()
@@ -338,7 +308,7 @@ impl TryFrom<SignedCommitment> for RawSignedCommitment {
     type Error = Error;
     fn try_from(value: SignedCommitment) -> Result<Self, Self::Error> {
         Ok(Self {
-            commitment: Some(value.commitment.ok_or(Error::empty_commitment())?.into()),
+            commitment: Some(value.commitment.ok_or_else(Error::empty_commitment)?.into()),
             signatures: value
                 .signatures
                 .into_iter()
@@ -359,7 +329,7 @@ impl Default for SignedCommitment {
 
 use ibc_proto::ibc::lightclients::grandpa::v1::Signature as RawSignature;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode, Default)]
 pub struct Signature {
     pub signature: Vec<u8>,
 }
@@ -376,10 +346,10 @@ impl TryFrom<Signature> for beefy_light_client::commitment::Signature {
     type Error = Error;
 
     fn try_from(value: Signature) -> Result<Self, Self::Error> {
-        Ok(Self {
-            0: <[u8; 65]>::try_from(value.signature)
+        Ok(Self(
+            <[u8; 65]>::try_from(value.signature)
                 .map_err(|_| Error::invalid_convert_signature())?,
-        })
+        ))
     }
 }
 
@@ -399,15 +369,9 @@ impl From<Signature> for RawSignature {
     }
 }
 
-impl Default for Signature {
-    fn default() -> Self {
-        Self { signature: vec![] }
-    }
-}
-
 use ibc_proto::ibc::lightclients::grandpa::v1::ValidatorMerkleProof as RawValidatorMerkleProof;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode, Default)]
 pub struct ValidatorMerkleProof {
     //// Proof items (does not contain the leaf hash, nor the root obviously).
     ////
@@ -430,7 +394,7 @@ pub struct ValidatorMerkleProof {
 
 impl From<beefy_light_client::ValidatorMerkleProof> for ValidatorMerkleProof {
     fn from(value: beefy_light_client::ValidatorMerkleProof) -> Self {
-        let proof: Vec<Vec<u8>> = value.proof.into_iter().map(|val| Vec::from(val)).collect();
+        let proof: Vec<Vec<u8>> = value.proof.into_iter().map(Vec::from).collect();
         Self {
             proof,
             number_of_leaves: value.number_of_leaves as u32,
@@ -479,17 +443,6 @@ impl From<ValidatorMerkleProof> for RawValidatorMerkleProof {
     }
 }
 
-impl Default for ValidatorMerkleProof {
-    fn default() -> Self {
-        Self {
-            proof: vec![],
-            number_of_leaves: 0,
-            leaf_index: 0,
-            leaf: vec![],
-        }
-    }
-}
-
 use ibc_proto::ibc::lightclients::grandpa::v1::MmrLeafProof as RawMmrLeafProof;
 
 use crate::Height;
@@ -506,11 +459,7 @@ pub struct MmrLeafProof {
 
 impl From<beefy_light_client::mmr::MmrLeafProof> for MmrLeafProof {
     fn from(value: beefy_light_client::mmr::MmrLeafProof) -> Self {
-        let items = value
-            .items
-            .into_iter()
-            .map(|value| Vec::from(value))
-            .collect();
+        let items = value.items.into_iter().map(Vec::from).collect();
         Self {
             leaf_index: value.leaf_index,
             leaf_count: value.leaf_count,
@@ -566,7 +515,7 @@ impl Default for MmrLeafProof {
 use ibc_proto::ibc::lightclients::grandpa::v1::BlockHeader as RawBlockHeader;
 
 /// Block Header
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode, Default)]
 pub struct BlockHeader {
     //// The parent hash.
     pub parent_hash: Vec<u8>,
@@ -605,7 +554,7 @@ impl TryFrom<BlockHeader> for beefy_light_client::header::Header {
 
     fn try_from(value: BlockHeader) -> Result<Self, Self::Error> {
         let digest = beefy_light_client::header::Digest::decode(&mut &value.digest[..])
-            .map_err(|e| Error::invalid_codec_decode(e))?;
+            .map_err(Error::invalid_codec_decode)?;
         Ok(Self {
             parent_hash: Hash::try_from(value.parent_hash)
                 .map_err(|_| Error::invalid_convert_hash())?,
@@ -614,19 +563,8 @@ impl TryFrom<BlockHeader> for beefy_light_client::header::Header {
                 .map_err(|_| Error::invalid_convert_hash())?,
             extrinsics_root: Hash::try_from(value.extrinsics_root)
                 .map_err(|_| Error::invalid_convert_hash())?,
-            digest: digest,
+            digest,
         })
-    }
-}
-impl Default for BlockHeader {
-    fn default() -> Self {
-        Self {
-            parent_hash: vec![],
-            block_number: 0,
-            state_root: vec![],
-            extrinsics_root: vec![],
-            digest: vec![],
-        }
     }
 }
 

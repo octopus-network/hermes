@@ -68,7 +68,7 @@ pub(crate) fn process(
     };
 
     let event_attributes = Attributes {
-        height: ctx.host_height().clone(),
+        height: ctx.host_height(),
         port_id: msg.port_id.clone(),
         channel_id: Some(chan_id),
         connection_id: msg.channel.connection_hops[0].clone(),

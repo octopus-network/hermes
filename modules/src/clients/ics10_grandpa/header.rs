@@ -23,21 +23,11 @@ use serde::{Deserialize, Serialize};
 use tendermint_proto::Protobuf;
 
 /// block header
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Encode, Decode)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Encode, Decode, Default)]
 pub struct Header {
     pub block_header: BlockHeader,
     pub mmr_leaf: MmrLeaf,
     pub mmr_leaf_proof: MmrLeafProof,
-}
-
-impl Default for Header {
-    fn default() -> Self {
-        Self {
-            block_header: BlockHeader::default(),
-            mmr_leaf: MmrLeaf::default(),
-            mmr_leaf_proof: MmrLeafProof::default(),
-        }
-    }
 }
 
 impl Header {
@@ -83,11 +73,14 @@ impl TryFrom<RawHeader> for Header {
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
         Ok(Self {
-            block_header: raw.block_header.ok_or(Error::empty_block_header())?.into(),
-            mmr_leaf: raw.mmr_leaf.ok_or(Error::empty_mmr_leaf())?.try_into()?,
+            block_header: raw
+                .block_header
+                .ok_or_else(Error::empty_block_header)?
+                .into(),
+            mmr_leaf: raw.mmr_leaf.ok_or_else(Error::empty_mmr_leaf)?.try_into()?,
             mmr_leaf_proof: raw
                 .mmr_leaf_proof
-                .ok_or(Error::empty_mmr_leaf_proof())?
+                .ok_or_else(Error::empty_mmr_leaf_proof)?
                 .into(),
         })
     }

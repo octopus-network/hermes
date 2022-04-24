@@ -80,11 +80,11 @@ impl ClientDef for GrandpaClient {
         let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
 
         let mmr_leaf_encode = beefy_light_client::mmr::MmrLeaf::try_from(header.clone().mmr_leaf)
-            .map_err(|e| Error::grandpa(e))?
+            .map_err(Error::grandpa)?
             .encode();
         let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
         let mmr_leaf = beefy_light_client::mmr::MmrLeaf::try_from(header.clone().mmr_leaf)
-            .map_err(|e| Error::grandpa(e))?;
+            .map_err(Error::grandpa)?;
 
         if mmr_leaf.parent_number_and_hash.1.is_empty() {
             return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
@@ -102,12 +102,12 @@ impl ClientDef for GrandpaClient {
 
         let client_state = ClientState {
             block_header: header.clone().block_header,
-            block_number: header.clone().block_header.block_number,
+            block_number: header.block_header.block_number,
             ..client_state
         };
 
         // grandpa consensus_state update from substrate-ibc
-        Ok((client_state, GpConsensusState::from(header.clone())))
+        Ok((client_state, GpConsensusState::from(header)))
     }
 
     /// TODO
@@ -160,14 +160,12 @@ impl ClientDef for GrandpaClient {
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Connections")?;
         let connection_end =
-            ConnectionEnd::decode_vec(&storage_result).map_err(|e| Error::invalid_decode(e))?;
+            ConnectionEnd::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
 
-        if !(connection_end
-            .encode_vec()
-            .map_err(|e| Error::invalid_encode(e))?
-            == expected_connection_end
+        if connection_end.encode_vec().map_err(Error::invalid_encode)?
+            != expected_connection_end
                 .encode_vec()
-                .map_err(|e| Error::invalid_encode(e))?)
+                .map_err(Error::invalid_encode)?
         {
             return Err(Error::invalid_connection_state());
         }
@@ -193,15 +191,12 @@ impl ClientDef for GrandpaClient {
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
 
-        let channel_end =
-            ChannelEnd::decode_vec(&storage_result).map_err(|e| Error::invalid_decode(e))?;
+        let channel_end = ChannelEnd::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
 
-        if !(channel_end
-            .encode_vec()
-            .map_err(|e| Error::invalid_encode(e))?
-            == expected_channel_end
+        if channel_end.encode_vec().map_err(Error::invalid_encode)?
+            != expected_channel_end
                 .encode_vec()
-                .map_err(|e| Error::invalid_encode(e))?)
+                .map_err(Error::invalid_encode)?
         {
             return Err(Error::invalid_connection_state());
         }
@@ -226,14 +221,14 @@ impl ClientDef for GrandpaClient {
             Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates")?;
 
         let any_client_state =
-            AnyClientState::decode_vec(&storage_result).map_err(|e| Error::invalid_decode(e))?;
+            AnyClientState::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
 
-        if !(any_client_state
+        if any_client_state
             .encode_vec()
-            .map_err(|e| Error::invalid_encode(e))?
-            == expected_client_state
+            .map_err(Error::invalid_encode)?
+            != expected_client_state
                 .encode_vec()
-                .map_err(|e| Error::invalid_encode(e))?)
+                .map_err(Error::invalid_encode)?
         {
             return Err(Error::invalid_client_state());
         }
@@ -265,7 +260,7 @@ impl ClientDef for GrandpaClient {
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment")?;
 
-        if !(storage_result == commitment.encode()) {
+        if storage_result != commitment.encode() {
             return Err(Error::invalid_packet_commitment(sequence));
         }
         Ok(())
@@ -297,7 +292,7 @@ impl ClientDef for GrandpaClient {
             Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
 
         let ack = format!("{:?}", ack.into_bytes());
-        if !(storage_result == Self::hash(ack).encode()) {
+        if storage_result != Self::hash(ack).encode() {
             return Err(Error::invalid_packet_ack(sequence));
         }
         Ok(())
@@ -323,7 +318,7 @@ impl ClientDef for GrandpaClient {
             Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;
 
         let sequence_restored: u64 =
-            u64::decode(&mut &storage_result[..]).map_err(|e| Error::invalid_codec_decode(e))?;
+            u64::decode(&mut &storage_result[..]).map_err(Error::invalid_codec_decode)?;
         if sequence_restored > u64::from(sequence) {
             return Err(Error::invalid_next_sequence_recv(
                 sequence_restored,
@@ -381,14 +376,14 @@ impl GrandpaClient {
         let _merkel_proof = merkel_proof.proofs[0]
             .proof
             .clone()
-            .ok_or(Error::empty_proof())?;
+            .ok_or_else(Error::empty_proof)?;
         let storage_proof = match _merkel_proof {
             Exist(_exist_proof) => {
-                let _proof_str = String::from_utf8(_exist_proof.value)
-                    .map_err(|e| Error::invalid_from_utf8(e))?;
+                let _proof_str =
+                    String::from_utf8(_exist_proof.value).map_err(Error::invalid_from_utf8)?;
 
-                let _storage_proof: ReadProofU8 = serde_json::from_str(&_proof_str)
-                    .map_err(|e| Error::invalid_serde_json_encode(e))?;
+                let _storage_proof: ReadProofU8 =
+                    serde_json::from_str(&_proof_str).map_err(Error::invalid_serde_json_encode)?;
                 _storage_proof
             }
             _ => unimplemented!(),
@@ -404,10 +399,10 @@ impl GrandpaClient {
             &_storage_keys,
         )
         .map_err(|_| Error::read_proof_check())?
-        .ok_or(Error::empty_proof())?;
+        .ok_or_else(Error::empty_proof)?;
 
-        let storage_result = <Vec<u8>>::decode(&mut &storage_result[..])
-            .map_err(|e| Error::invalid_codec_decode(e))?;
+        let storage_result =
+            <Vec<u8>>::decode(&mut &storage_result[..]).map_err(Error::invalid_codec_decode)?;
 
         Ok(storage_result)
     }
@@ -474,7 +469,7 @@ impl GrandpaClient {
             return Ok(final_key);
         }
 
-        return Err(Error::wrong_key_number(_keys.len() as u8));
+        Err(Error::wrong_key_number(_keys.len() as u8))
     }
 
     /// A hashing function for packet commitments
