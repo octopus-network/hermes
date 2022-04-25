@@ -651,7 +651,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let err_str = result.err().unwrap().to_string();
         if err_str.contains("Priority is too low") { // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
-            tracing::error!("in substrate: [send_messages_and_wait_check_tx] >> error : {:?}",err_str);
+            tracing::error!("in substrate: [send_messages_and_wait_commit] >> error : {:?}",err_str);
             return Ok(vec![]);
         } else {
             return Err(Error::sub_tx_error(err_str));
