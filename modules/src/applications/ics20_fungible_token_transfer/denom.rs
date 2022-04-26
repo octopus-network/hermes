@@ -1,10 +1,8 @@
-#![allow(unused)]
-
 use core::fmt;
 use core::ops::Add;
 use core::str::FromStr;
 
-use derive_more::{Display, From, FromStr};
+use derive_more::{Display, From};
 use ibc_proto::cosmos::base::v1beta1::Coin as RawCoin;
 use ibc_proto::ibc::applications::transfer::v1::DenomTrace as RawDenomTrace;
 use serde::{Deserialize, Serialize};
@@ -12,6 +10,7 @@ use sha2::{Digest, Sha256};
 use subtle_encoding::hex;
 
 use super::error::Error;
+use crate::bigint::U256;
 use crate::core::ics24_host::identifier::{ChannelId, PortId};
 use crate::prelude::*;
 use crate::serializers::serde_string;
@@ -100,8 +99,7 @@ impl FromStr for TracePath {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut parts: Vec<&str> = s.split('/').collect();
-        parts.try_into()
+        s.split('/').collect::<Vec<&str>>().try_into()
     }
 }
 
@@ -117,8 +115,16 @@ impl fmt::Display for TracePath {
     }
 }
 
+/// Indicates whether the sender chain is acting as a source or sink. Each send to any chain other
+/// than the one it was previously received from is a movement forwards in the token's timeline. In
+/// these instances the sender chain is acting as the source zone.
+pub enum Source {
+    Sender,
+    Receiver,
+}
+
 /// A type that contains the base denomination for ICS20 and the source tracing information path.
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DenomTrace {
     /// A series of `{port-id}/{channel-id}`s for tracing the source of the token.
     #[serde(with = "serde_string")]
@@ -160,16 +166,14 @@ impl DenomTrace {
         self.trace_path.0.is_empty()
     }
 
-    /// Returns true if the denomination originally came from the receiving chain and false
-    /// otherwise.
-    pub fn is_receiver_chain_source(&self, prefix: &TracePrefix) -> bool {
-        self.has_prefix(prefix)
-    }
-
-    /// Returns false if the denomination originally came from the receiving chain and true
-    /// otherwise.
-    pub fn is_sender_chain_source(&self, prefix: &TracePrefix) -> bool {
-        !self.is_receiver_chain_source(prefix)
+    /// Returns `Source::Receiver` if the denomination originally came from the receiving chain and
+    /// `Source::Sender` otherwise.
+    pub fn source_chain(&self, prefix: &TracePrefix) -> Source {
+        if self.has_prefix(prefix) {
+            Source::Receiver
+        } else {
+            Source::Sender
+        }
     }
 }
 
@@ -270,13 +274,20 @@ impl FromStr for HashedDenom {
 }
 
 /// A decimal type for representing token transfer amounts.
-#[derive(
-    Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Display, From, FromStr, Deserialize, Serialize
-)]
-pub struct Decimal(u64);
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Display, From)]
+pub struct Amount(U256);
+
+impl FromStr for Amount {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let amount = U256::from_str_radix(s, 10).map_err(Error::invalid_amount)?;
+        Ok(Self(amount))
+    }
+}
 
 // We only provide an `Add<Decimal>` implementation which always panics on overflow.
-impl Add<Self> for Decimal {
+impl Add<Self> for Amount {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -289,12 +300,13 @@ impl Add<Self> for Decimal {
 }
 
 /// Coin defines a token with a denomination and an amount.
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Deserialize, Serialize)]
-pub struct Coin<D: Serialize> {
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Coin<D> {
     /// Denomination
     pub denom: D,
     /// Amount
-    pub amount: Decimal,
+    #[serde(with = "serde_string")]
+    pub amount: Amount,
 }
 
 impl<D: FromStr + Serialize> TryFrom<RawCoin> for Coin<D>
@@ -305,7 +317,7 @@ where
 
     fn try_from(proto: RawCoin) -> Result<Coin<D>, Self::Error> {
         let denom = D::from_str(&proto.denom)?;
-        let amount = Decimal::from_str(&proto.amount).map_err(Error::invalid_coin_amount)?;
+        let amount = Amount::from_str(&proto.amount)?;
         Ok(Self { denom, amount })
     }
 }
@@ -327,7 +339,7 @@ pub enum IbcCoin {
 }
 
 impl IbcCoin {
-    pub fn amount(&self) -> Decimal {
+    pub fn amount(&self) -> Amount {
         match self {
             IbcCoin::Hashed(c) => c.amount,
             IbcCoin::Base(c) => c.amount,

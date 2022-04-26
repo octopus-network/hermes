@@ -1977,6 +1977,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.11",
+ "uint",
 ]
 
 [[package]]
@@ -2072,7 +2073,6 @@ dependencies = [
  "tonic",
  "tracing",
  "tracing-subscriber 0.3.11",
- "uint",
 ]
 
 [[package]]

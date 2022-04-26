@@ -6,13 +6,13 @@ use ibc_proto::ibc::applications::transfer::v2::FungibleTokenPacketData as RawPa
 use serde::{Deserialize, Serialize};
 
 use super::error::Error;
-use super::{signer::Signer, Decimal, DenomTrace, PrefixedCoin};
+use super::{address::Address, Amount, DenomTrace, PrefixedCoin};
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PacketData {
     pub token: PrefixedCoin,
-    pub sender: Signer,
-    pub receiver: Signer,
+    pub sender: Address,
+    pub receiver: Address,
 }
 
 impl TryFrom<RawPacketData> for PacketData {
@@ -20,7 +20,7 @@ impl TryFrom<RawPacketData> for PacketData {
 
     fn try_from(raw_pkt_data: RawPacketData) -> Result<Self, Self::Error> {
         let denom = DenomTrace::from_str(&raw_pkt_data.denom)?;
-        let amount = Decimal::from_str(&raw_pkt_data.amount).map_err(Error::invalid_coin_amount)?;
+        let amount = Amount::from_str(&raw_pkt_data.amount)?;
         Ok(Self {
             token: PrefixedCoin { denom, amount },
             sender: raw_pkt_data.sender.parse()?,

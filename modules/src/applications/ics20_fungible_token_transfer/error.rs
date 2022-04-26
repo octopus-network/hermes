@@ -1,17 +1,17 @@
 
 use alloc::string::FromUtf8Error;
-use core::num::ParseIntError;
 
-use super::signer::Signer;
+use flex_error::{define_error, DisplayOnly, TraceError};
+use subtle_encoding::Error as EncodingError;
+use uint::FromStrRadixErr;
+
+use super::address::Address;
 use crate::core::ics04_channel::channel::Order;
 use crate::core::ics04_channel::error as channel_error;
 use crate::core::ics04_channel::Version;
 use crate::core::ics24_host::error::ValidationError;
 use crate::core::ics24_host::identifier::{ChannelId, PortId};
 use crate::prelude::*;
-
-use flex_error::{define_error, DisplayOnly, TraceError};
-use subtle_encoding::Error as EncodingError;
 
 define_error! {
     #[derive(Debug, PartialEq, Eq)]
@@ -154,9 +154,9 @@ define_error! {
             { len: usize }
             | e | { format_args!("trace length must be even but got: {0}", e.len) },
 
-        InvalidCoinAmount
-            [ TraceError<ParseIntError> ]
-            | _ | { "invalid coin amount" },
+        InvalidAmount
+            [ TraceError<FromStrRadixErr> ]
+            | _ | { "invalid amount" },
 
         InvalidToken
             | _ | { "invalid token" },
@@ -192,13 +192,9 @@ define_error! {
         AckDeserialization
             | _ | { "failed to deserialize acknowledgement" },
 
-        InvalidReceiverAddress
+        AddressNotValidBech32
             [ TraceError<EncodingError> ]
-            | _ | { "invalid receiver address" },
-
-        InvalidSenderAddress
-            [ TraceError<EncodingError> ]
-            | _ | { "invalid sender address" },
+            | _ | { "address isn't valid bech32" },
 
         ReceiveDisabled
             | _ | { "receive is not enabled" },
@@ -207,8 +203,12 @@ define_error! {
             | _ | { "send is not enabled" },
 
         UnauthorisedReceive
-            { receiver: Signer }
+            { receiver: Address }
             | e | { format_args!("'{0}' is not allowed to receive funds", e.receiver) },
+
+        InvalidPort
+            { port_id: PortId, exp_port_id: PortId }
+            | e | { format_args!("invalid port: '{0}', expected '{1}'", e.port_id, e.exp_port_id) },
 
         TraceNotFound
             | _ | { "no trace associated with specified hash" },
