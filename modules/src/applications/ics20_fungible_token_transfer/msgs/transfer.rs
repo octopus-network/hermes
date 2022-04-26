@@ -30,7 +30,7 @@ pub struct MsgTransfer {
     /// the sender address
     pub sender: Address,
     /// the recipient address on the destination chain
-    pub receiver: Signer,
+    pub receiver: Address,
     /// Timeout height relative to the current block height.
     /// The timeout is disabled when set to 0.
     pub timeout_height: Height,
@@ -118,7 +118,7 @@ impl TryFrom<RawMsgTransfer> for MsgTransfer {
                 .map_err(|e| Error::invalid_channel_id(raw_msg.source_channel.clone(), e))?,
             token,
             sender: raw_msg.sender.parse()?,
-            receiver: raw_msg.receiver.into(),
+            receiver: raw_msg.receiver.parse()?,
             timeout_height,
             timeout_timestamp,
         })

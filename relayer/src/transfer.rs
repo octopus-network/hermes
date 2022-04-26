@@ -122,8 +122,13 @@ pub fn build_and_send_transfer_messages<SrcChain: ChainHandle, DstChain: ChainHa
     opts: &TransferOptions,
 ) -> Result<Vec<IbcEvent>, TransferError> {
     let receiver = match &opts.receiver {
-        None => packet_dst_chain.get_signer().map_err(TransferError::key)?,
-        Some(r) => r.clone().into(),
+        None => packet_dst_chain
+            .get_signer()
+            .map_err(TransferError::key)?
+            .as_ref()
+            .parse()
+            .map_err(TransferError::token_transfer)?,
+        Some(r) => r.clone().parse().map_err(TransferError::token_transfer)?,
     };
 
     let sender = packet_src_chain

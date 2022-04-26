@@ -81,8 +81,7 @@ where
     };
 
     // endocde packet data
-    let encode_data =
-        serde_json::to_vec(&data).map_err(|_| Error::invalid_serde_data())?;
+    let encode_data = serde_json::to_vec(&data).map_err(|_| Error::invalid_serde_data())?;
 
     let packet = Packet {
         sequence,

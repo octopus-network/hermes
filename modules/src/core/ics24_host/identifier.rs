@@ -369,6 +369,17 @@ impl ChannelId {
     const fn prefix() -> &'static str {
         "channel-"
     }
+
+    // encode ChannelId to Vec<u8>
+    pub fn encode(self) -> Vec<u8> {
+        serde_json::to_string(&self).unwrap().as_bytes().to_vec()
+    }
+
+    // decode Vec<u8> to ChannelId
+    pub fn decode(&self, value: Vec<u8>) -> Self {
+        let string_chainnel_id = String::from_utf8(value).unwrap();
+        serde_json::from_str(&string_chainnel_id).unwrap()
+    }
 }
 
 /// This implementation provides a `to_string` method.

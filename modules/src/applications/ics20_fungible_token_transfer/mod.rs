@@ -12,6 +12,7 @@ mod denom;
 mod events;
 mod packet;
 
+pub use address::*;
 pub use denom::*;
 
 /// The port identifier that the ICS20 applications

@@ -158,7 +158,10 @@ fn validate_transfer_channel_params(
     }
 
     if version != &Version::ics20() {
-        return Err(Ics20Error::invalid_version(version.clone(), Version::ics20()));
+        return Err(Ics20Error::invalid_version(
+            version.clone(),
+            Version::ics20(),
+        ));
     }
 
     Ok(())

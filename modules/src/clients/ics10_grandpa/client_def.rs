@@ -188,7 +188,10 @@ impl ClientDef for GrandpaClient {
         channel_id: &ChannelId,
         expected_channel_end: &ChannelEnd,
     ) -> Result<(), Error> {
-        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), format!("{}",channel_id).as_bytes().to_vec()];
+        let keys: Vec<Vec<u8>> = vec![
+            port_id.as_bytes().to_vec(),
+            format!("{}", channel_id).as_bytes().to_vec(),
+        ];
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
@@ -258,7 +261,7 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![
             port_id.as_bytes().to_vec(),
-            format!("{}",channel_id).as_bytes().to_vec(),
+            format!("{}", channel_id).as_bytes().to_vec(),
             u64::from(sequence).encode(),
         ];
 
@@ -289,7 +292,7 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         let keys: Vec<Vec<u8>> = vec![
             port_id.as_bytes().to_vec(),
-            format!("{}",channel_id).as_bytes().to_vec(),
+            format!("{}", channel_id).as_bytes().to_vec(),
             u64::from(sequence).encode(),
         ];
 
@@ -317,7 +320,10 @@ impl ClientDef for GrandpaClient {
         channel_id: &ChannelId,
         sequence: Sequence,
     ) -> Result<(), Error> {
-        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), format!("{}",channel_id).as_bytes().to_vec()];
+        let keys: Vec<Vec<u8>> = vec![
+            port_id.as_bytes().to_vec(),
+            format!("{}", channel_id).as_bytes().to_vec(),
+        ];
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;
