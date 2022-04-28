@@ -30,7 +30,7 @@ pub struct MsgTransfer {
     /// the sender address
     pub sender: Address,
     /// the recipient address on the destination chain
-    pub receiver: Address,
+    pub receiver: Signer,
     /// Timeout height relative to the current block height.
     /// The timeout is disabled when set to 0.
     pub timeout_height: Height,
@@ -49,43 +49,6 @@ impl Msg for MsgTransfer {
 
     fn type_url(&self) -> String {
         TYPE_URL.to_string()
-    }
-    // ValidateBasic performs a basic check of the MsgTransfer fields.
-    // NOTE: timeout height or timestamp values can be 0 to disable the timeout.
-    // NOTE: The recipient addresses format is not validated as the format defined by
-    // the chain is not known to IBC.
-
-    fn validate_basic(&self) -> Result<(), ValidationError> {
-        // 	if err := host.PortIdentifierValidator(msg.SourcePort); err != nil {
-        // 		return sdkerrors.Wrap(err, "invalid source port ID")
-        // 	}
-        // 	if err := host.ChannelIdentifierValidator(msg.SourceChannel); err != nil {
-        // 		return sdkerrors.Wrap(err, "invalid source channel ID")
-        // 	}
-        // 	if !msg.Token.IsValid() {
-        // 		return sdkerrors.Wrap(sdkerrors.ErrInvalidCoins, msg.Token.String())
-        // 	}
-        // 	if !msg.Token.IsPositive() {
-        // 		return sdkerrors.Wrap(sdkerrors.ErrInsufficientFunds, msg.Token.String())
-        // 	}
-        // 	// NOTE: sender format must be validated as it is required by the GetSigners function.
-        // 	_, err := sdk.AccAddressFromBech32(msg.Sender)
-        // 	if err != nil {
-        // 		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "string could not be parsed as address: %v", err)
-        // 	}
-        // 	if strings.TrimSpace(msg.Receiver) == "" {
-        // 		return sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, "missing recipient address")
-        // 	}
-        // let denom = self
-        //     .token
-        //     .as_ref()
-        //     .map(|coin| coin.denom.as_str())
-        //     .unwrap_or_default();
-
-        // if let Err(err) = denom_trace::validate_ibc_denom(denom) {
-        //     return Err(ValidationError::invalid_denom(err.to_string()));
-        // }
-        Ok(())
     }
 }
 
@@ -118,7 +81,7 @@ impl TryFrom<RawMsgTransfer> for MsgTransfer {
                 .map_err(|e| Error::invalid_channel_id(raw_msg.source_channel.clone(), e))?,
             token,
             sender: raw_msg.sender.parse()?,
-            receiver: raw_msg.receiver.parse()?,
+            receiver: raw_msg.receiver.into(),
             timeout_height,
             timeout_timestamp,
         })
