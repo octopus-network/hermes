@@ -350,21 +350,16 @@ fn process_batch_for_substrate(
     send_tx: channel::Sender<Result<EventBatch>>,
     batch: EventBatch,
 ) -> Result<()> {
-    tracing::trace!(
-        "in substrate_mointor: [relayer_process_channel_events 0] tx: {:?}, batch: {:?}, len: {:?}",
-        send_tx,
-        batch,
-        send_tx.len()
-    );
+    tracing::trace!("in substrate_mointor: [relayer_process_channel_events]");
     send_tx
         .try_send(Ok(batch.clone()))
         .map_err(|_| Error::channel_send_failed())?;
-    tracing::trace!(
-        "in substrate_mointor: [relayer_process_channel_events 1] tx: {:?}, batch: {:?}, len: {:?}",
-        send_tx,
-        batch,
-        send_tx.len()
-    );
+    // tracing::trace!(
+    //     "in substrate_mointor: [relayer_process_channel_events 1] tx: {:?}, batch: {:?}, len: {:?}",
+    //     send_tx,
+    //     batch,
+    //     send_tx.len()
+    // );
     Ok(())
 }
 
@@ -373,17 +368,13 @@ fn collect_events(
     chain_id: &ChainId,
     event: RpcEvent,
 ) -> impl Stream<Item = Result<(Height, IbcEvent)>> {
-    tracing::trace!(
-        "in substrate_mointor: [collect_events]. chain_id = {:?}, event = {:?}",
-        chain_id,
-        event
-    );
+    tracing::trace!("in substrate_mointor: [collect_events]");
 
     let events = crate::event::rpc::get_all_events(chain_id, event).unwrap_or_default();
-    tracing::trace!(
-        "in substrate_mointor: [collect_events] : events: {:?}",
-        events
-    );
+    // tracing::trace!(
+    //     "in substrate_mointor: [collect_events] : events: {:?}",
+    //     events
+    // );
     stream::iter(events).map(Ok)
 }
 //
@@ -1148,21 +1139,21 @@ async fn get_latest_height(client: Client<ibc_node::DefaultConfig>) -> u64 {
     let height = match block.next().await {
         Ok(Some(header)) => header.number as u64,
         Ok(None) => {
-            tracing::trace!("In substrate_monitor: [get_latest_height] >> None");
+            // tracing::trace!("In substrate_monitor: [get_latest_height] >> None");
             0
         }
         Err(err) => {
-            tracing::error!(
-                " In substrate_monitor: [get_latest_height] >> error: {:?} ",
-                err
-            );
+            // tracing::error!(
+            //     " In substrate_monitor: [get_latest_height] >> error: {:?} ",
+            //     err
+            // );
             0
         }
     };
-    tracing::trace!(
-        "In substrate_monitor: [get_latest_height] >> height: {:?}",
-        height
-    );
+    // tracing::trace!(
+    //     "In substrate_monitor: [get_latest_height] >> height: {:?}",
+    //     height
+    // );
     height
 }
 
@@ -1172,10 +1163,7 @@ async fn handle_single_event(
     chain_id: ChainId,
     send_batch: channel::Sender<Result<EventBatch>>,
 ) {
-    tracing::trace!(
-        "in substrate_monitor: handle_single_event >> raw_event : {:?}",
-        raw_event
-    );
+    tracing::trace!("in substrate_monitor: [handle_single_event]");
 
     let height = get_latest_height(client).await; // Todo: Do not query for latest height every time
     let batch_event = from_raw_event_to_batch_event(raw_event, chain_id.clone(), height);
