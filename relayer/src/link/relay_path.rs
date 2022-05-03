@@ -1184,6 +1184,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     }
 
     fn build_recv_packet(&self, packet: &Packet, height: Height) -> Result<Option<Any>, LinkError> {
+        tracing::trace!("in relay_path: [build_recv_packet]");
         let (_, proofs) = self
             .src_chain()
             .build_packet_proofs(
@@ -1324,6 +1325,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         event: &SendPacket,
         dst_info: &StatusResponse,
     ) -> Result<Option<Any>, LinkError> {
+        tracing::trace!("in relay_path: [build_timeout_from_send_packet_event]");
         let packet = event.packet.clone();
         if self
             .dst_channel(dst_info.height)?
@@ -1342,6 +1344,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         event: &SendPacket,
         dst_info: &StatusResponse,
     ) -> Result<(Option<Any>, Option<Any>), LinkError> {
+        tracing::trace!("in relay_path: [build_recv_or_timeout_from_send_packet_event]");
         let timeout = self.build_timeout_from_send_packet_event(event, dst_info)?;
         if timeout.is_some() {
             Ok((None, timeout))

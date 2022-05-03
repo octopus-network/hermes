@@ -3038,13 +3038,14 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13#ad40015f3e4ba86908b7eda074410991c75cda9f"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13#d654b312eb76e3f3321bc66bf74a1573012f20b1"
 dependencies = [
  "beefy-light-client",
  "beefy-merkle-tree",
  "beefy-primitives",
  "env_logger 0.8.4",
  "hex",
+ "hex-literal",
  "ibc",
  "ibc-proto",
  "jsonrpsee",

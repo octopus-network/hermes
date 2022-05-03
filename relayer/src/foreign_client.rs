@@ -351,7 +351,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             dst_chain,
             src_chain,
         };
-        tracing::info!("In Foreign_client: [new] >> client : {}", client.clone());
+        // tracing::info!("In Foreign_client: [new] >> client : {}", client.clone());
 
         client.create()?;
 
@@ -530,10 +530,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 e,
             )
         })?;
-        tracing::info!(
-            "In foreign_client: [build_create_client: signer] >> signer : {}",
-            signer
-        );
+        // tracing::info!(
+        //     "In foreign_client: [build_create_client: signer] >> signer : {}",
+        //     signer
+        // );
 
         // Build client create message with the data from source chain at latest height.
         let latest_height = self.src_chain.query_latest_height().map_err(|e| {
@@ -562,10 +562,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         })?;
         let settings = ClientSettings::for_create_command(options, &src_config, &dst_config);
 
-        tracing::info!(
-            "In foreign_client: [build_create_client] >> latest_height: {:?}",
-            latest_height
-        );
+        // tracing::info!(
+        //     "In foreign_client: [build_create_client] >> latest_height: {:?}",
+        //     latest_height
+        // );
 
         let client_state = self
             .src_chain
@@ -578,10 +578,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })?
             .wrap_any();
-        tracing::info!(
-            "In foreign_client: [build_create_client] >> client_state: {:?}",
-            client_state
-        );
+        // tracing::info!(
+        //     "In foreign_client: [build_create_client] >> client_state: {:?}",
+        //     client_state
+        // );
 
         let consensus_state = self
             .src_chain
@@ -599,19 +599,19 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             })?
             .wrap_any();
 
-        tracing::info!(
-            "In foreign_client: [build_create_client] >> consensus_state: {:?}",
-            consensus_state
-        );
+        // tracing::info!(
+        //     "In foreign_client: [build_create_client] >> consensus_state: {:?}",
+        //     consensus_state
+        // );
 
         //TODO Get acct_prefix
         let msg = MsgCreateAnyClient::new(client_state, consensus_state, signer)
             .map_err(ForeignClientError::client)?;
 
-        tracing::info!(
-            "In foreign_client: [build_create_client] >>  MsyCreateAnyClient: {:?}",
-            msg
-        );
+        // tracing::info!(
+        //     "In foreign_client: [build_create_client] >>  MsyCreateAnyClient: {:?}",
+        //     msg
+        // );
 
         Ok(msg)
     }
@@ -636,10 +636,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     e,
                 )
             })?;
-        tracing::info!(
-            "In foreign_client: [build_create_client_and_send] >> res : {:?}",
-            res
-        );
+        // tracing::info!(
+        //     "In foreign_client: [build_create_client_and_send] >> res : {:?}",
+        //     res
+        // );
 
         assert!(!res.is_empty());
         Ok(res[0].clone())

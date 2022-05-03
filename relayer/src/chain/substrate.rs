@@ -325,17 +325,15 @@ impl SubstrateChain {
     fn deliever(
         &self,
         msgs: Vec<Any>,
-    ) -> Result<Vec<subxt::sp_core::H256>, Box<dyn std::error::Error>> {
+    ) -> Result<(subxt::sp_core::H256, Vec<IbcEvent>), Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [deliever]");
-
-        let mut result_hash = vec![];
 
         let client = self.get_client()?;
 
-        let ret = self.block_on(octopusxt::deliver(msgs, client))?;
-        result_hash.push(ret);
+        let (block_hash, extrinsics_hash, ibc_events) = self.block_on(octopusxt::deliver(msgs, client))?;
+        
 
-        Ok(result_hash)
+        Ok((block_hash, ibc_events))
     }
 
     fn get_write_ack_packet_event(
@@ -620,20 +618,20 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!("in substrate: [send_messages_and_wait_commit]");
 
         // sleep(Duration::from_secs(20));
-        let result = self
+        let (block_hash, ibc_events) = self
             .deliever(proto_msgs.messages().to_vec())
             .map_err(|_| Error::deliver_error())?;
 
-        // tracing::debug!(
-        //     "in substrate: [send_messages_and_wait_commit] >> result : {:?}",
-        //     result
-        // );
+        tracing::debug!(
+            "in substrate: [send_messages_and_wait_commit] >> block_hash  : {:?}",
+            block_hash
+        );
 
-        let ret = self
-            .subscribe_ibc_events()
-            .map_err(|_| Error::subscribe_ibc_events())?;
+        // let ret = self
+        //     .subscribe_ibc_events()
+        //     .map_err(|_| Error::subscribe_ibc_events())?;
 
-        Ok(ret)
+        Ok(ibc_events)
     }
 
     fn send_messages_and_wait_check_tx(
@@ -643,27 +641,27 @@ impl ChainEndpoint for SubstrateChain {
         tracing::debug!("in substrate: [send_messages_and_wait_check_tx]");
 
         // sleep(Duration::from_secs(20));
-        let result = self.deliever(proto_msgs.messages().to_vec());
+        let (block_hash, ibc_events) = self.deliever(proto_msgs.messages().to_vec()).map_err(|_| Error::deliver_error())?;
 
-        if result.is_err() {
-            let err_str = result.err().ok_or_else(Error::deliver_error)?.to_string();
-            if err_str.contains("Priority is too low") {
-                // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
-                tracing::error!(
-                    "in substrate: [send_messages_and_wait_check_tx] >> error : {:?}",
-                    err_str
-                );
+        // if result.is_err() {
+        //     let err_str = result.err().ok_or_else(Error::deliver_error)?.to_string();
+        //     if err_str.contains("Priority is too low") {
+        //         // Todo: to catch the error by error type? maybe related to the repeated submission issue in github
+        //         tracing::error!(
+        //             "in substrate: [send_messages_and_wait_check_tx] >> error : {:?}",
+        //             err_str
+        //         );
 
-                return Ok(vec![]);
-            } else {
-                return Err(Error::sub_tx_error(err_str));
-            }
-        }
+        //         return Ok(vec![]);
+        //     } else {
+        //         return Err(Error::sub_tx_error(err_str));
+        //     }
+        // }
 
-        let result = result.map_err(|_| Error::deliver_error())?;
+        // let result = result.map_err(|_| Error::deliver_error())?;
         tracing::debug!(
-            "in substrate: [send_messages_and_wait_check_tx] >> result : {:?}",
-            result
+            "in substrate: [send_messages_and_wait_check_tx] >> block_hash : {:?}",
+            block_hash
         );
 
         use tendermint::abci::transaction; // Todo: apply with real responses
@@ -1113,7 +1111,7 @@ impl ChainEndpoint for SubstrateChain {
                     ibc::core::ics02_client::events::UpdateClient::from(Attributes {
                         height: request.height,
                         client_id: request.client_id,
-                        client_type: ClientType::Tendermint,
+                        client_type: ClientType::Grandpa,
                         consensus_height: request.consensus_height,
                     }),
                 )];
