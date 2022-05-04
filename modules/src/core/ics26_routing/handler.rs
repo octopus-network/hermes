@@ -97,6 +97,8 @@ where
         }
 
         Ics20Msg(msg) => {
+            tracing::trace!(target:"ibc-rs","[ics26_routing] handle ics20 msg : {:?}",msg);
+
             let handler_output =
                 ics20_msg_dispatcher(ctx, msg).map_err(Error::ics20_fungible_token_transfer)?;
 
@@ -111,6 +113,8 @@ where
         }
 
         Ics4PacketMsg(msg) => {
+            tracing::trace!(target:"ibc-rs","[ics26_routing] handle ics4 packet msg : {:?}",msg);
+
             let module_id = ics4_packet_validate(ctx, &msg).map_err(Error::ics04_channel)?;
             let (mut handler_builder, packet_result) =
                 ics4_packet_msg_dispatcher(ctx, &msg).map_err(Error::ics04_channel)?;
