@@ -28,6 +28,8 @@ pub enum RecvPacketResult {
 }
 
 pub fn process(ctx: &dyn ChannelReader, msg: &MsgRecvPacket) -> HandlerResult<PacketResult, Error> {
+    tracing::trace!(target:"ibc-rs","[recv_packet] begin to process the received msg : {:?}",msg);
+
     let mut output = HandlerOutput::builder();
 
     let packet = &msg.packet;
@@ -146,6 +148,7 @@ pub fn process(ctx: &dyn ChannelReader, msg: &MsgRecvPacket) -> HandlerResult<Pa
         height: ctx.host_height(),
         packet: msg.packet.clone(),
     }));
+    tracing::trace!(target:"ibc-rs","[recv_packet] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

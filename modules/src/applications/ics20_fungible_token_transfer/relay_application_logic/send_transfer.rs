@@ -33,7 +33,7 @@ where
         .get_next_sequence_send(&(msg.source_port.clone(), msg.source_channel.clone()))
         .map_err(Error::ics04_channel)?;
 
-    tracing::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: sequence = {:?}",sequence);
+    tracing::trace!(target:"ibc-rs","[send_transfer]: sequence = {:?}",sequence);
     // log::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: sequence = {:?}",sequence);
     //TODO: Application LOGIC.
 
@@ -43,7 +43,7 @@ where
     // 	fullDenomPath, token.Amount.String(), sender.String(), receiver,
     // )
 
-    tracing::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: token = {:?}", msg.token.clone());
+    tracing::trace!(target:"ibc-rs","[send_transfer]: token = {:?}", msg.token.clone());
     // log::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: token = {:?}", msg.token.clone());
 
     let denom = msg.token.clone().ok_or_else(Error::empty_token)?.denom;
@@ -72,8 +72,8 @@ where
         timeout_timestamp: msg.timeout_timestamp,
     };
 
-    // tracing::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: packet = {:?}", packet);
-    log::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: packet = {:?}", packet);
+    tracing::trace!(target:"ibc-rs","[send_transfer]: packet = {:?}", packet);
+    // log::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: packet = {:?}", packet);
     let handler_output = send_packet(ctx, packet).map_err(Error::ics04_channel)?;
 
     //TODO:  add event/atributes and writes to the store issued by the application logic for packet sending.
