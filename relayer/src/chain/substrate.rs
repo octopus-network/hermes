@@ -325,15 +325,14 @@ impl SubstrateChain {
     fn deliever(
         &self,
         msgs: Vec<Any>,
-    ) -> Result<(subxt::sp_core::H256, Vec<IbcEvent>), Box<dyn std::error::Error>> {
+    ) -> Result<subxt::sp_core::H256, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [deliever]");
 
         let client = self.get_client()?;
 
-        let (block_hash, extrinsics_hash, ibc_events) = self.block_on(octopusxt::deliver(msgs, client))?;
+        let result = self.block_on(octopusxt::deliver(msgs, client))?;
         
-
-        Ok((block_hash, ibc_events))
+        Ok(result)
     }
 
     fn get_write_ack_packet_event(
@@ -618,20 +617,20 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!("in substrate: [send_messages_and_wait_commit]");
 
         // sleep(Duration::from_secs(20));
-        let (block_hash, ibc_events) = self
+        let result = self
             .deliever(proto_msgs.messages().to_vec())
             .map_err(|_| Error::deliver_error())?;
 
         tracing::debug!(
-            "in substrate: [send_messages_and_wait_commit] >> block_hash  : {:?}",
-            block_hash
+            "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
+            result
         );
 
-        // let ret = self
-        //     .subscribe_ibc_events()
-        //     .map_err(|_| Error::subscribe_ibc_events())?;
+        let ibc_event = self
+            .subscribe_ibc_events()
+            .map_err(|_| Error::subscribe_ibc_events())?;
 
-        Ok(ibc_events)
+        Ok(ibc_event)
     }
 
     fn send_messages_and_wait_check_tx(
@@ -641,7 +640,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::debug!("in substrate: [send_messages_and_wait_check_tx]");
 
         // sleep(Duration::from_secs(20));
-        let (block_hash, ibc_events) = self.deliever(proto_msgs.messages().to_vec()).map_err(|_| Error::deliver_error())?;
+        let result = self.deliever(proto_msgs.messages().to_vec()).map_err(|_| Error::deliver_error())?;
 
         // if result.is_err() {
         //     let err_str = result.err().ok_or_else(Error::deliver_error)?.to_string();
@@ -660,8 +659,8 @@ impl ChainEndpoint for SubstrateChain {
 
         // let result = result.map_err(|_| Error::deliver_error())?;
         tracing::debug!(
-            "in substrate: [send_messages_and_wait_check_tx] >> block_hash : {:?}",
-            block_hash
+            "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash : {:?}",
+            result
         );
 
         use tendermint::abci::transaction; // Todo: apply with real responses
@@ -672,9 +671,9 @@ impl ChainEndpoint for SubstrateChain {
             log: Log::from("testtest"),
             hash: transaction::Hash::new(
                 *result
-                    .as_slice()
-                    .last()
-                    .ok_or_else(Error::empty_element)?
+                    // .as_slice()
+                    // .last()
+                    // .ok_or_else(Error::empty_element)?
                     .as_fixed_bytes(),
             ),
         };
