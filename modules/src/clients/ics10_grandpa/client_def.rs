@@ -51,62 +51,62 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state : {:?}",header);
 
-        if header.block_header.block_number > client_state.latest_commitment.block_number {
-            return Err(Error::invalid_mmr_root_height(
-                client_state.latest_commitment.block_number,
-                header.block_header.block_number,
-            ));
-        }
+        // if header.block_header.block_number > client_state.latest_commitment.block_number {
+        //     return Err(Error::invalid_mmr_root_height(
+        //         client_state.latest_commitment.block_number,
+        //         header.block_header.block_number,
+        //     ));
+        // }
 
-        if client_state.latest_commitment.payload.is_empty() {
-            return Err(Error::empty_mmr_root());
-        }
+        // if client_state.latest_commitment.payload.is_empty() {
+        //     return Err(Error::empty_mmr_root());
+        // }
 
-        let mut mmr_root = [0u8; 32];
+        // let mut mmr_root = [0u8; 32];
 
-        // Fetch the desired mmr root from storage if it's different from the mmr root in client_state
-        if header.mmr_leaf_proof.leaf_count != client_state.latest_commitment.block_number as u64 {
-            let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
-            let any_consensus_state = ctx.consensus_state(&client_id, height)?;
-            let consensus_state = match any_consensus_state {
-                AnyConsensusState::Grandpa(_v) => _v,
-                _ => unimplemented!(),
-            };
+        // // Fetch the desired mmr root from storage if it's different from the mmr root in client_state
+        // if header.mmr_leaf_proof.leaf_count != client_state.latest_commitment.block_number as u64 {
+        //     let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
+        //     let any_consensus_state = ctx.consensus_state(&client_id, height)?;
+        //     let consensus_state = match any_consensus_state {
+        //         AnyConsensusState::Grandpa(_v) => _v,
+        //         _ => unimplemented!(),
+        //     };
 
-            mmr_root.copy_from_slice(&consensus_state.digest);
-        } else {
-            mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
-        }
+        //     mmr_root.copy_from_slice(&consensus_state.digest);
+        // } else {
+        //     mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
+        // }
 
-        let mmr_proof = header.clone().mmr_leaf_proof;
-        let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
+        // let mmr_proof = header.clone().mmr_leaf_proof;
+        // let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
 
-        let mmr_leaf_encode = beefy_light_client::mmr::MmrLeaf::try_from(header.clone().mmr_leaf)
-            .map_err(Error::grandpa)?
-            .encode();
-        let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
-        let mmr_leaf = beefy_light_client::mmr::MmrLeaf::try_from(header.clone().mmr_leaf)
-            .map_err(Error::grandpa)?;
+        // let mmr_leaf_encode = beefy_light_client::mmr::MmrLeaf::try_from(header.clone().mmr_leaf)
+        //     .map_err(Error::grandpa)?
+        //     .encode();
+        // let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
+        // let mmr_leaf = beefy_light_client::mmr::MmrLeaf::try_from(header.clone().mmr_leaf)
+        //     .map_err(Error::grandpa)?;
 
-        if mmr_leaf.parent_number_and_hash.1.is_empty() {
-            return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
-        }
+        // if mmr_leaf.parent_number_and_hash.1.is_empty() {
+        //     return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
+        // }
 
-        if header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
-            return Err(Error::header_hash_not_match());
-        }
-        let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
-            .map_err(|_| Error::invalid_mmr_leaf_proof())?;
+        // if header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
+        //     return Err(Error::header_hash_not_match());
+        // }
+        // let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
+        //     .map_err(|_| Error::invalid_mmr_leaf_proof())?;
 
-        if !result {
-            return Err(Error::invalid_mmr_leaf_proof());
-        }
+        // if !result {
+        //     return Err(Error::invalid_mmr_leaf_proof());
+        // }
 
-        let client_state = ClientState {
-            block_header: header.clone().block_header,
-            block_number: header.block_header.block_number,
-            ..client_state
-        };
+        // let client_state = ClientState {
+        //     block_header: header.clone().block_header,
+        //     block_number: header.block_header.block_number,
+        //     ..client_state
+        // };
 
         // grandpa consensus_state update from substrate-ibc
         Ok((client_state, GpConsensusState::from(header)))
@@ -164,19 +164,19 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_connection_state proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![connection_id.as_bytes().to_vec()];
-        let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "Connections")?;
-        let connection_end =
-            ConnectionEnd::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
+        // let keys: Vec<Vec<u8>> = vec![connection_id.as_bytes().to_vec()];
+        // let storage_result =
+        //     Self::get_storage_via_proof(client_state, height, proof, keys, "Connections")?;
+        // let connection_end =
+        //     ConnectionEnd::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
 
-        if connection_end.encode_vec().map_err(Error::invalid_encode)?
-            != expected_connection_end
-                .encode_vec()
-                .map_err(Error::invalid_encode)?
-        {
-            return Err(Error::invalid_connection_state());
-        }
+        // if connection_end.encode_vec().map_err(Error::invalid_encode)?
+        //     != expected_connection_end
+        //         .encode_vec()
+        //         .map_err(Error::invalid_encode)?
+        // {
+        //     return Err(Error::invalid_connection_state());
+        // }
         Ok(())
     }
 
@@ -196,20 +196,20 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_channel_state proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
+        // let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
 
-        let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
+        // let storage_result =
+        //     Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
 
-        let channel_end = ChannelEnd::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
+        // let channel_end = ChannelEnd::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
 
-        if channel_end.encode_vec().map_err(Error::invalid_encode)?
-            != expected_channel_end
-                .encode_vec()
-                .map_err(Error::invalid_encode)?
-        {
-            return Err(Error::invalid_connection_state());
-        }
+        // if channel_end.encode_vec().map_err(Error::invalid_encode)?
+        //     != expected_channel_end
+        //         .encode_vec()
+        //         .map_err(Error::invalid_encode)?
+        // {
+        //     return Err(Error::invalid_connection_state());
+        // }
         Ok(())
     }
 
@@ -228,22 +228,22 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_client_full_state proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![client_id.as_bytes().to_vec()];
-        let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates")?;
+        // let keys: Vec<Vec<u8>> = vec![client_id.as_bytes().to_vec()];
+        // let storage_result =
+        //     Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates")?;
 
-        let any_client_state =
-            AnyClientState::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
+        // let any_client_state =
+        //     AnyClientState::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
 
-        if any_client_state
-            .encode_vec()
-            .map_err(Error::invalid_encode)?
-            != expected_client_state
-                .encode_vec()
-                .map_err(Error::invalid_encode)?
-        {
-            return Err(Error::invalid_client_state());
-        }
+        // if any_client_state
+        //     .encode_vec()
+        //     .map_err(Error::invalid_encode)?
+        //     != expected_client_state
+        //         .encode_vec()
+        //         .map_err(Error::invalid_encode)?
+        // {
+        //     return Err(Error::invalid_client_state());
+        // }
         Ok(())
     }
 
@@ -300,19 +300,19 @@ impl ClientDef for GrandpaClient {
 
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_acknowledgement proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![
-            port_id.as_bytes().to_vec(),
-            channel_id.as_bytes().to_vec(),
-            u64::from(sequence).encode(),
-        ];
+        // let keys: Vec<Vec<u8>> = vec![
+        //     port_id.as_bytes().to_vec(),
+        //     channel_id.as_bytes().to_vec(),
+        //     u64::from(sequence).encode(),
+        // ];
 
-        let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
+        // let storage_result =
+        //     Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
 
-        let ack = format!("{:?}", ack.into_bytes());
-        if storage_result != Self::hash(ack).encode() {
-            return Err(Error::invalid_packet_ack(sequence));
-        }
+        // let ack = format!("{:?}", ack.into_bytes());
+        // if storage_result != Self::hash(ack).encode() {
+        //     return Err(Error::invalid_packet_ack(sequence));
+        // }
         Ok(())
     }
 
@@ -332,19 +332,19 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_next_sequence_recv proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
+        // let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
 
-        let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;
+        // let storage_result =
+        //     Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;
 
-        let sequence_restored: u64 =
-            u64::decode(&mut &storage_result[..]).map_err(Error::invalid_codec_decode)?;
-        if sequence_restored > u64::from(sequence) {
-            return Err(Error::invalid_next_sequence_recv(
-                sequence_restored,
-                u64::from(sequence),
-            ));
-        }
+        // let sequence_restored: u64 =
+        //     u64::decode(&mut &storage_result[..]).map_err(Error::invalid_codec_decode)?;
+        // if sequence_restored > u64::from(sequence) {
+        //     return Err(Error::invalid_next_sequence_recv(
+        //         sequence_restored,
+        //         u64::from(sequence),
+        //     ));
+        // }
 
         Ok(())
     }

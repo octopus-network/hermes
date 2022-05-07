@@ -12,6 +12,7 @@
     unused_qualifications,
     rust_2018_idioms
 )]
+#![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 // TODO: disable unwraps:

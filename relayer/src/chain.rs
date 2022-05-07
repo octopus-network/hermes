@@ -416,8 +416,8 @@ pub trait ChainEndpoint: Sized {
                 client_proof,
                 consensus_proof,
                 None,
-                // height.increment(),
-                height, // Todo: To figure out why increment()
+                height.increment(),
+                // height, // Todo: To figure out why increment()
             )
             .map_err(Error::malformed_proof)?,
         ))
@@ -441,7 +441,8 @@ pub trait ChainEndpoint: Sized {
             None,
             None,
             None,
-            height, /*height.increment()*/
+            // height, 
+            height.increment()
         )
         .map_err(Error::malformed_proof)
     }
@@ -474,8 +475,8 @@ pub trait ChainEndpoint: Sized {
             None,
             None,
             channel_proof,
-            // height.increment(),
-            height, // Todo: To figure out why increment()
+            height.increment(),
+            // height, // Todo: To figure out why increment()
         )
         .map_err(Error::malformed_proof)?;
 

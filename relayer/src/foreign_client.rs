@@ -938,45 +938,45 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         */
 
-        let client_state = match client_state {
-            // #[cfg(any(test, feature = "mocks"))]
-            // AnyClientState::Mock(client_state) => AnyClientState::Mock(client_state),
-            AnyClientState::Tendermint(client_state) => AnyClientState::Tendermint(client_state),
-            AnyClientState::Grandpa(client_state) => {
-                let mut mmr_root_height = client_state.latest_commitment.block_number;
-                let mut temp_client_state = AnyClientState::Grandpa(client_state);
-                let result = loop {
-                    if mmr_root_height < target_height.revision_height as u32 {
-                        info!(
-                            "mmr_root_height: {}, target_height: {}",
-                            mmr_root_height, target_height
-                        );
-                        thread::sleep(Duration::from_millis(500));
-                        // Get the latest client state on destination.
-                        let client_state = self
-                            .dst_chain()
-                            .query_client_state(&self.id, Height::default())
-                            .map_err(|e| {
-                                ForeignClientError::client_create(
-                                    self.dst_chain.id(),
-                                    "failed querying client state on dst chain".to_string(),
-                                    e,
-                                )
-                            })?;
+        // let client_state = match client_state {
+        //     // #[cfg(any(test, feature = "mocks"))]
+        //     // AnyClientState::Mock(client_state) => AnyClientState::Mock(client_state),
+        //     AnyClientState::Tendermint(client_state) => AnyClientState::Tendermint(client_state),
+        //     AnyClientState::Grandpa(client_state) => {
+        //         let mut mmr_root_height = client_state.latest_commitment.block_number;
+        //         let mut temp_client_state = AnyClientState::Grandpa(client_state);
+        //         let result = loop {
+        //             if mmr_root_height < target_height.revision_height as u32 {
+        //                 info!(
+        //                     "mmr_root_height: {}, target_height: {}",
+        //                     mmr_root_height, target_height
+        //                 );
+        //                 thread::sleep(Duration::from_millis(500));
+        //                 // Get the latest client state on destination.
+        //                 let client_state = self
+        //                     .dst_chain()
+        //                     .query_client_state(&self.id, Height::default())
+        //                     .map_err(|e| {
+        //                         ForeignClientError::client_create(
+        //                             self.dst_chain.id(),
+        //                             "failed querying client state on dst chain".to_string(),
+        //                             e,
+        //                         )
+        //                     })?;
 
-                        mmr_root_height = match client_state.clone() {
-                            AnyClientState::Grandpa(state) => state.latest_commitment.block_number,
-                            _ => unreachable!(),
-                        };
-                        temp_client_state = client_state;
-                    } else {
-                        break temp_client_state;
-                    }
-                };
-                result
-            }
-            _ => todo!(),
-        };
+        //                 mmr_root_height = match client_state.clone() {
+        //                     AnyClientState::Grandpa(state) => state.latest_commitment.block_number,
+        //                     _ => unreachable!(),
+        //                 };
+        //                 temp_client_state = client_state;
+        //             } else {
+        //                 break temp_client_state;
+        //             }
+        //         };
+        //         result
+        //     }
+        //     _ => todo!(),
+        // };
 
         let trusted_height = if trusted_height == Height::zero() {
             self.solve_trusted_height(target_height, &client_state)?

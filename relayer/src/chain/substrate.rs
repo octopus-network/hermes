@@ -616,10 +616,10 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<IbcEvent>, Error> {
         tracing::trace!("in substrate: [send_messages_and_wait_commit]");
 
-        // sleep(Duration::from_secs(20));
+        sleep(Duration::from_secs(4));
         let result = self
             .deliever(proto_msgs.messages().to_vec())
-            .map_err(|_| Error::deliver_error())?;
+            .map_err(|e| Error::deliver_error(e))?;
 
         tracing::debug!(
             "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
@@ -639,8 +639,8 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<TxResponse>, Error> {
         tracing::debug!("in substrate: [send_messages_and_wait_check_tx]");
 
-        // sleep(Duration::from_secs(20));
-        let result = self.deliever(proto_msgs.messages().to_vec()).map_err(|_| Error::deliver_error())?;
+        sleep(Duration::from_secs(4));
+        let result = self.deliever(proto_msgs.messages().to_vec()).map_err(|e| Error::deliver_error(e))?;
 
         // if result.is_err() {
         //     let err_str = result.err().ok_or_else(Error::deliver_error)?.to_string();
@@ -1144,11 +1144,12 @@ impl ChainEndpoint for SubstrateChain {
         //     result
         // );
 
-        let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes().to_vec());
-        Ok((
-            result,
-            self.generate_storage_proof(&storage_entry, &height, "ClientStates")?,
-        ))
+        // let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes().to_vec());
+        // Ok((
+        //     result,
+        //     self.generate_storage_proof(&storage_entry, &height, "ClientStates")?,
+        // ))
+        Ok((result, get_dummy_merkle_proof()))
     }
 
     fn proven_connection(
@@ -1197,11 +1198,12 @@ impl ChainEndpoint for SubstrateChain {
             connection_end
         };
 
-        let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes().to_vec());
-        Ok((
-            new_connection_end,
-            self.generate_storage_proof(&storage_entry, &height, "Connections")?,
-        ))
+        // let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes().to_vec());
+        // Ok((
+        //     new_connection_end,
+        //     self.generate_storage_proof(&storage_entry, &height, "Connections")?,
+        // ))
+        Ok((new_connection_end, get_dummy_merkle_proof()))
     }
 
     fn proven_client_consensus(
@@ -1221,11 +1223,12 @@ impl ChainEndpoint for SubstrateChain {
         //     result
         // );
 
-        let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes().to_vec());
-        Ok((
-            result,
-            self.generate_storage_proof(&storage_entry, &height, "ConsensusStates")?,
-        ))
+        // let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes().to_vec());
+        // Ok((
+        //     result,
+        //     self.generate_storage_proof(&storage_entry, &height, "ConsensusStates")?,
+        // ))
+        Ok((result, get_dummy_merkle_proof()))
     }
 
     fn proven_channel(
@@ -1247,14 +1250,16 @@ impl ChainEndpoint for SubstrateChain {
         //     result
         // );
 
-        let storage_entry = ibc_node::ibc::storage::Channels(
-            port_id.as_bytes().to_vec(),
-            channel_id.as_bytes().to_vec(),
-        );
-        Ok((
-            result,
-            self.generate_storage_proof(&storage_entry, &height, "Channels")?,
-        ))
+        // let storage_entry = ibc_node::ibc::storage::Channels(
+        //     port_id.as_bytes().to_vec(),
+        //     channel_id.as_bytes().to_vec(),
+        // );
+        // Ok((
+        //     result,
+        //     self.generate_storage_proof(&storage_entry, &height, "Channels")?,
+        // ))
+
+        Ok((result, get_dummy_merkle_proof()))
     }
 
     fn proven_packet(
@@ -1267,68 +1272,68 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(Vec<u8>, MerkleProof), Error> {
         tracing::trace!("in substrate: [proven_packet]");
 
-        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries".to_string());
-            }
+        // let result = retry_with_index(Fixed::from_millis(200), |current_try| {
+        //     if current_try > MAX_QUERY_TIMES {
+        //         return RetryResult::Err("did not succeed within tries".to_string());
+        //     }
 
-            let result = async {
-                let client = ClientBuilder::new()
-                    .set_url(&self.websocket_url.clone())
-                    .build::<ibc_node::DefaultConfig>()
-                    .await
-                    .map_err(|_| Error::substrate_client_builder_error())?;
+        //     let result = async {
+        //         let client = ClientBuilder::new()
+        //             .set_url(&self.websocket_url.clone())
+        //             .build::<ibc_node::DefaultConfig>()
+        //             .await
+        //             .map_err(|_| Error::substrate_client_builder_error())?;
 
-                match packet_type {
-                    PacketMsgType::Recv => {
-                        // PacketCommitment
-                        octopusxt::ibc_rpc::get_packet_commitment(
-                            &port_id,
-                            &channel_id,
-                            &sequence,
-                            client,
-                        )
-                        .await
-                    }
-                    PacketMsgType::Ack => {
-                        // Acknowledgements
-                        octopusxt::ibc_rpc::get_packet_ack(&port_id, &channel_id, &sequence, client)
-                            .await
-                    }
-                    PacketMsgType::TimeoutOnClose => {
-                        // PacketReceipt
-                        octopusxt::ibc_rpc::get_packet_receipt_vec(
-                            &port_id,
-                            &channel_id,
-                            &sequence,
-                            client,
-                        )
-                        .await
-                    }
-                    PacketMsgType::TimeoutUnordered => {
-                        // PacketReceipt
-                        octopusxt::ibc_rpc::get_packet_receipt_vec(
-                            &port_id,
-                            &channel_id,
-                            &sequence,
-                            client,
-                        )
-                        .await
-                    }
-                    PacketMsgType::TimeoutOrdered => {
-                        // NextSequenceRecv
-                        octopusxt::ibc_rpc::get_next_sequence_recv(&port_id, &channel_id, client)
-                            .await
-                    }
-                }
-            };
+        //         match packet_type {
+        //             PacketMsgType::Recv => {
+        //                 // PacketCommitment
+        //                 octopusxt::ibc_rpc::get_packet_commitment(
+        //                     &port_id,
+        //                     &channel_id,
+        //                     &sequence,
+        //                     client,
+        //                 )
+        //                 .await
+        //             }
+        //             PacketMsgType::Ack => {
+        //                 // Acknowledgements
+        //                 octopusxt::ibc_rpc::get_packet_ack(&port_id, &channel_id, &sequence, client)
+        //                     .await
+        //             }
+        //             PacketMsgType::TimeoutOnClose => {
+        //                 // PacketReceipt
+        //                 octopusxt::ibc_rpc::get_packet_receipt_vec(
+        //                     &port_id,
+        //                     &channel_id,
+        //                     &sequence,
+        //                     client,
+        //                 )
+        //                 .await
+        //             }
+        //             PacketMsgType::TimeoutUnordered => {
+        //                 // PacketReceipt
+        //                 octopusxt::ibc_rpc::get_packet_receipt_vec(
+        //                     &port_id,
+        //                     &channel_id,
+        //                     &sequence,
+        //                     client,
+        //                 )
+        //                 .await
+        //             }
+        //             PacketMsgType::TimeoutOrdered => {
+        //                 // NextSequenceRecv
+        //                 octopusxt::ibc_rpc::get_next_sequence_recv(&port_id, &channel_id, client)
+        //                     .await
+        //             }
+        //         }
+        //     };
 
-            match self.block_on(result) {
-                Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry".to_string()),
-            }
-        })
-        .map_err(Error::retry_error)?;
+        //     match self.block_on(result) {
+        //         Ok(v) => RetryResult::Ok(v),
+        //         Err(e) => RetryResult::Retry("Fail to retry".to_string()),
+        //     }
+        // })
+        // .map_err(Error::retry_error)?;
 
         // tracing::trace!(
         //     "in substrate: [proven_packet] >> result: {:?}, packet_type = {:?}",
@@ -1336,46 +1341,49 @@ impl ChainEndpoint for SubstrateChain {
         //     packet_type
         // );
 
-        match packet_type {
-            PacketMsgType::Recv => {
-                let storage_entry = ibc_node::ibc::storage::PacketCommitment(
-                    port_id.as_bytes().to_vec(),
-                    channel_id.as_bytes().to_vec(),
-                    u64::from(sequence),
-                );
-                Ok((
-                    result,
-                    self.generate_storage_proof(&storage_entry, &height, "PacketCommitment")?,
-                ))
-            }
-            PacketMsgType::Ack => {
-                let storage_entry = ibc_node::ibc::storage::Acknowledgements(
-                    port_id.as_bytes().to_vec(),
-                    channel_id.as_bytes().to_vec(),
-                    u64::from(sequence),
-                );
-                Ok((
-                    result,
-                    self.generate_storage_proof(&storage_entry, &height, "Acknowledgements")?,
-                ))
-            }
-            PacketMsgType::TimeoutOnClose => {
-                Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
-            } // Todo: https://github.com/cosmos/ibc/issues/620
-            PacketMsgType::TimeoutUnordered => {
-                Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
-            } // Todo: https://github.com/cosmos/ibc/issues/620
-            PacketMsgType::TimeoutOrdered => {
-                let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(
-                    port_id.as_bytes().to_vec(),
-                    channel_id.as_bytes().to_vec(),
-                );
-                Ok((
-                    result,
-                    self.generate_storage_proof(&storage_entry, &height, "NextSequenceRecv")?,
-                ))
-            } // Todo: Ordered channel not supported in ibc-rs. https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/link.rs#L135
-        }
+        // match packet_type {
+        //     PacketMsgType::Recv => {
+        //         let storage_entry = ibc_node::ibc::storage::PacketCommitment(
+        //             port_id.as_bytes().to_vec(),
+        //             channel_id.as_bytes().to_vec(),
+        //             u64::from(sequence),
+        //         );
+        //         Ok((
+        //             result,
+        //             self.generate_storage_proof(&storage_entry, &height, "PacketCommitment")?,
+        //         ))
+        //     }
+        //     PacketMsgType::Ack => {
+        //         let storage_entry = ibc_node::ibc::storage::Acknowledgements(
+        //             port_id.as_bytes().to_vec(),
+        //             channel_id.as_bytes().to_vec(),
+        //             u64::from(sequence),
+        //         );
+        //         Ok((
+        //             result,
+        //             self.generate_storage_proof(&storage_entry, &height, "Acknowledgements")?,
+        //         ))
+        //     }
+        //     PacketMsgType::TimeoutOnClose => {
+        //         Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
+        //     } // Todo: https://github.com/cosmos/ibc/issues/620
+        //     PacketMsgType::TimeoutUnordered => {
+        //         Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
+        //     } // Todo: https://github.com/cosmos/ibc/issues/620
+        //     PacketMsgType::TimeoutOrdered => {
+        //         let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(
+        //             port_id.as_bytes().to_vec(),
+        //             channel_id.as_bytes().to_vec(),
+        //         );
+        //         Ok((
+        //             result,
+        //             self.generate_storage_proof(&storage_entry, &height, "NextSequenceRecv")?,
+        //         ))
+        //     } // Todo: Ordered channel not supported in ibc-rs. https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/link.rs#L135
+        // }
+
+        let result = vec![1, 2, 3];
+        Ok((result, get_dummy_merkle_proof()))
     }
 
     fn build_client_state(
@@ -1457,37 +1465,111 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         tracing::trace!("in substrate: [build_header]");
 
-        assert!(trusted_height.revision_height < target_height.revision_height);
+        // assert!(trusted_height.revision_height < target_height.revision_height);
 
-        let grandpa_client_state = match client_state {
-            AnyClientState::Grandpa(state) => state,
-            _ => unimplemented!(),
-        };
+        // let grandpa_client_state = match client_state {
+        //     AnyClientState::Grandpa(state) => state,
+        //     _ => unimplemented!(),
+        // };
 
-        // assert trust_height <= grandpa_client_state height
-        if trusted_height.revision_height > grandpa_client_state.block_number as u64 {
-            return Err(Error::trust_height_miss_match_client_state_height(
-                trusted_height.revision_height,
-                grandpa_client_state.block_number as u64,
-            ));
-        }
+        // // assert trust_height <= grandpa_client_state height
+        // if trusted_height.revision_height > grandpa_client_state.block_number as u64 {
+        //     return Err(Error::trust_height_miss_match_client_state_height(
+        //         trusted_height.revision_height,
+        //         grandpa_client_state.block_number as u64,
+        //     ));
+        // }
 
         // build target height header
+        // let result = async {
+        //     let client = ClientBuilder::new()
+        //         .set_url(&self.websocket_url.clone())
+        //         .build::<ibc_node::DefaultConfig>()
+        //         .await
+        //         .map_err(|_| Error::substrate_client_builder_error())?;
+
+        //     let beefy_light_client::commitment::Commitment {
+        //         payload,
+        //         block_number,
+        //         validator_set_id,
+        //     } = grandpa_client_state.latest_commitment.clone().into();
+
+        //     let mmr_root_height = block_number;
+        //     assert!((target_height.revision_height as u32) <= mmr_root_height);
+
+        //     // get block header
+
+        //     let block_header = octopusxt::ibc_rpc::get_header_by_block_number(
+        //         Some(BlockNumber::from(target_height.revision_height as u32)),
+        //         client.clone(),
+        //     )
+        //     .await
+        //     .map_err(|_| Error::get_header_by_block_number_error())?;
+
+        //     let api = client
+        //         .clone()
+        //         .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+
+        //     assert_eq!(
+        //         block_header.block_number,
+        //         target_height.revision_height as u32
+        //     );
+
+        //     // tracing::trace!(
+        //     //     "in substrate: [build_header] >> mmr_root_height = {:?}, target_height = {:?}",
+        //     //     mmr_root_height,
+        //     //     target_height
+        //     // );
+
+        //     let block_hash: Option<sp_core::H256> = api
+        //         .client
+        //         .rpc()
+        //         .block_hash(Some(BlockNumber::from(mmr_root_height)))
+        //         .await
+        //         .map_err(|_| Error::get_block_hash_error())?;
+
+        //     let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
+        //         Some(BlockNumber::from(
+        //             (target_height.revision_height - 1) as u32,
+        //         )),
+        //         block_hash,
+        //         client,
+        //     )
+        //     .await
+        //     .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
+
+        //     Ok((block_header, mmr_leaf_and_mmr_leaf_proof))
+        // };
+
+        // let result = self.block_on(result)?;
+
+        // let encoded_mmr_leaf = result.1 .1;
+        // let encoded_mmr_leaf_proof = result.1 .2;
+
+        // let leaf: Vec<u8> =
+        //     Decode::decode(&mut &encoded_mmr_leaf[..]).map_err(Error::invalid_codec_decode)?;
+        // let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
+        //     Decode::decode(&mut &*leaf).map_err(Error::invalid_codec_decode)?;
+        // let mmr_leaf_proof =
+        //     beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..])
+        //         .map_err(Error::invalid_codec_decode)?;
+
+        // let grandpa_header = GPHeader {
+        //     block_header: result.0,
+        //     mmr_leaf: MmrLeaf::from(mmr_leaf),
+        //     mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
+        // };
+        // tracing::trace!(
+        //     "in substrate [build header] >> grandpa_header = {:?}",
+        //     grandpa_header
+        // );
+
         let result = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
-
-            let beefy_light_client::commitment::Commitment {
-                payload,
-                block_number,
-                validator_set_id,
-            } = grandpa_client_state.latest_commitment.clone().into();
-
-            let mmr_root_height = block_number;
-            assert!((target_height.revision_height as u32) <= mmr_root_height);
 
             // get block header
 
@@ -1498,63 +1580,14 @@ impl ChainEndpoint for SubstrateChain {
             .await
             .map_err(|_| Error::get_header_by_block_number_error())?;
 
-            let api = client
-                .clone()
-                .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
-
-            assert_eq!(
-                block_header.block_number,
-                target_height.revision_height as u32
-            );
-
-            // tracing::trace!(
-            //     "in substrate: [build_header] >> mmr_root_height = {:?}, target_height = {:?}",
-            //     mmr_root_height,
-            //     target_height
-            // );
-
-            let block_hash: Option<sp_core::H256> = api
-                .client
-                .rpc()
-                .block_hash(Some(BlockNumber::from(mmr_root_height)))
-                .await
-                .map_err(|_| Error::get_block_hash_error())?;
-
-            let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
-                Some(BlockNumber::from(
-                    (target_height.revision_height - 1) as u32,
-                )),
-                block_hash,
-                client,
-            )
-            .await
-            .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
-
-            Ok((block_header, mmr_leaf_and_mmr_leaf_proof))
+            Ok(block_header)
         };
 
         let result = self.block_on(result)?;
-
-        let encoded_mmr_leaf = result.1 .1;
-        let encoded_mmr_leaf_proof = result.1 .2;
-
-        let leaf: Vec<u8> =
-            Decode::decode(&mut &encoded_mmr_leaf[..]).map_err(Error::invalid_codec_decode)?;
-        let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
-            Decode::decode(&mut &*leaf).map_err(Error::invalid_codec_decode)?;
-        let mmr_leaf_proof =
-            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..])
-                .map_err(Error::invalid_codec_decode)?;
-
-        let grandpa_header = GPHeader {
-            block_header: result.0,
-            mmr_leaf: MmrLeaf::from(mmr_leaf),
-            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
+        let grandpa_header= GPHeader {
+            block_header: result,
+            .. GPHeader::default()
         };
-        // tracing::trace!(
-        //     "in substrate [build header] >> grandpa_header = {:?}",
-        //     grandpa_header
-        // );
 
         Ok((grandpa_header, vec![]))
     }
@@ -1680,6 +1713,12 @@ pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     let parsed = ibc_proto::ics23::CommitmentProof {
         proof: Some(_proof),
     };
+    let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
+    MerkleProof { proofs: mproofs }
+}
+
+pub fn get_dummy_merkle_proof() -> MerkleProof {
+    let parsed = ibc_proto::ics23::CommitmentProof { proof: None };
     let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
     MerkleProof { proofs: mproofs }
 }
