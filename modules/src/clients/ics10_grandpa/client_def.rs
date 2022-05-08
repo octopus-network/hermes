@@ -196,20 +196,20 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_channel_state proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
+        // let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
 
-        let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
+        // let storage_result =
+        //     Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
 
-        let channel_end = ChannelEnd::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
+        // let channel_end = ChannelEnd::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
 
-        if channel_end.encode_vec().map_err(Error::invalid_encode)?
-            != expected_channel_end
-                .encode_vec()
-                .map_err(Error::invalid_encode)?
-        {
-            return Err(Error::invalid_connection_state());
-        }
+        // if channel_end.encode_vec().map_err(Error::invalid_encode)?
+        //     != expected_channel_end
+        //         .encode_vec()
+        //         .map_err(Error::invalid_encode)?
+        // {
+        //     return Err(Error::invalid_connection_state());
+        // }
         Ok(())
     }
 
@@ -300,19 +300,19 @@ impl ClientDef for GrandpaClient {
 
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_acknowledgement proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![
-            port_id.as_bytes().to_vec(),
-            channel_id.as_bytes().to_vec(),
-            u64::from(sequence).encode(),
-        ];
+        // let keys: Vec<Vec<u8>> = vec![
+        //     port_id.as_bytes().to_vec(),
+        //     channel_id.as_bytes().to_vec(),
+        //     u64::from(sequence).encode(),
+        // ];
 
-        let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
+        // let storage_result =
+        //     Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
 
-        let ack = format!("{:?}", ack.into_bytes());
-        if storage_result != Self::hash(ack).encode() {
-            return Err(Error::invalid_packet_ack(sequence));
-        }
+        // let ack = format!("{:?}", ack.into_bytes());
+        // if storage_result != Self::hash(ack).encode() {
+        //     return Err(Error::invalid_packet_ack(sequence));
+        // }
         Ok(())
     }
 
@@ -332,19 +332,19 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_next_sequence_recv proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
+        // let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
 
-        let storage_result =
-            Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;
+        // let storage_result =
+        //     Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;
 
-        let sequence_restored: u64 =
-            u64::decode(&mut &storage_result[..]).map_err(Error::invalid_codec_decode)?;
-        if sequence_restored > u64::from(sequence) {
-            return Err(Error::invalid_next_sequence_recv(
-                sequence_restored,
-                u64::from(sequence),
-            ));
-        }
+        // let sequence_restored: u64 =
+        //     u64::decode(&mut &storage_result[..]).map_err(Error::invalid_codec_decode)?;
+        // if sequence_restored > u64::from(sequence) {
+        //     return Err(Error::invalid_next_sequence_recv(
+        //         sequence_restored,
+        //         u64::from(sequence),
+        //     ));
+        // }
 
         Ok(())
     }

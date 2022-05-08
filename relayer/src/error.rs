@@ -571,6 +571,7 @@ define_error! {
             | _ | { "subscribe ibc events error" },
 
         DeliverError
+            [DisplayOnly<Box<dyn std::error::Error>>]
             | _ | { "deliver error "},
 
         InvalidCommitmentPrefix

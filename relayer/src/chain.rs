@@ -441,7 +441,8 @@ pub trait ChainEndpoint: Sized {
             None,
             None,
             None,
-            height, /*height.increment()*/
+            height, 
+            // height.increment()
         )
         .map_err(Error::malformed_proof)
     }
