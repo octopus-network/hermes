@@ -20,7 +20,7 @@ use crate::core::ics02_client::error::Error;
 use crate::core::ics03_connection::connection::ConnectionEnd;
 use crate::core::ics04_channel::channel::ChannelEnd;
 use crate::core::ics04_channel::context::ChannelReader;
-use crate::core::ics04_channel::msgs::acknowledgement::Acknowledgement;
+use crate::core::ics04_channel::commitment::{AcknowledgementCommitment, PacketCommitment};
 use crate::core::ics04_channel::packet::Sequence;
 use crate::core::ics23_commitment::commitment::{
     CommitmentPrefix, CommitmentProofBytes, CommitmentRoot,
@@ -261,7 +261,7 @@ impl ClientDef for GrandpaClient {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: Sequence,
-        commitment: String,
+        commitment: PacketCommitment,
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_data proof : {:?}",proof);
 
@@ -295,7 +295,7 @@ impl ClientDef for GrandpaClient {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: Sequence,
-        ack: Acknowledgement,
+        ack: AcknowledgementCommitment,
     ) -> Result<(), Error> {
 
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_acknowledgement proof : {:?}",proof);

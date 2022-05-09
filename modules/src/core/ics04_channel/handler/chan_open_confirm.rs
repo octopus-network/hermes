@@ -94,7 +94,6 @@ pub(crate) fn process(
         channel_id: Some(msg.channel_id),
         height: ctx.host_height(),
         port_id: msg.port_id.clone(),
-        channel_id: Some(msg.channel_id.clone()),
         ..Default::default()
     };
     output.emit(IbcEvent::OpenConfirmChannel(

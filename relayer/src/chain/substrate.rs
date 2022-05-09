@@ -19,9 +19,9 @@ use core::time::Duration;
 use ibc::events::{IbcEvent, WithBlockDataType};
 
 use super::tx::TrackedMsgs;
-use crate::chain::StatusResponse;
 use crate::connection::ConnectionMsgType;
 use crate::light_client::Verified;
+use crate::chain::{ChainStatus, QueryResponse};
 use ibc::clients::ics07_tendermint::header::Header as tHeader;
 use ibc::clients::ics10_grandpa::client_state::ClientState as GPClientState;
 use ibc::clients::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
@@ -1615,7 +1615,7 @@ impl ChainEndpoint for SubstrateChain {
         todo!()
     }
 
-    fn query_status(&self) -> Result<StatusResponse, Error> {
+    fn query_application_status(&self) -> Result<ChainStatus, Error> {
         tracing::trace!("in substrate: [query_status]");
 
         let height = self
@@ -1629,7 +1629,7 @@ impl ChainEndpoint for SubstrateChain {
         //     latest_height
         // );
 
-        Ok(StatusResponse {
+        Ok(ChainStatus {
             height: latest_height,
             timestamp: Default::default(),
         })

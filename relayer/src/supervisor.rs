@@ -339,6 +339,15 @@ fn relay_on_object<Chain: ChainHandle>(
 
             false
         }
+        Err(e) => {
+            warn!(
+                "denying relaying on object {}, caused by: {}",
+                object.short_name(),
+                e
+            );
+
+            false
+        }
     }
 }
 

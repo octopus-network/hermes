@@ -632,7 +632,7 @@ impl ClientDef for AnyClient {
                     port_id,
                     channel_id,
                     sequence,
-                    ack,
+                    ack_commitment,
                 )
             }
 
