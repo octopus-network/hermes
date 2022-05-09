@@ -383,7 +383,21 @@ define_error! {
             [ DisplayOnly<subtle_encoding::Error> ]
             | _ | { "invalid hex decode"},
 
+        InvalidConnectionEnd
+            [ TraceError<TendermintProtoError>]
+            | _ | { "invalid connection end" },
 
+        InvalidChannelEnd
+            [ TraceError<TendermintProtoError>]
+            | _ | { "invalid channel end" },
+
+        InvalidAnyClientState
+            [ TraceError<TendermintProtoError>]
+            | _ | { "invalid any client state" },
+
+        InvalidAnyConsensusState
+            [ TraceError<TendermintProtoError> ]
+            | _ | { "invalid any client consensus state" },
     }
 }
 

@@ -6,7 +6,6 @@ use abscissa_core::{Command, Runnable};
 use tokio::runtime::Runtime as TokioRuntime;
 
 use ibc::core::ics24_host::identifier::{ChainId, ClientId};
-use ibc::events::IbcEvent;
 use ibc_relayer::upgrade_chain::{build_and_send_ibc_upgrade_proposal, UpgradePlanOptions};
 use ibc_relayer::{
     chain::{ChainEndpoint, CosmosSdkChain},
@@ -70,13 +69,6 @@ pub struct TxIbcUpgradeChainCmd {
         help = "denomination for the deposit (default: 'stake')"
     )]
     denom: Option<String>,
-
-    #[clap(
-        short = 'l',
-        long,
-        help = "use legacy upgrade proposal constructs (for chains built with Cosmos SDK < v0.43.0)"
-    )]
-    legacy: bool,
 }
 
 impl TxIbcUpgradeChainCmd {
@@ -111,7 +103,6 @@ impl TxIbcUpgradeChainCmd {
                 .upgrade_name
                 .clone()
                 .unwrap_or_else(|| "plan".to_string()),
-            legacy: self.legacy,
         };
 
         Ok(opts)
@@ -144,9 +135,8 @@ impl Runnable for TxIbcUpgradeChainCmd {
             Err(e) => Output::error(format!("{}", e)).exit(),
         };
 
-        let res: Result<Vec<IbcEvent>, Error> =
-            build_and_send_ibc_upgrade_proposal(dst_chain, src_chain, &opts)
-                .map_err(Error::upgrade_chain);
+        let res = build_and_send_ibc_upgrade_proposal(dst_chain, src_chain, &opts)
+            .map_err(Error::upgrade_chain);
 
         match res {
             Ok(ev) => Output::success(ev).exit(),

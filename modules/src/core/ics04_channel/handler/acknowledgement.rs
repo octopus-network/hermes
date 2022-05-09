@@ -28,23 +28,23 @@ pub fn process(
     let packet = &msg.packet;
 
     let source_channel_end =
-        ctx.channel_end(&(packet.source_port.clone(), packet.source_channel.clone()))?;
+        ctx.channel_end(&(packet.source_port.clone(), packet.source_channel))?;
 
     if !source_channel_end.state_matches(&State::Open) {
-        return Err(Error::channel_closed(packet.source_channel.clone()));
+        return Err(Error::channel_closed(packet.source_channel));
     }
 
     let _channel_cap = ctx.authenticated_capability(&packet.source_port)?;
 
     let counterparty = Counterparty::new(
         packet.destination_port.clone(),
-        Some(packet.destination_channel.clone()),
+        Some(packet.destination_channel),
     );
 
     if !source_channel_end.counterparty_matches(&counterparty) {
         return Err(Error::invalid_packet_counterparty(
             packet.destination_port.clone(),
-            packet.destination_channel.clone(),
+            packet.destination_channel,
         ));
     }
 
@@ -59,16 +59,17 @@ pub fn process(
     // Verify packet commitment
     let packet_commitment = ctx.get_packet_commitment(&(
         packet.source_port.clone(),
-        packet.source_channel.clone(),
+        packet.source_channel,
         packet.sequence,
     ))?;
 
-    let input = format!(
-        "{:?},{:?},{:?}",
-        packet.timeout_timestamp, packet.timeout_height, packet.data,
-    );
-
-    if packet_commitment != ctx.hash(input) {
+    if packet_commitment
+        != ctx.packet_commitment(
+            packet.data.clone(),
+            packet.timeout_height,
+            packet.timeout_timestamp,
+        )
+    {
         return Err(Error::incorrect_packet_commitment(packet.sequence));
     }
 
@@ -83,8 +84,8 @@ pub fn process(
     )?;
 
     let result = if source_channel_end.order_matches(&Order::Ordered) {
-        let next_seq_ack = ctx
-            .get_next_sequence_ack(&(packet.source_port.clone(), packet.source_channel.clone()))?;
+        let next_seq_ack =
+            ctx.get_next_sequence_ack(&(packet.source_port.clone(), packet.source_channel))?;
 
         if packet.sequence != next_seq_ack {
             return Err(Error::invalid_packet_sequence(
@@ -95,14 +96,14 @@ pub fn process(
 
         PacketResult::Ack(AckPacketResult {
             port_id: packet.source_port.clone(),
-            channel_id: packet.source_channel.clone(),
+            channel_id: packet.source_channel,
             seq: packet.sequence,
             seq_number: Some(next_seq_ack.increment()),
         })
     } else {
         PacketResult::Ack(AckPacketResult {
             port_id: packet.source_port.clone(),
-            channel_id: packet.source_channel.clone(),
+            channel_id: packet.source_channel,
             seq: packet.sequence,
             seq_number: None,
         })
@@ -158,20 +159,18 @@ mod tests {
         .unwrap();
         let packet = msg.packet.clone();
 
-        let input = format!(
-            "{:?},{:?},{:?}",
+        let data = context.packet_commitment(
+            packet.data.clone(),
+            packet.timeout_height,
             packet.timeout_timestamp,
-            packet.timeout_height.clone(),
-            packet.data.clone()
         );
-        let data = ChannelReader::hash(&context, input);
 
         let source_channel_end = ChannelEnd::new(
             State::Open,
             Order::default(),
             Counterparty::new(
                 packet.destination_port.clone(),
-                Some(packet.destination_channel.clone()),
+                Some(packet.destination_channel),
             ),
             vec![ConnectionId::default()],
             Version::ics20(),
@@ -215,7 +214,7 @@ mod tests {
                     .with_port_capability(packet.destination_port.clone())
                     .with_channel(
                         packet.source_port.clone(),
-                        packet.source_channel.clone(),
+                        packet.source_channel,
                         source_channel_end,
                     )
                     .with_packet_commitment(

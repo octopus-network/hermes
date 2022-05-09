@@ -73,11 +73,11 @@ pub fn verify_packet_recv_proofs(
 
     let client_def = AnyClient::from_client_type(client_state.client_type());
 
-    let input = format!(
-        "{:?},{:?},{:?}",
-        packet.timeout_timestamp, packet.timeout_height, packet.data
+    let commitment = ctx.packet_commitment(
+        packet.data.clone(),
+        packet.timeout_height,
+        packet.timeout_timestamp,
     );
-    let commitment = ctx.hash(input);
 
     // Verify the proof for the packet against the chain store.
     client_def
@@ -117,6 +117,8 @@ pub fn verify_packet_acknowledgement_proofs(
 
     let consensus_state = ctx.client_consensus_state(client_id, proofs.height())?;
 
+    let ack_commitment = ctx.ack_commitment(acknowledgement);
+
     let client_def = AnyClient::from_client_type(client_state.client_type());
 
     // Verify the proof for the packet against the chain store.
@@ -131,7 +133,7 @@ pub fn verify_packet_acknowledgement_proofs(
             &packet.destination_port,
             &packet.destination_channel,
             packet.sequence,
-            acknowledgement,
+            ack_commitment,
         )
         .map_err(|e| Error::packet_verification_failed(packet.sequence, e))?;
 
