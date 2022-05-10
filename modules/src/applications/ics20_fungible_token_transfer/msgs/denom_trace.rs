@@ -133,8 +133,8 @@ pub fn validate_ibc_denom(denom: &str) -> Result<(), Error> {
 
 // ParseHexHash parses a hex hash in string format to bytes and validates its correctness.
 pub fn parse_hex_hash(hex_hash: &str) -> Result<Vec<u8>, Error> {
-    let hash =
-        hex::decode_upper(hex_hash).map_err(|err| Error::invalid_denom_for_transfer(err.to_string()))?;
+    let hash = hex::decode_upper(hex_hash)
+        .map_err(|err| Error::invalid_denom_for_transfer(err.to_string()))?;
     // validate hash returns an error if the hash is not empty, but its
     // size != tmhash.Size.
     if !hash.is_empty() && hash.len() != Sha256::output_size() {
@@ -233,7 +233,7 @@ pub mod tests {
 
         let ibc_denom = denom_trace.ibc_denom();
         println!("ibc_denom: {:?}", ibc_denom);
-      
+
         let denom_hex = String::from_utf8(hex::encode_upper(hash.unwrap())).map_err(Error::utf8);
         assert_eq!(ibc_denom.unwrap(), "ibc/".to_string() + &denom_hex.unwrap());
     }
