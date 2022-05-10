@@ -19,9 +19,9 @@ use core::time::Duration;
 use ibc::events::{IbcEvent, WithBlockDataType};
 
 use super::tx::TrackedMsgs;
+use crate::chain::{ChainStatus, QueryResponse};
 use crate::connection::ConnectionMsgType;
 use crate::light_client::Verified;
-use crate::chain::{ChainStatus, QueryResponse};
 use ibc::clients::ics07_tendermint::header::Header as tHeader;
 use ibc::clients::ics10_grandpa::client_state::ClientState as GPClientState;
 use ibc::clients::ics10_grandpa::consensus_state::ConsensusState as GPConsensusState;
@@ -322,16 +322,13 @@ impl SubstrateChain {
 
     /// The function to submit IBC request to a Substrate chain
     /// This function handles most of the IBC reqeusts, except the MMR root update
-    fn deliever(
-        &self,
-        msgs: Vec<Any>,
-    ) -> Result<subxt::sp_core::H256, Box<dyn std::error::Error>> {
+    fn deliever(&self, msgs: Vec<Any>) -> Result<subxt::sp_core::H256, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [deliever]");
 
         let client = self.get_client()?;
 
         let result = self.block_on(octopusxt::deliver(msgs, client))?;
-        
+
         Ok(result)
     }
 
@@ -640,7 +637,9 @@ impl ChainEndpoint for SubstrateChain {
         tracing::debug!("in substrate: [send_messages_and_wait_check_tx]");
 
         sleep(Duration::from_secs(4));
-        let result = self.deliever(proto_msgs.messages().to_vec()).map_err(|e| Error::deliver_error(e))?;
+        let result = self
+            .deliever(proto_msgs.messages().to_vec())
+            .map_err(|e| Error::deliver_error(e))?;
 
         // if result.is_err() {
         //     let err_str = result.err().ok_or_else(Error::deliver_error)?.to_string();

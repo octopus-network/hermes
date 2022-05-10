@@ -343,7 +343,6 @@ impl Default for PortId {
     }
 }
 
-
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ChannelId(u64);
 

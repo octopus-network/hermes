@@ -19,8 +19,8 @@ use crate::core::ics02_client::context::ClientReader;
 use crate::core::ics02_client::error::Error;
 use crate::core::ics03_connection::connection::ConnectionEnd;
 use crate::core::ics04_channel::channel::ChannelEnd;
-use crate::core::ics04_channel::context::ChannelReader;
 use crate::core::ics04_channel::commitment::{AcknowledgementCommitment, PacketCommitment};
+use crate::core::ics04_channel::context::ChannelReader;
 use crate::core::ics04_channel::packet::Sequence;
 use crate::core::ics23_commitment::commitment::{
     CommitmentPrefix, CommitmentProofBytes, CommitmentRoot,
@@ -277,7 +277,7 @@ impl ClientDef for GrandpaClient {
         // if storage_result != commitment.encode() {
         //     return Err(Error::invalid_packet_commitment(sequence));
         // }
-        
+
         Ok(())
     }
 
@@ -297,7 +297,6 @@ impl ClientDef for GrandpaClient {
         sequence: Sequence,
         ack: AcknowledgementCommitment,
     ) -> Result<(), Error> {
-
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_acknowledgement proof : {:?}",proof);
 
         // let keys: Vec<Vec<u8>> = vec![

@@ -11,8 +11,10 @@ use ibc_proto::ibc::apps::transfer::v1::DenomTrace as RawDenomTrace;
 use crate::applications::ics20_fungible_token_transfer::error::Error;
 use sha2::{Digest, Sha256};
 use subtle_encoding::{hex, Error as HexError};
+
 /// DenomPrefix.
 pub const DENOM_PREFIX: &str = "ibc";
+
 // DenomTrace contains the base denomination for ICS20 fungible tokens and the
 /// source tracing information path.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -23,30 +25,30 @@ pub struct DenomTrace {
     /// base denomination of the relayed fungible token.
     pub base_denom: String,
 }
+
 impl DenomTrace {
     pub fn new(path: String, base_denom: String) -> Self {
         Self { path, base_denom }
     }
 
-    // Hash returns the hex bytes of the SHA256 hash of the DenomTrace fields using the following formula:
-    // hash = sha256(tracePath + "/" + baseDenom)
-    pub fn hash(&self) -> Result<Vec<u8>, Error> {
-        //hash := sha256.Sum256([]byte(dt.GetFullDenomPath()))
-        // return hash[:]
+    // Hash returns the hex bytes of the SHA256 hash of the DenomTrace fields using the following formula
+    pub fn hash(&self) -> Vec<u8> {
         let mut hasher = Sha256::new();
 
-        hasher.update(self.get_full_denom_path()?.as_bytes());
+        hasher.update(self.get_full_denom_path().as_bytes());
+
         let denom_bytes = hasher.finalize();
-        // let hash = vec![0u8; 32];
-        Ok(denom_bytes.to_vec())
+
+        denom_bytes.to_vec()
     }
 
     // GetPrefix returns the receiving denomination prefix composed by the trace info and a separator.
     pub fn get_prefix(&self) -> String {
         if self.path.is_empty() {
-            return self.path.clone();
+            self.path.clone()
+        } else {
+            self.path.clone() + "/"
         }
-        self.path.clone() + "/"
     }
 
     // IBCDenom a coin denomination for an ICS20 fungible token in the format
@@ -54,22 +56,22 @@ impl DenomTrace {
     pub fn ibc_denom(&self) -> Result<String, Error> {
         if !self.path.is_empty() {
             let denom_hex =
-                String::from_utf8(hex::encode_upper(self.hash()?)).map_err(Error::utf8)?;
+                String::from_utf8(hex::encode_upper(self.hash())).map_err(Error::utf8)?;
             return Ok(format!("{}/{}", DENOM_PREFIX, denom_hex));
         }
+
         Ok(self.base_denom.clone())
     }
 
     // GetFullDenomPath returns the full denomination according to the ICS20 specification:
     // tracePath + "/" + baseDenom
     // If there exists no trace then the base denomination is returned.
-    pub fn get_full_denom_path(&self) -> Result<String, Error> {
+    pub fn get_full_denom_path(&self) -> String {
         if self.path.is_empty() {
-            return Ok(self.base_denom.clone());
+            self.base_denom.clone()
+        } else {
+            format!("{}{}", self.get_prefix(), self.base_denom)
         }
-        // self.get_prefix() + &self.base_denom.clone()
-        let transfer_path = format!("{}{}", self.get_prefix(), self.base_denom);
-        Ok(transfer_path)
     }
 }
 
@@ -227,14 +229,11 @@ pub mod tests {
 
         let hash = denom_trace.hash();
         println!("hash: {:?}", hash);
-        assert!(hash.is_ok());
+        // assert!(hash.is_ok());
 
         let ibc_denom = denom_trace.ibc_denom();
         println!("ibc_denom: {:?}", ibc_denom);
-        // assert_eq!(
-        //     ibc_denom.unwrap(),
-        //     "ibc/" + hex::decode(denom_trace.hash().unwrap())
-        // );
+      
         let denom_hex = String::from_utf8(hex::encode_upper(hash.unwrap())).map_err(Error::utf8);
         assert_eq!(ibc_denom.unwrap(), "ibc/".to_string() + &denom_hex.unwrap());
     }
