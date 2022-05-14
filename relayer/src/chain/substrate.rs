@@ -1488,7 +1488,9 @@ impl ChainEndpoint for SubstrateChain {
             } = grandpa_client_state.latest_commitment.clone().into();
 
             let mmr_root_height = block_number;
-            assert!((target_height.revision_height as u32) <= mmr_root_height);
+
+            //TODO: remove comment after test
+            // assert!((target_height.revision_height as u32) <= mmr_root_height);
 
             // get block header
 
@@ -1508,11 +1510,14 @@ impl ChainEndpoint for SubstrateChain {
                 target_height.revision_height as u32
             );
 
-            // tracing::trace!(
-            //     "in substrate: [build_header] >> mmr_root_height = {:?}, target_height = {:?}",
-            //     mmr_root_height,
-            //     target_height
-            // );
+            tracing::trace!(
+                "in substrate: [build_header] >> mmr_root_height = {:?}, target_height = {:?}",
+                mmr_root_height,
+                target_height
+            );
+
+            //TODO: remove comment after test
+            let mmr_root_height = target_height.revision_height as u32;
 
             let block_hash: Option<sp_core::H256> = api
                 .client
@@ -1521,6 +1526,10 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .map_err(|_| Error::get_block_hash_error())?;
 
+            tracing::trace!(
+                "in substrate: [build_header] >> block_hash = {:?}",
+                block_hash
+            );
             let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
                 Some(BlockNumber::from(
                     (target_height.revision_height - 1) as u32,

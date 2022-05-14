@@ -578,10 +578,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })?
             .wrap_any();
-        // tracing::info!(
-        //     "In foreign_client: [build_create_client] >> client_state: {:?}",
-        //     client_state
-        // );
+        tracing::info!(
+            "In foreign_client: [build_create_client] >> client_state: {:?}",
+            client_state
+        );
 
         let consensus_state = self
             .src_chain
@@ -599,19 +599,19 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             })?
             .wrap_any();
 
-        // tracing::info!(
-        //     "In foreign_client: [build_create_client] >> consensus_state: {:?}",
-        //     consensus_state
-        // );
+        tracing::info!(
+            "In foreign_client: [build_create_client] >> consensus_state: {:?}",
+            consensus_state
+        );
 
         //TODO Get acct_prefix
         let msg = MsgCreateAnyClient::new(client_state, consensus_state, signer)
             .map_err(ForeignClientError::client)?;
 
-        // tracing::info!(
-        //     "In foreign_client: [build_create_client] >>  MsyCreateAnyClient: {:?}",
-        //     msg
-        // );
+        tracing::info!(
+            "In foreign_client: [build_create_client] >>  MsyCreateAnyClient: {:?}",
+            msg
+        );
 
         Ok(msg)
     }
@@ -942,39 +942,40 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             // #[cfg(any(test, feature = "mocks"))]
             // AnyClientState::Mock(client_state) => AnyClientState::Mock(client_state),
             AnyClientState::Tendermint(client_state) => AnyClientState::Tendermint(client_state),
-            AnyClientState::Grandpa(client_state) => {
-                let mut mmr_root_height = client_state.latest_commitment.block_number;
-                let mut temp_client_state = AnyClientState::Grandpa(client_state);
-                let result = loop {
-                    if mmr_root_height < target_height.revision_height as u32 {
-                        info!(
-                            "mmr_root_height: {}, target_height: {}",
-                            mmr_root_height, target_height
-                        );
-                        thread::sleep(Duration::from_millis(500));
-                        // Get the latest client state on destination.
-                        let client_state = self
-                            .dst_chain()
-                            .query_client_state(&self.id, Height::default())
-                            .map_err(|e| {
-                                ForeignClientError::client_create(
-                                    self.dst_chain.id(),
-                                    "failed querying client state on dst chain".to_string(),
-                                    e,
-                                )
-                            })?;
+            AnyClientState::Grandpa(client_state) => AnyClientState::Grandpa(client_state),
+            // AnyClientState::Grandpa(client_state) => {
+            //     let mut mmr_root_height = client_state.latest_commitment.block_number;
+            //     let mut temp_client_state = AnyClientState::Grandpa(client_state);
+            //     let result = loop {
+            //         if mmr_root_height < target_height.revision_height as u32 {
+            //             info!(
+            //                 "mmr_root_height: {}, target_height: {}",
+            //                 mmr_root_height, target_height
+            //             );
+            //             thread::sleep(Duration::from_millis(500));
+            //             // Get the latest client state on destination.
+            //             let client_state = self
+            //                 .dst_chain()
+            //                 .query_client_state(&self.id, Height::default())
+            //                 .map_err(|e| {
+            //                     ForeignClientError::client_create(
+            //                         self.dst_chain.id(),
+            //                         "failed querying client state on dst chain".to_string(),
+            //                         e,
+            //                     )
+            //                 })?;
 
-                        mmr_root_height = match client_state.clone() {
-                            AnyClientState::Grandpa(state) => state.latest_commitment.block_number,
-                            _ => unreachable!(),
-                        };
-                        temp_client_state = client_state;
-                    } else {
-                        break temp_client_state;
-                    }
-                };
-                result
-            }
+            //             mmr_root_height = match client_state.clone() {
+            //                 AnyClientState::Grandpa(state) => state.latest_commitment.block_number,
+            //                 _ => unreachable!(),
+            //             };
+            //             temp_client_state = client_state;
+            //         } else {
+            //             break temp_client_state;
+            //         }
+            //     };
+            //     result
+            // }
             _ => todo!(),
         };
 
