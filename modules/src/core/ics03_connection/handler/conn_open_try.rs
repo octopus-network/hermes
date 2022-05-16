@@ -18,6 +18,8 @@ pub(crate) fn process(
     ctx: &dyn ConnectionReader,
     msg: MsgConnectionOpenTry,
 ) -> HandlerResult<ConnectionResult, Error> {
+    tracing::trace!(target:"ibc-rs","[conn_open_try] begin to process the conn_open_try msg : {:?}",msg);
+
     let mut output = HandlerOutput::builder();
 
     // Check that consensus height (for client proof) in message is not too advanced nor too old.
@@ -119,6 +121,9 @@ pub(crate) fn process(
         counterparty_connection_id: msg.counterparty.connection_id,
     };
     output.emit(IbcEvent::OpenTryConnection(event_attributes.into()));
+
+
+    tracing::trace!(target:"ibc-rs","[conn_open_try] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

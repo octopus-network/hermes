@@ -33,6 +33,7 @@ pub fn process(
     ctx: &dyn ClientReader,
     msg: MsgUpdateAnyClient,
 ) -> HandlerResult<ClientResult, Error> {
+    tracing::trace!(target:"ibc-rs","[update_client] begin to process the update_client msg : {:?}",msg);
     let mut output = HandlerOutput::builder();
 
     let MsgUpdateAnyClient {
@@ -40,6 +41,7 @@ pub fn process(
         header,
         signer: _,
     } = msg;
+    tracing::trace!(target:"ibc-rs","[update_client] client_id : {:?}, header : {:?}",client_id,header);
 
     // Read client type from the host chain store. The client should already exist.
     let client_type = ctx.client_type(&client_id)?;
@@ -48,6 +50,8 @@ pub fn process(
 
     // Read client state from the host chain store.
     let client_state = ctx.client_state(&client_id)?;
+
+    tracing::trace!(target:"ibc-rs","[update_client] client_type : {:?}, client_state : {:?}", client_type,client_state);
 
     if client_state.is_frozen() {
         return Err(Error::client_frozen(client_id));
@@ -60,14 +64,21 @@ pub fn process(
             Error::consensus_state_not_found(client_id.clone(), client_state.latest_height())
         })?;
 
+    tracing::trace!(target:"ibc-rs","[update_client] latest_consensus_state : {:?}", latest_consensus_state);
+
     debug!("latest consensus state: {:?}", latest_consensus_state);
 
     let now = ctx.host_timestamp();
+
+    tracing::trace!(target:"ibc-rs","[update_client] now  : {:?}", now);
+
     let duration = now
         .duration_since(&latest_consensus_state.timestamp())
         .ok_or_else(|| {
             Error::invalid_consensus_state_timestamp(latest_consensus_state.timestamp(), now)
         })?;
+
+    tracing::trace!(target:"ibc-rs","[update_client] duration  : {:?}", duration);
 
     if client_state.expired(duration) {
         return Err(Error::header_not_within_trust_period(
@@ -83,6 +94,9 @@ pub fn process(
         .check_header_and_update_state(ctx, client_id.clone(), client_state, header)
         .map_err(|e| Error::header_verification_failure(e.to_string()))?;
 
+    tracing::trace!(target:"ibc-rs","[update_client] new_client_state : {:?},new_consensus_state : {:?}",
+        new_client_state,new_consensus_state);
+
     let result = ClientResult::Update(Result {
         client_id: client_id.clone(),
         client_state: new_client_state,
@@ -97,6 +111,8 @@ pub fn process(
         ..Default::default()
     };
     output.emit(IbcEvent::UpdateClient(event_attributes.into()));
+
+    tracing::trace!(target:"ibc-rs","[update_client] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

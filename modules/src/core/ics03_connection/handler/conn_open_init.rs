@@ -15,6 +15,7 @@ pub(crate) fn process(
     ctx: &dyn ConnectionReader,
     msg: MsgConnectionOpenInit,
 ) -> HandlerResult<ConnectionResult, Error> {
+    tracing::trace!(target:"ibc-rs","[conn_open_init] begin to process the conn_open_init msg : {:?}",msg);
     let mut output = HandlerOutput::builder();
 
     // An IBC client running on the local (host) chain should exist.
@@ -62,6 +63,8 @@ pub(crate) fn process(
         counterparty_connection_id: msg.counterparty.connection_id,
     };
     output.emit(IbcEvent::OpenInitConnection(event_attributes.into()));
+    
+    tracing::trace!(target:"ibc-rs","[conn_open_init] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

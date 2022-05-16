@@ -674,6 +674,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })?;
 
+        tracing::trace!(target:"ibc-rs","[validated_client_state] client_state : {:?}",client_state);
         if client_state.is_frozen() {
             return Err(ForeignClientError::expired_or_frozen(
                 self.id().clone(),
@@ -685,9 +686,12 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         let last_update_time = self
             .consensus_state(client_state.latest_height())?
             .timestamp();
+        tracing::trace!(target:"ibc-rs","[validated_client_state] last_update_time : {:?}",last_update_time);
 
         // Compute the duration since the last update of this client
         let elapsed = Timestamp::now().duration_since(&last_update_time);
+
+        tracing::trace!(target:"ibc-rs","[validated_client_state] elapsed_time : {:?}",elapsed);
 
         if client_state.expired(elapsed.unwrap_or_default()) {
             return Err(ForeignClientError::expired_or_frozen(
@@ -912,7 +916,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         // Get the latest client state on destination.
         let (client_state, _) = self.validated_client_state()?;
-
+        tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] client_state : {:?}",client_state);
         // if grandpa client state process this code
 
         /*
@@ -978,6 +982,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             // }
             _ => todo!(),
         };
+        tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] client_state : {:?}",client_state);
 
         let trusted_height = if trusted_height == Height::zero() {
             self.solve_trusted_height(target_height, &client_state)?
@@ -1040,7 +1045,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             trusted_height,
             header.height(),
         );
-
+        tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] header : {:?}",header);
         msgs.push(
             MsgUpdateAnyClient {
                 header,

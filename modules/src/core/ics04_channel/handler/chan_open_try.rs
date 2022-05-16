@@ -17,6 +17,8 @@ pub(crate) fn process(
     ctx: &dyn ChannelReader,
     msg: &MsgChannelOpenTry,
 ) -> HandlerResult<ChannelResult, Error> {
+    tracing::trace!(target:"ibc-rs","[chan_open_try] begin to process the chan_open_try msg : {:?}",msg);
+
     let mut output = HandlerOutput::builder();
 
     // Unwrap the old channel end (if any) and validate it against the message.
@@ -150,6 +152,8 @@ pub(crate) fn process(
             .try_into()
             .map_err(|_| Error::missing_channel_id())?,
     ));
+
+    tracing::trace!(target:"ibc-rs","[chan_open_try] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

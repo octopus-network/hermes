@@ -761,6 +761,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
     pub fn build_update_client_on_dst(&self, height: Height) -> Result<Vec<Any>, ConnectionError> {
         let client = self.restore_dst_client();
+        tracing::trace!(target:"ibc-rs","[build_update_client_on_dst] dst client : {:?}",client);
+
         client.build_update_client(height).map_err(|e| {
             ConnectionError::client_operation(
                 self.dst_client_id().clone(),
@@ -865,6 +867,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?;
 
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
+        tracing::trace!(target:"ibc-rs","[relay connection] build_update_client_on_src msgs : {:?}",client_msgs);
 
         let tm = TrackedMsgs::new(client_msgs, "update client on source for ConnectionOpenTry");
         self.src_chain()
@@ -876,6 +879,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .query_latest_height()
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
 
+        tracing::trace!(target:"ibc-rs","[relay connection] build_conn_try src_chain :{:?} ,dst_chain : {:?}",self.src_chain(),self.dst_chain());
         let (client_state, proofs) = self
             .src_chain()
             .build_connection_proofs_and_client_state(
@@ -886,8 +890,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             )
             .map_err(ConnectionError::connection_proof)?;
 
+        tracing::trace!(target:"ibc-rs","[relay connection] build_conn_try client_state : {:?}",client_state);
+
         // Build message(s) for updating client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
+
+        tracing::trace!(target:"ibc-rs","[relay connection] build_update_client_on_dst msgs : {:?}",msgs);
 
         let counterparty_versions = if src_connection.versions().is_empty() {
             self.src_chain()

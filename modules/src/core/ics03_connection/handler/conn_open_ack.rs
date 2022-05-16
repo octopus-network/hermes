@@ -17,6 +17,8 @@ pub(crate) fn process(
     ctx: &dyn ConnectionReader,
     msg: MsgConnectionOpenAck,
 ) -> HandlerResult<ConnectionResult, Error> {
+    tracing::trace!(target:"ibc-rs","[conn_open_ack] begin to process the conn_open_ack msg : {:?}",msg);
+
     let mut output = HandlerOutput::builder();
 
     // Check the client's (consensus state) proof height.
@@ -91,6 +93,8 @@ pub(crate) fn process(
         counterparty_connection_id: conn_end.counterparty().connection_id.clone(),
     };
     output.emit(IbcEvent::OpenAckConnection(event_attributes.into()));
+
+    tracing::trace!(target:"ibc-rs","[conn_open_ack] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }
