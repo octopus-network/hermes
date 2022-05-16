@@ -88,6 +88,7 @@ const MAX_QUERY_TIMES: u64 = 100;
 pub struct SubstrateChain {
     config: ChainConfig,
     websocket_url: String,
+    keybase: KeyRing,
     rt: Arc<TokioRuntime>,
 }
 
@@ -487,6 +488,12 @@ impl SubstrateChain {
 
         Ok(compose_ibc_merkle_proof(storage_proof))
     }
+
+    fn key(&self) -> Result<KeyEntry, Error> {
+        self.keybase()
+            .get_key(&self.config.key_name)
+            .map_err(Error::key_base)
+    }
 }
 
 impl ChainEndpoint for SubstrateChain {
@@ -501,10 +508,15 @@ impl ChainEndpoint for SubstrateChain {
 
         let websocket_url = format!("{}", config.websocket_addr);
 
+        // Initialize key store and load key
+        let keybase = KeyRing::new(config.key_store_type, &config.account_prefix, &config.id)
+            .map_err(Error::key_base)?;
+
         let chain = Self {
             config,
             websocket_url,
             rt,
+            keybase,
         };
 
         Ok(chain)
@@ -597,14 +609,12 @@ impl ChainEndpoint for SubstrateChain {
 
     fn keybase(&self) -> &KeyRing {
         tracing::trace!("in substrate: [keybase]");
-
-        todo!()
+        &self.keybase
     }
 
     fn keybase_mut(&mut self) -> &mut KeyRing {
         tracing::trace!("in substrate: [keybase_mut]");
-
-        todo!()
+        &mut self.keybase
     }
 
     fn send_messages_and_wait_commit(
@@ -681,28 +691,58 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn get_signer(&mut self) -> Result<Signer, Error> {
-        // Todo: Get signer from config
         tracing::trace!("In Substraet: [get signer]");
+        crate::time!("get_signer");
+        use crate::chain::cosmos::encode::encode_to_bech32;
+        use bitcoin::hashes::hex::ToHex;
+        use sp_core::hexdisplay::HexDisplay;
+        use sp_core::Pair;
+        use sp_runtime::{traits::IdentifyAccount, MultiSigner};
 
-        fn get_dummy_account_id_raw() -> String {
-            "0CDA3F47EF3C4906693B170EF650EB968C5F4B2C".to_string()
+        /// Public key type for Runtime
+        pub type PublicFor<P> = <P as sp_core::Pair>::Public;
+
+        /// formats public key as accountId as hex
+        fn format_account_id<P: Pair>(public_key: PublicFor<P>) -> String
+        where
+            PublicFor<P>: Into<MultiSigner>,
+        {
+            format!(
+                "0x{}",
+                HexDisplay::from(&public_key.into().into_account().as_ref())
+            )
         }
 
-        pub fn get_dummy_account_id() -> Result<AccountId, Error> {
-            AccountId::from_str(&get_dummy_account_id_raw())
-                .map_err(|e| Error::unknown_account_type(get_dummy_account_id_raw()))
-        }
+        // Get the key from key seed file
+        let key = self
+            .keybase()
+            .get_key(&self.config.key_name)
+            .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
 
-        let signer = Signer::new(get_dummy_account_id()?.to_string());
-        // tracing::trace!("in substrate: [get_signer] >>  signer {:?}", signer);
+        // let bech32 = encode_to_bech32(&key.address.to_hex(), &self.config.account_prefix)?;
+        let private_seed = key.mnemonic;
+        let (pair, seed) = sp_core::sr25519::Pair::from_phrase(&private_seed, None).unwrap();
+        let public_key = pair.public();
 
-        Ok(signer)
+        let account_id = format_account_id::<sp_core::sr25519::Pair>(public_key);
+        let account = sp_runtime::AccountId32::from_str(&account_id).unwrap();
+        let encode_account = sp_runtime::AccountId32::encode(&account);
+        let hex_account = hex::encode(encode_account);
+
+        Ok(Signer::new(hex_account))
     }
 
     fn get_key(&mut self) -> Result<KeyEntry, Error> {
         tracing::trace!("in substrate: [get_key]");
+        crate::time!("get_key");
 
-        todo!()
+        // Get the key from key seed file
+        let key = self
+            .keybase()
+            .get_key(&self.config.key_name)
+            .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
+
+        Ok(key)
     }
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {

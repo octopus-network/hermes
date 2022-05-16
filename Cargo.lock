@@ -2055,6 +2055,7 @@ dependencies = [
  "sha2 0.10.2",
  "signature",
  "sp-core",
+ "sp-runtime",
  "subtle-encoding",
  "subxt",
  "tendermint",

@@ -49,6 +49,9 @@ pub struct KeyEntry {
 
     /// Address
     pub address: Vec<u8>,
+
+    /// mnemonic
+    pub mnemonic: String,
 }
 
 /// JSON key seed file
@@ -94,6 +97,7 @@ impl KeyEntry {
                 private_key,
                 account: key_file.address,
                 address: keyfile_address_bytes,
+                mnemonic: key_file.mnemonic.clone(),
             })
         }
     }
@@ -356,6 +360,7 @@ impl KeyRing {
             private_key,
             account,
             address,
+            mnemonic: String::from(mnemonic_words),
         })
     }
 
