@@ -63,7 +63,7 @@ where
         source_port: msg.source_port,
         source_channel: msg.source_channel,
         destination_port,
-        destination_channel: destination_channel.clone(),
+        destination_channel: *destination_channel,
         data: encode_packet_data,
         timeout_height: msg.timeout_height,
         timeout_timestamp: msg.timeout_timestamp,

@@ -97,7 +97,7 @@ impl KeyEntry {
                 private_key,
                 account: key_file.address,
                 address: keyfile_address_bytes,
-                mnemonic: key_file.mnemonic.clone(),
+                mnemonic: key_file.mnemonic,
             })
         }
     }

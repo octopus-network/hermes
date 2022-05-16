@@ -352,7 +352,7 @@ fn process_batch_for_substrate(
 ) -> Result<()> {
     tracing::trace!("in substrate_mointor: [relayer_process_channel_events]");
     send_tx
-        .try_send(Ok(batch.clone()))
+        .try_send(Ok(batch))
         .map_err(|_| Error::channel_send_failed())?;
     // tracing::trace!(
     //     "in substrate_mointor: [relayer_process_channel_events 1] tx: {:?}, batch: {:?}, len: {:?}",
@@ -419,7 +419,7 @@ fn collect_events(
 
 /// Sort the given events by putting the NewBlock event first,
 /// and leaving the other events as is.
-fn sort_events(events: &mut Vec<IbcEvent>) {
+fn sort_events(events: &mut [IbcEvent]) {
     tracing::trace!("in substrate_mointor: [sort_events]");
 
     events.sort_by(|a, b| match (a, b) {

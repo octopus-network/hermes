@@ -975,7 +975,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 };
                 result
             }
-            _ => todo!(),
         };
 
         let trusted_height = if trusted_height == Height::zero() {
