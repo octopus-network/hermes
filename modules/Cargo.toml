@@ -50,6 +50,7 @@ std = [
     "sp-io/std",
     "beefy-light-client/std",
     "tendermint/std",
+    "sp-timestamp/std"
     # "tendermint-proto/std",
     # "tendermint-light-client-verifier/std",
     # "tendermint-testgen/std",
@@ -95,7 +96,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.13", default-features = false }
-
+sp-timestamp = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.13", default-features = false }
 # beefy light client
 beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.13", default-features = false }
 

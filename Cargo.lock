@@ -1964,6 +1964,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 4.0.0-dev",
+ "sp-timestamp",
  "sp-trie",
  "subtle-encoding",
  "subxt",
@@ -4846,6 +4847,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-timestamp"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.13#afb74de23dfe2994e7ce38c0870efb9734e966f7"
+dependencies = [
+ "async-trait",
+ "futures-timer",
+ "log",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std 4.0.0-dev",
+ "thiserror",
+]
+
+[[package]]
 name = "sp-tracing"
 version = "4.0.0-dev"
 source = "git+https://github.com/octopus-network/substrate?branch=polkadot-v0.9.13#afb74de23dfe2994e7ce38c0870efb9734e966f7"
@@ -5785,7 +5802,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "rand 0.8.5",
  "static_assertions",
 ]

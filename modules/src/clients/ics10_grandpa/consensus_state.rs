@@ -1,5 +1,5 @@
-use alloc::vec;
 use alloc::vec::Vec;
+use alloc::{format, vec};
 use core::convert::Infallible;
 use core::convert::{TryFrom, TryInto};
 
@@ -15,7 +15,12 @@ use crate::clients::ics10_grandpa::help::BlockHeader;
 use crate::core::ics02_client::client_consensus::AnyConsensusState;
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics23_commitment::commitment::CommitmentRoot;
+// use tendermint::{hash::Algorithm, time::Time, Hash};
+// use crate::timestamp::Timestamp;
+use tendermint::{hash::Algorithm, time::Time, Hash};
+use tendermint_proto::google::protobuf as tpb;
 use tendermint_proto::Protobuf;
+use sp_timestamp::Timestamp;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ConsensusState {
@@ -31,6 +36,8 @@ pub struct ConsensusState {
     pub digest: Vec<u8>,
     // // TODO NEED timestamp, because ics02 have timestamp function
     pub root: CommitmentRoot,
+    //// timestamp
+    pub timestamp: Timestamp,
 }
 
 impl ConsensusState {
@@ -42,6 +49,8 @@ impl ConsensusState {
             extrinsics_root: header.clone().extrinsics_root,
             digest: vec![],
             root: CommitmentRoot::from(header.extrinsics_root),
+            //TODO: better to get timestamp from header
+            timestamp:Timestamp::default(),
         }
     }
 }
@@ -55,6 +64,7 @@ impl Default for ConsensusState {
             extrinsics_root: vec![0; 10],
             digest: vec![0; 10],
             root: CommitmentRoot::from(vec![1, 2, 3]),
+            timestamp: Timestamp::default(),
         }
     }
 }
@@ -80,6 +90,21 @@ impl TryFrom<RawConsensusState> for ConsensusState {
     type Error = Error;
 
     fn try_from(raw: RawConsensusState) -> Result<Self, Self::Error> {
+        let ibc_proto::google::protobuf::Timestamp { seconds, nanos } = raw
+            .timestamp
+            .ok_or_else(|| Error::invalid_raw_consensus_state("missing timestamp".into()))?;
+        // FIXME: shunts like this are necessary due to
+        // https://github.com/informalsystems/tendermint-rs/issues/1053
+        // let proto_timestamp = tpb::Timestamp { seconds, nanos };
+        // // let timestamp = proto_timestamp
+        // //     .try_into()
+        // //     .map_err(|e| Error::invalid_raw_consensus_state(format!("invalid timestamp: {}", e)))?;
+        // let t_time = Time::from_unix_timestamp(seconds, nanos as u32)
+        //     .map_err(|e| Error::invalid_raw_consensus_state(format!("invalid timestamp: {}", e)))?;
+        // let timestamp = t_time.into();
+
+        let timestamp = Timestamp::new(seconds as u64);
+
         Ok(Self {
             parent_hash: raw.parent_hash,
             block_number: raw.block_number,
@@ -93,12 +118,21 @@ impl TryFrom<RawConsensusState> for ConsensusState {
                 })?
                 .hash
                 .into(),
+            timestamp,
         })
     }
 }
 
 impl From<ConsensusState> for RawConsensusState {
     fn from(value: ConsensusState) -> Self {
+        // FIXME: shunts like this are necessary due to
+        // https://github.com/informalsystems/tendermint-rs/issues/1053
+        // let t_time:Time = value.timestamp.into_tm_time().unwrap();
+        // let tpb::Timestamp { seconds, nanos } = t_time.into();
+        let seconds = value.timestamp.into();
+        let nanos = 0;
+        let timestamp = ibc_proto::google::protobuf::Timestamp { seconds, nanos };
+
         Self {
             parent_hash: value.parent_hash,
             block_number: value.block_number,
@@ -108,6 +142,7 @@ impl From<ConsensusState> for RawConsensusState {
             root: Some(ibc_proto::ibc::core::commitment::v1::MerkleRoot {
                 hash: value.root.into_vec(),
             }),
+            timestamp: Some(timestamp),
         }
     }
 }
@@ -121,6 +156,8 @@ impl From<Header> for ConsensusState {
             extrinsics_root: header.clone().block_header.extrinsics_root,
             digest: header.clone().block_header.digest,
             root: CommitmentRoot::from(header.block_header.extrinsics_root),
+            //TODO: better to get timestamp from header
+            timestamp: Timestamp::default(),
         }
     }
 }
