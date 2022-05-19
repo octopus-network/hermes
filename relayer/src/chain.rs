@@ -353,7 +353,7 @@ pub trait ChainEndpoint: Sized {
         height: ICSHeight,
     ) -> Result<(Option<AnyClientState>, Proofs), Error> {
         let (connection_end, connection_proof) = self.proven_connection(connection_id, height)?;
-
+        tracing::trace!(target:"ibc-rs","in relayer chain: [build_connection_proofs_and_client_state] connection_end:{:?}, connection_proof:{:?}",connection_end,connection_proof);
         // Check that the connection state is compatible with the message
         match message_type {
             ConnectionMsgType::OpenTry => {

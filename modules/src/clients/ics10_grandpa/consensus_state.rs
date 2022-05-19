@@ -15,12 +15,11 @@ use crate::clients::ics10_grandpa::help::BlockHeader;
 use crate::core::ics02_client::client_consensus::AnyConsensusState;
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics23_commitment::commitment::CommitmentRoot;
-// use tendermint::{hash::Algorithm, time::Time, Hash};
-// use crate::timestamp::Timestamp;
-use tendermint::{hash::Algorithm, time::Time, Hash};
+use crate::timestamp::Timestamp;
+use tendermint::time::Time;
 use tendermint_proto::google::protobuf as tpb;
 use tendermint_proto::Protobuf;
-use sp_timestamp::Timestamp;
+// use sp_timestamp::Timestamp;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ConsensusState {
@@ -37,7 +36,7 @@ pub struct ConsensusState {
     // // TODO NEED timestamp, because ics02 have timestamp function
     pub root: CommitmentRoot,
     //// timestamp
-    pub timestamp: Timestamp,
+    pub timestamp: Time,
 }
 
 impl ConsensusState {
@@ -50,7 +49,7 @@ impl ConsensusState {
             digest: vec![],
             root: CommitmentRoot::from(header.extrinsics_root),
             //TODO: better to get timestamp from header
-            timestamp:Timestamp::default(),
+            timestamp: Time::from_unix_timestamp(0, 0).unwrap(),
         }
     }
 }
@@ -64,7 +63,7 @@ impl Default for ConsensusState {
             extrinsics_root: vec![0; 10],
             digest: vec![0; 10],
             root: CommitmentRoot::from(vec![1, 2, 3]),
-            timestamp: Timestamp::default(),
+            timestamp: Time::from_unix_timestamp(0, 0).unwrap(),
         }
     }
 }
@@ -95,15 +94,16 @@ impl TryFrom<RawConsensusState> for ConsensusState {
             .ok_or_else(|| Error::invalid_raw_consensus_state("missing timestamp".into()))?;
         // FIXME: shunts like this are necessary due to
         // https://github.com/informalsystems/tendermint-rs/issues/1053
-        // let proto_timestamp = tpb::Timestamp { seconds, nanos };
-        // // let timestamp = proto_timestamp
-        // //     .try_into()
-        // //     .map_err(|e| Error::invalid_raw_consensus_state(format!("invalid timestamp: {}", e)))?;
+        let proto_timestamp = tpb::Timestamp { seconds, nanos };
+        let timestamp = proto_timestamp
+            .try_into()
+            .map_err(|e| Error::invalid_raw_consensus_state(format!("invalid timestamp: {}", e)))?;
+
         // let t_time = Time::from_unix_timestamp(seconds, nanos as u32)
         //     .map_err(|e| Error::invalid_raw_consensus_state(format!("invalid timestamp: {}", e)))?;
         // let timestamp = t_time.into();
 
-        let timestamp = Timestamp::new(seconds as u64);
+        // let timestamp = Timestamp::new(seconds as u64);
 
         Ok(Self {
             parent_hash: raw.parent_hash,
@@ -127,10 +127,7 @@ impl From<ConsensusState> for RawConsensusState {
     fn from(value: ConsensusState) -> Self {
         // FIXME: shunts like this are necessary due to
         // https://github.com/informalsystems/tendermint-rs/issues/1053
-        // let t_time:Time = value.timestamp.into_tm_time().unwrap();
-        // let tpb::Timestamp { seconds, nanos } = t_time.into();
-        let seconds = value.timestamp.into();
-        let nanos = 0;
+        let tpb::Timestamp { seconds, nanos } = value.timestamp.into();
         let timestamp = ibc_proto::google::protobuf::Timestamp { seconds, nanos };
 
         Self {
@@ -157,7 +154,7 @@ impl From<Header> for ConsensusState {
             digest: header.clone().block_header.digest,
             root: CommitmentRoot::from(header.block_header.extrinsics_root),
             //TODO: better to get timestamp from header
-            timestamp: Timestamp::default(),
+            timestamp: Time::from_unix_timestamp(0, 0).unwrap(),
         }
     }
 }

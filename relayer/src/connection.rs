@@ -750,6 +750,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
     pub fn build_update_client_on_src(&self, height: Height) -> Result<Vec<Any>, ConnectionError> {
         let client = self.restore_src_client();
+        tracing::trace!(target:"ibc-rs","relayer connection [build_update_client_on_dst] src client : {:?}",client);
+
         client.build_update_client(height).map_err(|e| {
             ConnectionError::client_operation(
                 self.src_client_id().clone(),
@@ -761,7 +763,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
     pub fn build_update_client_on_dst(&self, height: Height) -> Result<Vec<Any>, ConnectionError> {
         let client = self.restore_dst_client();
-        tracing::trace!(target:"ibc-rs","[build_update_client_on_dst] dst client : {:?}",client);
+        tracing::trace!(target:"ibc-rs","relayer connection [build_update_client_on_dst] dst client : {:?}",client);
 
         client.build_update_client(height).map_err(|e| {
             ConnectionError::client_operation(

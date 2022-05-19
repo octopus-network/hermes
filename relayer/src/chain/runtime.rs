@@ -299,6 +299,7 @@ where
                         }
 
                         Ok(ChainRequest::BuildConnectionProofsAndClientState { message_type, connection_id, client_id, height, reply_to }) => {
+
                             self.build_connection_proofs_and_client_state(message_type, connection_id, client_id, height, reply_to)?
                         },
 
@@ -587,6 +588,10 @@ where
         height: Height,
         reply_to: ReplyTo<(Option<AnyClientState>, Proofs)>,
     ) -> Result<(), Error> {
+        tracing::trace!(target:"ibc-rs","in runtime: [build_connection_proofs_and_client_state] client_id:{:?}",client_id);
+        let config = self.chain.config();
+        tracing::trace!(target:"ibc-rs","in runtime: [build_connection_proofs_and_client_state] config:{:?}",config);
+
         let result = self.chain.build_connection_proofs_and_client_state(
             message_type,
             &connection_id,

@@ -19,6 +19,7 @@ pub fn verify_proofs(
     expected_conn: &ConnectionEnd,
     proofs: &Proofs,
 ) -> Result<(), Error> {
+    
     verify_connection_proof(
         ctx,
         height,

@@ -302,11 +302,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "beefy-light-client"
+version = "0.1.0"
+source = "git+https://github.com/octopus-network/beefy-light-client.git#f7e2bf33a6f150f44145ebc53097d92aa6d7c32b"
+dependencies = [
+ "beefy-merkle-tree",
+ "blake2-rfc",
+ "borsh",
+ "byteorder",
+ "ckb-merkle-mountain-range",
+ "hex",
+ "libsecp256k1",
+ "parity-scale-codec",
+]
+
+[[package]]
 name = "beefy-merkle-tree"
 version = "4.0.0-dev"
 source = "git+https://github.com/octopus-network/substrate?branch=polkadot-v0.9.13#afb74de23dfe2994e7ce38c0870efb9734e966f7"
 dependencies = [
  "tiny-keccak",
+]
+
+[[package]]
+name = "beefy-primitives"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.12#d76f39995315ec36980908e4b99709bd14927044"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-runtime",
+ "sp-std 4.0.0-dev",
 ]
 
 [[package]]
@@ -1935,7 +1964,7 @@ dependencies = [
 name = "ibc"
 version = "0.14.1"
 dependencies = [
- "beefy-light-client",
+ "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.13)",
  "beefy-merkle-tree",
  "blake2-rfc",
  "bytes",
@@ -1951,7 +1980,7 @@ dependencies = [
  "log",
  "modelator",
  "num-traits",
- "octopusxt",
+ "octopusxt 0.1.0",
  "parity-scale-codec",
  "prost",
  "prost-types",
@@ -1967,7 +1996,7 @@ dependencies = [
  "sp-timestamp",
  "sp-trie",
  "subtle-encoding",
- "subxt",
+ "subxt 0.15.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13)",
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-proto",
@@ -2017,7 +2046,7 @@ dependencies = [
  "anyhow",
  "async-stream",
  "bech32",
- "beefy-light-client",
+ "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.13)",
  "bitcoin",
  "bytes",
  "crossbeam-channel 0.5.4",
@@ -2040,7 +2069,7 @@ dependencies = [
  "nanoid",
  "num-bigint 0.4.3",
  "num-rational 0.4.0",
- "octopusxt",
+ "octopusxt 0.1.0 (git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13)",
  "pallet-mmr-rpc",
  "parity-scale-codec",
  "prost",
@@ -2057,7 +2086,7 @@ dependencies = [
  "signature",
  "sp-core",
  "subtle-encoding",
- "subxt",
+ "subxt 0.15.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13)",
  "tendermint",
  "tendermint-light-client",
  "tendermint-light-client-verifier",
@@ -3052,11 +3081,37 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
+dependencies = [
+ "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git)",
+ "beefy-merkle-tree",
+ "beefy-primitives 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.12)",
+ "env_logger 0.8.4",
+ "hex",
+ "ibc",
+ "ibc-proto",
+ "jsonrpsee",
+ "libsecp256k1",
+ "pallet-mmr-rpc",
+ "parity-scale-codec",
+ "prost-types",
+ "serde",
+ "sp-core",
+ "sp-keyring 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.12)",
+ "sp-runtime",
+ "subxt 0.15.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12)",
+ "tendermint-proto",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "octopusxt"
+version = "0.1.0"
 source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13#e334a795365a10c9042ff24638cf32e27034d92b"
 dependencies = [
- "beefy-light-client",
+ "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.13)",
  "beefy-merkle-tree",
- "beefy-primitives",
+ "beefy-primitives 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.13)",
  "env_logger 0.8.4",
  "hex",
  "hex-literal",
@@ -3069,9 +3124,9 @@ dependencies = [
  "prost-types",
  "serde",
  "sp-core",
- "sp-keyring",
+ "sp-keyring 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.13)",
  "sp-runtime",
- "subxt",
+ "subxt 0.15.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13)",
  "tendermint-proto",
  "tokio",
  "tracing",
@@ -4703,12 +4758,23 @@ dependencies = [
 [[package]]
 name = "sp-keyring"
 version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.12#d76f39995315ec36980908e4b99709bd14927044"
+dependencies = [
+ "lazy_static",
+ "sp-core",
+ "sp-runtime",
+ "strum 0.20.0",
+]
+
+[[package]]
+name = "sp-keyring"
+version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.13#afb74de23dfe2994e7ce38c0870efb9734e966f7"
 dependencies = [
  "lazy_static",
  "sp-core",
  "sp-runtime",
- "strum",
+ "strum 0.22.0",
 ]
 
 [[package]]
@@ -4972,11 +5038,32 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strum"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7318c509b5ba57f18533982607f24070a55d353e90d4cae30c467cdb2ad5ac5c"
+dependencies = [
+ "strum_macros 0.20.1",
+]
+
+[[package]]
+name = "strum"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7ac893c7d471c8a21f31cfe213ec4f6d9afeed25537c772e08ef3f005f8729e"
 dependencies = [
- "strum_macros",
+ "strum_macros 0.22.0",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee8bc6b87a5112aeeab1f4a9f7ab634fe6cbefc4850006df31267f4cfb9e3149"
+dependencies = [
+ "heck 0.3.3",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -5022,6 +5109,36 @@ dependencies = [
 [[package]]
 name = "subxt"
 version = "0.15.0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12#950ce7d90a983c02c8d16167a3bf73d2641e5fc0"
+dependencies = [
+ "async-trait",
+ "bitvec",
+ "chameleon",
+ "frame-metadata",
+ "futures 0.3.21",
+ "hex",
+ "jsonrpsee-http-client 0.4.1",
+ "jsonrpsee-proc-macros 0.4.1",
+ "jsonrpsee-types 0.4.1",
+ "jsonrpsee-ws-client 0.4.1",
+ "log",
+ "num-traits",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-runtime",
+ "sp-version",
+ "subxt-macro 0.1.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12)",
+ "thiserror",
+ "url 2.2.2",
+]
+
+[[package]]
+name = "subxt"
+version = "0.15.0"
 source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13#5170b5572d544ec06a3de13dc156dd9f823dd7c7"
 dependencies = [
  "async-trait",
@@ -5044,9 +5161,27 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-version",
- "subxt-macro",
+ "subxt-macro 0.1.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13)",
  "thiserror",
  "url 2.2.2",
+]
+
+[[package]]
+name = "subxt-codegen"
+version = "0.2.0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12#950ce7d90a983c02c8d16167a3bf73d2641e5fc0"
+dependencies = [
+ "async-trait",
+ "darling",
+ "frame-metadata",
+ "heck 0.3.3",
+ "parity-scale-codec",
+ "proc-macro-crate 0.1.5",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "scale-info",
+ "syn",
 ]
 
 [[package]]
@@ -5070,6 +5205,25 @@ dependencies = [
 [[package]]
 name = "subxt-macro"
 version = "0.1.0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12#950ce7d90a983c02c8d16167a3bf73d2641e5fc0"
+dependencies = [
+ "async-trait",
+ "darling",
+ "frame-metadata",
+ "heck 0.3.3",
+ "parity-scale-codec",
+ "proc-macro-crate 0.1.5",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "scale-info",
+ "subxt-codegen 0.2.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12)",
+ "syn",
+]
+
+[[package]]
+name = "subxt-macro"
+version = "0.1.0"
 source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13#5170b5572d544ec06a3de13dc156dd9f823dd7c7"
 dependencies = [
  "async-trait",
@@ -5082,7 +5236,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scale-info",
- "subxt-codegen",
+ "subxt-codegen 0.2.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13)",
  "syn",
 ]
 
