@@ -370,14 +370,18 @@ impl SubstrateChain {
                     &request.source_channel_id,
                     sequence,
                 )
-                .map_err(|_| Error::get_send_packet_event_error())?;
-
-            result_event.push(IbcEvent::SendPacket(
-                ibc::core::ics04_channel::events::SendPacket {
-                    height: request.height,
-                    packet,
-                },
-            ));
+                .map_err(|_| Error::get_send_packet_event_error());
+            if packet.is_err() {
+                return Ok(vec![])
+            } else {
+                result_event.push(IbcEvent::SendPacket(
+                    ibc::core::ics04_channel::events::SendPacket {
+                        height: request.height,
+                        packet: packet.unwrap(),
+                    },
+                ));
+            }
+            
         }
         Ok(result_event)
     }

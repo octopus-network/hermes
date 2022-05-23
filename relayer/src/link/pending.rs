@@ -149,7 +149,9 @@ impl<Chain: ChainHandle> PendingTxs<Chain> {
         // the front of the queue.
         if let Some(pending) = self.pending_queue.pop_front() {
             let tx_hashes = &pending.tx_hashes;
+            trace!("in pending [process_pending] pending tx_hashes  -> [{}] ", tx_hashes);
             let submit_time = &pending.submit_time;
+            trace!("in pending [process_pending] pending submit_time  -> [{:?}] ", submit_time);
 
             if tx_hashes.0.is_empty() {
                 return Ok(Some(RelaySummary::from_events(pending.error_events)));

@@ -362,7 +362,6 @@ impl ClientDef for GrandpaClient {
     }
 
     /// Verify a `proof` that a packet has not been received.
-    #[allow(clippy::too_many_arguments)]
     fn verify_packet_receipt_absence(
         &self,
         ctx: &dyn ChannelReader,
