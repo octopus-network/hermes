@@ -311,19 +311,28 @@ impl ClientDef for GrandpaClient {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_acknowledgement. port_id={:?}, channel_id={:?}, sequence={:?}, ack={:?}",
             port_id, channel_id, sequence, ack);
 
-        // let keys: Vec<Vec<u8>> = vec![
-        //     port_id.as_bytes().to_vec(),
-        //     format!("{}", channel_id).as_bytes().to_vec(),
-        //     u64::from(sequence).encode(),
-        // ];
-        //
-        // let storage_result =
-        //     Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
-        //
+        let keys: Vec<Vec<u8>> = vec![
+            port_id.as_bytes().to_vec(),
+            format!("{}", channel_id).as_bytes().to_vec(),
+            u64::from(sequence).encode(),
+        ];
+
+        let storage_result =
+            Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
+
+        tracing::trace!(target:"ibc-rs",
+            "In ics10-client_def.rs: [verify_packet_acknowledgement] >> ack restored: {:?}",
+            storage_result.clone()
+        );
+        tracing::trace!(target:"ibc-rs",
+            "In ics10-client_def.rs: [verify_packet_data] >>  expected ack: {:?}",
+            ack.clone().into_vec()
+        );
+
         // let ack = format!("{:?}", ack.into_vec());
-        // if storage_result != Self::hash(ack).encode() {
-        //     return Err(Error::invalid_packet_ack(sequence));
-        // }
+        if storage_result != ack.into_vec() {
+            return Err(Error::invalid_packet_ack(sequence));
+        }
         Ok(())
     }
 
