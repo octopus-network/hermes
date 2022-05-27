@@ -199,7 +199,7 @@ impl KeyStore for Test {
 
         let key_entry = serde_json::from_reader(file)
             .map_err(|e| Error::key_file_decode(format!("{}", key_file.display()), e))?;
-        tracing::info!("key_entry: {:?}", key_entry);
+
 
         Ok(key_entry)
     }
