@@ -451,11 +451,11 @@ impl SubstrateChain {
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
-            let _height = NumberOrHex::Number(height.revision_height);
+            let height = NumberOrHex::Number(height.revision_height);
 
             let block_hash: H256 = client
                 .rpc()
-                .block_hash(Some(BlockNumber::from(_height)))
+                .block_hash(Some(BlockNumber::from(height)))
                 .await
                 .map_err(|_| Error::get_block_hash_error())?
                 .ok_or_else(Error::empty_hash)?;
@@ -730,7 +730,6 @@ impl ChainEndpoint for SubstrateChain {
             .get_key(&self.config.key_name)
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
 
-        // let bech32 = encode_to_bech32(&key.address.to_hex(), &self.config.account_prefix)?;
         let private_seed = key.mnemonic;
         let (pair, seed) = sp_core::sr25519::Pair::from_phrase(&private_seed, None).unwrap();
         let public_key = pair.public();
@@ -878,11 +877,6 @@ impl ChainEndpoint for SubstrateChain {
         let result = self
             .retry_wapper(|| self.get_client_connections(&client_id))
             .map_err(Error::retry_error)?;
-
-        // tracing::trace!(
-        //     "in substrate: [query_client_connections] >> client_connections: {:#?}",
-        //     result
-        // );
 
         Ok(result)
     }
@@ -1069,11 +1063,6 @@ impl ChainEndpoint for SubstrateChain {
                     return Ok(result);
                 }
 
-                // tracing::trace!(
-                //     "in substrate: [query_txs]: query packet events request: {:?}",
-                //     request
-                // );
-
                 match request.event_id {
                     WithBlockDataType::SendPacket => {
                         let mut send_packet_event = self.get_ibc_send_packet_event(request)?;
@@ -1092,39 +1081,6 @@ impl ChainEndpoint for SubstrateChain {
             }
 
             QueryTxRequest::Client(request) => {
-                // tracing::trace!(
-                //     "in substrate: [query_txs]: single client update event: request:{:?}",
-                //     request
-                // );
-
-                // query the first Tx that includes the event matching the client request
-                // Note: it is possible to have multiple Tx-es for same client and consensus height.
-                // In this case it must be true that the client updates were performed with tha
-                // same header as the first one, otherwise a subsequent transaction would have
-                // failed on chain. Therefore only one Tx is of interest and current API returns
-                // the first one.
-                // let mut response = self
-                //     .block_on(self.rpc_client.tx_search(
-                //         header_query(&request),
-                //         false,
-                //         1,
-                //         1, // get only the first Tx matching the query
-                //         Order::Ascending,
-                //     ))
-                //     .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
-                //
-                // if response.txs.is_empty() {
-                //     return Ok(vec![]);
-                // }
-                //
-                // // the response must include a single Tx as specified in the query.
-                // assert!(
-                //     response.txs.len() <= 1,
-                //     "packet_from_tx_search_response: unexpected number of txs"
-                // );
-                //
-                // let tx = response.txs.remove(0);
-                // let event = update_client_from_tx_search_response(self.id(), &request, tx);
                 use ibc::core::ics02_client::events::Attributes;
                 use ibc::core::ics02_client::header::AnyHeader;
 
@@ -1140,7 +1096,6 @@ impl ChainEndpoint for SubstrateChain {
                 )];
 
                 Ok(result)
-                // Ok(event.into_iter().collect())
             }
 
             QueryTxRequest::Transaction(tx) => {

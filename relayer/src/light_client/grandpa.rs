@@ -61,7 +61,6 @@ impl super::LightClient<SubstrateChain> for LightClient {
         use ibc::clients::ics10_grandpa::help::Commitment;
 
         Ok(Verified {
-            // target: GPHeader::new(target.revision_height),
             target: GPHeader {
                 block_header: BlockHeader {
                     parent_hash: vec![],
@@ -131,17 +130,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
         client_state: &AnyClientState,
     ) -> Result<Option<MisbehaviourEvidence>, Error> {
         tracing::info!("in grandpa: [check_misbehaviour]");
-        // Uncomment below will return a good misbehaviour which will be sent to Cosmos chain and freeze the Grandpa client
-        /*        let anyheader = update.header.unwrap();
 
-        Ok(Some(MisbehaviourEvidence{
-            misbehaviour: AnyMisbehaviour::Grandpa(ibc::ics10_grandpa::misbehaviour::Misbehaviour{
-                client_id: update.common.client_id,
-                header1: GPHeader::new(anyheader.height().revision_height),
-                header2: GPHeader::new(anyheader.height().revision_height),
-            }),
-            supporting_headers: vec![anyheader],
-        }))*/
         Ok(None) // Todo: May need to implement the same logic of check_misbehaviour in tendermint.rs
     }
 

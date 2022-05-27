@@ -71,7 +71,6 @@ impl ClientState {
     pub fn expired(&self, elapsed: Duration) -> bool {
         //TODO
         false
-        // elapsed > self.trusting_period
     }
 
     pub fn latest_height(&self) -> Height {
