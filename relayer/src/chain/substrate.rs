@@ -631,7 +631,10 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEvent>, Error> {
-        tracing::trace!("in substrate: [send_messages_and_wait_commit], proto_msgs={:?}", proto_msgs.tracking_id);
+        tracing::trace!(
+            "in substrate: [send_messages_and_wait_commit], proto_msgs={:?}",
+            proto_msgs.tracking_id
+        );
 
         sleep(Duration::from_secs(4));
         let result = self
@@ -654,7 +657,10 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<TxResponse>, Error> {
-        tracing::debug!("in substrate: [send_messages_and_wait_check_tx], proto_msgs={:?}", proto_msgs.tracking_id);
+        tracing::debug!(
+            "in substrate: [send_messages_and_wait_check_tx], proto_msgs={:?}",
+            proto_msgs.tracking_id
+        );
 
         sleep(Duration::from_secs(4));
         let result = self
@@ -1344,8 +1350,13 @@ impl ChainEndpoint for SubstrateChain {
                     }
                     PacketMsgType::Ack => {
                         // Acknowledgements
-                        octopusxt::ibc_rpc::get_packet_receipt_vec(&port_id, &channel_id, &sequence, client)
-                            .await
+                        octopusxt::ibc_rpc::get_packet_receipt_vec(
+                            &port_id,
+                            &channel_id,
+                            &sequence,
+                            client,
+                        )
+                        .await
                     }
                     PacketMsgType::TimeoutOnClose => {
                         // PacketReceipt

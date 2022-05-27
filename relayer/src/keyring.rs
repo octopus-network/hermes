@@ -200,7 +200,6 @@ impl KeyStore for Test {
         let key_entry = serde_json::from_reader(file)
             .map_err(|e| Error::key_file_decode(format!("{}", key_file.display()), e))?;
 
-
         Ok(key_entry)
     }
 
