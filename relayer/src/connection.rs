@@ -551,10 +551,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                 .ok_or_else(ConnectionError::missing_counterparty_connection_id)?;
 
             // Continue loop if query error
+            std::thread::sleep(Duration::from_secs(8));
             let a_connection = a_chain.query_connection(src_connection_id, Height::zero());
             if a_connection.is_err() {
                 continue;
             }
+            std::thread::sleep(Duration::from_secs(8));
             let b_connection = b_chain.query_connection(dst_connection_id, Height::zero());
             if b_connection.is_err() {
                 continue;

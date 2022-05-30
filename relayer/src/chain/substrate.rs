@@ -888,8 +888,7 @@ impl ChainEndpoint for SubstrateChain {
         height: ICSHeight,
     ) -> Result<ConnectionEnd, Error> {
         tracing::trace!("in substrate: [query_connection]");
-
-        sleep(Duration::from_secs(8));
+        
         let connection_end = self
             .retry_wapper(|| self.get_connection_end(connection_id))
             .map_err(Error::retry_error)?;
@@ -934,8 +933,6 @@ impl ChainEndpoint for SubstrateChain {
         height: ICSHeight,
     ) -> Result<ChannelEnd, Error> {
         tracing::trace!("in substrate: [query_channel]");
-
-        sleep(Duration::from_secs(8));
 
         let channel_end = self
             .retry_wapper(|| self.get_channel_end(port_id, channel_id))
