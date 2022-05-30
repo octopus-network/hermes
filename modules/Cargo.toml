@@ -87,17 +87,17 @@ derive_more = { version = "0.99.17", default-features = false, features = ["from
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 hash-db = { version = "0.15.2", default-features = false }
 blake2-rfc = { version = "0.2.18", default-features = false }
-beefy-merkle-tree = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.13", features = ["keccak"], default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.13", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
-sp-trie = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.13", default-features = false }
+beefy-merkle-tree = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18", features = ["keccak"], default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
+sp-trie = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18", default-features = false }
 
 # beefy light client
-beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.13", default-features = false }
+beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.18", default-features = false }
 
 log = { version = "0.4.0", default-features = false }
 
@@ -128,10 +128,10 @@ tendermint-rpc = { version = "=0.23.6", features = ["http-client", "websocket-cl
 tendermint-testgen = { version = "=0.23.6" } # Needed for generating (synthetic) light blocks.
 codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
 hex-literal = "0.3.1"
-octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.13"}
+octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.18"}
 # octopusxt = { path = "../../octopusxt" }
 tokio = { version = "1.0", features = ["rt-multi-thread", "time", "sync"] }
-subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.13' }
+subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.18' }
 
 
 [[test]]
