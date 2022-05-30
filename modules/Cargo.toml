@@ -84,7 +84,7 @@ derive_more = { version = "0.99.17", default-features = false, features = ["from
 
 
 # substrate dep
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 hash-db = { version = "0.15.2", default-features = false }
 blake2-rfc = { version = "0.2.18", default-features = false }
 beefy-merkle-tree = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18", features = ["keccak"], default-features = false }
@@ -131,7 +131,7 @@ hex-literal = "0.3.1"
 octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.18"}
 # octopusxt = { path = "../../octopusxt" }
 tokio = { version = "1.0", features = ["rt-multi-thread", "time", "sync"] }
-subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.18' }
+subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.18' }
 
 
 [[test]]

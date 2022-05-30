@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use codec::Codec;
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use sp_std::prelude::*;
-use sp_trie::{read_trie_value, trie_types::Layout, MemoryDB, StorageProof, TrieError};
+use sp_trie::{read_trie_value, LayoutV0, MemoryDB, StorageProof, TrieError};
 
 /// Create in-memory storage of proof check backend.
 fn create_proof_check_backend_storage<H>(proof: StorageProof) -> MemoryDB<H>
@@ -22,7 +22,7 @@ pub fn read_proof_check<H>(
     root: H::Out,
     proof: StorageProof,
     key: &[u8],
-) -> Result<Option<Vec<u8>>, Box<TrieError<Layout<H>>>>
+) -> Result<Option<Vec<u8>>, Box<TrieError<LayoutV0<H>>>>
 where
     H: Hasher,
     H::Out: Ord + Codec,
@@ -30,9 +30,9 @@ where
     let db = create_proof_check_backend_storage::<H>(proof);
 
     if db.contains(&root, EMPTY_PREFIX) {
-        read_trie_value::<Layout<H>, _>(&db, &root, key)
+        read_trie_value::<LayoutV0<H>, _>(&db, &root, key)
     } else {
-        Err(Box::new(TrieError::<Layout<H>>::InvalidStateRoot(root)))
+        Err(Box::new(TrieError::<LayoutV0<H>>::InvalidStateRoot(root)))
     }
 }
 
