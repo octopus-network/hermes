@@ -2792,9 +2792,9 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.5.1"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2b29bd4bc3f33391105ebee3589c19197c4271e3e5a9ec9bfe8127eeff8f082"
+checksum = "6f5c75688da582b8ffc1f1799e9db273f32133c49e048f614d22ec3256773ccc"
 dependencies = [
  "adler",
 ]
@@ -2847,7 +2847,7 @@ dependencies = [
  "crossbeam-utils 0.8.8",
  "num_cpus",
  "once_cell",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "quanta",
  "scheduled-thread-pool",
  "skeptic",
@@ -3020,12 +3020,13 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.18#b170843c3384e554b43a1be09b4515c1661bdd63"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.18#6d3cd2721d07ba959beaaadadbcd5d5f70ddc8d8"
 dependencies = [
  "beefy-light-client",
  "beefy-merkle-tree",
  "beefy-primitives",
  "env_logger",
+ "futures 0.3.21",
  "hex",
  "hex-literal",
  "ibc",
@@ -3219,7 +3220,7 @@ dependencies = [
  "hashbrown 0.12.1",
  "impl-trait-for-tuples",
  "parity-util-mem-derive",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "primitive-types",
  "winapi",
 ]
@@ -3254,9 +3255,9 @@ dependencies = [
 
 [[package]]
 name = "parking_lot"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87f5ec2493a61ac0506c0f4199f99070cbe83857b0337006a30f3e6719b8ef58"
+checksum = "3742b2c103b9f06bc9fff0a37ff4912935851bee6d36f3c02bcc755bcfec228f"
 dependencies = [
  "lock_api",
  "parking_lot_core 0.9.3",
@@ -3476,7 +3477,7 @@ dependencies = [
  "fnv",
  "lazy_static",
  "memchr",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "protobuf",
  "thiserror",
 ]
@@ -4065,7 +4066,7 @@ version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "977a7519bff143a44f842fd07e80ad1329295bd71686457f18e496736f4bf9bf"
 dependencies = [
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
 ]
 
 [[package]]
@@ -4595,7 +4596,7 @@ dependencies = [
  "log",
  "lru",
  "parity-scale-codec 3.1.2",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "sp-api",
  "sp-consensus",
  "sp-database",
@@ -4646,7 +4647,7 @@ dependencies = [
  "num-traits",
  "parity-scale-codec 3.1.2",
  "parity-util-mem",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "primitive-types",
  "rand 0.7.3",
  "regex",
@@ -4700,7 +4701,7 @@ version = "4.0.0-dev"
 source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
 dependencies = [
  "kvdb",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
 ]
 
 [[package]]
@@ -4748,7 +4749,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "parity-scale-codec 3.1.2",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "secp256k1 0.21.3",
  "sp-core",
  "sp-externalities",
@@ -4783,7 +4784,7 @@ dependencies = [
  "futures 0.3.21",
  "merlin",
  "parity-scale-codec 3.1.2",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "schnorrkel",
  "sp-core",
  "sp-externalities",
@@ -4871,7 +4872,7 @@ dependencies = [
  "log",
  "num-traits",
  "parity-scale-codec 3.1.2",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "rand 0.7.3",
  "smallvec",
  "sp-core",
@@ -5112,7 +5113,7 @@ dependencies = [
  "hex",
  "jsonrpsee",
  "parity-scale-codec 3.1.2",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "scale-info",
  "serde",
  "serde_json",
@@ -5528,7 +5529,7 @@ dependencies = [
  "mio",
  "num_cpus",
  "once_cell",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",

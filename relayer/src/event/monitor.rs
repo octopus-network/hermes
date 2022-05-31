@@ -11,7 +11,6 @@ use tokio::task::JoinHandle;
 use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, trace};
 
-use subxt::Error as SubstrateError;
 use tendermint_rpc::{
     event::Event as RpcEvent, query::Query, Error as RpcError, SubscriptionClient, Url,
     WebSocketClient, WebSocketClientDriver,

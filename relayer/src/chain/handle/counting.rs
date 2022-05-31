@@ -460,8 +460,8 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
 
     fn update_mmr_root(
         &self,
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
+        _src_chain_websocket_url: String,
+        _dst_chain_websocket_url: String,
     ) -> Result<(), Error> {
         todo!()
     }

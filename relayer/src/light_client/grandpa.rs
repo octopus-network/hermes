@@ -1,6 +1,7 @@
 use crate::chain::SubstrateChain;
 use crate::error::Error;
-use octopusxt::ibc_node;
+
+use octopusxt::MyConfig;
 use std::future::Future;
 use std::sync::Arc;
 use subxt::{BlockNumber, ClientBuilder};
@@ -9,21 +10,20 @@ use tokio::runtime::Runtime as TokioRuntime;
 use crate::config::ChainConfig;
 use crate::light_client::Verified;
 use ibc::clients::ics10_grandpa::header::Header as GPHeader;
-use ibc::clients::ics10_grandpa::help::{BlockHeader, Commitment, SignedCommitment};
+use ibc::clients::ics10_grandpa::help::BlockHeader;
 use ibc::core::ics02_client::client_state::AnyClientState;
 use ibc::core::ics02_client::events::UpdateClient;
-use ibc::core::ics02_client::header::AnyHeader;
-use ibc::core::ics02_client::header::Header;
-use ibc::core::ics02_client::misbehaviour::{AnyMisbehaviour, MisbehaviourEvidence};
+
+use ibc::core::ics02_client::misbehaviour::MisbehaviourEvidence;
 use ibc::core::ics24_host::identifier::ChainId;
-use ibc::core::ics24_host::identifier::ClientId;
+
 use ibc::Height;
 
 pub struct LightClient {
     chain_id: ChainId,
     websocket_url: String,
     rt: Arc<TokioRuntime>,
-    beefy_light_client: beefy_light_client::LightClient,
+    // beefy_light_client: beefy_light_client::LightClient,
 }
 
 impl LightClient {
@@ -31,15 +31,15 @@ impl LightClient {
         config: &ChainConfig,
         websocket_url: String,
         rt: Arc<TokioRuntime>,
-        initial_public_keys: Vec<String>,
+        _initial_public_keys: Vec<String>,
     ) -> Self {
         let chain_id = config.id.clone();
-        let beefy_light_client = beefy_light_client::new(initial_public_keys);
+        // let beefy_light_client = beefy_light_client::new(initial_public_keys);
         Self {
             chain_id,
             websocket_url,
             rt,
-            beefy_light_client,
+            // beefy_light_client,
         }
     }
 
@@ -55,10 +55,9 @@ impl super::LightClient<SubstrateChain> for LightClient {
         &mut self,
         trusted: Height,
         target: Height,
-        client_state: &AnyClientState,
+        _client_state: &AnyClientState,
     ) -> Result<Verified<GPHeader>, Error> {
         tracing::info!("In grandpa: [header_and_minimal_set]");
-        use ibc::clients::ics10_grandpa::help::Commitment;
 
         Ok(Verified {
             target: GPHeader {
@@ -88,16 +87,16 @@ impl super::LightClient<SubstrateChain> for LightClient {
 
     fn verify(
         &mut self,
-        trusted: Height,
+        _trusted: Height,
         target: Height,
-        client_state: &AnyClientState,
+        _client_state: &AnyClientState,
     ) -> Result<Verified<GPHeader>, Error> {
         tracing::info!("In grandpa: [verify]");
 
         let block_header = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
+                .build::<MyConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
@@ -126,15 +125,15 @@ impl super::LightClient<SubstrateChain> for LightClient {
 
     fn check_misbehaviour(
         &mut self,
-        update: UpdateClient,
-        client_state: &AnyClientState,
+        _update: UpdateClient,
+        _client_state: &AnyClientState,
     ) -> Result<Option<MisbehaviourEvidence>, Error> {
         tracing::info!("in grandpa: [check_misbehaviour]");
 
         Ok(None) // Todo: May need to implement the same logic of check_misbehaviour in tendermint.rs
     }
 
-    fn fetch(&mut self, height: Height) -> Result<GPHeader, Error> {
+    fn fetch(&mut self, _height: Height) -> Result<GPHeader, Error> {
         tracing::info!("in grandpa: [fetch]");
 
         Ok(GPHeader::default())

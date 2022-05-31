@@ -3,23 +3,18 @@ use crate::config::ChainConfig;
 use crate::error::Error;
 // use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd};
-use crate::keyring::{KeyEntry, KeyRing, Store};
-use crate::light_client::{grandpa::LightClient as GPLightClient, LightClient};
-use crate::{
-    util::retry::{retry_with_index, RetryResult},
-    worker::retry_strategy,
-};
+use crate::keyring::{KeyEntry, KeyRing};
+use crate::light_client::grandpa::LightClient as GPLightClient;
+use crate::util::retry::{retry_with_index, RetryResult};
 use alloc::sync::Arc;
-use bech32::{ToBase32, Variant};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use core::{future::Future, str::FromStr, time::Duration};
+use subxt::rpc::ClientT;
 
 use super::client::ClientSettings;
 use super::tx::TrackedMsgs;
-use crate::chain::{ChainStatus, QueryResponse};
-use crate::connection::ConnectionMsgType;
-use crate::light_client::Verified;
+use crate::chain::ChainStatus;
 use ibc::{
     clients::{
         ics07_tendermint::header::Header as tHeader,
@@ -27,10 +22,7 @@ use ibc::{
             client_state::ClientState as GPClientState,
             consensus_state::ConsensusState as GPConsensusState,
             header::Header as GPHeader,
-            help::{
-                BlockHeader, MmrLeaf, MmrLeafProof, SignedCommitment, ValidatorMerkleProof,
-                ValidatorSet,
-            },
+            help::{BlockHeader, MmrLeaf, MmrLeafProof},
         },
     },
     core::{
@@ -42,17 +34,14 @@ use ibc::{
         ics03_connection::connection::{ConnectionEnd, Counterparty, IdentifiedConnectionEnd},
         ics04_channel::{
             channel::{ChannelEnd, IdentifiedChannelEnd},
-            error::Error as Ics04Error,
             packet::{Packet, PacketMsgType, Receipt, Sequence},
         },
-        ics23_commitment::commitment::{CommitmentPrefix, CommitmentRoot},
+        ics23_commitment::commitment::CommitmentPrefix,
         ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId},
     },
     events::{IbcEvent, WithBlockDataType},
-    proofs::Proofs,
     query::{QueryBlockRequest, QueryTxRequest},
     signer::Signer,
-    timestamp::Timestamp,
     Height, Height as ICSHeight,
 };
 
@@ -69,32 +58,29 @@ use ibc_proto::ibc::core::{
     connection::v1::{QueryClientConnectionsRequest, QueryConnectionsRequest},
 };
 
+use jsonrpsee::rpc_params;
 use octopusxt::ibc_node;
-use retry::{delay::Fixed, OperationResult};
+use octopusxt::MyConfig;
+use retry::delay::Fixed;
 use semver::Version;
+use sp_core::ByteArray;
 use std::thread::{self, sleep};
 use subxt::{
     rpc::NumberOrHex, storage::StorageEntry, storage::StorageKeyPrefix, BlockNumber, Client,
-    ClientBuilder,
+    ClientBuilder, SubstrateExtrinsicParams,
 };
 
-use tendermint::{
-    abci::{transaction::Hash, Code, Log},
-    account::Id as AccountId,
-};
+use tendermint::abci::{Code, Log};
 
-use bitcoin::hashes::hex::ToHex;
 use ibc::clients::ics10_grandpa::help::Commitment;
-use jsonrpsee::types::to_json_value;
+// use jsonrpsee::types::to_json_value;
 use serde::{Deserialize, Serialize};
-use sp_core::{hexdisplay::HexDisplay, storage::StorageKey, Bytes, Pair, Public, H256};
-use sp_runtime::{generic::Header, traits::BlakeTwo256, traits::IdentifyAccount, MultiSigner};
+use sp_core::{hexdisplay::HexDisplay, Bytes, Pair, H256};
+use sp_runtime::{traits::IdentifyAccount, MultiSigner};
 use tendermint::abci::transaction;
-use tendermint_light_client::types::Validator;
 use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
-use tokio::task;
 
 const MAX_QUERY_TIMES: u64 = 100;
 
@@ -117,11 +103,11 @@ impl SubstrateChain {
         self.rt.block_on(f)
     }
 
-    fn get_client(&self) -> Result<Client<ibc_node::DefaultConfig>, Error> {
+    fn get_client(&self) -> Result<Client<MyConfig>, Error> {
         let client = async {
             ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
+                .build::<MyConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())
         };
@@ -142,7 +128,7 @@ impl SubstrateChain {
 
             match result {
                 Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry".to_string()),
+                Err(_) => RetryResult::Retry("Fail to retry".to_string()),
             }
         })
     }
@@ -191,7 +177,7 @@ impl SubstrateChain {
     }
 
     /// get packet receipt by port_id, channel_id and sequence
-    fn get_packet_receipt(
+    fn _get_packet_receipt(
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
@@ -447,7 +433,7 @@ impl SubstrateChain {
         let generate_storage_proof = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
+                .build::<MyConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
@@ -464,10 +450,7 @@ impl SubstrateChain {
             tracing::trace!("in substrate: [generate_storage_proof] >> height: {:?}, block_hash: {:?}, storage key: {:?}, storage_name = {:?}",
                 height, block_hash, storage_key, storage_name);
 
-            let params = &[
-                to_json_value(vec![storage_key]).map_err(Error::invalid_serde_json_error)?,
-                to_json_value(block_hash).map_err(Error::invalid_serde_json_error)?,
-            ];
+            let params = rpc_params![vec![storage_key], block_hash];
 
             #[derive(Debug, PartialEq, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -522,7 +505,7 @@ impl SubstrateChain {
         Ok(compose_ibc_merkle_proof(storage_proof))
     }
 
-    fn key(&self) -> Result<KeyEntry, Error> {
+    fn _key(&self) -> Result<KeyEntry, Error> {
         self.keybase()
             .get_key(&self.config.key_name)
             .map_err(Error::key_base)
@@ -557,18 +540,17 @@ impl ChainEndpoint for SubstrateChain {
 
     fn init_light_client(&self) -> Result<Self::LightClient, Error> {
         tracing::debug!("in substrate: [init_light_client]");
-        use subxt::sp_core::Public;
 
         let config = self.config.clone();
 
         let public_key = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
+                .build::<MyConfig>()
                 .await
-                .map_err(|e| Error::substrate_client_builder_error())?;
+                .map_err(|_| Error::substrate_client_builder_error())?;
 
-            let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+            let api = client.to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
 
             let authorities = api
                 .storage()
@@ -731,7 +713,7 @@ impl ChainEndpoint for SubstrateChain {
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
 
         let private_seed = key.mnemonic;
-        let (pair, seed) = sp_core::sr25519::Pair::from_phrase(&private_seed, None).unwrap();
+        let (pair, _seed) = sp_core::sr25519::Pair::from_phrase(&private_seed, None).unwrap();
         let public_key = pair.public();
 
         let account_id = format_account_id::<sp_core::sr25519::Pair>(public_key);
@@ -765,7 +747,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_clients(
         &self,
-        request: QueryClientStatesRequest,
+        _request: QueryClientStatesRequest,
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
         tracing::trace!("in substrate: [query_clients]");
 
@@ -779,7 +761,7 @@ impl ChainEndpoint for SubstrateChain {
     fn query_client_state(
         &self,
         client_id: &ClientId,
-        height: ICSHeight,
+        _height: ICSHeight,
     ) -> Result<Self::ClientState, Error> {
         tracing::trace!("in substrate: [query_client_state]");
 
@@ -836,7 +818,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_upgraded_client_state(
         &self,
-        height: ICSHeight,
+        _height: ICSHeight,
     ) -> Result<(Self::ClientState, MerkleProof), Error> {
         tracing::trace!("in substrate: [query_upgraded_client_state]");
 
@@ -845,7 +827,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_upgraded_consensus_state(
         &self,
-        height: ICSHeight,
+        _height: ICSHeight,
     ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
         tracing::trace!("in substrate: [query_upgraded_consensus_state]");
 
@@ -854,7 +836,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_connections(
         &self,
-        request: QueryConnectionsRequest,
+        _request: QueryConnectionsRequest,
     ) -> Result<Vec<IdentifiedConnectionEnd>, Error> {
         tracing::trace!("in substrate: [query_connections]");
 
@@ -885,10 +867,10 @@ impl ChainEndpoint for SubstrateChain {
     fn query_connection(
         &self,
         connection_id: &ConnectionId,
-        height: ICSHeight,
+        _height: ICSHeight,
     ) -> Result<ConnectionEnd, Error> {
         tracing::trace!("in substrate: [query_connection]");
-        
+
         let connection_end = self
             .retry_wapper(|| self.get_connection_end(connection_id))
             .map_err(Error::retry_error)?;
@@ -914,7 +896,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_channels(
         &self,
-        request: QueryChannelsRequest,
+        _request: QueryChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         tracing::trace!("in substrate: [query_channels]");
 
@@ -930,7 +912,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
-        height: ICSHeight,
+        _height: ICSHeight,
     ) -> Result<ChannelEnd, Error> {
         tracing::trace!("in substrate: [query_channel]");
 
@@ -943,7 +925,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_channel_client_state(
         &self,
-        request: QueryChannelClientStateRequest,
+        _request: QueryChannelClientStateRequest,
     ) -> Result<Option<IdentifiedAnyClientState>, Error> {
         tracing::trace!("in substrate: [query_channel_client_state]");
 
@@ -952,7 +934,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_packet_commitments(
         &self,
-        request: QueryPacketCommitmentsRequest,
+        _request: QueryPacketCommitmentsRequest,
     ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
         tracing::trace!("in substrate: [query_packet_commitments]");
 
@@ -993,7 +975,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_packet_acknowledgements(
         &self,
-        request: QueryPacketAcknowledgementsRequest,
+        _request: QueryPacketAcknowledgementsRequest,
     ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
         tracing::trace!("in substrate: [query_packet_acknowledgements]");
 
@@ -1032,7 +1014,7 @@ impl ChainEndpoint for SubstrateChain {
 
             // if packet commitment still exists on the original sending chain, then packet ack is unreceived
             // since processing the ack will delete the packet commitment
-            if let Ok(ret) = cmt {
+            if let Ok(_) = cmt {
                 unreceived_seqs.push(u64::from(seq));
             }
         }
@@ -1042,7 +1024,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_next_sequence_receive(
         &self,
-        request: QueryNextSequenceReceiveRequest,
+        _request: QueryNextSequenceReceiveRequest,
     ) -> Result<Sequence, Error> {
         tracing::trace!("in substrate: [query_next_sequence_receive] ");
 
@@ -1079,7 +1061,6 @@ impl ChainEndpoint for SubstrateChain {
 
             QueryTxRequest::Client(request) => {
                 use ibc::core::ics02_client::events::Attributes;
-                use ibc::core::ics02_client::header::AnyHeader;
 
                 // Todo: the client event below is mock
                 // replace it with real client event replied from a Substrate chain
@@ -1095,7 +1076,7 @@ impl ChainEndpoint for SubstrateChain {
                 Ok(result)
             }
 
-            QueryTxRequest::Transaction(tx) => {
+            QueryTxRequest::Transaction(_tx) => {
                 // tracing::trace!("in substrate: [query_txs]: Transaction: {:?}", tx);
                 // Todo: https://github.com/octopus-network/ibc-rs/issues/98
                 let result: Vec<IbcEvent> = vec![];
@@ -1115,7 +1096,7 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_client_state(client_id))
             .map_err(Error::retry_error)?;
 
-        let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes().to_vec());
+        let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes());
 
         Ok((
             result,
@@ -1164,7 +1145,7 @@ impl ChainEndpoint for SubstrateChain {
             connection_end
         };
 
-        let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes().to_vec());
+        let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes());
 
         Ok((
             new_connection_end,
@@ -1184,7 +1165,7 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_client_consensus(client_id, &consensus_height))
             .map_err(Error::retry_error)?;
 
-        let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes().to_vec());
+        let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes());
 
         Ok((
             result,
@@ -1204,10 +1185,10 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_channel_end(port_id, channel_id))
             .map_err(Error::retry_error)?;
 
-        let storage_entry = ibc_node::ibc::storage::Channels(
-            port_id.as_bytes().to_vec(),
-            format!("{}", channel_id).as_bytes().to_vec(),
-        );
+        let channel_id_string = format!("{}", channel_id);
+
+        let storage_entry =
+            ibc_node::ibc::storage::Channels(port_id.as_bytes(), channel_id_string.as_bytes());
         Ok((
             result,
             self.generate_storage_proof(&storage_entry, &height, "Channels")?,
@@ -1232,7 +1213,7 @@ impl ChainEndpoint for SubstrateChain {
             let result = async {
                 let client = ClientBuilder::new()
                     .set_url(&self.websocket_url.clone())
-                    .build::<ibc_node::DefaultConfig>()
+                    .build::<MyConfig>()
                     .await
                     .map_err(|_| Error::substrate_client_builder_error())?;
 
@@ -1287,7 +1268,7 @@ impl ChainEndpoint for SubstrateChain {
 
             match self.block_on(result) {
                 Ok(v) => RetryResult::Ok(v),
-                Err(e) => RetryResult::Retry("Fail to retry".to_string()),
+                Err(_) => RetryResult::Retry("Fail to retry".to_string()),
             }
         })
         .map_err(Error::retry_error)?;
@@ -1298,12 +1279,15 @@ impl ChainEndpoint for SubstrateChain {
             packet_type
         );
 
+        let sequence = u64::from(sequence);
+        let channel_id_string = format!("{}", channel_id);
+
         match packet_type {
             PacketMsgType::Recv => {
                 let storage_entry = ibc_node::ibc::storage::PacketCommitment(
-                    port_id.as_bytes().to_vec(),
-                    format!("{}", channel_id).as_bytes().to_vec(),
-                    u64::from(sequence),
+                    port_id.as_bytes(),
+                    channel_id_string.as_bytes(),
+                    &sequence,
                 );
                 Ok((
                     result,
@@ -1312,9 +1296,9 @@ impl ChainEndpoint for SubstrateChain {
             }
             PacketMsgType::Ack => {
                 let storage_entry = ibc_node::ibc::storage::Acknowledgements(
-                    port_id.as_bytes().to_vec(),
-                    format!("{}", channel_id).as_bytes().to_vec(),
-                    u64::from(sequence),
+                    port_id.as_bytes(),
+                    channel_id_string.as_bytes(),
+                    &sequence,
                 );
                 Ok((
                     result,
@@ -1323,15 +1307,18 @@ impl ChainEndpoint for SubstrateChain {
             }
             PacketMsgType::TimeoutOnClose => {
                 Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
-            } // Todo: https://github.com/cosmos/ibc/issues/620
+            }
+            // Todo: https://github.com/cosmos/ibc/issues/620
             PacketMsgType::TimeoutUnordered => {
                 Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
-            } // Todo: https://github.com/cosmos/ibc/issues/620
+            }
+            // Todo: https://github.com/cosmos/ibc/issues/620
             PacketMsgType::TimeoutOrdered => {
                 let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(
-                    port_id.as_bytes().to_vec(),
-                    format!("{}", channel_id).as_bytes().to_vec(),
+                    port_id.as_bytes(),
+                    channel_id_string.as_bytes(),
                 );
+
                 Ok((
                     result,
                     self.generate_storage_proof(&storage_entry, &height, "NextSequenceRecv")?,
@@ -1343,18 +1330,18 @@ impl ChainEndpoint for SubstrateChain {
     fn build_client_state(
         &self,
         height: ICSHeight,
-        dst_config: ClientSettings,
+        _dst_config: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
         tracing::trace!("in substrate: [build_client_state]");
 
         let public_key = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
+                .build::<MyConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
-            let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+            let api = client.to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
 
             let authorities = api
                 .storage()
@@ -1394,7 +1381,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn build_consensus_state(
         &self,
-        light_block: Self::LightBlock,
+        _light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
         tracing::trace!("in substrate: [build_consensus_state]");
 
@@ -1406,7 +1393,7 @@ impl ChainEndpoint for SubstrateChain {
         trusted_height: ICSHeight,
         target_height: ICSHeight,
         client_state: &AnyClientState,
-        light_client: &mut Self::LightClient,
+        _light_client: &mut Self::LightClient,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         tracing::trace!("in substrate: [build_header]");
 
@@ -1429,14 +1416,14 @@ impl ChainEndpoint for SubstrateChain {
         let result = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
+                .build::<MyConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
             let beefy_light_client::commitment::Commitment {
-                payload,
+                payload: _payload,
                 block_number,
-                validator_set_id,
+                validator_set_id: _validator_set_id,
             } = grandpa_client_state.latest_commitment.clone().into();
 
             let mmr_root_height = block_number;
@@ -1453,7 +1440,7 @@ impl ChainEndpoint for SubstrateChain {
 
             let api = client
                 .clone()
-                .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+                .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
 
             assert_eq!(
                 block_header.block_number,
@@ -1520,13 +1507,13 @@ impl ChainEndpoint for SubstrateChain {
         let result = async {
             let chain_a = ClientBuilder::new()
                 .set_url(src_chain_websocket_url)
-                .build::<ibc_node::DefaultConfig>()
+                .build::<MyConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
             let chain_b = ClientBuilder::new()
                 .set_url(dst_chain_websocket_url)
-                .build::<ibc_node::DefaultConfig>()
+                .build::<MyConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
@@ -1575,14 +1562,17 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_blocks(
         &self,
-        request: QueryBlockRequest,
+        _request: QueryBlockRequest,
     ) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error> {
         tracing::trace!("in substrate: [query_block]");
 
         Ok((vec![], vec![]))
     }
 
-    fn query_host_consensus_state(&self, height: ICSHeight) -> Result<Self::ConsensusState, Error> {
+    fn query_host_consensus_state(
+        &self,
+        _height: ICSHeight,
+    ) -> Result<Self::ConsensusState, Error> {
         tracing::trace!("in substrate: [query_host_consensus_state]");
 
         Ok(AnyConsensusState::Grandpa(GPConsensusState::default()))
@@ -1630,7 +1620,6 @@ pub fn get_dummy_ics07_header() -> tHeader {
 
     // Build a set of validators.
     // Below are test values inspired form `test_validator_set()` in tendermint-rs.
-    use std::convert::TryInto;
     use subtle_encoding::hex;
     use tendermint::validator::Info as ValidatorInfo;
     use tendermint::PublicKey;

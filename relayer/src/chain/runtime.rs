@@ -61,8 +61,6 @@ use super::{
     tx::TrackedMsgs,
     ChainEndpoint, HealthCheck,
 };
-use ibc::core::ics24_host::identifier::ChainId;
-use std::thread::sleep;
 
 pub struct Threads {
     pub chain_runtime: thread::JoinHandle<()>,
@@ -218,7 +216,6 @@ where
     }
 
     fn run(mut self) -> Result<(), Error> {
-        use core::time::Duration;
         loop {
             channel::select! {
                 recv(self.event_monitor_ctrl.recv()) -> event_batch => {
