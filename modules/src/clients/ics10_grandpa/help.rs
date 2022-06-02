@@ -597,8 +597,6 @@ pub struct MmrRoot {
     pub block_header: BlockHeader,
     pub signed_commitment: SignedCommitment,
     pub validator_merkle_proofs: Vec<ValidatorMerkleProof>,
-    // pub mmr_leaf: MmrLeaf,
-    // pub mmr_leaf_proof: MmrLeafProof,
     pub mmr_leaf: Vec<u8>,
     pub mmr_leaf_proof: Vec<u8>,
 }

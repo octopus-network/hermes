@@ -48,7 +48,7 @@ impl Height {
     }
 
     pub fn increment(&self) -> Height {
-        self.add(1)
+        self.add(0)
     }
 
     pub fn sub(&self, delta: u64) -> Result<Height, Error> {

@@ -180,23 +180,3 @@ pub fn spawn_chain_runtime<Chain: ChainHandle>(
 
     Ok(handle)
 }
-//
-// /// Spawns a chain runtime from the configuration and given a chain identifier.
-// /// Returns the corresponding handle if successful.
-// pub fn spawn_chain_runtime_for_substrate<Chain: ChainHandle>(
-//     config: &RwArc<Config>,
-//     chain_id: &ChainId,
-//     rt: Arc<TokioRuntime>,
-// ) -> Result<Chain, SpawnError> {
-//     let chain_config = config
-//         .read()
-//         .expect("poisoned lock")
-//         .find_chain(chain_id)
-//         .cloned()
-//         .ok_or_else(|| SpawnError::missing_chain(chain_id.clone()))?;
-//
-//     let handle =
-//         ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(SpawnError::relayer)?;
-//
-//     Ok(handle)
-// }

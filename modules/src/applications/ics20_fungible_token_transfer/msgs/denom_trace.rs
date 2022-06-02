@@ -101,11 +101,6 @@ pub fn parse_denom_trace(raw_denom: &str) -> Result<DenomTrace, Error> {
 //  - A valid fungible token representation (i.e 'ibc/{hash}') per ADR 001 https://github.com/cosmos/ibc-go/blob/main/docs/architecture/adr-001-coin-source-tracing.md
 // refer to https://github.com/octopus-network/ibc-go/blob/f5962c3324ee7e69eeaa9918b65eb1b089da6095/modules/apps/transfer/types/trace.go#L167
 pub fn validate_ibc_denom(denom: &str) -> Result<(), Error> {
-    //TODO: This check maybe put in the module related to the specific chain sdk
-    // if err := sdk.ValidateDenom(denom); err != nil {
-    // 	return err
-    // }
-
     if denom.trim() == "" {
         return Err(Error::invalid_denom_for_transfer(
             "denomination should not be empty".to_string(),
@@ -136,7 +131,6 @@ pub fn parse_hex_hash(hex_hash: &str) -> Result<Vec<u8>, Error> {
     let hash = hex::decode_upper(hex_hash)
         .map_err(|err| Error::invalid_denom_for_transfer(err.to_string()))?;
     // validate hash returns an error if the hash is not empty, but its
-    // size != tmhash.Size.
     if !hash.is_empty() && hash.len() != Sha256::output_size() {
         return Err(Error::invalid_denom_for_transfer(format!(
             "expected size to be {} bytes, got {} bytes",
@@ -172,8 +166,6 @@ impl From<DenomTrace> for RawDenomTrace {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    // use hex_literal::hex;
-    // pub(crate) use hex;
     use std::println;
 
     #[test]

@@ -4,6 +4,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::convert::From;
+use core::convert::TryFrom;
 use core::convert::TryInto;
 use tendermint_proto::Protobuf;
 
@@ -12,6 +13,7 @@ use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 use crate::clients::ics10_grandpa::client_state::ClientState;
 use crate::clients::ics10_grandpa::consensus_state::ConsensusState as GpConsensusState;
 use crate::clients::ics10_grandpa::header::Header;
+use crate::clients::ics10_grandpa::state_machine::read_proof_check;
 use crate::core::ics02_client::client_consensus::AnyConsensusState;
 use crate::core::ics02_client::client_def::ClientDef;
 use crate::core::ics02_client::client_state::AnyClientState;
@@ -28,6 +30,18 @@ use crate::core::ics23_commitment::commitment::{
 use crate::core::ics24_host::identifier::ConnectionId;
 use crate::core::ics24_host::identifier::{ChannelId, ClientId, PortId};
 use crate::Height;
+
+use frame_support::{
+    storage::{
+        storage_prefix,
+        types::{EncodeLikeTuple, KeyGenerator, TupleToEncodedIter},
+        Key,
+    },
+    Blake2_128Concat, StorageHasher,
+};
+use ibc_proto::ics23::commitment_proof::Proof::Exist;
+use sp_runtime::traits::BlakeTwo256;
+use sp_trie::StorageProof;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GrandpaClient;
@@ -49,7 +63,8 @@ impl ClientDef for GrandpaClient {
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state : {:?}",header);
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state : header={:?}, client_state={:?}",
+            header, client_state);
 
         if header.block_header.block_number > client_state.latest_commitment.block_number {
             return Err(Error::invalid_mmr_root_height(
@@ -117,10 +132,10 @@ impl ClientDef for GrandpaClient {
         &self,
         client_state: &Self::ClientState,
         consensus_state: &Self::ConsensusState,
-        proof_upgrade_client: MerkleProof,
-        proof_upgrade_consensus_state: MerkleProof,
+        _proof_upgrade_client: MerkleProof,
+        _proof_upgrade_consensus_state: MerkleProof,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
-        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_upgrade_and_update_state proof_upgrade_client: {:?}",proof_upgrade_client);
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_upgrade_and_update_state");
 
         Ok((client_state.clone(), consensus_state.clone()))
     }
@@ -135,16 +150,16 @@ impl ClientDef for GrandpaClient {
     #[allow(clippy::too_many_arguments)]
     fn verify_client_consensus_state(
         &self,
-        client_state: &Self::ClientState,
-        height: Height,
-        prefix: &CommitmentPrefix,
-        proof: &CommitmentProofBytes,
-        root: &CommitmentRoot,
-        client_id: &ClientId,
-        consensus_height: Height,
-        expected_consensus_state: &AnyConsensusState,
+        _client_state: &Self::ClientState,
+        _height: Height,
+        _prefix: &CommitmentPrefix,
+        _proof: &CommitmentProofBytes,
+        _root: &CommitmentRoot,
+        _client_id: &ClientId,
+        _consensus_height: Height,
+        _expected_consensus_state: &AnyConsensusState,
     ) -> Result<(), Error> {
-        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_client_consensus_state proof : {:?}",proof);
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_client_consensus_state");
 
         Ok(())
     }
@@ -196,20 +211,23 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_channel_state proof : {:?}",proof);
 
-        // let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
+        let keys: Vec<Vec<u8>> = vec![
+            port_id.as_bytes().to_vec(),
+            format!("{}", channel_id).as_bytes().to_vec(),
+        ];
 
-        // let storage_result =
-        //     Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
+        let storage_result =
+            Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
 
-        // let channel_end = ChannelEnd::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
+        let channel_end = ChannelEnd::decode_vec(&storage_result).map_err(Error::invalid_decode)?;
 
-        // if channel_end.encode_vec().map_err(Error::invalid_encode)?
-        //     != expected_channel_end
-        //         .encode_vec()
-        //         .map_err(Error::invalid_encode)?
-        // {
-        //     return Err(Error::invalid_connection_state());
-        // }
+        if channel_end.encode_vec().map_err(Error::invalid_encode)?
+            != expected_channel_end
+                .encode_vec()
+                .map_err(Error::invalid_encode)?
+        {
+            return Err(Error::invalid_connection_state());
+        }
         Ok(())
     }
 
@@ -263,20 +281,21 @@ impl ClientDef for GrandpaClient {
         sequence: Sequence,
         commitment: PacketCommitment,
     ) -> Result<(), Error> {
-        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_data proof : {:?}",proof);
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_data. port_id={:?}, channel_id={:?}, sequence={:?}",
+            port_id, channel_id, sequence);
 
-        // let keys: Vec<Vec<u8>> = vec![
-        //     port_id.as_bytes().to_vec(),
-        //     channel_id.as_bytes().to_vec(),
-        //     u64::from(sequence).encode(),
-        // ];
+        let keys: Vec<Vec<u8>> = vec![
+            port_id.as_bytes().to_vec(),
+            format!("{}", channel_id).as_bytes().to_vec(),
+            u64::from(sequence).encode(),
+        ];
 
-        // let storage_result =
-        //     Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment")?;
+        let storage_result =
+            Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment")?;
 
-        // if storage_result != commitment.encode() {
-        //     return Err(Error::invalid_packet_commitment(sequence));
-        // }
+        if storage_result != commitment.into_vec() {
+            return Err(Error::invalid_packet_commitment(sequence));
+        }
 
         Ok(())
     }
@@ -297,21 +316,21 @@ impl ClientDef for GrandpaClient {
         sequence: Sequence,
         ack: AcknowledgementCommitment,
     ) -> Result<(), Error> {
-        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_acknowledgement proof : {:?}",proof);
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_acknowledgement. port_id={:?}, channel_id={:?}, sequence={:?}, ack={:?}",
+            port_id, channel_id, sequence, ack);
 
-        // let keys: Vec<Vec<u8>> = vec![
-        //     port_id.as_bytes().to_vec(),
-        //     channel_id.as_bytes().to_vec(),
-        //     u64::from(sequence).encode(),
-        // ];
+        let keys: Vec<Vec<u8>> = vec![
+            port_id.as_bytes().to_vec(),
+            format!("{}", channel_id).as_bytes().to_vec(),
+            u64::from(sequence).encode(),
+        ];
 
-        // let storage_result =
-        //     Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
+        let storage_result =
+            Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
 
-        // let ack = format!("{:?}", ack.into_bytes());
-        // if storage_result != Self::hash(ack).encode() {
-        //     return Err(Error::invalid_packet_ack(sequence));
-        // }
+        if storage_result != ack.into_vec() {
+            return Err(Error::invalid_packet_ack(sequence));
+        }
         Ok(())
     }
 
@@ -329,21 +348,25 @@ impl ClientDef for GrandpaClient {
         channel_id: &ChannelId,
         sequence: Sequence,
     ) -> Result<(), Error> {
-        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_next_sequence_recv proof : {:?}",proof);
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_next_sequence_recv.  port_id={:?}, channel_id={:?}, sequence={:?}",
+            port_id, channel_id, sequence);
 
-        // let keys: Vec<Vec<u8>> = vec![port_id.as_bytes().to_vec(), channel_id.as_bytes().to_vec()];
+        let keys: Vec<Vec<u8>> = vec![
+            port_id.as_bytes().to_vec(),
+            format!("{}", channel_id).as_bytes().to_vec(),
+        ];
 
-        // let storage_result =
-        //     Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;
+        let storage_result =
+            Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;
 
-        // let sequence_restored: u64 =
-        //     u64::decode(&mut &storage_result[..]).map_err(Error::invalid_codec_decode)?;
-        // if sequence_restored > u64::from(sequence) {
-        //     return Err(Error::invalid_next_sequence_recv(
-        //         sequence_restored,
-        //         u64::from(sequence),
-        //     ));
-        // }
+        let sequence_restored: u64 =
+            u64::decode(&mut &storage_result[..]).map_err(Error::invalid_codec_decode)?;
+        if sequence_restored > u64::from(sequence) {
+            return Err(Error::invalid_next_sequence_recv(
+                sequence_restored,
+                u64::from(sequence),
+            ));
+        }
 
         Ok(())
     }
@@ -352,17 +375,17 @@ impl ClientDef for GrandpaClient {
     #[allow(clippy::too_many_arguments)]
     fn verify_packet_receipt_absence(
         &self,
-        ctx: &dyn ChannelReader,
-        client_state: &Self::ClientState,
-        height: Height,
-        connection_end: &ConnectionEnd,
-        proof: &CommitmentProofBytes,
-        root: &CommitmentRoot,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        sequence: Sequence,
+        _ctx: &dyn ChannelReader,
+        _client_state: &Self::ClientState,
+        _height: Height,
+        _connection_end: &ConnectionEnd,
+        _proof: &CommitmentProofBytes,
+        _root: &CommitmentRoot,
+        _port_id: &PortId,
+        _channel_id: &ChannelId,
+        _sequence: Sequence,
     ) -> Result<(), Error> {
-        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_receipt_absence proof : {:?}",proof);
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_receipt_absence");
 
         Ok(())
     }
@@ -371,18 +394,14 @@ impl ClientDef for GrandpaClient {
 impl GrandpaClient {
     /// Reconstruct on-chain storage value by proof, key(path), and state root
     fn get_storage_via_proof(
-        _client_state: &ClientState,
-        _height: Height,
-        _proof: &CommitmentProofBytes,
-        _keys: Vec<Vec<u8>>,
-        _storage_name: &str,
+        client_state: &ClientState,
+        height: Height,
+        proof: &CommitmentProofBytes,
+        keys: Vec<Vec<u8>>,
+        storage_name: &str,
     ) -> Result<Vec<u8>, Error> {
-        use crate::clients::ics10_grandpa::state_machine::read_proof_check;
-        use core::convert::TryFrom;
-        use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
-        use ibc_proto::ics23::commitment_proof::Proof::Exist;
-        use sp_runtime::traits::BlakeTwo256;
-        use sp_trie::StorageProof;
+        tracing::trace!(target:"ibc-rs", "In ics10-client_def.rs: [get_storage_via_proof] >> client_state: {:?}, height: {:?}, keys: {:?}, storage_name: {:?}",
+            client_state, height, keys, storage_name);
 
         use serde::{Deserialize, Serialize};
         #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -393,31 +412,34 @@ impl GrandpaClient {
         }
 
         let merkel_proof =
-            RawMerkleProof::try_from(_proof.clone()).map_err(|_| Error::invalid_merkle_proof())?;
-        let _merkel_proof = merkel_proof.proofs[0]
+            MerkleProof::try_from(proof.clone()).map_err(|_| Error::invalid_merkle_proof())?;
+        let merkel_proof = merkel_proof.proofs[0]
             .proof
             .clone()
             .ok_or_else(Error::empty_proof)?;
-        let storage_proof = match _merkel_proof {
-            Exist(_exist_proof) => {
-                let _proof_str =
-                    String::from_utf8(_exist_proof.value).map_err(Error::invalid_from_utf8)?;
-
-                let _storage_proof: ReadProofU8 =
-                    serde_json::from_str(&_proof_str).map_err(Error::invalid_serde_json_encode)?;
-                _storage_proof
+        let storage_proof = match merkel_proof {
+            Exist(exist_proof) => {
+                let proof_str =
+                    String::from_utf8(exist_proof.value).map_err(Error::invalid_from_utf8)?;
+                tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, _proof_str = {:?}", proof_str);
+                let storage_proof: ReadProofU8 =
+                    serde_json::from_str(&proof_str).map_err(Error::invalid_serde_json_encode)?;
+                storage_proof
             }
             _ => unimplemented!(),
         };
 
-        let _storage_keys = Self::storage_map_final_key(_keys, _storage_name)?;
-        let state_root = _client_state.clone().block_header.state_root;
+        let storage_keys = Self::storage_map_final_key(keys, storage_name)?;
+        let state_root = client_state.clone().block_header.state_root;
+        tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, state_root = {:?}", state_root);
+        tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, storage_proof = {:?}", storage_proof);
+        tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, _storage_keys = {:?}", storage_keys);
         let state_root = vector_to_array::<u8, 32>(state_root);
 
         let storage_result = read_proof_check::<BlakeTwo256>(
             sp_core::H256::from(state_root),
             StorageProof::new(storage_proof.proof),
-            &_storage_keys,
+            &storage_keys,
         )
         .map_err(|_| Error::read_proof_check())?
         .ok_or_else(Error::empty_proof)?;
@@ -425,18 +447,14 @@ impl GrandpaClient {
         let storage_result =
             <Vec<u8>>::decode(&mut &storage_result[..]).map_err(Error::invalid_codec_decode)?;
 
+        tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, storage_result = {:?}, storage_name={:?}",
+            storage_result, storage_name);
+
         Ok(storage_result)
     }
 
     /// Calculate the storage's final key
-    fn storage_map_final_key(_keys: Vec<Vec<u8>>, _storage_name: &str) -> Result<Vec<u8>, Error> {
-        use frame_support::storage::storage_prefix;
-        use frame_support::storage::types::EncodeLikeTuple;
-        use frame_support::storage::types::KeyGenerator;
-        use frame_support::storage::types::TupleToEncodedIter;
-        use frame_support::storage::Key;
-        use frame_support::{Blake2_128Concat, StorageHasher};
-
+    fn storage_map_final_key(keys: Vec<Vec<u8>>, storage_name: &str) -> Result<Vec<u8>, Error> {
         // Todo: To justify different types of keys by an enum like below, instead of _keys.len()
         /*
             enum StorageMapKeys<KArg> where KArg: EncodeLikeTuple<Vec<u8>> + TupleToEncodedIter
@@ -448,9 +466,9 @@ impl GrandpaClient {
         */
 
         // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
-        if _keys.len() == 1 {
-            let key_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[0].encode());
-            let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
+        if keys.len() == 1 {
+            let key_hashed: &[u8] = &Blake2_128Concat::hash(&keys[0].encode());
+            let storage_prefix = storage_prefix("Ibc".as_bytes(), storage_name.as_bytes());
             let mut final_key =
                 Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
             final_key.extend_from_slice(&storage_prefix);
@@ -459,10 +477,10 @@ impl GrandpaClient {
         }
 
         // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/double_map.rs#L92
-        if _keys.len() == 2 {
-            let key1_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[0].encode());
-            let key2_hashed: &[u8] = &Blake2_128Concat::hash(&_keys[1].encode());
-            let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
+        if keys.len() == 2 {
+            let key1_hashed: &[u8] = &Blake2_128Concat::hash(&keys[0].encode());
+            let key2_hashed: &[u8] = &Blake2_128Concat::hash(&keys[1].encode());
+            let storage_prefix = storage_prefix("Ibc".as_bytes(), storage_name.as_bytes());
             let mut final_key = Vec::with_capacity(
                 storage_prefix.len() + key1_hashed.as_ref().len() + key2_hashed.as_ref().len(),
             );
@@ -474,13 +492,17 @@ impl GrandpaClient {
 
         // Todo: expand the capability of the code to handle key length of more than 3
         // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/nmap.rs#L100
-        if _keys.len() == 3 {
-            let result_keys = (_keys[0].clone(), _keys[1].clone(), _keys[2].clone());
-            let storage_prefix = storage_prefix("Ibc".as_bytes(), _storage_name.as_bytes());
+        if keys.len() == 3 {
+            let result_keys = (
+                keys[0].clone(),
+                keys[1].clone(),
+                u64::decode(&mut keys[2].clone().as_slice()).unwrap(),
+            );
+            let storage_prefix = storage_prefix("Ibc".as_bytes(), storage_name.as_bytes());
             let key_hashed = <(
                 Key<Blake2_128Concat, Vec<u8>>,
                 Key<Blake2_128Concat, Vec<u8>>,
-                Key<Blake2_128Concat, Vec<u8>>,
+                Key<Blake2_128Concat, u64>,
             ) as KeyGenerator>::final_key(result_keys);
 
             let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
@@ -490,7 +512,7 @@ impl GrandpaClient {
             return Ok(final_key);
         }
 
-        Err(Error::wrong_key_number(_keys.len() as u8))
+        Err(Error::wrong_key_number(keys.len() as u8))
     }
 
     /// A hashing function for packet commitments

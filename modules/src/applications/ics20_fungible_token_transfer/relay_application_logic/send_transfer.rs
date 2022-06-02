@@ -31,17 +31,7 @@ where
         .map_err(Error::ics04_channel)?;
 
     tracing::trace!(target:"ibc-rs","[send_transfer]: sequence = {:?}",sequence);
-    // log::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: sequence = {:?}",sequence);
-    //TODO: Application LOGIC.
-
-    //TODO: build packet data
-    // refer to ibc-go https://github.com/octopus-network/ibc-go/blob/e40cdec6a3413fb3c8ea2a7ccad5e363ecd5a695/modules/apps/transfer/keeper/relay.go#L146
-    // packetData := types.NewFungibleTokenPacketData(
-    // 	fullDenomPath, token.Amount.String(), sender.String(), receiver,
-    // )
-
     tracing::trace!(target:"ibc-rs","[send_transfer]: token = {:?}", msg.token.clone());
-    // log::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: token = {:?}", msg.token.clone());
 
     let denom = msg.token.clone().ok_or_else(Error::empty_token)?.denom;
     let amount = msg.token.ok_or_else(Error::empty_token)?.amount;
@@ -63,16 +53,14 @@ where
         source_port: msg.source_port,
         source_channel: msg.source_channel,
         destination_port,
-        destination_channel: destination_channel.clone(),
+        destination_channel: *destination_channel,
         data: encode_packet_data,
         timeout_height: msg.timeout_height,
         timeout_timestamp: msg.timeout_timestamp,
     };
 
     tracing::trace!(target:"ibc-rs","[send_transfer]: packet = {:?}", packet);
-    // log::trace!(target:"ibc-rs::ics20","🤮in ics20 [send_transfer]: packet = {:?}", packet);
     let handler_output = send_packet(ctx, packet).map_err(Error::ics04_channel)?;
 
-    //TODO:  add event/atributes and writes to the store issued by the application logic for packet sending.
     Ok(handler_output)
 }

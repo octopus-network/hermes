@@ -49,6 +49,9 @@ pub struct KeyEntry {
 
     /// Address
     pub address: Vec<u8>,
+
+    /// mnemonic
+    pub mnemonic: String,
 }
 
 /// JSON key seed file
@@ -94,6 +97,7 @@ impl KeyEntry {
                 private_key,
                 account: key_file.address,
                 address: keyfile_address_bytes,
+                mnemonic: key_file.mnemonic,
             })
         }
     }
@@ -195,7 +199,6 @@ impl KeyStore for Test {
 
         let key_entry = serde_json::from_reader(file)
             .map_err(|e| Error::key_file_decode(format!("{}", key_file.display()), e))?;
-        tracing::info!("key_entry: {:?}", key_entry);
 
         Ok(key_entry)
     }
@@ -356,6 +359,7 @@ impl KeyRing {
             private_key,
             account,
             address,
+            mnemonic: String::from(mnemonic_words),
         })
     }
 
