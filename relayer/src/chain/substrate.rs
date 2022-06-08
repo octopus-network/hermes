@@ -10,11 +10,12 @@ use codec::{Decode, Encode};
 use core::fmt::Debug;
 use core::{future::Future, str::FromStr, time::Duration};
 use subxt::rpc::ClientT;
-use tracing::trace;
+use tracing::{error, info, trace, warn};
 
 use super::client::ClientSettings;
 use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
 use crate::chain::tracking::TrackedMsgs;
+use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
 use ibc::core::ics23_commitment::merkle::MerkleProof;
 use ibc::{
     clients::{
@@ -147,7 +148,7 @@ impl SubstrateChain {
 
     /// Subscribe Events
     fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [subscribe_ibc_events]");
+        trace!("in substrate: [subscribe_ibc_events]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -156,7 +157,7 @@ impl SubstrateChain {
 
     /// get latest block height
     fn get_latest_height(&self) -> Result<u64, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_latest_height]");
+        trace!("in substrate: [get_latest_height]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -168,7 +169,7 @@ impl SubstrateChain {
         &self,
         connection_identifier: &ConnectionId,
     ) -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_connection_end]");
+        trace!("in substrate: [get_connection_end]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -181,7 +182,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
     ) -> Result<ChannelEnd, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_channel_end]");
+        trace!("in substrate: [get_channel_end]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -189,13 +190,13 @@ impl SubstrateChain {
     }
 
     /// get packet receipt by port_id, channel_id and sequence
-    fn _get_packet_receipt(
+    fn get_packet_receipt(
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
         seq: &Sequence,
     ) -> Result<Receipt, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_packet_receipt]");
+        trace!("in substrate: [get_packet_receipt]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -211,7 +212,7 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         seq: &Sequence,
     ) -> Result<Packet, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_send_packet_event]");
+        trace!("in substrate: [get_send_packet_event]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -225,7 +226,7 @@ impl SubstrateChain {
         &self,
         client_id: &ClientId,
     ) -> Result<AnyClientState, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_client_state]");
+        trace!("in substrate: [get_client_state]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -238,7 +239,7 @@ impl SubstrateChain {
         client_id: &ClientId,
         height: &ICSHeight,
     ) -> Result<AnyConsensusState, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_client_consensus]");
+        trace!("in substrate: [get_client_consensus]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -249,7 +250,7 @@ impl SubstrateChain {
         &self,
         client_id: &ClientId,
     ) -> Result<Vec<(ICSHeight, AnyConsensusState)>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_consensus_state_with_height]");
+        trace!("in substrate: [get_consensus_state_with_height]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -264,7 +265,7 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         sequences: &[Sequence],
     ) -> Result<Vec<Sequence>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_unreceipt_packet]");
+        trace!("in substrate: [get_unreceipt_packet]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -279,7 +280,7 @@ impl SubstrateChain {
     }
 
     fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_clients]");
+        trace!("in substrate: [get_clients]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -287,7 +288,7 @@ impl SubstrateChain {
     }
 
     fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_connections]");
+        trace!("in substrate: [get_connections]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -295,7 +296,7 @@ impl SubstrateChain {
     }
 
     fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_channels]");
+        trace!("in substrate: [get_channels]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -303,7 +304,7 @@ impl SubstrateChain {
     }
 
     fn get_commitment_packet_state(&self) -> Result<Vec<Sequence>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_commitment_packet_state]");
+        trace!("in substrate: [get_commitment_packet_state]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -318,7 +319,7 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         sequence: &Sequence,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_packet_commitment]");
+        trace!("in substrate: [get_packet_commitment]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -328,7 +329,7 @@ impl SubstrateChain {
     }
 
     fn get_acknowledge_packet_state(&self) -> Result<Vec<Sequence>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_acknowledge_packet_state]");
+        trace!("in substrate: [get_acknowledge_packet_state]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -341,7 +342,7 @@ impl SubstrateChain {
         &self,
         client_id: &ClientId,
     ) -> Result<Vec<ConnectionId>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_client_connections]");
+        trace!("in substrate: [get_client_connections]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -352,7 +353,7 @@ impl SubstrateChain {
         &self,
         connection_id: &ConnectionId,
     ) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_connection_channels]");
+        trace!("in substrate: [get_connection_channels]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -362,7 +363,7 @@ impl SubstrateChain {
     /// The function to submit IBC request to a Substrate chain
     /// This function handles most of the IBC reqeusts, except the MMR root update
     fn deliever(&self, msgs: Vec<Any>) -> Result<H256, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [deliever]");
+        trace!("in substrate: [deliever]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -377,7 +378,7 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         sequence: &Sequence,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_send_packet_event]");
+        trace!("in substrate: [get_send_packet_event]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -388,8 +389,10 @@ impl SubstrateChain {
 
     fn get_ibc_send_packet_event(
         &self,
-        request: ibc::core::ics04_channel::channel::QueryPacketEventDataRequest,
+        request: QueryPacketEventDataRequest,
     ) -> Result<Vec<IbcEvent>, Error> {
+        trace!("in substrate: [get_ibc_send_packet_event]");
+
         let mut result_event = vec![];
 
         for sequence in &request.sequences {
@@ -413,8 +416,9 @@ impl SubstrateChain {
 
     fn get_ibc_write_acknowledgement_event(
         &self,
-        request: ibc::core::ics04_channel::channel::QueryPacketEventDataRequest,
+        request: QueryPacketEventDataRequest,
     ) -> Result<Vec<IbcEvent>, Error> {
+        trace!("in substrate: [get_ibc_write_acknowledgement_event]");
         use ibc::core::ics04_channel::events::WriteAcknowledgement;
 
         let mut result_event = vec![];
@@ -452,6 +456,8 @@ impl SubstrateChain {
     where
         <F as StorageEntry>::Value: Serialize + Debug,
     {
+        trace!("in substrate: [generate_storage_proof]");
+
         let generate_storage_proof = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
@@ -469,7 +475,7 @@ impl SubstrateChain {
                 .ok_or_else(Error::empty_hash)?;
 
             let storage_key = storage_entry.key().final_key(StorageKeyPrefix::new::<F>());
-            tracing::trace!("in substrate: [generate_storage_proof] >> height: {:?}, block_hash: {:?}, storage key: {:?}, storage_name = {:?}",
+            trace!("in substrate: [generate_storage_proof] >> height: {:?}, block_hash: {:?}, storage key: {:?}, storage_name = {:?}",
                 height, block_hash, storage_key, storage_name);
 
             let params = rpc_params![vec![storage_key], block_hash];
@@ -488,7 +494,7 @@ impl SubstrateChain {
                 .await
                 .map_err(|_| Error::get_read_proof_error())?;
 
-            tracing::trace!(
+            trace!(
                 "in substrate: [generate_storage_proof] >> storage_proof : {:?}",
                 storage_proof
             );
@@ -507,14 +513,14 @@ impl SubstrateChain {
                     .map(|val| val.clone().0)
                     .collect::<Vec<Vec<u8>>>(),
             };
-            tracing::trace!(
+            trace!(
                 "in substrate: [generate_storage_proof] >> storage_proof_ : {:?}",
                 storage_proof_
             );
 
             let storage_proof_str =
                 serde_json::to_string(&storage_proof_).map_err(Error::invalid_serde_json_error)?;
-            tracing::trace!(
+            trace!(
                 "in substrate: [generate_storage_proof] >> storage_proof_str: {:?}",
                 storage_proof_str
             );
@@ -527,7 +533,8 @@ impl SubstrateChain {
         Ok(compose_ibc_merkle_proof(storage_proof))
     }
 
-    fn _key(&self) -> Result<KeyEntry, Error> {
+    fn key(&self) -> Result<KeyEntry, Error> {
+        trace!("in substrate: [key]");
         self.keybase()
             .get_key(&self.config.key_name)
             .map_err(Error::key_base)
@@ -542,7 +549,7 @@ impl ChainEndpoint for SubstrateChain {
     type LightClient = GPLightClient;
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
-        tracing::info!("in Substrate: [bootstrap function]");
+        trace!("in Substrate: [bootstrap function]");
 
         let websocket_url = format!("{}", config.websocket_addr);
 
@@ -561,7 +568,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn init_light_client(&self) -> Result<Self::LightClient, Error> {
-        tracing::debug!("in substrate: [init_light_client]");
+        trace!("in substrate: [init_light_client]");
 
         let config = self.config.clone();
 
@@ -580,7 +587,9 @@ impl ChainEndpoint for SubstrateChain {
                 .authorities(None)
                 .await
                 .map_err(|_| Error::authorities())?;
-            tracing::info!("authorities length : {:?}", authorities.len());
+
+            info!("authorities length : {:?}", authorities.len());
+
             let result: Vec<String> = authorities
                 .into_iter()
                 .map(|val| {
@@ -590,7 +599,8 @@ impl ChainEndpoint for SubstrateChain {
                     )
                 })
                 .collect();
-            tracing::info!("authorities member: {:?}", result);
+
+            info!("authorities member: {:?}", result);
             Ok(result)
         };
         let public_key = self.block_on(public_key)?;
@@ -609,7 +619,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         rt: Arc<TokioRuntime>,
     ) -> Result<(EventReceiver, TxMonitorCmd), Error> {
-        tracing::debug!(
+        trace!(
             "in substrate: [init_event_mointor] >> websocket addr: {:?}",
             self.config.websocket_addr.clone()
         );
@@ -629,28 +639,31 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn shutdown(self) -> Result<(), Error> {
-        tracing::info!("in substrate: [shutdown]");
+        trace!("in substrate: [shutdown]");
 
         Ok(())
     }
 
     fn health_check(&self) -> Result<HealthCheck, Error> {
+        trace!("in substrate: [health_check]");
+
         Ok(HealthCheck::Healthy)
     }
 
     fn id(&self) -> &ChainId {
-        tracing::trace!("in substrate: [id]");
+        trace!("in substrate: [id]");
 
         &self.config().id
     }
 
     fn keybase(&self) -> &KeyRing {
-        tracing::trace!("in substrate: [keybase]");
+        trace!("in substrate: [keybase]");
+
         &self.keybase
     }
 
     fn keybase_mut(&mut self) -> &mut KeyRing {
-        tracing::trace!("in substrate: [keybase_mut]");
+        trace!("in substrate: [keybase_mut]");
         &mut self.keybase
     }
 
@@ -658,7 +671,7 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEvent>, Error> {
-        tracing::trace!(
+        trace!(
             "in substrate: [send_messages_and_wait_commit], proto_msgs={:?}",
             proto_msgs.tracking_id
         );
@@ -668,7 +681,7 @@ impl ChainEndpoint for SubstrateChain {
             .deliever(proto_msgs.messages().to_vec())
             .map_err(|e| Error::deliver_error(e))?;
 
-        tracing::debug!(
+        debug!(
             "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
             result
         );
@@ -684,7 +697,7 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<TxResponse>, Error> {
-        tracing::debug!(
+        debug!(
             "in substrate: [send_messages_and_wait_check_tx], proto_msgs={:?}",
             proto_msgs.tracking_id
         );
@@ -694,7 +707,7 @@ impl ChainEndpoint for SubstrateChain {
             .deliever(proto_msgs.messages().to_vec())
             .map_err(|e| Error::deliver_error(e))?;
 
-        tracing::debug!(
+        debug!(
             "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash : {:?}",
             result
         );
@@ -711,7 +724,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn get_signer(&mut self) -> Result<Signer, Error> {
-        tracing::trace!("In Substraet: [get signer]");
+        trace!("In Substraet: [get signer]");
         crate::time!("get_signer");
 
         /// Public key type for Runtime
@@ -747,7 +760,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn get_key(&mut self) -> Result<KeyEntry, Error> {
-        tracing::trace!("in substrate: [get_key]");
+        trace!("in substrate: [get_key]");
         crate::time!("get_key");
 
         // Get the key from key seed file
@@ -760,7 +773,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
-        tracing::trace!("in substrate: [query_commitment_prefix]");
+        trace!("in substrate: [query_commitment_prefix]");
 
         // TODO - do a real chain query
         CommitmentPrefix::try_from(self.config().store_prefix.as_bytes().to_vec())
@@ -769,7 +782,7 @@ impl ChainEndpoint for SubstrateChain {
 
     /// Query the latest height and timestamp the application is at
     fn query_application_status(&self) -> Result<ChainStatus, Error> {
-        tracing::trace!("in substrate: [query_status]");
+        trace!("in substrate: [query_status]");
 
         let height = self
             .retry_wapper(|| self.get_latest_height())
@@ -787,7 +800,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryClientStatesRequest,
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
-        tracing::trace!("in substrate: [query_clients]");
+        trace!("in substrate: [query_clients]");
         let QueryClientStatesRequest { pagination } = request;
 
         let result = self
@@ -804,7 +817,7 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryClientStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
-        tracing::trace!("in substrate: [query_client_state]");
+        trace!("in substrate: [query_client_state]");
         let QueryClientStateRequest { client_id, height } = request;
 
         let result = self
@@ -821,7 +834,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryConsensusStatesRequest,
     ) -> Result<Vec<AnyConsensusStateWithHeight>, Error> {
-        tracing::trace!("in substrate: [query_consensus_states]");
+        trace!("in substrate: [query_consensus_states]");
         let QueryConsensusStatesRequest {
             client_id,
             pagination,
@@ -854,7 +867,7 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryConsensusStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
-        tracing::trace!("in substrate: [query_consensus_state]");
+        trace!("in substrate: [query_consensus_state]");
         let QueryConsensusStateRequest {
             client_id,
             consensus_height,
@@ -873,7 +886,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryUpgradedClientStateRequest,
     ) -> Result<(AnyClientState, MerkleProof), Error> {
-        tracing::trace!("in substrate: [query_upgraded_client_state]");
+        trace!("in substrate: [query_upgraded_client_state]");
         let QueryUpgradedClientStateRequest { height } = request;
 
         todo!()
@@ -883,7 +896,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryUpgradedConsensusStateRequest,
     ) -> Result<(AnyConsensusState, MerkleProof), Error> {
-        tracing::trace!("in substrate: [query_upgraded_consensus_state]");
+        trace!("in substrate: [query_upgraded_consensus_state]");
         let QueryUpgradedConsensusStateRequest { height } = request;
 
         todo!()
@@ -894,7 +907,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryConnectionsRequest,
     ) -> Result<Vec<IdentifiedConnectionEnd>, Error> {
-        tracing::trace!("in substrate: [query_connections]");
+        trace!("in substrate: [query_connections]");
         let QueryConnectionsRequest { pagination } = request;
 
         let result = self
@@ -909,7 +922,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryClientConnectionsRequest,
     ) -> Result<Vec<ConnectionId>, Error> {
-        tracing::trace!("in substrate: [query_client_connections]");
+        trace!("in substrate: [query_client_connections]");
         let QueryClientConnectionsRequest { client_id } = request;
 
         let result = self
@@ -927,7 +940,7 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryConnectionRequest,
         include_proof: IncludeProof,
     ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
-        tracing::trace!("in substrate: [query_connection]");
+        trace!("in substrate: [query_connection]");
         let QueryConnectionRequest {
             connection_id,
             height,
@@ -945,7 +958,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryConnectionChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-        tracing::trace!("in substrate: [query_connection_channels] ");
+        trace!("in substrate: [query_connection_channels] ");
         let QueryConnectionChannelsRequest {
             connection_id,
             pagination,
@@ -963,7 +976,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-        tracing::trace!("in substrate: [query_channels]");
+        trace!("in substrate: [query_channels]");
         let QueryChannelsRequest { pagination } = request;
 
         let result = self
@@ -980,7 +993,7 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryChannelRequest,
         include_proof: IncludeProof,
     ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
-        tracing::trace!("in substrate: [query_channel]");
+        trace!("in substrate: [query_channel]");
         let QueryChannelRequest {
             port_id,
             channel_id,
@@ -1000,7 +1013,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryChannelClientStateRequest,
     ) -> Result<Option<IdentifiedAnyClientState>, Error> {
-        tracing::trace!("in substrate: [query_channel_client_state]");
+        trace!("in substrate: [query_channel_client_state]");
         let QueryChannelClientStateRequest {
             port_id,
             channel_id,
@@ -1016,13 +1029,12 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryPacketCommitmentsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
+        trace!("in substrate: [query_packet_commitments]");
         let QueryPacketCommitmentsRequest {
             port_id,
             channel_id,
             pagination,
         } = request;
-
-        tracing::trace!("in substrate: [query_packet_commitments]");
 
         let packet_commitments = self
             .retry_wapper(|| self.get_commitment_packet_state())
@@ -1048,18 +1060,12 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryUnreceivedPacketsRequest,
     ) -> Result<Vec<Sequence>, Error> {
-        tracing::trace!("in substrate: [query_unreceived_packets]");
+        trace!("in substrate: [query_unreceived_packets]");
         let QueryUnreceivedPacketsRequest {
             port_id,
             channel_id,
             packet_commitment_sequences,
         } = request;
-
-        // let sequences = request
-        //     .packet_commitment_sequences
-        //     .into_iter()
-        //     .map(Sequence::from)
-        //     .collect::<Vec<_>>();
 
         let result = self
             .retry_wapper(|| {
@@ -1077,7 +1083,8 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryPacketAcknowledgementsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
-        tracing::trace!("in substrate: [query_packet_acknowledgements]");
+        trace!("in substrate: [query_packet_acknowledgements]");
+
         let QueryPacketAcknowledgementsRequest {
             port_id,
             channel_id,
@@ -1109,7 +1116,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryUnreceivedAcksRequest,
     ) -> Result<Vec<Sequence>, Error> {
-        tracing::trace!("in substrate: [query_unreceived_acknowledgements] ");
+        trace!("in substrate: [query_unreceived_acknowledgements] ");
         let QueryUnreceivedAcksRequest {
             port_id,
             channel_id,
@@ -1146,7 +1153,7 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryNextSequenceReceiveRequest,
         include_proof: IncludeProof,
     ) -> Result<(Sequence, Option<MerkleProof>), Error> {
-        tracing::trace!("in substrate: [query_next_sequence_receive] ");
+        trace!("in substrate: [query_next_sequence_receive] ");
         let QueryNextSequenceReceiveRequest {
             port_id,
             channel_id,
@@ -1157,7 +1164,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error> {
-        tracing::trace!("in substrate: [query_txs]");
+        trace!("in substrate: [query_txs]");
 
         match request {
             // Todo: Related to https://github.com/octopus-network/ibc-rs/issues/88
@@ -1457,7 +1464,7 @@ impl ChainEndpoint for SubstrateChain {
         height: ICSHeight,
         _dst_config: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
-        tracing::trace!("in substrate: [build_client_state]");
+        trace!("in substrate: [build_client_state]");
 
         let public_key = async {
             let client = ClientBuilder::new()
@@ -1508,7 +1515,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
-        tracing::trace!("in substrate: [build_consensus_state]");
+        trace!("in substrate: [build_consensus_state]");
 
         Ok(AnyConsensusState::Grandpa(GPConsensusState::default()))
     }
@@ -1520,7 +1527,7 @@ impl ChainEndpoint for SubstrateChain {
         client_state: &AnyClientState,
         _light_client: &mut Self::LightClient,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
-        tracing::trace!("in substrate: [build_header]");
+        trace!("in substrate: [build_header]");
 
         assert!(trusted_height.revision_height < target_height.revision_height);
 
@@ -1615,10 +1622,12 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn config(&self) -> ChainConfig {
+        trace!("in substrate: [config]");
         self.config.clone()
     }
 
     fn add_key(&mut self, key_name: &str, key: KeyEntry) -> Result<(), Error> {
+        trace!("in substrate: [add_key]");
         self.keybase_mut()
             .add_key(key_name, key)
             .map_err(Error::key_base)?;
@@ -1627,6 +1636,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn ibc_version(&self) -> Result<Option<Version>, Error> {
+        trace!("in substrate: [ibc_version]");
         // TODO
         Ok(None)
     }
@@ -1635,7 +1645,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryBlockRequest,
     ) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error> {
-        tracing::trace!("in substrate: [query_block]");
+        trace!("in substrate: [query_block]");
 
         Ok((vec![], vec![]))
     }
@@ -1644,13 +1654,15 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryHostConsensusStateRequest,
     ) -> Result<Self::ConsensusState, Error> {
-        tracing::trace!("in substrate: [query_host_consensus_state]");
+        trace!("in substrate: [query_host_consensus_state]");
+
         let QueryHostConsensusStateRequest { height } = request;
 
         Ok(AnyConsensusState::Grandpa(GPConsensusState::default()))
     }
 
     fn query_balance(&self, key_name: Option<String>) -> Result<crate::account::Balance, Error> {
+        trace!("in substrate: [query_balance]");
         todo!()
     }
 
@@ -1708,7 +1720,7 @@ impl ChainEndpoint for SubstrateChain {
 /// Compose merkle proof according to ibc proto
 pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     use ics23::{commitment_proof, ExistenceProof, InnerOp};
-    tracing::trace!("in substrate: [compose_ibc_merkle_proof]");
+    trace!("in substrate: [compose_ibc_merkle_proof]");
 
     let _inner_op = InnerOp {
         hash: 0,
