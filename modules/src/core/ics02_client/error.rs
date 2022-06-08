@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+use flex_error::DisplayOnly;
 use flex_error::{define_error, TraceError};
 use tendermint::Error as TendermintError;
 use tendermint_proto::Error as TendermintProtoError;

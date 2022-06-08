@@ -65,8 +65,8 @@ moka = "0.8.5"
 uuid = { version = "1.1.0", features = ["v4"] }
 
 jsonrpsee = { version = "0.13.1", features = ["macros", "ws-client", "http-client"] }
-octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.18" }
-# octopusxt = { path = "../../octopusxt" }
+# octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.18" }
+octopusxt = { path = "../../octopusxt/module" }
 subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.18' }
 codec = { package = 'parity-scale-codec', version = '3.1.2', features = ['derive', 'full'] }
 pallet-mmr-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }

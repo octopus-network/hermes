@@ -22,7 +22,7 @@ use serde::{de::Error, Deserialize, Serialize};
 pub enum ChainType {
     /// Chains based on the Cosmos SDK
     CosmosSdk,
-    // Chains based on the Substrate 
+    // Chains based on the Substrate
     Substrate,
     /// Mock chain used for testing
     #[cfg(test)]

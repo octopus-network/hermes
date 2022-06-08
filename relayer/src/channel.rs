@@ -515,7 +515,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                         e,
                     )
                 })?;
-                
+
             std::thread::sleep(Duration::from_secs(8));
             let b_channel = channel
                 .dst_chain()

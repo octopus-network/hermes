@@ -569,7 +569,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             if a_connection_res.is_err() {
                 continue;
             }
-            
+
             std::thread::sleep(Duration::from_secs(8));
             let b_connection_res = b_chain.query_connection(
                 QueryConnectionRequest {

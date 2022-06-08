@@ -251,4 +251,3 @@ impl Runnable for QueryClientConnectionsCmd {
         }
     }
 }
-

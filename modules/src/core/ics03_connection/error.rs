@@ -7,6 +7,7 @@ use crate::signer::SignerError;
 use crate::Height;
 
 use flex_error::define_error;
+use flex_error::DisplayOnly;
 
 define_error! {
     #[derive(Debug, PartialEq, Eq)]

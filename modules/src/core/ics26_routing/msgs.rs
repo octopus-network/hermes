@@ -2,7 +2,9 @@ use crate::prelude::*;
 
 use ibc_proto::google::protobuf::Any;
 
-use crate::core::ics02_client::msgs::{create_client, update_client, upgrade_client, ClientMsg};
+use crate::core::ics02_client::msgs::{
+    create_client, misbehavior, update_client, upgrade_client, ClientMsg,
+};
 use crate::core::ics03_connection::msgs::{
     conn_open_ack, conn_open_confirm, conn_open_init, conn_open_try, ConnectionMsg,
 };

@@ -102,7 +102,7 @@ impl Runnable for QueryConnectionChannelsCmd {
                     .collect();
                 Output::success(ids).exit()
             }
-            Err(e) => Output::error(format!("{}", e)).exit(),   
+            Err(e) => Output::error(format!("{}", e)).exit(),
         }
     }
 }

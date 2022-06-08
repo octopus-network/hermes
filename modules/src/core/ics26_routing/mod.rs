@@ -4,5 +4,4 @@
 pub mod context;
 pub mod error;
 pub mod handler;
-pub mod ibc_module;
 pub mod msgs;

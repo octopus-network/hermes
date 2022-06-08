@@ -52,7 +52,7 @@ impl Runnable for QueryAllClientsCmd {
                 pagination: Some(PageRequest::all()),
             })
             .map_err(Error::relayer);
-            
+
         match res {
             Ok(clients) => {
                 match self.src_chain_id.clone() {

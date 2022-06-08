@@ -1,6 +1,5 @@
-
-use core::str::FromStr;
 use crate::prelude::*;
+use core::str::FromStr;
 
 use derive_more::Display;
 use flex_error::define_error;

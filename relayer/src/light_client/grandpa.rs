@@ -1,4 +1,4 @@
-use crate::chain::SubstrateChain;
+use crate::chain::substrate::SubstrateChain;
 use crate::error::Error;
 
 use octopusxt::MyConfig;

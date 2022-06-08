@@ -47,6 +47,5 @@ impl Runnable for QueryTxEventsCmd {
             Ok(res) => Output::success(res).exit(),
             Err(e) => Output::error(format!("{}", e)).exit(),
         }
-
     }
 }

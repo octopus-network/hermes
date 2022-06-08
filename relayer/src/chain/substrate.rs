@@ -1,4 +1,3 @@
-use super::{ChainEndpoint, HealthCheck};
 use crate::config::ChainConfig;
 use crate::error::Error;
 // use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
@@ -13,8 +12,8 @@ use core::{future::Future, str::FromStr, time::Duration};
 use subxt::rpc::ClientT;
 
 use super::client::ClientSettings;
-use super::tx::TrackedMsgs;
-use crate::chain::ChainStatus;
+use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
+use crate::chain::tracking::TrackedMsgs;
 use ibc::{
     clients::{
         ics07_tendermint::header::Header as tHeader,
@@ -1576,6 +1575,34 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!("in substrate: [query_host_consensus_state]");
 
         Ok(AnyConsensusState::Grandpa(GPConsensusState::default()))
+    }
+
+    fn query_balance(&self, key_name: Option<String>) -> Result<crate::account::Balance, Error> {
+        todo!()
+    }
+
+    fn query_packet_commitment(
+        &self,
+        request: super::requests::QueryPacketCommitmentRequest,
+        include_proof: super::requests::IncludeProof,
+    ) -> Result<(Vec<u8>, Option<ibc::core::ics23_commitment::merkle::MerkleProof>), Error> {
+        todo!()
+    }
+
+    fn query_packet_receipt(
+        &self,
+        request: super::requests::QueryPacketReceiptRequest,
+        include_proof: super::requests::IncludeProof,
+    ) -> Result<(Vec<u8>, Option<ibc::core::ics23_commitment::merkle::MerkleProof>), Error> {
+        todo!()
+    }
+
+    fn query_packet_acknowledgement(
+        &self,
+        request: super::requests::QueryPacketAcknowledgementRequest,
+        include_proof: super::requests::IncludeProof,
+    ) -> Result<(Vec<u8>, Option<ibc::core::ics23_commitment::merkle::MerkleProof>), Error> {
+        todo!()
     }
 }
 

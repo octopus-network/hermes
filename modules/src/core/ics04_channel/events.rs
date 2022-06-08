@@ -13,7 +13,6 @@ use crate::events::{
     RawObject,
 };
 use crate::prelude::*;
-use ibc_proto::ibc::core::channel::v1::WriteAcknowledgement as RawWriteAcknowledgement;
 use tendermint_proto::Protobuf;
 
 /// Channel event attribute keys
@@ -896,39 +895,6 @@ impl WriteAcknowledgement {
     }
     pub fn dst_channel_id(&self) -> &ChannelId {
         &self.packet.destination_channel
-    }
-}
-
-impl Protobuf<RawWriteAcknowledgement> for WriteAcknowledgement {}
-
-impl TryFrom<RawWriteAcknowledgement> for WriteAcknowledgement {
-    type Error = Error;
-
-    fn try_from(raw_wrt_ack: RawWriteAcknowledgement) -> Result<Self, Self::Error> {
-        let height: Height = raw_wrt_ack.height.ok_or_else(Error::missing_height)?.into();
-
-        let packet = Packet::try_from(raw_wrt_ack.packet.ok_or_else(Error::missing_packet)?)
-            .map_err(|_| Error::invalid_packet())?;
-
-        if raw_wrt_ack.ack.is_empty() {
-            return Err(Error::zero_packet_data());
-        }
-
-        Ok(WriteAcknowledgement {
-            height,
-            packet,
-            ack: raw_wrt_ack.ack,
-        })
-    }
-}
-
-impl From<WriteAcknowledgement> for RawWriteAcknowledgement {
-    fn from(wrt_ack: WriteAcknowledgement) -> Self {
-        RawWriteAcknowledgement {
-            height: Some(wrt_ack.height.into()),
-            packet: Some(wrt_ack.packet.into()),
-            ack: wrt_ack.ack,
-        }
     }
 }
 
