@@ -791,7 +791,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 QueryPacketCommitmentRequest {
                     port_id: self.src_port_id().clone(),
                     channel_id: *self.src_channel_id(),
-                    sequence: packet.sequence,
+                    sequence: send_packet.sequence,
                     height: Height::zero(),
                 },
                 IncludeProof::No,

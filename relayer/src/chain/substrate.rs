@@ -1488,46 +1488,6 @@ impl ChainEndpoint for SubstrateChain {
         Ok((grandpa_header, vec![]))
     }
 
-    /// add new api websocket_url
-    fn websocket_url(&self) -> Result<String, Error> {
-        tracing::trace!("in substrate: [websocket_url]");
-
-        Ok(self.websocket_url.clone())
-    }
-
-    /// add new api update_mmr_root
-    fn update_mmr_root(
-        &self,
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
-    ) -> Result<(), Error> {
-        tracing::info!("in substrate: [update_mmr_root]");
-
-        let result = async {
-            let chain_a = ClientBuilder::new()
-                .set_url(src_chain_websocket_url)
-                .build::<MyConfig>()
-                .await
-                .map_err(|_| Error::substrate_client_builder_error())?;
-
-            let chain_b = ClientBuilder::new()
-                .set_url(dst_chain_websocket_url)
-                .build::<MyConfig>()
-                .await
-                .map_err(|_| Error::substrate_client_builder_error())?;
-
-            octopusxt::update_client_state::update_client_state(chain_a.clone(), chain_b.clone())
-                .await
-                .map_err(|_| Error::update_client_state_error())?;
-
-            octopusxt::update_client_state::update_client_state(chain_b.clone(), chain_a.clone())
-                .await
-                .map_err(|_| Error::update_client_state_error())
-        };
-
-        self.block_on(result)
-    }
-
     fn config(&self) -> ChainConfig {
         self.config.clone()
     }
