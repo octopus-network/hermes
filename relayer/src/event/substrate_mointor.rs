@@ -417,7 +417,7 @@ async fn handle_single_event(
     let batch_event = from_raw_event_to_batch_event(raw_event, chain_id.clone());
     if let Ok(batch_event) = batch_event {
         if !batch_event.events.is_empty() {
-            process_batch_for_substrate(send_batch.clone(), batch_event).unwrap_or_else(|e| {
+            process_batch_for_substrate(send_batch, batch_event).unwrap_or_else(|e| {
                 error!("[{}] {}", chain_id, e);
             });
         }

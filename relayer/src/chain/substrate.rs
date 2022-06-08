@@ -10,7 +10,7 @@ use codec::{Decode, Encode};
 use core::fmt::Debug;
 use core::{future::Future, str::FromStr, time::Duration};
 use subxt::rpc::ClientT;
-use tracing::{error, info, trace, warn};
+use tracing::{error, info, trace, warn, debug};
 
 use super::client::ClientSettings;
 use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
@@ -48,17 +48,6 @@ use ibc::{
 };
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::channel::v1::PacketState;
-// use ibc_proto::ibc::core::{
-//     channel::v1::{
-//         PacketState, QueryChannelClientStateRequest, QueryChannelsRequest,
-//         QueryConnectionChannelsRequest, QueryNextSequenceReceiveRequest,
-//         QueryPacketAcknowledgementsRequest, QueryPacketCommitmentsRequest,
-//         QueryUnreceivedAcksRequest, QueryUnreceivedPacketsRequest,
-//     },
-//     client::v1::{QueryClientStatesRequest, QueryConsensusStatesRequest},
-//     commitment::v1::MerkleProof,
-//     connection::v1::{QueryClientConnectionsRequest, QueryConnectionsRequest},
-// };
 
 use jsonrpsee::rpc_params;
 use octopusxt::ibc_node;
@@ -480,7 +469,7 @@ impl SubstrateChain {
 
             let params = rpc_params![vec![storage_key], block_hash];
 
-            #[derive(Debug, PartialEq, Serialize, Deserialize)]
+            #[derive(Debug, PartialEq,Eq, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
             pub struct ReadProof_ {
                 pub at: String,
@@ -499,7 +488,7 @@ impl SubstrateChain {
                 storage_proof
             );
 
-            #[derive(Debug, PartialEq, Serialize, Deserialize)]
+            #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
             pub struct ReadProofU8 {
                 pub at: String,
@@ -1137,7 +1126,7 @@ impl ChainEndpoint for SubstrateChain {
 
             // if packet commitment still exists on the original sending chain, then packet ack is unreceived
             // since processing the ack will delete the packet commitment
-            if let Ok(_) = cmt {
+            if cmt.is_ok() {
                 unreceived_seqs.push(sequence);
             }
         }

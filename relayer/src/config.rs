@@ -209,7 +209,7 @@ impl Default for Packets {
 /// Log levels are wrappers over [`tracing_core::Level`].
 ///
 /// [`tracing_core::Level`]: https://docs.rs/tracing-core/0.1.17/tracing_core/struct.Level.html
-#[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     Trace,
@@ -283,7 +283,7 @@ impl Default for RestConfig {
 /// TODO: Ethermint `pk_type` to be restricted
 /// after the Cosmos SDK release with ethsecp256k1
 /// <https://github.com/cosmos/cosmos-sdk/pull/9981>
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(
     rename_all = "lowercase",
     tag = "derivation",

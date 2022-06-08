@@ -990,7 +990,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             AnyClientState::Grandpa(client_state) => {
                 let mut mmr_root_height = client_state.latest_commitment.block_number;
                 let mut temp_client_state = AnyClientState::Grandpa(client_state);
-                let result = loop {
+                loop {
                     if mmr_root_height < target_height.revision_height as u32 {
                         info!(
                             "mmr_root_height: {}, target_height: {}",
@@ -1023,8 +1023,8 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     } else {
                         break temp_client_state;
                     }
-                };
-                result
+                }
+                
             } // AnyClientState::Mock(_) => todo!(),
         };
 
