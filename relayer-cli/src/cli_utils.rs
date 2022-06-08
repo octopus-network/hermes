@@ -1,16 +1,17 @@
 use alloc::sync::Arc;
+
 use tokio::runtime::Runtime as TokioRuntime;
 
 use ibc::core::ics02_client::client_state::ClientState;
 use ibc::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
-use ibc_relayer::chain::counterparty::{channel_connection_client, ChannelConnectionClient};
+
 use ibc_relayer::{
     chain::{
+        counterparty::{channel_connection_client, ChannelConnectionClient},
         handle::{BaseChainHandle, ChainHandle},
-        runtime::ChainRuntime,
-        CosmosSdkChain, SubstrateChain,
     },
     config::Config,
+    spawn,
 };
 
 use crate::error::Error;
@@ -58,39 +59,12 @@ pub fn spawn_chain_runtime(config: &Config, chain_id: &ChainId) -> Result<impl C
     spawn_chain_runtime_generic::<BaseChainHandle>(config, chain_id)
 }
 
-pub fn spawn_chain_runtime_generic<Chain: ChainHandle>(
+pub fn spawn_chain_runtime_generic<Handle: ChainHandle>(
     config: &Config,
     chain_id: &ChainId,
-) -> Result<Chain, Error> {
-    tracing::info!("In cli_util: [spawn_chain_runtime]");
-    let chain_config = config
-        .find_chain(chain_id)
-        .cloned()
-        .ok_or_else(Error::config)?;
-    tracing::info!(
-        "in cli_util: [spawn_chain_runtime_generic] chain_id  = {}",
-        chain_id
-    );
-
-    let account_prefix = chain_config.account_prefix.clone();
-    tracing::info!(
-        "in cli_util: [spawn_chain_runtime_generic] account_prefix: {}",
-        account_prefix
-    );
-
-    let handle = match account_prefix.as_str() {
-        "cosmos" | "chaina" | "chainb" => {
-            let rt = Arc::new(TokioRuntime::new().unwrap()); //TODO
-            ChainRuntime::<CosmosSdkChain>::spawn(chain_config, rt).map_err(Error::relayer)?
-        }
-        "substrate" => {
-            let rt = Arc::new(TokioRuntime::new().unwrap()); //TODO
-            ChainRuntime::<SubstrateChain>::spawn(chain_config, rt).map_err(Error::relayer)?
-        }
-        _ => unimplemented!(),
-    };
-
-    Ok(handle)
+) -> Result<Handle, Error> {
+    let rt = Arc::new(TokioRuntime::new().unwrap());
+    spawn::spawn_chain_runtime(config, chain_id, rt).map_err(Error::spawn)
 }
 
 /// Spawns a chain runtime for specified chain identifier, queries the counterparty chain associated

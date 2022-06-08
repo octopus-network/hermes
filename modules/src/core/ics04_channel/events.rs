@@ -762,7 +762,7 @@ impl_try_from_raw_obj_for_event!(
     CloseConfirm
 );
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct SendPacket {
     pub height: Height,
     pub packet: Packet,
@@ -813,6 +813,12 @@ impl core::fmt::Display for SendPacket {
     }
 }
 
+impl core::fmt::Debug for SendPacket {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "SendPacket - h:{}, {}", self.height, self.packet)
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct ReceivePacket {
     pub height: Height,
@@ -846,13 +852,25 @@ impl From<ReceivePacket> for IbcEvent {
     }
 }
 
+impl TryFrom<ReceivePacket> for AbciEvent {
+    type Error = Error;
+
+    fn try_from(v: ReceivePacket) -> Result<Self, Self::Error> {
+        let attributes = Vec::<Tag>::try_from(v.packet)?;
+        Ok(AbciEvent {
+            type_str: IbcEventType::ReceivePacket.as_str().to_string(),
+            attributes,
+        })
+    }
+}
+
 impl core::fmt::Display for ReceivePacket {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(f, "ReceivePacket - h:{}, {}", self.height, self.packet)
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct WriteAcknowledgement {
     pub height: Height,
     pub packet: Packet,
@@ -950,7 +968,17 @@ impl core::fmt::Display for WriteAcknowledgement {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+impl core::fmt::Debug for WriteAcknowledgement {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "WriteAcknowledgement - h:{}, {}",
+            self.height, self.packet
+        )
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct AcknowledgePacket {
     pub height: Height,
     pub packet: Packet,
@@ -992,6 +1020,12 @@ impl TryFrom<AcknowledgePacket> for AbciEvent {
 impl core::fmt::Display for AcknowledgePacket {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(f, "h:{}, {}", self.height, self.packet)
+    }
+}
+
+impl core::fmt::Debug for AcknowledgePacket {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "AcknowledgePacket - h:{}, {}", self.height, self.packet)
     }
 }
 
@@ -1076,6 +1110,18 @@ impl TimeoutOnClosePacket {
 impl From<TimeoutOnClosePacket> for IbcEvent {
     fn from(v: TimeoutOnClosePacket) -> Self {
         IbcEvent::TimeoutOnClosePacket(v)
+    }
+}
+
+impl TryFrom<TimeoutOnClosePacket> for AbciEvent {
+    type Error = Error;
+
+    fn try_from(v: TimeoutOnClosePacket) -> Result<Self, Self::Error> {
+        let attributes = Vec::<Tag>::try_from(v.packet)?;
+        Ok(AbciEvent {
+            type_str: IbcEventType::TimeoutOnClose.as_str().to_string(),
+            attributes,
+        })
     }
 }
 

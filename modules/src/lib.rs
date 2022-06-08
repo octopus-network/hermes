@@ -58,6 +58,7 @@ extern crate std;
 mod prelude;
 
 pub mod applications;
+pub mod bigint;
 pub mod clients;
 pub mod core;
 pub mod events;

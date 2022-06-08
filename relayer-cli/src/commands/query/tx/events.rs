@@ -1,20 +1,16 @@
-use alloc::sync::Arc;
 use core::str::FromStr;
 
 use abscissa_core::clap::Parser;
 use abscissa_core::{Command, Runnable};
-use tokio::runtime::Runtime as TokioRuntime;
 use tracing::debug;
 
 use tendermint::abci::transaction::Hash;
 
 use ibc::core::ics24_host::identifier::ChainId;
 use ibc::query::{QueryTxHash, QueryTxRequest};
+use ibc_relayer::chain::handle::ChainHandle;
 
-use ibc_relayer::chain::handle::{BaseChainHandle, ChainHandle};
-use ibc_relayer::chain::runtime::ChainRuntime;
-use ibc_relayer::chain::{CosmosSdkChain, SubstrateChain};
-
+use crate::cli_utils::spawn_chain_runtime;
 use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::error::Error;
 use crate::prelude::app_config;
@@ -36,58 +32,21 @@ impl Runnable for QueryTxEventsCmd {
 
         debug!("Options: {:?}", self);
 
-        let chain_config = match config
-            .find_chain(&self.chain_id)
-            .ok_or_else(|| format!("chain '{}' not found in configuration file", self.chain_id))
-        {
-            Err(err) => Output::error(err).exit(),
-            Ok(result) => result,
-        };
+        let chain = spawn_chain_runtime(&config, &self.chain_id)
+            .unwrap_or_else(exit_with_unrecoverable_error);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap()); // TODO
-        let chain_type = chain_config.account_prefix.clone();
-        match chain_type.as_str() {
-            "cosmos" => {
-                let chain = ChainRuntime::<CosmosSdkChain>::spawn::<BaseChainHandle>(
-                    chain_config.clone(),
-                    rt,
-                )
-                .unwrap_or_else(exit_with_unrecoverable_error);
+        let res = Hash::from_str(self.hash.as_str())
+            .map_err(|e| Error::invalid_hash(self.hash.clone(), e))
+            .and_then(|h| {
+                chain
+                    .query_txs(QueryTxRequest::Transaction(QueryTxHash(h)))
+                    .map_err(Error::relayer)
+            });
 
-                let res = Hash::from_str(self.hash.as_str())
-                    .map_err(|e| Error::invalid_hash(self.hash.clone(), e))
-                    .and_then(|h| {
-                        chain
-                            .query_txs(QueryTxRequest::Transaction(QueryTxHash(h)))
-                            .map_err(Error::relayer)
-                    });
-
-                match res {
-                    Ok(res) => Output::success(res).exit(),
-                    Err(e) => Output::error(format!("{}", e)).exit(),
-                }
-            }
-            "substrate" => {
-                let chain = ChainRuntime::<SubstrateChain>::spawn::<BaseChainHandle>(
-                    chain_config.clone(),
-                    rt,
-                )
-                .unwrap(); // TODO
-
-                let res = Hash::from_str(self.hash.as_str())
-                    .map_err(|e| Error::invalid_hash(self.hash.clone(), e))
-                    .and_then(|h| {
-                        chain
-                            .query_txs(QueryTxRequest::Transaction(QueryTxHash(h)))
-                            .map_err(Error::relayer)
-                    });
-
-                match res {
-                    Ok(res) => Output::success(res).exit(),
-                    Err(e) => Output::error(format!("{}", e)).exit(),
-                }
-            }
-            _ => panic!("Unknown chain type"),
+        match res {
+            Ok(res) => Output::success(res).exit(),
+            Err(e) => Output::error(format!("{}", e)).exit(),
         }
+
     }
 }

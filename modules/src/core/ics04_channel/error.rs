@@ -7,6 +7,7 @@ use crate::core::ics24_host::error::ValidationError;
 use crate::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
 use crate::prelude::*;
 use crate::proofs::ProofError;
+use crate::signer::SignerError;
 use crate::timestamp::Timestamp;
 use crate::Height;
 
@@ -56,7 +57,8 @@ define_error! {
             [ TraceError<TendermintError> ]
             | _ | { "invalid version" },
 
-        InvalidSigner
+        Signer
+            [ SignerError ]
             | _ | { "invalid signer address" },
 
         InvalidProof
@@ -103,17 +105,6 @@ define_error! {
 
         MissingChannel
             | _ | { "missing channel end" },
-
-        NoPortCapability
-            { port_id: PortId }
-            | e | {
-                format_args!(
-                    "the port {0} has no capability associated",
-                    e.port_id)
-            },
-
-        InvalidPortCapability
-            | _ | { "the module associated with the port does not have the capability it needs" },
 
         InvalidVersionLengthConnection
             | _ | { "single version must be negociated on connection before opening channel" },
@@ -395,9 +386,13 @@ define_error! {
         EmptyAcknowledgeResponse
             | _ | { "empty acknowledge response" },
 
-
-
-
+        AppModule
+            { description: String }
+            | e | {
+                format_args!(
+                    "application module error: {0}",
+                    e.description)
+            },
     }
 }
 

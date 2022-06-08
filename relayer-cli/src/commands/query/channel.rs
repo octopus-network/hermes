@@ -1,13 +1,12 @@
-use alloc::sync::Arc;
-
 use abscissa_core::clap::Parser;
 use abscissa_core::{Command, Runnable};
-use tokio::runtime::Runtime as TokioRuntime;
+use ibc_relayer::chain::handle::ChainHandle;
 
 use ibc::core::ics24_host::identifier::ChainId;
 use ibc::core::ics24_host::identifier::{ChannelId, PortId};
-use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain};
+use ibc_relayer::chain::requests::{IncludeProof, QueryChannelRequest};
 
+use crate::cli_utils::spawn_chain_runtime;
 use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::prelude::*;
 use ibc::core::ics04_channel::channel::State;
@@ -31,59 +30,28 @@ impl Runnable for QueryChannelEndCmd {
     fn run(&self) {
         let config = app_config();
 
-        let chain_config = match config.find_chain(&self.chain_id) {
-            None => Output::error(format!(
-                "chain '{}' not found in configuration file",
-                self.chain_id
-            ))
-            .exit(),
-            Some(chain_config) => chain_config,
-        };
-
         debug!("Options: {:?}", self);
+        let chain = spawn_chain_runtime(&config, &self.chain_id)
+            .unwrap_or_else(exit_with_unrecoverable_error);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap()); // TODO
-        let chain_type = chain_config.account_prefix.clone();
-        match chain_type.as_str() {
-            "cosmos" => {
-                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt)
-                    .unwrap_or_else(exit_with_unrecoverable_error);
-
-                let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
-                let res = chain.query_channel(&self.port_id, &self.channel_id, height);
-                match res {
-                    Ok(channel_end) => {
-                        if channel_end.state_matches(&State::Uninitialized) {
-                            Output::error(format!(
-                                "port '{}' & channel '{}' does not exist",
-                                self.port_id, self.channel_id
-                            ))
-                            .exit()
-                        } else {
-                            Output::success(channel_end).exit()
-                        }
-                    }
-                    Err(e) => Output::error(format!("{}", e)).exit(),
-                }
-            }
-            "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt).unwrap(); // TODO
-
-                let height = ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64));
-                let res = chain.query_channel(&self.port_id, &self.channel_id, height);
-                match res {
-                    Ok(channel_end) => {
-                        if channel_end.state_matches(&State::Uninitialized) {
-                            Output::error(format!(
-                                "port '{}' & channel '{}' does not exist",
-                                self.port_id, self.channel_id
-                            ))
-                            .exit()
-                        } else {
-                            Output::success(channel_end).exit()
-                        }
-                    }
-                    Err(e) => Output::error(format!("{}", e)).exit(),
+        let res = chain.query_channel(
+            QueryChannelRequest {
+                port_id: self.port_id.clone(),
+                channel_id: self.channel_id,
+                height: ibc::Height::new(chain.id().version(), self.height.unwrap_or(0_u64)),
+            },
+            IncludeProof::No,
+        );
+        match res {
+            Ok((channel_end, _)) => {
+                if channel_end.state_matches(&State::Uninitialized) {
+                    Output::error(format!(
+                        "port '{}' & channel '{}' does not exist",
+                        self.port_id, self.channel_id
+                    ))
+                    .exit()
+                } else {
+                    Output::success(channel_end).exit()
                 }
             }
             _ => panic!("Unknown chain type"),

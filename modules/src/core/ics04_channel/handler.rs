@@ -5,10 +5,9 @@ use crate::core::ics04_channel::context::ChannelReader;
 use crate::core::ics04_channel::error::Error;
 use crate::core::ics04_channel::msgs::ChannelMsg;
 use crate::core::ics04_channel::{msgs::PacketMsg, packet::PacketResult};
-use crate::core::ics05_port::capabilities::ChannelCapability;
 use crate::core::ics24_host::identifier::{ChannelId, PortId};
 use crate::core::ics26_routing::context::{
-    Ics26Context, ModuleId, ModuleOutput, OnRecvPacketAck, Router,
+    Ics26Context, ModuleId, ModuleOutputBuilder, OnRecvPacketAck, Router,
 };
 use crate::handler::{HandlerOutput, HandlerOutputBuilder};
 
@@ -42,7 +41,6 @@ pub struct ChannelResult {
     pub port_id: PortId,
     pub channel_id: ChannelId,
     pub channel_id_state: ChannelIdState,
-    pub channel_cap: ChannelCapability,
     pub channel_end: ChannelEnd,
 }
 
@@ -89,7 +87,7 @@ pub fn channel_callback<Ctx>(
     module_id: &ModuleId,
     msg: &ChannelMsg,
     mut result: ChannelResult,
-    module_output: &mut ModuleOutput,
+    module_output: &mut ModuleOutputBuilder,
 ) -> Result<ChannelResult, Error>
 where
     Ctx: Ics26Context,
@@ -106,7 +104,6 @@ where
             &msg.channel.connection_hops,
             &msg.port_id,
             &result.channel_id,
-            &result.channel_cap,
             msg.channel.counterparty(),
             &msg.channel.version,
         )?,
@@ -117,8 +114,8 @@ where
                 &msg.channel.connection_hops,
                 &msg.port_id,
                 &result.channel_id,
-                &result.channel_cap,
                 msg.channel.counterparty(),
+                msg.channel.version(),
                 &msg.counterparty_version,
             )?;
             result.channel_end.version = version;
@@ -142,30 +139,23 @@ where
     Ok(result)
 }
 
-pub fn packet_validate<Ctx>(ctx: &Ctx, msg: &PacketMsg) -> Result<ModuleId, Error>
+pub fn get_module_for_packet_msg<Ctx>(ctx: &Ctx, msg: &PacketMsg) -> Result<ModuleId, Error>
 where
     Ctx: Ics26Context,
 {
     let module_id = match msg {
-        PacketMsg::RecvPacket(msg) => {
-            ctx.lookup_module_by_channel(
-                &msg.packet.destination_channel,
-                &msg.packet.destination_port,
-            )?
-            .0
-        }
-        PacketMsg::AckPacket(msg) => {
-            ctx.lookup_module_by_channel(&msg.packet.source_channel, &msg.packet.source_port)?
-                .0
-        }
-        PacketMsg::ToPacket(msg) => {
-            ctx.lookup_module_by_channel(&msg.packet.source_channel, &msg.packet.source_port)?
-                .0
-        }
-        PacketMsg::ToClosePacket(msg) => {
-            ctx.lookup_module_by_channel(&msg.packet.source_channel, &msg.packet.source_port)?
-                .0
-        }
+        PacketMsg::RecvPacket(msg) => ctx
+            .lookup_module_by_port(&msg.packet.destination_port)
+            .map_err(Error::ics05_port)?,
+        PacketMsg::AckPacket(msg) => ctx
+            .lookup_module_by_port(&msg.packet.source_port)
+            .map_err(Error::ics05_port)?,
+        PacketMsg::ToPacket(msg) => ctx
+            .lookup_module_by_port(&msg.packet.source_port)
+            .map_err(Error::ics05_port)?,
+        PacketMsg::ToClosePacket(msg) => ctx
+            .lookup_module_by_port(&msg.packet.source_port)
+            .map_err(Error::ics05_port)?,
     };
 
     if ctx.router().has_route(&module_id) {
@@ -202,7 +192,7 @@ pub fn packet_callback<Ctx>(
     ctx: &mut Ctx,
     module_id: &ModuleId,
     msg: &PacketMsg,
-    module_output: &mut ModuleOutput,
+    module_output: &mut ModuleOutputBuilder,
 ) -> Result<(), Error>
 where
     Ctx: Ics26Context,
@@ -217,7 +207,7 @@ where
             let result = cb.on_recv_packet(module_output, &msg.packet, &msg.signer);
             match result {
                 OnRecvPacketAck::Nil(write_fn) | OnRecvPacketAck::Successful(_, write_fn) => {
-                    write_fn(cb.as_any_mut());
+                    write_fn(cb.as_any_mut()).map_err(Error::app_module)?;
                 }
                 OnRecvPacketAck::Failed(_) => {}
             }

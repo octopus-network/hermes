@@ -1,5 +1,27 @@
 # Gaiad Manager Change Log
 
+## v0.1.2
+
+### BUGFIXES
+
+- Fixed `gm hermes keys` which was broken following a breaking change in Hermes CLI ([#2262]).
+
+### IMPROVEMENTS
+
+- Adjusted the `max_gas` and `gas_price.price` parameters used for `gm hermes config`.
+
+[#2262]: https://github.com/informalsystems/ibc-rs/issues/2262
+
+
+## v0.1.1
+
+### BUGFIXES
+
+- Added `unsafe-reset-all` support for SDK 0.44.8+ and 0.45.3+ ([#2162])
+
+
+[#2162]: https://github.com/informalsystems/ibc-rs/issues/2162
+
 ## v0.1.0
 
 ### FEATURES

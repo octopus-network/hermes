@@ -19,11 +19,14 @@ use ibc::core::ics24_host::identifier::{ChainId, ChannelId, ClientId, Connection
 use ibc::events::IbcEvent;
 use ibc::tx_msg::Msg;
 use ibc::Height;
-use ibc_proto::ibc::core::channel::v1::QueryConnectionChannelsRequest;
 
 use crate::chain::counterparty::{channel_connection_client, channel_state_on_destination};
 use crate::chain::handle::ChainHandle;
-use crate::chain::tx::TrackedMsgs;
+use crate::chain::requests::{
+    IncludeProof, PageRequest, QueryChannelRequest, QueryConnectionChannelsRequest,
+    QueryConnectionRequest,
+};
+use crate::chain::tracking::TrackedMsgs;
 use crate::connection::Connection;
 use crate::foreign_client::{ForeignClient, HasExpiredOrFrozenError};
 use crate::object::Channel as WorkerChannelObject;
@@ -205,8 +208,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         let channel_id = channel_event_attributes.channel_id;
 
         let connection_id = channel_event_attributes.connection_id.clone();
-        let connection = chain
-            .query_connection(&connection_id, Height::zero())
+        let (connection, _) = chain
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: connection_id.clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(ChannelError::relayer)?;
 
         let connection_counterparty = connection.counterparty();
@@ -250,8 +259,15 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         channel: WorkerChannelObject,
         height: Height,
     ) -> Result<(Channel<ChainA, ChainB>, State), ChannelError> {
-        let a_channel = chain
-            .query_channel(&channel.src_port_id, &channel.src_channel_id, height)
+        let (a_channel, _) = chain
+            .query_channel(
+                QueryChannelRequest {
+                    port_id: channel.src_port_id.clone(),
+                    channel_id: channel.src_channel_id,
+                    height,
+                },
+                IncludeProof::No,
+            )
             .map_err(ChannelError::relayer)?;
 
         let a_connection_id = a_channel.connection_hops().first().ok_or_else(|| {
@@ -261,8 +277,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             ))
         })?;
 
-        let a_connection = chain
-            .query_connection(a_connection_id, Height::zero())
+        let (a_connection, _) = chain
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: a_connection_id.clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(ChannelError::relayer)?;
 
         let b_connection_id = a_connection
@@ -299,13 +321,11 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         };
 
         if a_channel.state_matches(&State::Init) && a_channel.remote.channel_id.is_none() {
-            let req = QueryConnectionChannelsRequest {
-                connection: b_connection_id.to_string(),
-                pagination: ibc_proto::cosmos::base::query::pagination::all(),
-            };
-
             let channels: Vec<IdentifiedChannelEnd> = counterparty_chain
-                .query_connection_channels(req)
+                .query_connection_channels(QueryConnectionChannelsRequest {
+                    connection_id: b_connection_id,
+                    pagination: Some(PageRequest::all()),
+                })
                 .map_err(ChannelError::relayer)?;
 
             for chan in channels {
@@ -479,7 +499,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             std::thread::sleep(Duration::from_secs(8));
             let a_channel = channel
                 .src_chain()
-                .query_channel(channel.src_port_id(), src_channel_id, Height::zero())
+                .query_channel(
+                    QueryChannelRequest {
+                        port_id: channel.src_port_id().clone(),
+                        channel_id: *src_channel_id,
+                        height: Height::zero(),
+                    },
+                    IncludeProof::No,
+                )
                 .map_err(|e| {
                     ChannelError::handshake_finalize(
                         channel.src_port_id().clone(),
@@ -488,10 +515,18 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                         e,
                     )
                 })?;
+                
             std::thread::sleep(Duration::from_secs(8));
             let b_channel = channel
                 .dst_chain()
-                .query_channel(channel.dst_port_id(), dst_channel_id, Height::zero())
+                .query_channel(
+                    QueryChannelRequest {
+                        port_id: channel.dst_port_id().clone(),
+                        channel_id: *dst_channel_id,
+                        height: Height::zero(),
+                    },
+                    IncludeProof::No,
+                )
                 .map_err(|e| {
                     ChannelError::handshake_finalize(
                         channel.dst_port_id().clone(),
@@ -759,7 +794,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
     pub fn build_chan_open_init_and_send(&self) -> Result<IbcEvent, ChannelError> {
         let dst_msgs = self.build_chan_open_init()?;
 
-        let tm = TrackedMsgs::new(dst_msgs, "ChannelOpenInit");
+        let tm = TrackedMsgs::new_static(dst_msgs, "ChannelOpenInit");
 
         let events = self
             .dst_chain()
@@ -823,9 +858,16 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         );
 
         // Retrieve existing channel
-        let dst_channel = self
+        let (dst_channel, _) = self
             .dst_chain()
-            .query_channel(self.dst_port_id(), dst_channel_id, Height::zero())
+            .query_channel(
+                QueryChannelRequest {
+                    port_id: self.dst_port_id().clone(),
+                    channel_id: *dst_channel_id,
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
 
         // Check if a channel is expected to exist on destination chain
@@ -850,9 +892,16 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .ok_or_else(ChannelError::missing_local_channel_id)?;
 
         // Channel must exist on source
-        let src_channel = self
+        let (src_channel, _) = self
             .src_chain()
-            .query_channel(self.src_port_id(), src_channel_id, Height::zero())
+            .query_channel(
+                QueryChannelRequest {
+                    port_id: self.src_port_id().clone(),
+                    channel_id: *src_channel_id,
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ChannelError::query(self.src_chain().id(), e))?;
 
         // TODO
@@ -868,7 +917,13 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         // Connection must exist on destination
         self.dst_chain()
-            .query_connection(self.dst_connection_id(), Height::zero())
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: self.dst_connection_id().clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
 
         let query_height = self
@@ -927,7 +982,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
     pub fn build_chan_open_try_and_send(&self) -> Result<IbcEvent, ChannelError> {
         let dst_msgs = self.build_chan_open_try()?;
 
-        let tm = TrackedMsgs::new(dst_msgs, "ChannelOpenTry");
+        let tm = TrackedMsgs::new_static(dst_msgs, "ChannelOpenTry");
 
         let events = self
             .dst_chain()
@@ -965,14 +1020,27 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         self.validated_expected_channel(ChannelMsgType::OpenAck)?;
 
         // Channel must exist on source
-        let src_channel = self
+        let (src_channel, _) = self
             .src_chain()
-            .query_channel(self.src_port_id(), src_channel_id, Height::zero())
+            .query_channel(
+                QueryChannelRequest {
+                    port_id: self.src_port_id().clone(),
+                    channel_id: *src_channel_id,
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ChannelError::query(self.src_chain().id(), e))?;
 
         // Connection must exist on destination
         self.dst_chain()
-            .query_connection(self.dst_connection_id(), Height::zero())
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: self.dst_connection_id().clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
 
         let query_height = self
@@ -1014,7 +1082,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         ) -> Result<IbcEvent, ChannelError> {
             let dst_msgs = channel.build_chan_open_ack()?;
 
-            let tm = TrackedMsgs::new(dst_msgs, "ChannelOpenAck");
+            let tm = TrackedMsgs::new_static(dst_msgs, "ChannelOpenAck");
 
             let events = channel
                 .dst_chain()
@@ -1067,12 +1135,25 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         // Channel must exist on source
         self.src_chain()
-            .query_channel(self.src_port_id(), src_channel_id, Height::zero())
+            .query_channel(
+                QueryChannelRequest {
+                    port_id: self.src_port_id().clone(),
+                    channel_id: *src_channel_id,
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ChannelError::query(self.src_chain().id(), e))?;
 
         // Connection must exist on destination
         self.dst_chain()
-            .query_connection(self.dst_connection_id(), Height::zero())
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: self.dst_connection_id().clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
 
         let query_height = self
@@ -1112,7 +1193,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         ) -> Result<IbcEvent, ChannelError> {
             let dst_msgs = channel.build_chan_open_confirm()?;
 
-            let tm = TrackedMsgs::new(dst_msgs, "ChannelOpenConfirm");
+            let tm = TrackedMsgs::new_static(dst_msgs, "ChannelOpenConfirm");
             let events = channel
                 .dst_chain()
                 .send_messages_and_wait_commit(tm)
@@ -1155,7 +1236,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         // Channel must exist on destination
         self.dst_chain()
-            .query_channel(self.dst_port_id(), dst_channel_id, Height::zero())
+            .query_channel(
+                QueryChannelRequest {
+                    port_id: self.dst_port_id().clone(),
+                    channel_id: *dst_channel_id,
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
 
         let signer = self
@@ -1176,7 +1264,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
     pub fn build_chan_close_init_and_send(&self) -> Result<IbcEvent, ChannelError> {
         let dst_msgs = self.build_chan_close_init()?;
 
-        let tm = TrackedMsgs::new(dst_msgs, "ChannelCloseInit");
+        let tm = TrackedMsgs::new_static(dst_msgs, "ChannelCloseInit");
 
         let events = self
             .dst_chain()
@@ -1215,12 +1303,25 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         // Channel must exist on source
         self.src_chain()
-            .query_channel(self.src_port_id(), src_channel_id, Height::zero())
+            .query_channel(
+                QueryChannelRequest {
+                    port_id: self.src_port_id().clone(),
+                    channel_id: *src_channel_id,
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ChannelError::query(self.src_chain().id(), e))?;
 
         // Connection must exist on destination
         self.dst_chain()
-            .query_connection(self.dst_connection_id(), Height::zero())
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: self.dst_connection_id().clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
 
         let query_height = self
@@ -1257,7 +1358,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
     pub fn build_chan_close_confirm_and_send(&self) -> Result<IbcEvent, ChannelError> {
         let dst_msgs = self.build_chan_close_confirm()?;
 
-        let tm = TrackedMsgs::new(dst_msgs, "ChannelCloseConfirm");
+        let tm = TrackedMsgs::new_static(dst_msgs, "ChannelCloseConfirm");
 
         let events = self
             .dst_chain()

@@ -1,11 +1,13 @@
 use core::time::Duration;
 
 use crate::chain::counterparty::connection_state_on_destination;
-use crate::chain::tx::TrackedMsgs;
+use crate::chain::requests::{
+    IncludeProof, PageRequest, QueryConnectionRequest, QueryConnectionsRequest,
+};
+use crate::chain::tracking::TrackedMsgs;
 use crate::util::retry::RetryResult;
 use flex_error::define_error;
 use ibc_proto::google::protobuf::Any;
-use ibc_proto::ibc::core::connection::v1::QueryConnectionsRequest;
 use serde::Serialize;
 use tracing::{error, info, warn};
 
@@ -337,8 +339,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         connection: WorkerConnectionObject,
         height: Height,
     ) -> Result<(Connection<ChainA, ChainB>, State), ConnectionError> {
-        let a_connection = chain
-            .query_connection(&connection.src_connection_id, height)
+        let (a_connection, _) = chain
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: connection.src_connection_id.clone(),
+                    height,
+                },
+                IncludeProof::No,
+            )
             .map_err(ConnectionError::relayer)?;
 
         let client_id = a_connection.client_id();
@@ -363,11 +371,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         };
 
         if a_connection.state_matches(&State::Init) && counterparty_connection_id.is_none() {
-            let req = QueryConnectionsRequest {
-                pagination: ibc_proto::cosmos::base::query::pagination::all(),
-            };
             let connections: Vec<IdentifiedConnectionEnd> = counterparty_chain
-                .query_connections(req)
+                .query_connections(QueryConnectionsRequest {
+                    pagination: Some(PageRequest::all()),
+                })
                 .map_err(ConnectionError::relayer)?;
 
             for conn in connections {
@@ -552,18 +559,33 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
             // Continue loop if query error
             std::thread::sleep(Duration::from_secs(8));
-            let a_connection = a_chain.query_connection(src_connection_id, Height::zero());
-            if a_connection.is_err() {
+            let a_connection_res = a_chain.query_connection(
+                QueryConnectionRequest {
+                    connection_id: src_connection_id.clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            );
+            if a_connection_res.is_err() {
                 continue;
             }
+            
             std::thread::sleep(Duration::from_secs(8));
-            let b_connection = b_chain.query_connection(dst_connection_id, Height::zero());
-            if b_connection.is_err() {
+            let b_connection_res = b_chain.query_connection(
+                QueryConnectionRequest {
+                    connection_id: dst_connection_id.clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            );
+            if b_connection_res.is_err() {
                 continue;
             }
 
-            match (a_connection.unwrap().state(), b_connection.unwrap().state()) {
-                // TODO
+            match (
+                a_connection_res.unwrap().0.state(),
+                b_connection_res.unwrap().0.state(),
+            ) {
                 (State::Init, State::TryOpen) | (State::TryOpen, State::TryOpen) => {
                     // Ack to a_chain
                     match self.flipped().build_conn_ack_and_send() {
@@ -611,9 +633,15 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .src_connection_id()
             .ok_or_else(ConnectionError::missing_local_connection_id)?;
 
-        let connection_end = self
+        let (connection_end, _) = self
             .src_chain()
-            .query_connection(connection_id, Height::zero())
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: connection_id.clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ConnectionError::connection_query(connection_id.clone(), e))?;
 
         let connection = IdentifiedConnectionEnd {
@@ -728,9 +756,15 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         );
 
         // Retrieve existing connection if any
-        let dst_connection = self
+        let (dst_connection, _) = self
             .dst_chain()
-            .query_connection(dst_connection_id, Height::zero())
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: dst_connection_id.clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?;
 
         // Check if a connection is expected to exist on destination chain
@@ -807,7 +841,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
     pub fn build_conn_init_and_send(&self) -> Result<IbcEvent, ConnectionError> {
         let dst_msgs = self.build_conn_init()?;
 
-        let tm = TrackedMsgs::new(dst_msgs, "ConnectionOpenInit");
+        let tm = TrackedMsgs::new_static(dst_msgs, "ConnectionOpenInit");
 
         let events = self
             .dst_chain()
@@ -837,9 +871,15 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .src_connection_id()
             .ok_or_else(ConnectionError::missing_local_connection_id)?;
 
-        let src_connection = self
+        let (src_connection, _) = self
             .src_chain()
-            .query_connection(src_connection_id, Height::zero())
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: src_connection_id.clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
 
         // TODO - check that the src connection is consistent with the try options
@@ -868,7 +908,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
 
-        let tm = TrackedMsgs::new(client_msgs, "update client on source for ConnectionOpenTry");
+        let tm =
+            TrackedMsgs::new_static(client_msgs, "update client on source for ConnectionOpenTry");
         self.src_chain()
             .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
@@ -941,7 +982,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
     pub fn build_conn_try_and_send(&self) -> Result<IbcEvent, ConnectionError> {
         let dst_msgs = self.build_conn_try()?;
 
-        let tm = TrackedMsgs::new(dst_msgs, "ConnectionOpenTry");
+        let tm = TrackedMsgs::new_static(dst_msgs, "ConnectionOpenTry");
 
         let events = self
             .dst_chain()
@@ -977,9 +1018,15 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let _expected_dst_connection =
             self.validated_expected_connection(ConnectionMsgType::OpenAck)?;
 
-        let src_connection = self
+        let (src_connection, _) = self
             .src_chain()
-            .query_connection(src_connection_id, Height::zero())
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: src_connection_id.clone(),
+                    height: Height::zero(),
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
 
         // TODO - check that the src connection is consistent with the ack options
@@ -992,7 +1039,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?;
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
 
-        let tm = TrackedMsgs::new(client_msgs, "update client on source for ConnectionOpenAck");
+        let tm =
+            TrackedMsgs::new_static(client_msgs, "update client on source for ConnectionOpenAck");
 
         self.src_chain()
             .send_messages_and_wait_commit(tm)
@@ -1038,7 +1086,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
     pub fn build_conn_ack_and_send(&self) -> Result<IbcEvent, ConnectionError> {
         let dst_msgs = self.build_conn_ack()?;
 
-        let tm = TrackedMsgs::new(dst_msgs, "ConnectionOpenAck");
+        let tm = TrackedMsgs::new_static(dst_msgs, "ConnectionOpenAck");
 
         let events = self
             .dst_chain()
@@ -1079,9 +1127,15 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .query_latest_height()
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
 
-        let _src_connection = self
+        let (_src_connection, _) = self
             .src_chain()
-            .query_connection(src_connection_id, query_height)
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: src_connection_id.clone(),
+                    height: query_height,
+                },
+                IncludeProof::No,
+            )
             .map_err(|e| ConnectionError::connection_query(src_connection_id.clone(), e))?;
 
         // TODO - check that the src connection is consistent with the confirm options
@@ -1118,7 +1172,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
     pub fn build_conn_confirm_and_send(&self) -> Result<IbcEvent, ConnectionError> {
         let dst_msgs = self.build_conn_confirm()?;
 
-        let tm = TrackedMsgs::new(dst_msgs, "ConnectionOpenConfirm");
+        let tm = TrackedMsgs::new_static(dst_msgs, "ConnectionOpenConfirm");
 
         let events = self
             .dst_chain()

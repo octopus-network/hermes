@@ -1,15 +1,13 @@
-use alloc::sync::Arc;
-
 use abscissa_core::clap::Parser;
 use abscissa_core::{Command, Runnable};
+use ibc_relayer::chain::handle::ChainHandle;
 use serde::Serialize;
-use tokio::runtime::Runtime as TokioRuntime;
 
 use ibc::core::ics02_client::client_state::ClientState;
 use ibc::core::ics24_host::identifier::{ChainId, ClientId};
-use ibc_proto::ibc::core::client::v1::QueryClientStatesRequest;
-use ibc_relayer::chain::{ChainEndpoint, CosmosSdkChain, SubstrateChain};
+use ibc_relayer::chain::requests::{PageRequest, QueryClientStatesRequest};
 
+use crate::cli_utils::spawn_chain_runtime;
 use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::error::Error;
 use crate::prelude::*;
@@ -44,50 +42,17 @@ impl Runnable for QueryAllClientsCmd {
     fn run(&self) {
         let config = app_config();
 
-        let chain_config = match config.find_chain(&self.chain_id) {
-            None => Output::error(format!(
-                "chain '{}' not found in configuration file",
-                self.chain_id
-            ))
-            .exit(),
-            Some(chain_config) => chain_config,
-        };
-
         debug!("Options: {:?}", self);
 
-        let rt = Arc::new(TokioRuntime::new().unwrap()); // TODO
+        let chain = spawn_chain_runtime(&config, &self.chain_id)
+            .unwrap_or_else(exit_with_unrecoverable_error);
 
-        let chain_type = chain_config.account_prefix.clone();
-        let res = match chain_type.as_str() {
-            "substrate" => {
-                let chain = SubstrateChain::bootstrap(chain_config.clone(), rt)
-                    .unwrap_or_else(exit_with_unrecoverable_error);
-                let req = QueryClientStatesRequest {
-                    pagination: ibc_proto::cosmos::base::query::pagination::all(),
-                };
-
-                let res: Result<_, Error> = chain.query_clients(req).map_err(Error::relayer);
-                res
-            }
-            "cosmos" => {
-                let chain = CosmosSdkChain::bootstrap(chain_config.clone(), rt)
-                    .unwrap_or_else(exit_with_unrecoverable_error);
-                let req = QueryClientStatesRequest {
-                    pagination: ibc_proto::cosmos::base::query::pagination::all(),
-                };
-
-                let res: Result<_, Error> = chain.query_clients(req).map_err(Error::relayer);
-                res
-            }
-            _ => unimplemented!("None chain type"),
-        };
-
-        // let req = QueryClientStatesRequest {
-        //     pagination: ibc_proto::cosmos::base::query::pagination::all(),
-        // };
-        //
-        // let res: Result<_, Error> = chain.query_clients(req).map_err(Error::relayer);
-
+        let res: Result<_, Error> = chain
+            .query_clients(QueryClientStatesRequest {
+                pagination: Some(PageRequest::all()),
+            })
+            .map_err(Error::relayer);
+            
         match res {
             Ok(clients) => {
                 match self.src_chain_id.clone() {
