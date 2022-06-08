@@ -97,7 +97,8 @@ frame-system = { git = "https://github.com/paritytech/substrate", branch = "polk
 sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18", default-features = false }
 
 # beefy light client
-beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.18", default-features = false }
+# beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.18", default-features = false }
+beefy-light-client = { path = "../../beefy-light-client", default-features = false }
 
 log = { version = "0.4.0", default-features = false }
 
@@ -126,7 +127,7 @@ modelator = "0.4.2"
 sha2 = { version = "0.10.2" }
 tendermint-rpc = { version = "=0.23.6", features = ["http-client", "websocket-client"] }
 tendermint-testgen = { version = "=0.23.6" } # Needed for generating (synthetic) light blocks.
-codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
 hex-literal = "0.3.1"
 octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.18"}
 # octopusxt = { path = "../../octopusxt" }
