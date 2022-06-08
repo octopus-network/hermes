@@ -781,17 +781,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
 
     /// Checks if a packet commitment has been cleared on source.
     /// The packet commitment is cleared when either an acknowledgment or a timeout is received on source.
-    fn send_packet_commitment_cleared_on_src(
-        &self,
-        send_packet: &SendPacket,
-    ) -> Result<bool, LinkError> {
+    fn send_packet_commitment_cleared_on_src(&self, packet: &Packet) -> Result<bool, LinkError> {
         let (bytes, _) = self
             .src_chain()
             .query_packet_commitment(
                 QueryPacketCommitmentRequest {
                     port_id: self.src_port_id().clone(),
                     channel_id: *self.src_channel_id(),
-                    sequence: send_packet.sequence,
+                    sequence: packet.sequence,
                     height: Height::zero(),
                 },
                 IncludeProof::No,
@@ -804,7 +801,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     /// Checks if a send packet event has already been handled (e.g. by another relayer).
     fn send_packet_event_handled(&self, sp: &SendPacket) -> Result<bool, LinkError> {
         Ok(self.send_packet_received_on_dst(&sp.packet)?
-            || self.send_packet_commitment_cleared_on_src(sp)?)
+            || self.send_packet_commitment_cleared_on_src(&sp.packet)?)
     }
 
     /// Checks if an acknowledgement for the given packet has been received on

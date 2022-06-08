@@ -476,7 +476,7 @@ impl ChainHandle for BaseChainHandle {
     ) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error> {
         self.send(|reply_to| ChainRequest::QueryPacketEventDataFromBlocks { request, reply_to })
     }
-    
+
     fn query_host_consensus_state(
         &self,
         request: QueryHostConsensusStateRequest,

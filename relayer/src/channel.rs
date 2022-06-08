@@ -497,7 +497,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
             // Continue loop if query error
             std::thread::sleep(Duration::from_secs(8));
-            let a_channel = channel
+            let (a_channel, _) = channel
                 .src_chain()
                 .query_channel(
                     QueryChannelRequest {
@@ -517,7 +517,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                 })?;
 
             std::thread::sleep(Duration::from_secs(8));
-            let b_channel = channel
+            let (b_channel, _) = channel
                 .dst_chain()
                 .query_channel(
                     QueryChannelRequest {

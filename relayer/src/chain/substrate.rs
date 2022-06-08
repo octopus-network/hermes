@@ -10,10 +10,12 @@ use codec::{Decode, Encode};
 use core::fmt::Debug;
 use core::{future::Future, str::FromStr, time::Duration};
 use subxt::rpc::ClientT;
+use tracing::trace;
 
 use super::client::ClientSettings;
 use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
 use crate::chain::tracking::TrackedMsgs;
+use ibc::core::ics23_commitment::merkle::MerkleProof;
 use ibc::{
     clients::{
         ics07_tendermint::header::Header as tHeader,
@@ -41,21 +43,21 @@ use ibc::{
     events::{IbcEvent, WithBlockDataType},
     query::{QueryBlockRequest, QueryTxRequest},
     signer::Signer,
-    Height, Height as ICSHeight,
+    Height as ICSHeight,
 };
-
 use ibc_proto::google::protobuf::Any;
-use ibc_proto::ibc::core::{
-    channel::v1::{
-        PacketState, QueryChannelClientStateRequest, QueryChannelsRequest,
-        QueryConnectionChannelsRequest, QueryNextSequenceReceiveRequest,
-        QueryPacketAcknowledgementsRequest, QueryPacketCommitmentsRequest,
-        QueryUnreceivedAcksRequest, QueryUnreceivedPacketsRequest,
-    },
-    client::v1::{QueryClientStatesRequest, QueryConsensusStatesRequest},
-    commitment::v1::MerkleProof,
-    connection::v1::{QueryClientConnectionsRequest, QueryConnectionsRequest},
-};
+use ibc_proto::ibc::core::channel::v1::PacketState;
+// use ibc_proto::ibc::core::{
+//     channel::v1::{
+//         PacketState, QueryChannelClientStateRequest, QueryChannelsRequest,
+//         QueryConnectionChannelsRequest, QueryNextSequenceReceiveRequest,
+//         QueryPacketAcknowledgementsRequest, QueryPacketCommitmentsRequest,
+//         QueryUnreceivedAcksRequest, QueryUnreceivedPacketsRequest,
+//     },
+//     client::v1::{QueryClientStatesRequest, QueryConsensusStatesRequest},
+//     commitment::v1::MerkleProof,
+//     connection::v1::{QueryClientConnectionsRequest, QueryConnectionsRequest},
+// };
 
 use jsonrpsee::rpc_params;
 use octopusxt::ibc_node;
@@ -72,7 +74,6 @@ use subxt::{
 use tendermint::abci::{Code, Log};
 
 use ibc::clients::ics10_grandpa::help::Commitment;
-// use jsonrpsee::types::to_json_value;
 use serde::{Deserialize, Serialize};
 use sp_core::{hexdisplay::HexDisplay, Bytes, Pair, H256};
 use sp_runtime::{traits::IdentifyAccount, MultiSigner};
@@ -80,6 +81,18 @@ use tendermint::abci::transaction;
 use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
+
+use super::requests::{
+    IncludeProof, QueryChannelClientStateRequest, QueryChannelRequest, QueryChannelsRequest,
+    QueryClientConnectionsRequest, QueryClientStateRequest, QueryClientStatesRequest,
+    QueryConnectionChannelsRequest, QueryConnectionRequest, QueryConnectionsRequest,
+    QueryConsensusStateRequest, QueryConsensusStatesRequest, QueryHostConsensusStateRequest,
+    QueryNextSequenceReceiveRequest, QueryPacketAcknowledgementRequest,
+    QueryPacketAcknowledgementsRequest, QueryPacketCommitmentRequest,
+    QueryPacketCommitmentsRequest, QueryPacketReceiptRequest, QueryUnreceivedAcksRequest,
+    QueryUnreceivedPacketsRequest, QueryUpgradedClientStateRequest,
+    QueryUpgradedConsensusStateRequest,
+};
 
 const MAX_QUERY_TIMES: u64 = 100;
 
@@ -136,7 +149,7 @@ impl SubstrateChain {
     fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [subscribe_ibc_events]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::subscribe_ibc_event(client))
     }
@@ -145,7 +158,7 @@ impl SubstrateChain {
     fn get_latest_height(&self) -> Result<u64, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_latest_height]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_latest_height(client))
     }
@@ -157,7 +170,7 @@ impl SubstrateChain {
     ) -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_connection_end]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_connection_end(connection_identifier, client))
     }
@@ -170,7 +183,7 @@ impl SubstrateChain {
     ) -> Result<ChannelEnd, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_channel_end]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_channel_end(port_id, channel_id, client))
     }
@@ -184,7 +197,7 @@ impl SubstrateChain {
     ) -> Result<Receipt, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_packet_receipt]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_packet_receipt(
             port_id, channel_id, seq, client,
@@ -200,7 +213,7 @@ impl SubstrateChain {
     ) -> Result<Packet, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_send_packet_event]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_send_packet_event(
             port_id, channel_id, seq, client,
@@ -214,7 +227,7 @@ impl SubstrateChain {
     ) -> Result<AnyClientState, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_client_state]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_client_state(client_id, client))
     }
@@ -227,7 +240,7 @@ impl SubstrateChain {
     ) -> Result<AnyConsensusState, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_client_consensus]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_client_consensus(client_id, height, client))
     }
@@ -235,10 +248,10 @@ impl SubstrateChain {
     fn get_consensus_state_with_height(
         &self,
         client_id: &ClientId,
-    ) -> Result<Vec<(Height, AnyConsensusState)>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<(ICSHeight, AnyConsensusState)>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_consensus_state_with_height]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_consensus_state_with_height(
             client_id, client,
@@ -250,23 +263,25 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequences: &[Sequence],
-    ) -> Result<Vec<u64>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<Sequence>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_unreceipt_packet]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
-        self.block_on(octopusxt::get_unreceipt_packet(
-            port_id,
-            channel_id,
-            sequences.to_vec(),
-            client,
-        ))
+        // TODO
+        // self.block_on(octopusxt::get_unreceipt_packet(
+        //     port_id,
+        //     channel_id,
+        //     sequences.to_vec(),
+        //     client,
+        // ))
+        todo!()
     }
 
     fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_clients]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_clients(client))
     }
@@ -274,7 +289,7 @@ impl SubstrateChain {
     fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_connections]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_connections(client))
     }
@@ -282,17 +297,18 @@ impl SubstrateChain {
     fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_channels]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_channels(client))
     }
 
-    fn get_commitment_packet_state(&self) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
+    fn get_commitment_packet_state(&self) -> Result<Vec<Sequence>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_commitment_packet_state]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
-        self.block_on(octopusxt::get_commitment_packet_state(client))
+        // self.block_on(octopusxt::get_commitment_packet_state(client)) // TODO
+        todo!()
     }
 
     /// get packet commitment by port_id, channel_id and sequence
@@ -304,19 +320,20 @@ impl SubstrateChain {
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_packet_commitment]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_packet_commitment(
             port_id, channel_id, sequence, client,
         ))
     }
 
-    fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
+    fn get_acknowledge_packet_state(&self) -> Result<Vec<Sequence>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_acknowledge_packet_state]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
-        self.block_on(octopusxt::get_acknowledge_packet_state(client))
+        // self.block_on(octopusxt::get_acknowledge_packet_state(client)) // TODO
+        todo!()
     }
 
     /// get connection_identifier vector by client_identifier
@@ -326,7 +343,7 @@ impl SubstrateChain {
     ) -> Result<Vec<ConnectionId>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_client_connections]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_client_connections(client_id, client))
     }
@@ -337,7 +354,7 @@ impl SubstrateChain {
     ) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_connection_channels]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_connection_channels(connection_id, client))
     }
@@ -347,7 +364,7 @@ impl SubstrateChain {
     fn deliever(&self, msgs: Vec<Any>) -> Result<H256, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [deliever]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         let result = self.block_on(octopusxt::deliver(msgs, client))?;
 
@@ -362,7 +379,7 @@ impl SubstrateChain {
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         tracing::trace!("in substrate: [get_send_packet_event]");
 
-        let client = self.get_client()?;
+        let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::ibc_rpc::get_write_ack_packet_event(
             port_id, channel_id, sequence, client,
@@ -403,15 +420,21 @@ impl SubstrateChain {
         let mut result_event = vec![];
 
         for sequence in &request.sequences {
-            let write_ack = self
-                .get_write_ack_packet_event(
-                    &request.source_port_id,
-                    &request.source_channel_id,
-                    sequence,
-                )
-                .map_err(|_| Error::get_write_ack_packet_event_error())?;
+            // TODO
+            // let write_ack = self
+            //     .get_write_ack_packet_event(
+            //         &request.source_port_id,
+            //         &request.source_channel_id,
+            //         sequence,
+            //     )
+            //     .map_err(|_| Error::get_write_ack_packet_event_error())?;
 
-            let write_ack = WriteAcknowledgement::decode(&*write_ack).map_err(Error::decode)?;
+            // let write_ack = WriteAcknowledgement::decode(&*write_ack).map_err(Error::decode)?;
+            let write_ack = WriteAcknowledgement {
+                height: ICSHeight::zero(),
+                packet: Packet::default(),
+                ack: vec![],
+            };
             result_event.push(IbcEvent::WriteAcknowledgement(write_ack));
         }
 
@@ -423,7 +446,7 @@ impl SubstrateChain {
     fn generate_storage_proof<F: StorageEntry>(
         &self,
         storage_entry: &F,
-        height: &Height,
+        height: &ICSHeight,
         storage_name: &str,
     ) -> Result<MerkleProof, Error>
     where
@@ -720,7 +743,7 @@ impl ChainEndpoint for SubstrateChain {
         let encode_account = sp_runtime::AccountId32::encode(&account);
         let hex_account = hex::encode(encode_account);
 
-        Ok(Signer::new(hex_account))
+        Ok(Signer::from_str(&hex_account).unwrap())
     }
 
     fn get_key(&mut self) -> Result<KeyEntry, Error> {
@@ -744,11 +767,28 @@ impl ChainEndpoint for SubstrateChain {
             .map_err(|_| Error::invalid_commitment_prefix())
     }
 
+    /// Query the latest height and timestamp the application is at
+    fn query_application_status(&self) -> Result<ChainStatus, Error> {
+        tracing::trace!("in substrate: [query_status]");
+
+        let height = self
+            .retry_wapper(|| self.get_latest_height())
+            .map_err(Error::retry_error)?;
+
+        let latest_height = ICSHeight::new(0, height);
+
+        Ok(ChainStatus {
+            height: latest_height,
+            timestamp: Default::default(),
+        })
+    }
+
     fn query_clients(
         &self,
-        _request: QueryClientStatesRequest,
+        request: QueryClientStatesRequest,
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
         tracing::trace!("in substrate: [query_clients]");
+        let QueryClientStatesRequest { pagination } = request;
 
         let result = self
             .retry_wapper(|| self.get_clients())
@@ -757,34 +797,41 @@ impl ChainEndpoint for SubstrateChain {
         Ok(result)
     }
 
+    /// Performs a query to retrieve the state of the specified light client. A
+    /// proof can optionally be returned along with the result.
     fn query_client_state(
         &self,
-        client_id: &ClientId,
-        _height: ICSHeight,
-    ) -> Result<Self::ClientState, Error> {
+        request: QueryClientStateRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_client_state]");
+        let QueryClientStateRequest { client_id, height } = request;
 
         let result = self
-            .retry_wapper(|| self.get_client_state(client_id))
+            .retry_wapper(|| self.get_client_state(&client_id))
             .map_err(Error::retry_error)?;
 
-        Ok(result)
+        // todo
+        Ok((result, None))
     }
 
+    /// Performs a query to retrieve all the consensus states that the specified
+    /// light client stores.
     fn query_consensus_states(
         &self,
         request: QueryConsensusStatesRequest,
     ) -> Result<Vec<AnyConsensusStateWithHeight>, Error> {
         tracing::trace!("in substrate: [query_consensus_states]");
-
-        let request_client_id =
-            ClientId::from_str(request.client_id.as_str()).map_err(Error::identifier)?;
+        let QueryConsensusStatesRequest {
+            client_id,
+            pagination,
+        } = request;
 
         let result = self
-            .retry_wapper(|| self.get_consensus_state_with_height(&request_client_id))
+            .retry_wapper(|| self.get_consensus_state_with_height(&client_id))
             .map_err(Error::retry_error)?;
 
-        let consensus_state: Vec<(Height, AnyConsensusState)> = result;
+        let consensus_state: Vec<(ICSHeight, AnyConsensusState)> = result;
 
         let mut any_consensus_state_with_height = vec![];
         for (height, consensus_state) in consensus_state.into_iter() {
@@ -800,44 +847,55 @@ impl ChainEndpoint for SubstrateChain {
         Ok(any_consensus_state_with_height)
     }
 
+    /// Performs a query to retrieve the consensus state for a specified height
+    /// `consensus_height` that the specified light client stores.
     fn query_consensus_state(
         &self,
-        client_id: ClientId,
-        consensus_height: ICSHeight,
-        query_height: ICSHeight,
-    ) -> Result<AnyConsensusState, Error> {
+        request: QueryConsensusStateRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_consensus_state]");
+        let QueryConsensusStateRequest {
+            client_id,
+            consensus_height,
+            query_height,
+        } = request;
 
-        let consensus_state = self
-            .proven_client_consensus(&client_id, consensus_height, query_height)?
-            .0;
+        // let consensus_state = self
+        //     .proven_client_consensus(&client_id, consensus_height, query_height)?
+        //     .0;
 
-        Ok(consensus_state)
+        // Ok((consensus_state, None))
+        todo!()
     }
 
     fn query_upgraded_client_state(
         &self,
-        _height: ICSHeight,
-    ) -> Result<(Self::ClientState, MerkleProof), Error> {
+        request: QueryUpgradedClientStateRequest,
+    ) -> Result<(AnyClientState, MerkleProof), Error> {
         tracing::trace!("in substrate: [query_upgraded_client_state]");
+        let QueryUpgradedClientStateRequest { height } = request;
 
         todo!()
     }
 
     fn query_upgraded_consensus_state(
         &self,
-        _height: ICSHeight,
-    ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
+        request: QueryUpgradedConsensusStateRequest,
+    ) -> Result<(AnyConsensusState, MerkleProof), Error> {
         tracing::trace!("in substrate: [query_upgraded_consensus_state]");
+        let QueryUpgradedConsensusStateRequest { height } = request;
 
         todo!()
     }
 
+    /// Performs a query to retrieve the identifiers of all connections.
     fn query_connections(
         &self,
-        _request: QueryConnectionsRequest,
+        request: QueryConnectionsRequest,
     ) -> Result<Vec<IdentifiedConnectionEnd>, Error> {
         tracing::trace!("in substrate: [query_connections]");
+        let QueryConnectionsRequest { pagination } = request;
 
         let result = self
             .retry_wapper(|| self.get_connections())
@@ -846,14 +904,13 @@ impl ChainEndpoint for SubstrateChain {
         Ok(result)
     }
 
+    /// Performs a query to retrieve the identifiers of all connections.
     fn query_client_connections(
         &self,
         request: QueryClientConnectionsRequest,
     ) -> Result<Vec<ConnectionId>, Error> {
         tracing::trace!("in substrate: [query_client_connections]");
-
-        let client_id =
-            ClientId::from_str(request.client_id.as_str()).map_err(Error::identifier)?;
+        let QueryClientConnectionsRequest { client_id } = request;
 
         let result = self
             .retry_wapper(|| self.get_client_connections(&client_id))
@@ -862,29 +919,37 @@ impl ChainEndpoint for SubstrateChain {
         Ok(result)
     }
 
-    // TODO fo substrate
+    /// Performs a query to retrieve the connection associated with a given
+    /// connection identifier. A proof can optionally be returned along with the
+    /// result.
     fn query_connection(
         &self,
-        connection_id: &ConnectionId,
-        _height: ICSHeight,
-    ) -> Result<ConnectionEnd, Error> {
+        request: QueryConnectionRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_connection]");
+        let QueryConnectionRequest {
+            connection_id,
+            height,
+        } = request;
 
         let connection_end = self
-            .retry_wapper(|| self.get_connection_end(connection_id))
+            .retry_wapper(|| self.get_connection_end(&connection_id))
             .map_err(Error::retry_error)?;
 
-        Ok(connection_end)
+        Ok((connection_end, None))
     }
 
+    /// Performs a query to retrieve all channels associated with a connection.
     fn query_connection_channels(
         &self,
         request: QueryConnectionChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         tracing::trace!("in substrate: [query_connection_channels] ");
-
-        let connection_id =
-            ConnectionId::from_str(&request.connection).map_err(Error::identifier)?;
+        let QueryConnectionChannelsRequest {
+            connection_id,
+            pagination,
+        } = request;
 
         let result = self
             .retry_wapper(|| self.get_connection_channels(&connection_id))
@@ -893,11 +958,13 @@ impl ChainEndpoint for SubstrateChain {
         Ok(result)
     }
 
+    /// Performs a query to retrieve all the channels of a chain.
     fn query_channels(
         &self,
-        _request: QueryChannelsRequest,
+        request: QueryChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         tracing::trace!("in substrate: [query_channels]");
+        let QueryChannelsRequest { pagination } = request;
 
         let result = self
             .retry_wapper(|| self.get_channels())
@@ -906,35 +973,55 @@ impl ChainEndpoint for SubstrateChain {
         Ok(result)
     }
 
-    // todo for substrate
+    /// Performs a query to retrieve the channel associated with a given channel
+    /// identifier. A proof can optionally be returned along with the result.
     fn query_channel(
         &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        _height: ICSHeight,
-    ) -> Result<ChannelEnd, Error> {
+        request: QueryChannelRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_channel]");
+        let QueryChannelRequest {
+            port_id,
+            channel_id,
+            height,
+        } = request;
 
         let channel_end = self
-            .retry_wapper(|| self.get_channel_end(port_id, channel_id))
+            .retry_wapper(|| self.get_channel_end(&port_id, &channel_id))
             .map_err(Error::retry_error)?;
 
-        Ok(channel_end)
+        Ok((channel_end, None))
     }
 
+    /// Performs a query to retrieve the client state for the channel associated
+    /// with a given channel identifier.
     fn query_channel_client_state(
         &self,
-        _request: QueryChannelClientStateRequest,
+        request: QueryChannelClientStateRequest,
     ) -> Result<Option<IdentifiedAnyClientState>, Error> {
         tracing::trace!("in substrate: [query_channel_client_state]");
+        let QueryChannelClientStateRequest {
+            port_id,
+            channel_id,
+        } = request;
 
         todo!()
     }
 
+    /// Performs a query to retrieve all the packet commitments hashes
+    /// associated with a channel. Returns the corresponding packet sequence
+    /// numbers and the height at which they were retrieved.
     fn query_packet_commitments(
         &self,
-        _request: QueryPacketCommitmentsRequest,
-    ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
+        request: QueryPacketCommitmentsRequest,
+    ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
+        let QueryPacketCommitmentsRequest {
+            port_id,
+            channel_id,
+            pagination,
+        } = request;
+
         tracing::trace!("in substrate: [query_packet_commitments]");
 
         let packet_commitments = self
@@ -945,38 +1032,58 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_latest_height())
             .map_err(Error::retry_error)?;
 
-        let latest_height = Height::new(0, height);
+        let latest_height = ICSHeight::new(0, height);
 
         Ok((packet_commitments, latest_height))
     }
 
+    /// Performs a query about which IBC packets in the specified list has not
+    /// been received. Returns the sequence numbers of the packets that were not
+    /// received.
+    ///
+    /// For example, given a request with the sequence numbers `[5,6,7,8]`, a
+    /// response of `[7,8]` would indicate that packets 5 & 6 were received,
+    /// while packets 7, 8 were not.
     fn query_unreceived_packets(
         &self,
         request: QueryUnreceivedPacketsRequest,
-    ) -> Result<Vec<u64>, Error> {
+    ) -> Result<Vec<Sequence>, Error> {
         tracing::trace!("in substrate: [query_unreceived_packets]");
+        let QueryUnreceivedPacketsRequest {
+            port_id,
+            channel_id,
+            packet_commitment_sequences,
+        } = request;
 
-        let port_id = PortId::from_str(request.port_id.as_str()).map_err(Error::identifier)?;
-        let channel_id =
-            ChannelId::from_str(request.channel_id.as_str()).map_err(Error::identifier)?;
-        let sequences = request
-            .packet_commitment_sequences
-            .into_iter()
-            .map(Sequence::from)
-            .collect::<Vec<_>>();
+        // let sequences = request
+        //     .packet_commitment_sequences
+        //     .into_iter()
+        //     .map(Sequence::from)
+        //     .collect::<Vec<_>>();
 
         let result = self
-            .retry_wapper(|| self.get_unreceipt_packet(&port_id, &channel_id, &sequences))
+            .retry_wapper(|| {
+                self.get_unreceipt_packet(&port_id, &channel_id, &packet_commitment_sequences)
+            })
             .map_err(Error::retry_error)?;
 
         Ok(result)
     }
 
+    /// Performs a query to retrieve all the packet acknowledgements associated
+    /// with a channel. Returns the corresponding packet sequence numbers and
+    /// the height at which they were retrieved.
     fn query_packet_acknowledgements(
         &self,
-        _request: QueryPacketAcknowledgementsRequest,
-    ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
+        request: QueryPacketAcknowledgementsRequest,
+    ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
         tracing::trace!("in substrate: [query_packet_acknowledgements]");
+        let QueryPacketAcknowledgementsRequest {
+            port_id,
+            channel_id,
+            pagination,
+            packet_commitment_sequences,
+        } = request;
 
         let packet_acknowledgements = self
             .retry_wapper(|| self.get_acknowledge_packet_state())
@@ -986,46 +1093,65 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_latest_height())
             .map_err(Error::retry_error)?;
 
-        let latest_height = Height::new(0, height);
+        let latest_height = ICSHeight::new(0, height);
 
         Ok((packet_acknowledgements, latest_height))
     }
 
+    /// Performs a query about which IBC packets in the specified list has not
+    /// been acknowledged. Returns the sequence numbers of the packets that were not
+    /// acknowledged.
+    ///
+    /// For example, given a request with the sequence numbers `[5,6,7,8]`, a
+    /// response of `[7,8]` would indicate that packets 5 & 6 were acknowledged,
+    /// while packets 7, 8 were not.
     fn query_unreceived_acknowledgements(
         &self,
         request: QueryUnreceivedAcksRequest,
-    ) -> Result<Vec<u64>, Error> {
+    ) -> Result<Vec<Sequence>, Error> {
         tracing::trace!("in substrate: [query_unreceived_acknowledgements] ");
+        let QueryUnreceivedAcksRequest {
+            port_id,
+            channel_id,
+            packet_ack_sequences,
+        } = request;
 
-        let port_id = PortId::from_str(request.port_id.as_str()).map_err(Error::identifier)?;
-        let channel_id =
-            ChannelId::from_str(request.channel_id.as_str()).map_err(Error::identifier)?;
-        let sequences = request
-            .packet_ack_sequences
-            .into_iter()
-            .map(Sequence::from)
-            .collect::<Vec<_>>();
+        // let sequences = request
+        //     .packet_ack_sequences
+        //     .into_iter()
+        //     .map(Sequence::from)
+        //     .collect::<Vec<_>>();
 
-        let mut unreceived_seqs: Vec<u64> = vec![];
+        let mut unreceived_seqs: Vec<Sequence> = vec![];
 
-        for seq in sequences {
-            let cmt = self.retry_wapper(|| self.get_packet_commitment(&port_id, &channel_id, &seq));
+        for sequence in packet_ack_sequences {
+            let cmt =
+                self.retry_wapper(|| self.get_packet_commitment(&port_id, &channel_id, &sequence));
 
             // if packet commitment still exists on the original sending chain, then packet ack is unreceived
             // since processing the ack will delete the packet commitment
             if let Ok(_) = cmt {
-                unreceived_seqs.push(u64::from(seq));
+                unreceived_seqs.push(sequence);
             }
         }
 
         Ok(unreceived_seqs)
     }
 
+    /// Performs a query to retrieve `nextSequenceRecv` stored at path
+    /// `path::SeqRecvsPath` as defined in ICS-4. A proof can optionally be
+    /// returned along with the result.
     fn query_next_sequence_receive(
         &self,
-        _request: QueryNextSequenceReceiveRequest,
-    ) -> Result<Sequence, Error> {
+        request: QueryNextSequenceReceiveRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Sequence, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_next_sequence_receive] ");
+        let QueryNextSequenceReceiveRequest {
+            port_id,
+            channel_id,
+            height,
+        } = request;
 
         todo!()
     }
@@ -1084,247 +1210,247 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    fn proven_client_state(
-        &self,
-        client_id: &ClientId,
-        height: ICSHeight,
-    ) -> Result<(Self::ClientState, MerkleProof), Error> {
-        tracing::trace!("in substrate: [proven_client_state]");
+    // fn proven_client_state(
+    //     &self,
+    //     client_id: &ClientId,
+    //     height: ICSHeight,
+    // ) -> Result<(Self::ClientState, MerkleProof), Error> {
+    //     tracing::trace!("in substrate: [proven_client_state]");
 
-        let result = self
-            .retry_wapper(|| self.get_client_state(client_id))
-            .map_err(Error::retry_error)?;
+    //     let result = self
+    //         .retry_wapper(|| self.get_client_state(client_id))
+    //         .map_err(Error::retry_error)?;
 
-        let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes());
+    //     let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes());
 
-        Ok((
-            result,
-            self.generate_storage_proof(&storage_entry, &height, "ClientStates")?,
-        ))
-    }
+    //     Ok((
+    //         result,
+    //         self.generate_storage_proof(&storage_entry, &height, "ClientStates")?,
+    //     ))
+    // }
 
-    fn proven_connection(
-        &self,
-        connection_id: &ConnectionId,
-        height: ICSHeight,
-    ) -> Result<(ConnectionEnd, MerkleProof), Error> {
-        tracing::trace!("in substrate: [proven_connection]");
+    // fn proven_connection(
+    //     &self,
+    //     connection_id: &ConnectionId,
+    //     height: ICSHeight,
+    // ) -> Result<(ConnectionEnd, MerkleProof), Error> {
+    //     tracing::trace!("in substrate: [proven_connection]");
 
-        let result = self
-            .retry_wapper(|| self.get_connection_end(connection_id))
-            .map_err(Error::retry_error)?;
+    //     let result = self
+    //         .retry_wapper(|| self.get_connection_end(connection_id))
+    //         .map_err(Error::retry_error)?;
 
-        let connection_end = result;
+    //     let connection_end = result;
 
-        let new_connection_end = if connection_end
-            .counterparty()
-            .clone()
-            .connection_id
-            .is_none()
-        {
-            // 构造 Counterparty
-            let client_id = connection_end.counterparty().client_id().clone();
-            let prefix = connection_end.counterparty().prefix().clone();
-            let temp_connection_id = Some(connection_id.clone());
+    //     let new_connection_end = if connection_end
+    //         .counterparty()
+    //         .clone()
+    //         .connection_id
+    //         .is_none()
+    //     {
+    //         // 构造 Counterparty
+    //         let client_id = connection_end.counterparty().client_id().clone();
+    //         let prefix = connection_end.counterparty().prefix().clone();
+    //         let temp_connection_id = Some(connection_id.clone());
 
-            let counterparty = Counterparty::new(client_id, temp_connection_id, prefix);
-            let state = connection_end.state;
-            let client_id = connection_end.client_id().clone();
-            let versions = connection_end.versions();
-            let delay_period = connection_end.delay_period();
+    //         let counterparty = Counterparty::new(client_id, temp_connection_id, prefix);
+    //         let state = connection_end.state;
+    //         let client_id = connection_end.client_id().clone();
+    //         let versions = connection_end.versions();
+    //         let delay_period = connection_end.delay_period();
 
-            ConnectionEnd::new(
-                state,
-                client_id,
-                counterparty,
-                versions.to_vec(),
-                delay_period,
-            )
-        } else {
-            connection_end
-        };
+    //         ConnectionEnd::new(
+    //             state,
+    //             client_id,
+    //             counterparty,
+    //             versions.to_vec(),
+    //             delay_period,
+    //         )
+    //     } else {
+    //         connection_end
+    //     };
 
-        let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes());
+    //     let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes());
 
-        Ok((
-            new_connection_end,
-            self.generate_storage_proof(&storage_entry, &height, "Connections")?,
-        ))
-    }
+    //     Ok((
+    //         new_connection_end,
+    //         self.generate_storage_proof(&storage_entry, &height, "Connections")?,
+    //     ))
+    // }
 
-    fn proven_client_consensus(
-        &self,
-        client_id: &ClientId,
-        consensus_height: ICSHeight,
-        height: ICSHeight,
-    ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
-        tracing::trace!("in substrate: [proven_client_consensus] ");
+    // fn proven_client_consensus(
+    //     &self,
+    //     client_id: &ClientId,
+    //     consensus_height: ICSHeight,
+    //     height: ICSHeight,
+    // ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
+    //     tracing::trace!("in substrate: [proven_client_consensus] ");
 
-        let result = self
-            .retry_wapper(|| self.get_client_consensus(client_id, &consensus_height))
-            .map_err(Error::retry_error)?;
+    //     let result = self
+    //         .retry_wapper(|| self.get_client_consensus(client_id, &consensus_height))
+    //         .map_err(Error::retry_error)?;
 
-        let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes());
+    //     let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes());
 
-        Ok((
-            result,
-            self.generate_storage_proof(&storage_entry, &height, "ConsensusStates")?,
-        ))
-    }
+    //     Ok((
+    //         result,
+    //         self.generate_storage_proof(&storage_entry, &height, "ConsensusStates")?,
+    //     ))
+    // }
 
-    fn proven_channel(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        height: ICSHeight,
-    ) -> Result<(ChannelEnd, MerkleProof), Error> {
-        tracing::trace!("in substrate: [proven_channel]");
+    // fn proven_channel(
+    //     &self,
+    //     port_id: &PortId,
+    //     channel_id: &ChannelId,
+    //     height: ICSHeight,
+    // ) -> Result<(ChannelEnd, MerkleProof), Error> {
+    //     tracing::trace!("in substrate: [proven_channel]");
 
-        let result = self
-            .retry_wapper(|| self.get_channel_end(port_id, channel_id))
-            .map_err(Error::retry_error)?;
+    //     let result = self
+    //         .retry_wapper(|| self.get_channel_end(port_id, channel_id))
+    //         .map_err(Error::retry_error)?;
 
-        let channel_id_string = format!("{}", channel_id);
+    //     let channel_id_string = format!("{}", channel_id);
 
-        let storage_entry =
-            ibc_node::ibc::storage::Channels(port_id.as_bytes(), channel_id_string.as_bytes());
-        Ok((
-            result,
-            self.generate_storage_proof(&storage_entry, &height, "Channels")?,
-        ))
-    }
+    //     let storage_entry =
+    //         ibc_node::ibc::storage::Channels(port_id.as_bytes(), channel_id_string.as_bytes());
+    //     Ok((
+    //         result,
+    //         self.generate_storage_proof(&storage_entry, &height, "Channels")?,
+    //     ))
+    // }
 
-    fn proven_packet(
-        &self,
-        packet_type: PacketMsgType,
-        port_id: PortId,
-        channel_id: ChannelId,
-        sequence: Sequence,
-        height: ICSHeight,
-    ) -> Result<(Vec<u8>, MerkleProof), Error> {
-        tracing::trace!("in substrate: [proven_packet], packet_type={:?}, port_id={:?}, channel_id={:?}, sequence={:?}, height={:?}", packet_type, port_id, channel_id, sequence, height);
+    // fn proven_packet(
+    //     &self,
+    //     packet_type: PacketMsgType,
+    //     port_id: PortId,
+    //     channel_id: ChannelId,
+    //     sequence: Sequence,
+    //     height: ICSHeight,
+    // ) -> Result<(Vec<u8>, MerkleProof), Error> {
+    //     tracing::trace!("in substrate: [proven_packet], packet_type={:?}, port_id={:?}, channel_id={:?}, sequence={:?}, height={:?}", packet_type, port_id, channel_id, sequence, height);
 
-        let result = retry_with_index(Fixed::from_millis(200), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries".to_string());
-            }
+    //     let result = retry_with_index(Fixed::from_millis(200), |current_try| {
+    //         if current_try > MAX_QUERY_TIMES {
+    //             return RetryResult::Err("did not succeed within tries".to_string());
+    //         }
 
-            let result = async {
-                let client = ClientBuilder::new()
-                    .set_url(&self.websocket_url.clone())
-                    .build::<MyConfig>()
-                    .await
-                    .map_err(|_| Error::substrate_client_builder_error())?;
+    //         let result = async {
+    //             let client = ClientBuilder::new()
+    //                 .set_url(&self.websocket_url.clone())
+    //                 .build::<MyConfig>()
+    //                 .await
+    //                 .map_err(|_| Error::substrate_client_builder_error())?;
 
-                match packet_type {
-                    PacketMsgType::Recv => {
-                        // PacketCommitmentgenerate_storage_proof
-                        octopusxt::ibc_rpc::get_packet_commitment(
-                            &port_id,
-                            &channel_id,
-                            &sequence,
-                            client,
-                        )
-                        .await
-                    }
-                    PacketMsgType::Ack => {
-                        // Acknowledgements
-                        octopusxt::ibc_rpc::get_packet_receipt_vec(
-                            &port_id,
-                            &channel_id,
-                            &sequence,
-                            client,
-                        )
-                        .await
-                    }
-                    PacketMsgType::TimeoutOnClose => {
-                        // PacketReceipt
-                        octopusxt::ibc_rpc::get_packet_receipt_vec(
-                            &port_id,
-                            &channel_id,
-                            &sequence,
-                            client,
-                        )
-                        .await
-                    }
-                    PacketMsgType::TimeoutUnordered => {
-                        // PacketReceipt
-                        octopusxt::ibc_rpc::get_packet_receipt_vec(
-                            &port_id,
-                            &channel_id,
-                            &sequence,
-                            client,
-                        )
-                        .await
-                    }
-                    PacketMsgType::TimeoutOrdered => {
-                        // NextSequenceRecv
-                        octopusxt::ibc_rpc::get_next_sequence_recv(&port_id, &channel_id, client)
-                            .await
-                    }
-                }
-            };
+    //             match packet_type {
+    //                 PacketMsgType::Recv => {
+    //                     // PacketCommitmentgenerate_storage_proof
+    //                     octopusxt::ibc_rpc::get_packet_commitment(
+    //                         &port_id,
+    //                         &channel_id,
+    //                         &sequence,
+    //                         client,
+    //                     )
+    //                     .await
+    //                 }
+    //                 PacketMsgType::Ack => {
+    //                     // Acknowledgements
+    //                     octopusxt::ibc_rpc::get_packet_receipt_vec(
+    //                         &port_id,
+    //                         &channel_id,
+    //                         &sequence,
+    //                         client,
+    //                     )
+    //                     .await
+    //                 }
+    //                 PacketMsgType::TimeoutOnClose => {
+    //                     // PacketReceipt
+    //                     octopusxt::ibc_rpc::get_packet_receipt_vec(
+    //                         &port_id,
+    //                         &channel_id,
+    //                         &sequence,
+    //                         client,
+    //                     )
+    //                     .await
+    //                 }
+    //                 PacketMsgType::TimeoutUnordered => {
+    //                     // PacketReceipt
+    //                     octopusxt::ibc_rpc::get_packet_receipt_vec(
+    //                         &port_id,
+    //                         &channel_id,
+    //                         &sequence,
+    //                         client,
+    //                     )
+    //                     .await
+    //                 }
+    //                 PacketMsgType::TimeoutOrdered => {
+    //                     // NextSequenceRecv
+    //                     octopusxt::ibc_rpc::get_next_sequence_recv(&port_id, &channel_id, client)
+    //                         .await
+    //                 }
+    //             }
+    //         };
 
-            match self.block_on(result) {
-                Ok(v) => RetryResult::Ok(v),
-                Err(_) => RetryResult::Retry("Fail to retry".to_string()),
-            }
-        })
-        .map_err(Error::retry_error)?;
+    //         match self.block_on(result) {
+    //             Ok(v) => RetryResult::Ok(v),
+    //             Err(_) => RetryResult::Retry("Fail to retry".to_string()),
+    //         }
+    //     })
+    //     .map_err(Error::retry_error)?;
 
-        tracing::trace!(
-            "in substrate: [proven_packet] >> result: {:?}, packet_type = {:?}",
-            result,
-            packet_type
-        );
+    //     tracing::trace!(
+    //         "in substrate: [proven_packet] >> result: {:?}, packet_type = {:?}",
+    //         result,
+    //         packet_type
+    //     );
 
-        let sequence = u64::from(sequence);
-        let channel_id_string = format!("{}", channel_id);
+    //     let sequence = u64::from(sequence);
+    //     let channel_id_string = format!("{}", channel_id);
 
-        match packet_type {
-            PacketMsgType::Recv => {
-                let storage_entry = ibc_node::ibc::storage::PacketCommitment(
-                    port_id.as_bytes(),
-                    channel_id_string.as_bytes(),
-                    &sequence,
-                );
-                Ok((
-                    result,
-                    self.generate_storage_proof(&storage_entry, &height, "PacketCommitment")?,
-                ))
-            }
-            PacketMsgType::Ack => {
-                let storage_entry = ibc_node::ibc::storage::Acknowledgements(
-                    port_id.as_bytes(),
-                    channel_id_string.as_bytes(),
-                    &sequence,
-                );
-                Ok((
-                    result,
-                    self.generate_storage_proof(&storage_entry, &height, "Acknowledgements")?,
-                ))
-            }
-            PacketMsgType::TimeoutOnClose => {
-                Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
-            }
-            // Todo: https://github.com/cosmos/ibc/issues/620
-            PacketMsgType::TimeoutUnordered => {
-                Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
-            }
-            // Todo: https://github.com/cosmos/ibc/issues/620
-            PacketMsgType::TimeoutOrdered => {
-                let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(
-                    port_id.as_bytes(),
-                    channel_id_string.as_bytes(),
-                );
+    //     match packet_type {
+    //         PacketMsgType::Recv => {
+    //             let storage_entry = ibc_node::ibc::storage::PacketCommitment(
+    //                 port_id.as_bytes(),
+    //                 channel_id_string.as_bytes(),
+    //                 &sequence,
+    //             );
+    //             Ok((
+    //                 result,
+    //                 self.generate_storage_proof(&storage_entry, &height, "PacketCommitment")?,
+    //             ))
+    //         }
+    //         PacketMsgType::Ack => {
+    //             let storage_entry = ibc_node::ibc::storage::Acknowledgements(
+    //                 port_id.as_bytes(),
+    //                 channel_id_string.as_bytes(),
+    //                 &sequence,
+    //             );
+    //             Ok((
+    //                 result,
+    //                 self.generate_storage_proof(&storage_entry, &height, "Acknowledgements")?,
+    //             ))
+    //         }
+    //         PacketMsgType::TimeoutOnClose => {
+    //             Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
+    //         }
+    //         // Todo: https://github.com/cosmos/ibc/issues/620
+    //         PacketMsgType::TimeoutUnordered => {
+    //             Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
+    //         }
+    //         // Todo: https://github.com/cosmos/ibc/issues/620
+    //         PacketMsgType::TimeoutOrdered => {
+    //             let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(
+    //                 port_id.as_bytes(),
+    //                 channel_id_string.as_bytes(),
+    //             );
 
-                Ok((
-                    result,
-                    self.generate_storage_proof(&storage_entry, &height, "NextSequenceRecv")?,
-                ))
-            } // Todo: Ordered channel not supported in ibc-rs. https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/link.rs#L135
-        }
-    }
+    //             Ok((
+    //                 result,
+    //                 self.generate_storage_proof(&storage_entry, &height, "NextSequenceRecv")?,
+    //             ))
+    //         } // Todo: Ordered channel not supported in ibc-rs. https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/link.rs#L135
+    //     }
+    // }
 
     fn build_client_state(
         &self,
@@ -1501,22 +1627,8 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn ibc_version(&self) -> Result<Option<Version>, Error> {
-        todo!()
-    }
-
-    fn query_application_status(&self) -> Result<ChainStatus, Error> {
-        tracing::trace!("in substrate: [query_status]");
-
-        let height = self
-            .retry_wapper(|| self.get_latest_height())
-            .map_err(Error::retry_error)?;
-
-        let latest_height = Height::new(0, height);
-
-        Ok(ChainStatus {
-            height: latest_height,
-            timestamp: Default::default(),
-        })
+        // TODO
+        Ok(None)
     }
 
     fn query_blocks(
@@ -1530,9 +1642,10 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_host_consensus_state(
         &self,
-        _height: ICSHeight,
+        request: QueryHostConsensusStateRequest,
     ) -> Result<Self::ConsensusState, Error> {
         tracing::trace!("in substrate: [query_host_consensus_state]");
+        let QueryHostConsensusStateRequest { height } = request;
 
         Ok(AnyConsensusState::Grandpa(GPConsensusState::default()))
     }
@@ -1543,25 +1656,50 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_packet_commitment(
         &self,
-        request: super::requests::QueryPacketCommitmentRequest,
-        include_proof: super::requests::IncludeProof,
-    ) -> Result<(Vec<u8>, Option<ibc::core::ics23_commitment::merkle::MerkleProof>), Error> {
+        request: QueryPacketCommitmentRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        trace!("in substrate: [query_packet_commitment]");
+
+        let QueryPacketCommitmentRequest {
+            port_id,
+            channel_id,
+            sequence,
+            height,
+        } = request;
+
         todo!()
     }
 
     fn query_packet_receipt(
         &self,
-        request: super::requests::QueryPacketReceiptRequest,
-        include_proof: super::requests::IncludeProof,
-    ) -> Result<(Vec<u8>, Option<ibc::core::ics23_commitment::merkle::MerkleProof>), Error> {
+        request: QueryPacketReceiptRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        trace!("in substrate: [query_packet_receipt]");
+        let QueryPacketReceiptRequest {
+            port_id,
+            channel_id,
+            sequence,
+            height,
+        } = request;
+
         todo!()
     }
 
     fn query_packet_acknowledgement(
         &self,
-        request: super::requests::QueryPacketAcknowledgementRequest,
-        include_proof: super::requests::IncludeProof,
-    ) -> Result<(Vec<u8>, Option<ibc::core::ics23_commitment::merkle::MerkleProof>), Error> {
+        request: QueryPacketAcknowledgementRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        trace!("in substrate: [query_packet_acknowledgement]");
+        let QueryPacketAcknowledgementRequest {
+            port_id,
+            channel_id,
+            sequence,
+            height,
+        } = request;
+
         todo!()
     }
 }
@@ -1569,7 +1707,7 @@ impl ChainEndpoint for SubstrateChain {
 // Todo: to create a new type in `commitment_proof::Proof`
 /// Compose merkle proof according to ibc proto
 pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
-    use ibc_proto::ics23::{commitment_proof, ExistenceProof, InnerOp};
+    use ics23::{commitment_proof, ExistenceProof, InnerOp};
     tracing::trace!("in substrate: [compose_ibc_merkle_proof]");
 
     let _inner_op = InnerOp {
@@ -1585,15 +1723,15 @@ pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
         path: vec![_inner_op],
     });
 
-    let parsed = ibc_proto::ics23::CommitmentProof {
+    let parsed = ics23::CommitmentProof {
         proof: Some(_proof),
     };
-    let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
+    let mproofs: Vec<ics23::CommitmentProof> = vec![parsed];
     MerkleProof { proofs: mproofs }
 }
 pub fn get_dummy_merkle_proof() -> MerkleProof {
-    let parsed = ibc_proto::ics23::CommitmentProof { proof: None };
-    let mproofs: Vec<ibc_proto::ics23::CommitmentProof> = vec![parsed];
+    let parsed = ics23::CommitmentProof { proof: None };
+    let mproofs: Vec<ics23::CommitmentProof> = vec![parsed];
     MerkleProof { proofs: mproofs }
 }
 
@@ -1626,7 +1764,7 @@ pub fn get_dummy_ics07_header() -> tHeader {
     tHeader {
         signed_header: shdr,
         validator_set: vs.clone(),
-        trusted_height: Height::new(0, 1),
+        trusted_height: ICSHeight::new(0, 1),
         trusted_validator_set: vs,
     }
 }

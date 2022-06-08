@@ -983,7 +983,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         // Get the latest client state on destination.
         let (client_state, _) = self.validated_client_state()?;
 
-
         let client_state = match client_state {
             // #[cfg(any(test, feature = "mocks"))]
             // AnyClientState::Mock(client_state) => AnyClientState::Mock(client_state),
@@ -999,9 +998,15 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                         );
                         thread::sleep(Duration::from_millis(500));
                         // Get the latest client state on destination.
-                        let client_state = self
+                        let (client_state, _) = self
                             .dst_chain()
-                            .query_client_state(&self.id, Height::default())
+                            .query_client_state(
+                                QueryClientStateRequest {
+                                    client_id: self.id.clone(),
+                                    height: Height::zero(),
+                                },
+                                IncludeProof::No,
+                            )
                             .map_err(|e| {
                                 ForeignClientError::client_create(
                                     self.dst_chain.id(),
@@ -1020,7 +1025,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     }
                 };
                 result
-            }
+            } // AnyClientState::Mock(_) => todo!(),
         };
 
         let trusted_height = if trusted_height == Height::zero() {

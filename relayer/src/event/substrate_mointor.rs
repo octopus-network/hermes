@@ -22,6 +22,7 @@ use ibc::core::ics02_client::height::Height;
 use ibc::core::ics24_host::identifier::ChainId;
 use ibc::events::IbcEvent;
 
+use crate::chain::tracking::TrackingId;
 use crate::util::retry::{retry_count, retry_with_index, RetryResult};
 
 mod retry_strategy {
@@ -375,6 +376,7 @@ fn from_raw_event_to_batch_event(
         height: ibc_event.height(),
         events: vec![ibc_event],
         chain_id,
+        tracking_id: TrackingId::new_uuid(),
     })
 }
 

@@ -480,5 +480,5 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
         request: QueryHostConsensusStateRequest,
     ) -> Result<AnyConsensusState, Error> {
         self.inner.query_host_consensus_state(request)
-    }   
+    }
 }
