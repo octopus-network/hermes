@@ -345,7 +345,6 @@ dependencies = [
  "beefy-merkle-tree",
  "blake2-rfc",
  "borsh",
- "byteorder",
  "ckb-merkle-mountain-range",
  "hex",
  "libsecp256k1",

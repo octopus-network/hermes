@@ -10,7 +10,7 @@ use codec::{Decode, Encode};
 use core::fmt::Debug;
 use core::{future::Future, str::FromStr, time::Duration};
 use subxt::rpc::ClientT;
-use tracing::{error, info, trace, warn, debug};
+use tracing::{debug, error, info, trace, warn};
 
 use super::client::ClientSettings;
 use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
@@ -469,7 +469,7 @@ impl SubstrateChain {
 
             let params = rpc_params![vec![storage_key], block_hash];
 
-            #[derive(Debug, PartialEq,Eq, Serialize, Deserialize)]
+            #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
             pub struct ReadProof_ {
                 pub at: String,

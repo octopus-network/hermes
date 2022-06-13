@@ -1024,7 +1024,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                         break temp_client_state;
                     }
                 }
-                
             } // AnyClientState::Mock(_) => todo!(),
         };
 
