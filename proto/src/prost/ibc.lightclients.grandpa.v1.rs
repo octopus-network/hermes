@@ -19,8 +19,15 @@ pub struct SignedCommitment {
     #[prost(message, optional, tag = "1")]
     pub commitment: ::core::option::Option<Commitment>,
     #[prost(message, repeated, tag = "2")]
-    pub signatures: ::prost::alloc::vec::Vec<Signature>,
+    pub signatures: ::prost::alloc::vec::Vec<InnerSignature>,
 }
+
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InnerSignature {
+    #[prost(message, optional, tag = "1")]
+    pub inner_signature : ::core::option::Option<Signature>,
+}
+
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Commitment {
     /// block height

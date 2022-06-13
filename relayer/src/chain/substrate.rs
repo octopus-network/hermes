@@ -59,7 +59,6 @@ use ibc_proto::ibc::core::{
 };
 
 use jsonrpsee::rpc_params;
-use octopusxt::ibc_node;
 use octopusxt::MyConfig;
 use retry::delay::Fixed;
 use semver::Version;
@@ -73,14 +72,20 @@ use subxt::{
 use tendermint::abci::{Code, Log};
 
 use ibc::clients::ics10_grandpa::help::Commitment;
-// use jsonrpsee::types::to_json_value;
 use serde::{Deserialize, Serialize};
 use sp_core::{hexdisplay::HexDisplay, Bytes, Pair, H256};
-use sp_runtime::{traits::IdentifyAccount, MultiSigner};
+use sp_core::sr25519;
+use sp_runtime::{traits::IdentifyAccount, MultiSigner, AccountId32};
 use tendermint::abci::transaction;
 use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
+use octopusxt::ibc_node::ibc::storage;
+use octopusxt::ibc_node::RuntimeApi;
+use octopusxt::update_client_state::update_client_state;
+use beefy_light_client::{commitment, mmr};
+use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
+use ibc::core::ics04_channel::events::SendPacket;
 
 const MAX_QUERY_TIMES: u64 = 100;
 
@@ -372,7 +377,7 @@ impl SubstrateChain {
 
     fn get_ibc_send_packet_event(
         &self,
-        request: ibc::core::ics04_channel::channel::QueryPacketEventDataRequest,
+        request: QueryPacketEventDataRequest,
     ) -> Result<Vec<IbcEvent>, Error> {
         let mut result_event = vec![];
 
@@ -386,7 +391,7 @@ impl SubstrateChain {
                 .map_err(|_| Error::get_send_packet_event_error())?;
 
             result_event.push(IbcEvent::SendPacket(
-                ibc::core::ics04_channel::events::SendPacket {
+                SendPacket {
                     height: request.height,
                     packet,
                 },
@@ -397,7 +402,7 @@ impl SubstrateChain {
 
     fn get_ibc_write_acknowledgement_event(
         &self,
-        request: ibc::core::ics04_channel::channel::QueryPacketEventDataRequest,
+        request: QueryPacketEventDataRequest,
     ) -> Result<Vec<IbcEvent>, Error> {
         use ibc::core::ics04_channel::events::WriteAcknowledgement;
 
@@ -550,7 +555,7 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
-            let api = client.to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
+            let api = client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
 
             let authorities = api
                 .storage()
@@ -713,12 +718,12 @@ impl ChainEndpoint for SubstrateChain {
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
 
         let private_seed = key.mnemonic;
-        let (pair, _seed) = sp_core::sr25519::Pair::from_phrase(&private_seed, None).unwrap();
+        let (pair, _seed) = sr25519::Pair::from_phrase(&private_seed, None).unwrap();
         let public_key = pair.public();
 
-        let account_id = format_account_id::<sp_core::sr25519::Pair>(public_key);
-        let account = sp_runtime::AccountId32::from_str(&account_id).unwrap();
-        let encode_account = sp_runtime::AccountId32::encode(&account);
+        let account_id = format_account_id::<sr25519::Pair>(public_key);
+        let account = AccountId32::from_str(&account_id).unwrap();
+        let encode_account = AccountId32::encode(&account);
         let hex_account = hex::encode(encode_account);
 
         Ok(Signer::new(hex_account))
@@ -1096,7 +1101,7 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_client_state(client_id))
             .map_err(Error::retry_error)?;
 
-        let storage_entry = ibc_node::ibc::storage::ClientStates(client_id.as_bytes());
+        let storage_entry = storage::ClientStates(client_id.as_bytes());
 
         Ok((
             result,
@@ -1145,7 +1150,7 @@ impl ChainEndpoint for SubstrateChain {
             connection_end
         };
 
-        let storage_entry = ibc_node::ibc::storage::Connections(connection_id.as_bytes());
+        let storage_entry = storage::Connections(connection_id.as_bytes());
 
         Ok((
             new_connection_end,
@@ -1165,7 +1170,7 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_client_consensus(client_id, &consensus_height))
             .map_err(Error::retry_error)?;
 
-        let storage_entry = ibc_node::ibc::storage::ConsensusStates(client_id.as_bytes());
+        let storage_entry = storage::ConsensusStates(client_id.as_bytes());
 
         Ok((
             result,
@@ -1188,7 +1193,7 @@ impl ChainEndpoint for SubstrateChain {
         let channel_id_string = format!("{}", channel_id);
 
         let storage_entry =
-            ibc_node::ibc::storage::Channels(port_id.as_bytes(), channel_id_string.as_bytes());
+            storage::Channels(port_id.as_bytes(), channel_id_string.as_bytes());
         Ok((
             result,
             self.generate_storage_proof(&storage_entry, &height, "Channels")?,
@@ -1284,7 +1289,7 @@ impl ChainEndpoint for SubstrateChain {
 
         match packet_type {
             PacketMsgType::Recv => {
-                let storage_entry = ibc_node::ibc::storage::PacketCommitment(
+                let storage_entry = storage::PacketCommitment(
                     port_id.as_bytes(),
                     channel_id_string.as_bytes(),
                     &sequence,
@@ -1295,7 +1300,7 @@ impl ChainEndpoint for SubstrateChain {
                 ))
             }
             PacketMsgType::Ack => {
-                let storage_entry = ibc_node::ibc::storage::Acknowledgements(
+                let storage_entry = storage::Acknowledgements(
                     port_id.as_bytes(),
                     channel_id_string.as_bytes(),
                     &sequence,
@@ -1314,7 +1319,7 @@ impl ChainEndpoint for SubstrateChain {
             }
             // Todo: https://github.com/cosmos/ibc/issues/620
             PacketMsgType::TimeoutOrdered => {
-                let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(
+                let storage_entry = storage::NextSequenceRecv(
                     port_id.as_bytes(),
                     channel_id_string.as_bytes(),
                 );
@@ -1341,7 +1346,7 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
-            let api = client.to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
+            let api = client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
 
             let authorities = api
                 .storage()
@@ -1420,7 +1425,7 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
-            let beefy_light_client::commitment::Commitment {
+            let commitment::Commitment {
                 payload: _payload,
                 block_number,
                 validator_set_id: _validator_set_id,
@@ -1440,7 +1445,7 @@ impl ChainEndpoint for SubstrateChain {
 
             let api = client
                 .clone()
-                .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
+                .to_runtime_api::<RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
 
             assert_eq!(
                 block_header.block_number,
@@ -1474,10 +1479,10 @@ impl ChainEndpoint for SubstrateChain {
 
         let leaf: Vec<u8> =
             Decode::decode(&mut &encoded_mmr_leaf[..]).map_err(Error::invalid_codec_decode)?;
-        let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
+        let mmr_leaf: mmr::MmrLeaf =
             Decode::decode(&mut &*leaf).map_err(Error::invalid_codec_decode)?;
         let mmr_leaf_proof =
-            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..])
+            mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..])
                 .map_err(Error::invalid_codec_decode)?;
 
         let grandpa_header = GPHeader {
@@ -1517,11 +1522,11 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
-            octopusxt::update_client_state::update_client_state(chain_a.clone(), chain_b.clone())
+            update_client_state(chain_a.clone(), chain_b.clone())
                 .await
                 .map_err(|_| Error::update_client_state_error())?;
 
-            octopusxt::update_client_state::update_client_state(chain_b.clone(), chain_a.clone())
+            update_client_state(chain_b.clone(), chain_a.clone())
                 .await
                 .map_err(|_| Error::update_client_state_error())
         };
@@ -1542,7 +1547,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn ibc_version(&self) -> Result<Option<Version>, Error> {
-        todo!()
+        Ok(None)
     }
 
     fn query_application_status(&self) -> Result<ChainStatus, Error> {
