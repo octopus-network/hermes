@@ -71,21 +71,22 @@ use subxt::{
 
 use tendermint::abci::{Code, Log};
 
+use beefy_light_client::{commitment, mmr};
 use ibc::clients::ics10_grandpa::help::Commitment;
+use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
+use ibc::core::ics04_channel::events::SendPacket;
+use octopusxt::ibc_node::ibc::storage;
+use octopusxt::ibc_node::RuntimeApi;
+use octopusxt::update_client_state::update_client_state;
 use serde::{Deserialize, Serialize};
-use sp_core::{hexdisplay::HexDisplay, Bytes, Pair, H256};
 use sp_core::sr25519;
-use sp_runtime::{traits::IdentifyAccount, MultiSigner, AccountId32};
+use sp_core::{hexdisplay::HexDisplay, Bytes, Pair, H256};
+use sp_runtime::{traits::IdentifyAccount, AccountId32, MultiSigner};
 use tendermint::abci::transaction;
 use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
-use octopusxt::ibc_node::ibc::storage;
-use octopusxt::ibc_node::RuntimeApi;
-use octopusxt::update_client_state::update_client_state;
-use beefy_light_client::{commitment, mmr};
-use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
-use ibc::core::ics04_channel::events::SendPacket;
+use anyhow::Result;
 
 const MAX_QUERY_TIMES: u64 = 100;
 
@@ -108,13 +109,13 @@ impl SubstrateChain {
         self.rt.block_on(f)
     }
 
-    fn get_client(&self) -> Result<Client<MyConfig>, Error> {
+    fn get_client(&self) -> Result<Client<MyConfig>> {
         let client = async {
             ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<MyConfig>()
                 .await
-                .map_err(|_| Error::substrate_client_builder_error())
+                .map_err(|_| anyhow::anyhow!(format!("{:?}", Error::substrate_client_builder_error())))
         };
 
         self.block_on(client)
@@ -122,7 +123,7 @@ impl SubstrateChain {
 
     fn retry_wapper<O, Op>(&self, operation: Op) -> Result<O, retry::Error<String>>
     where
-        Op: FnOnce() -> Result<O, Box<dyn std::error::Error>> + Copy,
+        Op: FnOnce() -> Result<O> + Copy,
     {
         retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
@@ -139,7 +140,7 @@ impl SubstrateChain {
     }
 
     /// Subscribe Events
-    fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>, Box<dyn std::error::Error>> {
+    fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>> {
         tracing::trace!("in substrate: [subscribe_ibc_events]");
 
         let client = self.get_client()?;
@@ -148,7 +149,7 @@ impl SubstrateChain {
     }
 
     /// get latest block height
-    fn get_latest_height(&self) -> Result<u64, Box<dyn std::error::Error>> {
+    fn get_latest_height(&self) -> Result<u64> {
         tracing::trace!("in substrate: [get_latest_height]");
 
         let client = self.get_client()?;
@@ -160,7 +161,7 @@ impl SubstrateChain {
     fn get_connection_end(
         &self,
         connection_identifier: &ConnectionId,
-    ) -> Result<ConnectionEnd, Box<dyn std::error::Error>> {
+    ) -> Result<ConnectionEnd> {
         tracing::trace!("in substrate: [get_connection_end]");
 
         let client = self.get_client()?;
@@ -173,7 +174,7 @@ impl SubstrateChain {
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
-    ) -> Result<ChannelEnd, Box<dyn std::error::Error>> {
+    ) -> Result<ChannelEnd> {
         tracing::trace!("in substrate: [get_channel_end]");
 
         let client = self.get_client()?;
@@ -187,7 +188,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         seq: &Sequence,
-    ) -> Result<Receipt, Box<dyn std::error::Error>> {
+    ) -> Result<Receipt> {
         tracing::trace!("in substrate: [get_packet_receipt]");
 
         let client = self.get_client()?;
@@ -203,7 +204,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         seq: &Sequence,
-    ) -> Result<Packet, Box<dyn std::error::Error>> {
+    ) -> Result<Packet> {
         tracing::trace!("in substrate: [get_send_packet_event]");
 
         let client = self.get_client()?;
@@ -217,7 +218,7 @@ impl SubstrateChain {
     fn get_client_state(
         &self,
         client_id: &ClientId,
-    ) -> Result<AnyClientState, Box<dyn std::error::Error>> {
+    ) -> Result<AnyClientState> {
         tracing::trace!("in substrate: [get_client_state]");
 
         let client = self.get_client()?;
@@ -230,7 +231,7 @@ impl SubstrateChain {
         &self,
         client_id: &ClientId,
         height: &ICSHeight,
-    ) -> Result<AnyConsensusState, Box<dyn std::error::Error>> {
+    ) -> Result<AnyConsensusState> {
         tracing::trace!("in substrate: [get_client_consensus]");
 
         let client = self.get_client()?;
@@ -241,7 +242,7 @@ impl SubstrateChain {
     fn get_consensus_state_with_height(
         &self,
         client_id: &ClientId,
-    ) -> Result<Vec<(Height, AnyConsensusState)>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<(Height, AnyConsensusState)>> {
         tracing::trace!("in substrate: [get_consensus_state_with_height]");
 
         let client = self.get_client()?;
@@ -256,7 +257,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequences: &[Sequence],
-    ) -> Result<Vec<u64>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<u64>> {
         tracing::trace!("in substrate: [get_unreceipt_packet]");
 
         let client = self.get_client()?;
@@ -269,7 +270,7 @@ impl SubstrateChain {
         ))
     }
 
-    fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>, Box<dyn std::error::Error>> {
+    fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>> {
         tracing::trace!("in substrate: [get_clients]");
 
         let client = self.get_client()?;
@@ -277,7 +278,7 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_clients(client))
     }
 
-    fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>, Box<dyn std::error::Error>> {
+    fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>> {
         tracing::trace!("in substrate: [get_connections]");
 
         let client = self.get_client()?;
@@ -285,7 +286,7 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_connections(client))
     }
 
-    fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
+    fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>> {
         tracing::trace!("in substrate: [get_channels]");
 
         let client = self.get_client()?;
@@ -293,7 +294,7 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_channels(client))
     }
 
-    fn get_commitment_packet_state(&self) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
+    fn get_commitment_packet_state(&self) -> Result<Vec<PacketState>> {
         tracing::trace!("in substrate: [get_commitment_packet_state]");
 
         let client = self.get_client()?;
@@ -307,7 +308,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<u8>> {
         tracing::trace!("in substrate: [get_packet_commitment]");
 
         let client = self.get_client()?;
@@ -317,7 +318,7 @@ impl SubstrateChain {
         ))
     }
 
-    fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>, Box<dyn std::error::Error>> {
+    fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>> {
         tracing::trace!("in substrate: [get_acknowledge_packet_state]");
 
         let client = self.get_client()?;
@@ -329,7 +330,7 @@ impl SubstrateChain {
     fn get_client_connections(
         &self,
         client_id: &ClientId,
-    ) -> Result<Vec<ConnectionId>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<ConnectionId>> {
         tracing::trace!("in substrate: [get_client_connections]");
 
         let client = self.get_client()?;
@@ -340,7 +341,7 @@ impl SubstrateChain {
     fn get_connection_channels(
         &self,
         connection_id: &ConnectionId,
-    ) -> Result<Vec<IdentifiedChannelEnd>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<IdentifiedChannelEnd>> {
         tracing::trace!("in substrate: [get_connection_channels]");
 
         let client = self.get_client()?;
@@ -350,7 +351,7 @@ impl SubstrateChain {
 
     /// The function to submit IBC request to a Substrate chain
     /// This function handles most of the IBC reqeusts, except the MMR root update
-    fn deliever(&self, msgs: Vec<Any>) -> Result<H256, Box<dyn std::error::Error>> {
+    fn deliever(&self, msgs: Vec<Any>) -> Result<H256> {
         tracing::trace!("in substrate: [deliever]");
 
         let client = self.get_client()?;
@@ -365,7 +366,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<u8>> {
         tracing::trace!("in substrate: [get_send_packet_event]");
 
         let client = self.get_client()?;
@@ -390,12 +391,10 @@ impl SubstrateChain {
                 )
                 .map_err(|_| Error::get_send_packet_event_error())?;
 
-            result_event.push(IbcEvent::SendPacket(
-                SendPacket {
-                    height: request.height,
-                    packet,
-                },
-            ));
+            result_event.push(IbcEvent::SendPacket(SendPacket {
+                height: request.height,
+                packet,
+            }));
         }
         Ok(result_event)
     }
@@ -555,7 +554,8 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
-            let api = client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
+            let api =
+                client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
 
             let authorities = api
                 .storage()
@@ -1192,8 +1192,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let channel_id_string = format!("{}", channel_id);
 
-        let storage_entry =
-            storage::Channels(port_id.as_bytes(), channel_id_string.as_bytes());
+        let storage_entry = storage::Channels(port_id.as_bytes(), channel_id_string.as_bytes());
         Ok((
             result,
             self.generate_storage_proof(&storage_entry, &height, "Channels")?,
@@ -1319,10 +1318,8 @@ impl ChainEndpoint for SubstrateChain {
             }
             // Todo: https://github.com/cosmos/ibc/issues/620
             PacketMsgType::TimeoutOrdered => {
-                let storage_entry = storage::NextSequenceRecv(
-                    port_id.as_bytes(),
-                    channel_id_string.as_bytes(),
-                );
+                let storage_entry =
+                    storage::NextSequenceRecv(port_id.as_bytes(), channel_id_string.as_bytes());
 
                 Ok((
                     result,
@@ -1346,7 +1343,8 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
-            let api = client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
+            let api =
+                client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
 
             let authorities = api
                 .storage()
@@ -1481,9 +1479,8 @@ impl ChainEndpoint for SubstrateChain {
             Decode::decode(&mut &encoded_mmr_leaf[..]).map_err(Error::invalid_codec_decode)?;
         let mmr_leaf: mmr::MmrLeaf =
             Decode::decode(&mut &*leaf).map_err(Error::invalid_codec_decode)?;
-        let mmr_leaf_proof =
-            mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..])
-                .map_err(Error::invalid_codec_decode)?;
+        let mmr_leaf_proof = mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..])
+            .map_err(Error::invalid_codec_decode)?;
 
         let grandpa_header = GPHeader {
             block_header: result.0,
