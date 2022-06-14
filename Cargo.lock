@@ -22,7 +22,7 @@ dependencies = [
  "arc-swap",
  "backtrace",
  "canonical-path",
- "clap 3.1.18",
+ "clap 3.2.1",
  "color-eyre",
  "fs-err",
  "once_cell",
@@ -78,7 +78,7 @@ version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fcb51a0695d8f838b1ee009b3fbf66bda078cd64590202a864a8f3e8c4315c47"
 dependencies = [
- "getrandom 0.2.6",
+ "getrandom 0.2.7",
  "once_cell",
  "version_check",
 ]
@@ -286,21 +286,6 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a8241f3ebb85c056b509d4327ad0358fbbba6ffb340bf388f26350aeda225b1"
 dependencies = [
- "serde",
-]
-
-[[package]]
-name = "beefy-light-client"
-version = "0.1.0"
-dependencies = [
- "beefy-merkle-tree",
- "blake2-rfc",
- "borsh",
- "ckb-merkle-mountain-range",
- "hex",
- "libsecp256k1",
- "parity-scale-codec",
- "scale-info",
  "serde",
 ]
 
@@ -657,9 +642,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.1.18"
+version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2dbdf4bdacb33466e854ce889eee8dfd5729abf7ccd7664d0a2d60cd384440b"
+checksum = "a836566fa5f52f7ddf909a8a2f9029b9f78ca584cd95cf7e87f8073110f4c5c9"
 dependencies = [
  "atty",
  "bitflags",
@@ -674,18 +659,18 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "3.1.4"
+version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da92e6facd8d73c22745a5d3cbb59bdf8e46e3235c923e516527d8e81eec14a4"
+checksum = "0f6ebaab5f25e4f0312dfa07cb30a755204b96e6531457c2cfdecfdf5f2adf40"
 dependencies = [
- "clap 3.1.18",
+ "clap 3.2.1",
 ]
 
 [[package]]
 name = "clap_derive"
-version = "3.1.18"
+version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25320346e922cffe59c0bbc5410c8d8784509efb321488971081313cb1e1a33c"
+checksum = "986fd75d1dfd2c34eb8c9275ae38ad87ea9478c9b79e87f1801f7d866dfb1e37"
 dependencies = [
  "heck 0.4.0",
  "proc-macro-error",
@@ -696,9 +681,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.2.0"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a37c35f1112dad5e6e0b1adaff798507497a18fceeb30cceb3bae7d1427b9213"
+checksum = "5538cd660450ebeb4234cfecf8f2284b844ffc4c50531e66d584ad5b91293613"
 dependencies = [
  "os_str_bytes",
 ]
@@ -1610,14 +1595,14 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9be70c98951c83b8d2f8f60d7065fa6d5146873094452a1008da8c2f1e4205ad"
+checksum = "4eb1a864a501629691edf6c15a593b7a51eebaa1e8468e9ddc623de7c9b58ec6"
 dependencies = [
  "cfg-if 1.0.0",
  "js-sys",
  "libc",
- "wasi 0.10.2+wasi-snapshot-preview1",
+ "wasi 0.11.0+wasi-snapshot-preview1",
  "wasm-bindgen",
 ]
 
@@ -1975,7 +1960,7 @@ dependencies = [
 name = "ibc"
 version = "0.14.1"
 dependencies = [
- "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.18)",
+ "beefy-light-client",
  "beefy-merkle-tree",
  "blake2-rfc",
  "bytes",
@@ -1991,7 +1976,7 @@ dependencies = [
  "log",
  "modelator",
  "num-traits",
- "octopusxt",
+ "octopusxt 0.1.0",
  "parity-scale-codec",
  "prost 0.9.0",
  "prost-types 0.9.0",
@@ -2056,7 +2041,7 @@ dependencies = [
  "anyhow",
  "async-stream",
  "bech32",
- "beefy-light-client 0.1.0",
+ "beefy-light-client",
  "bitcoin",
  "bytes",
  "crossbeam-channel 0.5.4",
@@ -2079,7 +2064,7 @@ dependencies = [
  "nanoid",
  "num-bigint 0.4.3",
  "num-rational 0.4.0",
- "octopusxt",
+ "octopusxt 0.1.0 (git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.18)",
  "pallet-mmr-rpc",
  "parity-scale-codec",
  "prost 0.9.0",
@@ -2122,7 +2107,7 @@ version = "0.14.1"
 dependencies = [
  "abscissa_core",
  "atty",
- "clap 3.1.18",
+ "clap 3.2.1",
  "clap_complete",
  "color-eyre",
  "console",
@@ -2814,7 +2799,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "698fbc4b1fd2af323ed1711664a873b332faa4dc740e0f810f40210573ba36fd"
 dependencies = [
- "clap 3.1.18",
+ "clap 3.2.1",
  "clap_complete",
  "directories",
  "hex",
@@ -3019,7 +3004,39 @@ name = "octopusxt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "beefy-light-client 0.1.0",
+ "beefy-light-client",
+ "beefy-merkle-tree",
+ "beefy-primitives",
+ "env_logger",
+ "futures 0.3.21",
+ "hex",
+ "hex-literal",
+ "ibc",
+ "ibc-proto",
+ "jsonrpsee",
+ "libsecp256k1",
+ "pallet-mmr-rpc",
+ "parity-scale-codec",
+ "prost-types 0.10.1",
+ "serde",
+ "sp-core",
+ "sp-keyring",
+ "sp-runtime",
+ "structopt",
+ "subtle-encoding",
+ "subxt",
+ "tendermint-proto",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "octopusxt"
+version = "0.1.0"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.18#4e45f8498cb7c0d515d29c298a8e6c2337981476"
+dependencies = [
+ "anyhow",
+ "beefy-light-client",
  "beefy-merkle-tree",
  "beefy-primitives",
  "env_logger",
@@ -3633,7 +3650,7 @@ version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d34f1408f55294453790c48b2f1ebbb1c5b4b7563eb1f418bcfcfdbb06ebb4e7"
 dependencies = [
- "getrandom 0.2.6",
+ "getrandom 0.2.7",
 ]
 
 [[package]]
@@ -3702,7 +3719,7 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b033d837a7cf162d7993aded9304e30a83213c648b6e389db233191f891e5c2b"
 dependencies = [
- "getrandom 0.2.6",
+ "getrandom 0.2.7",
  "redox_syscall",
  "thiserror",
 ]
@@ -5287,7 +5304,7 @@ dependencies = [
  "bytes",
  "flex-error",
  "futures 0.3.21",
- "getrandom 0.2.6",
+ "getrandom 0.2.7",
  "http",
  "hyper",
  "hyper-proxy",
@@ -5892,9 +5909,9 @@ checksum = "099b7128301d285f79ddd55b9a83d5e6b9e97c92e0ea0daebee7263e932de992"
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d22af068fba1eb5edcb4aea19d382b2a3deb4c8f9d475c589b6ada9e0fd493ee"
+checksum = "5bd2fe26506023ed7b5e1e315add59d6f584c621d037f9368fea9cfb988f368c"
 
 [[package]]
 name = "unicode-normalization"
@@ -5981,7 +5998,7 @@ version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 dependencies = [
- "getrandom 0.2.6",
+ "getrandom 0.2.7",
 ]
 
 [[package]]
