@@ -308,7 +308,7 @@ dependencies = [
 [[package]]
 name = "beefy-merkle-tree"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "tiny-keccak",
 ]
@@ -316,7 +316,7 @@ dependencies = [
 [[package]]
 name = "beefy-primitives"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -1369,7 +1369,7 @@ dependencies = [
 [[package]]
 name = "frame-support"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "bitflags",
  "frame-metadata",
@@ -1398,7 +1398,7 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "Inflector",
  "frame-support-procedural-tools",
@@ -1410,7 +1410,7 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural-tools"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "frame-support-procedural-tools-derive",
  "proc-macro-crate 1.1.3",
@@ -1422,7 +1422,7 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural-tools-derive"
 version = "3.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1432,7 +1432,7 @@ dependencies = [
 [[package]]
 name = "frame-system"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "frame-support",
  "log",
@@ -1976,7 +1976,7 @@ dependencies = [
  "log",
  "modelator",
  "num-traits",
- "octopusxt 0.1.0",
+ "octopusxt",
  "parity-scale-codec",
  "prost 0.9.0",
  "prost-types 0.9.0",
@@ -1991,7 +1991,7 @@ dependencies = [
  "sp-std 4.0.0",
  "sp-trie",
  "subtle-encoding",
- "subxt",
+ "subxt 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-proto",
@@ -2064,7 +2064,7 @@ dependencies = [
  "nanoid",
  "num-bigint 0.4.3",
  "num-rational 0.4.0",
- "octopusxt 0.1.0 (git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.18)",
+ "octopusxt",
  "pallet-mmr-rpc",
  "parity-scale-codec",
  "prost 0.9.0",
@@ -2082,7 +2082,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "subtle-encoding",
- "subxt",
+ "subxt 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
  "tendermint",
  "tendermint-light-client",
  "tendermint-light-client-verifier",
@@ -3002,37 +3002,6 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-dependencies = [
- "anyhow",
- "beefy-light-client",
- "beefy-merkle-tree",
- "beefy-primitives",
- "env_logger",
- "futures 0.3.21",
- "hex",
- "hex-literal",
- "ibc",
- "ibc-proto",
- "jsonrpsee",
- "libsecp256k1",
- "pallet-mmr-rpc",
- "parity-scale-codec",
- "prost-types 0.10.1",
- "serde",
- "sp-core",
- "sp-keyring",
- "sp-runtime",
- "structopt",
- "subtle-encoding",
- "subxt",
- "tendermint-proto",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "octopusxt"
-version = "0.1.0"
 source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.18#4e45f8498cb7c0d515d29c298a8e6c2337981476"
 dependencies = [
  "anyhow",
@@ -3056,7 +3025,7 @@ dependencies = [
  "sp-runtime",
  "structopt",
  "subtle-encoding",
- "subxt",
+ "subxt 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18)",
  "tendermint-proto",
  "tokio",
  "tracing",
@@ -3142,7 +3111,7 @@ checksum = "decf7381921fea4dcb2549c5667eda59b3ec297ab7e2b5fc33eac69d2e7da87b"
 [[package]]
 name = "pallet-mmr-primitives"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -3158,7 +3127,7 @@ dependencies = [
 [[package]]
 name = "pallet-mmr-rpc"
 version = "3.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4515,7 +4484,7 @@ dependencies = [
 [[package]]
 name = "sp-api"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "hash-db",
  "log",
@@ -4532,7 +4501,7 @@ dependencies = [
 [[package]]
 name = "sp-api-proc-macro"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "blake2",
  "proc-macro-crate 1.1.3",
@@ -4544,7 +4513,7 @@ dependencies = [
 [[package]]
 name = "sp-application-crypto"
 version = "6.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -4557,7 +4526,7 @@ dependencies = [
 [[package]]
 name = "sp-arithmetic"
 version = "5.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "integer-sqrt",
  "num-traits",
@@ -4572,7 +4541,7 @@ dependencies = [
 [[package]]
 name = "sp-blockchain"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "futures 0.3.21",
  "log",
@@ -4590,7 +4559,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus"
 version = "0.10.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "async-trait",
  "futures 0.3.21",
@@ -4609,7 +4578,7 @@ dependencies = [
 [[package]]
 name = "sp-core"
 version = "6.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "base58",
  "bitflags",
@@ -4655,7 +4624,7 @@ dependencies = [
 [[package]]
 name = "sp-core-hashing"
 version = "4.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "blake2",
  "byteorder",
@@ -4669,7 +4638,7 @@ dependencies = [
 [[package]]
 name = "sp-core-hashing-proc-macro"
 version = "5.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4680,7 +4649,7 @@ dependencies = [
 [[package]]
 name = "sp-database"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "kvdb",
  "parking_lot 0.12.1",
@@ -4689,7 +4658,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "4.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4699,7 +4668,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.12.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -4710,7 +4679,7 @@ dependencies = [
 [[package]]
 name = "sp-inherents"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "async-trait",
  "impl-trait-for-tuples",
@@ -4724,7 +4693,7 @@ dependencies = [
 [[package]]
 name = "sp-io"
 version = "6.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "futures 0.3.21",
  "hash-db",
@@ -4749,7 +4718,7 @@ dependencies = [
 [[package]]
 name = "sp-keyring"
 version = "6.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "lazy_static",
  "sp-core",
@@ -4760,7 +4729,7 @@ dependencies = [
 [[package]]
 name = "sp-keystore"
 version = "0.12.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "async-trait",
  "futures 0.3.21",
@@ -4776,7 +4745,7 @@ dependencies = [
 [[package]]
 name = "sp-panic-handler"
 version = "4.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "backtrace",
  "lazy_static",
@@ -4786,7 +4755,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime"
 version = "6.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "either",
  "hash256-std-hasher",
@@ -4808,7 +4777,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "6.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
@@ -4825,7 +4794,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "5.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "Inflector",
  "proc-macro-crate 1.1.3",
@@ -4837,7 +4806,7 @@ dependencies = [
 [[package]]
 name = "sp-staking"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -4848,7 +4817,7 @@ dependencies = [
 [[package]]
 name = "sp-state-machine"
 version = "0.12.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "hash-db",
  "log",
@@ -4877,12 +4846,12 @@ checksum = "35391ea974fa5ee869cb094d5b437688fbf3d8127d64d1b9fed5822a1ed39b12"
 [[package]]
 name = "sp-std"
 version = "4.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 
 [[package]]
 name = "sp-storage"
 version = "6.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -4895,7 +4864,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "5.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "parity-scale-codec",
  "sp-std 4.0.0",
@@ -4907,7 +4876,7 @@ dependencies = [
 [[package]]
 name = "sp-trie"
 version = "6.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "hash-db",
  "memory-db",
@@ -4923,7 +4892,7 @@ dependencies = [
 [[package]]
 name = "sp-version"
 version = "5.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
@@ -4940,7 +4909,7 @@ dependencies = [
 [[package]]
 name = "sp-version-proc-macro"
 version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "parity-scale-codec",
  "proc-macro2",
@@ -4951,7 +4920,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "6.0.0"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-dev-v0.9.18#ee8b094b8c6b8bc25f4ec7224cb95a51e5e36c75"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18#fc3fd073d3a0acf9933c3994b660ebd7b5833f65"
 dependencies = [
  "impl-trait-for-tuples",
  "log",
@@ -5086,6 +5055,30 @@ dependencies = [
 [[package]]
 name = "subxt"
 version = "0.21.0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#a821a88c1498cc548a13601d8c28ca9ef7da413f"
+dependencies = [
+ "bitvec",
+ "derivative",
+ "frame-metadata",
+ "futures 0.3.21",
+ "hex",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "parking_lot 0.12.1",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+ "subxt-macro 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
+ "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "subxt"
+version = "0.21.0"
 source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18#3eecc41b8b404dafa9289a120596383de07a6eba"
 dependencies = [
  "bitvec",
@@ -5101,10 +5094,27 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
- "subxt-macro",
- "subxt-metadata",
+ "subxt-macro 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18)",
+ "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18)",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "subxt-codegen"
+version = "0.21.0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#a821a88c1498cc548a13601d8c28ca9ef7da413f"
+dependencies = [
+ "darling",
+ "frame-metadata",
+ "heck 0.4.0",
+ "parity-scale-codec",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "scale-info",
+ "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
+ "syn",
 ]
 
 [[package]]
@@ -5120,7 +5130,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scale-info",
- "subxt-metadata",
+ "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18)",
+ "syn",
+]
+
+[[package]]
+name = "subxt-macro"
+version = "0.21.0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#a821a88c1498cc548a13601d8c28ca9ef7da413f"
+dependencies = [
+ "darling",
+ "proc-macro-error",
+ "subxt-codegen 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
  "syn",
 ]
 
@@ -5131,8 +5152,19 @@ source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octo
 dependencies = [
  "darling",
  "proc-macro-error",
- "subxt-codegen",
+ "subxt-codegen 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18)",
  "syn",
+]
+
+[[package]]
+name = "subxt-metadata"
+version = "0.21.0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#a821a88c1498cc548a13601d8c28ca9ef7da413f"
+dependencies = [
+ "frame-metadata",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
 ]
 
 [[package]]

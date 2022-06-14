@@ -81,7 +81,7 @@ sha2 = { version = "0.10.2", default-features = false }
 flex-error = { version = "0.4.4", default-features = false }
 num-traits = { version = "0.2.14", default-features = false }
 derive_more = { version = "0.99.17", default-features = false, features = ["from", "display"] }
-
+log = { version = "0.4.0", default-features = false }
 
 # substrate dep
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
@@ -99,8 +99,6 @@ sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkado
 # beefy light client
 beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.18", default-features = false }
 # beefy-light-client = { path = "../../beefy-light-client", default-features = false }
-
-log = { version = "0.4.0", default-features = false }
 
 [dependencies.tendermint]
 version = "=0.23.6"
@@ -129,10 +127,10 @@ tendermint-rpc = { version = "=0.23.6", features = ["http-client", "websocket-cl
 tendermint-testgen = { version = "=0.23.6" } # Needed for generating (synthetic) light blocks.
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
 hex-literal = "0.3.1"
-# octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.18"}
-octopusxt = { path = "../../octopusxt/module" }
+octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.18"}
+#octopusxt = { path = "../../octopusxt/module" }
 tokio = { version = "1.0", features = ["rt-multi-thread", "time", "sync"] }
-subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.18' }
+subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'master' }
 
 
 [[test]]
