@@ -22,7 +22,7 @@ dependencies = [
  "arc-swap",
  "backtrace",
  "canonical-path",
- "clap 3.2.1",
+ "clap 3.2.4",
  "color-eyre",
  "fs-err",
  "once_cell",
@@ -642,16 +642,16 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.1"
+version = "3.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a836566fa5f52f7ddf909a8a2f9029b9f78ca584cd95cf7e87f8073110f4c5c9"
+checksum = "6d20de3739b4fb45a17837824f40aa1769cc7655d7a83e68739a77fe7b30c87a"
 dependencies = [
  "atty",
  "bitflags",
  "clap_derive",
  "clap_lex",
  "indexmap",
- "lazy_static",
+ "once_cell",
  "strsim 0.10.0",
  "termcolor",
  "textwrap 0.15.0",
@@ -663,14 +663,14 @@ version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f6ebaab5f25e4f0312dfa07cb30a755204b96e6531457c2cfdecfdf5f2adf40"
 dependencies = [
- "clap 3.2.1",
+ "clap 3.2.4",
 ]
 
 [[package]]
 name = "clap_derive"
-version = "3.2.1"
+version = "3.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "986fd75d1dfd2c34eb8c9275ae38ad87ea9478c9b79e87f1801f7d866dfb1e37"
+checksum = "026baf08b89ffbd332836002ec9378ef0e69648cbfadd68af7cd398ca5bf98f7"
 dependencies = [
  "heck 0.4.0",
  "proc-macro-error",
@@ -1991,7 +1991,7 @@ dependencies = [
  "sp-std 4.0.0",
  "sp-trie",
  "subtle-encoding",
- "subxt 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
+ "subxt",
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-proto",
@@ -2082,7 +2082,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "subtle-encoding",
- "subxt 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
+ "subxt",
  "tendermint",
  "tendermint-light-client",
  "tendermint-light-client-verifier",
@@ -2107,7 +2107,7 @@ version = "0.14.1"
 dependencies = [
  "abscissa_core",
  "atty",
- "clap 3.2.1",
+ "clap 3.2.4",
  "clap_complete",
  "color-eyre",
  "console",
@@ -2345,9 +2345,9 @@ checksum = "112c678d4050afce233f4f2852bb2eb519230b3cf12f33585275537d7e41578d"
 
 [[package]]
 name = "js-sys"
-version = "0.3.57"
+version = "0.3.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "671a26f820db17c2a2750743f1dd03bafd15b98c9f30c7c2628c024c05d73397"
+checksum = "c3fac17f7123a73ca62df411b1bf727ccc805daa070338fda671c86dac1bdc27"
 dependencies = [
  "wasm-bindgen",
 ]
@@ -2651,9 +2651,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.7.6"
+version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8015d95cb7b2ddd3c0d32ca38283ceb1eea09b4713ee380bceb942d85a244228"
+checksum = "c84e6fe5655adc6ce00787cf7dcaf8dc4f998a0565d23eafc207a8b08ca3349a"
 dependencies = [
  "hashbrown 0.11.2",
 ]
@@ -2799,7 +2799,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "698fbc4b1fd2af323ed1711664a873b332faa4dc740e0f810f40210573ba36fd"
 dependencies = [
- "clap 3.2.1",
+ "clap 3.2.4",
  "clap_complete",
  "directories",
  "hex",
@@ -3002,7 +3002,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.18#4e45f8498cb7c0d515d29c298a8e6c2337981476"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.18#72203bcea42d744e4c393356289e122836d7718a"
 dependencies = [
  "anyhow",
  "beefy-light-client",
@@ -3025,7 +3025,7 @@ dependencies = [
  "sp-runtime",
  "structopt",
  "subtle-encoding",
- "subxt 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18)",
+ "subxt",
  "tendermint-proto",
  "tokio",
  "tracing",
@@ -5055,7 +5055,7 @@ dependencies = [
 [[package]]
 name = "subxt"
 version = "0.21.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#a821a88c1498cc548a13601d8c28ca9ef7da413f"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#9d5c50067abe2f2575b5602577353ff8e42b984d"
 dependencies = [
  "bitvec",
  "derivative",
@@ -5070,32 +5070,8 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
- "subxt-macro 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
- "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
- "thiserror",
- "tracing",
-]
-
-[[package]]
-name = "subxt"
-version = "0.21.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18#3eecc41b8b404dafa9289a120596383de07a6eba"
-dependencies = [
- "bitvec",
- "derivative",
- "frame-metadata",
- "futures 0.3.21",
- "hex",
- "jsonrpsee",
- "parity-scale-codec",
- "parking_lot 0.12.1",
- "scale-info",
- "serde",
- "serde_json",
- "sp-core",
- "sp-runtime",
- "subxt-macro 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18)",
- "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18)",
+ "subxt-macro",
+ "subxt-metadata",
  "thiserror",
  "tracing",
 ]
@@ -5103,7 +5079,7 @@ dependencies = [
 [[package]]
 name = "subxt-codegen"
 version = "0.21.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#a821a88c1498cc548a13601d8c28ca9ef7da413f"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#9d5c50067abe2f2575b5602577353ff8e42b984d"
 dependencies = [
  "darling",
  "frame-metadata",
@@ -5113,64 +5089,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scale-info",
- "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
- "syn",
-]
-
-[[package]]
-name = "subxt-codegen"
-version = "0.21.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18#3eecc41b8b404dafa9289a120596383de07a6eba"
-dependencies = [
- "darling",
- "frame-metadata",
- "heck 0.4.0",
- "parity-scale-codec",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "scale-info",
- "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18)",
+ "subxt-metadata",
  "syn",
 ]
 
 [[package]]
 name = "subxt-macro"
 version = "0.21.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#a821a88c1498cc548a13601d8c28ca9ef7da413f"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#9d5c50067abe2f2575b5602577353ff8e42b984d"
 dependencies = [
  "darling",
  "proc-macro-error",
- "subxt-codegen 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
- "syn",
-]
-
-[[package]]
-name = "subxt-macro"
-version = "0.21.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18#3eecc41b8b404dafa9289a120596383de07a6eba"
-dependencies = [
- "darling",
- "proc-macro-error",
- "subxt-codegen 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18)",
+ "subxt-codegen",
  "syn",
 ]
 
 [[package]]
 name = "subxt-metadata"
 version = "0.21.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#a821a88c1498cc548a13601d8c28ca9ef7da413f"
-dependencies = [
- "frame-metadata",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
-]
-
-[[package]]
-name = "subxt-metadata"
-version = "0.21.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.18#3eecc41b8b404dafa9289a120596383de07a6eba"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#9d5c50067abe2f2575b5602577353ff8e42b984d"
 dependencies = [
  "frame-metadata",
  "parity-scale-codec",
@@ -6101,9 +6038,9 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.80"
+version = "0.2.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27370197c907c55e3f1a9fbe26f44e937fe6451368324e009cba39e139dc08ad"
+checksum = "7c53b543413a17a202f4be280a7e5c62a1c69345f5de525ee64f8cfdbc954994"
 dependencies = [
  "cfg-if 1.0.0",
  "wasm-bindgen-macro",
@@ -6111,9 +6048,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-backend"
-version = "0.2.80"
+version = "0.2.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53e04185bfa3a779273da532f5025e33398409573f348985af9a1cbf3774d3f4"
+checksum = "5491a68ab4500fa6b4d726bd67408630c3dbe9c4fe7bda16d5c82a1fd8c7340a"
 dependencies = [
  "bumpalo",
  "lazy_static",
@@ -6126,9 +6063,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.80"
+version = "0.2.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17cae7ff784d7e83a2fe7611cfe766ecf034111b49deb850a3dc7699c08251f5"
+checksum = "c441e177922bc58f1e12c022624b6216378e5febc2f0533e41ba443d505b80aa"
 dependencies = [
  "quote",
  "wasm-bindgen-macro-support",
@@ -6136,9 +6073,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.80"
+version = "0.2.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99ec0dc7a4756fffc231aab1b9f2f578d23cd391390ab27f952ae0c9b3ece20b"
+checksum = "7d94ac45fcf608c1f45ef53e748d35660f168490c10b23704c7779ab8f5c3048"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6149,9 +6086,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.80"
+version = "0.2.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d554b7f530dee5964d9a9468d95c1f8b8acae4f282807e7d27d4b03099a46744"
+checksum = "6a89911bd99e5f3659ec4acf9c4d93b0a90fe4a2a11f15328472058edc5261be"
 
 [[package]]
 name = "wasmi"
@@ -6179,9 +6116,9 @@ dependencies = [
 
 [[package]]
 name = "web-sys"
-version = "0.3.57"
+version = "0.3.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b17e741662c70c8bd24ac5c5b18de314a2c26c32bf8346ee1e6f53de919c283"
+checksum = "2fed94beee57daf8dd7d51f2b15dc2bcde92d7a72304cdf662a4371008b71b90"
 dependencies = [
  "js-sys",
  "wasm-bindgen",

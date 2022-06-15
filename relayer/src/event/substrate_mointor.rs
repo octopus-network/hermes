@@ -1,28 +1,21 @@
+use crate::util::retry::{retry_count, retry_with_index, RetryResult};
+
 use alloc::sync::Arc;
 use core::cmp::Ordering;
-
 use crossbeam_channel as channel;
-
 use futures::{
     stream::{self, StreamExt},
     Stream,
 };
-
+use ibc::{
+    core::{ics02_client::height::Height, ics24_host::identifier::ChainId},
+    events::IbcEvent,
+};
+use octopusxt::{ibc_node, MyConfig, SubstrateNodeTemplateExtrinsicParams};
+use subxt::{Client, ClientBuilder, RawEventDetails};
+use tendermint_rpc::{event::Event as RpcEvent, Url};
 use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, trace};
-
-use tendermint_rpc::{event::Event as RpcEvent, Url};
-
-use octopusxt::ibc_node;
-use octopusxt::MyConfig;
-use subxt::SubstrateExtrinsicParams;
-use subxt::{Client, ClientBuilder, RawEventDetails};
-
-use ibc::core::ics02_client::height::Height;
-use ibc::core::ics24_host::identifier::ChainId;
-use ibc::events::IbcEvent;
-
-use crate::util::retry::{retry_count, retry_with_index, RetryResult};
 
 mod retry_strategy {
     use crate::util::retry::clamp_total;
@@ -252,7 +245,7 @@ impl EventMonitor {
         let sub_event = async move {
             let api = client
                 .clone()
-                .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
+                .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
             // Subscribe to any events that occur:
             let mut event_sub = api.events().subscribe().await.unwrap();
@@ -348,7 +341,7 @@ async fn subscribe_events(client: Client<MyConfig>) -> RawEventDetails {
     tracing::info!("In substrate_monitor: [subscribe_events]");
 
     let api = client
-        .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
+        .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
     // Subscribe to any events that occur:
     let mut event_sub = api.events().subscribe().await.unwrap();
 
@@ -387,7 +380,7 @@ async fn get_latest_height(client: Client<MyConfig>) -> u64 {
     tracing::trace!("In substrate_monitor: [get_latest_height]");
 
     let api = client
-        .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
+        .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
     let block = api.client.rpc().subscribe_blocks().await;
 

@@ -1,4 +1,7 @@
+use super::client::ClientSettings;
+use super::tx::TrackedMsgs;
 use super::{ChainEndpoint, HealthCheck};
+use crate::chain::ChainStatus;
 use crate::config::ChainConfig;
 use crate::error::Error;
 // use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
@@ -6,15 +9,11 @@ use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd}
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::grandpa::LightClient as GPLightClient;
 use crate::util::retry::{retry_with_index, RetryResult};
+
 use alloc::sync::Arc;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use core::{future::Future, str::FromStr, time::Duration};
-use subxt::rpc::ClientT;
-
-use super::client::ClientSettings;
-use super::tx::TrackedMsgs;
-use crate::chain::ChainStatus;
 use ibc::{
     clients::{
         ics07_tendermint::header::Header as tHeader,
@@ -44,6 +43,7 @@ use ibc::{
     signer::Signer,
     Height, Height as ICSHeight,
 };
+use subxt::rpc::ClientT;
 
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::{
@@ -66,11 +66,12 @@ use sp_core::ByteArray;
 use std::thread::{self, sleep};
 use subxt::{
     rpc::NumberOrHex, storage::StorageEntry, storage::StorageKeyPrefix, BlockNumber, Client,
-    ClientBuilder, SubstrateExtrinsicParams,
+    ClientBuilder,
 };
 
 use tendermint::abci::{Code, Log};
 
+use anyhow::Result;
 use beefy_light_client::{commitment, mmr};
 use ibc::clients::ics10_grandpa::help::Commitment;
 use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
@@ -78,6 +79,7 @@ use ibc::core::ics04_channel::events::SendPacket;
 use octopusxt::ibc_node::ibc::storage;
 use octopusxt::ibc_node::RuntimeApi;
 use octopusxt::update_client_state::update_client_state;
+use octopusxt::SubstrateNodeTemplateExtrinsicParams;
 use serde::{Deserialize, Serialize};
 use sp_core::sr25519;
 use sp_core::{hexdisplay::HexDisplay, Bytes, Pair, H256};
@@ -86,7 +88,6 @@ use tendermint::abci::transaction;
 use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
-use anyhow::Result;
 
 const MAX_QUERY_TIMES: u64 = 100;
 
@@ -115,7 +116,9 @@ impl SubstrateChain {
                 .set_url(&self.websocket_url.clone())
                 .build::<MyConfig>()
                 .await
-                .map_err(|_| anyhow::anyhow!(format!("{:?}", Error::substrate_client_builder_error())))
+                .map_err(|_| {
+                    anyhow::anyhow!(format!("{:?}", Error::substrate_client_builder_error()))
+                })
         };
 
         self.block_on(client)
@@ -158,10 +161,7 @@ impl SubstrateChain {
     }
 
     /// get connectionEnd by connection_identifier
-    fn get_connection_end(
-        &self,
-        connection_identifier: &ConnectionId,
-    ) -> Result<ConnectionEnd> {
+    fn get_connection_end(&self, connection_identifier: &ConnectionId) -> Result<ConnectionEnd> {
         tracing::trace!("in substrate: [get_connection_end]");
 
         let client = self.get_client()?;
@@ -170,11 +170,7 @@ impl SubstrateChain {
     }
 
     /// get channelEnd  by port_identifier, and channel_identifier
-    fn get_channel_end(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-    ) -> Result<ChannelEnd> {
+    fn get_channel_end(&self, port_id: &PortId, channel_id: &ChannelId) -> Result<ChannelEnd> {
         tracing::trace!("in substrate: [get_channel_end]");
 
         let client = self.get_client()?;
@@ -215,10 +211,7 @@ impl SubstrateChain {
     }
 
     /// get client_state by client_id
-    fn get_client_state(
-        &self,
-        client_id: &ClientId,
-    ) -> Result<AnyClientState> {
+    fn get_client_state(&self, client_id: &ClientId) -> Result<AnyClientState> {
         tracing::trace!("in substrate: [get_client_state]");
 
         let client = self.get_client()?;
@@ -327,10 +320,7 @@ impl SubstrateChain {
     }
 
     /// get connection_identifier vector by client_identifier
-    fn get_client_connections(
-        &self,
-        client_id: &ClientId,
-    ) -> Result<Vec<ConnectionId>> {
+    fn get_client_connections(&self, client_id: &ClientId) -> Result<Vec<ConnectionId>> {
         tracing::trace!("in substrate: [get_client_connections]");
 
         let client = self.get_client()?;
@@ -555,7 +545,7 @@ impl ChainEndpoint for SubstrateChain {
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
             let api =
-                client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
+                client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
             let authorities = api
                 .storage()
@@ -566,12 +556,7 @@ impl ChainEndpoint for SubstrateChain {
             tracing::info!("authorities length : {:?}", authorities.len());
             let result: Vec<String> = authorities
                 .into_iter()
-                .map(|val| {
-                    format!(
-                        "0x{}",
-                        subxt::sp_core::hexdisplay::HexDisplay::from(&val.to_raw_vec())
-                    )
-                })
+                .map(|val| format!("0x{}", HexDisplay::from(&val.to_raw_vec())))
                 .collect();
             tracing::info!("authorities member: {:?}", result);
             Ok(result)
@@ -1344,7 +1329,7 @@ impl ChainEndpoint for SubstrateChain {
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
             let api =
-                client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
+                client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
             let authorities = api
                 .storage()
@@ -1355,12 +1340,7 @@ impl ChainEndpoint for SubstrateChain {
 
             let result: Vec<String> = authorities
                 .into_iter()
-                .map(|val| {
-                    format!(
-                        "0x{}",
-                        subxt::sp_core::hexdisplay::HexDisplay::from(&val.to_raw_vec())
-                    )
-                })
+                .map(|val| format!("0x{}", HexDisplay::from(&val.to_raw_vec())))
                 .collect();
 
             Ok(result)
@@ -1443,7 +1423,7 @@ impl ChainEndpoint for SubstrateChain {
 
             let api = client
                 .clone()
-                .to_runtime_api::<RuntimeApi<MyConfig, SubstrateExtrinsicParams<MyConfig>>>();
+                .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
             assert_eq!(
                 block_header.block_number,
