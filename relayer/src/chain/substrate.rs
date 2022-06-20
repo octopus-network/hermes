@@ -238,7 +238,7 @@ impl SubstrateChain {
     fn get_consensus_state_with_height(
         &self,
         client_id: &ClientId,
-    ) -> Result<Vec<(Height, AnyConsensusState)>> {
+    ) -> Result<Vec<(ICSHeight, AnyConsensusState)>> {
         tracing::trace!("in substrate: [get_consensus_state_with_height]");
 
         let client: Client<MyConfig> = self.get_client()?;
@@ -253,7 +253,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequences: &[Sequence],
-    ) -> Result<Vec<u64>> {
+    ) -> Result<Vec<Sequence>> {
         tracing::trace!("in substrate: [get_unreceipt_packet]");
 
         let client: Client<MyConfig> = self.get_client()?;
@@ -293,7 +293,7 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_channels(client))
     }
 
-    fn get_commitment_packet_state(&self) -> Result<Vec<PacketState>> {
+    fn get_commitment_packet_state(&self) -> Result<Vec<Sequence>> {
         tracing::trace!("in substrate: [get_commitment_packet_state]");
 
         let client: Client<MyConfig> = self.get_client()?;
@@ -318,7 +318,7 @@ impl SubstrateChain {
         ))
     }
 
-    fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>> {
+    fn get_acknowledge_packet_state(&self) -> Result<Vec<Sequence>> {
         tracing::trace!("in substrate: [get_acknowledge_packet_state]");
 
         let client: Client<MyConfig> = self.get_client()?;
