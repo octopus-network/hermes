@@ -181,6 +181,8 @@ sp-keyring = { git = "https://github.com/paritytech/substrate.git", branch = "po
 # substrate-wasm-builder = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
 # substrate-build-script-utils = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
 
+syn =  { git = "https://github.com/DaviRain-Su/syn.git", branch = "branch-1.0.97" }
+
 [patch."https://github.com/octopus-network/ibc-rs"]
 ibc = { path = "./modules" }
 ibc-proto = { path = "./proto" }
