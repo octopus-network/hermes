@@ -87,6 +87,7 @@ pub(crate) fn process(
         channel_cap,
         channel_end,
     };
+    tracing::trace!(target:"ibc-rs","[chan_close_confirm] process result : {:?}",result);
 
     let event_attributes = Attributes {
         channel_id: Some(msg.channel_id),

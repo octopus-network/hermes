@@ -157,7 +157,7 @@ impl SubstrateChain {
 
     /// get latest block height
     fn get_latest_height(&self) -> Result<u64, Box<dyn std::error::Error>> {
-        tracing::trace!("in substrate: [get_latest_height]");
+        tracing::trace!(target:"ibc-rs","in substrate: [get_latest_height]");
 
         let client = self.get_client()?;
 
@@ -359,7 +359,7 @@ impl SubstrateChain {
 
     /// The function to submit IBC request to a Substrate chain
     /// This function handles most of the IBC reqeusts, except the MMR root update
-    fn deliever(&self, msgs: Vec<Any>) -> Result<subxt::sp_core::H256, Box<dyn std::error::Error>> {
+    fn deliever(&self, msgs: Vec<Any>) -> Result<H256, Box<dyn std::error::Error>> {
         tracing::trace!(target:"ibc-rs","in substrate: [deliever]");
 
         let client = self.get_client()?;
@@ -729,15 +729,26 @@ impl ChainEndpoint for SubstrateChain {
             .keybase()
             .get_key(&self.config.key_name)
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
+        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] key = {:?}", key);
 
         let private_seed = key.mnemonic;
+        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] private_seed = {:?}", private_seed);
+
         let (pair, seed) = sp_core::sr25519::Pair::from_phrase(&private_seed, None).unwrap();
         let public_key = pair.public();
+        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] public_key = {:?}", public_key);
 
         let account_id = format_account_id::<sp_core::sr25519::Pair>(public_key);
+        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] account_id = {:?}", account_id);
+
         let account = sp_runtime::AccountId32::from_str(&account_id).unwrap();
+        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] account = {:?}", account);
+
         let encode_account = sp_runtime::AccountId32::encode(&account);
+        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] encode_account = {:?}", encode_account);
+
         let hex_account = hex::encode(encode_account);
+        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] hex_account = {:?}", hex_account);
 
         Ok(Signer::new(hex_account))
     }

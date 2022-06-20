@@ -23,6 +23,9 @@ pub fn process(
     packet: Packet,
     ack: Vec<u8>,
 ) -> HandlerResult<PacketResult, Error> {
+    tracing::trace!(target:"ibc-rs","[write acknowledgement] begin to process the write ack packet is {:?} ",packet);
+    tracing::trace!(target:"ibc-rs","[write acknowledgement] begin to process the write ack  and ack is  {:?}",ack);
+
     let mut output = HandlerOutput::builder();
 
     let dest_channel_end =
@@ -61,6 +64,7 @@ pub fn process(
         seq: packet.sequence,
         ack_commitment: ctx.ack_commitment(ack.clone().into()),
     });
+    tracing::trace!(target:"ibc-rs","[write acknowledgement] process result : {:?}",result);
 
     output.log("success: packet write acknowledgement");
 
@@ -69,6 +73,7 @@ pub fn process(
         packet,
         ack,
     }));
+    tracing::trace!(target:"ibc-rs","[write acknowledgement] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

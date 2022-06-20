@@ -19,7 +19,6 @@ pub fn verify_proofs(
     expected_conn: &ConnectionEnd,
     proofs: &Proofs,
 ) -> Result<(), Error> {
-    
     verify_connection_proof(
         ctx,
         height,
@@ -153,10 +152,13 @@ pub fn verify_consensus_proof(
 
     // Fetch the expected consensus state from the historical (local) header data.
     let expected_consensus = ctx.host_consensus_state(proof.height())?;
+    tracing::trace!(target:"ibc-rs","[ics03_connection]  verify_consensus_proof expected_consensus from host : {:?}",expected_consensus);
 
     let consensus_state = ctx.client_consensus_state(connection_end.client_id(), height)?;
+    tracing::trace!(target:"ibc-rs","[ics03_connection]  verify_consensus_proof expected_consensus from light client : {:?}",consensus_state);
 
     let client = AnyClient::from_client_type(client_state.client_type());
+    tracing::trace!(target:"ibc-rs","[ics03_connection]  verify_consensus_proof light client : {:?}",client);
 
     client
         .verify_client_consensus_state(

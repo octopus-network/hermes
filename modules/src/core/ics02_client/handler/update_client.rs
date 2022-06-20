@@ -64,8 +64,6 @@ pub fn process(
             Error::consensus_state_not_found(client_id.clone(), client_state.latest_height())
         })?;
 
-    tracing::trace!(target:"ibc-rs","[update_client] latest_consensus_state : {:?}", latest_consensus_state);
-
     debug!("latest consensus state: {:?}", latest_consensus_state);
 
     let now = ctx.host_timestamp();
@@ -91,11 +89,13 @@ pub fn process(
     // This function will return the new client_state (its latest_height changed) and a
     // consensus_state obtained from header. These will be later persisted by the keeper.
     let (new_client_state, new_consensus_state) = client_def
-        .check_header_and_update_state(ctx, client_id.clone(), client_state, header)
+        .check_header_and_update_state(ctx, client_id.clone(), client_state.clone(), header)
         .map_err(|e| Error::header_verification_failure(e.to_string()))?;
 
-    tracing::trace!(target:"ibc-rs","[update_client] new_client_state : {:?},new_consensus_state : {:?}",
-        new_client_state,new_consensus_state);
+    tracing::trace!(target:"ibc-rs","[update_client] lastest_client_state : {:?}",client_state);
+    tracing::trace!(target:"ibc-rs","[update_client] new_client_state : {:?}",new_client_state);
+    tracing::trace!(target:"ibc-rs","[update_client] latest_consensus_state : {:?}", latest_consensus_state);
+    tracing::trace!(target:"ibc-rs","[update_client] new_consensus_state : {:?}",new_consensus_state);
 
     let result = ClientResult::Update(Result {
         client_id: client_id.clone(),

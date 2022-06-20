@@ -96,6 +96,7 @@ pub fn send_packet(ctx: &dyn ChannelReader, packet: Packet) -> HandlerResult<Pac
             packet.timeout_timestamp,
         ),
     });
+    tracing::trace!(target:"ibc-rs","[send_packet] process result : {:?}",result);
 
     output.emit(IbcEvent::SendPacket(SendPacket {
         height: ctx.host_height(),

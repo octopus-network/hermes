@@ -13,7 +13,6 @@ pub(crate) fn process(
     ctx: &dyn ChannelReader,
     msg: &MsgChannelCloseInit,
 ) -> HandlerResult<ChannelResult, Error> {
-
     tracing::trace!(target:"ibc-rs","[chan_close_init] begin to process the chan_close_init msg : {:?}",msg);
 
     let mut output = HandlerOutput::builder();
@@ -60,6 +59,8 @@ pub(crate) fn process(
         channel_cap,
         channel_end,
     };
+
+    tracing::trace!(target:"ibc-rs","[chan_close_init] process result : {:?}",result);
 
     let event_attributes = Attributes {
         channel_id: Some(msg.channel_id),

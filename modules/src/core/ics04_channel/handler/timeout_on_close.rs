@@ -124,7 +124,8 @@ pub fn process(
             channel: None,
         })
     };
-
+    tracing::trace!(target:"ibc-rs","[timeout_on_close] process result : {:?}",result);
+    
     output.log("success: packet timeout ");
 
     output.emit(IbcEvent::TimeoutOnClosePacket(TimeoutOnClosePacket {

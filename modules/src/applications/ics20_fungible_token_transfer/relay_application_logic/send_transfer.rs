@@ -13,6 +13,7 @@ pub fn send_transfer<Ctx>(ctx: &Ctx, msg: MsgTransfer) -> Result<HandlerOutput<P
 where
     Ctx: Ics20Context,
 {
+    tracing::trace!(target:"ibc-rs","[send_transfer] begin to process the send_transfer msg : {:?}",msg);
     let source_channel_end = ctx
         .channel_end(&(msg.source_port.clone(), msg.source_channel))
         .map_err(Error::ics04_channel)?;

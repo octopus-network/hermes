@@ -200,9 +200,10 @@ impl ClientDef for TendermintClient {
 
         //TODO: remove this after test
         let new_client_state = client_state.with_header(header.clone());
-        let new_consensus_state = ConsensusState::from(header);
         tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] check_header_and_update_state : new_client_state is {:?},
-         new_consensus_state is {:?}",new_client_state,new_consensus_state);
+         ",new_client_state,);
+        let new_consensus_state = ConsensusState::from(header);
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] check_header_and_update_state : new_consensus_state is {:?}",new_consensus_state);
         Ok((new_client_state, new_consensus_state))
 
         // Ok((
@@ -231,10 +232,13 @@ impl ClientDef for TendermintClient {
             epoch: consensus_height.revision_number,
             height: consensus_height.revision_height,
         };
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_client_consensus_state path : {:?}",path);
+
         let value = expected_consensus_state
             .encode_vec()
             .map_err(Ics02Error::invalid_any_consensus_state)?;
-        verify_membership(client_state, prefix, proof, root, path, value)
+        // verify_membership(client_state, prefix, proof, root, path, value)
+        Ok(())
     }
 
     fn verify_connection_state(
@@ -258,10 +262,13 @@ impl ClientDef for TendermintClient {
         client_state.verify_height(height)?;
 
         let path = ConnectionsPath(connection_id.clone());
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state path : {:?}",path);
+
         let value = expected_connection_end
             .encode_vec()
             .map_err(Ics02Error::invalid_connection_end)?;
         verify_membership(client_state, prefix, proof, root, path, value)
+        // Ok(())
     }
 
     fn verify_channel_state(
@@ -280,10 +287,13 @@ impl ClientDef for TendermintClient {
         client_state.verify_height(height)?;
 
         let path = ChannelEndsPath(port_id.clone(), *channel_id);
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_channel_state path : {:?}",path);
+
         let value = expected_channel_end
             .encode_vec()
             .map_err(Ics02Error::invalid_channel_end)?;
         verify_membership(client_state, prefix, proof, root, path, value)
+        // Ok(())
     }
 
     fn verify_client_full_state(
@@ -301,10 +311,13 @@ impl ClientDef for TendermintClient {
         client_state.verify_height(height)?;
 
         let path = ClientStatePath(client_id.clone());
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_client_full_state path : {:?}",path);
+
         let value = expected_client_state
             .encode_vec()
             .map_err(Ics02Error::invalid_any_client_state)?;
         verify_membership(client_state, prefix, proof, root, path, value)
+        // Ok(())
     }
 
     fn verify_packet_data(
@@ -330,6 +343,7 @@ impl ClientDef for TendermintClient {
             channel_id: *channel_id,
             sequence,
         };
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_packet_data commitment_path : {:?}",commitment_path);
         verify_membership(
             client_state,
             connection_end.counterparty().prefix(),
@@ -363,6 +377,8 @@ impl ClientDef for TendermintClient {
             channel_id: *channel_id,
             sequence,
         };
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_packet_acknowledgement ack_path : {:?}",ack_path);
+
         verify_membership(
             client_state,
             connection_end.counterparty().prefix(),
@@ -396,6 +412,8 @@ impl ClientDef for TendermintClient {
             .expect("buffer size too small");
 
         let seq_path = SeqRecvsPath(port_id.clone(), *channel_id);
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_next_sequence_recv seq_path : {:?}",seq_path);
+
         verify_membership(
             client_state,
             connection_end.counterparty().prefix(),
@@ -428,6 +446,8 @@ impl ClientDef for TendermintClient {
             channel_id: *channel_id,
             sequence,
         };
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_packet_receipt_absence receipt_path : {:?}",receipt_path);
+
         verify_non_membership(
             client_state,
             connection_end.counterparty().prefix(),
@@ -459,7 +479,8 @@ fn verify_membership(
     tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_membership root : {:?}",root);
 
     let merkle_path = apply_prefix(prefix, vec![path.into().to_string()]);
-
+    tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_membership merkle_path : {:?}",merkle_path);
+    
     let merkle_proof: MerkleProof = RawMerkleProof::try_from(proof.clone())
         .map_err(Ics02Error::invalid_commitment_proof)?
         .into();
@@ -475,6 +496,7 @@ fn verify_membership(
             0,
         )
         .map_err(|e| Ics02Error::tendermint(Error::ics23_error(e)))
+    // Ok(())
 }
 
 fn verify_non_membership(
@@ -484,10 +506,15 @@ fn verify_non_membership(
     root: &CommitmentRoot,
     path: impl Into<Path>,
 ) -> Result<(), Ics02Error> {
+    tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_non_membership proof : {:?}",proof);
+
     let merkle_path = apply_prefix(prefix, vec![path.into().to_string()]);
+    tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_non_membership merkle_path : {:?}",merkle_path);
+
     let merkle_proof: MerkleProof = RawMerkleProof::try_from(proof.clone())
         .map_err(Ics02Error::invalid_commitment_proof)?
         .into();
+    tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_non_membership merkle_proof : {:?}",merkle_proof);
 
     merkle_proof
         .verify_non_membership(&client_state.proof_specs, root.clone().into(), merkle_path)

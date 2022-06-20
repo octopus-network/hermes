@@ -302,40 +302,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "beefy-light-client"
-version = "0.1.0"
-source = "git+https://github.com/octopus-network/beefy-light-client.git#f7e2bf33a6f150f44145ebc53097d92aa6d7c32b"
-dependencies = [
- "beefy-merkle-tree",
- "blake2-rfc",
- "borsh",
- "byteorder",
- "ckb-merkle-mountain-range",
- "hex",
- "libsecp256k1",
- "parity-scale-codec",
-]
-
-[[package]]
 name = "beefy-merkle-tree"
 version = "4.0.0-dev"
 source = "git+https://github.com/octopus-network/substrate?branch=polkadot-v0.9.13#afb74de23dfe2994e7ce38c0870efb9734e966f7"
 dependencies = [
  "tiny-keccak",
-]
-
-[[package]]
-name = "beefy-primitives"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.12#d76f39995315ec36980908e4b99709bd14927044"
-dependencies = [
- "parity-scale-codec",
- "scale-info",
- "sp-api",
- "sp-application-crypto",
- "sp-core",
- "sp-runtime",
- "sp-std 4.0.0-dev",
 ]
 
 [[package]]
@@ -525,9 +496,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.9.1"
+version = "3.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4a45a46ab1f2412e53d3a0ade76ffad2025804294569aae387231a0cd6e0899"
+checksum = "37ccbd214614c6783386c1af30caf03192f17891059cecc394b4fb119e363de3"
 
 [[package]]
 name = "byte-slice-cast"
@@ -543,9 +514,9 @@ checksum = "e3b5ca7a04898ad4bcd41c90c5285445ff5b791899bb1b0abdd2a2aa791211d7"
 
 [[package]]
 name = "bytecount"
-version = "0.6.2"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72feb31ffc86498dacdbd0fcebb56138e7177a8cc5cea4516031d15ae85a742e"
+checksum = "2c676a478f63e9fa2dd5368a42f28bba0d6c560b775f38583c8bbaa7fcd67c9c"
 
 [[package]]
 name = "byteorder"
@@ -1336,13 +1307,11 @@ dependencies = [
 
 [[package]]
 name = "flate2"
-version = "1.0.23"
+version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b39522e96686d38f4bc984b9198e3a0613264abaebaff2c5c918bfa6b6da09af"
+checksum = "f82b0f4c27ad9f8bfd1f3208d882da2b09c301bc1c828fd3a00d0216d2fbbff6"
 dependencies = [
- "cfg-if 1.0.0",
  "crc32fast",
- "libc",
  "miniz_oxide",
 ]
 
@@ -1888,9 +1857,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "0.14.18"
+version = "0.14.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b26ae0a80afebe130861d90abf98e3814a4f28a4c6ffeb5ab8ebb2be311e0ef2"
+checksum = "42dc3c131584288d375f2d07f822b0cb012d8c6fb899a5b9fdb3cb7eb9b6004f"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1979,7 +1948,7 @@ dependencies = [
 name = "ibc"
 version = "0.14.1"
 dependencies = [
- "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.13)",
+ "beefy-light-client",
  "beefy-merkle-tree",
  "blake2-rfc",
  "bytes",
@@ -1995,7 +1964,7 @@ dependencies = [
  "log",
  "modelator",
  "num-traits",
- "octopusxt 0.1.0",
+ "octopusxt",
  "parity-scale-codec",
  "prost",
  "prost-types",
@@ -2011,7 +1980,7 @@ dependencies = [
  "sp-timestamp",
  "sp-trie",
  "subtle-encoding",
- "subxt 0.15.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13)",
+ "subxt",
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-proto",
@@ -2061,7 +2030,7 @@ dependencies = [
  "anyhow",
  "async-stream",
  "bech32",
- "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.13)",
+ "beefy-light-client",
  "bitcoin",
  "bytes",
  "crossbeam-channel 0.5.4",
@@ -2084,7 +2053,7 @@ dependencies = [
  "nanoid",
  "num-bigint 0.4.3",
  "num-rational 0.4.0",
- "octopusxt 0.1.0 (git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13)",
+ "octopusxt",
  "pallet-mmr-rpc",
  "parity-scale-codec",
  "prost",
@@ -2102,7 +2071,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "subtle-encoding",
- "subxt 0.15.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13)",
+ "subxt",
  "tendermint",
  "tendermint-light-client",
  "tendermint-light-client-verifier",
@@ -2307,9 +2276,9 @@ checksum = "ce23b50ad8242c51a442f3ff322d56b02f08852c77e4c0b4d3fd684abc89c683"
 
 [[package]]
 name = "indexmap"
-version = "1.8.1"
+version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f647032dfaa1f8b6dc29bd3edb7bbef4861b8b8007ebb118d6db284fd59f6ee"
+checksum = "e6012d540c5baa3589337a98ce73408de9b5a25ec9fc2c6fd6be8f0d39e0ca5a"
 dependencies = [
  "autocfg",
  "hashbrown 0.11.2",
@@ -2869,9 +2838,9 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.5.1"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2b29bd4bc3f33391105ebee3589c19197c4271e3e5a9ec9bfe8127eeff8f082"
+checksum = "6f5c75688da582b8ffc1f1799e9db273f32133c49e048f614d22ec3256773ccc"
 dependencies = [
  "adler",
 ]
@@ -2915,16 +2884,16 @@ dependencies = [
 
 [[package]]
 name = "moka"
-version = "0.8.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e924a2158752c5e2358a3a230e01a532cd9948a0eee35de848e094a9eb8ec294"
+checksum = "df72b50274c0988d9f4a6e808e06d9d926f265db6f8bbda1576bcaa658e72763"
 dependencies = [
  "crossbeam-channel 0.5.4",
  "crossbeam-epoch 0.8.2",
  "crossbeam-utils 0.8.8",
  "num_cpus",
  "once_cell",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "quanta",
  "scheduled-thread-pool",
  "skeptic",
@@ -3097,11 +3066,10 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13#0a04a73305edf0e18d2f5be25d0050b3fe0dd3d0"
 dependencies = [
- "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.13)",
+ "beefy-light-client",
  "beefy-merkle-tree",
- "beefy-primitives 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.13)",
+ "beefy-primitives",
  "env_logger 0.8.4",
  "hex",
  "hex-literal",
@@ -3114,7 +3082,7 @@ dependencies = [
  "prost-types",
  "serde",
  "sp-core",
- "sp-keyring 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.13)",
+ "sp-keyring",
  "sp-runtime",
  "structopt",
  "subtle-encoding",
@@ -3305,9 +3273,9 @@ dependencies = [
 
 [[package]]
 name = "parking_lot"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87f5ec2493a61ac0506c0f4199f99070cbe83857b0337006a30f3e6719b8ef58"
+checksum = "3742b2c103b9f06bc9fff0a37ff4912935851bee6d36f3c02bcc755bcfec228f"
 dependencies = [
  "lock_api",
  "parking_lot_core 0.9.3",
@@ -3527,7 +3495,7 @@ dependencies = [
  "fnv",
  "lazy_static",
  "memchr",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "protobuf",
  "thiserror",
 ]
@@ -4073,11 +4041,11 @@ dependencies = [
 
 [[package]]
 name = "scheduled-thread-pool"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc6f74fd1204073fa02d5d5d68bec8021be4c38690b61264b2fdb48083d0e7d7"
+checksum = "977a7519bff143a44f842fd07e80ad1329295bd71686457f18e496736f4bf9bf"
 dependencies = [
- "parking_lot 0.11.2",
+ "parking_lot 0.12.1",
 ]
 
 [[package]]
@@ -4750,23 +4718,12 @@ dependencies = [
 [[package]]
 name = "sp-keyring"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.12#d76f39995315ec36980908e4b99709bd14927044"
-dependencies = [
- "lazy_static",
- "sp-core",
- "sp-runtime",
- "strum 0.20.0",
-]
-
-[[package]]
-name = "sp-keyring"
-version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.13#afb74de23dfe2994e7ce38c0870efb9734e966f7"
 dependencies = [
  "lazy_static",
  "sp-core",
  "sp-runtime",
- "strum 0.22.0",
+ "strum",
 ]
 
 [[package]]
@@ -5003,9 +4960,9 @@ dependencies = [
 
 [[package]]
 name = "ss58-registry"
-version = "1.20.0"
+version = "1.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e1e7c268f5610088463d23188fc9e764cda491784360e5e4ea3a8ce1e0e2ac9"
+checksum = "5d804c8d48aeab838be31570866fce1130d275b563d49af08b4927a0bd561e7c"
 dependencies = [
  "Inflector",
  "num-format",
@@ -5060,32 +5017,11 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7318c509b5ba57f18533982607f24070a55d353e90d4cae30c467cdb2ad5ac5c"
-dependencies = [
- "strum_macros 0.20.1",
-]
-
-[[package]]
-name = "strum"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7ac893c7d471c8a21f31cfe213ec4f6d9afeed25537c772e08ef3f005f8729e"
 dependencies = [
- "strum_macros 0.22.0",
-]
-
-[[package]]
-name = "strum_macros"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee8bc6b87a5112aeeab1f4a9f7ab634fe6cbefc4850006df31267f4cfb9e3149"
-dependencies = [
- "heck 0.3.3",
- "proc-macro2",
- "quote",
- "syn",
+ "strum_macros",
 ]
 
 [[package]]
@@ -5131,36 +5067,6 @@ dependencies = [
 [[package]]
 name = "subxt"
 version = "0.15.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12#950ce7d90a983c02c8d16167a3bf73d2641e5fc0"
-dependencies = [
- "async-trait",
- "bitvec",
- "chameleon",
- "frame-metadata",
- "futures 0.3.21",
- "hex",
- "jsonrpsee-http-client 0.4.1",
- "jsonrpsee-proc-macros 0.4.1",
- "jsonrpsee-types 0.4.1",
- "jsonrpsee-ws-client 0.4.1",
- "log",
- "num-traits",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "serde_json",
- "sp-arithmetic",
- "sp-core",
- "sp-runtime",
- "sp-version",
- "subxt-macro 0.1.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12)",
- "thiserror",
- "url 2.2.2",
-]
-
-[[package]]
-name = "subxt"
-version = "0.15.0"
 source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13#5170b5572d544ec06a3de13dc156dd9f823dd7c7"
 dependencies = [
  "async-trait",
@@ -5183,27 +5089,9 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-version",
- "subxt-macro 0.1.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13)",
+ "subxt-macro",
  "thiserror",
  "url 2.2.2",
-]
-
-[[package]]
-name = "subxt-codegen"
-version = "0.2.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12#950ce7d90a983c02c8d16167a3bf73d2641e5fc0"
-dependencies = [
- "async-trait",
- "darling",
- "frame-metadata",
- "heck 0.3.3",
- "parity-scale-codec",
- "proc-macro-crate 0.1.5",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "scale-info",
- "syn",
 ]
 
 [[package]]
@@ -5227,25 +5115,6 @@ dependencies = [
 [[package]]
 name = "subxt-macro"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12#950ce7d90a983c02c8d16167a3bf73d2641e5fc0"
-dependencies = [
- "async-trait",
- "darling",
- "frame-metadata",
- "heck 0.3.3",
- "parity-scale-codec",
- "proc-macro-crate 0.1.5",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "scale-info",
- "subxt-codegen 0.2.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.12)",
- "syn",
-]
-
-[[package]]
-name = "subxt-macro"
-version = "0.1.0"
 source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13#5170b5572d544ec06a3de13dc156dd9f823dd7c7"
 dependencies = [
  "async-trait",
@@ -5258,7 +5127,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scale-info",
- "subxt-codegen 0.2.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=octopus-v0.9.13)",
+ "subxt-codegen",
  "syn",
 ]
 
@@ -5627,7 +5496,7 @@ dependencies = [
  "mio",
  "num_cpus",
  "once_cell",
- "parking_lot 0.12.0",
+ "parking_lot 0.12.1",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
@@ -5987,7 +5856,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "rand 0.8.5",
  "static_assertions",
 ]

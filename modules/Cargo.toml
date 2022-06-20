@@ -130,7 +130,7 @@ tendermint-testgen = { version = "=0.23.6" } # Needed for generating (synthetic)
 codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
 hex-literal = "0.3.1"
 # octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.13"}
-octopusxt = { path = "../../octopusxt" }
+octopusxt = { path = "../../octopusxt/module" }
 tokio = { version = "1.0", features = ["rt-multi-thread", "time", "sync"] }
 subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.13' }
 

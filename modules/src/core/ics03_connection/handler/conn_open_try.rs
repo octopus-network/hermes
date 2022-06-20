@@ -115,6 +115,8 @@ pub(crate) fn process(
         connection_end: new_connection_end,
     };
 
+    tracing::trace!(target:"ibc-rs","[conn_open_try] process result : {:?}",result);
+
     let event_attributes = Attributes {
         height: ctx.host_current_height(),
         connection_id: Some(conn_id),

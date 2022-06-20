@@ -593,8 +593,11 @@ impl ChainEndpoint for CosmosSdkChain {
             .keybase()
             .get_key(&self.config.key_name)
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
+        tracing::trace!(target:"ibc-rs","In cosmos: [get signer] key = {:?}", key);
 
         let bech32 = encode_to_bech32(&key.address.to_hex(), &self.config.account_prefix)?;
+        tracing::trace!(target:"ibc-rs","In cosmos: [get signer] bech32 = {:?}", bech32);
+
         Ok(Signer::new(bech32))
     }
 
@@ -1310,7 +1313,7 @@ impl ChainEndpoint for CosmosSdkChain {
         crate::time!("proven_client_state");
 
         let res = self.query(ClientStatePath(client_id.clone()), height, true)?;
-
+        tracing::trace!(target:"ibc-rs","in cosmos: [proven_client_state] client_state proof: {:?}", res.proof);
         let client_state = AnyClientState::decode_vec(&res.value).map_err(Error::decode)?;
         tracing::trace!(target:"ibc-rs","in cosmos: [proven_client_state] client_state: {:?}", client_state);
 
@@ -1341,7 +1344,7 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let consensus_state = AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
         tracing::trace!(target:"ibc-rs","in cosmos: [proven_client_consensus] consensus_state: {:?}", consensus_state,);
-    
+
         // if !matches!(consensus_state, AnyConsensusState::Tendermint(_)) {
         //     return Err(Error::consensus_state_type_mismatch(
         //         ClientType::Tendermint,
@@ -1350,6 +1353,7 @@ impl ChainEndpoint for CosmosSdkChain {
         // }
 
         let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
+        tracing::trace!(target:"ibc-rs","in cosmos: [proven_client_consensus] consensus_state proof: {:?}", proof);
 
         Ok((consensus_state, proof))
     }
@@ -1361,9 +1365,10 @@ impl ChainEndpoint for CosmosSdkChain {
     ) -> Result<(ConnectionEnd, MerkleProof), Error> {
         tracing::trace!(target:"ibc-rs","in cosmos: [proven_connection] connection_id: {:?}, height: {:?}", connection_id, height);
 
-
         let res = self.query(ConnectionsPath(connection_id.clone()), height, true)?;
+        tracing::trace!(target:"ibc-rs","in cosmos: [proven_connection] connection proof {:?}", res.proof);
         let connection_end = ConnectionEnd::decode_vec(&res.value).map_err(Error::decode)?;
+        tracing::trace!(target:"ibc-rs","in cosmos: [proven_connection] connection_end: {:?}", connection_end);
 
         Ok((
             connection_end,

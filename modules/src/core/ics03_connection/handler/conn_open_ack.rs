@@ -84,6 +84,8 @@ pub(crate) fn process(
         connection_id_state: ConnectionIdState::Reused,
         connection_end: conn_end.clone(),
     };
+    tracing::trace!(target:"ibc-rs","[conn_open_ack] process result : {:?}",result);
+
 
     let event_attributes = Attributes {
         height: ctx.host_current_height(),
