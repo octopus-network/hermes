@@ -267,7 +267,7 @@ impl SignedCommitment {
         SignedCommitment {
             commitment: Some(Commitment {
                 block_number: height.revision_height as u32,
-                payload: Payload::default(),
+                payload: Payload(vec![]),
                 validator_set_id: 0,
             }),
             signatures: vec![],

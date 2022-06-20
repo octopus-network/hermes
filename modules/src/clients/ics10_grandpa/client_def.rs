@@ -77,7 +77,7 @@ impl ClientDef for GrandpaClient {
             ));
         }
 
-        if client_state.latest_commitment.payload.is_empty() {
+        if client_state.latest_commitment.payload.0.is_empty() {
             return Err(Error::empty_mmr_root());
         }
 
