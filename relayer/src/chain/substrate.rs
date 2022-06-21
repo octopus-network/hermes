@@ -1,4 +1,5 @@
 use crate::config::ChainConfig;
+use crate::denom::DenomTrace;
 use crate::error::Error;
 // use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd};
@@ -867,7 +868,7 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryUpgradedClientStateRequest,
     ) -> Result<(AnyClientState, MerkleProof), Error> {
         trace!("in substrate: [query_upgraded_client_state]");
-        let QueryUpgradedClientStateRequest { height } = request;
+        let QueryUpgradedClientStateRequest { upgrade_height } = request;
 
         todo!()
     }
@@ -877,7 +878,7 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryUpgradedConsensusStateRequest,
     ) -> Result<(AnyConsensusState, MerkleProof), Error> {
         trace!("in substrate: [query_upgraded_consensus_state]");
-        let QueryUpgradedConsensusStateRequest { height } = request;
+        let QueryUpgradedConsensusStateRequest { upgrade_height } = request;
 
         todo!()
     }
@@ -1638,6 +1639,12 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_balance(&self, key_name: Option<String>) -> Result<crate::account::Balance, Error> {
         trace!("in substrate: [query_balance]");
+        todo!()
+    }
+
+    /// Query the denomination trace given a trace hash.
+    fn query_denom_trace(&self, hash: String) -> Result<DenomTrace, Error> {
+
         todo!()
     }
 

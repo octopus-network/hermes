@@ -241,7 +241,7 @@ where
                             reply_to.send(res)
                                 .map_err(Error::send)?;
 
-                            break;
+                            break Ok(());
                         },
 
                         Ok(ChainRequest::HealthCheck { reply_to }) => {

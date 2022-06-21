@@ -156,7 +156,6 @@ impl Runnable for QueryClientConsensusCmd {
                     Err(e) => Output::error(format!("{}", e)).exit(),
                 }
             }
-            _ => panic!("Unknown chain type"),
         };
     }
 }
