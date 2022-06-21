@@ -95,7 +95,7 @@ impl ClientDef for GrandpaClient {
             mmr_root.copy_from_slice(&consensus_state.digest);
         } else {
             mmr_root.copy_from_slice(
-                &client_state
+                client_state
                     .latest_commitment
                     .payload
                     .get_raw(&MMR_ROOT_ID)

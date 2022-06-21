@@ -147,7 +147,7 @@ impl SubstrateChain {
 
     /// Subscribe Events
     fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>> {
-        tracing::trace!("in substrate: [subscribe_ibc_events]");
+        trace!("in substrate: [subscribe_ibc_events]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -156,7 +156,7 @@ impl SubstrateChain {
 
     /// get latest block height
     fn get_latest_height(&self) -> Result<u64> {
-        tracing::trace!("in substrate: [get_latest_height]");
+        trace!("in substrate: [get_latest_height]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -165,7 +165,7 @@ impl SubstrateChain {
 
     /// get connectionEnd by connection_identifier
     fn get_connection_end(&self, connection_identifier: &ConnectionId) -> Result<ConnectionEnd> {
-        tracing::trace!("in substrate: [get_connection_end]");
+        trace!("in substrate: [get_connection_end]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -174,7 +174,7 @@ impl SubstrateChain {
 
     /// get channelEnd  by port_identifier, and channel_identifier
     fn get_channel_end(&self, port_id: &PortId, channel_id: &ChannelId) -> Result<ChannelEnd> {
-        tracing::trace!("in substrate: [get_channel_end]");
+        trace!("in substrate: [get_channel_end]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -188,7 +188,7 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         seq: &Sequence,
     ) -> Result<Receipt> {
-        tracing::trace!("in substrate: [get_packet_receipt]");
+        trace!("in substrate: [get_packet_receipt]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -204,7 +204,7 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         seq: &Sequence,
     ) -> Result<Packet> {
-        tracing::trace!("in substrate: [get_send_packet_event]");
+        trace!("in substrate: [get_send_packet_event]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -215,7 +215,7 @@ impl SubstrateChain {
 
     /// get client_state by client_id
     fn get_client_state(&self, client_id: &ClientId) -> Result<AnyClientState> {
-        tracing::trace!("in substrate: [get_client_state]");
+        trace!("in substrate: [get_client_state]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -228,7 +228,7 @@ impl SubstrateChain {
         client_id: &ClientId,
         height: &ICSHeight,
     ) -> Result<AnyConsensusState> {
-        tracing::trace!("in substrate: [get_client_consensus]");
+        trace!("in substrate: [get_client_consensus]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -239,7 +239,7 @@ impl SubstrateChain {
         &self,
         client_id: &ClientId,
     ) -> Result<Vec<(ICSHeight, AnyConsensusState)>> {
-        tracing::trace!("in substrate: [get_consensus_state_with_height]");
+        trace!("in substrate: [get_consensus_state_with_height]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -254,7 +254,7 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         sequences: &[Sequence],
     ) -> Result<Vec<Sequence>> {
-        tracing::trace!("in substrate: [get_unreceipt_packet]");
+        trace!("in substrate: [get_unreceipt_packet]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -269,7 +269,7 @@ impl SubstrateChain {
     }
 
     fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>> {
-        tracing::trace!("in substrate: [get_clients]");
+        trace!("in substrate: [get_clients]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -277,16 +277,15 @@ impl SubstrateChain {
     }
 
     fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>> {
-        tracing::trace!("in substrate: [get_connections]");
+        trace!("in substrate: [get_connections]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
         self.block_on(octopusxt::get_connections(client))
     }
 
-
     fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>> {
-        tracing::trace!("in substrate: [get_channels]");
+        trace!("in substrate: [get_channels]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -294,7 +293,7 @@ impl SubstrateChain {
     }
 
     fn get_commitment_packet_state(&self) -> Result<Vec<Sequence>> {
-        tracing::trace!("in substrate: [get_commitment_packet_state]");
+        trace!("in substrate: [get_commitment_packet_state]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -309,7 +308,7 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         sequence: &Sequence,
     ) -> Result<Vec<u8>> {
-        tracing::trace!("in substrate: [get_packet_commitment]");
+        trace!("in substrate: [get_packet_commitment]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -319,7 +318,7 @@ impl SubstrateChain {
     }
 
     fn get_acknowledge_packet_state(&self) -> Result<Vec<Sequence>> {
-        tracing::trace!("in substrate: [get_acknowledge_packet_state]");
+        trace!("in substrate: [get_acknowledge_packet_state]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -329,7 +328,7 @@ impl SubstrateChain {
 
     /// get connection_identifier vector by client_identifier
     fn get_client_connections(&self, client_id: &ClientId) -> Result<Vec<ConnectionId>> {
-        tracing::trace!("in substrate: [get_client_connections]");
+        trace!("in substrate: [get_client_connections]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -340,7 +339,7 @@ impl SubstrateChain {
         &self,
         connection_id: &ConnectionId,
     ) -> Result<Vec<IdentifiedChannelEnd>> {
-        tracing::trace!("in substrate: [get_connection_channels]");
+        trace!("in substrate: [get_connection_channels]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -350,7 +349,7 @@ impl SubstrateChain {
     /// The function to submit IBC request to a Substrate chain
     /// This function handles most of the IBC reqeusts, except the MMR root update
     fn deliever(&self, msgs: Vec<Any>) -> Result<H256> {
-        tracing::trace!("in substrate: [deliever]");
+        trace!("in substrate: [deliever]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -365,7 +364,7 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         sequence: &Sequence,
     ) -> Result<Vec<u8>> {
-        tracing::trace!("in substrate: [get_send_packet_event]");
+        trace!("in substrate: [get_send_packet_event]");
 
         let client: Client<MyConfig> = self.get_client()?;
 
@@ -1258,8 +1257,7 @@ impl ChainEndpoint for SubstrateChain {
     //         connection_end
     //     };
 
-        // let storage_entry = storage::Connections(connection_id.as_bytes());
-
+    // let storage_entry = storage::Connections(connection_id.as_bytes());
 
     //     Ok((
     //         new_connection_end,
@@ -1279,7 +1277,7 @@ impl ChainEndpoint for SubstrateChain {
     //         .retry_wapper(|| self.get_client_consensus(client_id, &consensus_height))
     //         .map_err(Error::retry_error)?;
 
-        // let storage_entry = storage::ConsensusStates(client_id.as_bytes());
+    // let storage_entry = storage::ConsensusStates(client_id.as_bytes());
 
     //     Ok((
     //         result,

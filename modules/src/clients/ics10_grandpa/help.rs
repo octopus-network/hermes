@@ -51,7 +51,7 @@ impl From<BeefyCommitment> for Commitment {
     fn from(value: BeefyCommitment) -> Self {
         Self {
             block_number: value.block_number,
-            payload: value.payload.into(),
+            payload: value.payload,
             validator_set_id: value.validator_set_id,
         }
     }
@@ -60,7 +60,7 @@ impl From<BeefyCommitment> for Commitment {
 impl From<Commitment> for BeefyCommitment {
     fn from(value: Commitment) -> Self {
         Self {
-            payload: value.payload.into(),
+            payload: value.payload,
             block_number: value.block_number,
             validator_set_id: value.validator_set_id,
         }
@@ -83,7 +83,7 @@ impl From<Commitment> for RawCommitment {
             payload: value
                 .payload
                 .get_raw(&MMR_ROOT_ID)
-                .map(|value| value.clone())
+                .cloned()
                 .unwrap_or_default(),
             validator_set_id: value.validator_set_id,
         }

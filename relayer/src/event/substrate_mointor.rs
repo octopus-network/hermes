@@ -1,5 +1,6 @@
 use crate::util::retry::{retry_count, retry_with_index, RetryResult};
 
+use crate::chain::tracking::TrackingId;
 use alloc::sync::Arc;
 use core::cmp::Ordering;
 use crossbeam_channel as channel;
@@ -16,7 +17,6 @@ use subxt::{Client, ClientBuilder, RawEventDetails};
 use tendermint_rpc::{event::Event as RpcEvent, Url};
 use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, trace};
-use crate::chain::tracking::TrackingId;
 
 mod retry_strategy {
     use crate::util::retry::clamp_total;
