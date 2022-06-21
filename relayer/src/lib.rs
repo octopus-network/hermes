@@ -31,6 +31,7 @@ pub mod chain;
 pub mod channel;
 pub mod config;
 pub mod connection;
+pub mod denom;
 pub mod error;
 pub mod event;
 pub mod foreign_client;

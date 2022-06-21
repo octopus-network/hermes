@@ -23,7 +23,7 @@ use ibc::Height;
 use crate::chain::counterparty::{channel_connection_client, channel_state_on_destination};
 use crate::chain::handle::ChainHandle;
 use crate::chain::requests::{
-    IncludeProof, PageRequest, QueryChannelRequest, QueryConnectionChannelsRequest,
+    HeightQuery, IncludeProof, PageRequest, QueryChannelRequest, QueryConnectionChannelsRequest,
     QueryConnectionRequest,
 };
 use crate::chain::tracking::TrackedMsgs;
@@ -212,7 +212,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .query_connection(
                 QueryConnectionRequest {
                     connection_id: connection_id.clone(),
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
@@ -264,7 +264,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                 QueryChannelRequest {
                     port_id: channel.src_port_id.clone(),
                     channel_id: channel.src_channel_id,
-                    height,
+                    height: HeightQuery::Specific(height),
                 },
                 IncludeProof::No,
             )
@@ -281,7 +281,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .query_connection(
                 QueryConnectionRequest {
                     connection_id: a_connection_id.clone(),
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
@@ -488,7 +488,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
             let dst_channel_id = channel
                 .dst_channel_id()
-                .ok_or_else(ChannelError::missing_counterparty_connection)?;
+                .ok_or_else(ChannelError::missing_counterparty_channel_id)?;
 
             debug!(
                 "do_chan_open_finalize for src_channel_id: {}, dst_channel_id: {}",
@@ -503,7 +503,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                     QueryChannelRequest {
                         port_id: channel.src_port_id().clone(),
                         channel_id: *src_channel_id,
-                        height: Height::zero(),
+                        height: HeightQuery::Latest,
                     },
                     IncludeProof::No,
                 )
@@ -523,7 +523,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                     QueryChannelRequest {
                         port_id: channel.dst_port_id().clone(),
                         channel_id: *dst_channel_id,
-                        height: Height::zero(),
+                        height: HeightQuery::Latest,
                     },
                     IncludeProof::No,
                 )
@@ -742,7 +742,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             self.src_chain().clone(),
         );
 
-        client.build_update_client(height).map_err(|e| {
+        client.wait_and_build_update_client(height).map_err(|e| {
             ChannelError::client_operation(self.dst_client_id().clone(), self.dst_chain().id(), e)
         })
     }
@@ -864,7 +864,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                 QueryChannelRequest {
                     port_id: self.dst_port_id().clone(),
                     channel_id: *dst_channel_id,
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
@@ -898,7 +898,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                 QueryChannelRequest {
                     port_id: self.src_port_id().clone(),
                     channel_id: *src_channel_id,
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
@@ -910,7 +910,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                 self.dst_chain().id(),
                 self.dst_port_id().clone(),
                 self.src_chain().id(),
-                src_channel.counterparty().port_id.clone(),
+                src_channel.counterparty().port_id().clone(),
                 *src_channel_id,
             ));
         }
@@ -920,7 +920,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .query_connection(
                 QueryConnectionRequest {
                     connection_id: self.dst_connection_id().clone(),
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
@@ -1026,7 +1026,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                 QueryChannelRequest {
                     port_id: self.src_port_id().clone(),
                     channel_id: *src_channel_id,
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
@@ -1037,7 +1037,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .query_connection(
                 QueryConnectionRequest {
                     connection_id: self.dst_connection_id().clone(),
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
@@ -1139,7 +1139,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                 QueryChannelRequest {
                     port_id: self.src_port_id().clone(),
                     channel_id: *src_channel_id,
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
@@ -1150,7 +1150,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .query_connection(
                 QueryConnectionRequest {
                     connection_id: self.dst_connection_id().clone(),
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
@@ -1240,7 +1240,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                 QueryChannelRequest {
                     port_id: self.dst_port_id().clone(),
                     channel_id: *dst_channel_id,
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
@@ -1307,7 +1307,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
                 QueryChannelRequest {
                     port_id: self.src_port_id().clone(),
                     channel_id: *src_channel_id,
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
@@ -1318,7 +1318,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .query_connection(
                 QueryConnectionRequest {
                     connection_id: self.dst_connection_id().clone(),
-                    height: Height::zero(),
+                    height: HeightQuery::Latest,
                 },
                 IncludeProof::No,
             )
