@@ -216,10 +216,7 @@ impl SubstrateChain {
         let client = self.get_client()?;
 
         self.block_on(octopusxt::get_send_packet_event(
-            &port_id,
-            &channel_id,
-            &seq,
-            client,
+            port_id, channel_id, seq, client,
         ))
     }
 
@@ -246,7 +243,7 @@ impl SubstrateChain {
         let client = self.get_client()?;
 
         let cs = self
-            .block_on(octopusxt::get_client_consensus(&client_id, &height, client))
+            .block_on(octopusxt::get_client_consensus(client_id, height, client))
             .unwrap();
         tracing::trace!(target:"ibc-rs","in substrate: [get_client_consensus] ConsensusState: {:?}", cs);
         Ok(cs)
