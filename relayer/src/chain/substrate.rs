@@ -1644,7 +1644,6 @@ impl ChainEndpoint for SubstrateChain {
 
     /// Query the denomination trace given a trace hash.
     fn query_denom_trace(&self, hash: String) -> Result<DenomTrace, Error> {
-
         todo!()
     }
 

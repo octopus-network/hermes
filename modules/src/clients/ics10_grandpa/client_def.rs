@@ -86,13 +86,13 @@ impl ClientDef for GrandpaClient {
         // Fetch the desired mmr root from storage if it's different from the mmr root in client_state
         if header.mmr_leaf_proof.leaf_count != client_state.latest_commitment.block_number as u64 {
             let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
-            let any_consensus_state = ctx.consensus_state(&client_id, height)?;
-            let consensus_state = match any_consensus_state {
-                AnyConsensusState::Grandpa(_v) => _v,
-                _ => unimplemented!(),
-            };
-
-            mmr_root.copy_from_slice(&consensus_state.digest);
+            // TODO
+            // let any_consensus_state = ctx.consensus_state(&client_id, height)?;
+            // let consensus_state = match any_consensus_state {
+            //     AnyConsensusState::Grandpa(_v) => _v,
+            //     _ => unimplemented!(),
+            // };
+            // mmr_root.copy_from_slice(&consensus_state.digest);
         } else {
             mmr_root.copy_from_slice(
                 client_state

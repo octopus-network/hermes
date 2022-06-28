@@ -18,6 +18,7 @@ pub struct SendPacketResult {
     pub seq: Sequence,
     pub seq_number: Sequence,
     pub commitment: PacketCommitment,
+    pub packet: Packet,
 }
 
 pub fn send_packet(ctx: &dyn ChannelReader, packet: Packet) -> HandlerResult<PacketResult, Error> {
@@ -86,6 +87,7 @@ pub fn send_packet(ctx: &dyn ChannelReader, packet: Packet) -> HandlerResult<Pac
         channel_id: packet.source_channel,
         seq: packet.sequence,
         seq_number: next_seq_send.increment(),
+        packet: packet.clone(),
         commitment: ctx.packet_commitment(
             packet.data.clone(),
             packet.timeout_height,

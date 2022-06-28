@@ -23,6 +23,12 @@ pub type BaseCoin = Coin<BaseDenom>;
 #[serde(transparent)]
 pub struct BaseDenom(String);
 
+impl BaseDenom {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 impl FromStr for BaseDenom {
     type Err = Error;
 
@@ -161,6 +167,14 @@ impl PrefixedDenom {
     pub fn add_trace_prefix(&mut self, prefix: TracePrefix) {
         self.trace_path.add_prefix(prefix)
     }
+
+    pub fn trace_path(&self) -> &TracePath {
+        &self.trace_path
+    }
+
+    pub fn base_denom(&self) -> &BaseDenom {
+        &self.base_denom
+    }
 }
 
 /// Returns true if the denomination originally came from the sender chain and
@@ -290,6 +304,10 @@ impl Amount {
 
     pub fn checked_sub(self, rhs: Self) -> Option<Self> {
         self.0.checked_sub(rhs.0).map(Self)
+    }
+
+    pub fn as_u256(&self) -> U256 {
+        self.0
     }
 }
 

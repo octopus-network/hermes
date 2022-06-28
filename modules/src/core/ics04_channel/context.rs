@@ -12,7 +12,10 @@ use crate::core::ics04_channel::commitment::{AcknowledgementCommitment, PacketCo
 use crate::core::ics04_channel::handler::recv_packet::RecvPacketResult;
 use crate::core::ics04_channel::handler::{ChannelIdState, ChannelResult};
 use crate::core::ics04_channel::msgs::acknowledgement::Acknowledgement;
-use crate::core::ics04_channel::{error::Error, packet::Receipt};
+use crate::core::ics04_channel::{
+    error::Error,
+    packet::{Packet, Receipt},
+};
 use crate::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
 use crate::prelude::*;
 use crate::timestamp::Timestamp;
@@ -170,6 +173,8 @@ pub trait ChannelKeeper {
                     (res.port_id.clone(), res.channel_id, res.seq),
                     res.commitment,
                 )?;
+
+                self.store_packet((res.port_id.clone(), res.channel_id, res.seq), res.packet)?;
             }
             PacketResult::Recv(res) => match res {
                 RecvPacketResult::Ordered {
@@ -226,6 +231,13 @@ pub trait ChannelKeeper {
 
     fn delete_packet_commitment(&mut self, key: (PortId, ChannelId, Sequence))
         -> Result<(), Error>;
+
+    /// Allow implementers to optionally store packet in storage
+    fn store_packet(
+        &mut self,
+        key: (PortId, ChannelId, Sequence),
+        packet: Packet,
+    ) -> Result<(), Error>;
 
     fn store_packet_receipt(
         &mut self,

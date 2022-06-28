@@ -17,6 +17,10 @@ use tendermint_proto::Error as TendermintError;
 define_error! {
     #[derive(Debug, PartialEq, Eq)]
     Error {
+        Ics02Client
+            [client_error::Error]
+            | _ |  { "ics02 client error" },
+
         Ics03Connection
             [ connection_error::Error ]
             | _ | { "ics03 connection error" },
@@ -133,7 +137,26 @@ define_error! {
             | e | {
                 format_args!(
                     "the associated connection {0} is not OPEN",
-                    e.connection_id)
+                    e.connection_id
+                )
+            },
+
+        ConnectionNotFound
+            { connection_id: ConnectionId }
+            | e |  {
+                format_args!(
+                    "the connection end ({0}) does not exist",
+                    e.connection_id
+                )
+            },
+
+        PortIdAndChannelIdNotFound
+            { connection_id: ConnectionId }
+            | e | {
+                format_args!(
+                    "the vector port_id and channel_id ({0}) does not exist",
+                    e.connection_id
+                )
             },
 
         UndefinedConnectionCounterparty
@@ -385,6 +408,39 @@ define_error! {
 
         EmptyAcknowledgeResponse
             | _ | { "empty acknowledge response" },
+
+        AnyClientStateNotFound
+            { client_id: ClientId }
+            | e | {
+                format_args!(
+                    "the any client state ({0}) does not exist",
+                    e.client_id
+                )
+            },
+
+        NextSequenceSendNotFound
+            { port_channel_id: (PortId, ChannelId) }
+            | e | {
+                format_args!("Not found next sequence send number for packets on port {0} and channel {1}",
+                             e.port_channel_id.0,
+                             e.port_channel_id.1)
+            },
+
+        NextSequenceRecvNotFound
+            { port_channel_id: (PortId, ChannelId) }
+            | e | {
+                format_args!("Not found next sequence recv number for packets on port {0} and channel {1}",
+                             e.port_channel_id.0,
+                             e.port_channel_id.1)
+            },
+
+        NextSequenceAckNotFound
+            { port_channel_id: (PortId, ChannelId) }
+            | e | {
+                format_args!("Not found next sequence ack number for packets on port {0} and channel {1}",
+                             e.port_channel_id.0,
+                             e.port_channel_id.1)
+            },
 
         AppModule
             { description: String }
