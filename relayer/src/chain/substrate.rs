@@ -17,7 +17,6 @@ use tracing::{debug, error, info, trace, warn};
 use super::client::ClientSettings;
 use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
 use crate::chain::tracking::TrackedMsgs;
-use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
 use ibc::core::ics23_commitment::merkle::MerkleProof;
 use ibc::{
     clients::{
@@ -44,7 +43,6 @@ use ibc::{
         ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId},
     },
     events::{IbcEvent, WithBlockDataType},
-    query::{QueryBlockRequest, QueryTxRequest},
     signer::Signer,
     Height as ICSHeight,
 };
@@ -82,13 +80,14 @@ use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
 
 use super::requests::{
-    IncludeProof, QueryChannelClientStateRequest, QueryChannelRequest, QueryChannelsRequest,
-    QueryClientConnectionsRequest, QueryClientStateRequest, QueryClientStatesRequest,
-    QueryConnectionChannelsRequest, QueryConnectionRequest, QueryConnectionsRequest,
-    QueryConsensusStateRequest, QueryConsensusStatesRequest, QueryHostConsensusStateRequest,
-    QueryNextSequenceReceiveRequest, QueryPacketAcknowledgementRequest,
-    QueryPacketAcknowledgementsRequest, QueryPacketCommitmentRequest,
-    QueryPacketCommitmentsRequest, QueryPacketReceiptRequest, QueryUnreceivedAcksRequest,
+    IncludeProof, QueryBlockRequest, QueryChannelClientStateRequest, QueryChannelRequest,
+    QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStateRequest,
+    QueryClientStatesRequest, QueryConnectionChannelsRequest, QueryConnectionRequest,
+    QueryConnectionsRequest, QueryConsensusStateRequest, QueryConsensusStatesRequest,
+    QueryHostConsensusStateRequest, QueryNextSequenceReceiveRequest,
+    QueryPacketAcknowledgementRequest, QueryPacketAcknowledgementsRequest,
+    QueryPacketCommitmentRequest, QueryPacketCommitmentsRequest, QueryPacketEventDataRequest,
+    QueryPacketReceiptRequest, QueryTxRequest, QueryUnreceivedAcksRequest,
     QueryUnreceivedPacketsRequest, QueryUpgradedClientStateRequest,
     QueryUpgradedConsensusStateRequest,
 };
@@ -392,7 +391,7 @@ impl SubstrateChain {
                 .map_err(|_| Error::get_send_packet_event_error())?;
 
             result_event.push(IbcEvent::SendPacket(SendPacket {
-                height: request.height,
+                height: ICSHeight::new(0, self.get_latest_height().unwrap()),
                 packet,
             }));
         }
@@ -1179,7 +1178,7 @@ impl ChainEndpoint for SubstrateChain {
                 // replace it with real client event replied from a Substrate chain
                 let result: Vec<IbcEvent> = vec![IbcEvent::UpdateClient(
                     ibc::core::ics02_client::events::UpdateClient::from(Attributes {
-                        height: request.height,
+                        height: ICSHeight::new(0, self.get_latest_height().unwrap()),
                         client_id: request.client_id,
                         client_type: ClientType::Grandpa,
                         consensus_height: request.consensus_height,

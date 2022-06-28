@@ -1025,7 +1025,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                             .query_client_state(
                                 QueryClientStateRequest {
                                     client_id: self.id.clone(),
-                                    height: HeightQuery::Latest,
+                                    height: QueryHeight::Latest,
                                 },
                                 IncludeProof::No,
                             )
