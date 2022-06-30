@@ -1970,7 +1970,7 @@ dependencies = [
  "log",
  "modelator",
  "num-traits",
- "octopusxt",
+ "octopusxt 0.1.0",
  "parity-scale-codec",
  "prost",
  "prost-types",
@@ -2059,7 +2059,7 @@ dependencies = [
  "nanoid",
  "num-bigint 0.4.3",
  "num-rational 0.4.0",
- "octopusxt",
+ "octopusxt 0.1.0 (git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13)",
  "pallet-mmr-rpc",
  "parity-scale-codec",
  "prost",
@@ -3067,6 +3067,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e42c982f2d955fac81dd7e1d0e1426a7d702acd9c98d19ab01083a6a0328c424"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "octopusxt"
+version = "0.1.0"
+dependencies = [
+ "beefy-light-client",
+ "beefy-merkle-tree",
+ "beefy-primitives",
+ "env_logger 0.8.4",
+ "hex",
+ "hex-literal",
+ "ibc",
+ "ibc-proto",
+ "jsonrpsee",
+ "libsecp256k1",
+ "pallet-mmr-rpc",
+ "parity-scale-codec",
+ "prost-types",
+ "serde",
+ "sp-core",
+ "sp-keyring",
+ "sp-runtime",
+ "structopt",
+ "subtle-encoding",
+ "subxt",
+ "tendermint-proto",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
