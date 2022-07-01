@@ -111,7 +111,13 @@ impl MerkleProof {
                 Some(Proof::Exist(existence_proof)) => {
                     subroot = calculate_existence_root::<HostFunctionsManager<H>>(existence_proof)
                         .map_err(|_| Error::invalid_merkle_proof())?;
-                    if !verify_membership::<HostFunctionsManager<H>>(proof, spec, &subroot, key.as_bytes(), &value) {
+                    if !verify_membership::<HostFunctionsManager<H>>(
+                        proof,
+                        spec,
+                        &subroot,
+                        key.as_bytes(),
+                        &value,
+                    ) {
                         return Err(Error::verification_failure());
                     }
                     value = subroot.clone();
@@ -160,7 +166,12 @@ impl MerkleProof {
         match &proof.proof {
             Some(Proof::Nonexist(non_existence_proof)) => {
                 let subroot = calculate_non_existence_root::<H>(non_existence_proof)?;
-                if !verify_non_membership::<HostFunctionsManager<H>>(proof, spec, &subroot, key.as_bytes()) {
+                if !verify_non_membership::<HostFunctionsManager<H>>(
+                    proof,
+                    spec,
+                    &subroot,
+                    key.as_bytes(),
+                ) {
                     return Err(Error::verification_failure());
                 }
                 // verify membership proofs starting from index 1 with value = subroot
@@ -173,12 +184,14 @@ impl MerkleProof {
 
 // TODO move to ics23
 fn calculate_non_existence_root<H: HostFunctionsProvider>(
-    proof: &NonExistenceProof
+    proof: &NonExistenceProof,
 ) -> Result<Vec<u8>, Error> {
     if let Some(left) = &proof.left {
-        calculate_existence_root::<HostFunctionsManager<H>>(left).map_err(|_| Error::invalid_merkle_proof())
+        calculate_existence_root::<HostFunctionsManager<H>>(left)
+            .map_err(|_| Error::invalid_merkle_proof())
     } else if let Some(right) = &proof.right {
-        calculate_existence_root::<HostFunctionsManager<H>>(right).map_err(|_| Error::invalid_merkle_proof())
+        calculate_existence_root::<HostFunctionsManager<H>>(right)
+            .map_err(|_| Error::invalid_merkle_proof())
     } else {
         Err(Error::invalid_merkle_proof())
     }

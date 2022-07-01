@@ -12,6 +12,7 @@ use tendermint_light_client_verifier::types::{Height as TMHeight, LightBlock, Pe
 use tendermint_light_client_verifier::ProdVerifier;
 use tendermint_rpc as rpc;
 
+use ibc::clients::host_functions::TempTendermintProvider;
 use ibc::{
     clients::ics07_tendermint::{
         header::{headers_compatible, Header as TmHeader},
@@ -30,7 +31,6 @@ use ibc::{
     downcast,
 };
 use tracing::trace;
-use ibc::clients::host_functions::TempTendermintProvider;
 
 use crate::{chain::cosmos::CosmosSdkChain, config::ChainConfig, error::Error};
 
@@ -179,7 +179,10 @@ impl LightClient {
         })
     }
 
-    fn prepare_client(&self, client_state: &AnyClientState) -> Result<TmLightClient<TempTendermintProvider>, Error> {
+    fn prepare_client(
+        &self,
+        client_state: &AnyClientState,
+    ) -> Result<TmLightClient<TempTendermintProvider>, Error> {
         let clock = components::clock::SystemClock;
         let verifier = ProdVerifier::<TempTendermintProvider>::default();
         let scheduler = components::scheduler::basic_bisecting_schedule;

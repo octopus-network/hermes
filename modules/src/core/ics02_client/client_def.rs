@@ -1,5 +1,5 @@
-use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 use crate::clients::host_functions::HostFunctionsProvider;
+use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
 use crate::clients::ics07_tendermint::client_def::TendermintClient;
 use crate::clients::ics10_grandpa::client_def::GrandpaClient;
@@ -182,7 +182,9 @@ pub enum AnyClient<HostFunctions: HostFunctionsProvider + 'static> {
 impl<HostFunctions: HostFunctionsProvider + 'static> AnyClient<HostFunctions> {
     pub fn from_client_type(client_type: ClientType) -> Self {
         match client_type {
-            ClientType::Tendermint => Self::Tendermint(TendermintClient::<HostFunctions>::default()),
+            ClientType::Tendermint => {
+                Self::Tendermint(TendermintClient::<HostFunctions>::default())
+            }
             ClientType::Grandpa => Self::Grandpa(GrandpaClient),
 
             #[cfg(any(test, feature = "mocks"))]

@@ -1,6 +1,6 @@
-use core::fmt::{Debug, Formatter};
 use crate::core::ics02_client::error::Error;
 use crate::prelude::*;
+use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 
 /// This trait captures all the functions that the host chain should provide for
@@ -57,7 +57,7 @@ pub trait HostFunctionsProvider: Clone + Send + Sync + Default {
 /// This is a work around that allows us to have one super trait [`HostFunctionsProvider`]
 /// that encapsulates all the needed host functions by different subsytems, and then
 /// implement the needed traits through this wrapper.
-#[derive(Clone,  Default)]
+#[derive(Clone, Default)]
 pub struct HostFunctionsManager<T: HostFunctionsProvider>(PhantomData<T>);
 
 // implementation for beefy host functions
@@ -78,7 +78,10 @@ pub struct HostFunctionsManager<T: HostFunctionsProvider>(PhantomData<T>);
 //     }
 // }
 
-impl<T> Debug for HostFunctionsManager<T> where T: HostFunctionsProvider {
+impl<T> Debug for HostFunctionsManager<T>
+where
+    T: HostFunctionsProvider,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "HostFunctionsManager!")
     }
@@ -86,9 +89,9 @@ impl<T> Debug for HostFunctionsManager<T> where T: HostFunctionsProvider {
 
 // implementation for tendermint functions
 impl<T> tendermint_light_client_verifier::host_functions::HostFunctionsProvider
-for HostFunctionsManager<T>
-    where
-        T: HostFunctionsProvider + 'static,
+    for HostFunctionsManager<T>
+where
+    T: HostFunctionsProvider + 'static,
 {
     fn sha2_256(preimage: &[u8]) -> [u8; 32] {
         T::sha256_digest(preimage)
@@ -97,9 +100,9 @@ for HostFunctionsManager<T>
     fn ed25519_verify(sig: &[u8], msg: &[u8], pub_key: &[u8]) -> Result<(), ()> {
         let mut signature = [0u8; 64];
         signature.copy_from_slice(sig);
-        match  T::ed25519_verify(&signature, msg, pub_key) {
+        match T::ed25519_verify(&signature, msg, pub_key) {
             true => Ok(()),
-            false => Err(())
+            false => Err(()),
         }
     }
 
@@ -110,8 +113,8 @@ for HostFunctionsManager<T>
 
 // implementation for ics23
 impl<H> ics23::HostFunctionsProvider for HostFunctionsManager<H>
-    where
-        H: HostFunctionsProvider,
+where
+    H: HostFunctionsProvider,
 {
     fn sha2_256(message: &[u8]) -> [u8; 32] {
         H::sha2_256(message)
@@ -134,21 +137,20 @@ impl<H> ics23::HostFunctionsProvider for HostFunctionsManager<H>
     }
 }
 
-
 /// TODO Add templ tendermint provider just can temp use
 #[derive(Debug, Default, Clone)]
 pub struct TempTendermintProvider;
 
 // implementation for tendermint functions
 impl tendermint_light_client_verifier::host_functions::HostFunctionsProvider
-for TempTendermintProvider
+    for TempTendermintProvider
 {
     fn sha2_256(preimage: &[u8]) -> [u8; 32] {
         [0u8; 32]
     }
 
     fn ed25519_verify(sig: &[u8], msg: &[u8], pub_key: &[u8]) -> Result<(), ()> {
-       Ok(())
+        Ok(())
     }
 
     fn secp256k1_verify(_sig: &[u8], _message: &[u8], _public: &[u8]) -> Result<(), ()> {
@@ -156,25 +158,36 @@ for TempTendermintProvider
     }
 }
 
-
 impl HostFunctionsProvider for TempTendermintProvider {
     fn keccak_256(input: &[u8]) -> [u8; 32] {
         [0u8; 32]
     }
 
-    fn secp256k1_ecdsa_recover_compressed(signature: &[u8; 65], value: &[u8; 32]) -> Option<Vec<u8>> {
-       None
+    fn secp256k1_ecdsa_recover_compressed(
+        signature: &[u8; 65],
+        value: &[u8; 32],
+    ) -> Option<Vec<u8>> {
+        None
     }
 
     fn ed25519_verify(signature: &[u8; 64], msg: &[u8], pubkey: &[u8]) -> bool {
         true
     }
 
-    fn verify_membership_trie_proof(root: &[u8; 32], proof: &[Vec<u8>], key: &[u8], value: &[u8]) -> Result<(), Error> {
+    fn verify_membership_trie_proof(
+        root: &[u8; 32],
+        proof: &[Vec<u8>],
+        key: &[u8],
+        value: &[u8],
+    ) -> Result<(), Error> {
         Ok(())
     }
 
-    fn verify_non_membership_trie_proof(root: &[u8; 32], proof: &[Vec<u8>], key: &[u8]) -> Result<(), Error> {
+    fn verify_non_membership_trie_proof(
+        root: &[u8; 32],
+        proof: &[Vec<u8>],
+        key: &[u8],
+    ) -> Result<(), Error> {
         Ok(())
     }
 

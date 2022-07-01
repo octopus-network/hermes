@@ -1,7 +1,7 @@
 //! Protocol logic specific to processing ICS2 messages of type `MsgUpdateAnyClient`.
 
-use tracing::debug;
 use crate::clients::host_functions::HostFunctionsProvider;
+use tracing::debug;
 
 use crate::core::ics02_client::client_consensus::AnyConsensusState;
 use crate::core::ics02_client::client_def::{AnyClient, ClientDef};

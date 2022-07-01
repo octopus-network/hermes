@@ -20,7 +20,10 @@ pub enum ClientResult {
 }
 
 /// General entry point for processing any message related to ICS2 (client functions) protocols.
-pub fn dispatch<Ctx, HostFunctions>(ctx: &Ctx, msg: ClientMsg) -> Result<HandlerOutput<ClientResult>, Error>
+pub fn dispatch<Ctx, HostFunctions>(
+    ctx: &Ctx,
+    msg: ClientMsg,
+) -> Result<HandlerOutput<ClientResult>, Error>
 where
     Ctx: ClientReader,
     HostFunctions: HostFunctionsProvider + 'static,

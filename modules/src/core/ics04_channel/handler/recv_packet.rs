@@ -29,7 +29,10 @@ pub enum RecvPacketResult {
     },
 }
 
-pub fn process<HostFunctions: HostFunctionsProvider + 'static>(ctx: &dyn ChannelReader, msg: &MsgRecvPacket) -> HandlerResult<PacketResult, Error> {
+pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
+    ctx: &dyn ChannelReader,
+    msg: &MsgRecvPacket,
+) -> HandlerResult<PacketResult, Error> {
     tracing::trace!(target:"ibc-rs","[recv_packet] begin to process the received msg : {:?}",msg);
 
     let mut output = HandlerOutput::builder();

@@ -2,6 +2,7 @@ use crate::prelude::*;
 
 use ibc_proto::google::protobuf::Any;
 
+use crate::clients::host_functions::HostFunctionsProvider;
 use crate::core::ics02_client::handler::dispatch as ics2_msg_dispatcher;
 use crate::core::ics03_connection::handler::dispatch as ics3_msg_dispatcher;
 use crate::core::ics04_channel::handler::{
@@ -19,7 +20,6 @@ use crate::core::ics26_routing::msgs::Ics26Envelope::{
     self, Ics2Msg, Ics3Msg, Ics4ChannelMsg, Ics4PacketMsg,
 };
 use crate::{events::IbcEvent, handler::HandlerOutput};
-use crate::clients::host_functions::HostFunctionsProvider;
 
 /// Result of message execution - comprises of events emitted and logs entries created during the
 /// execution of a transaction message.
@@ -55,14 +55,18 @@ pub fn decode(message: Any) -> Result<Ics26Envelope, Error> {
 /// and events produced after processing the input `msg`.
 /// If this method returns an error, the runtime is expected to rollback all state modifications to
 /// the `Ctx` caused by all messages from the transaction that this `msg` is a part of.
-pub fn dispatch<Ctx, HostFunctions>(ctx: &mut Ctx, msg: Ics26Envelope) -> Result<HandlerOutput<()>, Error>
+pub fn dispatch<Ctx, HostFunctions>(
+    ctx: &mut Ctx,
+    msg: Ics26Envelope,
+) -> Result<HandlerOutput<()>, Error>
 where
     Ctx: Ics26Context,
     HostFunctions: HostFunctionsProvider + 'static,
 {
     let output = match msg {
         Ics2Msg(msg) => {
-            let handler_output = ics2_msg_dispatcher::<_, HostFunctions>(ctx, msg).map_err(Error::ics02_client)?;
+            let handler_output =
+                ics2_msg_dispatcher::<_, HostFunctions>(ctx, msg).map_err(Error::ics02_client)?;
 
             // Apply the result to the context (host chain store).
             ctx.store_client_result(handler_output.result)
@@ -75,7 +79,8 @@ where
         }
 
         Ics3Msg(msg) => {
-            let handler_output = ics3_msg_dispatcher::<_, HostFunctions>(ctx, msg).map_err(Error::ics03_connection)?;
+            let handler_output = ics3_msg_dispatcher::<_, HostFunctions>(ctx, msg)
+                .map_err(Error::ics03_connection)?;
 
             // Apply any results to the host chain store.
             ctx.store_connection_result(handler_output.result)
@@ -107,7 +112,8 @@ where
         Ics4PacketMsg(msg) => {
             let module_id = get_module_for_packet_msg(ctx, &msg).map_err(Error::ics04_channel)?;
             let (mut handler_builder, packet_result) =
-                ics4_packet_msg_dispatcher::<_, HostFunctions>(ctx, &msg).map_err(Error::ics04_channel)?;
+                ics4_packet_msg_dispatcher::<_, HostFunctions>(ctx, &msg)
+                    .map_err(Error::ics04_channel)?;
 
             if matches!(packet_result, PacketResult::Recv(RecvPacketResult::NoOp)) {
                 return Ok(handler_builder.with_result(()));

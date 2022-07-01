@@ -46,7 +46,12 @@ pub fn verify_proofs<HostFunctions: HostFunctionsProvider + 'static>(
 
     // If a consensus proof is attached to the message, then verify it.
     if let Some(proof) = proofs.consensus_proof() {
-        Ok(verify_consensus_proof::<HostFunctions>(ctx, height, connection_end, &proof)?)
+        Ok(verify_consensus_proof::<HostFunctions>(
+            ctx,
+            height,
+            connection_end,
+            &proof,
+        )?)
     } else {
         Ok(())
     }

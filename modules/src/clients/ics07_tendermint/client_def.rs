@@ -1,6 +1,6 @@
+use crate::clients::host_functions::{HostFunctionsManager, HostFunctionsProvider};
 use core::convert::TryInto;
 use core::fmt::Debug;
-use crate::clients::host_functions::{HostFunctionsManager, HostFunctionsProvider};
 
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
 use prost::Message;
@@ -45,7 +45,7 @@ pub struct TendermintClient<H: HostFunctionsProvider + 'static> {
 
 impl<H> ClientDef for TendermintClient<H>
 where
-    H: HostFunctionsProvider +  'static,
+    H: HostFunctionsProvider + 'static,
 {
     type Header = Header;
     type ClientState = ClientState;
