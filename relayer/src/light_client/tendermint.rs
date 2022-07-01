@@ -30,6 +30,7 @@ use ibc::{
     downcast,
 };
 use tracing::trace;
+use ibc::clients::host_functions::TempTendermintProvider;
 
 use crate::{chain::cosmos::CosmosSdkChain, config::ChainConfig, error::Error};
 
@@ -178,10 +179,9 @@ impl LightClient {
         })
     }
 
-    fn prepare_client(&self, client_state: &AnyClientState) -> Result<TmLightClient, Error> {
+    fn prepare_client(&self, client_state: &AnyClientState) -> Result<TmLightClient<TempTendermintProvider>, Error> {
         let clock = components::clock::SystemClock;
-        let hasher = operations::hasher::ProdHasher;
-        let verifier = ProdVerifier::default();
+        let verifier = ProdVerifier::<TempTendermintProvider>::default();
         let scheduler = components::scheduler::basic_bisecting_schedule;
 
         let client_state =
@@ -204,7 +204,6 @@ impl LightClient {
             clock,
             scheduler,
             verifier,
-            hasher,
             self.io.clone(),
         ))
     }

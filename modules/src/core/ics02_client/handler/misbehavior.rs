@@ -1,5 +1,6 @@
 //! Protocol logic specific to processing ICS2 messages of type `MsgCreateAnyClient`.
 
+use crate::clients::host_functions::HostFunctionsProvider;
 use crate::clients::ics10_grandpa::client_state::ClientState;
 use crate::core::ics02_client::client_consensus::AnyConsensusState;
 use crate::core::ics02_client::client_def::{AnyClient, ClientDef};
@@ -23,7 +24,7 @@ pub struct Result {
     pub consensus_state: AnyConsensusState,
 }
 
-pub fn process(
+pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
     ctx: &dyn ClientReader,
     msg: MsgSubmitAnyMisbehaviour,
 ) -> HandlerResult<ClientResult, Error> {
@@ -37,7 +38,7 @@ pub fn process(
     // Read client type from the host chain store. The client should already exist.
     let client_type = ctx.client_type(&client_id)?;
 
-    let client_def = AnyClient::from_client_type(client_type);
+    let client_def = AnyClient::<HostFunctions>::from_client_type(client_type);
 
     // Read client state from the host chain store.
     let client_state = ctx.client_state(&client_id)?;

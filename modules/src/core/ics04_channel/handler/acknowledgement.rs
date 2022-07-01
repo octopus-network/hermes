@@ -1,3 +1,4 @@
+use crate::clients::host_functions::HostFunctionsProvider;
 use crate::core::ics03_connection::connection::State as ConnectionState;
 use crate::core::ics04_channel::channel::State;
 use crate::core::ics04_channel::channel::{Counterparty, Order};
@@ -19,7 +20,7 @@ pub struct AckPacketResult {
     pub seq_number: Option<Sequence>,
 }
 
-pub fn process(
+pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
     ctx: &dyn ChannelReader,
     msg: &MsgAcknowledgement,
 ) -> HandlerResult<PacketResult, Error> {
@@ -72,7 +73,7 @@ pub fn process(
     }
 
     // Verify the acknowledgement proof
-    verify_packet_acknowledgement_proofs(
+    verify_packet_acknowledgement_proofs::<HostFunctions>(
         ctx,
         msg.proofs.height(),
         packet,

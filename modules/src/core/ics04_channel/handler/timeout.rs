@@ -1,3 +1,4 @@
+use crate::clients::host_functions::HostFunctionsProvider;
 use crate::core::ics04_channel::channel::State;
 use crate::core::ics04_channel::channel::{ChannelEnd, Counterparty, Order};
 use crate::core::ics04_channel::events::TimeoutPacket;
@@ -21,7 +22,7 @@ pub struct TimeoutPacketResult {
     pub channel: Option<ChannelEnd>,
 }
 
-pub fn process(ctx: &dyn ChannelReader, msg: &MsgTimeout) -> HandlerResult<PacketResult, Error> {
+pub fn process<HostFunctions: HostFunctionsProvider + 'static>(ctx: &dyn ChannelReader, msg: &MsgTimeout) -> HandlerResult<PacketResult, Error> {
     let mut output = HandlerOutput::builder();
 
     let packet = &msg.packet;
@@ -95,7 +96,7 @@ pub fn process(ctx: &dyn ChannelReader, msg: &MsgTimeout) -> HandlerResult<Packe
                 msg.next_sequence_recv,
             ));
         }
-        verify_next_sequence_recv(
+        verify_next_sequence_recv::<HostFunctions>(
             ctx,
             msg.proofs.height(),
             &connection_end,
@@ -112,7 +113,7 @@ pub fn process(ctx: &dyn ChannelReader, msg: &MsgTimeout) -> HandlerResult<Packe
             channel: Some(source_channel_end),
         })
     } else {
-        verify_packet_receipt_absence(
+        verify_packet_receipt_absence::<HostFunctions>(
             ctx,
             msg.proofs.height(),
             &connection_end,

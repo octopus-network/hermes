@@ -1,3 +1,4 @@
+use crate::clients::host_functions::HostFunctionsProvider;
 use crate::core::ics03_connection::connection::State as ConnectionState;
 use crate::core::ics04_channel::channel::{Counterparty, Order, State};
 use crate::core::ics04_channel::context::ChannelReader;
@@ -28,7 +29,7 @@ pub enum RecvPacketResult {
     },
 }
 
-pub fn process(ctx: &dyn ChannelReader, msg: &MsgRecvPacket) -> HandlerResult<PacketResult, Error> {
+pub fn process<HostFunctions: HostFunctionsProvider + 'static>(ctx: &dyn ChannelReader, msg: &MsgRecvPacket) -> HandlerResult<PacketResult, Error> {
     tracing::trace!(target:"ibc-rs","[recv_packet] begin to process the received msg : {:?}",msg);
 
     let mut output = HandlerOutput::builder();
@@ -75,7 +76,7 @@ pub fn process(ctx: &dyn ChannelReader, msg: &MsgRecvPacket) -> HandlerResult<Pa
         return Err(Error::low_packet_timestamp());
     }
 
-    verify_packet_recv_proofs(
+    verify_packet_recv_proofs::<HostFunctions>(
         ctx,
         msg.proofs.height(),
         packet,

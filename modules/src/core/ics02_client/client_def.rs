@@ -1,4 +1,5 @@
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
+use crate::clients::host_functions::HostFunctionsProvider;
 
 use crate::clients::ics07_tendermint::client_def::TendermintClient;
 use crate::clients::ics10_grandpa::client_def::GrandpaClient;
@@ -169,19 +170,19 @@ pub trait ClientDef: Clone {
     ) -> Result<(), Error>;
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum AnyClient {
-    Tendermint(TendermintClient),
+#[derive(Clone, Debug)]
+pub enum AnyClient<HostFunctions: HostFunctionsProvider + 'static> {
+    Tendermint(TendermintClient<HostFunctions>),
     Grandpa(GrandpaClient),
 
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockClient),
 }
 
-impl AnyClient {
-    pub fn from_client_type(client_type: ClientType) -> AnyClient {
+impl<HostFunctions: HostFunctionsProvider + 'static> AnyClient<HostFunctions> {
+    pub fn from_client_type(client_type: ClientType) -> Self {
         match client_type {
-            ClientType::Tendermint => Self::Tendermint(TendermintClient::default()),
+            ClientType::Tendermint => Self::Tendermint(TendermintClient::<HostFunctions>::default()),
             ClientType::Grandpa => Self::Grandpa(GrandpaClient),
 
             #[cfg(any(test, feature = "mocks"))]
@@ -191,7 +192,7 @@ impl AnyClient {
 }
 
 // ⚠️  Beware of the awful boilerplate below ⚠️
-impl ClientDef for AnyClient {
+impl<HostFunctions: HostFunctionsProvider> ClientDef for AnyClient<HostFunctions> {
     type Header = AnyHeader;
     type ClientState = AnyClientState;
     type ConsensusState = AnyConsensusState;
