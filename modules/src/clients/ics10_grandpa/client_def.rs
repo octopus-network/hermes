@@ -50,6 +50,7 @@ use sp_runtime::traits::BlakeTwo256;
 use sp_trie::StorageProof;
 use crate::clients::host_functions::HostFunctionsProvider;
 use crate::core::ics24_host::Path;
+use crate::core::ics24_host::path::{AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath, ConnectionsPath, ReceiptsPath, SeqRecvsPath};
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct GrandpaClient<HostFunctions>(PhantomData<HostFunctions>);
@@ -165,16 +166,25 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
         &self,
         _client_state: &Self::ClientState,
         _height: Height,
-        _prefix: &CommitmentPrefix,
-        _proof: &CommitmentProofBytes,
-        _root: &CommitmentRoot,
-        _client_id: &ClientId,
-        _consensus_height: Height,
-        _expected_consensus_state: &AnyConsensusState,
+        prefix: &CommitmentPrefix,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        client_id: &ClientId,
+        consensus_height: Height,
+        expected_consensus_state: &AnyConsensusState,
     ) -> Result<(), ICS02Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_client_consensus_state");
+        let path = ClientConsensusStatePath {
+            client_id: client_id.clone(),
+            epoch: consensus_height.revision_number,
+            height: consensus_height.revision_height,
+        };
 
-        Ok(())
+        let value = expected_consensus_state
+            .encode_vec()
+            .map_err(ICS02Error::invalid_encode)?;
+
+        verify_membership::<HostFunctions, _>(prefix, proof, root, path, value)
     }
 
     /// Verify a `proof` that a connection state reconstructed from storage proof, storage key and state root matches
@@ -182,8 +192,8 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
     #[allow(clippy::too_many_arguments)]
     fn verify_connection_state(
         &self,
-        client_state: &Self::ClientState,
-        height: Height,
+        _client_state: &Self::ClientState,
+        _height: Height,
         prefix: &CommitmentPrefix,
         proof: &CommitmentProofBytes,
         root: &CommitmentRoot,
@@ -192,7 +202,12 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
     ) -> Result<(), ICS02Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_connection_state proof : {:?}",proof);
 
-        Ok(())
+        let path = ConnectionsPath(connection_id.clone());
+        let value = expected_connection_end
+            .encode_vec()
+            .map_err(ICS02Error::invalid_encode)?;
+
+        verify_membership::<HostFunctions, _>(prefix, proof, root, path, value)
     }
 
     /// Verify a `proof` that a channel state reconstructed from storage proof, storage key and state root matches that of
@@ -200,8 +215,8 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
     #[allow(clippy::too_many_arguments)]
     fn verify_channel_state(
         &self,
-        client_state: &Self::ClientState,
-        height: Height,
+        _client_state: &Self::ClientState,
+        _height: Height,
         prefix: &CommitmentPrefix,
         proof: &CommitmentProofBytes,
         root: &CommitmentRoot,
@@ -211,7 +226,12 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
     ) -> Result<(), ICS02Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_channel_state proof : {:?}",proof);
 
-        Ok(())
+        let path = ChannelEndsPath(port_id.clone(), channel_id.clone());
+        let value = expected_channel_end
+            .encode_vec()
+            .map_err(ICS02Error::invalid_encode)?;
+
+        verify_membership::<HostFunctions, _>(prefix, proof, root, path, value)
     }
 
     /// Verify a `proof` that a client state reconstructed from storage proof, storage key and state root matches that of
@@ -219,8 +239,8 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
     #[allow(clippy::too_many_arguments)]
     fn verify_client_full_state(
         &self,
-        client_state: &Self::ClientState,
-        height: Height,
+        _client_state: &Self::ClientState,
+        _height: Height,
         prefix: &CommitmentPrefix,
         proof: &CommitmentProofBytes,
         root: &CommitmentRoot,
@@ -229,8 +249,12 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
     ) -> Result<(), ICS02Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_client_full_state proof : {:?}",proof);
 
+        let path = ClientStatePath(client_id.clone());
+        let value = expected_client_state
+            .encode_vec()
+            .map_err(ICS02Error::invalid_encode)?;
 
-        Ok(())
+        verify_membership::<HostFunctions, _>(prefix, proof, root, path, value)
     }
 
     /// Verify a `proof` that a packet reconstructed from storage proof, storage key and state root matches that of
@@ -239,7 +263,7 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
     fn verify_packet_data(
         &self,
         ctx: &dyn ChannelReader,
-        client_state: &Self::ClientState,
+        _client_state: &Self::ClientState,
         height: Height,
         connection_end: &ConnectionEnd,
         proof: &CommitmentProofBytes,
@@ -252,8 +276,21 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_data. port_id={:?}, channel_id={:?}, sequence={:?}",
             port_id, channel_id, sequence);
 
+        verify_delay_passed(ctx, height, connection_end)?;
 
-        Ok(())
+        let commitment_path = CommitmentsPath {
+            port_id: port_id.clone(),
+            channel_id: channel_id.clone(),
+            sequence,
+        };
+
+        verify_membership::<HostFunctions,_> (
+            connection_end.counterparty().prefix(),
+            proof,
+            root,
+            commitment_path,
+            commitment.into_vec(),
+        )
     }
 
     /// Verify a `proof` that a packet reconstructed from storage proof, storage key and state root matches that of
@@ -262,7 +299,7 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
     fn verify_packet_acknowledgement(
         &self,
         ctx: &dyn ChannelReader,
-        client_state: &Self::ClientState,
+        _client_state: &Self::ClientState,
         height: Height,
         connection_end: &ConnectionEnd,
         proof: &CommitmentProofBytes,
@@ -275,7 +312,22 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_acknowledgement. port_id={:?}, channel_id={:?}, sequence={:?}, ack={:?}",
             port_id, channel_id, sequence, ack);
 
-        Ok(())
+        verify_delay_passed(ctx, height, connection_end)?;
+
+        let ack_path = AcksPath{
+            port_id: port_id.clone(),
+            channel_id: channel_id.clone(),
+            sequence,
+        };
+
+        verify_membership::<HostFunctions, _> (
+            connection_end.counterparty().prefix(),
+            proof,
+            root,
+            ack_path,
+            ack.into_vec()
+        )
+
     }
 
     /// Verify a `proof` that of the next_seq_received.
@@ -283,7 +335,7 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
     fn verify_next_sequence_recv(
         &self,
         ctx: &dyn ChannelReader,
-        client_state: &Self::ClientState,
+        _client_state: &Self::ClientState,
         height: Height,
         connection_end: &ConnectionEnd,
         proof: &CommitmentProofBytes,
@@ -295,27 +347,50 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_next_sequence_recv.  port_id={:?}, channel_id={:?}, sequence={:?}",
             port_id, channel_id, sequence);
 
+        verify_delay_passed(ctx, height, connection_end)?;
 
-        Ok(())
+        let seq_bytes = Encode::encode(&u64::from(sequence));
+
+        let seq_path = SeqRecvsPath(port_id.clone(), channel_id.clone());
+
+        verify_membership::<HostFunctions, _>(
+            connection_end.counterparty().prefix(),
+            proof,
+            root,
+            seq_path,
+            seq_bytes,
+        )
     }
 
     /// Verify a `proof` that a packet has not been received.
     #[allow(clippy::too_many_arguments)]
     fn verify_packet_receipt_absence(
         &self,
-        _ctx: &dyn ChannelReader,
+        ctx: &dyn ChannelReader,
         _client_state: &Self::ClientState,
-        _height: Height,
-        _connection_end: &ConnectionEnd,
-        _proof: &CommitmentProofBytes,
-        _root: &CommitmentRoot,
-        _port_id: &PortId,
-        _channel_id: &ChannelId,
-        _sequence: Sequence,
+        height: Height,
+        connection_end: &ConnectionEnd,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: Sequence,
     ) -> Result<(), ICS02Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_receipt_absence");
+        verify_delay_passed(ctx, height,connection_end)?;
 
-        Ok(())
+        let receipt_path = ReceiptsPath {
+            port_id: port_id.clone(),
+            channel_id: channel_id.clone(),
+            sequence,
+        };
+
+        verify_non_membership::<HostFunctions, _>(
+            connection_end.counterparty().prefix(),
+            proof,
+            root,
+            receipt_path,
+        )
     }
 }
 
