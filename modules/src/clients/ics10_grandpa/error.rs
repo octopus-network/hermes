@@ -2,6 +2,7 @@ use alloc::string::String;
 
 use crate::core::ics02_client;
 use crate::core::ics24_host::error::ValidationError;
+use crate::core::ics23_commitment::error::Error as Ics23Error;
 use flex_error::{define_error, DisplayOnly, TraceError};
 
 define_error! {
@@ -101,5 +102,9 @@ define_error! {
         InvalidCodecDecode
             [ DisplayOnly<codec::Error> ]
             |_| { "invalid codec decode" },
+
+        Ics23Error
+            [ DisplayOnly<Ics23Error>]
+            | _ | { "ics23 error" }
     }
 }
