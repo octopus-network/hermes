@@ -7,6 +7,7 @@ use core::convert::From;
 use core::convert::TryFrom;
 use core::convert::TryInto;
 use std::marker::PhantomData;
+use alloc::string::ToString;
 use tendermint_proto::Protobuf;
 
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
@@ -45,6 +46,7 @@ use frame_support::{
     },
     Blake2_128Concat, StorageHasher,
 };
+use primitive_types::H256;
 use ibc_proto::ics23::commitment_proof::Proof::Exist;
 use sp_runtime::traits::BlakeTwo256;
 use sp_trie::StorageProof;
@@ -405,7 +407,15 @@ fn verify_membership<HostFunctions: HostFunctionsProvider, P: Into<Path>>(
     if root.as_bytes().len() != 32 {
         return Err(ICS02Error::grandpa(ICS10Error::invalid_commitment()));
     }
-    todo!()
+    let path : Path = path.into();
+    let path = path.to_string();
+    let path = vec![prefix.as_bytes(), path.as_bytes()];
+    let key = Encode::encode(&path);
+    let trie_proof: Vec<u8> = proof.clone().into();
+    let trie_proof: Vec<Vec<u8>> = Decode::decode(&mut &*trie_proof)
+        .map_err(ICS02Error::invalid_codec_decode)?;
+    let root = H256::from_slice(root.as_bytes());
+    HostFunctions::verify_membership_trie_proof(root.as_fixed_bytes(), &trie_proof, &key, &value)
 }
 
 
@@ -415,7 +425,18 @@ fn verify_non_membership<HostFunctions: HostFunctionsProvider, P: Into<Path>>(
     root: &CommitmentRoot,
     path: P,
 ) -> Result<(), ICS02Error> {
-    todo!()
+    if root.as_bytes().len() != 32 {
+        return Err(ICS02Error::grandpa(ICS10Error::invalid_commitment()));
+    }
+    let path: Path = path.into();
+    let path = path.to_string();
+    let path = vec![prefix.as_bytes(), path.as_bytes()];
+    let key = codec::Encode::encode(&path);
+    let trie_proof: Vec<u8> = proof.clone().into();
+    let trie_proof: Vec<Vec<u8>> = codec::Decode::decode(&mut &*trie_proof)
+        .map_err(ICS02Error::invalid_codec_decode)?;
+    let root = H256::from_slice(root.as_bytes());
+    HostFunctions::verify_non_membership_trie_proof(root.as_fixed_bytes(), &trie_proof, &key)
 }
 
 
@@ -424,7 +445,8 @@ fn verify_delay_passed(
     height: Height,
     connection_end: &ConnectionEnd,
 ) -> Result<(), ICS02Error> {
-    todo!()
+    // TODO
+    Ok(())
 }
 
 #[cfg(test)]
