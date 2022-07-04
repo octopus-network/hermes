@@ -1,5 +1,6 @@
 use alloc::format;
 use alloc::string::String;
+use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -7,15 +8,14 @@ use core::convert::From;
 use core::convert::TryFrom;
 use core::convert::TryInto;
 use std::marker::PhantomData;
-use alloc::string::ToString;
 use tendermint_proto::Protobuf;
 
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
 use crate::clients::ics10_grandpa::client_state::ClientState;
 use crate::clients::ics10_grandpa::consensus_state::ConsensusState as GpConsensusState;
-use crate::clients::ics10_grandpa::header::Header;
 use crate::clients::ics10_grandpa::error::Error as ICS10Error;
+use crate::clients::ics10_grandpa::header::Header;
 use crate::clients::ics10_grandpa::state_machine::read_proof_check;
 use crate::core::ics02_client::client_consensus::AnyConsensusState;
 use crate::core::ics02_client::client_def::ClientDef;
@@ -34,6 +34,12 @@ use crate::core::ics24_host::identifier::ConnectionId;
 use crate::core::ics24_host::identifier::{ChannelId, ClientId, PortId};
 use crate::Height;
 
+use crate::clients::host_functions::HostFunctionsProvider;
+use crate::core::ics24_host::path::{
+    AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
+    ConnectionsPath, ReceiptsPath, SeqRecvsPath,
+};
+use crate::core::ics24_host::Path;
 use beefy_light_client::{
     commitment::{self, known_payload_ids::MMR_ROOT_ID},
     header, mmr,
@@ -46,13 +52,10 @@ use frame_support::{
     },
     Blake2_128Concat, StorageHasher,
 };
-use primitive_types::H256;
 use ibc_proto::ics23::commitment_proof::Proof::Exist;
+use primitive_types::H256;
 use sp_runtime::traits::BlakeTwo256;
 use sp_trie::StorageProof;
-use crate::clients::host_functions::HostFunctionsProvider;
-use crate::core::ics24_host::Path;
-use crate::core::ics24_host::path::{AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath, ConnectionsPath, ReceiptsPath, SeqRecvsPath};
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct GrandpaClient<HostFunctions>(PhantomData<HostFunctions>);
@@ -117,7 +120,8 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
             .map_err(ICS02Error::grandpa)?
             .encode();
         let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
-        let mmr_leaf = mmr::MmrLeaf::try_from(header.clone().mmr_leaf).map_err(ICS02Error::grandpa)?;
+        let mmr_leaf =
+            mmr::MmrLeaf::try_from(header.clone().mmr_leaf).map_err(ICS02Error::grandpa)?;
 
         if mmr_leaf.parent_number_and_hash.1.is_empty() {
             return Err(ICS02Error::empty_mmr_leaf_parent_hash_mmr_root());
@@ -286,7 +290,7 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
             sequence,
         };
 
-        verify_membership::<HostFunctions,_> (
+        verify_membership::<HostFunctions, _>(
             connection_end.counterparty().prefix(),
             proof,
             root,
@@ -316,20 +320,19 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
 
         verify_delay_passed(ctx, height, connection_end)?;
 
-        let ack_path = AcksPath{
+        let ack_path = AcksPath {
             port_id: port_id.clone(),
             channel_id: channel_id.clone(),
             sequence,
         };
 
-        verify_membership::<HostFunctions, _> (
+        verify_membership::<HostFunctions, _>(
             connection_end.counterparty().prefix(),
             proof,
             root,
             ack_path,
-            ack.into_vec()
+            ack.into_vec(),
         )
-
     }
 
     /// Verify a `proof` that of the next_seq_received.
@@ -379,7 +382,7 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
         sequence: Sequence,
     ) -> Result<(), ICS02Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_receipt_absence");
-        verify_delay_passed(ctx, height,connection_end)?;
+        verify_delay_passed(ctx, height, connection_end)?;
 
         let receipt_path = ReceiptsPath {
             port_id: port_id.clone(),
@@ -396,28 +399,26 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
     }
 }
 
-
 fn verify_membership<HostFunctions: HostFunctionsProvider, P: Into<Path>>(
     prefix: &CommitmentPrefix,
     proof: &CommitmentProofBytes,
     root: &CommitmentRoot,
     path: P,
-    value: Vec<u8>
+    value: Vec<u8>,
 ) -> Result<(), ICS02Error> {
     if root.as_bytes().len() != 32 {
         return Err(ICS02Error::grandpa(ICS10Error::invalid_commitment()));
     }
-    let path : Path = path.into();
+    let path: Path = path.into();
     let path = path.to_string();
     let path = vec![prefix.as_bytes(), path.as_bytes()];
     let key = Encode::encode(&path);
     let trie_proof: Vec<u8> = proof.clone().into();
-    let trie_proof: Vec<Vec<u8>> = Decode::decode(&mut &*trie_proof)
-        .map_err(ICS02Error::invalid_codec_decode)?;
+    let trie_proof: Vec<Vec<u8>> =
+        Decode::decode(&mut &*trie_proof).map_err(ICS02Error::invalid_codec_decode)?;
     let root = H256::from_slice(root.as_bytes());
     HostFunctions::verify_membership_trie_proof(root.as_fixed_bytes(), &trie_proof, &key, &value)
 }
-
 
 fn verify_non_membership<HostFunctions: HostFunctionsProvider, P: Into<Path>>(
     prefix: &CommitmentPrefix,
@@ -433,12 +434,11 @@ fn verify_non_membership<HostFunctions: HostFunctionsProvider, P: Into<Path>>(
     let path = vec![prefix.as_bytes(), path.as_bytes()];
     let key = codec::Encode::encode(&path);
     let trie_proof: Vec<u8> = proof.clone().into();
-    let trie_proof: Vec<Vec<u8>> = codec::Decode::decode(&mut &*trie_proof)
-        .map_err(ICS02Error::invalid_codec_decode)?;
+    let trie_proof: Vec<Vec<u8>> =
+        codec::Decode::decode(&mut &*trie_proof).map_err(ICS02Error::invalid_codec_decode)?;
     let root = H256::from_slice(root.as_bytes());
     HostFunctions::verify_non_membership_trie_proof(root.as_fixed_bytes(), &trie_proof, &key)
 }
-
 
 fn verify_delay_passed(
     ctx: &dyn ChannelReader,
@@ -449,12 +449,18 @@ fn verify_delay_passed(
     let current_height = ctx.host_height();
 
     let client_id = connection_end.client_id();
-    let processed_time = ctx
-        .client_update_time(client_id, height)
-        .map_err(|_| ICS02Error::grandpa(ICS10Error::processed_time_not_found(client_id.clone(), height)))?;
-    let processed_height = ctx
-        .client_update_height(client_id, height)
-        .map_err(|_| ICS02Error::grandpa(ICS10Error::processed_height_not_found(client_id.clone(), height)))?;
+    let processed_time = ctx.client_update_time(client_id, height).map_err(|_| {
+        ICS02Error::grandpa(ICS10Error::processed_time_not_found(
+            client_id.clone(),
+            height,
+        ))
+    })?;
+    let processed_height = ctx.client_update_height(client_id, height).map_err(|_| {
+        ICS02Error::grandpa(ICS10Error::processed_height_not_found(
+            client_id.clone(),
+            height,
+        ))
+    })?;
 
     let delay_period_time = connection_end.delay_period();
     let delay_period_height = ctx.block_delay(delay_period_time);
@@ -467,7 +473,7 @@ fn verify_delay_passed(
         delay_period_time,
         delay_period_height,
     )
-        .map_err(|e| e.into())
+    .map_err(|e| e.into())
 }
 
 #[cfg(test)]

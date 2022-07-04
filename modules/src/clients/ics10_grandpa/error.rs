@@ -1,12 +1,12 @@
 use alloc::string::String;
 
+use crate::core::ics02_client;
+use crate::core::ics23_commitment::error::Error as Ics23Error;
+use crate::core::ics24_host::error::ValidationError;
+use crate::core::ics24_host::identifier::ClientId;
 use crate::timestamp::Timestamp;
 use crate::timestamp::TimestampOverflowError;
 use crate::Height;
-use crate::core::ics02_client;
-use crate::core::ics24_host::identifier::ClientId;
-use crate::core::ics24_host::error::ValidationError;
-use crate::core::ics23_commitment::error::Error as Ics23Error;
 use flex_error::{define_error, DisplayOnly, TraceError};
 
 define_error! {

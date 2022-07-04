@@ -1,9 +1,9 @@
 use crate::alloc::string::ToString;
+use crate::timestamp::{Timestamp, ZERO_DURATION};
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 use core::str::FromStr;
 use core::time::Duration;
-use crate::timestamp::{Timestamp, ZERO_DURATION};
 
 // mock grandpa as tendermint
 use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawClientState;
@@ -89,7 +89,10 @@ impl ClientState {
         let earliest_time =
             (processed_time + delay_period_time).map_err(ICS10Error::timestamp_overflow)?;
         if !(current_time == earliest_time || current_time.after(&earliest_time)) {
-            return Err(ICS10Error::not_enough_time_elapsed(current_time, earliest_time));
+            return Err(ICS10Error::not_enough_time_elapsed(
+                current_time,
+                earliest_time,
+            ));
         }
 
         let earliest_height = processed_height.add(delay_period_blocks);
