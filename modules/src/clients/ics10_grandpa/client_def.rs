@@ -445,8 +445,29 @@ fn verify_delay_passed(
     height: Height,
     connection_end: &ConnectionEnd,
 ) -> Result<(), ICS02Error> {
-    // TODO
-    Ok(())
+    let current_timestamp = ctx.host_timestamp();
+    let current_height = ctx.host_height();
+
+    let client_id = connection_end.client_id();
+    let processed_time = ctx
+        .client_update_time(client_id, height)
+        .map_err(|_| ICS02Error::grandpa(ICS10Error::processed_time_not_found(client_id.clone(), height)))?;
+    let processed_height = ctx
+        .client_update_height(client_id, height)
+        .map_err(|_| ICS02Error::grandpa(ICS10Error::processed_height_not_found(client_id.clone(), height)))?;
+
+    let delay_period_time = connection_end.delay_period();
+    let delay_period_height = ctx.block_delay(delay_period_time);
+
+    ClientState::verify_delay_passed(
+        current_timestamp,
+        current_height,
+        processed_time,
+        processed_height,
+        delay_period_time,
+        delay_period_height,
+    )
+        .map_err(|e| e.into())
 }
 
 #[cfg(test)]

@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 use core::str::FromStr;
 use core::time::Duration;
+use crate::timestamp::{Timestamp, ZERO_DURATION};
 
 // mock grandpa as tendermint
 use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawClientState;
@@ -11,7 +12,7 @@ use super::help::BlockHeader;
 use super::help::Commitment;
 use super::help::ValidatorSet;
 
-use crate::clients::ics10_grandpa::error::Error;
+use crate::clients::ics10_grandpa::error::Error as ICS10Error;
 use crate::clients::ics10_grandpa::header::Header;
 use crate::core::ics02_client::client_state::AnyClientState;
 use crate::core::ics02_client::client_type::ClientType;
@@ -39,7 +40,7 @@ impl ClientState {
         block_header: BlockHeader,
         latest_commitment: Commitment,
         validator_set: ValidatorSet,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, ICS10Error> {
         let client_state = ClientState {
             chain_id,
             block_number,
@@ -75,6 +76,31 @@ impl ClientState {
 
     pub fn latest_height(&self) -> Height {
         Height::new(0, self.block_number as u64)
+    }
+
+    pub fn verify_delay_passed(
+        current_time: Timestamp,
+        current_height: Height,
+        processed_time: Timestamp,
+        processed_height: Height,
+        delay_period_time: Duration,
+        delay_period_blocks: u64,
+    ) -> Result<(), ICS10Error> {
+        let earliest_time =
+            (processed_time + delay_period_time).map_err(ICS10Error::timestamp_overflow)?;
+        if !(current_time == earliest_time || current_time.after(&earliest_time)) {
+            return Err(ICS10Error::not_enough_time_elapsed(current_time, earliest_time));
+        }
+
+        let earliest_height = processed_height.add(delay_period_blocks);
+        if current_height < earliest_height {
+            return Err(ICS10Error::not_enough_blocks_elapsed(
+                current_height,
+                earliest_height,
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -114,7 +140,7 @@ impl crate::core::ics02_client::client_state::ClientState for ClientState {
 }
 
 impl TryFrom<RawClientState> for ClientState {
-    type Error = Error;
+    type Error = ICS10Error;
 
     fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
         let frozen_height = raw.frozen_height.and_then(|raw_height| {
@@ -128,20 +154,20 @@ impl TryFrom<RawClientState> for ClientState {
 
         Ok(Self {
             chain_id: ChainId::from_str(raw.chain_id.as_str())
-                .map_err(|_| Error::invalid_chain_id())?,
+                .map_err(|_| ICS10Error::invalid_chain_id())?,
             block_number: raw.block_number,
             frozen_height,
             block_header: raw
                 .block_header
-                .ok_or_else(Error::empty_block_header)?
+                .ok_or_else(ICS10Error::empty_block_header)?
                 .into(),
             latest_commitment: raw
                 .latest_commitment
-                .ok_or_else(Error::empty_latest_commitment)?
+                .ok_or_else(ICS10Error::empty_latest_commitment)?
                 .into(),
             validator_set: raw
                 .validator_set
-                .ok_or_else(Error::empty_validator_set)?
+                .ok_or_else(ICS10Error::empty_validator_set)?
                 .into(),
         })
     }

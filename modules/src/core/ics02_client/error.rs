@@ -320,6 +320,10 @@ define_error! {
             [ Ics07Error ]
             | _ | { format_args!("Tendermint-specific handler error") },
 
+        GrandpaHandlerError
+            [ Ics10Error ]
+            | _ | { format_args!("Grandpa-specific handler error") },
+
         MissingLocalConsensusState
             { height: Height }
             | e | { format_args!("the local consensus state could not be retrieved for height {}", e.height) },
@@ -409,5 +413,11 @@ define_error! {
 impl From<Ics07Error> for Error {
     fn from(e: Ics07Error) -> Error {
         Error::tendermint_handler_error(e)
+    }
+}
+
+impl From<Ics10Error> for Error {
+    fn from(e: Ics10Error) -> Error {
+        Error::grandpa_handler_error(e)
     }
 }

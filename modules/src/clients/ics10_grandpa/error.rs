@@ -1,6 +1,10 @@
 use alloc::string::String;
 
+use crate::timestamp::Timestamp;
+use crate::timestamp::TimestampOverflowError;
+use crate::Height;
 use crate::core::ics02_client;
+use crate::core::ics24_host::identifier::ClientId;
 use crate::core::ics24_host::error::ValidationError;
 use crate::core::ics23_commitment::error::Error as Ics23Error;
 use flex_error::{define_error, DisplayOnly, TraceError};
@@ -105,6 +109,50 @@ define_error! {
 
         Ics23Error
             [ DisplayOnly<Ics23Error>]
-            | _ | { "ics23 error" }
+            | _ | { "ics23 error" },
+
+        NotEnoughTimeElapsed
+            {
+                current_time: Timestamp,
+                earliest_time: Timestamp,
+            }
+            | e | {
+                format_args!("not enough time elapsed, current timestamp {0} is still less than earliest acceptable timestamp {1}", e.current_time, e.earliest_time)
+            },
+
+        NotEnoughBlocksElapsed
+            {
+                current_height: Height,
+                earliest_height: Height,
+            }
+            | e | {
+                format_args!("not enough blocks elapsed, current height {0} is still less than earliest acceptable height {1}", e.current_height, e.earliest_height)
+            },
+
+        ProcessedTimeNotFound
+            {
+                client_id: ClientId,
+                height: Height,
+            }
+            | e | {
+                format_args!(
+                    "Processed time for the client {0} at height {1} not found",
+                    e.client_id, e.height)
+            },
+
+        ProcessedHeightNotFound
+            {
+                client_id: ClientId,
+                height: Height,
+            }
+            | e | {
+                format_args!(
+                    "Processed height for the client {0} at height {1} not found",
+                    e.client_id, e.height)
+            },
+
+        TimestampOverflow
+            [ TimestampOverflowError ]
+            |_| { "timestamp overflowed" }
     }
 }
