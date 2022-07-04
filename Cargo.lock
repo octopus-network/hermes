@@ -3091,9 +3091,10 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.18#3c543610fd1048f4d32c2da1956e84bc04c6eb84"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/ibc20-informal#b0d71604b560c4b7f63f416ca4a3774bca837a6b"
 dependencies = [
  "anyhow",
+ "async-trait",
  "beefy-light-client",
  "beefy-merkle-tree",
  "beefy-primitives",
