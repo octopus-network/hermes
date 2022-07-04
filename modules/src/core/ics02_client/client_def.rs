@@ -173,7 +173,7 @@ pub trait ClientDef: Clone {
 #[derive(Clone, Debug)]
 pub enum AnyClient<HostFunctions: HostFunctionsProvider + 'static> {
     Tendermint(TendermintClient<HostFunctions>),
-    Grandpa(GrandpaClient),
+    Grandpa(GrandpaClient<HostFunctions>),
 
     #[cfg(any(test, feature = "mocks"))]
     Mock(MockClient),
@@ -185,7 +185,7 @@ impl<HostFunctions: HostFunctionsProvider + 'static> AnyClient<HostFunctions> {
             ClientType::Tendermint => {
                 Self::Tendermint(TendermintClient::<HostFunctions>::default())
             }
-            ClientType::Grandpa => Self::Grandpa(GrandpaClient),
+            ClientType::Grandpa => Self::Grandpa(GrandpaClient::<HostFunctions>::default()),
 
             #[cfg(any(test, feature = "mocks"))]
             ClientType::Mock => Self::Mock(MockClient),
