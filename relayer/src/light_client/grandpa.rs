@@ -1,7 +1,7 @@
 use crate::chain::substrate::SubstrateChain;
 use crate::error::Error;
 
-use octopusxt::MyConfig;
+use octopusxt::{MyConfig, OctopusxtClient};
 use std::future::Future;
 use std::sync::Arc;
 use subxt::{BlockNumber, ClientBuilder};
@@ -100,10 +100,11 @@ impl super::LightClient<SubstrateChain> for LightClient {
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
+            let client = OctopusxtClient::new(client);
+
             // get block header
-            let block_header = octopusxt::ibc_rpc::get_header_by_block_number(
+            let block_header = client.query_header_by_block_number(
                 Some(BlockNumber::from(target.revision_height as u32)),
-                client.clone(),
             )
             .await
             .map_err(|_| Error::get_header_by_block_number_error())?;

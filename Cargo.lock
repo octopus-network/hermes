@@ -3091,7 +3091,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/ibc20-informal#0b0e117960a8c17d08d10230c3a429b10b93c131"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/ibc20-informal#fd1b08824d8164d7a6f99aa68089d52f17130cb8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3123,9 +3123,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.12.1"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac8b1a9b2518dc799a2271eff1688707eb315f0d4697aa6b0871369ca4c4da55"
+checksum = "18a6dbe30758c9f83eb00cbea4ac95966305f5a7772f3f42ebfc7fc7eddbd8e1"
 
 [[package]]
 name = "oneline-eyre"
