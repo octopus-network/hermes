@@ -103,11 +103,12 @@ impl super::LightClient<SubstrateChain> for LightClient {
             let client = OctopusxtClient::new(client);
 
             // get block header
-            let block_header = client.query_header_by_block_number(
-                Some(BlockNumber::from(target.revision_height as u32)),
-            )
-            .await
-            .map_err(|_| Error::get_header_by_block_number_error())?;
+            let block_header = client
+                .query_header_by_block_number(Some(BlockNumber::from(
+                    target.revision_height as u32,
+                )))
+                .await
+                .map_err(|_| Error::get_header_by_block_number_error())?;
 
             Ok(block_header)
         };
