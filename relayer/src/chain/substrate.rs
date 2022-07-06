@@ -51,7 +51,7 @@ use ibc_proto::ibc::core::channel::v1::PacketState;
 
 use jsonrpsee::rpc_params;
 use octopusxt::{
-    ChannelRpc, ClientRpc, ConnectionRpc, MyConfig, OctopusxtClient, PacketRpc, Router,
+    ChannelRpc, ClientRpc, ConnectionRpc, MyConfig, OctopusxtClient, PacketRpc, QueryHeight, Router,
 };
 use retry::delay::Fixed;
 use semver::Version;
@@ -154,7 +154,7 @@ impl SubstrateChain {
 
         self.block_on(
             self.client
-                .query_connection_end(connection_identifier.clone()),
+                .query_connection_end(connection_identifier.clone(), QueryHeight::Latest),
         )
     }
 
@@ -162,10 +162,11 @@ impl SubstrateChain {
     fn get_channel_end(&self, port_id: &PortId, channel_id: &ChannelId) -> Result<ChannelEnd> {
         trace!("in substrate: [get_channel_end]");
 
-        self.block_on(
-            self.client
-                .query_channel_end(port_id.clone(), channel_id.clone()),
-        )
+        self.block_on(self.client.query_channel_end(
+            port_id.clone(),
+            channel_id.clone(),
+            QueryHeight::Latest,
+        ))
     }
 
     /// get packet receipt by port_id, channel_id and sequence
@@ -181,6 +182,7 @@ impl SubstrateChain {
             port_id.clone(),
             channel_id.clone(),
             seq.clone(),
+            QueryHeight::Latest,
         ))
     }
 
@@ -197,6 +199,7 @@ impl SubstrateChain {
             port_id.clone(),
             channel_id.clone(),
             seq.clone(),
+            QueryHeight::Latest,
         ))
     }
 
@@ -204,7 +207,10 @@ impl SubstrateChain {
     fn get_client_state(&self, client_id: &ClientId) -> Result<AnyClientState> {
         trace!("in substrate: [get_client_state]");
 
-        self.block_on(self.client.query_client_state(client_id.clone()))
+        self.block_on(
+            self.client
+                .query_client_state(client_id.clone(), QueryHeight::Latest),
+        )
     }
 
     /// get consensus_state by client_identifier and height
@@ -216,8 +222,10 @@ impl SubstrateChain {
         trace!("in substrate: [get_client_consensus]");
 
         self.block_on(
-            self.client
-                .query_client_consensus_state(client_id.clone(), height.clone()),
+            self.client.query_client_consensus_state(
+                client_id.clone(),
+                QueryHeight::Specific(height.clone()),
+            ),
         )
     }
 
@@ -229,7 +237,7 @@ impl SubstrateChain {
 
         self.block_on(
             self.client
-                .query_consensus_state_with_height(client_id.clone()),
+                .query_consensus_state_with_height(client_id.clone(), QueryHeight::Latest),
         )
     }
 
@@ -245,31 +253,35 @@ impl SubstrateChain {
             port_id.clone(),
             channel_id.clone(),
             sequences.to_vec(),
+            QueryHeight::Latest,
         ))
     }
 
     fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>> {
         trace!("in substrate: [get_clients]");
 
-        self.block_on(self.client.query_clients())
+        self.block_on(self.client.query_clients(QueryHeight::Latest))
     }
 
     fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>> {
         trace!("in substrate: [get_connections]");
 
-        self.block_on(self.client.query_connections())
+        self.block_on(self.client.query_connections(QueryHeight::Latest))
     }
 
     fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>> {
         trace!("in substrate: [get_channels]");
 
-        self.block_on(self.client.query_channels())
+        self.block_on(self.client.query_channels(QueryHeight::Latest))
     }
 
     fn get_commitment_packet_state(&self) -> Result<Vec<PacketState>> {
         trace!("in substrate: [get_commitment_packet_state]");
 
-        self.block_on(self.client.query_commitment_packet_state())
+        self.block_on(
+            self.client
+                .query_commitment_packet_state(QueryHeight::Latest),
+        )
     }
 
     /// get packet commitment by port_id, channel_id and sequence
@@ -285,20 +297,27 @@ impl SubstrateChain {
             port_id.clone(),
             channel_id.clone(),
             sequence.clone(),
+            QueryHeight::Latest,
         ))
     }
 
     fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>> {
         trace!("in substrate: [get_acknowledge_packet_state]");
 
-        self.block_on(self.client.query_acknowledge_packet_state())
+        self.block_on(
+            self.client
+                .query_acknowledge_packet_state(QueryHeight::Latest),
+        )
     }
 
     /// get connection_identifier vector by client_identifier
     fn get_client_connections(&self, client_id: &ClientId) -> Result<Vec<ConnectionId>> {
         trace!("in substrate: [get_client_connections]");
 
-        self.block_on(self.client.query_client_connections(client_id.clone()))
+        self.block_on(
+            self.client
+                .query_client_connections(client_id.clone(), QueryHeight::Latest),
+        )
     }
 
     fn get_connection_channels(
@@ -307,7 +326,10 @@ impl SubstrateChain {
     ) -> Result<Vec<IdentifiedChannelEnd>> {
         trace!("in substrate: [get_connection_channels]");
 
-        self.block_on(self.client.query_connection_channels(connection_id.clone()))
+        self.block_on(
+            self.client
+                .query_connection_channels(connection_id.clone(), QueryHeight::Latest),
+        )
     }
 
     /// The function to submit IBC request to a Substrate chain
@@ -332,6 +354,7 @@ impl SubstrateChain {
             port_id.clone(),
             channel_id.clone(),
             sequence.clone(),
+            QueryHeight::Latest,
         ))
     }
 
