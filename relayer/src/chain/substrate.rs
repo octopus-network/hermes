@@ -814,7 +814,12 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_client_state(&client_id))
             .map_err(RelayerError::retry_error)?;
 
-        Ok((result, None))
+        match include_proof {
+            IncludeProof::Yes => {
+                unimplemented!()
+            }
+            IncludeProof::No => Ok((result, None)),
+        }
     }
 
     /// Performs a query to retrieve all the consensus states that the specified
@@ -868,8 +873,10 @@ impl ChainEndpoint for SubstrateChain {
         //     .proven_client_consensus(&client_id, consensus_height, query_height)?
         //     .0;
 
-        // Ok((consensus_state, None))
-        todo!()
+        match include_proof {
+            IncludeProof::Yes => todo!(),
+            IncludeProof::No => todo!(),
+        }
     }
 
     // TODO(davirain)
@@ -943,7 +950,10 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_connection_end(&connection_id))
             .map_err(RelayerError::retry_error)?;
 
-        Ok((connection_end, None))
+        match include_proof {
+            IncludeProof::Yes => todo!(),
+            IncludeProof::No => Ok((connection_end, None)),
+        }
     }
 
     /// Performs a query to retrieve all channels associated with a connection.
@@ -998,7 +1008,10 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_channel_end(&port_id, &channel_id))
             .map_err(RelayerError::retry_error)?;
 
-        Ok((channel_end, None))
+        match include_proof {
+            IncludeProof::Yes => todo!(),
+            IncludeProof::No => Ok((channel_end, None)),
+        }
     }
 
     // TODO(davirain)
@@ -1156,7 +1169,12 @@ impl ChainEndpoint for SubstrateChain {
             height,
         } = request;
 
-        todo!()
+        match include_proof {
+            IncludeProof::Yes => todo!(),
+            IncludeProof::No => {
+                todo!()
+            }
+        }
     }
 
     // TODO(davirain)
@@ -1681,7 +1699,12 @@ impl ChainEndpoint for SubstrateChain {
             height,
         } = request;
 
-        todo!()
+        match include_proof {
+            IncludeProof::Yes => todo!(),
+            IncludeProof::No => {
+                todo!()
+            }
+        }
     }
 
     // TODO(davirain)
@@ -1698,7 +1721,12 @@ impl ChainEndpoint for SubstrateChain {
             height,
         } = request;
 
-        todo!()
+        match include_proof {
+            IncludeProof::Yes => todo!(),
+            IncludeProof::No => {
+                todo!()
+            }
+        }
     }
 
     // TODO(davirain)
@@ -1715,7 +1743,12 @@ impl ChainEndpoint for SubstrateChain {
             height,
         } = request;
 
-        todo!()
+        match include_proof {
+            IncludeProof::Yes => todo!(),
+            IncludeProof::No => {
+                todo!()
+            }
+        }
     }
 }
 
