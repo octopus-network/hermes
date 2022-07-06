@@ -599,12 +599,14 @@ impl ChainEndpoint for SubstrateChain {
         Ok((event_receiver, monitor_tx))
     }
 
+    // TODO(davirain)
     fn shutdown(self) -> Result<(), RelayerError> {
         trace!("in substrate: [shutdown]");
 
         Ok(())
     }
 
+    // TODO(davirain)
     fn health_check(&self) -> Result<HealthCheck, RelayerError> {
         trace!("in substrate: [health_check]");
 
@@ -674,6 +676,7 @@ impl ChainEndpoint for SubstrateChain {
         );
 
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
+        // TODO(davirain) this tx_response is correct???
         let tx_re = TxResponse {
             code: Code::default(),
             data: serde_json::from_str(json).map_err(RelayerError::invalid_serde_json_error)?,
@@ -685,11 +688,11 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn get_signer(&mut self) -> Result<Signer, RelayerError> {
-        trace!("In Substraet: [get signer]");
+        trace!("In Substrate: [get signer]");
         crate::time!("get_signer");
 
         /// Public key type for Runtime
-        pub type PublicFor<P> = <P as sp_core::Pair>::Public;
+        pub type PublicFor<P> = <P as Pair>::Public;
 
         /// formats public key as accountId as hex
         fn format_account_id<P: Pair>(public_key: PublicFor<P>) -> String
@@ -733,6 +736,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok(key)
     }
 
+    // TODO(davirain)
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, RelayerError> {
         trace!("in substrate: [query_commitment_prefix]");
 
@@ -751,6 +755,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let latest_height = ICSHeight::new(0, height);
 
+        // TODO(davirain) this timestamp is default
         Ok(ChainStatus {
             height: latest_height,
             timestamp: Default::default(),
@@ -771,6 +776,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok(result)
     }
 
+    // TODO(davirain) need handle include_proof
     /// Performs a query to retrieve the state of the specified light client. A
     /// proof can optionally be returned along with the result.
     fn query_client_state(
@@ -785,7 +791,6 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_client_state(&client_id))
             .map_err(RelayerError::retry_error)?;
 
-        // todo
         Ok((result, None))
     }
 
@@ -821,6 +826,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok(any_consensus_state_with_height)
     }
 
+    // TODO(davirain)
     /// Performs a query to retrieve the consensus state for a specified height
     /// `consensus_height` that the specified light client stores.
     fn query_consensus_state(
@@ -843,6 +849,7 @@ impl ChainEndpoint for SubstrateChain {
         todo!()
     }
 
+    // TODO(davirain)
     fn query_upgraded_client_state(
         &self,
         request: QueryUpgradedClientStateRequest,
@@ -853,6 +860,7 @@ impl ChainEndpoint for SubstrateChain {
         todo!()
     }
 
+    // TODO(davirain)
     fn query_upgraded_consensus_state(
         &self,
         request: QueryUpgradedConsensusStateRequest,
@@ -893,6 +901,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok(result)
     }
 
+    // TODO(davirain) neded handle include_proof
     /// Performs a query to retrieve the connection associated with a given
     /// connection identifier. A proof can optionally be returned along with the
     /// result.
@@ -947,6 +956,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok(result)
     }
 
+    // TODO(davirain)
     /// Performs a query to retrieve the channel associated with a given channel
     /// identifier. A proof can optionally be returned along with the result.
     fn query_channel(
@@ -968,6 +978,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok((channel_end, None))
     }
 
+    // TODO(davirain)
     /// Performs a query to retrieve the client state for the channel associated
     /// with a given channel identifier.
     fn query_channel_client_state(
@@ -1090,12 +1101,6 @@ impl ChainEndpoint for SubstrateChain {
             packet_ack_sequences,
         } = request;
 
-        // let sequences = request
-        //     .packet_ack_sequences
-        //     .into_iter()
-        //     .map(Sequence::from)
-        //     .collect::<Vec<_>>();
-
         let mut unreceived_seqs: Vec<Sequence> = vec![];
 
         for sequence in packet_ack_sequences {
@@ -1112,6 +1117,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok(unreceived_seqs)
     }
 
+    // TODO(davirain)
     /// Performs a query to retrieve `nextSequenceRecv` stored at path
     /// `path::SeqRecvsPath` as defined in ICS-4. A proof can optionally be
     /// returned along with the result.
@@ -1130,6 +1136,7 @@ impl ChainEndpoint for SubstrateChain {
         todo!()
     }
 
+    // TODO(davirain)
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, RelayerError> {
         trace!("in substrate: [query_txs]");
 
@@ -1474,6 +1481,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok(AnyClientState::Grandpa(client_state))
     }
 
+    // TODO(davirain) because this consensus_state return is default value
     fn build_consensus_state(
         &self,
         _light_block: Self::LightBlock,
@@ -1591,12 +1599,14 @@ impl ChainEndpoint for SubstrateChain {
         Ok(())
     }
 
+    // TODO(davirain)
     fn ibc_version(&self) -> Result<Option<Version>, RelayerError> {
         trace!("in substrate: [ibc_version]");
-        // TODO
+
         Ok(None)
     }
 
+    // TODO(davirain)
     fn query_blocks(
         &self,
         _request: QueryBlockRequest,
@@ -1606,6 +1616,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok((vec![], vec![]))
     }
 
+    // TODO(davirain)
     fn query_host_consensus_state(
         &self,
         request: QueryHostConsensusStateRequest,
@@ -1617,6 +1628,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok(AnyConsensusState::Grandpa(GPConsensusState::default()))
     }
 
+    // TODO(davirain)
     fn query_balance(
         &self,
         key_name: Option<String>,
@@ -1625,11 +1637,13 @@ impl ChainEndpoint for SubstrateChain {
         todo!()
     }
 
+    // TODO(davirain)
     /// Query the denomination trace given a trace hash.
     fn query_denom_trace(&self, hash: String) -> Result<DenomTrace, RelayerError> {
         todo!()
     }
 
+    // TODO(davirain)
     fn query_packet_commitment(
         &self,
         request: QueryPacketCommitmentRequest,
@@ -1647,6 +1661,7 @@ impl ChainEndpoint for SubstrateChain {
         todo!()
     }
 
+    // TODO(davirain)
     fn query_packet_receipt(
         &self,
         request: QueryPacketReceiptRequest,
@@ -1663,6 +1678,7 @@ impl ChainEndpoint for SubstrateChain {
         todo!()
     }
 
+    // TODO(davirain)
     fn query_packet_acknowledgement(
         &self,
         request: QueryPacketAcknowledgementRequest,
@@ -1680,8 +1696,9 @@ impl ChainEndpoint for SubstrateChain {
     }
 }
 
-// Todo: to create a new type in `commitment_proof::Proof`
+// to create a new type in `commitment_proof::Proof`
 /// Compose merkle proof according to ibc proto
+/// this is only for test
 pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     use ics23::{commitment_proof, ExistenceProof, InnerOp};
     trace!("in substrate: [compose_ibc_merkle_proof]");
@@ -1702,15 +1719,18 @@ pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     let parsed = ics23::CommitmentProof {
         proof: Some(_proof),
     };
-    let mproofs: Vec<ics23::CommitmentProof> = vec![parsed];
-    MerkleProof { proofs: mproofs }
-}
-pub fn get_dummy_merkle_proof() -> MerkleProof {
-    let parsed = ics23::CommitmentProof { proof: None };
-    let mproofs: Vec<ics23::CommitmentProof> = vec![parsed];
-    MerkleProof { proofs: mproofs }
+    let proofs: Vec<ics23::CommitmentProof> = vec![parsed];
+    MerkleProof { proofs }
 }
 
+/// this is only for test
+pub fn get_dummy_merkle_proof() -> MerkleProof {
+    let parsed = ics23::CommitmentProof { proof: None };
+    let proofs: Vec<ics23::CommitmentProof> = vec![parsed];
+    MerkleProof { proofs }
+}
+
+/// this is only for test
 pub fn get_dummy_ics07_header() -> tHeader {
     use tendermint::block::signed_header::SignedHeader;
     // Build a SignedHeader from a JSON file.
