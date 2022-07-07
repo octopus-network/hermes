@@ -7,7 +7,7 @@ use codec::{Decode, Encode};
 use core::convert::From;
 use core::convert::TryFrom;
 use core::convert::TryInto;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 use tendermint_proto::Protobuf;
 
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
