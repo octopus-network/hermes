@@ -51,7 +51,7 @@ use ibc_proto::ibc::core::channel::v1::PacketState;
 
 use jsonrpsee::rpc_params;
 use octopusxt::{
-    ChannelRpc, ClientRpc, ConnectionRpc, MyConfig, OctopusxtClient, PacketRpc, QueryHeight, Router,
+    ChannelRpc, ClientRpc, ConnectionRpc, MyConfig, OctopusxtClient, PacketRpc, Router,
 };
 use retry::delay::Fixed;
 use semver::Version;
@@ -64,6 +64,7 @@ use subxt::{
 
 use tendermint::abci::{Code, Log};
 
+use crate::chain::requests::QueryHeight;
 use anyhow::Result;
 use beefy_light_client::{commitment, mmr};
 use ibc::clients::ics10_grandpa::help::Commitment;
@@ -148,190 +149,6 @@ impl SubstrateChain {
         self.block_on(self.client.query_latest_height())
     }
 
-    /// get connectionEnd by connection_identifier
-    fn get_connection_end(&self, connection_identifier: &ConnectionId) -> Result<ConnectionEnd> {
-        trace!("in substrate: [get_connection_end]");
-
-        self.block_on(
-            self.client
-                .query_connection_end(connection_identifier.clone(), QueryHeight::Latest),
-        )
-    }
-
-    /// get channelEnd  by port_identifier, and channel_identifier
-    fn get_channel_end(&self, port_id: &PortId, channel_id: &ChannelId) -> Result<ChannelEnd> {
-        trace!("in substrate: [get_channel_end]");
-
-        self.block_on(self.client.query_channel_end(
-            port_id.clone(),
-            channel_id.clone(),
-            QueryHeight::Latest,
-        ))
-    }
-
-    /// get packet receipt by port_id, channel_id and sequence
-    fn get_packet_receipt(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        seq: &Sequence,
-    ) -> Result<Receipt> {
-        trace!("in substrate: [get_packet_receipt]");
-
-        self.block_on(self.client.query_packet_receipt(
-            port_id.clone(),
-            channel_id.clone(),
-            seq.clone(),
-            QueryHeight::Latest,
-        ))
-    }
-
-    /// get send packet event by port_id, channel_id and sequence
-    fn get_send_packet_event(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        seq: &Sequence,
-    ) -> Result<Packet> {
-        trace!("in substrate: [get_send_packet_event]");
-
-        self.block_on(self.client.query_send_packet_event(
-            port_id.clone(),
-            channel_id.clone(),
-            seq.clone(),
-            QueryHeight::Latest,
-        ))
-    }
-
-    /// get client_state by client_id
-    fn get_client_state(&self, client_id: &ClientId) -> Result<AnyClientState> {
-        trace!("in substrate: [get_client_state]");
-
-        self.block_on(
-            self.client
-                .query_client_state(client_id.clone(), QueryHeight::Latest),
-        )
-    }
-
-    /// get consensus_state by client_identifier and height
-    fn get_client_consensus(
-        &self,
-        client_id: &ClientId,
-        height: &ICSHeight,
-    ) -> Result<AnyConsensusState> {
-        trace!("in substrate: [get_client_consensus]");
-
-        self.block_on(
-            self.client.query_client_consensus_state(
-                client_id.clone(),
-                QueryHeight::Specific(height.clone()),
-            ),
-        )
-    }
-
-    fn get_consensus_state_with_height(
-        &self,
-        client_id: &ClientId,
-    ) -> Result<Vec<(ICSHeight, AnyConsensusState)>> {
-        trace!("in substrate: [get_consensus_state_with_height]");
-
-        self.block_on(
-            self.client
-                .query_consensus_state_with_height(client_id.clone(), QueryHeight::Latest),
-        )
-    }
-
-    fn get_unreceipt_packet(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        sequences: &[Sequence],
-    ) -> Result<Vec<Sequence>> {
-        trace!("in substrate: [get_unreceipt_packet]");
-
-        self.block_on(self.client.query_unreceipt_packet(
-            port_id.clone(),
-            channel_id.clone(),
-            sequences.to_vec(),
-            QueryHeight::Latest,
-        ))
-    }
-
-    fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>> {
-        trace!("in substrate: [get_clients]");
-
-        self.block_on(self.client.query_clients(QueryHeight::Latest))
-    }
-
-    fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>> {
-        trace!("in substrate: [get_connections]");
-
-        self.block_on(self.client.query_connections(QueryHeight::Latest))
-    }
-
-    fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>> {
-        trace!("in substrate: [get_channels]");
-
-        self.block_on(self.client.query_channels(QueryHeight::Latest))
-    }
-
-    fn get_commitment_packet_state(&self) -> Result<Vec<PacketState>> {
-        trace!("in substrate: [get_commitment_packet_state]");
-
-        self.block_on(
-            self.client
-                .query_commitment_packet_state(QueryHeight::Latest),
-        )
-    }
-
-    /// get packet commitment by port_id, channel_id and sequence
-    fn get_packet_commitment(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        sequence: &Sequence,
-    ) -> Result<Vec<u8>> {
-        trace!("in substrate: [get_packet_commitment]");
-
-        self.block_on(self.client.query_packet_commitment(
-            port_id.clone(),
-            channel_id.clone(),
-            sequence.clone(),
-            QueryHeight::Latest,
-        ))
-    }
-
-    fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>> {
-        trace!("in substrate: [get_acknowledge_packet_state]");
-
-        self.block_on(
-            self.client
-                .query_acknowledge_packet_state(QueryHeight::Latest),
-        )
-    }
-
-    /// get connection_identifier vector by client_identifier
-    fn get_client_connections(&self, client_id: &ClientId) -> Result<Vec<ConnectionId>> {
-        trace!("in substrate: [get_client_connections]");
-
-        self.block_on(
-            self.client
-                .query_client_connections(client_id.clone(), QueryHeight::Latest),
-        )
-    }
-
-    fn get_connection_channels(
-        &self,
-        connection_id: &ConnectionId,
-    ) -> Result<Vec<IdentifiedChannelEnd>> {
-        trace!("in substrate: [get_connection_channels]");
-
-        self.block_on(
-            self.client
-                .query_connection_channels(connection_id.clone(), QueryHeight::Latest),
-        )
-    }
-
     /// The function to submit IBC request to a Substrate chain
     /// This function handles most of the IBC reqeusts, except the MMR root update
     fn deliever(&self, msgs: Vec<Any>) -> Result<H256> {
@@ -340,77 +157,6 @@ impl SubstrateChain {
         let result = self.block_on(self.client.deliver(msgs))?;
 
         Ok(result)
-    }
-
-    fn get_write_ack_packet_event(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        sequence: &Sequence,
-    ) -> Result<Vec<u8>> {
-        trace!("in substrate: [get_send_packet_event]");
-
-        self.block_on(self.client.query_write_ack_packet_event(
-            port_id.clone(),
-            channel_id.clone(),
-            sequence.clone(),
-            QueryHeight::Latest,
-        ))
-    }
-
-    fn get_ibc_send_packet_event(
-        &self,
-        request: QueryPacketEventDataRequest,
-    ) -> Result<Vec<IbcEvent>, RelayerError> {
-        trace!("in substrate: [get_ibc_send_packet_event]");
-
-        let mut result_event = vec![];
-
-        for sequence in &request.sequences {
-            let packet = self
-                .get_send_packet_event(
-                    &request.source_port_id,
-                    &request.source_channel_id,
-                    sequence,
-                )
-                .map_err(|_| RelayerError::get_send_packet_event_error())?;
-
-            result_event.push(IbcEvent::SendPacket(SendPacket {
-                height: ICSHeight::new(0, self.get_latest_height().unwrap()),
-                packet,
-            }));
-        }
-        Ok(result_event)
-    }
-
-    fn get_ibc_write_acknowledgement_event(
-        &self,
-        request: QueryPacketEventDataRequest,
-    ) -> Result<Vec<IbcEvent>, RelayerError> {
-        trace!("in substrate: [get_ibc_write_acknowledgement_event]");
-        use ibc::core::ics04_channel::events::WriteAcknowledgement;
-
-        let mut result_event = vec![];
-
-        for sequence in &request.sequences {
-            // let write_ack = self
-            //     .get_write_ack_packet_event(
-            //         &request.source_port_id,
-            //         &request.source_channel_id,
-            //         sequence,
-            //     )
-            //     .map_err(|_| RelayerError::get_write_ack_packet_event_error())?;
-            //
-            // let write_ack = WriteAcknowledgement::decode(&*write_ack).map_err(RelayerError::decode)?;
-            let write_ack = WriteAcknowledgement {
-                height: ICSHeight::zero(),
-                packet: Packet::default(),
-                ack: vec![],
-            };
-            result_event.push(IbcEvent::WriteAcknowledgement(write_ack));
-        }
-
-        Ok(result_event)
     }
 
     /// Retrieve the storage proof according to storage keys
@@ -772,16 +518,13 @@ impl ChainEndpoint for SubstrateChain {
     fn query_application_status(&self) -> Result<ChainStatus, RelayerError> {
         trace!("in substrate: [query_status]");
 
-        let height = self
-            .retry_wapper(|| self.get_latest_height())
+        let chain_status = self
+            .retry_wapper(|| self.client.query_application_status())
             .map_err(RelayerError::retry_error)?;
 
-        let latest_height = ICSHeight::new(0, height);
-
-        // TODO(davirain) this timestamp is default
         Ok(ChainStatus {
-            height: latest_height,
-            timestamp: Default::default(),
+            height: chain_status.height,
+            timestamp: chain_status.timestamp,
         })
     }
 
@@ -792,14 +535,16 @@ impl ChainEndpoint for SubstrateChain {
         trace!("in substrate: [query_clients]");
         let QueryClientStatesRequest { pagination } = request;
 
-        let result = self
-            .retry_wapper(|| self.get_clients())
-            .map_err(RelayerError::retry_error)?;
+        let request = octopusxt::requests::QueryClientStatesRequest { pagination: None };
 
-        Ok(result)
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let identified_any_client_states =
+            self.block_on(self.client.query_clients(request)).unwrap();
+
+        Ok(identified_any_client_states)
     }
 
-    // TODO(davirain) need handle include_proof
     /// Performs a query to retrieve the state of the specified light client. A
     /// proof can optionally be returned along with the result.
     fn query_client_state(
@@ -810,16 +555,26 @@ impl ChainEndpoint for SubstrateChain {
         trace!("in substrate: [query_client_state]");
         let QueryClientStateRequest { client_id, height } = request;
 
-        let result = self
-            .retry_wapper(|| self.get_client_state(&client_id))
-            .map_err(RelayerError::retry_error)?;
+        let request = octopusxt::requests::QueryClientStateRequest {
+            client_id,
+            height: match height {
+                QueryHeight::Latest => octopusxt::requests::QueryHeight::Latest,
+                QueryHeight::Specific(value) => octopusxt::requests::QueryHeight::Specific(value),
+            },
+        };
 
-        match include_proof {
-            IncludeProof::Yes => {
-                unimplemented!()
-            }
-            IncludeProof::No => Ok((result, None)),
-        }
+        let include_proof = match include_proof {
+            IncludeProof::Yes => octopusxt::requests::IncludeProof::Yes,
+            IncludeProof::No => octopusxt::requests::IncludeProof::No,
+        };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let any_client_state = self
+            .block_on(self.client.query_client_state(request, include_proof))
+            .unwrap();
+
+        Ok(any_client_state)
     }
 
     /// Performs a query to retrieve all the consensus states that the specified
@@ -834,27 +589,20 @@ impl ChainEndpoint for SubstrateChain {
             pagination,
         } = request;
 
-        let result = self
-            .retry_wapper(|| self.get_consensus_state_with_height(&client_id))
-            .map_err(RelayerError::retry_error)?;
+        let request = octopusxt::requests::QueryConsensusStatesRequest {
+            client_id,
+            pagination: None,
+        };
 
-        let consensus_state: Vec<(ICSHeight, AnyConsensusState)> = result;
-
-        let mut any_consensus_state_with_height = vec![];
-        for (height, consensus_state) in consensus_state.into_iter() {
-            let tmp = AnyConsensusStateWithHeight {
-                height,
-                consensus_state,
-            };
-            any_consensus_state_with_height.push(tmp.clone());
-        }
-
-        any_consensus_state_with_height.sort_by(|a, b| a.height.cmp(&b.height));
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let any_consensus_state_with_height = self
+            .block_on(self.client.query_consensus_states(request))
+            .unwrap();
 
         Ok(any_consensus_state_with_height)
     }
 
-    // TODO(davirain)
     /// Performs a query to retrieve the consensus state for a specified height
     /// `consensus_height` that the specified light client stores.
     fn query_consensus_state(
@@ -869,17 +617,29 @@ impl ChainEndpoint for SubstrateChain {
             query_height,
         } = request;
 
-        // let consensus_state = self
-        //     .proven_client_consensus(&client_id, consensus_height, query_height)?
-        //     .0;
+        let request = octopusxt::requests::QueryConsensusStateRequest {
+            client_id,
+            consensus_height,
+            query_height: match query_height {
+                QueryHeight::Latest => octopusxt::requests::QueryHeight::Latest,
+                QueryHeight::Specific(value) => octopusxt::requests::QueryHeight::Specific(value),
+            },
+        };
 
-        match include_proof {
-            IncludeProof::Yes => todo!(),
-            IncludeProof::No => todo!(),
-        }
+        let include_proof = match include_proof {
+            IncludeProof::Yes => octopusxt::requests::IncludeProof::Yes,
+            IncludeProof::No => octopusxt::requests::IncludeProof::No,
+        };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let any_consensus_state = self
+            .block_on(self.client.query_consensus_state(request, include_proof))
+            .unwrap();
+
+        Ok(any_consensus_state)
     }
 
-    // TODO(davirain)
     fn query_upgraded_client_state(
         &self,
         request: QueryUpgradedClientStateRequest,
@@ -887,10 +647,17 @@ impl ChainEndpoint for SubstrateChain {
         trace!("in substrate: [query_upgraded_client_state]");
         let QueryUpgradedClientStateRequest { upgrade_height } = request;
 
-        todo!()
+        let request = octopusxt::requests::QueryUpgradedClientStateRequest { upgrade_height };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let any_client_state = self
+            .block_on(self.client.query_upgraded_client_state(request))
+            .unwrap();
+
+        Ok(any_client_state)
     }
 
-    // TODO(davirain)
     fn query_upgraded_consensus_state(
         &self,
         request: QueryUpgradedConsensusStateRequest,
@@ -898,7 +665,15 @@ impl ChainEndpoint for SubstrateChain {
         trace!("in substrate: [query_upgraded_consensus_state]");
         let QueryUpgradedConsensusStateRequest { upgrade_height } = request;
 
-        todo!()
+        let request = octopusxt::requests::QueryUpgradedConsensusStateRequest { upgrade_height };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let any_consensus_state = self
+            .block_on(self.client.query_upgraded_consensus_state(request))
+            .unwrap();
+
+        Ok(any_consensus_state)
     }
 
     /// Performs a query to retrieve the identifiers of all connections.
@@ -909,11 +684,15 @@ impl ChainEndpoint for SubstrateChain {
         trace!("in substrate: [query_connections]");
         let QueryConnectionsRequest { pagination } = request;
 
-        let result = self
-            .retry_wapper(|| self.get_connections())
-            .map_err(RelayerError::retry_error)?;
+        let request = octopusxt::requests::QueryConnectionsRequest { pagination: None };
 
-        Ok(result)
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let identified_connection_end = self
+            .block_on(self.client.query_connections(request))
+            .unwrap();
+
+        Ok(identified_connection_end)
     }
 
     /// Performs a query to retrieve the identifiers of all connections.
@@ -924,14 +703,17 @@ impl ChainEndpoint for SubstrateChain {
         trace!("in substrate: [query_client_connections]");
         let QueryClientConnectionsRequest { client_id } = request;
 
-        let result = self
-            .retry_wapper(|| self.get_client_connections(&client_id))
-            .map_err(RelayerError::retry_error)?;
+        let request = octopusxt::requests::QueryClientConnectionsRequest { client_id };
 
-        Ok(result)
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let connection_ids = self
+            .block_on(self.client.query_client_connections(request))
+            .unwrap();
+
+        Ok(connection_ids)
     }
 
-    // TODO(davirain) neded handle include_proof
     /// Performs a query to retrieve the connection associated with a given
     /// connection identifier. A proof can optionally be returned along with the
     /// result.
@@ -946,14 +728,26 @@ impl ChainEndpoint for SubstrateChain {
             height,
         } = request;
 
-        let connection_end = self
-            .retry_wapper(|| self.get_connection_end(&connection_id))
-            .map_err(RelayerError::retry_error)?;
+        let request = octopusxt::requests::QueryConnectionRequest {
+            connection_id,
+            height: match height {
+                QueryHeight::Latest => octopusxt::requests::QueryHeight::Latest,
+                QueryHeight::Specific(value) => octopusxt::requests::QueryHeight::Specific(value),
+            },
+        };
 
-        match include_proof {
-            IncludeProof::Yes => todo!(),
-            IncludeProof::No => Ok((connection_end, None)),
-        }
+        let include_proof = match include_proof {
+            IncludeProof::Yes => octopusxt::requests::IncludeProof::Yes,
+            IncludeProof::No => octopusxt::requests::IncludeProof::No,
+        };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let connection_end = self
+            .block_on(self.client.query_connection(request, include_proof))
+            .unwrap();
+
+        Ok(connection_end)
     }
 
     /// Performs a query to retrieve all channels associated with a connection.
@@ -967,11 +761,18 @@ impl ChainEndpoint for SubstrateChain {
             pagination,
         } = request;
 
-        let result = self
-            .retry_wapper(|| self.get_connection_channels(&connection_id))
-            .map_err(RelayerError::retry_error)?;
+        let request = octopusxt::requests::QueryConnectionChannelsRequest {
+            connection_id,
+            pagination: None,
+        };
 
-        Ok(result)
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let identified_channeld_end = self
+            .block_on(self.client.query_connection_channels(request))
+            .unwrap();
+
+        Ok(identified_channeld_end)
     }
 
     /// Performs a query to retrieve all the channels of a chain.
@@ -982,14 +783,15 @@ impl ChainEndpoint for SubstrateChain {
         trace!("in substrate: [query_channels]");
         let QueryChannelsRequest { pagination } = request;
 
-        let result = self
-            .retry_wapper(|| self.get_channels())
-            .map_err(RelayerError::retry_error)?;
+        let request = octopusxt::requests::QueryChannelsRequest { pagination: None };
 
-        Ok(result)
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let identified_channel_ends = self.block_on(self.client.query_channels(request)).unwrap();
+
+        Ok(identified_channel_ends)
     }
 
-    // TODO(davirain)
     /// Performs a query to retrieve the channel associated with a given channel
     /// identifier. A proof can optionally be returned along with the result.
     fn query_channel(
@@ -1004,14 +806,27 @@ impl ChainEndpoint for SubstrateChain {
             height,
         } = request;
 
-        let channel_end = self
-            .retry_wapper(|| self.get_channel_end(&port_id, &channel_id))
-            .map_err(RelayerError::retry_error)?;
+        let request = octopusxt::requests::QueryChannelRequest {
+            port_id,
+            channel_id,
+            height: match height {
+                QueryHeight::Latest => octopusxt::requests::QueryHeight::Latest,
+                QueryHeight::Specific(value) => octopusxt::requests::QueryHeight::Specific(value),
+            },
+        };
 
-        match include_proof {
-            IncludeProof::Yes => todo!(),
-            IncludeProof::No => Ok((channel_end, None)),
-        }
+        let include_proof = match include_proof {
+            IncludeProof::Yes => octopusxt::requests::IncludeProof::Yes,
+            IncludeProof::No => octopusxt::requests::IncludeProof::No,
+        };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let channel_end = self
+            .block_on(self.client.query_channel(request, include_proof))
+            .unwrap();
+
+        Ok(channel_end)
     }
 
     // TODO(davirain)
@@ -1027,7 +842,18 @@ impl ChainEndpoint for SubstrateChain {
             channel_id,
         } = request;
 
-        todo!()
+        let request = octopusxt::requests::QueryChannelClientStateRequest {
+            port_id,
+            channel_id,
+        };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let identified_any_client_state = self
+            .block_on(self.client.query_channel_client_state(request))
+            .unwrap();
+
+        Ok(identified_any_client_state)
     }
 
     /// Performs a query to retrieve all the packet commitments hashes
@@ -1044,20 +870,19 @@ impl ChainEndpoint for SubstrateChain {
             pagination,
         } = request;
 
+        let request = octopusxt::requests::QueryPacketCommitmentsRequest {
+            port_id,
+            channel_id,
+            pagination: None,
+        };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
         let packet_commitments = self
-            .retry_wapper(|| self.get_commitment_packet_state())
-            .map_err(RelayerError::retry_error)?
-            .into_iter()
-            .map(|item| Sequence::from(item.sequence))
-            .collect::<Vec<_>>();
+            .block_on(self.client.query_packet_commitments(request))
+            .unwrap();
 
-        let height = self
-            .retry_wapper(|| self.get_latest_height())
-            .map_err(RelayerError::retry_error)?;
-
-        let latest_height = ICSHeight::new(0, height);
-
-        Ok((packet_commitments, latest_height))
+        Ok(packet_commitments)
     }
 
     /// Performs a query about which IBC packets in the specified list has not
@@ -1078,13 +903,19 @@ impl ChainEndpoint for SubstrateChain {
             packet_commitment_sequences,
         } = request;
 
-        let result = self
-            .retry_wapper(|| {
-                self.get_unreceipt_packet(&port_id, &channel_id, &packet_commitment_sequences)
-            })
-            .map_err(RelayerError::retry_error)?;
+        let request = octopusxt::requests::QueryUnreceivedPacketsRequest {
+            port_id,
+            channel_id,
+            packet_commitment_sequences,
+        };
 
-        Ok(result)
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let sequences = self
+            .block_on(self.client.query_unreceived_packets(request))
+            .unwrap();
+
+        Ok(sequences)
     }
 
     /// Performs a query to retrieve all the packet acknowledgements associated
@@ -1103,20 +934,20 @@ impl ChainEndpoint for SubstrateChain {
             packet_commitment_sequences,
         } = request;
 
-        let packet_acknowledgements = self
-            .retry_wapper(|| self.get_acknowledge_packet_state())
-            .map_err(RelayerError::retry_error)?
-            .into_iter()
-            .map(|item| Sequence::from(item.sequence))
-            .collect::<Vec<_>>();
+        let request = octopusxt::requests::QueryPacketAcknowledgementsRequest {
+            port_id,
+            channel_id,
+            pagination: None,
+            packet_commitment_sequences,
+        };
 
-        let height = self
-            .retry_wapper(|| self.get_latest_height())
-            .map_err(RelayerError::retry_error)?;
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let sequences = self
+            .block_on(self.client.query_packet_acknowledgements(request))
+            .unwrap();
 
-        let latest_height = ICSHeight::new(0, height);
-
-        Ok((packet_acknowledgements, latest_height))
+        Ok(sequences)
     }
 
     /// Performs a query about which IBC packets in the specified list has not
@@ -1137,23 +968,21 @@ impl ChainEndpoint for SubstrateChain {
             packet_ack_sequences,
         } = request;
 
-        let mut unreceived_seqs: Vec<Sequence> = vec![];
+        let request = octopusxt::requests::QueryUnreceivedAcksRequest {
+            port_id,
+            channel_id,
+            packet_ack_sequences,
+        };
 
-        for sequence in packet_ack_sequences {
-            let cmt =
-                self.retry_wapper(|| self.get_packet_commitment(&port_id, &channel_id, &sequence));
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let sequences = self
+            .block_on(self.client.query_unreceived_acknowledgements(request))
+            .unwrap();
 
-            // if packet commitment still exists on the original sending chain, then packet ack is unreceived
-            // since processing the ack will delete the packet commitment
-            if cmt.is_ok() {
-                unreceived_seqs.push(sequence);
-            }
-        }
-
-        Ok(unreceived_seqs)
+        Ok(sequences)
     }
 
-    // TODO(davirain)
     /// Performs a query to retrieve `nextSequenceRecv` stored at path
     /// `path::SeqRecvsPath` as defined in ICS-4. A proof can optionally be
     /// returned along with the result.
@@ -1169,12 +998,30 @@ impl ChainEndpoint for SubstrateChain {
             height,
         } = request;
 
-        match include_proof {
-            IncludeProof::Yes => todo!(),
-            IncludeProof::No => {
-                todo!()
-            }
-        }
+        let request = octopusxt::requests::QueryNextSequenceReceiveRequest {
+            port_id,
+            channel_id,
+            height: match height {
+                QueryHeight::Latest => octopusxt::requests::QueryHeight::Latest,
+                QueryHeight::Specific(value) => octopusxt::requests::QueryHeight::Specific(value),
+            },
+        };
+
+        let include_proof = match include_proof {
+            IncludeProof::Yes => octopusxt::requests::IncludeProof::Yes,
+            IncludeProof::No => octopusxt::requests::IncludeProof::No,
+        };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let sequences = self
+            .block_on(
+                self.client
+                    .query_next_sequence_receive(request, include_proof),
+            )
+            .unwrap();
+
+        Ok(sequences)
     }
 
     // TODO(davirain)
@@ -1184,20 +1031,20 @@ impl ChainEndpoint for SubstrateChain {
         match request {
             // Todo: Related to https://github.com/octopus-network/ibc-rs/issues/88
             QueryTxRequest::Packet(request) => {
-                let mut result: Vec<IbcEvent> = vec![];
+                let result: Vec<IbcEvent> = vec![];
                 if request.sequences.is_empty() {
                     return Ok(result);
                 }
 
                 match request.event_id {
                     WithBlockDataType::SendPacket => {
-                        let mut send_packet_event = self.get_ibc_send_packet_event(request)?;
-                        result.append(&mut send_packet_event);
+                        // let mut send_packet_event = self.get_ibc_send_packet_event(request)?;
+                        // result.append(&mut send_packet_event);
                     }
 
                     WithBlockDataType::WriteAck => {
-                        let mut ack_event = self.get_ibc_write_acknowledgement_event(request)?;
-                        result.append(&mut ack_event);
+                        // let mut ack_event = self.get_ibc_write_acknowledgement_event(request)?;
+                        // result.append(&mut ack_event);
                     }
 
                     _ => unimplemented!(),
@@ -1231,248 +1078,6 @@ impl ChainEndpoint for SubstrateChain {
             }
         }
     }
-
-    // fn proven_client_state(
-    //     &self,
-    //     client_id: &ClientId,
-    //     height: ICSHeight,
-    // ) -> Result<(Self::ClientState, MerkleProof), Error> {
-    //     tracing::trace!("in substrate: [proven_client_state]");
-
-    //     let result = self
-    //         .retry_wapper(|| self.get_client_state(client_id))
-    //         .map_err(Error::retry_error)?;
-
-    // let storage_entry = storage::ClientStates(client_id.as_bytes());
-
-    //     Ok((
-    //         result,
-    //         self.generate_storage_proof(&storage_entry, &height, "ClientStates")?,
-    //     ))
-    // }
-
-    // fn proven_connection(
-    //     &self,
-    //     connection_id: &ConnectionId,
-    //     height: ICSHeight,
-    // ) -> Result<(ConnectionEnd, MerkleProof), Error> {
-    //     tracing::trace!("in substrate: [proven_connection]");
-
-    //     let result = self
-    //         .retry_wapper(|| self.get_connection_end(connection_id))
-    //         .map_err(Error::retry_error)?;
-
-    //     let connection_end = result;
-
-    //     let new_connection_end = if connection_end
-    //         .counterparty()
-    //         .clone()
-    //         .connection_id
-    //         .is_none()
-    //     {
-    //         // 构造 Counterparty
-    //         let client_id = connection_end.counterparty().client_id().clone();
-    //         let prefix = connection_end.counterparty().prefix().clone();
-    //         let temp_connection_id = Some(connection_id.clone());
-
-    //         let counterparty = Counterparty::new(client_id, temp_connection_id, prefix);
-    //         let state = connection_end.state;
-    //         let client_id = connection_end.client_id().clone();
-    //         let versions = connection_end.versions();
-    //         let delay_period = connection_end.delay_period();
-
-    //         ConnectionEnd::new(
-    //             state,
-    //             client_id,
-    //             counterparty,
-    //             versions.to_vec(),
-    //             delay_period,
-    //         )
-    //     } else {
-    //         connection_end
-    //     };
-
-    // let storage_entry = storage::Connections(connection_id.as_bytes());
-
-    //     Ok((
-    //         new_connection_end,
-    //         self.generate_storage_proof(&storage_entry, &height, "Connections")?,
-    //     ))
-    // }
-
-    // fn proven_client_consensus(
-    //     &self,
-    //     client_id: &ClientId,
-    //     consensus_height: ICSHeight,
-    //     height: ICSHeight,
-    // ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
-    //     tracing::trace!("in substrate: [proven_client_consensus] ");
-
-    //     let result = self
-    //         .retry_wapper(|| self.get_client_consensus(client_id, &consensus_height))
-    //         .map_err(Error::retry_error)?;
-
-    // let storage_entry = storage::ConsensusStates(client_id.as_bytes());
-
-    //     Ok((
-    //         result,
-    //         self.generate_storage_proof(&storage_entry, &height, "ConsensusStates")?,
-    //     ))
-    // }
-
-    // fn proven_channel(
-    //     &self,
-    //     port_id: &PortId,
-    //     channel_id: &ChannelId,
-    //     height: ICSHeight,
-    // ) -> Result<(ChannelEnd, MerkleProof), Error> {
-    //     tracing::trace!("in substrate: [proven_channel]");
-
-    //     let result = self
-    //         .retry_wapper(|| self.get_channel_end(port_id, channel_id))
-    //         .map_err(Error::retry_error)?;
-
-    //     let channel_id_string = format!("{}", channel_id);
-
-    //
-    //     let storage_entry = storage::Channels(port_id.as_bytes(), channel_id_string.as_bytes());
-    //     Ok((
-    //         result,
-    //         self.generate_storage_proof(&storage_entry, &height, "Channels")?,
-    //     ))
-    // }
-
-    // fn proven_packet(
-    //     &self,
-    //     packet_type: PacketMsgType,
-    //     port_id: PortId,
-    //     channel_id: ChannelId,
-    //     sequence: Sequence,
-    //     height: ICSHeight,
-    // ) -> Result<(Vec<u8>, MerkleProof), Error> {
-    //     tracing::trace!("in substrate: [proven_packet], packet_type={:?}, port_id={:?}, channel_id={:?}, sequence={:?}, height={:?}", packet_type, port_id, channel_id, sequence, height);
-
-    //     let result = retry_with_index(Fixed::from_millis(200), |current_try| {
-    //         if current_try > MAX_QUERY_TIMES {
-    //             return RetryResult::Err("did not succeed within tries".to_string());
-    //         }
-
-    //         let result = async {
-    //             let client = ClientBuilder::new()
-    //                 .set_url(&self.websocket_url.clone())
-    //                 .build::<MyConfig>()
-    //                 .await
-    //                 .map_err(|_| Error::substrate_client_builder_error())?;
-
-    //             match packet_type {
-    //                 PacketMsgType::Recv => {
-    //                     // PacketCommitmentgenerate_storage_proof
-    //                     octopusxt::ibc_rpc::get_packet_commitment(
-    //                         &port_id,
-    //                         &channel_id,
-    //                         &sequence,
-    //                         client,
-    //                     )
-    //                     .await
-    //                 }
-    //                 PacketMsgType::Ack => {
-    //                     // Acknowledgements
-    //                     octopusxt::ibc_rpc::get_packet_receipt_vec(
-    //                         &port_id,
-    //                         &channel_id,
-    //                         &sequence,
-    //                         client,
-    //                     )
-    //                     .await
-    //                 }
-    //                 PacketMsgType::TimeoutOnClose => {
-    //                     // PacketReceipt
-    //                     octopusxt::ibc_rpc::get_packet_receipt_vec(
-    //                         &port_id,
-    //                         &channel_id,
-    //                         &sequence,
-    //                         client,
-    //                     )
-    //                     .await
-    //                 }
-    //                 PacketMsgType::TimeoutUnordered => {
-    //                     // PacketReceipt
-    //                     octopusxt::ibc_rpc::get_packet_receipt_vec(
-    //                         &port_id,
-    //                         &channel_id,
-    //                         &sequence,
-    //                         client,
-    //                     )
-    //                     .await
-    //                 }
-    //                 PacketMsgType::TimeoutOrdered => {
-    //                     // NextSequenceRecv
-    //                     octopusxt::ibc_rpc::get_next_sequence_recv(&port_id, &channel_id, client)
-    //                         .await
-    //                 }
-    //             }
-    //         };
-
-    //         match self.block_on(result) {
-    //             Ok(v) => RetryResult::Ok(v),
-    //             Err(_) => RetryResult::Retry("Fail to retry".to_string()),
-    //         }
-    //     })
-    //     .map_err(Error::retry_error)?;
-
-    //     tracing::trace!(
-    //         "in substrate: [proven_packet] >> result: {:?}, packet_type = {:?}",
-    //         result,
-    //         packet_type
-    //     );
-
-    //     let sequence = u64::from(sequence);
-    //     let channel_id_string = format!("{}", channel_id);
-
-    //     match packet_type {
-    //         PacketMsgType::Recv => {
-    //             let storage_entry = ibc_node::ibc::storage::PacketCommitment(
-    //                 port_id.as_bytes(),
-    //                 channel_id_string.as_bytes(),
-    //                 &sequence,
-    //             );
-    //             Ok((
-    //                 result,
-    //                 self.generate_storage_proof(&storage_entry, &height, "PacketCommitment")?,
-    //             ))
-    //         }
-    //         PacketMsgType::Ack => {
-    //             let storage_entry = ibc_node::ibc::storage::Acknowledgements(
-    //                 port_id.as_bytes(),
-    //                 channel_id_string.as_bytes(),
-    //                 &sequence,
-    //             );
-    //             Ok((
-    //                 result,
-    //                 self.generate_storage_proof(&storage_entry, &height, "Acknowledgements")?,
-    //             ))
-    //         }
-    //         PacketMsgType::TimeoutOnClose => {
-    //             Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
-    //         }
-    //         // Todo: https://github.com/cosmos/ibc/issues/620
-    //         PacketMsgType::TimeoutUnordered => {
-    //             Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
-    //         }
-    //         // Todo: https://github.com/cosmos/ibc/issues/620
-    //         PacketMsgType::TimeoutOrdered => {
-    //             let storage_entry = ibc_node::ibc::storage::NextSequenceRecv(
-    //                 port_id.as_bytes(),
-    //                 channel_id_string.as_bytes(),
-    //             );
-
-    //             Ok((
-    //                 result,
-    //                 self.generate_storage_proof(&storage_entry, &height, "NextSequenceRecv")?,
-    //             ))
-    //         } // Todo: Ordered channel not supported in ibc-rs. https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/link.rs#L135
-    //     }
-    // }
 
     fn build_client_state(
         &self,
@@ -1647,14 +1252,34 @@ impl ChainEndpoint for SubstrateChain {
         Ok(None)
     }
 
-    // TODO(davirain)
     fn query_blocks(
         &self,
         _request: QueryBlockRequest,
     ) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), RelayerError> {
         trace!("in substrate: [query_block]");
+        let QueryBlockRequest::Packet(value) = _request;
+        let request = octopusxt::requests::QueryBlockRequest::Packet(
+            octopusxt::requests::QueryPacketEventDataRequest {
+                event_id: value.event_id,
+                source_channel_id: value.source_channel_id,
+                source_port_id: value.source_port_id,
+                destination_channel_id: value.destination_channel_id,
+                destination_port_id: value.destination_port_id,
+                sequences: value.sequences,
+                height: match value.height {
+                    QueryHeight::Latest => octopusxt::requests::QueryHeight::Latest,
+                    QueryHeight::Specific(value) => {
+                        octopusxt::requests::QueryHeight::Specific(value)
+                    }
+                },
+            },
+        );
 
-        Ok((vec![], vec![]))
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let result = self.client.query_blocks(request).unwrap();
+
+        Ok(result)
     }
 
     // TODO(davirain)
@@ -1669,22 +1294,34 @@ impl ChainEndpoint for SubstrateChain {
         Ok(AnyConsensusState::Grandpa(GPConsensusState::default()))
     }
 
-    // TODO(davirain)
     fn query_balance(
         &self,
         key_name: Option<String>,
     ) -> Result<crate::account::Balance, RelayerError> {
         trace!("in substrate: [query_balance]");
-        todo!()
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let balance = self.client.query_balance(key_name).unwrap();
+
+        Ok(crate::account::Balance {
+            amount: balance.amount,
+            denom: balance.denom,
+        })
     }
 
-    // TODO(davirain)
     /// Query the denomination trace given a trace hash.
     fn query_denom_trace(&self, hash: String) -> Result<DenomTrace, RelayerError> {
-        todo!()
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let denom_trace = self.client.query_denom_trace(hash).unwrap();
+
+        Ok(DenomTrace {
+            path: denom_trace.path,
+            base_denom: denom_trace.base_denom,
+        })
     }
 
-    // TODO(davirain)
     fn query_packet_commitment(
         &self,
         request: QueryPacketCommitmentRequest,
@@ -1699,15 +1336,30 @@ impl ChainEndpoint for SubstrateChain {
             height,
         } = request;
 
-        match include_proof {
-            IncludeProof::Yes => todo!(),
-            IncludeProof::No => {
-                todo!()
-            }
-        }
+        let request = octopusxt::requests::QueryPacketCommitmentRequest {
+            port_id,
+            channel_id,
+            sequence,
+            height: match height {
+                QueryHeight::Latest => octopusxt::requests::QueryHeight::Latest,
+                QueryHeight::Specific(value) => octopusxt::requests::QueryHeight::Specific(value),
+            },
+        };
+
+        let include_proof = match include_proof {
+            IncludeProof::Yes => octopusxt::requests::IncludeProof::Yes,
+            IncludeProof::No => octopusxt::requests::IncludeProof::No,
+        };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let packet_commitment = self
+            .block_on(self.client.query_packet_commitment(request, include_proof))
+            .unwrap();
+
+        Ok(packet_commitment)
     }
 
-    // TODO(davirain)
     fn query_packet_receipt(
         &self,
         request: QueryPacketReceiptRequest,
@@ -1721,15 +1373,30 @@ impl ChainEndpoint for SubstrateChain {
             height,
         } = request;
 
-        match include_proof {
-            IncludeProof::Yes => todo!(),
-            IncludeProof::No => {
-                todo!()
-            }
-        }
+        let request = octopusxt::requests::QueryPacketReceiptRequest {
+            port_id,
+            channel_id,
+            sequence,
+            height: match height {
+                QueryHeight::Latest => octopusxt::requests::QueryHeight::Latest,
+                QueryHeight::Specific(value) => octopusxt::requests::QueryHeight::Specific(value),
+            },
+        };
+
+        let include_proof = match include_proof {
+            IncludeProof::Yes => octopusxt::requests::IncludeProof::Yes,
+            IncludeProof::No => octopusxt::requests::IncludeProof::No,
+        };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirain): REMOVE unwrap()
+        let packet_receipt = self
+            .block_on(self.client.query_packet_receipt(request, include_proof))
+            .unwrap();
+
+        Ok(packet_receipt)
     }
 
-    // TODO(davirain)
     fn query_packet_acknowledgement(
         &self,
         request: QueryPacketAcknowledgementRequest,
@@ -1743,12 +1410,31 @@ impl ChainEndpoint for SubstrateChain {
             height,
         } = request;
 
-        match include_proof {
-            IncludeProof::Yes => todo!(),
-            IncludeProof::No => {
-                todo!()
-            }
-        }
+        let request = octopusxt::requests::QueryPacketAcknowledgementRequest {
+            port_id,
+            channel_id,
+            sequence,
+            height: match height {
+                QueryHeight::Latest => octopusxt::requests::QueryHeight::Latest,
+                QueryHeight::Specific(value) => octopusxt::requests::QueryHeight::Specific(value),
+            },
+        };
+
+        let include_proof = match include_proof {
+            IncludeProof::Yes => octopusxt::requests::IncludeProof::Yes,
+            IncludeProof::No => octopusxt::requests::IncludeProof::No,
+        };
+
+        // FIXED: Now there we not use retry_wapper
+        // TODO(davirian): REMOVE unwrap()
+        let packet_acknowledgement = self
+            .block_on(
+                self.client
+                    .query_packet_acknowledgement(request, include_proof),
+            )
+            .unwrap();
+
+        Ok(packet_acknowledgement)
     }
 }
 

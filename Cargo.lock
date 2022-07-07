@@ -3091,7 +3091,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/ibc20-informal#acdcfa006b051a6eb3010f19f672f95c428ee4a9"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/ibc20-informal#4be86d3a5f92baf8869fb8f3cf4373600463f595"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5881,9 +5881,9 @@ dependencies = [
 
 [[package]]
 name = "triomphe"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eda0abf5a9b5ad4a5ac1393956ae03fb57033749d3983e2cac9afbfd5ae04ec2"
+checksum = "7fe1b3800b35f9b936c28dc59dbda91b195371269396784d931fe2a5a2be3d2f"
 
 [[package]]
 name = "try-lock"
