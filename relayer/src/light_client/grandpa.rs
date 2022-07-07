@@ -63,7 +63,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
             target: GPHeader {
                 block_header: BlockHeader {
                     parent_hash: vec![],
-                    block_number: target.revision_height as u32,
+                    block_number: target.revision_height() as u32,
                     state_root: vec![],
                     extrinsics_root: vec![],
                     digest: vec![],
@@ -74,7 +74,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
             supporting: vec![GPHeader {
                 block_header: BlockHeader {
                     parent_hash: vec![],
-                    block_number: trusted.revision_height as u32,
+                    block_number: trusted.revision_height() as u32,
                     state_root: vec![],
                     extrinsics_root: vec![],
                     digest: vec![],
@@ -105,7 +105,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
             // get block header
             let block_header = client
                 .query_header_by_block_number(Some(BlockNumber::from(
-                    target.revision_height as u32,
+                    target.revision_height() as u32,
                 )))
                 .await
                 .map_err(|_| Error::get_header_by_block_number_error())?;

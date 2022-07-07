@@ -179,7 +179,7 @@ impl SubstrateChain {
                 .await
                 .map_err(|_| RelayerError::substrate_client_builder_error())?;
 
-            let height = NumberOrHex::Number(height.revision_height);
+            let height = NumberOrHex::Number(height.revision_height());
 
             let block_hash: H256 = client
                 .rpc()
@@ -1060,7 +1060,8 @@ impl ChainEndpoint for SubstrateChain {
                 // replace it with real client event replied from a Substrate chain
                 let result: Vec<IbcEvent> = vec![IbcEvent::UpdateClient(
                     ibc::core::ics02_client::events::UpdateClient::from(Attributes {
-                        height: ICSHeight::new(0, self.get_latest_height().unwrap()),
+                        // todo(davrain) revision number is not do set zero
+                        height: ICSHeight::new(1, self.get_latest_height().unwrap()).unwrap(),
                         client_id: request.client_id,
                         client_type: ClientType::Grandpa,
                         consensus_height: request.consensus_height,
@@ -1117,7 +1118,7 @@ impl ChainEndpoint for SubstrateChain {
         // Build client state
         let client_state = GPClientState::new(
             self.id().clone(),
-            height.revision_height as u32,
+            height.revision_height() as u32,
             BlockHeader::default(),
             Commitment::default(),
             beefy_light_client.validator_set.into(),
@@ -1146,7 +1147,7 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(Self::Header, Vec<Self::Header>), RelayerError> {
         trace!("in substrate: [build_header]");
 
-        assert!(trusted_height.revision_height < target_height.revision_height);
+        assert!(trusted_height.revision_height() < target_height.revision_height());
 
         let grandpa_client_state = match client_state {
             AnyClientState::Grandpa(state) => state,
@@ -1154,9 +1155,9 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         // assert trust_height <= grandpa_client_state height
-        if trusted_height.revision_height > grandpa_client_state.block_number as u64 {
+        if trusted_height.revision_height() > grandpa_client_state.block_number as u64 {
             return Err(RelayerError::trust_height_miss_match_client_state_height(
-                trusted_height.revision_height,
+                trusted_height.revision_height(),
                 grandpa_client_state.block_number as u64,
             ));
         }
@@ -1170,14 +1171,14 @@ impl ChainEndpoint for SubstrateChain {
             } = grandpa_client_state.latest_commitment.clone().into();
 
             let mmr_root_height = block_number;
-            assert!((target_height.revision_height as u32) <= mmr_root_height);
+            assert!((target_height.revision_height() as u32) <= mmr_root_height);
 
             // get block header
 
             let block_header = self
                 .client
                 .query_header_by_block_number(Some(BlockNumber::from(
-                    target_height.revision_height as u32,
+                    target_height.revision_height() as u32,
                 )))
                 .await
                 .map_err(|_| RelayerError::get_header_by_block_number_error())?;
@@ -1186,7 +1187,7 @@ impl ChainEndpoint for SubstrateChain {
 
             assert_eq!(
                 block_header.block_number,
-                target_height.revision_height as u32
+                target_height.revision_height() as u32
             );
 
             let block_hash: Option<H256> = api
@@ -1200,7 +1201,7 @@ impl ChainEndpoint for SubstrateChain {
                 .client
                 .query_mmr_leaf_and_mmr_proof(
                     Some(BlockNumber::from(
-                        (target_height.revision_height - 1) as u32,
+                        (target_height.revision_height() - 1) as u32,
                     )),
                     block_hash,
                 )
@@ -1503,7 +1504,7 @@ pub fn get_dummy_ics07_header() -> tHeader {
     tHeader {
         signed_header: shdr,
         validator_set: vs.clone(),
-        trusted_height: ICSHeight::new(0, 1),
+        trusted_height: ICSHeight::new(1, 1).unwrap(), // todo(daviiran) handle revisions number
         trusted_validator_set: vs,
     }
 }

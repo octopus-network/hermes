@@ -980,23 +980,6 @@ fn from_raw_event_to_batch_event(
                 tracking_id: TrackingId::new_uuid(),
             })
         }
-        "Empty" => {
-            let event =
-                <ibc_node::ibc::events::Empty as codec::Decode>::decode(&mut &raw_event.data[..])
-                    .map_err(Error::invalid_codec_decode)?;
-            trace!("in substrate_monitor: [substrate_events] >> Empty Event");
-
-            let data = String::from_utf8(event.0).map_err(|_| Error::invalid_from_utf8())?;
-
-            let event = IbcEvent::Empty(data);
-
-            Ok(EventBatch {
-                height: Height::default(),
-                events: vec![event],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
-        }
         "ChainError" => {
             let event = <ibc_node::ibc::events::ChainError as codec::Decode>::decode(
                 &mut &raw_event.data[..],
@@ -1006,10 +989,10 @@ fn from_raw_event_to_batch_event(
 
             let data = String::from_utf8(event.0).map_err(|_| Error::invalid_from_utf8())?;
 
-            let event = IbcEvent::Empty(data);
+            let event = IbcEvent::ChainError(data);
 
             Ok(EventBatch {
-                height: Height::default(),
+                height: Height::new(1, 1).unwrap(), // todo(daviiran) to set revision number
                 events: vec![event],
                 chain_id,
                 tracking_id: TrackingId::new_uuid(),
@@ -1023,11 +1006,11 @@ fn from_raw_event_to_batch_event(
             trace!("In substrate_monitor: [subscribe_events] >> ExtrinsicSuccess Event");
 
             let event = IbcEvent::NewBlock(ibc::core::ics02_client::events::NewBlock {
-                height: Height::new(0, height), // Todo: to set revision_number
+                height: Height::new(1, height).unwrap(), // Todo(davirain): to set revision_number
             });
 
             Ok(EventBatch {
-                height: Height::new(0, height), // Todo: to set revision_number
+                height: Height::new(1, height).unwrap(), // Todo(davirian): to set revision_number
                 events: vec![event],
                 chain_id,
                 tracking_id: TrackingId::new_uuid(),
@@ -1035,7 +1018,7 @@ fn from_raw_event_to_batch_event(
         }
         _ => {
             Ok(EventBatch {
-                height: Height::new(0, height), // Todo: to set revision_number
+                height: Height::new(0, height).unwrap(), // Todo: to set revision_number
                 events: vec![],
                 chain_id,
                 tracking_id: TrackingId::new_uuid(),

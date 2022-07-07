@@ -3091,7 +3091,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/ibc20-informal#4be86d3a5f92baf8869fb8f3cf4373600463f595"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/ibc20-informal#fe7c7f533d255b8378af13b9c4ba6963507b5c31"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3110,6 +3110,7 @@ dependencies = [
  "parity-scale-codec",
  "prost-types",
  "serde",
+ "serde_json",
  "sp-core",
  "sp-keyring",
  "sp-runtime",
