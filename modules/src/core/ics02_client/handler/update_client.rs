@@ -136,10 +136,10 @@ mod tests {
 
         let timestamp = Timestamp::now();
 
-        let ctx = MockContext::default().with_client(&client_id, Height::new(0, 42));
+        let ctx = MockContext::default().with_client(&client_id, Height::new(0, 42).unwrap());
         let msg = MsgUpdateAnyClient {
             client_id: client_id.clone(),
-            header: MockHeader::new(Height::new(0, 46))
+            header: MockHeader::new(Height::new(0, 46).unwrap())
                 .with_timestamp(timestamp)
                 .into(),
             signer,
@@ -185,11 +185,11 @@ mod tests {
         let client_id = ClientId::from_str("mockclient1").unwrap();
         let signer = get_dummy_account_id();
 
-        let ctx = MockContext::default().with_client(&client_id, Height::new(0, 42));
+        let ctx = MockContext::default().with_client(&client_id, Height::new(0, 42).unwrap());
 
         let msg = MsgUpdateAnyClient {
             client_id: ClientId::from_str("nonexistingclient").unwrap(),
-            header: MockHeader::new(Height::new(0, 46)).into(),
+            header: MockHeader::new(Height::new(0, 46).unwrap()).into(),
             signer,
         };
 
@@ -213,8 +213,8 @@ mod tests {
             ClientId::from_str("mockclient3").unwrap(),
         ];
         let signer = get_dummy_account_id();
-        let initial_height = Height::new(0, 45);
-        let update_height = Height::new(0, 49);
+        let initial_height = Height::new(0, 45).unwrap();
+        let update_height = Height::new(0, 49).unwrap();
 
         let mut ctx = MockContext::default();
 
@@ -255,14 +255,14 @@ mod tests {
     #[test]
     fn test_update_synthetic_tendermint_client_adjacent_ok() {
         let client_id = ClientId::new(ClientType::Tendermint, 0).unwrap();
-        let client_height = Height::new(1, 20);
-        let update_height = Height::new(1, 21);
+        let client_height = Height::new(1, 20).unwrap();
+        let update_height = Height::new(1, 21).unwrap();
 
         let ctx = MockContext::new(
             ChainId::new("mockgaiaA".to_string(), 1),
             HostType::Mock,
             5,
-            Height::new(1, 1),
+            Height::new(1, 1).unwrap(),
         )
         .with_client_parametrized(
             &client_id,
@@ -332,14 +332,14 @@ mod tests {
     #[test]
     fn test_update_synthetic_tendermint_client_non_adjacent_ok() {
         let client_id = ClientId::new(ClientType::Tendermint, 0).unwrap();
-        let client_height = Height::new(1, 20);
-        let update_height = Height::new(1, 21);
+        let client_height = Height::new(1, 20).unwrap();
+        let update_height = Height::new(1, 21).unwrap();
 
         let ctx = MockContext::new(
             ChainId::new("mockgaiaA".to_string(), 1),
             HostType::Mock,
             5,
-            Height::new(1, 1),
+            Height::new(1, 1).unwrap(),
         )
         .with_client_parametrized_history(
             &client_id,
@@ -360,7 +360,7 @@ mod tests {
         let block_ref = ctx_b.host_block(update_height);
         let mut latest_header: AnyHeader = block_ref.cloned().map(Into::into).unwrap();
 
-        let trusted_height = client_height.clone().sub(1).unwrap_or_default();
+        let trusted_height = client_height.clone().sub(1).unwrap();
 
         latest_header = match latest_header {
             AnyHeader::Tendermint(mut theader) => {
@@ -411,9 +411,9 @@ mod tests {
     #[test]
     fn test_update_synthetic_tendermint_client_duplicate_ok() {
         let client_id = ClientId::new(ClientType::Tendermint, 0).unwrap();
-        let client_height = Height::new(1, 20);
+        let client_height = Height::new(1, 20).unwrap();
 
-        let chain_start_height = Height::new(1, 11);
+        let chain_start_height = Height::new(1, 11).unwrap();
 
         let ctx = MockContext::new(
             ChainId::new("mockgaiaA".to_string(), 1),
@@ -443,7 +443,7 @@ mod tests {
                 let cons_state = ctx.latest_consensus_states(&client_id, &client_height);
                 if let AnyConsensusState::Tendermint(tcs) = cons_state {
                     theader.signed_header.header.time = tcs.timestamp;
-                    theader.trusted_height = Height::new(1, 11)
+                    theader.trusted_height = Height::new(1, 11).unwrap()
                 }
                 AnyHeader::Tendermint(theader)
             }
@@ -492,11 +492,11 @@ mod tests {
     #[test]
     fn test_update_synthetic_tendermint_client_lower_height() {
         let client_id = ClientId::new(ClientType::Tendermint, 0).unwrap();
-        let client_height = Height::new(1, 20);
+        let client_height = Height::new(1, 20).unwrap();
 
-        let client_update_height = Height::new(1, 19);
+        let client_update_height = Height::new(1, 19).unwrap();
 
-        let chain_start_height = Height::new(1, 11);
+        let chain_start_height = Height::new(1, 11).unwrap();
 
         let ctx = MockContext::new(
             ChainId::new("mockgaiaA".to_string(), 1),

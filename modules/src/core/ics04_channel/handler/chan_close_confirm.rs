@@ -19,11 +19,11 @@ pub(crate) fn process<HostFunctions: HostFunctionsProvider + 'static>(
     let mut output = HandlerOutput::builder();
 
     // Retrieve the old channel end and validate it against the message.
-    let mut channel_end = ctx.channel_end(&(msg.port_id.clone(), msg.channel_id))?;
+    let mut channel_end = ctx.channel_end(&(msg.port_id.clone(), msg.channel_id.clone()))?;
 
     // Validate that the channel end is in a state where it can be closed.
     if channel_end.state_matches(&State::Closed) {
-        return Err(Error::channel_closed(msg.channel_id));
+        return Err(Error::channel_closed(msg.channel_id.clone()));
     }
 
     // An OPEN IBC connection running on the local (host) chain should exist.
@@ -45,7 +45,8 @@ pub(crate) fn process<HostFunctions: HostFunctionsProvider + 'static>(
     // Proof verification in two steps:
     // 1. Setup: build the Channel as we expect to find it on the other party.
 
-    let expected_counterparty = Counterparty::new(msg.port_id.clone(), Some(msg.channel_id));
+    let expected_counterparty =
+        Counterparty::new(msg.port_id.clone(), Some(msg.channel_id.clone()));
 
     let counterparty = conn.counterparty();
     let ccid = counterparty.connection_id().ok_or_else(|| {
@@ -78,13 +79,13 @@ pub(crate) fn process<HostFunctions: HostFunctionsProvider + 'static>(
 
     let result = ChannelResult {
         port_id: msg.port_id.clone(),
-        channel_id: msg.channel_id,
+        channel_id: msg.channel_id.clone(),
         channel_id_state: ChannelIdState::Reused,
         channel_end,
     };
 
     let event_attributes = Attributes {
-        channel_id: Some(msg.channel_id),
+        channel_id: Some(msg.channel_id.clone()),
         height: ctx.host_height(),
         port_id: msg.port_id.clone(),
         ..Default::default()
@@ -139,7 +140,7 @@ mod tests {
         );
 
         let msg_chan_close_confirm = MsgChannelCloseConfirm::try_from(
-            get_dummy_raw_msg_chan_close_confirm(client_consensus_state_height.revision_height),
+            get_dummy_raw_msg_chan_close_confirm(client_consensus_state_height.revision_height()),
         )
         .unwrap();
 
@@ -148,7 +149,7 @@ mod tests {
             Order::default(),
             Counterparty::new(
                 msg_chan_close_confirm.port_id.clone(),
-                Some(msg_chan_close_confirm.channel_id),
+                Some(msg_chan_close_confirm.channel_id.clone()),
             ),
             vec![conn_id.clone()],
             Version::default(),
@@ -159,7 +160,7 @@ mod tests {
             .with_connection(conn_id, conn_end)
             .with_channel(
                 msg_chan_close_confirm.port_id.clone(),
-                msg_chan_close_confirm.channel_id,
+                msg_chan_close_confirm.channel_id.clone(),
                 chan_end,
             );
 

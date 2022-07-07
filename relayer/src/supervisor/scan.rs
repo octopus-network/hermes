@@ -353,7 +353,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
 
                     connection_scan
                         .channels
-                        .entry(channel.channel_id)
+                        .entry(channel.channel_id.clone())
                         .or_insert_with(|| ChannelScan::new(channel, counterparty_channel));
                 }
                 Err(e) => error!(channel = %channel_id, "failed to scan channel, reason: {}", e),
@@ -489,7 +489,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
                     counterparty,
                 };
 
-                (*scan.id(), scan)
+                (scan.id().clone(), scan)
             })
             .collect();
 
@@ -628,7 +628,7 @@ fn scan_allowed_channel<Chain: ChainHandle>(
     {
         return Err(Error::uninitialized_channel(
             port_id.clone(),
-            *channel_id,
+            channel_id.clone(),
             chain.id(),
         ));
     }
@@ -717,7 +717,7 @@ fn query_channel<Chain: ChainHandle>(
         .query_channel(
             QueryChannelRequest {
                 port_id: port_id.clone(),
-                channel_id: *channel_id,
+                channel_id: channel_id.clone(),
                 height: QueryHeight::Latest,
             },
             IncludeProof::No,
@@ -726,7 +726,7 @@ fn query_channel<Chain: ChainHandle>(
 
     Ok(IdentifiedChannelEnd::new(
         port_id.clone(),
-        *channel_id,
+        channel_id.clone(),
         channel_end,
     ))
 }
@@ -741,7 +741,11 @@ fn query_connection_for_channel<Chain: ChainHandle>(
         .first()
         .cloned()
         .ok_or_else(|| {
-            Error::missing_connection_hop(channel.port_id.clone(), channel.channel_id, chain.id())
+            Error::missing_connection_hop(
+                channel.port_id.clone(),
+                channel.channel_id.clone(),
+                chain.id(),
+            )
         })?;
 
     query_connection(chain, &connection_id)

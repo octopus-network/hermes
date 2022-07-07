@@ -58,11 +58,11 @@ where
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Ics02Error> {
-        if header.height().revision_number != client_state.chain_id.version() {
+        if header.height().revision_number() != client_state.chain_id.version() {
             return Err(Ics02Error::tendermint_handler_error(
                 Error::mismatched_revisions(
                     client_state.chain_id.version(),
-                    header.height().revision_number,
+                    header.height().revision_number(),
                 ),
             ));
         }
@@ -93,11 +93,11 @@ where
             header_time: trusted_consensus_state.timestamp,
             height: header
                 .trusted_height
-                .revision_height
+                .revision_height()
                 .try_into()
                 .map_err(|_| {
                     Ics02Error::tendermint_handler_error(Error::invalid_header_height(
-                        header.trusted_height,
+                        header.trusted_height.revision_height(),
                     ))
                 })?,
             next_validators: &header.trusted_validator_set,
@@ -192,7 +192,7 @@ where
         }
 
         Ok((
-            client_state.with_header(header.clone()),
+            client_state.with_header(header.clone())?,
             ConsensusState::from(header),
         ))
     }
@@ -212,8 +212,8 @@ where
 
         let path = ClientConsensusStatePath {
             client_id: client_id.clone(),
-            epoch: consensus_height.revision_number,
-            height: consensus_height.revision_height,
+            epoch: consensus_height.revision_number(),
+            height: consensus_height.revision_height(),
         };
         let value = expected_consensus_state
             .encode_vec()
@@ -253,7 +253,7 @@ where
     ) -> Result<(), Ics02Error> {
         client_state.verify_height(height)?;
 
-        let path = ChannelEndsPath(port_id.clone(), *channel_id);
+        let path = ChannelEndsPath(port_id.clone(), channel_id.clone());
         let value = expected_channel_end
             .encode_vec()
             .map_err(Ics02Error::invalid_channel_end)?;
@@ -297,7 +297,7 @@ where
 
         let commitment_path = CommitmentsPath {
             port_id: port_id.clone(),
-            channel_id: *channel_id,
+            channel_id: channel_id.clone(),
             sequence,
         };
         verify_membership::<H, _>(
@@ -328,7 +328,7 @@ where
 
         let ack_path = AcksPath {
             port_id: port_id.clone(),
-            channel_id: *channel_id,
+            channel_id: channel_id.clone(),
             sequence,
         };
         verify_membership::<H, _>(
@@ -361,7 +361,7 @@ where
             .encode(&mut seq_bytes)
             .expect("buffer size too small");
 
-        let seq_path = SeqRecvsPath(port_id.clone(), *channel_id);
+        let seq_path = SeqRecvsPath(port_id.clone(), channel_id.clone());
         verify_membership::<H, _>(
             client_state,
             connection_end.counterparty().prefix(),
@@ -389,7 +389,7 @@ where
 
         let receipt_path = ReceiptsPath {
             port_id: port_id.clone(),
-            channel_id: *channel_id,
+            channel_id: channel_id.clone(),
             sequence,
         };
         verify_non_membership::<H, _>(

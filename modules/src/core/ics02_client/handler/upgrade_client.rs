@@ -102,12 +102,13 @@ mod tests {
         let client_id = ClientId::default();
         let signer = get_dummy_account_id();
 
-        let ctx = MockContext::default().with_client(&client_id, Height::new(0, 42));
+        let ctx = MockContext::default().with_client(&client_id, Height::new(0, 42).unwrap());
 
         let msg = MsgUpgradeAnyClient {
             client_id: client_id.clone(),
-            client_state: MockClientState::new(MockHeader::new(Height::new(1, 26))).into(),
-            consensus_state: MockConsensusState::new(MockHeader::new(Height::new(1, 26))).into(),
+            client_state: MockClientState::new(MockHeader::new(Height::new(1, 26).unwrap())).into(),
+            consensus_state: MockConsensusState::new(MockHeader::new(Height::new(1, 26).unwrap()))
+                .into(),
             proof_upgrade_client: Default::default(),
             proof_upgrade_consensus_state: Default::default(),
             signer,
@@ -148,12 +149,13 @@ mod tests {
         let client_id = ClientId::from_str("mockclient1").unwrap();
         let signer = get_dummy_account_id();
 
-        let ctx = MockContext::default().with_client(&client_id, Height::new(0, 42));
+        let ctx = MockContext::default().with_client(&client_id, Height::new(0, 42).unwrap());
 
         let msg = MsgUpgradeAnyClient {
             client_id: ClientId::from_str("nonexistingclient").unwrap(),
-            client_state: MockClientState::new(MockHeader::new(Height::new(1, 26))).into(),
-            consensus_state: MockConsensusState::new(MockHeader::new(Height::new(1, 26))).into(),
+            client_state: MockClientState::new(MockHeader::new(Height::new(1, 26).unwrap())).into(),
+            consensus_state: MockConsensusState::new(MockHeader::new(Height::new(1, 26).unwrap()))
+                .into(),
             proof_upgrade_client: Default::default(),
             proof_upgrade_consensus_state: Default::default(),
             signer,
@@ -176,12 +178,13 @@ mod tests {
         let client_id = ClientId::default();
         let signer = get_dummy_account_id();
 
-        let ctx = MockContext::default().with_client(&client_id, Height::new(0, 42));
+        let ctx = MockContext::default().with_client(&client_id, Height::new(0, 42).unwrap());
 
         let msg = MsgUpgradeAnyClient {
             client_id,
-            client_state: MockClientState::new(MockHeader::new(Height::new(0, 26))).into(),
-            consensus_state: MockConsensusState::new(MockHeader::new(Height::new(0, 26))).into(),
+            client_state: MockClientState::new(MockHeader::new(Height::new(0, 26).unwrap())).into(),
+            consensus_state: MockConsensusState::new(MockHeader::new(Height::new(0, 26).unwrap()))
+                .into(),
             proof_upgrade_client: Default::default(),
             proof_upgrade_consensus_state: Default::default(),
             signer,
@@ -191,7 +194,7 @@ mod tests {
 
         match output {
             Err(Error(ErrorDetail::LowUpgradeHeight(e), _)) => {
-                assert_eq!(e.upgraded_height, Height::new(0, 42));
+                assert_eq!(e.upgraded_height, Height::new(0, 42).unwrap());
                 assert_eq!(e.client_height, msg.client_state.latest_height());
             }
             _ => {

@@ -2036,7 +2036,7 @@ dependencies = [
 
 [[package]]
 name = "ibc"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "beefy-light-client",
  "beefy-merkle-tree",
@@ -2085,7 +2085,7 @@ dependencies = [
 
 [[package]]
 name = "ibc-integration-test"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "ibc",
  "ibc-proto",
@@ -2102,7 +2102,7 @@ dependencies = [
 
 [[package]]
 name = "ibc-proto"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "base64",
  "bytes",
@@ -2116,7 +2116,7 @@ dependencies = [
 
 [[package]]
 name = "ibc-relayer"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -2184,7 +2184,7 @@ dependencies = [
 
 [[package]]
 name = "ibc-relayer-cli"
-version = "0.15.0"
+version = "1.0.0-rc.0"
 dependencies = [
  "abscissa_core",
  "atty",
@@ -2227,7 +2227,7 @@ dependencies = [
 
 [[package]]
 name = "ibc-relayer-rest"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "crossbeam-channel 0.5.5",
  "ibc",
@@ -2242,7 +2242,7 @@ dependencies = [
 
 [[package]]
 name = "ibc-telemetry"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "crossbeam-channel 0.5.5",
  "dashmap 5.3.4",
@@ -2259,7 +2259,7 @@ dependencies = [
 
 [[package]]
 name = "ibc-test-framework"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "async-trait",
  "color-eyre",

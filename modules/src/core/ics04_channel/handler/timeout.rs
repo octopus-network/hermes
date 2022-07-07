@@ -22,30 +22,36 @@ pub struct TimeoutPacketResult {
     pub channel: Option<ChannelEnd>,
 }
 
+/// TimeoutPacket is called by a module which originally attempted to send a
+/// packet to a counterparty module, where the timeout height has passed on the
+/// counterparty chain without the packet being committed, to prove that the
+/// packet can no longer be executed and to allow the calling module to safely
+/// perform appropriate state transitions.
 pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
     ctx: &dyn ChannelReader,
     msg: &MsgTimeout,
 ) -> HandlerResult<PacketResult, Error> {
+
     let mut output = HandlerOutput::builder();
 
     let packet = &msg.packet;
 
     let mut source_channel_end =
-        ctx.channel_end(&(packet.source_port.clone(), packet.source_channel))?;
+        ctx.channel_end(&(packet.source_port.clone(), packet.source_channel.clone()))?;
 
     if !source_channel_end.state_matches(&State::Open) {
-        return Err(Error::channel_closed(packet.source_channel));
+        return Err(Error::channel_closed(packet.source_channel.clone()));
     }
 
     let counterparty = Counterparty::new(
         packet.destination_port.clone(),
-        Some(packet.destination_channel),
+        Some(packet.destination_channel.clone()),
     );
 
     if !source_channel_end.counterparty_matches(&counterparty) {
         return Err(Error::invalid_packet_counterparty(
             packet.destination_port.clone(),
-            packet.destination_channel,
+            packet.destination_channel.clone(),
         ));
     }
 
@@ -55,9 +61,8 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
 
     // check that timeout height or timeout timestamp has passed on the other end
     let proof_height = msg.proofs.height();
-    let packet_height = packet.timeout_height;
 
-    if (!packet.timeout_height.is_zero()) && packet_height > proof_height {
+    if packet.timeout_height.has_expired(proof_height) {
         return Err(Error::packet_timeout_height_not_reached(
             packet.timeout_height,
             proof_height,
@@ -79,7 +84,7 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
     //verify packet commitment
     let packet_commitment = ctx.get_packet_commitment(&(
         packet.source_port.clone(),
-        packet.source_channel,
+        packet.source_channel.clone(),
         packet.sequence,
     ))?;
 
@@ -111,7 +116,7 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
         source_channel_end.state = State::Closed;
         PacketResult::Timeout(TimeoutPacketResult {
             port_id: packet.source_port.clone(),
-            channel_id: packet.source_channel,
+            channel_id: packet.source_channel.clone(),
             seq: packet.sequence,
             channel: Some(source_channel_end),
         })
@@ -126,7 +131,7 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
 
         PacketResult::Timeout(TimeoutPacketResult {
             port_id: packet.source_port.clone(),
-            channel_id: packet.source_channel,
+            channel_id: packet.source_channel.clone(),
             seq: packet.sequence,
             channel: None,
         })
@@ -174,13 +179,18 @@ mod tests {
 
         let context = MockContext::default();
 
-        let height = Height::default().revision_height + 2;
+        let msg_proof_height = 2;
+        let msg_timeout_height = 5;
         let timeout_timestamp = 5;
 
-        let client_height = Height::new(0, Height::default().revision_height + 2);
+        let client_height = Height::new(0, 2).unwrap();
 
-        let msg =
-            MsgTimeout::try_from(get_dummy_raw_msg_timeout(height, timeout_timestamp)).unwrap();
+        let msg = MsgTimeout::try_from(get_dummy_raw_msg_timeout(
+            msg_proof_height,
+            msg_timeout_height,
+            timeout_timestamp,
+        ))
+        .unwrap();
         let packet = msg.packet.clone();
 
         let mut msg_ok = msg.clone();
@@ -197,7 +207,7 @@ mod tests {
             Order::default(),
             Counterparty::new(
                 packet.destination_port.clone(),
-                Some(packet.destination_channel),
+                Some(packet.destination_channel.clone()),
             ),
             vec![ConnectionId::default()],
             Version::ics20(),
@@ -257,12 +267,12 @@ mod tests {
                     .with_connection(ConnectionId::default(), connection_end.clone())
                     .with_channel(
                         packet.source_port.clone(),
-                        packet.source_channel,
+                        packet.source_channel.clone(),
                         source_channel_end,
                     )
                     .with_packet_commitment(
                         msg_ok.packet.source_port.clone(),
-                        msg_ok.packet.source_channel,
+                        msg_ok.packet.source_channel.clone(),
                         msg_ok.packet.sequence,
                         data.clone(),
                     ),
@@ -281,7 +291,7 @@ mod tests {
                     )
                     .with_packet_commitment(
                         msg_ok.packet.source_port.clone(),
-                        msg_ok.packet.source_channel,
+                        msg_ok.packet.source_channel.clone(),
                         msg_ok.packet.sequence,
                         data,
                     )

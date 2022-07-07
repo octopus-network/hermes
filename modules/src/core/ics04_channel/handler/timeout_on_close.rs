@@ -24,17 +24,17 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
     let packet = &msg.packet;
 
     let source_channel_end =
-        ctx.channel_end(&(packet.source_port.clone(), packet.source_channel))?;
+        ctx.channel_end(&(packet.source_port.clone(), packet.source_channel.clone()))?;
 
     let counterparty = Counterparty::new(
         packet.destination_port.clone(),
-        Some(packet.destination_channel),
+        Some(packet.destination_channel.clone()),
     );
 
     if !source_channel_end.counterparty_matches(&counterparty) {
         return Err(Error::invalid_packet_counterparty(
             packet.destination_port.clone(),
-            packet.destination_channel,
+            packet.destination_channel.clone(),
         ));
     }
 
@@ -43,7 +43,7 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
     //verify the packet was sent, check the store
     let packet_commitment = ctx.get_packet_commitment(&(
         packet.source_port.clone(),
-        packet.source_channel,
+        packet.source_channel.clone(),
         packet.sequence,
     ))?;
 
@@ -56,8 +56,10 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
         return Err(Error::incorrect_packet_commitment(packet.sequence));
     }
 
-    let expected_counterparty =
-        Counterparty::new(packet.source_port.clone(), Some(packet.source_channel));
+    let expected_counterparty = Counterparty::new(
+        packet.source_port.clone(),
+        Some(packet.source_channel.clone()),
+    );
 
     let counterparty = connection_end.counterparty();
     let ccid = counterparty.connection_id().ok_or_else(|| {
@@ -101,7 +103,7 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
 
         PacketResult::Timeout(TimeoutPacketResult {
             port_id: packet.source_port.clone(),
-            channel_id: packet.source_channel,
+            channel_id: packet.source_channel.clone(),
             seq: packet.sequence,
             channel: Some(source_channel_end),
         })
@@ -116,7 +118,7 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
 
         PacketResult::Timeout(TimeoutPacketResult {
             port_id: packet.source_port.clone(),
-            channel_id: packet.source_channel,
+            channel_id: packet.source_channel.clone(),
             seq: packet.sequence,
             channel: None,
         })
@@ -164,10 +166,10 @@ mod tests {
 
         let context = MockContext::default();
 
-        let height = Height::default().revision_height + 2;
+        let height = 2;
         let timeout_timestamp = 5;
 
-        let client_height = Height::new(0, Height::default().revision_height + 2);
+        let client_height = Height::new(0, 2).unwrap();
 
         let msg = MsgTimeoutOnClose::try_from(get_dummy_raw_msg_timeout_on_close(
             height,
@@ -231,13 +233,13 @@ mod tests {
                     .with_client(&ClientId::default(), client_height)
                     .with_connection(ConnectionId::default(), connection_end)
                     .with_channel(
-                        packet.source_port.clone(),
+                        packet.source_port,
                         packet.source_channel,
                         source_channel_end,
                     )
                     .with_packet_commitment(
                         msg.packet.source_port.clone(),
-                        msg.packet.source_channel,
+                        msg.packet.source_channel.clone(),
                         msg.packet.sequence,
                         data,
                     ),

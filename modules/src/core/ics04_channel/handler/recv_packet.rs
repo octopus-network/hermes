@@ -11,7 +11,6 @@ use crate::core::ics24_host::identifier::{ChannelId, PortId};
 use crate::events::IbcEvent;
 use crate::handler::{HandlerOutput, HandlerResult};
 use crate::timestamp::Expiry;
-use crate::Height;
 
 #[derive(Clone, Debug)]
 pub enum RecvPacketResult {
@@ -39,22 +38,27 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
 
     let packet = &msg.packet;
 
-    let dest_channel_end =
-        ctx.channel_end(&(packet.destination_port.clone(), packet.destination_channel))?;
+    let dest_channel_end = ctx.channel_end(&(
+        packet.destination_port.clone(),
+        packet.destination_channel.clone(),
+    ))?;
 
     if !dest_channel_end.state_matches(&State::Open) {
         return Err(Error::invalid_channel_state(
-            packet.source_channel,
+            packet.source_channel.clone(),
             dest_channel_end.state,
         ));
     }
 
-    let counterparty = Counterparty::new(packet.source_port.clone(), Some(packet.source_channel));
+    let counterparty = Counterparty::new(
+        packet.source_port.clone(),
+        Some(packet.source_channel.clone()),
+    );
 
     if !dest_channel_end.counterparty_matches(&counterparty) {
         return Err(Error::invalid_packet_counterparty(
             packet.source_port.clone(),
-            packet.source_channel,
+            packet.source_channel.clone(),
         ));
     }
 
@@ -67,7 +71,7 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
     }
 
     let latest_height = ctx.host_height();
-    if (!packet.timeout_height.is_zero()) && (packet.timeout_height <= latest_height) {
+    if packet.timeout_height.has_expired(latest_height) {
         return Err(Error::low_packet_height(
             latest_height,
             packet.timeout_height,
@@ -90,12 +94,12 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
     let result = if dest_channel_end.order_matches(&Order::Ordered) {
         let next_seq_recv = ctx.get_next_sequence_recv(&(
             packet.destination_port.clone(),
-            packet.destination_channel,
+            packet.destination_channel.clone(),
         ))?;
 
         if packet.sequence < next_seq_recv {
             output.emit(IbcEvent::ReceivePacket(ReceivePacket {
-                height: Height::zero(),
+                height: ctx.host_height(),
                 packet: msg.packet.clone(),
             }));
             return Ok(output.with_result(PacketResult::Recv(RecvPacketResult::NoOp)));
@@ -108,20 +112,20 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
 
         PacketResult::Recv(RecvPacketResult::Ordered {
             port_id: packet.destination_port.clone(),
-            channel_id: packet.destination_channel,
+            channel_id: packet.destination_channel.clone(),
             next_seq_recv: next_seq_recv.increment(),
         })
     } else {
         let packet_rec = ctx.get_packet_receipt(&(
             packet.destination_port.clone(),
-            packet.destination_channel,
+            packet.destination_channel.clone(),
             packet.sequence,
         ));
 
         match packet_rec {
             Ok(_receipt) => {
                 output.emit(IbcEvent::ReceivePacket(ReceivePacket {
-                    height: Height::zero(),
+                    height: ctx.host_height(),
                     packet: msg.packet.clone(),
                 }));
                 return Ok(output.with_result(PacketResult::Recv(RecvPacketResult::NoOp)));
@@ -130,7 +134,7 @@ pub fn process<HostFunctions: HostFunctionsProvider + 'static>(
                 // store a receipt that does not contain any data
                 PacketResult::Recv(RecvPacketResult::Unordered {
                     port_id: packet.destination_port.clone(),
-                    channel_id: packet.destination_channel,
+                    channel_id: packet.destination_channel.clone(),
                     sequence: packet.sequence,
                     receipt: Receipt::Ok,
                 })
@@ -189,9 +193,10 @@ mod tests {
 
         let client_height = host_height.increment();
 
-        let msg =
-            MsgRecvPacket::try_from(get_dummy_raw_msg_recv_packet(client_height.revision_height))
-                .unwrap();
+        let msg = MsgRecvPacket::try_from(get_dummy_raw_msg_recv_packet(
+            client_height.revision_height(),
+        ))
+        .unwrap();
 
         let packet = msg.packet.clone();
 
@@ -202,7 +207,7 @@ mod tests {
             destination_port: PortId::default(),
             destination_channel: ChannelId::default(),
             data: Vec::new(),
-            timeout_height: client_height,
+            timeout_height: client_height.into(),
             timeout_timestamp: Timestamp::from_nanoseconds(1).unwrap(),
         };
 
@@ -244,19 +249,19 @@ mod tests {
                     .with_connection(ConnectionId::default(), connection_end.clone())
                     .with_channel(
                         packet.destination_port.clone(),
-                        packet.destination_channel,
+                        packet.destination_channel.clone(),
                         dest_channel_end.clone(),
                     )
                     .with_send_sequence(
                         packet.destination_port.clone(),
-                        packet.destination_channel,
+                        packet.destination_channel.clone(),
                         1.into(),
                     )
                     .with_height(host_height)
                     // This `with_recv_sequence` is required for ordered channels
                     .with_recv_sequence(
                         packet.destination_port.clone(),
-                        packet.destination_channel,
+                        packet.destination_channel.clone(),
                         packet.sequence,
                     ),
                 msg,

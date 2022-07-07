@@ -1,4 +1,5 @@
 use super::packet::Sequence;
+use super::timeout::TimeoutHeight;
 use crate::core::ics02_client::error as client_error;
 use crate::core::ics03_connection::error as connection_error;
 use crate::core::ics04_channel::channel::State;
@@ -85,9 +86,6 @@ define_error! {
 
         ZeroPacketData
             | _ | { "packet data bytes cannot be empty" },
-
-        ZeroPacketTimeout
-            | _ | { "packet timeout height and packet timeout timestamp cannot both be 0" },
 
         InvalidTimeoutHeight
             | _ | { "invalid timeout height for the packet" },
@@ -224,7 +222,7 @@ define_error! {
         LowPacketHeight
             {
                 chain_height: Height,
-                timeout_height: Height
+                timeout_height: TimeoutHeight
             }
             | e | {
                 format_args!(
@@ -234,7 +232,7 @@ define_error! {
 
         PacketTimeoutHeightNotReached
             {
-                timeout_height: Height,
+                timeout_height: TimeoutHeight,
                 chain_height: Height,
             }
             | e | {

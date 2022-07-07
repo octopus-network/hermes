@@ -161,6 +161,9 @@ define_error! {
             [ HeightError ]
             | e | { format_args!("String {0} cannnot be converted to height", e.value) },
 
+        InvalidHeight
+            | _ | { "revision height cannot be zero" },
+
         InvalidHeightResult
             | _ | { "height cannot end up zero or negative" },
 

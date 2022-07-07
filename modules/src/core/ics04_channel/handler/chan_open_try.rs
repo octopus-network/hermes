@@ -23,7 +23,7 @@ pub(crate) fn process<HostFunctions: HostFunctionsProvider + 'static>(
     // Unwrap the old channel end (if any) and validate it against the message.
     let (mut new_channel_end, channel_id) = match &msg.previous_channel_id {
         Some(prev_id) => {
-            let old_channel_end = ctx.channel_end(&(msg.port_id.clone(), *prev_id))?;
+            let old_channel_end = ctx.channel_end(&(msg.port_id.clone(), prev_id.clone()))?;
 
             // Validate that existing channel end matches with the one we're trying to establish.
             if old_channel_end.state_matches(&State::Init)
@@ -33,10 +33,10 @@ pub(crate) fn process<HostFunctions: HostFunctionsProvider + 'static>(
                 && old_channel_end.version_matches(msg.channel.version())
             {
                 // A ChannelEnd already exists and all validation passed.
-                Ok((old_channel_end, *prev_id))
+                Ok((old_channel_end, prev_id.clone()))
             } else {
                 // A ConnectionEnd already exists and validation failed.
-                Err(Error::channel_mismatch(*prev_id))
+                Err(Error::channel_mismatch(prev_id.clone()))
             }
         }
         // No previous channel id was supplied. Create a new channel end & an identifier.
@@ -130,7 +130,7 @@ pub(crate) fn process<HostFunctions: HostFunctionsProvider + 'static>(
         } else {
             ChannelIdState::Reused
         },
-        channel_id,
+        channel_id: channel_id.clone(),
         channel_end: new_channel_end,
     };
 
@@ -213,7 +213,7 @@ mod tests {
         // this channel should depend on connection `conn_id`.
         let chan_id = ChannelId::new(24);
         let hops = vec![conn_id.clone()];
-        msg.previous_channel_id = Some(chan_id);
+        msg.previous_channel_id = Some(chan_id.clone());
         msg.channel.connection_hops = hops;
 
         // This message does not assume a channel should already be initialized.
@@ -260,7 +260,7 @@ mod tests {
                 want_pass: false,
                 match_error: {
                     let port_id = msg.port_id.clone();
-                    let channel_id = chan_id;
+                    let channel_id = chan_id.clone();
                     Box::new(move |e| match e {
                         error::ErrorDetail::ChannelNotFound(e) => {
                             assert_eq!(e.port_id, port_id);
@@ -300,11 +300,11 @@ mod tests {
                 ctx: context
                     .clone()
                     .with_connection(conn_id.clone(), conn_end.clone())
-                    .with_channel(msg.port_id.clone(), chan_id, incorrect_chan_end_ver),
+                    .with_channel(msg.port_id.clone(), chan_id.clone(), incorrect_chan_end_ver),
                 msg: ChannelMsg::ChannelOpenTry(msg.clone()),
                 want_pass: false,
                 match_error: {
-                    let channel_id = chan_id;
+                    let channel_id = chan_id.clone();
                     Box::new(move |e| match e {
                         error::ErrorDetail::ChannelMismatch(e) => {
                             assert_eq!(e.channel_id, channel_id);
@@ -320,11 +320,15 @@ mod tests {
                 ctx: context
                     .clone()
                     .with_connection(conn_id.clone(), conn_end.clone())
-                    .with_channel(msg.port_id.clone(), chan_id, incorrect_chan_end_hops),
+                    .with_channel(
+                        msg.port_id.clone(),
+                        chan_id.clone(),
+                        incorrect_chan_end_hops,
+                    ),
                 msg: ChannelMsg::ChannelOpenTry(msg.clone()),
                 want_pass: false,
                 match_error: {
-                    let channel_id = chan_id;
+                    let channel_id = chan_id.clone();
                     Box::new(move |e| match e {
                         error::ErrorDetail::ChannelMismatch(e) => {
                             assert_eq!(e.channel_id, channel_id);
@@ -340,7 +344,11 @@ mod tests {
                 ctx: context
                     .clone()
                     .with_connection(conn_id.clone(), conn_end.clone())
-                    .with_channel(msg.port_id.clone(), chan_id, correct_chan_end.clone()),
+                    .with_channel(
+                        msg.port_id.clone(),
+                        chan_id.clone(),
+                        correct_chan_end.clone(),
+                    ),
                 msg: ChannelMsg::ChannelOpenTry(msg.clone()),
                 want_pass: false,
                 match_error: Box::new(|e| match e {
@@ -367,7 +375,7 @@ mod tests {
                 name: "Processing is successful".to_string(),
                 ctx: context
                     .clone()
-                    .with_client(&client_id, Height::new(0, proof_height))
+                    .with_client(&client_id, Height::new(0, proof_height).unwrap())
                     .with_connection(conn_id.clone(), conn_end.clone())
                     .with_channel(msg.port_id.clone(), chan_id, correct_chan_end),
                 msg: ChannelMsg::ChannelOpenTry(msg),
@@ -378,7 +386,7 @@ mod tests {
                 name: "Processing is successful against an empty context (no preexisting channel)"
                     .to_string(),
                 ctx: context
-                    .with_client(&client_id, Height::new(0, proof_height))
+                    .with_client(&client_id, Height::new(0, proof_height).unwrap())
                     .with_connection(conn_id, conn_end),
                 msg: ChannelMsg::ChannelOpenTry(msg_vanilla),
                 want_pass: true,
