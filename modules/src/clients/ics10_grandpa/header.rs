@@ -44,7 +44,9 @@ impl Header {
     }
 
     pub fn height(&self) -> Height {
-        Height::new(0, self.block_header.block_number as u64)
+        // todo(davirian) this height new function construct revision_number is not zero.
+        // this need to know revision_number is WHAT?
+        Height::new(1, self.block_header.block_number as u64).unwrap()
     }
 }
 

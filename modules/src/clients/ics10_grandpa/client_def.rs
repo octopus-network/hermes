@@ -182,8 +182,8 @@ impl<HostFunctions: HostFunctionsProvider> ClientDef for GrandpaClient<HostFunct
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_client_consensus_state");
         let path = ClientConsensusStatePath {
             client_id: client_id.clone(),
-            epoch: consensus_height.revision_number,
-            height: consensus_height.revision_height,
+            epoch: consensus_height.revision_number(),
+            height: consensus_height.revision_height(),
         };
 
         let value = expected_consensus_state

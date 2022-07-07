@@ -6,6 +6,7 @@ use core::str::FromStr;
 use core::time::Duration;
 
 // mock grandpa as tendermint
+use ibc_proto::ibc::core::client::v1::Height as RawHeight;
 use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawClientState;
 
 use super::help::BlockHeader;
@@ -56,7 +57,7 @@ impl ClientState {
     pub fn with_header(self, h: Header) -> Self {
         // TODO: Clarify which fields should update.
         ClientState {
-            block_number: h.height().revision_number as u32,
+            block_number: h.height().revision_number() as u32,
             ..self
         }
     }
@@ -75,7 +76,9 @@ impl ClientState {
     }
 
     pub fn latest_height(&self) -> Height {
-        Height::new(0, self.block_number as u64)
+        // todo(davirian) this height new function construct revision_number is not zero.
+        // this need to know revision_number is WHAT?
+        Height::new(1, self.block_number as u64).unwrap()
     }
 
     pub fn verify_delay_passed(
@@ -121,7 +124,7 @@ impl crate::core::ics02_client::client_state::ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        Height::new(0, self.block_number as u64)
+        self.latest_height()
     }
 
     fn frozen_height(&self) -> Option<Height> {
@@ -146,14 +149,9 @@ impl TryFrom<RawClientState> for ClientState {
     type Error = ICS10Error;
 
     fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
-        let frozen_height = raw.frozen_height.and_then(|raw_height| {
-            let height = raw_height.into();
-            if height == Height::zero() {
-                None
-            } else {
-                Some(height)
-            }
-        });
+        let frozen_height = raw
+            .frozen_height
+            .and_then(|raw_height| raw_height.try_into().ok());
 
         Ok(Self {
             chain_id: ChainId::from_str(raw.chain_id.as_str())
@@ -181,7 +179,12 @@ impl From<ClientState> for RawClientState {
         Self {
             chain_id: value.chain_id.to_string(),
             block_number: value.block_number,
-            frozen_height: Some(value.frozen_height.unwrap_or_else(Height::zero).into()),
+            frozen_height: Some(value.frozen_height.map(|height| height.into()).unwrap_or(
+                RawHeight {
+                    revision_number: 0,
+                    revision_height: 0,
+                },
+            )),
             block_header: Some(value.block_header.into()),
             latest_commitment: Some(value.latest_commitment.into()),
             validator_set: Some(value.validator_set.into()),

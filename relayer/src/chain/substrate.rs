@@ -1403,6 +1403,7 @@ impl ChainEndpoint for SubstrateChain {
         include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), RelayerError> {
         trace!("in substrate: [query_packet_acknowledgement]");
+
         let QueryPacketAcknowledgementRequest {
             port_id,
             channel_id,
