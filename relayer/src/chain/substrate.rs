@@ -88,6 +88,7 @@ use tendermint::abci::transaction;
 use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
+use ibc::core::ics24_host::path::ClientStatePath;
 
 const MAX_QUERY_TIMES: u64 = 100;
 
@@ -1086,7 +1087,9 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_client_state(client_id))
             .map_err(Error::retry_error)?;
 
-        let storage_entry = storage::ClientStates(client_id.as_bytes());
+        let client_state_path = ClientStatePath(client_id.clone()).to_string().as_bytes().to_vec();
+
+        let storage_entry = storage::ClientStates(&client_state_path);
 
         Ok((
             result,

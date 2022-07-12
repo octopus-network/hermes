@@ -3004,7 +3004,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.18#3c543610fd1048f4d32c2da1956e84bc04c6eb84"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/ics20-davirian-base-0.9.18#6652d98ddd01373425144fb866ea9e1f1f1de81a"
 dependencies = [
  "anyhow",
  "beefy-light-client",
