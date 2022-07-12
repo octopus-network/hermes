@@ -170,6 +170,8 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_client_consensus_state");
 
+        // TODO:(davirian) need add
+
         Ok(())
     }
 

@@ -76,7 +76,7 @@ use beefy_light_client::{commitment, mmr};
 use ibc::clients::ics10_grandpa::help::Commitment;
 use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
 use ibc::core::ics04_channel::events::SendPacket;
-use ibc::core::ics24_host::path::ClientStatePath;
+use ibc::core::ics24_host::path::{ClientConsensusStatePath, ClientStatePath};
 use octopusxt::ibc_node::ibc::storage;
 use octopusxt::ibc_node::RuntimeApi;
 use octopusxt::update_client_state::update_client_state;
@@ -1161,10 +1161,15 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_client_consensus(client_id, &consensus_height))
             .map_err(Error::retry_error)?;
 
-        // todo(davirain): handle unwrap()
-        let raw_consensus_height = consensus_height.encode_vec().unwrap();
 
-        let storage_entry = storage::ConsensusStates(client_id.as_bytes(), &raw_consensus_height);
+        // search key
+        let client_consensus_state_path = ClientConsensusStatePath {
+            client_id: client_id.clone(),
+            epoch: consensus_height.revision_number,
+            height: consensus_height.revision_height,
+        }.to_string().as_bytes().to_vec();
+
+        let storage_entry = storage::ConsensusStates(&client_consensus_state_path);
 
         Ok((
             result,
