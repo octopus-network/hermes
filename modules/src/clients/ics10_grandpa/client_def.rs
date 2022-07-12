@@ -1,5 +1,6 @@
 use alloc::format;
 use alloc::string::String;
+use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -46,6 +47,7 @@ use frame_support::{
 use ibc_proto::ics23::commitment_proof::Proof::Exist;
 use sp_runtime::traits::BlakeTwo256;
 use sp_trie::StorageProof;
+use crate::core::ics24_host::path::ConnectionsPath;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GrandpaClient;
@@ -190,7 +192,8 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_connection_state proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![connection_id.as_bytes().to_vec()];
+        // Update keys to ConnectionsPath
+        let keys: Vec<Vec<u8>> = vec![ConnectionsPath(connection_id.clone()).to_string().as_bytes().to_vec()];
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Connections")?;
         let connection_end =
