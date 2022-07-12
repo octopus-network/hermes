@@ -76,7 +76,7 @@ use beefy_light_client::{commitment, mmr};
 use ibc::clients::ics10_grandpa::help::Commitment;
 use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
 use ibc::core::ics04_channel::events::SendPacket;
-use ibc::core::ics24_host::path::{ClientConsensusStatePath, ClientStatePath, ConnectionsPath};
+use ibc::core::ics24_host::path::{ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, ConnectionsPath};
 use octopusxt::ibc_node::ibc::storage;
 use octopusxt::ibc_node::RuntimeApi;
 use octopusxt::update_client_state::update_client_state;
@@ -1193,7 +1193,9 @@ impl ChainEndpoint for SubstrateChain {
 
         let channel_id_string = format!("{}", channel_id);
 
-        let storage_entry = storage::Channels(port_id.as_bytes(), channel_id_string.as_bytes());
+        // use channel_end path as key
+        let channel_end_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string().as_bytes().to_vec();
+        let storage_entry = storage::Channels(&channel_end_path);
         Ok((
             result,
             self.generate_storage_proof(&storage_entry, &height, "Channels")?,

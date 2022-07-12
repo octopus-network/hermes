@@ -47,7 +47,7 @@ use frame_support::{
 use ibc_proto::ics23::commitment_proof::Proof::Exist;
 use sp_runtime::traits::BlakeTwo256;
 use sp_trie::StorageProof;
-use crate::core::ics24_host::path::ConnectionsPath;
+use crate::core::ics24_host::path::{ChannelEndsPath, ConnectionsPath};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GrandpaClient;
@@ -225,10 +225,7 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_channel_state proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![
-            port_id.as_bytes().to_vec(),
-            format!("{}", channel_id).as_bytes().to_vec(),
-        ];
+        let keys: Vec<Vec<u8>> = vec![ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string().as_bytes().to_vec()];
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
