@@ -22,7 +22,7 @@ dependencies = [
  "arc-swap",
  "backtrace",
  "canonical-path",
- "clap 3.2.8",
+ "clap 3.2.10",
  "color-eyre",
  "fs-err",
  "once_cell",
@@ -644,9 +644,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.8"
+version = "3.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "190814073e85d238f31ff738fcb0bf6910cedeb73376c87cd69291028966fd83"
+checksum = "69c5a7f9997be616e47f0577ee38c91decb33392c5be4866494f34cdf329a9aa"
 dependencies = [
  "atty",
  "bitflags",
@@ -665,7 +665,7 @@ version = "3.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ead064480dfc4880a10764488415a97fdd36a4cf1bb022d372f02e8faf8386e1"
 dependencies = [
- "clap 3.2.8",
+ "clap 3.2.10",
 ]
 
 [[package]]
@@ -692,9 +692,9 @@ dependencies = [
 
 [[package]]
 name = "color-eyre"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ebf286c900a6d5867aeff75cfee3192857bb7f24b547d4f0df2ed6baa812c90"
+checksum = "5a667583cca8c4f8436db8de46ea8233c42a7d9ae424a82d338f2e4675229204"
 dependencies = [
  "backtrace",
  "color-spantrace",
@@ -2109,7 +2109,7 @@ version = "0.14.1"
 dependencies = [
  "abscissa_core",
  "atty",
- "clap 3.2.8",
+ "clap 3.2.10",
  "clap_complete",
  "color-eyre",
  "console",
@@ -2801,7 +2801,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "698fbc4b1fd2af323ed1711664a873b332faa4dc740e0f810f40210573ba36fd"
 dependencies = [
- "clap 3.2.8",
+ "clap 3.2.10",
  "clap_complete",
  "directories",
  "hex",
@@ -3004,7 +3004,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/ics20-davirian-base-0.9.18#6652d98ddd01373425144fb866ea9e1f1f1de81a"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/ics20-davirian-base-0.9.18#3139d99855fb8e037db7512c20542e17123076e8"
 dependencies = [
  "anyhow",
  "beefy-light-client",

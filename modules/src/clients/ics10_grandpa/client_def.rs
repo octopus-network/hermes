@@ -254,11 +254,14 @@ impl ClientDef for GrandpaClient {
         expected_client_state: &AnyClientState,
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_client_full_state proof : {:?}",proof);
-        
+
         use crate::core::ics24_host::path::ClientStatePath;
         use alloc::string::ToString;
 
-        let keys: Vec<Vec<u8>> = vec![ClientStatePath(client_id.clone()).to_string().as_bytes().to_vec()];
+        let keys: Vec<Vec<u8>> = vec![ClientStatePath(client_id.clone())
+            .to_string()
+            .as_bytes()
+            .to_vec()];
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates")?;
 
