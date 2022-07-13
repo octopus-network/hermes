@@ -32,6 +32,9 @@ use crate::core::ics24_host::identifier::ConnectionId;
 use crate::core::ics24_host::identifier::{ChannelId, ClientId, PortId};
 use crate::Height;
 
+use crate::core::ics24_host::path::{
+    AcksPath, ChannelEndsPath, CommitmentsPath, ConnectionsPath, SeqRecvsPath,
+};
 use beefy_light_client::{
     commitment::{self, known_payload_ids::MMR_ROOT_ID},
     header, mmr,
@@ -47,7 +50,6 @@ use frame_support::{
 use ibc_proto::ics23::commitment_proof::Proof::Exist;
 use sp_runtime::traits::BlakeTwo256;
 use sp_trie::StorageProof;
-use crate::core::ics24_host::path::{AcksPath, ChannelEndsPath, CommitmentsPath, ConnectionsPath, SeqRecvsPath};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GrandpaClient;
@@ -193,7 +195,10 @@ impl ClientDef for GrandpaClient {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_connection_state proof : {:?}",proof);
 
         // Update keys to ConnectionsPath
-        let keys: Vec<Vec<u8>> = vec![ConnectionsPath(connection_id.clone()).to_string().as_bytes().to_vec()];
+        let keys: Vec<Vec<u8>> = vec![ConnectionsPath(connection_id.clone())
+            .to_string()
+            .as_bytes()
+            .to_vec()];
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Connections")?;
         let connection_end =
@@ -225,7 +230,10 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_channel_state proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string().as_bytes().to_vec()];
+        let keys: Vec<Vec<u8>> = vec![ChannelEndsPath(port_id.clone(), channel_id.clone())
+            .to_string()
+            .as_bytes()
+            .to_vec()];
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
@@ -301,13 +309,14 @@ impl ClientDef for GrandpaClient {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_data. port_id={:?}, channel_id={:?}, sequence={:?}",
             port_id, channel_id, sequence);
 
-        let keys: Vec<Vec<u8>> = vec![
-            CommitmentsPath {
-                port_id: port_id.clone(),
-                channel_id: channel_id.clone(),
-                sequence: sequence.clone(),
-            }.to_string().as_bytes().to_vec()
-        ];
+        let keys: Vec<Vec<u8>> = vec![CommitmentsPath {
+            port_id: port_id.clone(),
+            channel_id: channel_id.clone(),
+            sequence: sequence.clone(),
+        }
+        .to_string()
+        .as_bytes()
+        .to_vec()];
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment")?;
@@ -338,13 +347,14 @@ impl ClientDef for GrandpaClient {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_acknowledgement. port_id={:?}, channel_id={:?}, sequence={:?}, ack={:?}",
             port_id, channel_id, sequence, ack);
 
-        let keys: Vec<Vec<u8>> = vec![
-            AcksPath {
-                port_id: port_id.clone(),
-                channel_id: channel_id.clone(),
-                sequence: sequence.clone(),
-            }.to_string().as_bytes().to_vec()
-        ];
+        let keys: Vec<Vec<u8>> = vec![AcksPath {
+            port_id: port_id.clone(),
+            channel_id: channel_id.clone(),
+            sequence: sequence.clone(),
+        }
+        .to_string()
+        .as_bytes()
+        .to_vec()];
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
@@ -372,9 +382,10 @@ impl ClientDef for GrandpaClient {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_next_sequence_recv.  port_id={:?}, channel_id={:?}, sequence={:?}",
             port_id, channel_id, sequence);
 
-        let keys: Vec<Vec<u8>> = vec![
-            SeqRecvsPath(port_id.clone(), channel_id.clone()).to_string().as_bytes().to_vec()
-        ];
+        let keys: Vec<Vec<u8>> = vec![SeqRecvsPath(port_id.clone(), channel_id.clone())
+            .to_string()
+            .as_bytes()
+            .to_vec()];
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;

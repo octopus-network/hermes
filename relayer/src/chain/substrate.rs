@@ -76,7 +76,10 @@ use beefy_light_client::{commitment, mmr};
 use ibc::clients::ics10_grandpa::help::Commitment;
 use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
 use ibc::core::ics04_channel::events::SendPacket;
-use ibc::core::ics24_host::path::{AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath, ConnectionsPath, ReceiptsPath, SeqRecvsPath};
+use ibc::core::ics24_host::path::{
+    AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
+    ConnectionsPath, ReceiptsPath, SeqRecvsPath,
+};
 use octopusxt::ibc_node::ibc::storage;
 use octopusxt::ibc_node::RuntimeApi;
 use octopusxt::update_client_state::update_client_state;
@@ -1142,7 +1145,10 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         // update ConnectionsPath key
-        let connections_path = ConnectionsPath(connection_id.clone()).to_string().as_bytes().to_vec();
+        let connections_path = ConnectionsPath(connection_id.clone())
+            .to_string()
+            .as_bytes()
+            .to_vec();
         let storage_entry = storage::Connections(&connections_path);
 
         Ok((
@@ -1163,13 +1169,15 @@ impl ChainEndpoint for SubstrateChain {
             .retry_wapper(|| self.get_client_consensus(client_id, &consensus_height))
             .map_err(Error::retry_error)?;
 
-
         // search key
         let client_consensus_state_path = ClientConsensusStatePath {
             client_id: client_id.clone(),
             epoch: consensus_height.revision_number,
             height: consensus_height.revision_height,
-        }.to_string().as_bytes().to_vec();
+        }
+        .to_string()
+        .as_bytes()
+        .to_vec();
 
         let storage_entry = storage::ConsensusStates(&client_consensus_state_path);
 
@@ -1194,7 +1202,10 @@ impl ChainEndpoint for SubstrateChain {
         let channel_id_string = format!("{}", channel_id);
 
         // use channel_end path as key
-        let channel_end_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string().as_bytes().to_vec();
+        let channel_end_path = ChannelEndsPath(port_id.clone(), channel_id.clone())
+            .to_string()
+            .as_bytes()
+            .to_vec();
         let storage_entry = storage::Channels(&channel_end_path);
         Ok((
             result,
@@ -1228,26 +1239,19 @@ impl ChainEndpoint for SubstrateChain {
                     // CommitmentsPath
                     PacketMsgType::Recv => {
                         // Packet Commitment generate_storage_proof
-                         octopusxt::ibc_rpc::get_packet_commitment(
+                        octopusxt::ibc_rpc::get_packet_commitment(
                             &port_id,
                             &channel_id,
                             &sequence,
                             client,
                         )
                         .await
-
                     }
                     // AcksPath
                     PacketMsgType::Ack => {
                         // Acknowledgements
-                        octopusxt::ibc_rpc::get_packet_ack(
-                            &port_id,
-                            &channel_id,
-                            &sequence,
-                            client,
-                        )
-                        .await
-
+                        octopusxt::ibc_rpc::get_packet_ack(&port_id, &channel_id, &sequence, client)
+                            .await
                     }
                     // ReceiptsPath
                     PacketMsgType::TimeoutOnClose => {
@@ -1259,8 +1263,6 @@ impl ChainEndpoint for SubstrateChain {
                             client,
                         )
                         .await
-
-
                     }
                     // ReceiptsPath
                     // Todo: https://github.com/cosmos/ibc/issues/620
@@ -1280,7 +1282,7 @@ impl ChainEndpoint for SubstrateChain {
                         // NextSequenceRecv
                         octopusxt::ibc_rpc::get_next_sequence_recv(&port_id, &channel_id, client)
                             .await
-                    }// Todo: Ordered channel not supported in ibc-rs. https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/link.rs#L135
+                    } // Todo: Ordered channel not supported in ibc-rs. https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/link.rs#L135
                 }
             };
 
@@ -1297,15 +1299,16 @@ impl ChainEndpoint for SubstrateChain {
             packet_type
         );
 
-
         match packet_type {
             PacketMsgType::Recv => {
-
                 let packet_commits_path = CommitmentsPath {
                     port_id: port_id.clone(),
                     channel_id: channel_id.clone(),
                     sequence: sequence.clone(),
-                }.to_string().as_bytes().to_vec();
+                }
+                .to_string()
+                .as_bytes()
+                .to_vec();
 
                 let storage_entry = storage::PacketCommitment(&packet_commits_path);
 
@@ -1315,12 +1318,14 @@ impl ChainEndpoint for SubstrateChain {
                 ))
             }
             PacketMsgType::Ack => {
-
                 let acks_path = AcksPath {
                     port_id: port_id.clone(),
                     channel_id: channel_id.clone(),
                     sequence: sequence.clone(),
-                }.to_string().as_bytes().to_vec();
+                }
+                .to_string()
+                .as_bytes()
+                .to_vec();
 
                 let storage_entry = storage::Acknowledgements(&acks_path);
 
@@ -1334,7 +1339,10 @@ impl ChainEndpoint for SubstrateChain {
                     port_id: port_id.clone(),
                     channel_id: channel_id.clone(),
                     sequence: sequence.clone(),
-                }.to_string().as_bytes().to_vec();
+                }
+                .to_string()
+                .as_bytes()
+                .to_vec();
 
                 Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
             }
@@ -1344,16 +1352,21 @@ impl ChainEndpoint for SubstrateChain {
                     port_id: port_id.clone(),
                     channel_id: channel_id.clone(),
                     sequence: sequence.clone(),
-                }.to_string().as_bytes().to_vec();
+                }
+                .to_string()
+                .as_bytes()
+                .to_vec();
 
                 Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
             }
             // Todo: https://github.com/cosmos/ibc/issues/620
             PacketMsgType::TimeoutOrdered => {
-                let seq_recvs_path = SeqRecvsPath(port_id.clone(), channel_id.clone()).to_string().as_bytes().to_vec();
+                let seq_recvs_path = SeqRecvsPath(port_id.clone(), channel_id.clone())
+                    .to_string()
+                    .as_bytes()
+                    .to_vec();
 
-                let storage_entry =
-                    storage::NextSequenceRecv(&seq_recvs_path);
+                let storage_entry = storage::NextSequenceRecv(&seq_recvs_path);
 
                 Ok((
                     result,
