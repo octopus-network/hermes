@@ -47,7 +47,7 @@ use frame_support::{
 use ibc_proto::ics23::commitment_proof::Proof::Exist;
 use sp_runtime::traits::BlakeTwo256;
 use sp_trie::StorageProof;
-use crate::core::ics24_host::path::{ChannelEndsPath, ConnectionsPath};
+use crate::core::ics24_host::path::{AcksPath, ChannelEndsPath, CommitmentsPath, ConnectionsPath, SeqRecvsPath};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GrandpaClient;
@@ -302,9 +302,11 @@ impl ClientDef for GrandpaClient {
             port_id, channel_id, sequence);
 
         let keys: Vec<Vec<u8>> = vec![
-            port_id.as_bytes().to_vec(),
-            format!("{}", channel_id).as_bytes().to_vec(),
-            u64::from(sequence).encode(),
+            CommitmentsPath {
+                port_id: port_id.clone(),
+                channel_id: channel_id.clone(),
+                sequence: sequence.clone(),
+            }.to_string().as_bytes().to_vec()
         ];
 
         let storage_result =
@@ -337,9 +339,11 @@ impl ClientDef for GrandpaClient {
             port_id, channel_id, sequence, ack);
 
         let keys: Vec<Vec<u8>> = vec![
-            port_id.as_bytes().to_vec(),
-            format!("{}", channel_id).as_bytes().to_vec(),
-            u64::from(sequence).encode(),
+            AcksPath {
+                port_id: port_id.clone(),
+                channel_id: channel_id.clone(),
+                sequence: sequence.clone(),
+            }.to_string().as_bytes().to_vec()
         ];
 
         let storage_result =
@@ -369,8 +373,7 @@ impl ClientDef for GrandpaClient {
             port_id, channel_id, sequence);
 
         let keys: Vec<Vec<u8>> = vec![
-            port_id.as_bytes().to_vec(),
-            format!("{}", channel_id).as_bytes().to_vec(),
+            SeqRecvsPath(port_id.clone(), channel_id.clone()).to_string().as_bytes().to_vec()
         ];
 
         let storage_result =
