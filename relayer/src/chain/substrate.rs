@@ -76,7 +76,7 @@ use beefy_light_client::{commitment, mmr};
 use ibc::clients::ics10_grandpa::help::Commitment;
 use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
 use ibc::core::ics04_channel::events::SendPacket;
-use ibc::core::ics24_host::path::{ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, ConnectionsPath};
+use ibc::core::ics24_host::path::{ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, ConnectionsPath, ReceiptsPath};
 use octopusxt::ibc_node::ibc::storage;
 use octopusxt::ibc_node::RuntimeApi;
 use octopusxt::update_client_state::update_client_state;
@@ -1225,28 +1225,33 @@ impl ChainEndpoint for SubstrateChain {
                     .map_err(|_| Error::substrate_client_builder_error())?;
 
                 match packet_type {
+                    // CommitmentsPath
                     PacketMsgType::Recv => {
-                        // PacketCommitmentgenerate_storage_proof
-                        octopusxt::ibc_rpc::get_packet_commitment(
+                        // Packet Commitment generate_storage_proof
+                         octopusxt::ibc_rpc::get_packet_commitment(
                             &port_id,
                             &channel_id,
                             &sequence,
                             client,
                         )
                         .await
+
                     }
+                    // AcksPath
                     PacketMsgType::Ack => {
                         // Acknowledgements
-                        octopusxt::ibc_rpc::get_packet_receipt_vec(
+                        octopusxt::ibc_rpc::get_packet_ack(
                             &port_id,
                             &channel_id,
                             &sequence,
                             client,
                         )
                         .await
+
                     }
+                    // ReceiptsPath
                     PacketMsgType::TimeoutOnClose => {
-                        // PacketReceipt
+                        // TODO(davirian) PacketReceipt
                         octopusxt::ibc_rpc::get_packet_receipt_vec(
                             &port_id,
                             &channel_id,
@@ -1254,7 +1259,11 @@ impl ChainEndpoint for SubstrateChain {
                             client,
                         )
                         .await
+
+
                     }
+                    // ReceiptsPath
+                    // Todo: https://github.com/cosmos/ibc/issues/620
                     PacketMsgType::TimeoutUnordered => {
                         // PacketReceipt
                         octopusxt::ibc_rpc::get_packet_receipt_vec(
@@ -1265,11 +1274,13 @@ impl ChainEndpoint for SubstrateChain {
                         )
                         .await
                     }
+                    // SeqRecvsPath
+                    // Todo: https://github.com/cosmos/ibc/issues/620
                     PacketMsgType::TimeoutOrdered => {
                         // NextSequenceRecv
                         octopusxt::ibc_rpc::get_next_sequence_recv(&port_id, &channel_id, client)
                             .await
-                    }
+                    }// Todo: Ordered channel not supported in ibc-rs. https://github.com/octopus-network/ibc-rs/blob/b98094a57620d0b3d9f8d2caced09abfc14ab00f/relayer/src/link.rs#L135
                 }
             };
 
@@ -1286,43 +1297,61 @@ impl ChainEndpoint for SubstrateChain {
             packet_type
         );
 
-        let sequence = u64::from(sequence);
-        let channel_id_string = format!("{}", channel_id);
 
         match packet_type {
             PacketMsgType::Recv => {
+
+                let channel_id = channel_id.to_string().as_bytes().to_vec();
+                let sequence = u64::from(sequence);
                 let storage_entry = storage::PacketCommitment(
                     port_id.as_bytes(),
-                    channel_id_string.as_bytes(),
+                    &channel_id,
                     &sequence,
                 );
+
                 Ok((
                     result,
                     self.generate_storage_proof(&storage_entry, &height, "PacketCommitment")?,
                 ))
             }
             PacketMsgType::Ack => {
+                let channel_id = channel_id.to_string().as_bytes().to_vec();
+                let sequence = u64::from(sequence);
                 let storage_entry = storage::Acknowledgements(
                     port_id.as_bytes(),
-                    channel_id_string.as_bytes(),
+                    &channel_id,
                     &sequence,
                 );
+
                 Ok((
                     result,
                     self.generate_storage_proof(&storage_entry, &height, "Acknowledgements")?,
                 ))
             }
             PacketMsgType::TimeoutOnClose => {
+                let packet_receipt_path = ReceiptsPath {
+                    port_id: port_id.clone(),
+                    channel_id: channel_id.clone(),
+                    sequence: sequence.clone(),
+                }.to_string().as_bytes().to_vec();
+
                 Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
             }
             // Todo: https://github.com/cosmos/ibc/issues/620
             PacketMsgType::TimeoutUnordered => {
+                let packet_receipt_path = ReceiptsPath {
+                    port_id: port_id.clone(),
+                    channel_id: channel_id.clone(),
+                    sequence: sequence.clone(),
+                }.to_string().as_bytes().to_vec();
+
                 Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
             }
             // Todo: https://github.com/cosmos/ibc/issues/620
             PacketMsgType::TimeoutOrdered => {
+                let channel_id = channel_id.to_string().as_bytes().to_vec();
                 let storage_entry =
-                    storage::NextSequenceRecv(port_id.as_bytes(), channel_id_string.as_bytes());
+                    storage::NextSequenceRecv(port_id.as_bytes(), &channel_id);
 
                 Ok((
                     result,

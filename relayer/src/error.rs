@@ -577,6 +577,9 @@ define_error! {
 
         InvalidCommitmentPrefix
             | _ | { "invalid commitment prefix" },
+
+        ProvePacketError
+            | _ | { "prove packet error" },
     }
 }
 
