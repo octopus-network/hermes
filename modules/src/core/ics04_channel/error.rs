@@ -4,6 +4,7 @@ use crate::core::ics03_connection::error as connection_error;
 use crate::core::ics04_channel::channel::State;
 use crate::core::ics05_port::error as port_error;
 use crate::core::ics24_host::error::ValidationError;
+use crate::core::ics24_host::path::PathError;
 use crate::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
 use crate::prelude::*;
 use crate::proofs::ProofError;
@@ -398,6 +399,10 @@ define_error! {
 
         EmptyAcknowledgeResponse
             | _ | { "empty acknowledge response" },
+
+        InvalidPathParser
+            [ TraceError<PathError> ]
+            | _ | { "inlvaid path parser" }
 
 
 
