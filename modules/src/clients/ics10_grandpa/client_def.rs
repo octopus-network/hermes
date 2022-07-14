@@ -195,10 +195,11 @@ impl ClientDef for GrandpaClient {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_connection_state proof : {:?}",proof);
 
         // Update keys to ConnectionsPath
-        let keys: Vec<Vec<u8>> = vec![ConnectionsPath(connection_id.clone())
+        let keys: Vec<u8> = ConnectionsPath(connection_id.clone())
             .to_string()
             .as_bytes()
-            .to_vec()];
+            .to_vec();
+
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Connections")?;
         let connection_end =
@@ -230,10 +231,10 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_channel_state proof : {:?}",proof);
 
-        let keys: Vec<Vec<u8>> = vec![ChannelEndsPath(port_id.clone(), channel_id.clone())
+        let keys: Vec<u8> = ChannelEndsPath(port_id.clone(), channel_id.clone())
             .to_string()
             .as_bytes()
-            .to_vec()];
+            .to_vec();
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Channels")?;
@@ -268,10 +269,11 @@ impl ClientDef for GrandpaClient {
         use crate::core::ics24_host::path::ClientStatePath;
         use alloc::string::ToString;
 
-        let keys: Vec<Vec<u8>> = vec![ClientStatePath(client_id.clone())
+        let keys: Vec<u8> = ClientStatePath(client_id.clone())
             .to_string()
             .as_bytes()
-            .to_vec()];
+            .to_vec();
+
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "ClientStates")?;
 
@@ -309,14 +311,14 @@ impl ClientDef for GrandpaClient {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_data. port_id={:?}, channel_id={:?}, sequence={:?}",
             port_id, channel_id, sequence);
 
-        let keys: Vec<Vec<u8>> = vec![CommitmentsPath {
+        let keys: Vec<u8> = CommitmentsPath {
             port_id: port_id.clone(),
             channel_id: channel_id.clone(),
             sequence: sequence.clone(),
         }
         .to_string()
         .as_bytes()
-        .to_vec()];
+        .to_vec();
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "PacketCommitment")?;
@@ -347,14 +349,14 @@ impl ClientDef for GrandpaClient {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_acknowledgement. port_id={:?}, channel_id={:?}, sequence={:?}, ack={:?}",
             port_id, channel_id, sequence, ack);
 
-        let keys: Vec<Vec<u8>> = vec![AcksPath {
+        let keys: Vec<u8> = AcksPath {
             port_id: port_id.clone(),
             channel_id: channel_id.clone(),
             sequence: sequence.clone(),
         }
         .to_string()
         .as_bytes()
-        .to_vec()];
+        .to_vec();
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "Acknowledgements")?;
@@ -382,10 +384,10 @@ impl ClientDef for GrandpaClient {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_next_sequence_recv.  port_id={:?}, channel_id={:?}, sequence={:?}",
             port_id, channel_id, sequence);
 
-        let keys: Vec<Vec<u8>> = vec![SeqRecvsPath(port_id.clone(), channel_id.clone())
+        let keys: Vec<u8> = SeqRecvsPath(port_id.clone(), channel_id.clone())
             .to_string()
             .as_bytes()
-            .to_vec()];
+            .to_vec();
 
         let storage_result =
             Self::get_storage_via_proof(client_state, height, proof, keys, "NextSequenceRecv")?;
@@ -428,7 +430,7 @@ impl GrandpaClient {
         client_state: &ClientState,
         height: Height,
         proof: &CommitmentProofBytes,
-        keys: Vec<Vec<u8>>,
+        keys: Vec<u8>,
         storage_name: &str,
     ) -> Result<Vec<u8>, Error> {
         tracing::trace!(target:"ibc-rs", "In ics10-client_def.rs: [get_storage_via_proof] >> client_state: {:?}, height: {:?}, keys: {:?}, storage_name: {:?}",
@@ -460,7 +462,7 @@ impl GrandpaClient {
             _ => unimplemented!(),
         };
 
-        let storage_keys = Self::storage_map_final_key(keys, storage_name)?;
+        let storage_keys = Self::storage_map_final_key(keys, storage_name);
         let state_root = client_state.clone().block_header.state_root;
         tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, state_root = {:?}", state_root);
         tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, storage_proof = {:?}", storage_proof);
@@ -485,65 +487,16 @@ impl GrandpaClient {
     }
 
     /// Calculate the storage's final key
-    fn storage_map_final_key(keys: Vec<Vec<u8>>, storage_name: &str) -> Result<Vec<u8>, Error> {
-        // Todo: To justify different types of keys by an enum like below, instead of _keys.len()
-        /*
-            enum StorageMapKeys<KArg> where KArg: EncodeLikeTuple<Vec<u8>> + TupleToEncodedIter
-            {
-                HashMapKey([Vec<u8>; 1]),
-                DoubleHashMapKey([Vec<u8>; 2]),
-                NHashMapKey(KArg)
-            }
-        */
-
+    fn storage_map_final_key(keys: Vec<u8>, storage_name: &str) -> Vec<u8> {
         // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
-        if keys.len() == 1 {
-            let key_hashed: &[u8] = &Blake2_128Concat::hash(&keys[0].encode());
-            let storage_prefix = storage_prefix("Ibc".as_bytes(), storage_name.as_bytes());
-            let mut final_key =
-                Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
-            final_key.extend_from_slice(&storage_prefix);
-            final_key.extend_from_slice(key_hashed.as_ref());
-            return Ok(final_key);
-        }
+        let key_hashed: &[u8] = &Blake2_128Concat::hash(&keys[0].encode());
+        let storage_prefix = storage_prefix("Ibc".as_bytes(), storage_name.as_bytes());
+        let mut final_key =
+            Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
+        final_key.extend_from_slice(&storage_prefix);
+        final_key.extend_from_slice(key_hashed.as_ref());
 
-        // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/double_map.rs#L92
-        if keys.len() == 2 {
-            let key1_hashed: &[u8] = &Blake2_128Concat::hash(&keys[0].encode());
-            let key2_hashed: &[u8] = &Blake2_128Concat::hash(&keys[1].encode());
-            let storage_prefix = storage_prefix("Ibc".as_bytes(), storage_name.as_bytes());
-            let mut final_key = Vec::with_capacity(
-                storage_prefix.len() + key1_hashed.as_ref().len() + key2_hashed.as_ref().len(),
-            );
-            final_key.extend_from_slice(&storage_prefix);
-            final_key.extend_from_slice(key1_hashed.as_ref());
-            final_key.extend_from_slice(key2_hashed.as_ref());
-            return Ok(final_key);
-        }
-
-        // Todo: expand the capability of the code to handle key length of more than 3
-        // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/nmap.rs#L100
-        if keys.len() == 3 {
-            let result_keys = (
-                keys[0].clone(),
-                keys[1].clone(),
-                u64::decode(&mut keys[2].clone().as_slice()).unwrap(),
-            );
-            let storage_prefix = storage_prefix("Ibc".as_bytes(), storage_name.as_bytes());
-            let key_hashed = <(
-                Key<Blake2_128Concat, Vec<u8>>,
-                Key<Blake2_128Concat, Vec<u8>>,
-                Key<Blake2_128Concat, u64>,
-            ) as KeyGenerator>::final_key(result_keys);
-
-            let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
-            final_key.extend_from_slice(&storage_prefix);
-            final_key.extend_from_slice(key_hashed.as_ref());
-
-            return Ok(final_key);
-        }
-
-        Err(Error::wrong_key_number(keys.len() as u8))
+        final_key
     }
 
     /// A hashing function for packet commitments
