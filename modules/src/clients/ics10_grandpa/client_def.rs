@@ -145,6 +145,19 @@ impl ClientDef for GrandpaClient {
         Ok((client_state, GpConsensusState::from(header)))
     }
 
+    fn verify_upgrade_and_update_state(
+        &self,
+        client_state: &Self::ClientState,
+        consensus_state: &Self::ConsensusState,
+        _proof_upgrade_client: MerkleProof,
+        _proof_upgrade_consensus_state: MerkleProof,
+    ) -> Result<(Self::ClientState, Self::ConsensusState), Ics02Error> {
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_upgrade_and_update_state");
+
+        //TODO(daivirain) in tendermint is todo
+        Ok((client_state.clone(), consensus_state.clone()))
+    }
+
     /// Verification functions as specified in:
     /// <https://github.com/cosmos/ibc/tree/master/spec/ics-002-client-semantics>
     ///
@@ -423,19 +436,6 @@ impl ClientDef for GrandpaClient {
             root,
             receipt_path.into(),
         )
-    }
-
-    fn verify_upgrade_and_update_state(
-        &self,
-        client_state: &Self::ClientState,
-        consensus_state: &Self::ConsensusState,
-        _proof_upgrade_client: MerkleProof,
-        _proof_upgrade_consensus_state: MerkleProof,
-    ) -> Result<(Self::ClientState, Self::ConsensusState), Ics02Error> {
-        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_upgrade_and_update_state");
-
-        //TODO(daivirain) in tendermint is todo
-        Ok((client_state.clone(), consensus_state.clone()))
     }
 }
 
