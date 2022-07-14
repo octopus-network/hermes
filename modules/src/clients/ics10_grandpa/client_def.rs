@@ -578,9 +578,9 @@ fn get_storage_via_proof(
 }
 
 /// Calculate the storage's final key
-fn storage_map_final_key(keys: Vec<u8>, storage_name: &str) -> Vec<u8> {
+fn storage_map_final_key(key: Vec<u8>, storage_name: &str) -> Vec<u8> {
     // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
-    let key_hashed: &[u8] = &Blake2_128Concat::hash(&keys[0].encode());
+    let key_hashed: &[u8] = &Blake2_128Concat::hash(&Encode::encode(&key));
     let storage_prefix = storage_prefix("Ibc".as_bytes(), storage_name.as_bytes());
     let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
     final_key.extend_from_slice(&storage_prefix);
