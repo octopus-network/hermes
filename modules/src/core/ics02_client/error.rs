@@ -398,6 +398,12 @@ define_error! {
         InvalidAnyConsensusState
             [ TraceError<TendermintProtoError> ]
             | _ | { "invalid any client consensus state" },
+
+        VerifyMembershipError
+            | _ | { "verify membership failed!" },
+
+        VerifyNoMembershipError
+            | _ | { "verify no membership failed!" }
     }
 }
 
