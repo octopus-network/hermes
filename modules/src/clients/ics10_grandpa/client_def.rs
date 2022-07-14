@@ -7,8 +7,8 @@ use codec::{Decode, Encode};
 use core::convert::From;
 use core::convert::TryFrom;
 use core::convert::TryInto;
-use tendermint_proto::Protobuf;
 use prost::Message;
+use tendermint_proto::Protobuf;
 
 use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
@@ -33,7 +33,12 @@ use crate::core::ics24_host::identifier::ConnectionId;
 use crate::core::ics24_host::identifier::{ChannelId, ClientId, PortId};
 use crate::Height;
 
-use crate::core::ics24_host::path::{AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath, ConnectionsPath, ReceiptsPath, SeqRecvsPath};
+use crate::core::ics23_commitment::merkle::apply_prefix;
+use crate::core::ics24_host::path::{
+    AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
+    ConnectionsPath, ReceiptsPath, SeqRecvsPath,
+};
+use crate::core::ics24_host::Path;
 use beefy_light_client::{
     commitment::{self, known_payload_ids::MMR_ROOT_ID},
     header, mmr,
@@ -49,8 +54,6 @@ use frame_support::{
 use ibc_proto::ics23::commitment_proof::Proof::Exist;
 use sp_runtime::traits::BlakeTwo256;
 use sp_trie::StorageProof;
-use crate::core::ics23_commitment::merkle::apply_prefix;
-use crate::core::ics24_host::Path;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GrandpaClient;
@@ -115,7 +118,8 @@ impl ClientDef for GrandpaClient {
             .map_err(Ics02Error::grandpa)?
             .encode();
         let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf_encode[..]);
-        let mmr_leaf = mmr::MmrLeaf::try_from(header.clone().mmr_leaf).map_err(Ics02Error::grandpa)?;
+        let mmr_leaf =
+            mmr::MmrLeaf::try_from(header.clone().mmr_leaf).map_err(Ics02Error::grandpa)?;
 
         if mmr_leaf.parent_number_and_hash.1.is_empty() {
             return Err(Ics02Error::empty_mmr_leaf_parent_hash_mmr_root());
@@ -140,7 +144,6 @@ impl ClientDef for GrandpaClient {
         // grandpa consensus_state update from substrate-ibc
         Ok((client_state, GpConsensusState::from(header)))
     }
-
 
     /// Verification functions as specified in:
     /// <https://github.com/cosmos/ibc/tree/master/spec/ics-002-client-semantics>
@@ -174,7 +177,14 @@ impl ClientDef for GrandpaClient {
             .encode_vec()
             .map_err(Ics02Error::invalid_any_consensus_state)?;
 
-        verify_membership(client_state, prefix, proof, root, Path::ClientConsensusState(path), value)
+        verify_membership(
+            client_state,
+            prefix,
+            proof,
+            root,
+            Path::ClientConsensusState(path),
+            value,
+        )
     }
 
     /// Verify a `proof` that a connection state reconstructed from storage proof, storage key and state root matches
@@ -199,7 +209,14 @@ impl ClientDef for GrandpaClient {
             .encode_vec()
             .map_err(Ics02Error::invalid_connection_end)?;
 
-        verify_membership(client_state, prefix, proof, root, Path::Connections(path), value)
+        verify_membership(
+            client_state,
+            prefix,
+            proof,
+            root,
+            Path::Connections(path),
+            value,
+        )
     }
 
     /// Verify a `proof` that a channel state reconstructed from storage proof, storage key and state root matches that of
@@ -224,7 +241,14 @@ impl ClientDef for GrandpaClient {
         let value = expected_channel_end
             .encode_vec()
             .map_err(Ics02Error::invalid_channel_end)?;
-        verify_membership(client_state, prefix, proof, root, Path::ChannelEnds(path), value)
+        verify_membership(
+            client_state,
+            prefix,
+            proof,
+            root,
+            Path::ChannelEnds(path),
+            value,
+        )
     }
 
     /// Verify a `proof` that a client state reconstructed from storage proof, storage key and state root matches that of
@@ -249,7 +273,14 @@ impl ClientDef for GrandpaClient {
             .encode_vec()
             .map_err(Ics02Error::invalid_any_client_state)?;
 
-        verify_membership(client_state, prefix, proof, root, Path::ClientState(path), value)
+        verify_membership(
+            client_state,
+            prefix,
+            proof,
+            root,
+            Path::ClientState(path),
+            value,
+        )
     }
 
     /// Verify a `proof` that a packet reconstructed from storage proof, storage key and state root matches that of
@@ -394,7 +425,6 @@ impl ClientDef for GrandpaClient {
         )
     }
 
-
     fn verify_upgrade_and_update_state(
         &self,
         client_state: &Self::ClientState,
@@ -409,7 +439,6 @@ impl ClientDef for GrandpaClient {
     }
 }
 
-
 fn verify_membership(
     client_state: &ClientState,
     prefix: &CommitmentPrefix,
@@ -423,39 +452,24 @@ fn verify_membership(
 
     let (key, storage_name) = match Path::from(path) {
         Path::ClientType(_) => unimplemented!(),
-        Path::ClientState(value) =>  {
-            (value.to_string().as_bytes().to_vec(), "ClientStates")
-        },
-        Path::ClientConsensusState(value)=>  {
+        Path::ClientState(value) => (value.to_string().as_bytes().to_vec(), "ClientStates"),
+        Path::ClientConsensusState(value) => {
             (value.to_string().as_bytes().to_vec(), "ConsensusStates")
-        },
-        Path::ClientConnections(_)=> unimplemented!(),
-        Path::Connections(value)=> {
-            (value.to_string().as_bytes().to_vec(), "Connections")
-        },
-        Path::Ports(_)=> unimplemented!(),
-        Path::ChannelEnds(value)=> {
-            (value.to_string().as_bytes().to_vec(), "Channels")
-        },
-        Path::SeqSends(_)=> unimplemented!(),
-        Path::SeqRecvs(value)=> {
-            (value.to_string().as_bytes().to_vec(), "NextSequenceRecv")
-        },
-        Path::SeqAcks(_)=> unimplemented!(),
-        Path::Commitments(value)=> {
-            (value.to_string().as_bytes().to_vec(), "PacketCommitment")
-        },
-        Path::Acks(value) => {
-            (value.to_string().as_bytes().to_vec(), "Acknowledgements")
-        },
-        Path::Receipts(value) =>  {
-            (value.to_string().as_bytes().to_vec(), "PacketReceipt")
-        },
+        }
+        Path::ClientConnections(_) => unimplemented!(),
+        Path::Connections(value) => (value.to_string().as_bytes().to_vec(), "Connections"),
+        Path::Ports(_) => unimplemented!(),
+        Path::ChannelEnds(value) => (value.to_string().as_bytes().to_vec(), "Channels"),
+        Path::SeqSends(_) => unimplemented!(),
+        Path::SeqRecvs(value) => (value.to_string().as_bytes().to_vec(), "NextSequenceRecv"),
+        Path::SeqAcks(_) => unimplemented!(),
+        Path::Commitments(value) => (value.to_string().as_bytes().to_vec(), "PacketCommitment"),
+        Path::Acks(value) => (value.to_string().as_bytes().to_vec(), "Acknowledgements"),
+        Path::Receipts(value) => (value.to_string().as_bytes().to_vec(), "PacketReceipt"),
         Path::Upgrade(_) => unimplemented!(),
     };
 
-    let storage_result =
-        get_storage_via_proof(client_state, proof, key, storage_name)?;
+    let storage_result = get_storage_via_proof(client_state, proof, key, storage_name)?;
 
     if storage_result != value {
         Err(Ics02Error::verify_membership_error())
@@ -476,43 +490,28 @@ fn verify_non_membership(
 
     let (key, storage_name) = match Path::from(path) {
         Path::ClientType(_) => unimplemented!(),
-        Path::ClientState(value) =>  {
-            (value.to_string().as_bytes().to_vec(), "ClientStates")
-        },
-        Path::ClientConsensusState(value)=>  {
+        Path::ClientState(value) => (value.to_string().as_bytes().to_vec(), "ClientStates"),
+        Path::ClientConsensusState(value) => {
             (value.to_string().as_bytes().to_vec(), "ConsensusStates")
-        },
-        Path::ClientConnections(_)=> unimplemented!(),
-        Path::Connections(value)=> {
-            (value.to_string().as_bytes().to_vec(), "Connections")
-        },
-        Path::Ports(_)=> unimplemented!(),
-        Path::ChannelEnds(value)=> {
-            (value.to_string().as_bytes().to_vec(), "Channels")
-        },
-        Path::SeqSends(_)=> unimplemented!(),
-        Path::SeqRecvs(value)=> {
-            (value.to_string().as_bytes().to_vec(), "NextSequenceRecv")
-        },
-        Path::SeqAcks(_)=> unimplemented!(),
-        Path::Commitments(value)=> {
-            (value.to_string().as_bytes().to_vec(), "PacketCommitment")
-        },
-        Path::Acks(value) => {
-            (value.to_string().as_bytes().to_vec(), "Acknowledgements")
-        },
-        Path::Receipts(value) =>  {
-            (value.to_string().as_bytes().to_vec(), "PacketReceipt")
-        },
+        }
+        Path::ClientConnections(_) => unimplemented!(),
+        Path::Connections(value) => (value.to_string().as_bytes().to_vec(), "Connections"),
+        Path::Ports(_) => unimplemented!(),
+        Path::ChannelEnds(value) => (value.to_string().as_bytes().to_vec(), "Channels"),
+        Path::SeqSends(_) => unimplemented!(),
+        Path::SeqRecvs(value) => (value.to_string().as_bytes().to_vec(), "NextSequenceRecv"),
+        Path::SeqAcks(_) => unimplemented!(),
+        Path::Commitments(value) => (value.to_string().as_bytes().to_vec(), "PacketCommitment"),
+        Path::Acks(value) => (value.to_string().as_bytes().to_vec(), "Acknowledgements"),
+        Path::Receipts(value) => (value.to_string().as_bytes().to_vec(), "PacketReceipt"),
         Path::Upgrade(_) => unimplemented!(),
     };
 
-    let storage_result =
-        get_storage_via_proof(client_state, proof, key, storage_name);
+    let storage_result = get_storage_via_proof(client_state, proof, key, storage_name);
 
     // TODO(is or not correct)
     if storage_result.is_err() {
-       Ok(())
+        Ok(())
     } else {
         Err(Ics02Error::verify_no_membership_error())
     }
@@ -569,8 +568,8 @@ fn get_storage_via_proof(
     .map_err(|_| Ics02Error::read_proof_check())?
     .ok_or_else(Ics02Error::empty_proof)?;
 
-    let storage_result =
-        <Vec<u8> as Decode>::decode(&mut &storage_result[..]).map_err(Ics02Error::invalid_codec_decode)?;
+    let storage_result = <Vec<u8> as Decode>::decode(&mut &storage_result[..])
+        .map_err(Ics02Error::invalid_codec_decode)?;
 
     tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, storage_result = {:?}, storage_name={:?}",
         storage_result, storage_name);
@@ -583,8 +582,7 @@ fn storage_map_final_key(keys: Vec<u8>, storage_name: &str) -> Vec<u8> {
     // Migrate from: https://github.com/paritytech/substrate/blob/32b71896df8a832e7c139a842e46710e4d3f70cd/frame/support/src/storage/generator/map.rs?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L66
     let key_hashed: &[u8] = &Blake2_128Concat::hash(&keys[0].encode());
     let storage_prefix = storage_prefix("Ibc".as_bytes(), storage_name.as_bytes());
-    let mut final_key =
-        Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
+    let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.as_ref().len());
     final_key.extend_from_slice(&storage_prefix);
     final_key.extend_from_slice(key_hashed.as_ref());
 
