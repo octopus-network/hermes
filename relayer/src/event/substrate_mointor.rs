@@ -16,6 +16,8 @@ use subxt::{Client, ClientBuilder, RawEventDetails};
 use tendermint_rpc::{event::Event as RpcEvent, Url};
 use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, trace};
+use crate::chain::tracking::TrackingId;
+use crate::chain::substrate::REVISION_NUMBER;
 
 mod retry_strategy {
     use crate::util::retry::clamp_total;
@@ -415,6 +417,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "UpdateClient" => {
@@ -445,6 +448,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "ClientMisbehaviour" => {
@@ -476,6 +480,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "OpenInitConnection" => {
@@ -510,6 +515,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "OpenTryConnection" => {
@@ -544,6 +550,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "OpenAckConnection" => {
@@ -578,6 +585,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "OpenConfirmConnection" => {
@@ -612,6 +620,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
 
@@ -647,6 +656,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "OpenTryChannel" => {
@@ -681,6 +691,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "OpenAckChannel" => {
@@ -715,6 +726,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "OpenConfirmChannel" => {
@@ -750,6 +762,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "CloseInitChannel" => {
@@ -784,6 +797,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "CloseConfirmChannel" => {
@@ -819,6 +833,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "SendPacket" => {
@@ -841,6 +856,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "ReceivePacket" => {
@@ -863,6 +879,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "WriteAcknowledgement" => {
@@ -889,6 +906,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "AcknowledgePacket" => {
@@ -912,6 +930,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "TimeoutPacket" => {
@@ -934,6 +953,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "TimeoutOnClosePacket" => {
@@ -958,22 +978,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-            })
-        }
-        "Empty" => {
-            let event =
-                <ibc_node::ibc::events::Empty as codec::Decode>::decode(&mut &raw_event.data[..])
-                    .map_err(Error::invalid_codec_decode)?;
-            trace!("in substrate_monitor: [substrate_events] >> Empty Event");
-
-            let data = String::from_utf8(event.0).map_err(|_| Error::invalid_from_utf8())?;
-
-            let event = IbcEvent::Empty(data);
-
-            Ok(EventBatch {
-                height: Height::default(),
-                events: vec![event],
-                chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "ChainError" => {
@@ -988,9 +993,10 @@ fn from_raw_event_to_batch_event(
             let event = IbcEvent::ChainError(data);
 
             Ok(EventBatch {
-                height: Height::default(),
+                height: Height::new(REVISION_NUMBER, height).expect("REVISION_NUMBER"),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         "ExtrinsicSuccess" => {
@@ -1001,20 +1007,22 @@ fn from_raw_event_to_batch_event(
             trace!("In substrate_monitor: [subscribe_events] >> ExtrinsicSuccess Event");
 
             let event = IbcEvent::NewBlock(ibc::core::ics02_client::events::NewBlock {
-                height: Height::new(0, height), // Todo: to set revision_number
+                height: Height::new(REVISION_NUMBER, height).expect("REVISION_NUMBER"),
             });
 
             Ok(EventBatch {
-                height: Height::new(0, height), // Todo: to set revision_number
+                height: Height::new(REVISION_NUMBER, height).expect("REVISION_NUMBER"),
                 events: vec![event],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
         _ => {
             Ok(EventBatch {
-                height: Height::new(0, height), // Todo: to set revision_number
+                height: Height::new(REVISION_NUMBER, height).expect("REVISION_NUMBER"),
                 events: vec![],
                 chain_id,
+                tracking_id: TrackingId::new_uuid()
             })
         }
     }

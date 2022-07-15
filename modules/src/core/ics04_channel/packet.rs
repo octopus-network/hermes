@@ -199,7 +199,6 @@ impl core::fmt::Display for Packet {
     }
 }
 
-
 /// Parse a string into a timeout height expected to be stored in
 /// `Packet.timeout_height`. We need to parse the timeout height differently
 /// because of a quirk introduced in ibc-go. See comment in

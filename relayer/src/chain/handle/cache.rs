@@ -484,16 +484,4 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
     ) -> Result<AnyConsensusState, Error> {
         self.inner.query_host_consensus_state(request)
     }
-
-    fn websocket_url(&self) -> Result<String, Error> {
-        todo!()
-    }
-
-    fn update_mmr_root(
-        &self,
-        _src_chain_websocket_url: String,
-        _dst_chain_websocket_url: String,
-    ) -> Result<(), Error> {
-        todo!()
-    }
 }

@@ -480,20 +480,6 @@ impl ChainHandle for BaseChainHandle {
     ) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error> {
         self.send(|reply_to| ChainRequest::QueryPacketEventDataFromBlocks { request, reply_to })
     }
-    fn websocket_url(&self) -> Result<String, Error> {
-        self.send(|reply_to| ChainRequest::WebSocketUrl { reply_to })
-    }
-    fn update_mmr_root(
-        &self,
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
-    ) -> Result<(), Error> {
-        self.send(|reply_to| ChainRequest::UpdateMmrRoot {
-            src_chain_websocket_url,
-            dst_chain_websocket_url,
-            reply_to,
-        })
-    }
 
     fn query_host_consensus_state(
         &self,

@@ -5,8 +5,8 @@ pub mod endpoint;
 pub mod handle;
 pub mod requests;
 pub mod runtime;
-pub mod tracking;
 pub mod substrate;
+pub mod tracking;
 
 #[cfg(test)]
 pub mod mock;

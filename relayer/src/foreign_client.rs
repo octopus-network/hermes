@@ -1047,11 +1047,13 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                         // Get the latest client state on destination.
                         let (client_state, _) = self
                             .dst_chain()
-                            .query_client_state(QueryClientStateRequest {
-                                client_id: self.id.clone(),
-                                height: QueryHeight::Latest,
-                            },
-                                                IncludeProof::No) // todo
+                            .query_client_state(
+                                QueryClientStateRequest {
+                                    client_id: self.id.clone(),
+                                    height: QueryHeight::Latest,
+                                },
+                                IncludeProof::No,
+                            ) // todo
                             .map_err(|e| {
                                 ForeignClientError::client_create(
                                     self.dst_chain.id(),

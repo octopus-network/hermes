@@ -69,7 +69,7 @@ pub(crate) fn process(
         channel_id: Some(chan_id),
         connection_id: msg.channel.connection_hops[0].clone(),
         counterparty_port_id: msg.channel.counterparty().port_id.clone(),
-        counterparty_channel_id: msg.channel.counterparty().channel_id,
+        counterparty_channel_id: msg.channel.counterparty().channel_id.clone(),
     };
     output.emit(IbcEvent::OpenInitChannel(
         event_attributes

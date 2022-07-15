@@ -235,7 +235,6 @@ impl Runnable for QueryClientHeaderCmd {
 
         debug!("Options: {:?}", self);
 
-
         let chain = spawn_chain_runtime(&config, &self.chain_id)
             .unwrap_or_else(exit_with_unrecoverable_error);
 
@@ -254,9 +253,8 @@ impl Runnable for QueryClientHeaderCmd {
             .exit(),
         };
 
-        let consensus_height =
-            Height::new(counterparty_chain.version(), self.consensus_height)
-                .unwrap_or_else(exit_with_unrecoverable_error);
+        let consensus_height = Height::new(counterparty_chain.version(), self.consensus_height)
+            .unwrap_or_else(exit_with_unrecoverable_error);
 
         let query_height = match self.height {
             Some(revision_height) => QueryHeight::Specific(
@@ -329,7 +327,6 @@ impl Runnable for QueryClientConnectionsCmd {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

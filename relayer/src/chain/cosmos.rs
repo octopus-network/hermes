@@ -1598,18 +1598,6 @@ impl ChainEndpoint for CosmosSdkChain {
 
         Ok((target, supporting))
     }
-
-    fn websocket_url(&self) -> Result<String, Error> {
-        Ok(self.config.websocket_addr.clone().to_string())
-    }
-
-    fn update_mmr_root(
-        &self,
-        _src_chain_websocket_url: String,
-        _dst_chain_websocket_url: String,
-    ) -> Result<(), Error> {
-        todo!()
-    }
 }
 
 fn filter_matching_event(

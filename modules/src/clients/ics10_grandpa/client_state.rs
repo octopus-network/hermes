@@ -55,7 +55,7 @@ impl ClientState {
     pub fn with_header(self, h: Header) -> Self {
         // TODO: Clarify which fields should update.
         ClientState {
-            block_number: h.height().revision_number as u32,
+            block_number: h.height().revision_number() as u32,
             ..self
         }
     }
@@ -74,7 +74,7 @@ impl ClientState {
     }
 
     pub fn latest_height(&self) -> Height {
-        Height::new(0, self.block_number as u64)
+        Height::new(8888, self.block_number as u64).unwrap()
     }
 }
 
@@ -92,7 +92,7 @@ impl crate::core::ics02_client::client_state::ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        Height::new(0, self.block_number as u64)
+        Height::new(8888, self.block_number as u64).unwrap()
     }
 
     fn frozen_height(&self) -> Option<Height> {
@@ -117,14 +117,9 @@ impl TryFrom<RawClientState> for ClientState {
     type Error = Error;
 
     fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
-        let frozen_height = raw.frozen_height.and_then(|raw_height| {
-            let height = raw_height.into();
-            if height == Height::zero() {
-                None
-            } else {
-                Some(height)
-            }
-        });
+        let frozen_height = raw
+            .frozen_height
+            .and_then(|raw_height| raw_height.try_into().ok());
 
         Ok(Self {
             chain_id: ChainId::from_str(raw.chain_id.as_str())
@@ -152,7 +147,12 @@ impl From<ClientState> for RawClientState {
         Self {
             chain_id: value.chain_id.to_string(),
             block_number: value.block_number,
-            frozen_height: Some(value.frozen_height.unwrap_or_else(Height::zero).into()),
+            frozen_height: Some(
+                value
+                    .frozen_height
+                    .unwrap_or_else(|| Height::new(8888, 0).unwrap())
+                    .into(),
+            ),
             block_header: Some(value.block_header.into()),
             latest_commitment: Some(value.latest_commitment.into()),
             validator_set: Some(value.validator_set.into()),
