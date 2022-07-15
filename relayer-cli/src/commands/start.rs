@@ -16,10 +16,9 @@ use crate::conclude::json;
 use crate::conclude::Output;
 use crate::prelude::*;
 
-#[derive(Clone, Command, Debug, Parser)]
+#[derive(Clone, Command, Debug, Parser, PartialEq)]
 pub struct StartCmd {
     #[clap(
-        short = 'f',
         long = "full-scan",
         help = "Force a full scan of the chains for clients, connections and channels"
     )]
@@ -122,7 +121,7 @@ fn spawn_rest_server(config: &Config) -> Option<rest::Receiver> {
 
     if rest.enabled {
         warn!(
-            "REST server enabled in the config but Hermes was built without RESET support, \
+            "REST server enabled in the config but Hermes was built without REST support, \
              build Hermes with --features=rest-server to enable REST support."
         );
 
@@ -187,4 +186,27 @@ fn make_supervisor<Chain: ChainHandle>(
             force_full_scan,
         },
     )?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::StartCmd;
+
+    use abscissa_core::clap::Parser;
+
+    #[test]
+    fn test_start_required_only() {
+        assert_eq!(
+            StartCmd { full_scan: false },
+            StartCmd::parse_from(&["test"])
+        )
+    }
+
+    #[test]
+    fn test_start_full_scan() {
+        assert_eq!(
+            StartCmd { full_scan: true },
+            StartCmd::parse_from(&["test", "--full-scan"])
+        )
+    }
 }

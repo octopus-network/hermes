@@ -14,32 +14,38 @@ use ibc::{
         ics03_connection::version::Version,
         ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd},
         ics04_channel::packet::{PacketMsgType, Sequence},
-        ics23_commitment::commitment::CommitmentPrefix,
+        ics23_commitment::{commitment::CommitmentPrefix, merkle::MerkleProof},
         ics24_host::identifier::ChainId,
         ics24_host::identifier::ChannelId,
         ics24_host::identifier::{ClientId, ConnectionId, PortId},
     },
     events::IbcEvent,
     proofs::Proofs,
-    query::{QueryBlockRequest, QueryTxRequest},
     signer::Signer,
     Height,
 };
-use ibc_proto::ibc::core::channel::v1::{
-    PacketState, QueryChannelClientStateRequest, QueryChannelsRequest,
-    QueryConnectionChannelsRequest, QueryNextSequenceReceiveRequest,
-    QueryPacketAcknowledgementsRequest, QueryPacketCommitmentsRequest, QueryUnreceivedAcksRequest,
-    QueryUnreceivedPacketsRequest,
-};
-use ibc_proto::ibc::core::client::v1::{QueryClientStatesRequest, QueryConsensusStatesRequest};
-use ibc_proto::ibc::core::commitment::v1::MerkleProof;
-use ibc_proto::ibc::core::connection::v1::QueryClientConnectionsRequest;
-use ibc_proto::ibc::core::connection::v1::QueryConnectionsRequest;
 
 use crate::{
-    chain::{client::ClientSettings, tx::TrackedMsgs, ChainStatus},
+    account::Balance,
+    chain::{
+        client::ClientSettings,
+        endpoint::ChainStatus,
+        requests::{
+            IncludeProof, QueryBlockRequest, QueryChannelClientStateRequest, QueryChannelRequest,
+            QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStateRequest,
+            QueryClientStatesRequest, QueryConnectionChannelsRequest, QueryConnectionRequest,
+            QueryConnectionsRequest, QueryConsensusStateRequest, QueryConsensusStatesRequest,
+            QueryHostConsensusStateRequest, QueryNextSequenceReceiveRequest,
+            QueryPacketAcknowledgementRequest, QueryPacketAcknowledgementsRequest,
+            QueryPacketCommitmentRequest, QueryPacketCommitmentsRequest, QueryPacketReceiptRequest,
+            QueryTxRequest, QueryUnreceivedAcksRequest, QueryUnreceivedPacketsRequest,
+            QueryUpgradedClientStateRequest, QueryUpgradedConsensusStateRequest,
+        },
+        tracking::TrackedMsgs,
+    },
     config::ChainConfig,
     connection::ConnectionMsgType,
+    denom::DenomTrace,
     error::Error,
     keyring::KeyEntry,
 };
@@ -47,7 +53,7 @@ use crate::{
 use super::{reply_channel, ChainHandle, ChainRequest, HealthCheck, ReplyTo, Subscription};
 
 /// A basic chain handle implementation.
-/// For use in interactive CLIs, e.g., `query`, `tx raw`, etc.
+/// For use in interactive CLIs, e.g., `query`, `tx`, etc.
 #[derive(Debug, Clone)]
 pub struct BaseChainHandle {
     /// Chain identifier
@@ -155,6 +161,14 @@ impl ChainHandle for BaseChainHandle {
         self.send(|reply_to| ChainRequest::IbcVersion { reply_to })
     }
 
+    fn query_balance(&self, key_name: Option<String>) -> Result<Balance, Error> {
+        self.send(|reply_to| ChainRequest::QueryBalance { key_name, reply_to })
+    }
+
+    fn query_denom_trace(&self, hash: String) -> Result<DenomTrace, Error> {
+        self.send(|reply_to| ChainRequest::QueryDenomTrace { hash, reply_to })
+    }
+
     fn query_application_status(&self) -> Result<ChainStatus, Error> {
         self.send(|reply_to| ChainRequest::QueryApplicationStatus { reply_to })
     }
@@ -168,12 +182,12 @@ impl ChainHandle for BaseChainHandle {
 
     fn query_client_state(
         &self,
-        client_id: &ClientId,
-        height: Height,
-    ) -> Result<AnyClientState, Error> {
+        request: QueryClientStateRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
         self.send(|reply_to| ChainRequest::QueryClientState {
-            client_id: client_id.clone(),
-            height,
+            request,
+            include_proof,
             reply_to,
         })
     }
@@ -194,30 +208,28 @@ impl ChainHandle for BaseChainHandle {
 
     fn query_consensus_state(
         &self,
-        client_id: ClientId,
-        consensus_height: Height,
-        query_height: Height,
-    ) -> Result<AnyConsensusState, Error> {
+        request: QueryConsensusStateRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
         self.send(|reply_to| ChainRequest::QueryConsensusState {
-            client_id,
-            consensus_height,
-            query_height,
+            request,
+            include_proof,
             reply_to,
         })
     }
 
     fn query_upgraded_client_state(
         &self,
-        height: Height,
+        request: QueryUpgradedClientStateRequest,
     ) -> Result<(AnyClientState, MerkleProof), Error> {
-        self.send(|reply_to| ChainRequest::QueryUpgradedClientState { height, reply_to })
+        self.send(|reply_to| ChainRequest::QueryUpgradedClientState { request, reply_to })
     }
 
     fn query_upgraded_consensus_state(
         &self,
-        height: Height,
+        request: QueryUpgradedConsensusStateRequest,
     ) -> Result<(AnyConsensusState, MerkleProof), Error> {
-        self.send(|reply_to| ChainRequest::QueryUpgradedConsensusState { height, reply_to })
+        self.send(|reply_to| ChainRequest::QueryUpgradedConsensusState { request, reply_to })
     }
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
@@ -230,12 +242,12 @@ impl ChainHandle for BaseChainHandle {
 
     fn query_connection(
         &self,
-        connection_id: &ConnectionId,
-        height: Height,
-    ) -> Result<ConnectionEnd, Error> {
+        request: QueryConnectionRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
         self.send(|reply_to| ChainRequest::QueryConnection {
-            connection_id: connection_id.clone(),
-            height,
+            request,
+            include_proof,
             reply_to,
         })
     }
@@ -257,8 +269,13 @@ impl ChainHandle for BaseChainHandle {
     fn query_next_sequence_receive(
         &self,
         request: QueryNextSequenceReceiveRequest,
-    ) -> Result<Sequence, Error> {
-        self.send(|reply_to| ChainRequest::QueryNextSequenceReceive { request, reply_to })
+        include_proof: IncludeProof,
+    ) -> Result<(Sequence, Option<MerkleProof>), Error> {
+        self.send(|reply_to| ChainRequest::QueryNextSequenceReceive {
+            request,
+            include_proof,
+            reply_to,
+        })
     }
 
     fn query_channels(
@@ -270,14 +287,12 @@ impl ChainHandle for BaseChainHandle {
 
     fn query_channel(
         &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        height: Height,
-    ) -> Result<ChannelEnd, Error> {
+        request: QueryChannelRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
         self.send(|reply_to| ChainRequest::QueryChannel {
-            port_id: port_id.clone(),
-            channel_id: *channel_id,
-            height,
+            request,
+            include_proof,
             reply_to,
         })
     }
@@ -287,44 +302,6 @@ impl ChainHandle for BaseChainHandle {
         request: QueryChannelClientStateRequest,
     ) -> Result<Option<IdentifiedAnyClientState>, Error> {
         self.send(|reply_to| ChainRequest::QueryChannelClientState { request, reply_to })
-    }
-
-    fn proven_client_state(
-        &self,
-        client_id: &ClientId,
-        height: Height,
-    ) -> Result<(AnyClientState, MerkleProof), Error> {
-        self.send(|reply_to| ChainRequest::ProvenClientState {
-            client_id: client_id.clone(),
-            height,
-            reply_to,
-        })
-    }
-
-    fn proven_connection(
-        &self,
-        connection_id: &ConnectionId,
-        height: Height,
-    ) -> Result<(ConnectionEnd, MerkleProof), Error> {
-        self.send(|reply_to| ChainRequest::ProvenConnection {
-            connection_id: connection_id.clone(),
-            height,
-            reply_to,
-        })
-    }
-
-    fn proven_client_consensus(
-        &self,
-        client_id: &ClientId,
-        consensus_height: Height,
-        height: Height,
-    ) -> Result<(AnyConsensusState, MerkleProof), Error> {
-        self.send(|reply_to| ChainRequest::ProvenClientConsensus {
-            client_id: client_id.clone(),
-            consensus_height,
-            height,
-            reply_to,
-        })
     }
 
     fn build_header(
@@ -405,7 +382,7 @@ impl ChainHandle for BaseChainHandle {
     ) -> Result<Proofs, Error> {
         self.send(|reply_to| ChainRequest::BuildChannelProofs {
             port_id: port_id.clone(),
-            channel_id: *channel_id,
+            channel_id: channel_id.clone(),
             height,
             reply_to,
         })
@@ -418,13 +395,25 @@ impl ChainHandle for BaseChainHandle {
         channel_id: &ChannelId,
         sequence: Sequence,
         height: Height,
-    ) -> Result<(Vec<u8>, Proofs), Error> {
+    ) -> Result<Proofs, Error> {
         self.send(|reply_to| ChainRequest::BuildPacketProofs {
             packet_type,
             port_id: port_id.clone(),
-            channel_id: *channel_id,
+            channel_id: channel_id.clone(),
             sequence,
             height,
+            reply_to,
+        })
+    }
+
+    fn query_packet_commitment(
+        &self,
+        request: QueryPacketCommitmentRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        self.send(|reply_to| ChainRequest::QueryPacketCommitment {
+            request,
+            include_proof,
             reply_to,
         })
     }
@@ -432,28 +421,52 @@ impl ChainHandle for BaseChainHandle {
     fn query_packet_commitments(
         &self,
         request: QueryPacketCommitmentsRequest,
-    ) -> Result<(Vec<PacketState>, Height), Error> {
+    ) -> Result<(Vec<Sequence>, Height), Error> {
         self.send(|reply_to| ChainRequest::QueryPacketCommitments { request, reply_to })
+    }
+
+    fn query_packet_receipt(
+        &self,
+        request: QueryPacketReceiptRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        self.send(|reply_to| ChainRequest::QueryPacketReceipt {
+            request,
+            include_proof,
+            reply_to,
+        })
     }
 
     fn query_unreceived_packets(
         &self,
         request: QueryUnreceivedPacketsRequest,
-    ) -> Result<Vec<u64>, Error> {
+    ) -> Result<Vec<Sequence>, Error> {
         self.send(|reply_to| ChainRequest::QueryUnreceivedPackets { request, reply_to })
+    }
+
+    fn query_packet_acknowledgement(
+        &self,
+        request: QueryPacketAcknowledgementRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        self.send(|reply_to| ChainRequest::QueryPacketAcknowledgement {
+            request,
+            include_proof,
+            reply_to,
+        })
     }
 
     fn query_packet_acknowledgements(
         &self,
         request: QueryPacketAcknowledgementsRequest,
-    ) -> Result<(Vec<PacketState>, Height), Error> {
-        self.send(|reply_to| ChainRequest::QueryPacketAcknowledgement { request, reply_to })
+    ) -> Result<(Vec<Sequence>, Height), Error> {
+        self.send(|reply_to| ChainRequest::QueryPacketAcknowledgements { request, reply_to })
     }
 
-    fn query_unreceived_acknowledgement(
+    fn query_unreceived_acknowledgements(
         &self,
         request: QueryUnreceivedAcksRequest,
-    ) -> Result<Vec<u64>, Error> {
+    ) -> Result<Vec<Sequence>, Error> {
         self.send(|reply_to| ChainRequest::QueryUnreceivedAcknowledgement { request, reply_to })
     }
 
@@ -482,8 +495,11 @@ impl ChainHandle for BaseChainHandle {
         })
     }
 
-    fn query_host_consensus_state(&self, height: Height) -> Result<AnyConsensusState, Error> {
-        self.send(|reply_to| ChainRequest::QueryHostConsensusState { height, reply_to })
+    fn query_host_consensus_state(
+        &self,
+        request: QueryHostConsensusStateRequest,
+    ) -> Result<AnyConsensusState, Error> {
+        self.send(|reply_to| ChainRequest::QueryHostConsensusState { request, reply_to })
     }
 }
 

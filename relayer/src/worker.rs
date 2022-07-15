@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
 use core::fmt;
+use ibc::core::ics04_channel::channel::Order;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tracing::error;
@@ -26,13 +27,11 @@ pub use cmd::WorkerCmd;
 mod map;
 pub use map::WorkerMap;
 
-pub mod client;
-
-pub mod connection;
-
 pub mod channel;
-
+pub mod client;
+pub mod connection;
 pub mod packet;
+pub mod wallet;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -116,20 +115,25 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
                 chains.b,
                 LinkParameters {
                     src_port_id: path.src_port_id.clone(),
-                    src_channel_id: path.src_channel_id,
+                    src_channel_id: path.src_channel_id.clone(),
                 },
                 packets_config.tx_confirmation,
             );
 
             match link_res {
                 Ok(link) => {
+                    let channel_ordering = link.a_to_b.channel().ordering;
+                    let should_clear_on_start =
+                        packets_config.clear_on_start || channel_ordering == Order::Ordered;
+
                     let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded();
                     let link = Arc::new(Mutex::new(link));
                     let resubmit = Resubmit::from_clear_interval(packets_config.clear_interval);
+
                     let packet_task = packet::spawn_packet_cmd_worker(
                         cmd_rx,
                         link.clone(),
-                        packets_config.clear_on_start,
+                        should_clear_on_start,
                         packets_config.clear_interval,
                         path.clone(),
                     );
@@ -145,6 +149,15 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
                     (None, None)
                 }
             }
+        }
+
+        Object::Wallet(wallet) => {
+            assert_eq!(wallet.chain_id, chains.a.id());
+
+            let wallet_task = wallet::spawn_wallet_worker(chains.a);
+            task_handles.push(wallet_task);
+
+            (None, None)
         }
     };
 

@@ -3,6 +3,7 @@ use crate::core::ics03_connection::version::Version;
 use crate::core::ics24_host::error::ValidationError;
 use crate::core::ics24_host::identifier::{ClientId, ConnectionId};
 use crate::proofs::ProofError;
+use crate::signer::SignerError;
 use crate::Height;
 use flex_error::{define_error, DisplayOnly};
 
@@ -90,7 +91,8 @@ define_error! {
             [ client_error::Error ]
             | _ | { "error verifying connnection state" },
 
-        InvalidSigner
+        Signer
+            [ SignerError ]
             | _ | { "invalid signer" },
 
         ConnectionNotFound

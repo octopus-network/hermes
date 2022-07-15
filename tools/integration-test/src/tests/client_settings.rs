@@ -4,7 +4,7 @@ use ibc::core::ics02_client::trust_threshold::TrustThreshold;
 
 use ibc::clients::ics07_tendermint::client_state::ClientState as TendermintClientState;
 use ibc::core::ics02_client::client_state::AnyClientState;
-use ibc::Height;
+use ibc_relayer::chain::requests::{IncludeProof, QueryClientStateRequest, QueryHeight};
 use ibc_relayer::foreign_client::CreateOptions;
 
 use ibc_test_framework::prelude::*;
@@ -105,7 +105,13 @@ fn query_client_state<Chain: ChainHandle>(
     handle: Chain,
     id: &ClientId,
 ) -> Result<TendermintClientState, Error> {
-    let state = handle.query_client_state(id, Height::zero())?;
+    let (state, _) = handle.query_client_state(
+        QueryClientStateRequest {
+            client_id: id.clone(),
+            height: QueryHeight::Latest,
+        },
+        IncludeProof::No,
+    )?;
     #[allow(unreachable_patterns)]
     match state {
         AnyClientState::Tendermint(state) => Ok(state),

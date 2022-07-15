@@ -28,23 +28,21 @@ pub fn process(
     let packet = &msg.packet;
 
     let source_channel_end =
-        ctx.channel_end(&(packet.source_port.clone(), packet.source_channel))?;
+        ctx.channel_end(&(packet.source_port.clone(), packet.source_channel.clone()))?;
 
     if !source_channel_end.state_matches(&State::Open) {
-        return Err(Error::channel_closed(packet.source_channel));
+        return Err(Error::channel_closed(packet.source_channel.clone()));
     }
-
-    let _channel_cap = ctx.authenticated_capability(&packet.source_port)?;
 
     let counterparty = Counterparty::new(
         packet.destination_port.clone(),
-        Some(packet.destination_channel),
+        Some(packet.destination_channel.clone()),
     );
 
     if !source_channel_end.counterparty_matches(&counterparty) {
         return Err(Error::invalid_packet_counterparty(
             packet.destination_port.clone(),
-            packet.destination_channel,
+            packet.destination_channel.clone(),
         ));
     }
 
@@ -59,7 +57,7 @@ pub fn process(
     // Verify packet commitment
     let packet_commitment = ctx.get_packet_commitment(&(
         packet.source_port.clone(),
-        packet.source_channel,
+        packet.source_channel.clone(),
         packet.sequence,
     ))?;
 
@@ -84,8 +82,8 @@ pub fn process(
     )?;
 
     let result = if source_channel_end.order_matches(&Order::Ordered) {
-        let next_seq_ack =
-            ctx.get_next_sequence_ack(&(packet.source_port.clone(), packet.source_channel))?;
+        let next_seq_ack = ctx
+            .get_next_sequence_ack(&(packet.source_port.clone(), packet.source_channel.clone()))?;
 
         if packet.sequence != next_seq_ack {
             return Err(Error::invalid_packet_sequence(
@@ -96,14 +94,14 @@ pub fn process(
 
         PacketResult::Ack(AckPacketResult {
             port_id: packet.source_port.clone(),
-            channel_id: packet.source_channel,
+            channel_id: packet.source_channel.clone(),
             seq: packet.sequence,
             seq_number: Some(next_seq_ack.increment()),
         })
     } else {
         PacketResult::Ack(AckPacketResult {
             port_id: packet.source_port.clone(),
-            channel_id: packet.source_channel,
+            channel_id: packet.source_channel.clone(),
             seq: packet.sequence,
             seq_number: None,
         })
@@ -134,7 +132,7 @@ mod tests {
     use crate::core::ics04_channel::msgs::acknowledgement::test_util::get_dummy_raw_msg_acknowledgement;
     use crate::core::ics04_channel::msgs::acknowledgement::MsgAcknowledgement;
     use crate::core::ics04_channel::Version;
-    use crate::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
+    use crate::core::ics24_host::identifier::{ClientId, ConnectionId};
     use crate::events::IbcEvent;
     use crate::mock::context::MockContext;
     use crate::prelude::*;
@@ -151,10 +149,10 @@ mod tests {
 
         let context = MockContext::default();
 
-        let client_height = Height::new(0, Height::default().revision_height + 2);
+        let client_height = Height::new(0, 2).unwrap();
 
         let msg = MsgAcknowledgement::try_from(get_dummy_raw_msg_acknowledgement(
-            client_height.revision_height,
+            client_height.revision_height(),
         ))
         .unwrap();
         let packet = msg.packet.clone();
@@ -170,7 +168,7 @@ mod tests {
             Order::default(),
             Counterparty::new(
                 packet.destination_port.clone(),
-                Some(packet.destination_channel),
+                Some(packet.destination_channel.clone()),
             ),
             vec![ConnectionId::default()],
             Version::ics20(),
@@ -196,25 +194,13 @@ mod tests {
                 want_pass: false,
             },
             Test {
-                name: "Processing fails because the port does not have a capability associated"
-                    .to_string(),
-                ctx: context.clone().with_channel(
-                    PortId::default(),
-                    ChannelId::default(),
-                    source_channel_end.clone(),
-                ),
-                msg: msg.clone(),
-                want_pass: false,
-            },
-            Test {
                 name: "Good parameters".to_string(),
                 ctx: context
                     .with_client(&ClientId::default(), client_height)
                     .with_connection(ConnectionId::default(), connection_end)
-                    .with_port_capability(packet.destination_port.clone())
                     .with_channel(
                         packet.source_port.clone(),
-                        packet.source_channel,
+                        packet.source_channel.clone(),
                         source_channel_end,
                     )
                     .with_packet_commitment(

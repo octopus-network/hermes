@@ -25,8 +25,10 @@ pub fn process(
 ) -> HandlerResult<PacketResult, Error> {
     let mut output = HandlerOutput::builder();
 
-    let dest_channel_end =
-        ctx.channel_end(&(packet.destination_port.clone(), packet.destination_channel))?;
+    let dest_channel_end = ctx.channel_end(&(
+        packet.destination_port.clone(),
+        packet.destination_channel.clone(),
+    ))?;
 
     if !dest_channel_end.state_matches(&State::Open) {
         return Err(Error::invalid_channel_state(
@@ -35,14 +37,12 @@ pub fn process(
         ));
     }
 
-    let _channel_cap = ctx.authenticated_capability(&packet.destination_port)?;
-
     // NOTE: IBC app modules might have written the acknowledgement synchronously on
     // the OnRecvPacket callback so we need to check if the acknowledgement is already
     // set on the store and return an error if so.
     match ctx.get_packet_acknowledgement(&(
         packet.destination_port.clone(),
-        packet.destination_channel,
+        packet.destination_channel.clone(),
         packet.sequence,
     )) {
         Ok(_) => return Err(Error::acknowledgement_exists(packet.sequence)),
@@ -57,7 +57,7 @@ pub fn process(
 
     let result = PacketResult::WriteAck(WriteAckPacketResult {
         port_id: packet.source_port.clone(),
-        channel_id: packet.source_channel,
+        channel_id: packet.source_channel.clone(),
         seq: packet.sequence,
         ack_commitment: ctx.ack_commitment(ack.clone().into()),
     });
@@ -106,7 +106,7 @@ mod tests {
 
         let context = MockContext::default();
 
-        let client_height = Height::new(0, 1);
+        let client_height = Height::new(0, 1).unwrap();
 
         let mut packet: Packet = get_dummy_raw_packet(1, 6).try_into().unwrap();
         packet.sequence = 1.into();
@@ -118,7 +118,10 @@ mod tests {
         let dest_channel_end = ChannelEnd::new(
             State::Open,
             Order::default(),
-            Counterparty::new(packet.source_port.clone(), Some(packet.source_channel)),
+            Counterparty::new(
+                packet.source_port.clone(),
+                Some(packet.source_channel.clone()),
+            ),
             vec![ConnectionId::default()],
             Version::ics20(),
         );
@@ -144,27 +147,14 @@ mod tests {
                 want_pass: false,
             },
             Test {
-                name: "Processing fails because the port does not have a capability associated"
-                    .to_string(),
-                ctx: context.clone().with_channel(
-                    PortId::default(),
-                    ChannelId::default(),
-                    dest_channel_end.clone(),
-                ),
-                packet: packet.clone(),
-                ack: ack.clone(),
-                want_pass: false,
-            },
-            Test {
                 name: "Good parameters".to_string(),
                 ctx: context
                     .clone()
                     .with_client(&ClientId::default(), client_height)
                     .with_connection(ConnectionId::default(), connection_end.clone())
-                    .with_port_capability(packet.destination_port.clone())
                     .with_channel(
                         packet.destination_port.clone(),
-                        packet.destination_channel,
+                        packet.destination_channel.clone(),
                         dest_channel_end.clone(),
                     ),
                 packet: packet.clone(),
@@ -174,9 +164,8 @@ mod tests {
             Test {
                 name: "Zero ack".to_string(),
                 ctx: context
-                    .with_client(&ClientId::default(), Height::default())
+                    .with_client(&ClientId::default(), Height::new(0, 1).unwrap())
                     .with_connection(ConnectionId::default(), connection_end)
-                    .with_port_capability(PortId::default())
                     .with_channel(PortId::default(), ChannelId::default(), dest_channel_end),
                 packet,
                 ack: ack_null,

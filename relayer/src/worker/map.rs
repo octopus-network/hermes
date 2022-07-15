@@ -58,7 +58,7 @@ impl WorkerMap {
                     "waiting for worker loop to end"
                 );
 
-                let _ = handle.join();
+                handle.join();
 
                 trace!(
                     worker.id = %id, worker.object = %object.short_name(),
@@ -109,7 +109,7 @@ impl WorkerMap {
         for worker in self.to_notify(src_chain_id) {
             // Ignore send error if the worker task handling
             // NewBlock cmd has been terminated.
-            let _ = worker.send_new_block(height, new_block);
+            worker.send_new_block(height, new_block);
         }
     }
 
@@ -229,11 +229,13 @@ impl Drop for WorkerMap {
 
 #[cfg(feature = "telemetry")]
 fn metric_type(o: &Object) -> ibc_telemetry::state::WorkerType {
-    use ibc_telemetry::state::WorkerType::*;
+    use ibc_telemetry::state::WorkerType;
+
     match o {
-        Object::Client(_) => Client,
-        Object::Connection(_) => Connection,
-        Object::Channel(_) => Channel,
-        Object::Packet(_) => Packet,
+        Object::Client(_) => WorkerType::Client,
+        Object::Connection(_) => WorkerType::Connection,
+        Object::Channel(_) => WorkerType::Channel,
+        Object::Packet(_) => WorkerType::Packet,
+        Object::Wallet(_) => WorkerType::Wallet,
     }
 }

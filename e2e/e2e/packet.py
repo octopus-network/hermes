@@ -12,7 +12,7 @@ class Packet:
     destination_port: PortId
     destination_channel: ChannelId
     data: Hex
-    timeout_height: Height
+    timeout_height: TimeoutHeight
     timeout_timestamp: Timestamp
 
 
@@ -22,7 +22,7 @@ class TxPacketSendRes:
     packet: Packet
 
 
-@cmd("tx raw ft-transfer")
+@cmd("tx ft-transfer")
 @dataclass
 class TxPacketSend(Cmd[TxPacketSendRes]):
     dst_chain_id: ChainId
@@ -36,19 +36,19 @@ class TxPacketSend(Cmd[TxPacketSendRes]):
 
     def args(self) -> List[str]:
         args = [
-            self.dst_chain_id,
-            self.src_chain_id,
-            self.src_port,
-            self.src_channel,
-            str(self.amount),
-            "-o", str(self.height_offset),
+            "--receiver-chain", self.dst_chain_id,
+            "--sender-chain", self.src_chain_id,
+            "--sender-port", self.src_port,
+            "--sender-channel", self.src_channel,
+            "--amount", str(self.amount),
+            "--timeout-height-offset", str(self.height_offset),
         ]
 
         if self.number_msgs != None:
-            args.extend(['-n', str(self.number_msgs)])
+            args.extend(['--number-msgs', str(self.number_msgs)])
 
         if self.key != None:
-            args.extend(['-k', str(self.key)])
+            args.extend(['--key-name', str(self.key)])
 
         return args
 
@@ -66,7 +66,7 @@ class TxPacketRecvRes:
     ack: Hex
 
 
-@cmd("tx raw packet-recv")
+@cmd("tx packet-recv")
 @dataclass
 class TxPacketRecv(Cmd[TxPacketRecvRes]):
     dst_chain_id: ChainId
@@ -75,7 +75,7 @@ class TxPacketRecv(Cmd[TxPacketRecvRes]):
     src_channel: ChannelId
 
     def args(self) -> List[str]:
-        return [self.dst_chain_id, self.src_chain_id, self.src_port, self.src_channel]
+        return ["--receiver-chain", self.dst_chain_id, "--sender-chain", self.src_chain_id, "--sender-port", self.src_port, "--sender-channel", self.src_channel]
 
     def process(self, result: Any) -> TxPacketRecvRes:
         entry = find_entry(result, 'WriteAcknowledgement')
@@ -90,7 +90,7 @@ class TxPacketTimeoutRes:
     packet: Packet
 
 
-@cmd("tx raw packet-recv")
+@cmd("tx packet-recv")
 @dataclass
 class TxPacketTimeout(Cmd[TxPacketTimeoutRes]):
     dst_chain_id: ChainId
@@ -99,7 +99,7 @@ class TxPacketTimeout(Cmd[TxPacketTimeoutRes]):
     src_channel: ChannelId
 
     def args(self) -> List[str]:
-        return [self.dst_chain_id, self.src_chain_id, self.src_port, self.src_channel]
+        return ["--receiver-chain", self.dst_chain_id, "--sender-chain", self.src_chain_id, "--sender-port", self.src_port, "--sender-channel", self.src_channel]
 
     def process(self, result: Any) -> TxPacketTimeoutRes:
         entry = find_entry(result, 'TimeoutPacket')
@@ -115,7 +115,7 @@ class TxPacketAckRes:
     packet: Packet
 
 
-@cmd("tx raw packet-ack")
+@cmd("tx packet-ack")
 @dataclass
 class TxPacketAck(Cmd[TxPacketAckRes]):
     dst_chain_id: ChainId
@@ -124,7 +124,7 @@ class TxPacketAck(Cmd[TxPacketAckRes]):
     src_channel: ChannelId
 
     def args(self) -> List[str]:
-        return [self.dst_chain_id, self.src_chain_id, self.src_port, self.src_channel]
+        return ["--receiver-chain", self.dst_chain_id, "--sender-chain", self.src_chain_id, "--sender-port", self.src_port, "--sender-channel", self.src_channel]
 
     def process(self, result: Any) -> TxPacketAckRes:
         entry = find_entry(result, 'AcknowledgePacket')
@@ -133,7 +133,7 @@ class TxPacketAck(Cmd[TxPacketAckRes]):
 
 # -----------------------------------------------------------------------------
 
-@cmd("query packet unreceived-packets")
+@cmd("query packet pending-sends")
 @dataclass
 class QueryUnreceivedPackets(Cmd[List[int]]):
     chain: ChainId
@@ -141,7 +141,7 @@ class QueryUnreceivedPackets(Cmd[List[int]]):
     channel: ChannelId
 
     def args(self) -> List[str]:
-        return [self.chain, self.port, self.channel]
+        return ["--chain", self.chain, "--port", self.port, "--chan", self.channel]
 
     def process(self, result: Any) -> List[int]:
         return from_dict(List[int], result)
@@ -161,7 +161,7 @@ def query_unreceived_packets(
 # -----------------------------------------------------------------------------
 
 
-@cmd("query packet unreceived-acks")
+@cmd("query packet pending-acks")
 @dataclass
 class QueryUnreceivedAcks(Cmd[List[int]]):
     chain: ChainId
@@ -169,7 +169,7 @@ class QueryUnreceivedAcks(Cmd[List[int]]):
     channel: ChannelId
 
     def args(self) -> List[str]:
-        return [self.chain, self.port, self.channel]
+        return ["--chain", self.chain, "--port", self.port, "--chan", self.channel]
 
     def process(self, result: Any) -> List[int]:
         return from_dict(List[int], result)

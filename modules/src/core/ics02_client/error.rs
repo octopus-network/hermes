@@ -1,6 +1,8 @@
 use crate::prelude::*;
 
 use flex_error::{define_error, DisplayOnly, TraceError};
+use tendermint::Error as TendermintError;
+use tendermint_proto::Error as TendermintProtoError;
 
 use crate::clients::ics07_tendermint::error::Error as Ics07Error;
 use crate::clients::ics10_grandpa::error::Error as Ics10Error;
@@ -10,11 +12,9 @@ use crate::core::ics04_channel::packet::Sequence;
 use crate::core::ics23_commitment::error::Error as Ics23Error;
 use crate::core::ics24_host::error::ValidationError;
 use crate::core::ics24_host::identifier::ClientId;
+use crate::signer::SignerError;
 use crate::timestamp::Timestamp;
 use crate::Height;
-
-use tendermint::Error as TendermintError;
-use tendermint_proto::Error as TendermintProtoError;
 
 define_error! {
     #[derive(Debug, PartialEq, Eq)]
@@ -159,6 +159,9 @@ define_error! {
             { value: String }
             [ HeightError ]
             | e | { format_args!("String {0} cannnot be converted to height", e.value) },
+
+        InvalidHeight
+            | _ | { "revision height cannot be zero" },
 
         InvalidHeightResult
             | _ | { "height cannot end up zero or negative" },
@@ -403,7 +406,12 @@ define_error! {
             | _ | { "verify membership failed!" },
 
         VerifyNoMembershipError
-            | _ | { "verify no membership failed!" }
+            | _ | { "verify no membership failed!" },
+
+        Signer
+            [ SignerError ]
+            | _ | { "failed to parse signer" },
+
     }
 }
 

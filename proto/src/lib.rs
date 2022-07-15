@@ -8,7 +8,7 @@
 #![allow(clippy::large_enum_variant)]
 #![allow(rustdoc::bare_urls)]
 #![forbid(unsafe_code)]
-#![doc(html_root_url = "https://docs.rs/ibc-proto/0.17.1")]
+#![doc(html_root_url = "https://docs.rs/ibc-proto/0.19.0")]
 
 pub mod google;
 
@@ -54,6 +54,11 @@ pub mod cosmos {
             include_proto!("cosmos.staking.v1beta1.rs");
         }
     }
+    pub mod bank {
+        pub mod v1beta1 {
+            include_proto!("cosmos.bank.v1beta1.rs");
+        }
+    }
     pub mod base {
         pub mod abci {
             pub mod v1beta1 {
@@ -68,17 +73,6 @@ pub mod cosmos {
         pub mod query {
             pub mod v1beta1 {
                 include_proto!("cosmos.base.query.v1beta1.rs");
-            }
-
-            pub mod pagination {
-                use super::v1beta1::PageRequest;
-
-                pub fn all() -> Option<PageRequest> {
-                    Some(PageRequest {
-                        limit: u64::MAX,
-                        ..Default::default()
-                    })
-                }
             }
         }
         pub mod reflection {

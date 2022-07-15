@@ -5,18 +5,17 @@ use ibc_proto::google::protobuf::Any;
 use std::thread;
 use tendermint::abci::Code;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
-use tendermint_rpc::HttpClient;
-use tonic::codegen::http::Uri;
 use tracing::{debug, error, span, warn, Level};
 
 use crate::chain::cosmos::query::account::refresh_account;
 use crate::chain::cosmos::tx::estimate_fee_and_send_tx;
 use crate::chain::cosmos::types::account::Account;
+use crate::chain::cosmos::types::config::TxConfig;
 use crate::config::types::Memo;
-use crate::config::ChainConfig;
 use crate::error::Error;
 use crate::keyring::KeyEntry;
 use crate::sdk_error::sdk_error_from_tx_sync_error_code;
+use crate::telemetry;
 
 // Maximum number of retries for send_tx in the case of
 // an account sequence mismatch at broadcast step.
@@ -47,9 +46,7 @@ const INCORRECT_ACCOUNT_SEQUENCE_ERR: u32 = 32;
 /// nonetheless at the worker `step` level). Upon case #2, we retry
 /// submitting the same transaction.
 pub async fn send_tx_with_account_sequence_retry(
-    config: &ChainConfig,
-    rpc_client: &HttpClient,
-    grpc_address: &Uri,
+    config: &TxConfig,
     key_entry: &KeyEntry,
     account: &mut Account,
     tx_memo: &Memo,
@@ -57,13 +54,14 @@ pub async fn send_tx_with_account_sequence_retry(
     retry_counter: u64,
 ) -> Result<Response, Error> {
     crate::time!("send_tx_with_account_sequence_retry");
+
     let _span =
-        span!(Level::ERROR, "send_tx_with_account_sequence_retry", id = %config.id).entered();
+        span!(Level::ERROR, "send_tx_with_account_sequence_retry", id = %config.chain_id).entered();
+
+    telemetry!(msg_num, &config.chain_id, messages.len() as u64);
 
     do_send_tx_with_account_sequence_retry(
         config,
-        rpc_client,
-        grpc_address,
         key_entry,
         account,
         tx_memo,
@@ -77,9 +75,7 @@ pub async fn send_tx_with_account_sequence_retry(
 // do not currently support recursive async functions behind the
 // `async fn` syntactic sugar.
 fn do_send_tx_with_account_sequence_retry<'a>(
-    config: &'a ChainConfig,
-    rpc_client: &'a HttpClient,
-    grpc_address: &'a Uri,
+    config: &'a TxConfig,
     key_entry: &'a KeyEntry,
     account: &'a mut Account,
     tx_memo: &'a Memo,
@@ -93,27 +89,16 @@ fn do_send_tx_with_account_sequence_retry<'a>(
             account.sequence,
         );
 
-        let tx_result = estimate_fee_and_send_tx(
-            config,
-            rpc_client,
-            grpc_address,
-            key_entry,
-            account,
-            tx_memo,
-            messages.clone(),
-        )
-        .await;
+        let tx_result =
+            estimate_fee_and_send_tx(config, key_entry, account, tx_memo, messages.clone()).await;
 
         match tx_result {
             // Gas estimation failed with acct. s.n. mismatch at estimate gas step.
-            // This indicates that the full node did not yet push the previous tx out of its
-            // mempool. Possible explanations: fees too low, network congested, or full node
-            // congested. Whichever the case, it is more expedient in production to drop the tx
-            // and refresh the s.n., to allow proceeding to the other transactions. A separate
-            // retry at the worker-level will handle retrying.
-            Err(e) if mismatching_account_sequence_number(&e) => {
+            // It indicates that the account sequence cached by hermes is stale.
+            // This can happen when the same account is used by another agent.
+            Err(e) if mismatch_account_sequence_number_error_requires_refresh(&e) => {
                 warn!("failed at estimate_gas step mismatching account sequence: dropping the tx & refreshing account sequence number");
-                refresh_account(grpc_address, &key_entry.account, account).await?;
+                refresh_account(&config.grpc_address, &key_entry.account, account).await?;
                 // Note: propagating error here can lead to bug & dropped packets:
                 // https://github.com/informalsystems/ibc-rs/issues/1153
                 // But periodic packet clearing will catch any dropped packets.
@@ -130,13 +115,11 @@ fn do_send_tx_with_account_sequence_retry<'a>(
                     let backoff = retry_counter * BACKOFF_MULTIPLIER_ACCOUNT_SEQUENCE_RETRY;
 
                     thread::sleep(Duration::from_millis(backoff));
-                    refresh_account(grpc_address, &key_entry.account, account).await?;
+                    refresh_account(&config.grpc_address, &key_entry.account, account).await?;
 
                     // Now retry.
                     do_send_tx_with_account_sequence_retry(
                         config,
-                        rpc_client,
-                        grpc_address,
                         key_entry,
                         account,
                         tx_memo,
@@ -157,18 +140,19 @@ fn do_send_tx_with_account_sequence_retry<'a>(
             // Catch-all arm for the Ok variant.
             // This is the case when gas estimation succeeded.
             Ok(response) => {
-                // Complete success.
                 match response.code {
+                    // Gas estimation succeeded and broadcasting was successful.
                     Code::Ok => {
                         debug!("broadcast_tx_sync: {:?}", response);
 
                         account.sequence.increment_mut();
                         Ok(response)
                     }
+
                     // Gas estimation succeeded, but broadcasting failed with unrecoverable error.
                     Code::Err(code) => {
-                        // Avoid increasing the account s.n. if CheckTx failed
-                        // Log the error
+                        // Do not increase the account s.n. if CheckTx failed.
+                        // Log the error.
                         error!(
                             "broadcast_tx_sync: {:?}: diagnostic: {:?}",
                             response,
@@ -188,12 +172,13 @@ fn do_send_tx_with_account_sequence_retry<'a>(
 
 /// Determine whether the given error yielded by `tx_simulate`
 /// indicates hat the current sequence number cached in Hermes
-/// may be out-of-sync with the full node's version of the s.n.
-fn mismatching_account_sequence_number(e: &Error) -> bool {
+/// is smaller than the full node's version of the s.n. and therefore
+/// account needs to be refreshed.
+fn mismatch_account_sequence_number_error_requires_refresh(e: &Error) -> bool {
     use crate::error::ErrorDetail::*;
 
     match e.detail() {
-        GrpcStatus(detail) => detail.is_account_sequence_mismatch(),
+        GrpcStatus(detail) => detail.is_account_sequence_mismatch_that_requires_refresh(),
         _ => false,
     }
 }

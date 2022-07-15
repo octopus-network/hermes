@@ -30,6 +30,9 @@ or on Twitter [@informalinc][twitter].
 
 The CLI comprises a special `help` command, which accepts as parameter other commands, and provides guidance on what is the correct way to invoke those commands.
 
+> __NOTE__: This special `help` command is preferred as it will display the full help
+> message.
+
 For instance,
 
 ```shell
@@ -46,10 +49,10 @@ DESCRIPTION:
     Create objects (client, connection, or channel) on chains
 
 SUBCOMMANDS:
-    help       Get usage information
-    client     Create a new IBC client
-    connection Create a new connection between two chains
-    channel    Create a new channel between two chains
+    channel       Create a new channel between two chains
+    client        Create a new IBC client
+    connection    Create a new connection between two chains
+    help          Print this message or the help of the given subcommand(s)
 ```
 
 This can provide further specific guidance if we add additional parameters, e.g., 
@@ -58,23 +61,54 @@ This can provide further specific guidance if we add additional parameters, e.g.
 hermes help create channel
 ```
 
-```
+```shell
 USAGE:
-    hermes create channel <OPTIONS>
+    hermes create channel [OPTIONS] --a-chain <A_CHAIN_ID> --a-connection <A_CONNECTION_ID> --a-port <A_PORT_ID> --b-port <B_PORT_ID>
+
+    hermes create channel [OPTIONS] --a-chain <A_CHAIN_ID> --b-chain <B_CHAIN_ID> --a-port <A_PORT_ID> --b-port <B_PORT_ID> --new-client-connection
 
 DESCRIPTION:
-    Create a new channel between two chains
+    Create a new channel between two chains.
 
-POSITIONAL ARGUMENTS:
-    chain_a_id                identifier of the side `a` chain for the new channel
-    chain_b_id                identifier of the side `b` chain for the new channel (optional)
+    Can create a new channel using a pre-existing connection or alternatively, create a new client and a
+    new connection underlying the new channel if a pre-existing connection is not provided.
+
+OPTIONS:
+        --channel-version <VERSION>
+            The version for the new channel
+
+            [aliases: chan-version]
+
+        --new-client-connection
+            Indicates that a new client and connection will be created underlying the new channel
+
+            [aliases: new-client-conn]
+
+        --order <ORDER>
+            The channel ordering, valid options 'unordered' (default) and 'ordered'
+
+            [default: ORDER_UNORDERED]
+
+        --yes
+            Skip new_client_connection confirmation
 
 FLAGS:
-    -c, --connection-a CONNECTION-A
-    --port-a PORT-A           identifier of the side `a` port for the new channel
-    --port-b PORT-B           identifier of the side `b` port for the new channel
-    -o, --order ORDER         the channel ordering, valid options 'unordered' (default) and 'ordered'
-    -v, --channel-version VERSION     the version for the new channel
+        --a-chain <A_CHAIN_ID>
+            Identifier of the side `a` chain for the new channel
+
+        --a-connection <A_CONNECTION_ID>
+            Identifier of the connection on chain `a` to use in creating the new channel
+
+            [aliases: a-conn]
+
+        --a-port <A_PORT_ID>
+            Identifier of the side `a` port for the new channel
+
+        --b-chain <B_CHAIN_ID>
+            Identifier of the side `b` chain for the new channel
+
+        --b-port <B_PORT_ID>
+            Identifier of the side `b` port for the new channel
 ```
 
 Additionally, the `-h`/`--help` flags typical for CLI applications work on
@@ -84,7 +118,7 @@ all commands.
 
 The relayer configuration file permits parametrization of output verbosity via the knob called `log_level`.
 This file is loaded by default from `$HOME/.hermes/config.toml`, but can be overridden in all commands
-with the `-c` flag, eg. `hermes -c ./path/to/my/config.toml some command`.
+with the `--config` flag, eg. `hermes --config ./path/to/my/config.toml some command`.
 
 Relevant snippet:
 
@@ -405,33 +439,33 @@ In order to test the correct operation during the channel close, perform the ste
   this path).
 
   ```shell
-  hermes tx raw ft-transfer ibc-0 ibc-1 transfer channel-1 5555 -o 1000 -n 1 -d samoleans
+  hermes tx ft-transfer --receiver-chain ibc-0 --sender-chain ibc-1 --sender-port transfer --sender-channel channel-1 --amount 5555 --timeout-height-offset 1000 --number-msgs 1 --denom samoleans
   ```
 
 - now do the first step of channel closing: the channel will transition
 to close-open:
 
     ```shell
-    hermes -c config.toml tx raw chan-close-init ibc-0 ibc-1 connection-0 transfer transfer channel-0 channel-1
+    hermes --config config.toml tx chan-close-init --receiver-chain ibc-0 --sender-chain ibc-1 --receiver-connection connection-0 --receiver-port transfer --sender-port transfer --receiver-channel channel-0 --sender-channel channel-1
     ```
 
 - trigger timeout on close to ibc-1
 
     ```shell
-    hermes -c config.toml tx raw packet-recv ibc-0 ibc-1 transfer channel-1
+    hermes --config config.toml tx packet-recv --receiver-chain ibc-0 --sender-chain ibc-1 --sender-port transfer --sender-channel channel-1
     ```
 
 - close-close
 
     ```shell
-    hermes -c config.toml tx raw chan-close-confirm ibc-1 ibc-0 connection-1 transfer transfer channel-1 channel-0
+    hermes --config config.toml tx chan-close-confirm --receiver-chain ibc-1 --sender-chain ibc-0 --receiver-connection connection-1 --receiver-port transfer --sender-port transfer --receiver-channel channel-1 --sender-channel channel-0
     ```
 
 - verify that the two ends are in Close state:
 
   ```shell
-  hermes -c config.toml query channel end ibc-0 transfer channel-0
-  hermes -c config.toml query channel end ibc-1 transfer channel-1
+  hermes --config config.toml query channel end --chain ibc-0 --port transfer --channel channel-0
+  hermes --config config.toml query channel end --chain ibc-1 --port transfer --channel channel-1
   ```
 
 
@@ -509,10 +543,10 @@ methods involved in a command.
 __NOTE__: To be able to see the profiling output, the realyer needs to be compiled with
 the `profiling` feature and the [log level][log-level] should be `info` level or lower.
 
-#### Example output for `tx raw conn-init` command
+#### Example output for `tx conn-init` command
 
 ```
-hermes -c   config.toml tx raw conn-init ibc-0 ibc-1 07-tendermint-0 07-tendermint-0
+hermes --config config.toml tx conn-init --b-chain ibc-0 --a-chain ibc-1 --b-client 07-tendermint-0 --a-client 07-tendermint-0
 ```
 
 ```
@@ -583,4 +617,4 @@ Success: CreateClient(
 [profiling]: ./help.md#profiling
 [feature]: ./help.md#new-feature-request
 [patching]: ./help.md#patching-gaia
-[chan-close]: ./commands/raw/channel-close.md#channel-close-init
+[chan-close]: ./commands/tx/channel-close.md#channel-close-init

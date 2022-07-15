@@ -18,18 +18,15 @@ pub(crate) fn process(
     let mut output = HandlerOutput::builder();
 
     // Unwrap the old channel end and validate it against the message.
-    let mut channel_end = ctx.channel_end(&(msg.port_id.clone(), msg.channel_id))?;
+    let mut channel_end = ctx.channel_end(&(msg.port_id.clone(), msg.channel_id.clone()))?;
 
     // Validate that the channel end is in a state where it can be confirmed.
     if !channel_end.state_matches(&State::TryOpen) {
         return Err(Error::invalid_channel_state(
-            msg.channel_id,
+            msg.channel_id.clone(),
             channel_end.state,
         ));
     }
-
-    // Channel capabilities
-    let channel_cap = ctx.authenticated_capability(&msg.port_id)?;
 
     // An OPEN IBC connection running on the local (host) chain should exist.
     if channel_end.connection_hops().len() != 1 {
@@ -50,7 +47,8 @@ pub(crate) fn process(
     // Proof verification in two steps:
     // 1. Setup: build the Channel as we expect to find it on the other party.
 
-    let expected_counterparty = Counterparty::new(msg.port_id.clone(), Some(msg.channel_id));
+    let expected_counterparty =
+        Counterparty::new(msg.port_id.clone(), Some(msg.channel_id.clone()));
 
     let connection_counterparty = conn.counterparty();
     let ccid = connection_counterparty.connection_id().ok_or_else(|| {
@@ -84,14 +82,13 @@ pub(crate) fn process(
 
     let result = ChannelResult {
         port_id: msg.port_id.clone(),
-        channel_id: msg.channel_id,
+        channel_id: msg.channel_id.clone(),
         channel_id_state: ChannelIdState::Reused,
-        channel_cap,
         channel_end: channel_end.clone(),
     };
 
     let event_attributes = Attributes {
-        channel_id: Some(msg.channel_id),
+        channel_id: Some(msg.channel_id.clone()),
         height: ctx.host_height(),
         port_id: msg.port_id.clone(),
         ..Default::default()
@@ -143,7 +140,7 @@ mod tests {
         let client_id = ClientId::new(ClientType::Mock, 24).unwrap();
         let conn_id = ConnectionId::new(2);
         let context = MockContext::default();
-        let client_consensus_state_height = context.host_current_height().revision_height;
+        let client_consensus_state_height = context.host_current_height().revision_height();
 
         // The connection underlying the channel we're trying to open.
         let conn_end = ConnectionEnd::new(
@@ -164,7 +161,7 @@ mod tests {
             Order::default(),
             Counterparty::new(
                 msg_chan_confirm.port_id.clone(),
-                Some(msg_chan_confirm.channel_id),
+                Some(msg_chan_confirm.channel_id.clone()),
             ),
             vec![conn_id.clone()],
             Version::default(),
@@ -173,12 +170,14 @@ mod tests {
         let tests: Vec<Test> = vec![Test {
             name: "Good parameters".to_string(),
             ctx: context
-                .with_client(&client_id, Height::new(0, client_consensus_state_height))
+                .with_client(
+                    &client_id,
+                    Height::new(0, client_consensus_state_height).unwrap(),
+                )
                 .with_connection(conn_id, conn_end)
-                .with_port_capability(msg_chan_confirm.port_id.clone())
                 .with_channel(
                     msg_chan_confirm.port_id.clone(),
-                    msg_chan_confirm.channel_id,
+                    msg_chan_confirm.channel_id.clone(),
                     chan_end,
                 ),
             msg: ChannelMsg::ChannelOpenConfirm(msg_chan_confirm),

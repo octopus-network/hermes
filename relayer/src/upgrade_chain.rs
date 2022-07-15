@@ -10,7 +10,6 @@ use tendermint::abci::transaction::Hash as TxHash;
 
 use ibc::clients::ics07_tendermint::client_state::UpgradeOptions;
 use ibc::core::ics02_client::client_state::{AnyClientState, ClientState};
-use ibc::core::ics02_client::height::Height;
 use ibc::core::ics24_host::identifier::{ChainId, ClientId};
 use ibc::downcast;
 use ibc_proto::cosmos::gov::v1beta1::MsgSubmitProposal;
@@ -18,8 +17,9 @@ use ibc_proto::cosmos::upgrade::v1beta1::Plan;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::client::v1::UpgradeProposal;
 
-use crate::chain::tx::TrackedMsgs;
-use crate::chain::{ChainEndpoint, CosmosSdkChain};
+use crate::chain::handle::ChainHandle;
+use crate::chain::requests::{IncludeProof, QueryClientStateRequest, QueryHeight};
+use crate::chain::tracking::TrackedMsgs;
 use crate::config::ChainConfig;
 use crate::error::Error;
 
@@ -65,17 +65,23 @@ pub struct UpgradePlanOptions {
 }
 
 pub fn build_and_send_ibc_upgrade_proposal(
-    mut dst_chain: CosmosSdkChain, // the chain which will undergo an upgrade
-    src_chain: CosmosSdkChain, // the source chain; supplies a client state for building the upgrade plan
+    dst_chain: impl ChainHandle, // the chain which will undergo an upgrade
+    src_chain: impl ChainHandle, // the source chain; supplies a client state for building the upgrade plan
     opts: &UpgradePlanOptions,
 ) -> Result<TxHash, UpgradeChainError> {
     let upgrade_height = dst_chain
-        .query_chain_latest_height()
+        .query_latest_height() // FIXME(romac): Use query_chain_latest_height once added to ChainHandle
         .map_err(UpgradeChainError::query)?
         .add(opts.height_offset);
 
-    let client_state = src_chain
-        .query_client_state(&opts.src_client_id, Height::zero())
+    let (client_state, _) = src_chain
+        .query_client_state(
+            QueryClientStateRequest {
+                client_id: opts.src_client_id.clone(),
+                height: QueryHeight::Latest,
+            },
+            IncludeProof::No,
+        )
         .map_err(UpgradeChainError::query)?;
 
     let client_state = downcast!(client_state => AnyClientState::Tendermint)
@@ -100,7 +106,7 @@ pub fn build_and_send_ibc_upgrade_proposal(
         upgraded_client_state: Some(Any::from(upgraded_client_state.wrap_any())),
         plan: Some(Plan {
             name: opts.upgrade_plan_name.clone(),
-            height: upgrade_height.revision_height as i64,
+            height: upgrade_height.revision_height() as i64,
             info: "".to_string(),
             ..Default::default() // deprecated fields - time & upgraded_client_state
         }),
@@ -143,7 +149,7 @@ pub fn build_and_send_ibc_upgrade_proposal(
 
     let responses = dst_chain
         .send_messages_and_wait_check_tx(TrackedMsgs::new_single(any_msg, "upgrade"))
-        .map_err(|e| UpgradeChainError::submit(dst_chain.id().clone(), e))?;
+        .map_err(|e| UpgradeChainError::submit(dst_chain.id(), e))?;
 
     Ok(responses[0].hash)
 }

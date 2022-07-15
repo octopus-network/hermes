@@ -1,4 +1,5 @@
 use alloc::sync::Arc;
+use bytes::{Buf, Bytes};
 use core::{
     convert::{TryFrom, TryInto},
     future::Future,
@@ -9,21 +10,20 @@ use num_bigint::BigInt;
 use std::thread;
 
 use bitcoin::hashes::hex::ToHex;
-use tendermint::block::Height;
+use tendermint::block::Height as TmHeight;
 use tendermint::{
     abci::{Event, Path as TendermintABCIPath},
     node::info::TxIndexStatus,
 };
-use tendermint_light_client_verifier::types::LightBlock as TMLightBlock;
+use tendermint_light_client_verifier::types::LightBlock as TmLightBlock;
 use tendermint_proto::Protobuf;
 use tendermint_rpc::{
     endpoint::broadcast::tx_sync::Response, endpoint::status, Client, HttpClient, Order,
 };
 use tokio::runtime::Runtime as TokioRuntime;
-use tonic::codegen::http::Uri;
+use tonic::{codegen::http::Uri, metadata::AsciiMetadataValue};
 use tracing::{error, span, warn, Level};
 
-use ibc::clients::ics07_tendermint::client_state::{AllowUpdate, ClientState};
 use ibc::clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
 use ibc::clients::ics07_tendermint::header::Header as TmHeader;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
@@ -31,36 +31,26 @@ use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientS
 use ibc::core::ics02_client::client_type::ClientType;
 use ibc::core::ics02_client::error::Error as ClientError;
 use ibc::core::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd};
-use ibc::core::ics04_channel::channel::{
-    ChannelEnd, IdentifiedChannelEnd, QueryPacketEventDataRequest,
-};
+use ibc::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
 use ibc::core::ics04_channel::events as ChannelEvents;
-use ibc::core::ics04_channel::packet::{Packet, PacketMsgType, Sequence};
+use ibc::core::ics04_channel::packet::{Packet, Sequence};
 use ibc::core::ics23_commitment::commitment::CommitmentPrefix;
-use ibc::core::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
+use ibc::core::ics24_host::identifier::{ChainId, ClientId, ConnectionId};
 use ibc::core::ics24_host::path::{
     AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
     ConnectionsPath, ReceiptsPath, SeqRecvsPath,
 };
 use ibc::core::ics24_host::{ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH};
 use ibc::events::IbcEvent;
-use ibc::query::QueryBlockRequest;
-use ibc::query::QueryTxRequest;
 use ibc::signer::Signer;
 use ibc::Height as ICSHeight;
+use ibc::{
+    clients::ics07_tendermint::client_state::{AllowUpdate, ClientState},
+    core::ics23_commitment::merkle::MerkleProof,
+};
 use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
-use ibc_proto::ibc::core::channel::v1::{
-    PacketState, QueryChannelClientStateRequest, QueryChannelsRequest,
-    QueryConnectionChannelsRequest, QueryNextSequenceReceiveRequest,
-    QueryPacketAcknowledgementsRequest, QueryPacketCommitmentsRequest, QueryUnreceivedAcksRequest,
-    QueryUnreceivedPacketsRequest,
-};
-use ibc_proto::ibc::core::client::v1::{QueryClientStatesRequest, QueryConsensusStatesRequest};
-use ibc_proto::ibc::core::commitment::v1::MerkleProof;
-use ibc_proto::ibc::core::connection::v1::{
-    QueryClientConnectionsRequest, QueryConnectionsRequest,
-};
 
+use crate::account::Balance;
 use crate::chain::client::ClientSettings;
 use crate::chain::cosmos::batch::{
     send_batched_messages_and_wait_check_tx, send_batched_messages_and_wait_commit,
@@ -68,20 +58,36 @@ use crate::chain::cosmos::batch::{
 use crate::chain::cosmos::encode::encode_to_bech32;
 use crate::chain::cosmos::gas::{calculate_fee, mul_ceil};
 use crate::chain::cosmos::query::account::get_or_fetch_account;
+use crate::chain::cosmos::query::balance::query_balance;
+use crate::chain::cosmos::query::denom_trace::query_denom_trace;
 use crate::chain::cosmos::query::status::query_status;
 use crate::chain::cosmos::query::tx::query_txs;
-use crate::chain::cosmos::query::{abci_query, fetch_version_specs, packet_query};
+use crate::chain::cosmos::query::{abci_query, fetch_version_specs, packet_query, QueryResponse};
 use crate::chain::cosmos::types::account::Account;
+use crate::chain::cosmos::types::config::TxConfig;
 use crate::chain::cosmos::types::gas::{default_gas_from_config, max_gas_from_config};
-use crate::chain::tx::TrackedMsgs;
-use crate::chain::{ChainEndpoint, HealthCheck};
-use crate::chain::{ChainStatus, QueryResponse};
+use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
+use crate::chain::tracking::TrackedMsgs;
 use crate::config::ChainConfig;
+use crate::denom::DenomTrace;
 use crate::error::Error;
 use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::tendermint::LightClient as TmLightClient;
 use crate::light_client::{LightClient, Verified};
+
+use super::requests::{
+    IncludeProof, QueryBlockRequest, QueryChannelClientStateRequest, QueryChannelRequest,
+    QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStateRequest,
+    QueryClientStatesRequest, QueryConnectionChannelsRequest, QueryConnectionRequest,
+    QueryConnectionsRequest, QueryConsensusStateRequest, QueryConsensusStatesRequest, QueryHeight,
+    QueryHostConsensusStateRequest, QueryNextSequenceReceiveRequest,
+    QueryPacketAcknowledgementRequest, QueryPacketAcknowledgementsRequest,
+    QueryPacketCommitmentRequest, QueryPacketCommitmentsRequest, QueryPacketEventDataRequest,
+    QueryPacketReceiptRequest, QueryTxRequest, QueryUnreceivedAcksRequest,
+    QueryUnreceivedPacketsRequest, QueryUpgradedClientStateRequest,
+    QueryUpgradedConsensusStateRequest,
+};
 
 pub mod batch;
 pub mod client;
@@ -103,6 +109,7 @@ pub const GENESIS_MAX_BYTES_MAX_FRACTION: f64 = 0.9;
 
 pub struct CosmosSdkChain {
     config: ChainConfig,
+    tx_config: TxConfig,
     rpc_client: HttpClient,
     grpc_addr: Uri,
     rt: Arc<TokioRuntime>,
@@ -166,7 +173,7 @@ impl CosmosSdkChain {
         }
 
         // Get the latest height and convert to tendermint Height
-        let latest_height = Height::try_from(self.query_chain_latest_height()?.revision_height)
+        let latest_height = TmHeight::try_from(self.query_chain_latest_height()?.revision_height())
             .map_err(Error::invalid_height)?;
 
         // Check on the configured max_tx_size against the consensus parameters at latest height
@@ -279,7 +286,7 @@ impl CosmosSdkChain {
     fn query(
         &self,
         data: impl Into<Path>,
-        height: ICSHeight,
+        height_query: QueryHeight,
         prove: bool,
     ) -> Result<QueryResponse, Error> {
         crate::time!("query");
@@ -288,7 +295,7 @@ impl CosmosSdkChain {
         let path = TendermintABCIPath::from_str(IBC_QUERY_PATH)
             .expect("Turning IBC query path constant into a Tendermint ABCI path");
 
-        let height = Height::try_from(height.revision_height).map_err(Error::invalid_height)?;
+        let height = TmHeight::try_from(height_query)?;
 
         let data = data.into();
         if !data.is_provable() & prove {
@@ -311,18 +318,27 @@ impl CosmosSdkChain {
     }
 
     /// Perform an ABCI query against the client upgrade sub-store.
-    /// Fetches both the target data, as well as the proof.
     ///
-    /// The data is returned in its raw format `Vec<u8>`, and is either
-    /// the client state (if the target path is [`UpgradedClientState`]),
-    /// or the client consensus state ([`UpgradedClientConsensusState`]).
+    /// The data is returned in its raw format `Vec<u8>`, and is either the
+    /// client state (if the target path is [`UpgradedClientState`]), or the
+    /// client consensus state ([`UpgradedClientConsensusState`]).
+    ///
+    /// Note: This is a special query in that it will only succeed if the chain
+    /// is halted after reaching the height proposed in a successful governance
+    /// proposal to upgrade the chain. In this scenario, let P be the height at
+    /// which the chain is planned to upgrade. We assume that the chain is
+    /// halted at height P. Tendermint will be at height P (as reported by the
+    /// /status RPC query), but the application will be at height P-1 (as
+    /// reported by the /abci_info RPC query).
+    ///
+    /// Therefore, `query_height` needs to be P-1. However, the path specified
+    /// in `query_data` needs to be constructed with height `P`, as this is how
+    /// the chain will have stored it in its upgrade sub-store.
     fn query_client_upgrade_state(
         &self,
-        data: ClientUpgradePath,
-        height: Height,
+        query_data: ClientUpgradePath,
+        query_height: ibc::Height,
     ) -> Result<(Vec<u8>, MerkleProof), Error> {
-        let prev_height = Height::try_from(height.value() - 1).map_err(Error::invalid_height)?;
-
         // SAFETY: Creating a Path from a constant; this should never fail
         let path = TendermintABCIPath::from_str(SDK_UPGRADE_QUERY_PATH)
             .expect("Turning SDK upgrade query path constant into a Tendermint ABCI path");
@@ -330,8 +346,8 @@ impl CosmosSdkChain {
             &self.rpc_client,
             &self.config.rpc_addr,
             path,
-            Path::Upgrade(data).to_string(),
-            prev_height,
+            Path::Upgrade(query_data).to_string(),
+            TmHeight::try_from(query_height.revision_height()).map_err(Error::invalid_height)?,
             true,
         ))?;
 
@@ -402,10 +418,9 @@ impl CosmosSdkChain {
             get_or_fetch_account(&self.grpc_addr, &key_entry.account, &mut self.account).await?;
 
         send_batched_messages_and_wait_commit(
-            &self.config,
-            &self.rpc_client,
-            &self.config.rpc_addr,
-            &self.grpc_addr,
+            &self.tx_config,
+            self.config.max_msg_num,
+            self.config.max_tx_size,
             &key_entry,
             account,
             &self.config.memo_prefix,
@@ -431,9 +446,9 @@ impl CosmosSdkChain {
             get_or_fetch_account(&self.grpc_addr, &key_entry.account, &mut self.account).await?;
 
         send_batched_messages_and_wait_check_tx(
-            &self.config,
-            &self.rpc_client,
-            &self.grpc_addr,
+            &self.tx_config,
+            self.config.max_msg_num,
+            self.config.max_tx_size,
             &key_entry,
             account,
             &self.config.memo_prefix,
@@ -444,7 +459,7 @@ impl CosmosSdkChain {
 }
 
 impl ChainEndpoint for CosmosSdkChain {
-    type LightBlock = TMLightBlock;
+    type LightBlock = TmLightBlock;
     type Header = TmHeader;
     type ConsensusState = AnyConsensusState;
     type ClientState = AnyClientState;
@@ -461,6 +476,8 @@ impl ChainEndpoint for CosmosSdkChain {
         let grpc_addr = Uri::from_str(&config.grpc_addr.to_string())
             .map_err(|e| Error::invalid_uri(config.grpc_addr.to_string(), e))?;
 
+        let tx_config = TxConfig::try_from(&config)?;
+
         // Retrieve the version specification of this chain
 
         let chain = Self {
@@ -470,6 +487,7 @@ impl ChainEndpoint for CosmosSdkChain {
             rt,
             keybase,
             account: None,
+            tx_config,
         };
 
         Ok(chain)
@@ -595,7 +613,9 @@ impl ChainEndpoint for CosmosSdkChain {
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
 
         let bech32 = encode_to_bech32(&key.address.to_hex(), &self.config.account_prefix)?;
-        Ok(Signer::new(bech32))
+        bech32
+            .parse()
+            .map_err(|e| Error::ics02(ClientError::signer(e)))
     }
 
     /// Get the chain configuration
@@ -627,6 +647,35 @@ impl ChainEndpoint for CosmosSdkChain {
     fn ibc_version(&self) -> Result<Option<semver::Version>, Error> {
         let version_specs = self.block_on(fetch_version_specs(self.id(), &self.grpc_addr))?;
         Ok(version_specs.ibc_go_version)
+    }
+
+    fn query_balance(&self, key_name: Option<String>) -> Result<Balance, Error> {
+        // If a key_name is given, extract the account hash.
+        // Else retrieve the account from the configuration file.
+        let account = match key_name {
+            Some(account) => {
+                let key = self.keybase().get_key(&account).map_err(Error::key_base)?;
+                key.account
+            }
+            _ => {
+                let key = self.key()?;
+                key.account
+            }
+        };
+
+        let balance = self.block_on(query_balance(
+            &self.grpc_addr,
+            &account,
+            &self.config.gas_price.denom,
+        ))?;
+
+        Ok(balance)
+    }
+
+    fn query_denom_trace(&self, hash: String) -> Result<DenomTrace, Error> {
+        let denom_trace = self.block_on(query_denom_trace(&self.grpc_addr, &hash))?;
+
+        Ok(denom_trace)
     }
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
@@ -663,10 +712,11 @@ impl ChainEndpoint for CosmosSdkChain {
             .block_metas;
 
         return if let Some(latest_app_block) = blocks.first() {
-            let height = ICSHeight {
-                revision_number: ChainId::chain_version(latest_app_block.header.chain_id.as_str()),
-                revision_height: u64::from(abci_info.last_block_height),
-            };
+            let height = ICSHeight::new(
+                ChainId::chain_version(latest_app_block.header.chain_id.as_str()),
+                u64::from(abci_info.last_block_height),
+            )
+            .map_err(|_| Error::invalid_height_no_source())?;
             let timestamp = latest_app_block.header.time.into();
 
             Ok(ChainStatus { height, timestamp })
@@ -693,7 +743,7 @@ impl ChainEndpoint for CosmosSdkChain {
             )
             .map_err(Error::grpc_transport)?;
 
-        let request = tonic::Request::new(request);
+        let request = tonic::Request::new(request.into());
         let response = self
             .block_on(client.client_states(request))
             .map_err(Error::grpc_status)?
@@ -714,31 +764,44 @@ impl ChainEndpoint for CosmosSdkChain {
 
     fn query_client_state(
         &self,
-        client_id: &ClientId,
-        height: ICSHeight,
-    ) -> Result<AnyClientState, Error> {
+        request: QueryClientStateRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
         crate::time!("query_client_state");
         crate::telemetry!(query, self.id(), "query_client_state");
 
-        let client_state = self
-            .query(ClientStatePath(client_id.clone()), height, false)
-            .and_then(|v| AnyClientState::decode_vec(&v.value).map_err(Error::decode))?;
+        let res = self.query(
+            ClientStatePath(request.client_id.clone()),
+            request.height,
+            matches!(include_proof, IncludeProof::Yes),
+        )?;
+        let client_state = AnyClientState::decode_vec(&res.value).map_err(Error::decode)?;
 
-        Ok(client_state)
+        match include_proof {
+            IncludeProof::Yes => {
+                let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
+                Ok((client_state, Some(proof)))
+            }
+            IncludeProof::No => Ok((client_state, None)),
+        }
     }
 
     fn query_upgraded_client_state(
         &self,
-        height: ICSHeight,
+        request: QueryUpgradedClientStateRequest,
     ) -> Result<(AnyClientState, MerkleProof), Error> {
         crate::time!("query_upgraded_client_state");
         crate::telemetry!(query, self.id(), "query_upgraded_client_state");
 
         // Query for the value and the proof.
-        let tm_height = Height::try_from(height.revision_height).map_err(Error::invalid_height)?;
+        let upgrade_height = request.upgrade_height;
+        let query_height = upgrade_height
+            .decrement()
+            .map_err(|_| Error::invalid_height_no_source())?;
+
         let (upgraded_client_state_raw, proof) = self.query_client_upgrade_state(
-            ClientUpgradePath::UpgradedClientState(height.revision_height),
-            tm_height,
+            ClientUpgradePath::UpgradedClientState(upgrade_height.revision_height()),
+            query_height,
         )?;
 
         let client_state = AnyClientState::decode_vec(&upgraded_client_state_raw)
@@ -749,17 +812,20 @@ impl ChainEndpoint for CosmosSdkChain {
 
     fn query_upgraded_consensus_state(
         &self,
-        height: ICSHeight,
+        request: QueryUpgradedConsensusStateRequest,
     ) -> Result<(AnyConsensusState, MerkleProof), Error> {
         crate::time!("query_upgraded_consensus_state");
         crate::telemetry!(query, self.id(), "query_upgraded_consensus_state");
 
-        let tm_height = Height::try_from(height.revision_height).map_err(Error::invalid_height)?;
+        let upgrade_height = request.upgrade_height;
+        let query_height = upgrade_height
+            .decrement()
+            .map_err(|_| Error::invalid_height_no_source())?;
 
         // Fetch the consensus state and its proof.
         let (upgraded_consensus_state_raw, proof) = self.query_client_upgrade_state(
-            ClientUpgradePath::UpgradedClientConsensusState(height.revision_height),
-            tm_height,
+            ClientUpgradePath::UpgradedClientConsensusState(upgrade_height.revision_height()),
+            query_height,
         )?;
 
         let consensus_state = AnyConsensusState::decode_vec(&upgraded_consensus_state_raw)
@@ -784,7 +850,7 @@ impl ChainEndpoint for CosmosSdkChain {
             )
             .map_err(Error::grpc_transport)?;
 
-        let request = tonic::Request::new(request);
+        let request = tonic::Request::new(request.into());
         let response = self
             .block_on(client.consensus_states(request))
             .map_err(Error::grpc_status)?
@@ -802,17 +868,38 @@ impl ChainEndpoint for CosmosSdkChain {
 
     fn query_consensus_state(
         &self,
-        client_id: ClientId,
-        consensus_height: ICSHeight,
-        query_height: ICSHeight,
-    ) -> Result<AnyConsensusState, Error> {
+        request: QueryConsensusStateRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
         crate::time!("query_consensus_state");
         crate::telemetry!(query, self.id(), "query_consensus_state");
 
-        let (consensus_state, _proof) =
-            self.proven_client_consensus(&client_id, consensus_height, query_height)?;
+        let res = self.query(
+            ClientConsensusStatePath {
+                client_id: request.client_id.clone(),
+                epoch: request.consensus_height.revision_number(),
+                height: request.consensus_height.revision_height(),
+            },
+            request.query_height,
+            matches!(include_proof, IncludeProof::Yes),
+        )?;
 
-        Ok(consensus_state)
+        let consensus_state = AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
+
+        if !matches!(consensus_state, AnyConsensusState::Tendermint(_)) {
+            return Err(Error::consensus_state_type_mismatch(
+                ClientType::Tendermint,
+                consensus_state.client_type(),
+            ));
+        }
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
+                Ok((consensus_state, Some(proof)))
+            }
+            IncludeProof::No => Ok((consensus_state, None)),
+        }
     }
 
     fn query_client_connections(
@@ -830,7 +917,7 @@ impl ChainEndpoint for CosmosSdkChain {
             )
             .map_err(Error::grpc_transport)?;
 
-        let request = tonic::Request::new(request);
+        let request = tonic::Request::new(request.into());
 
         let response = match self.block_on(client.client_connections(request)) {
             Ok(res) => res.into_inner(),
@@ -865,7 +952,7 @@ impl ChainEndpoint for CosmosSdkChain {
             )
             .map_err(Error::grpc_transport)?;
 
-        let request = tonic::Request::new(request);
+        let request = tonic::Request::new(request.into());
 
         let response = self
             .block_on(client.connections(request))
@@ -886,19 +973,19 @@ impl ChainEndpoint for CosmosSdkChain {
 
     fn query_connection(
         &self,
-        connection_id: &ConnectionId,
-        height: ICSHeight,
-    ) -> Result<ConnectionEnd, Error> {
+        request: QueryConnectionRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
         crate::time!("query_connection");
         crate::telemetry!(query, self.id(), "query_connection");
 
         async fn do_query_connection(
             chain: &CosmosSdkChain,
             connection_id: &ConnectionId,
-            height: ICSHeight,
+            height_query: QueryHeight,
         ) -> Result<ConnectionEnd, Error> {
             use ibc_proto::ibc::core::connection::v1 as connection;
-            use tonic::{metadata::MetadataValue, IntoRequest};
+            use tonic::IntoRequest;
 
             let mut client =
                 connection::query_client::QueryClient::connect(chain.grpc_addr.clone())
@@ -910,8 +997,7 @@ impl ChainEndpoint for CosmosSdkChain {
             }
             .into_request();
 
-            let height_param = MetadataValue::from_str(&height.revision_height.to_string())
-                .map_err(Error::invalid_metadata)?;
+            let height_param = AsciiMetadataValue::try_from(height_query)?;
 
             request
                 .metadata_mut()
@@ -941,7 +1027,27 @@ impl ChainEndpoint for CosmosSdkChain {
             }
         }
 
-        self.block_on(async { do_query_connection(self, connection_id, height).await })
+        match include_proof {
+            IncludeProof::Yes => {
+                let res = self.query(
+                    ConnectionsPath(request.connection_id.clone()),
+                    request.height,
+                    true,
+                )?;
+                let connection_end =
+                    ConnectionEnd::decode_vec(&res.value).map_err(Error::decode)?;
+
+                Ok((
+                    connection_end,
+                    Some(res.proof.ok_or_else(Error::empty_response_proof)?),
+                ))
+            }
+            IncludeProof::No => self
+                .block_on(async {
+                    do_query_connection(self, &request.connection_id, request.height).await
+                })
+                .map(|conn_end| (conn_end, None)),
+        }
     }
 
     fn query_connection_channels(
@@ -959,7 +1065,7 @@ impl ChainEndpoint for CosmosSdkChain {
             )
             .map_err(Error::grpc_transport)?;
 
-        let request = tonic::Request::new(request);
+        let request = tonic::Request::new(request.into());
 
         let response = self
             .block_on(client.connection_channels(request))
@@ -992,7 +1098,7 @@ impl ChainEndpoint for CosmosSdkChain {
             )
             .map_err(Error::grpc_transport)?;
 
-        let request = tonic::Request::new(request);
+        let request = tonic::Request::new(request.into());
 
         let response = self
             .block_on(client.channels(request))
@@ -1009,17 +1115,27 @@ impl ChainEndpoint for CosmosSdkChain {
 
     fn query_channel(
         &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        height: ICSHeight,
-    ) -> Result<ChannelEnd, Error> {
+        request: QueryChannelRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
         crate::time!("query_channel");
         crate::telemetry!(query, self.id(), "query_channel");
 
-        let res = self.query(ChannelEndsPath(port_id.clone(), *channel_id), height, false)?;
+        let res = self.query(
+            ChannelEndsPath(request.port_id, request.channel_id),
+            request.height,
+            matches!(include_proof, IncludeProof::Yes),
+        )?;
+
         let channel_end = ChannelEnd::decode_vec(&res.value).map_err(Error::decode)?;
 
-        Ok(channel_end)
+        match include_proof {
+            IncludeProof::Yes => {
+                let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
+                Ok((channel_end, Some(proof)))
+            }
+            IncludeProof::No => Ok((channel_end, None)),
+        }
     }
 
     fn query_channel_client_state(
@@ -1037,7 +1153,7 @@ impl ChainEndpoint for CosmosSdkChain {
             )
             .map_err(Error::grpc_transport)?;
 
-        let request = tonic::Request::new(request);
+        let request = tonic::Request::new(request.into());
 
         let response = self
             .block_on(client.channel_client_state(request))
@@ -1051,11 +1167,36 @@ impl ChainEndpoint for CosmosSdkChain {
         Ok(client_state)
     }
 
+    fn query_packet_commitment(
+        &self,
+        request: QueryPacketCommitmentRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        let res = self.query(
+            CommitmentsPath {
+                port_id: request.port_id,
+                channel_id: request.channel_id,
+                sequence: request.sequence,
+            },
+            request.height,
+            matches!(include_proof, IncludeProof::Yes),
+        )?;
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
+
+                Ok((res.value, Some(proof)))
+            }
+            IncludeProof::No => Ok((res.value, None)),
+        }
+    }
+
     /// Queries the packet commitment hashes associated with a channel.
     fn query_packet_commitments(
         &self,
         request: QueryPacketCommitmentsRequest,
-    ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
+    ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
         crate::time!("query_packet_commitments");
         crate::telemetry!(query, self.id(), "query_packet_commitments");
 
@@ -1067,29 +1208,58 @@ impl ChainEndpoint for CosmosSdkChain {
             )
             .map_err(Error::grpc_transport)?;
 
-        let request = tonic::Request::new(request);
+        let request = tonic::Request::new(request.into());
 
         let response = self
             .block_on(client.packet_commitments(request))
             .map_err(Error::grpc_status)?
             .into_inner();
 
-        let mut pc = response.commitments;
-        pc.sort_by_key(|ps| ps.sequence);
+        let mut commitment_sequences: Vec<Sequence> = response
+            .commitments
+            .into_iter()
+            .map(|v| v.sequence.into())
+            .collect();
+        commitment_sequences.sort_unstable();
 
         let height = response
             .height
-            .ok_or_else(|| Error::grpc_response_param("height".to_string()))?
-            .into();
+            .and_then(|raw_height| raw_height.try_into().ok())
+            .ok_or_else(|| Error::grpc_response_param("height".to_string()))?;
 
-        Ok((pc, height))
+        Ok((commitment_sequences, height))
+    }
+
+    fn query_packet_receipt(
+        &self,
+        request: QueryPacketReceiptRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        let res = self.query(
+            ReceiptsPath {
+                port_id: request.port_id,
+                channel_id: request.channel_id,
+                sequence: request.sequence,
+            },
+            request.height,
+            matches!(include_proof, IncludeProof::Yes),
+        )?;
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
+
+                Ok((res.value, Some(proof)))
+            }
+            IncludeProof::No => Ok((res.value, None)),
+        }
     }
 
     /// Queries the unreceived packet sequences associated with a channel.
     fn query_unreceived_packets(
         &self,
         request: QueryUnreceivedPacketsRequest,
-    ) -> Result<Vec<u64>, Error> {
+    ) -> Result<Vec<Sequence>, Error> {
         crate::time!("query_unreceived_packets");
         crate::telemetry!(query, self.id(), "query_unreceived_packets");
 
@@ -1101,7 +1271,7 @@ impl ChainEndpoint for CosmosSdkChain {
             )
             .map_err(Error::grpc_transport)?;
 
-        let request = tonic::Request::new(request);
+        let request = tonic::Request::new(request.into());
 
         let mut response = self
             .block_on(client.unreceived_packets(request))
@@ -1109,14 +1279,43 @@ impl ChainEndpoint for CosmosSdkChain {
             .into_inner();
 
         response.sequences.sort_unstable();
-        Ok(response.sequences)
+        Ok(response
+            .sequences
+            .into_iter()
+            .map(|seq| seq.into())
+            .collect())
+    }
+
+    fn query_packet_acknowledgement(
+        &self,
+        request: QueryPacketAcknowledgementRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        let res = self.query(
+            AcksPath {
+                port_id: request.port_id,
+                channel_id: request.channel_id,
+                sequence: request.sequence,
+            },
+            request.height,
+            matches!(include_proof, IncludeProof::Yes),
+        )?;
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
+
+                Ok((res.value, Some(proof)))
+            }
+            IncludeProof::No => Ok((res.value, None)),
+        }
     }
 
     /// Queries the packet acknowledgment hashes associated with a channel.
     fn query_packet_acknowledgements(
         &self,
         request: QueryPacketAcknowledgementsRequest,
-    ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
+    ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
         crate::time!("query_packet_acknowledgements");
         crate::telemetry!(query, self.id(), "query_packet_acknowledgements");
 
@@ -1128,28 +1327,32 @@ impl ChainEndpoint for CosmosSdkChain {
             )
             .map_err(Error::grpc_transport)?;
 
-        let request = tonic::Request::new(request);
+        let request = tonic::Request::new(request.into());
 
         let response = self
             .block_on(client.packet_acknowledgements(request))
             .map_err(Error::grpc_status)?
             .into_inner();
 
-        let pc = response.acknowledgements;
+        let acks_sequences = response
+            .acknowledgements
+            .into_iter()
+            .map(|v| v.sequence.into())
+            .collect();
 
         let height = response
             .height
-            .ok_or_else(|| Error::grpc_response_param("height".to_string()))?
-            .into();
+            .and_then(|raw_height| raw_height.try_into().ok())
+            .ok_or_else(|| Error::grpc_response_param("height".to_string()))?;
 
-        Ok((pc, height))
+        Ok((acks_sequences, height))
     }
 
     /// Queries the unreceived acknowledgements sequences associated with a channel.
     fn query_unreceived_acknowledgements(
         &self,
         request: QueryUnreceivedAcksRequest,
-    ) -> Result<Vec<u64>, Error> {
+    ) -> Result<Vec<Sequence>, Error> {
         crate::time!("query_unreceived_acknowledgements");
         crate::telemetry!(query, self.id(), "query_unreceived_acknowledgements");
 
@@ -1161,7 +1364,7 @@ impl ChainEndpoint for CosmosSdkChain {
             )
             .map_err(Error::grpc_transport)?;
 
-        let request = tonic::Request::new(request);
+        let request = tonic::Request::new(request.into());
 
         let mut response = self
             .block_on(client.unreceived_acks(request))
@@ -1169,32 +1372,59 @@ impl ChainEndpoint for CosmosSdkChain {
             .into_inner();
 
         response.sequences.sort_unstable();
-        Ok(response.sequences)
+        Ok(response
+            .sequences
+            .into_iter()
+            .map(|seq| seq.into())
+            .collect())
     }
 
     fn query_next_sequence_receive(
         &self,
         request: QueryNextSequenceReceiveRequest,
-    ) -> Result<Sequence, Error> {
+        include_proof: IncludeProof,
+    ) -> Result<(Sequence, Option<MerkleProof>), Error> {
         crate::time!("query_next_sequence_receive");
         crate::telemetry!(query, self.id(), "query_next_sequence_receive");
 
-        let mut client = self
-            .block_on(
-                ibc_proto::ibc::core::channel::v1::query_client::QueryClient::connect(
-                    self.grpc_addr.clone(),
-                ),
-            )
-            .map_err(Error::grpc_transport)?;
+        match include_proof {
+            IncludeProof::Yes => {
+                let res = self.query(
+                    SeqRecvsPath(request.port_id, request.channel_id),
+                    request.height,
+                    true,
+                )?;
 
-        let request = tonic::Request::new(request);
+                // Note: We expect the return to be a u64 encoded in big-endian. Refer to ibc-go:
+                // https://github.com/cosmos/ibc-go/blob/25767f6bdb5bab2c2a116b41d92d753c93e18121/modules/core/04-channel/client/utils/utils.go#L191
+                if res.value.len() != 8 {
+                    return Err(Error::query("next_sequence_receive".into()));
+                }
+                let seq: Sequence = Bytes::from(res.value).get_u64().into();
 
-        let response = self
-            .block_on(client.next_sequence_receive(request))
-            .map_err(Error::grpc_status)?
-            .into_inner();
+                let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
 
-        Ok(Sequence::from(response.next_sequence_receive))
+                Ok((seq, Some(proof)))
+            }
+            IncludeProof::No => {
+                let mut client = self
+                    .block_on(
+                        ibc_proto::ibc::core::channel::v1::query_client::QueryClient::connect(
+                            self.grpc_addr.clone(),
+                        ),
+                    )
+                    .map_err(Error::grpc_transport)?;
+
+                let request = tonic::Request::new(request.into());
+
+                let response = self
+                    .block_on(client.next_sequence_receive(request))
+                    .map_err(Error::grpc_status)?
+                    .into_inner();
+
+                Ok((Sequence::from(response.next_sequence_receive), None))
+            }
+        }
     }
 
     /// This function queries transactions for events matching certain criteria.
@@ -1251,10 +1481,13 @@ impl ChainEndpoint for CosmosSdkChain {
 
                     if let Some(block) = response.blocks.first().map(|first| &first.block) {
                         let response_height =
-                            ICSHeight::new(self.id().version(), u64::from(block.header.height));
+                            ICSHeight::new(self.id().version(), u64::from(block.header.height))
+                                .map_err(|_| Error::invalid_height_no_source())?;
 
-                        if request.height != ICSHeight::zero() && response_height > request.height {
-                            continue;
+                        if let QueryHeight::Specific(query_height) = request.height {
+                            if response_height > query_height {
+                                continue;
+                            }
                         }
 
                         let response = self
@@ -1285,8 +1518,16 @@ impl ChainEndpoint for CosmosSdkChain {
         }
     }
 
-    fn query_host_consensus_state(&self, height: ICSHeight) -> Result<Self::ConsensusState, Error> {
-        let height = Height::try_from(height.revision_height).map_err(Error::invalid_height)?;
+    fn query_host_consensus_state(
+        &self,
+        request: QueryHostConsensusStateRequest,
+    ) -> Result<Self::ConsensusState, Error> {
+        let height = match request.height {
+            QueryHeight::Latest => TmHeight::from(0u32),
+            QueryHeight::Specific(ibc_height) => {
+                TmHeight::try_from(ibc_height.revision_height()).map_err(Error::invalid_height)?
+            }
+        };
 
         // TODO(hu55a1n1): use the `/header` RPC endpoint instead when we move to tendermint v0.35.x
         let rpc_call = match height.value() {
@@ -1298,128 +1539,6 @@ impl ChainEndpoint for CosmosSdkChain {
             .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
 
         Ok(AnyConsensusState::Tendermint(response.block.header.into()))
-    }
-
-    fn proven_client_state(
-        &self,
-        client_id: &ClientId,
-        height: ICSHeight,
-    ) -> Result<(AnyClientState, MerkleProof), Error> {
-        crate::time!("proven_client_state");
-
-        let res = self.query(ClientStatePath(client_id.clone()), height, true)?;
-
-        let client_state = AnyClientState::decode_vec(&res.value).map_err(Error::decode)?;
-
-        Ok((
-            client_state,
-            res.proof.ok_or_else(Error::empty_response_proof)?,
-        ))
-    }
-
-    fn proven_client_consensus(
-        &self,
-        client_id: &ClientId,
-        consensus_height: ICSHeight,
-        height: ICSHeight,
-    ) -> Result<(AnyConsensusState, MerkleProof), Error> {
-        crate::time!("proven_client_consensus");
-
-        let res = self.query(
-            ClientConsensusStatePath {
-                client_id: client_id.clone(),
-                epoch: consensus_height.revision_number,
-                height: consensus_height.revision_height,
-            },
-            height,
-            true,
-        )?;
-
-        let consensus_state = AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
-
-        if !matches!(consensus_state, AnyConsensusState::Tendermint(_)) {
-            return Err(Error::consensus_state_type_mismatch(
-                ClientType::Tendermint,
-                consensus_state.client_type(),
-            ));
-        }
-
-        let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
-
-        Ok((consensus_state, proof))
-    }
-
-    fn proven_connection(
-        &self,
-        connection_id: &ConnectionId,
-        height: ICSHeight,
-    ) -> Result<(ConnectionEnd, MerkleProof), Error> {
-        let res = self.query(ConnectionsPath(connection_id.clone()), height, true)?;
-        let connection_end = ConnectionEnd::decode_vec(&res.value).map_err(Error::decode)?;
-
-        Ok((
-            connection_end,
-            res.proof.ok_or_else(Error::empty_response_proof)?,
-        ))
-    }
-
-    fn proven_channel(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        height: ICSHeight,
-    ) -> Result<(ChannelEnd, MerkleProof), Error> {
-        let res = self.query(ChannelEndsPath(port_id.clone(), *channel_id), height, true)?;
-
-        let channel_end = ChannelEnd::decode_vec(&res.value).map_err(Error::decode)?;
-
-        Ok((
-            channel_end,
-            res.proof.ok_or_else(Error::empty_response_proof)?,
-        ))
-    }
-
-    fn proven_packet(
-        &self,
-        packet_type: PacketMsgType,
-        port_id: PortId,
-        channel_id: ChannelId,
-        sequence: Sequence,
-        height: ICSHeight,
-    ) -> Result<(Vec<u8>, MerkleProof), Error> {
-        let data: Path = match packet_type {
-            PacketMsgType::Recv => CommitmentsPath {
-                port_id,
-                channel_id,
-                sequence,
-            }
-            .into(),
-            PacketMsgType::Ack => AcksPath {
-                port_id,
-                channel_id,
-                sequence,
-            }
-            .into(),
-            PacketMsgType::TimeoutUnordered => ReceiptsPath {
-                port_id,
-                channel_id,
-                sequence,
-            }
-            .into(),
-            PacketMsgType::TimeoutOrdered => SeqRecvsPath(port_id, channel_id).into(),
-            PacketMsgType::TimeoutOnClose => ReceiptsPath {
-                port_id,
-                channel_id,
-                sequence,
-            }
-            .into(),
-        };
-
-        let res = self.query(data, height, true)?;
-
-        let commitment_proof_bytes = res.proof.ok_or_else(Error::empty_response_proof)?;
-
-        Ok((res.value, commitment_proof_bytes))
     }
 
     fn build_client_state(
@@ -1648,15 +1767,21 @@ mod tests {
         let mut clients: Vec<IdentifiedAnyClientState> = vec![
             IdentifiedAnyClientState::new(
                 ClientId::new(ClientType::Tendermint, 4).unwrap(),
-                AnyClientState::Mock(MockClientState::new(MockHeader::new(Height::new(0, 0)))),
+                AnyClientState::Mock(MockClientState::new(MockHeader::new(
+                    Height::new(0, 1).unwrap(),
+                ))),
             ),
             IdentifiedAnyClientState::new(
                 ClientId::new(ClientType::Tendermint, 1).unwrap(),
-                AnyClientState::Mock(MockClientState::new(MockHeader::new(Height::new(0, 0)))),
+                AnyClientState::Mock(MockClientState::new(MockHeader::new(
+                    Height::new(0, 1).unwrap(),
+                ))),
             ),
             IdentifiedAnyClientState::new(
                 ClientId::new(ClientType::Tendermint, 7).unwrap(),
-                AnyClientState::Mock(MockClientState::new(MockHeader::new(Height::new(0, 0)))),
+                AnyClientState::Mock(MockClientState::new(MockHeader::new(
+                    Height::new(0, 1).unwrap(),
+                ))),
             ),
         ];
         clients.sort_by_cached_key(|c| client_id_suffix(&c.client_id).unwrap_or(0));

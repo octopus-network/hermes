@@ -103,8 +103,8 @@ impl CompileCmd {
             .build_client(true)
             .compile_well_known_types(true)
             .client_mod_attribute(".", r#"#[cfg(feature = "client")]"#)
-            .build_server(false)
-            .format(true)
+            .build_server(true)
+            .server_mod_attribute(".", r#"#[cfg(feature = "server")]"#)
             .out_dir(out_dir)
             .extern_path(".tendermint", "::tendermint_proto")
             .type_attribute(".google.protobuf.Any", attrs_serde)
@@ -142,6 +142,7 @@ impl CompileCmd {
             .type_attribute(".ibc.core.connection.v1.Version", attrs_jsonschema)
             .type_attribute(".ibc.core.types.v1", attrs_serde)
             .type_attribute(".ibc.applications.transfer.v1", attrs_serde)
+            .type_attribute(".ibc.applications.transfer.v2", attrs_serde)
             .type_attribute(
                 ".ibc.applications.interchain_accounts.controller.v1",
                 attrs_serde,
@@ -195,6 +196,7 @@ impl CompileCmd {
             format!("{}/proto/cosmos/gov", sdk_dir.display()),
             format!("{}/proto/cosmos/tx", sdk_dir.display()),
             format!("{}/proto/cosmos/base", sdk_dir.display()),
+            format!("{}/proto/cosmos/bank", sdk_dir.display()),
             format!("{}/proto/cosmos/staking", sdk_dir.display()),
             format!("{}/proto/cosmos/upgrade", sdk_dir.display()),
         ];
@@ -242,13 +244,14 @@ impl CompileCmd {
             .build_client(true)
             .compile_well_known_types(true)
             .client_mod_attribute(".", r#"#[cfg(feature = "client")]"#)
-            .build_server(false)
-            .format(true)
+            .build_server(true)
+            .server_mod_attribute(".", r#"#[cfg(feature = "server")]"#)
             .out_dir(out_dir)
             .extern_path(".tendermint", "::tendermint_proto")
             .type_attribute(".cosmos.upgrade.v1beta1", attrs_serde)
             .type_attribute(".cosmos.base.v1beta1", attrs_serde)
             .type_attribute(".cosmos.base.query.v1beta1", attrs_serde)
+            .type_attribute(".cosmos.bank.v1beta1", attrs_serde)
             .compile(&protos, &includes);
 
         match compilation {

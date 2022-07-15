@@ -22,31 +22,20 @@ use ibc::{
             channel::{ChannelEnd, IdentifiedChannelEnd},
             packet::{PacketMsgType, Sequence},
         },
-        ics23_commitment::commitment::CommitmentPrefix,
+        ics23_commitment::{commitment::CommitmentPrefix, merkle::MerkleProof},
         ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId},
     },
     events::IbcEvent,
     proofs::Proofs,
-    query::{QueryBlockRequest, QueryTxRequest},
     signer::Signer,
     Height,
 };
-use ibc_proto::ibc::core::{
-    channel::v1::{
-        PacketState, QueryChannelClientStateRequest, QueryChannelsRequest,
-        QueryConnectionChannelsRequest, QueryNextSequenceReceiveRequest,
-        QueryPacketAcknowledgementsRequest, QueryPacketCommitmentsRequest,
-        QueryUnreceivedAcksRequest, QueryUnreceivedPacketsRequest,
-    },
-    client::v1::{QueryClientStatesRequest, QueryConsensusStatesRequest},
-    commitment::v1::MerkleProof,
-    connection::v1::{QueryClientConnectionsRequest, QueryConnectionsRequest},
-};
 
 use crate::{
-    chain::{client::ClientSettings, ChainStatus},
+    account::Balance,
     config::ChainConfig,
     connection::ConnectionMsgType,
+    denom::DenomTrace,
     error::Error,
     event::{
         bus::EventBus,
@@ -57,9 +46,21 @@ use crate::{
 };
 
 use super::{
+    client::ClientSettings,
+    endpoint::{ChainEndpoint, ChainStatus, HealthCheck},
     handle::{ChainHandle, ChainRequest, ReplyTo, Subscription},
-    tx::TrackedMsgs,
-    ChainEndpoint, HealthCheck,
+    requests::{
+        IncludeProof, QueryBlockRequest, QueryChannelClientStateRequest, QueryChannelRequest,
+        QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStateRequest,
+        QueryClientStatesRequest, QueryConnectionChannelsRequest, QueryConnectionRequest,
+        QueryConnectionsRequest, QueryConsensusStateRequest, QueryConsensusStatesRequest,
+        QueryHostConsensusStateRequest, QueryNextSequenceReceiveRequest,
+        QueryPacketAcknowledgementRequest, QueryPacketAcknowledgementsRequest,
+        QueryPacketCommitmentRequest, QueryPacketCommitmentsRequest, QueryPacketReceiptRequest,
+        QueryTxRequest, QueryUnreceivedAcksRequest, QueryUnreceivedPacketsRequest,
+        QueryUpgradedClientStateRequest, QueryUpgradedConsensusStateRequest,
+    },
+    tracking::TrackedMsgs,
 };
 
 pub struct Threads {
@@ -239,8 +240,8 @@ where
                             reply_to.send(res)
                                 .map_err(Error::send)?;
 
-                            break Ok(());
-                        }
+                            break;
+                        },
 
                         Ok(ChainRequest::HealthCheck { reply_to }) => {
                             self.health_check(reply_to)?
@@ -260,40 +261,39 @@ where
 
                         Ok(ChainRequest::Signer { reply_to }) => {
                             self.get_signer(reply_to)?
-                        }
+                        },
 
                         Ok(ChainRequest::Config { reply_to }) => {
                             self.get_config(reply_to)?
-                        }
+                        },
 
                         Ok(ChainRequest::GetKey { reply_to }) => {
                             self.get_key(reply_to)?
-                        }
+                        },
 
                         Ok(ChainRequest::AddKey { key_name, key, reply_to }) => {
                             self.add_key(key_name, key, reply_to)?
-                        }
+                        },
 
                         Ok(ChainRequest::IbcVersion { reply_to }) => {
                             self.ibc_version(reply_to)?
-                        }
-
+                        },
 
                         Ok(ChainRequest::BuildHeader { trusted_height, target_height, client_state, reply_to }) => {
                             self.build_header(trusted_height, target_height, client_state, reply_to)?
-                        }
+                        },
 
                         Ok(ChainRequest::BuildClientState { height, settings, reply_to }) => {
                             self.build_client_state(height, settings, reply_to)?
-                        }
+                        },
 
                         Ok(ChainRequest::BuildConsensusState { trusted, target, client_state, reply_to }) => {
                             self.build_consensus_state(trusted, target, client_state, reply_to)?
-                        }
+                        },
 
                        Ok(ChainRequest::BuildMisbehaviour { client_state, update_event, reply_to }) => {
                             self.check_misbehaviour(update_event, client_state, reply_to)?
-                        }
+                        },
 
                         Ok(ChainRequest::BuildConnectionProofsAndClientState { message_type, connection_id, client_id, height, reply_to }) => {
                             self.build_connection_proofs_and_client_state(message_type, connection_id, client_id, height, reply_to)?
@@ -303,9 +303,17 @@ where
                             self.build_channel_proofs(port_id, channel_id, height, reply_to)?
                         },
 
+                        Ok(ChainRequest::QueryBalance { key_name, reply_to }) => {
+                            self.query_balance(key_name, reply_to)?
+                        },
+
+                        Ok(ChainRequest::QueryDenomTrace { hash, reply_to }) => {
+                            self.query_denom_trace(hash, reply_to)?
+                        },
+
                         Ok(ChainRequest::QueryApplicationStatus { reply_to }) => {
                             self.query_application_status(reply_to)?
-                        }
+                        },
 
                         Ok(ChainRequest::QueryClients { request, reply_to }) => {
                             self.query_clients(request, reply_to)?
@@ -315,25 +323,25 @@ where
                             self.query_client_connections(request, reply_to)?
                         },
 
-                        Ok(ChainRequest::QueryClientState { client_id, height, reply_to }) => {
-                            self.query_client_state(client_id, height, reply_to)?
+                        Ok(ChainRequest::QueryClientState { request, include_proof, reply_to }) => {
+                            self.query_client_state(request, include_proof, reply_to)?
                         },
 
                         Ok(ChainRequest::QueryConsensusStates { request, reply_to }) => {
                             self.query_consensus_states(request, reply_to)?
                         },
 
-                        Ok(ChainRequest::QueryConsensusState { client_id, consensus_height, query_height, reply_to }) => {
-                            self.query_consensus_state(client_id, consensus_height, query_height, reply_to)?
+                        Ok(ChainRequest::QueryConsensusState { request, include_proof, reply_to }) => {
+                            self.query_consensus_state(request, include_proof, reply_to)?
                         },
 
-                        Ok(ChainRequest::QueryUpgradedClientState { height, reply_to }) => {
-                            self.query_upgraded_client_state(height, reply_to)?
-                        }
+                        Ok(ChainRequest::QueryUpgradedClientState { request, reply_to }) => {
+                            self.query_upgraded_client_state(request, reply_to)?
+                        },
 
-                       Ok(ChainRequest::QueryUpgradedConsensusState { height, reply_to }) => {
-                            self.query_upgraded_consensus_state(height, reply_to)?
-                        }
+                       Ok(ChainRequest::QueryUpgradedConsensusState { request, reply_to }) => {
+                            self.query_upgraded_consensus_state(request, reply_to)?
+                        },
 
                         Ok(ChainRequest::QueryCommitmentPrefix { reply_to }) => {
                             self.query_commitment_prefix(reply_to)?
@@ -343,8 +351,8 @@ where
                             self.query_compatible_versions(reply_to)?
                         },
 
-                        Ok(ChainRequest::QueryConnection { connection_id, height, reply_to }) => {
-                            self.query_connection(connection_id, height, reply_to)?
+                        Ok(ChainRequest::QueryConnection { request, include_proof, reply_to }) => {
+                            self.query_connection(request, include_proof, reply_to)?
                         },
 
                         Ok(ChainRequest::QueryConnections { request, reply_to }) => {
@@ -359,39 +367,39 @@ where
                             self.query_channels(request, reply_to)?
                         },
 
-                        Ok(ChainRequest::QueryChannel { port_id, channel_id, height, reply_to }) => {
-                            self.query_channel(port_id, channel_id, height, reply_to)?
+                        Ok(ChainRequest::QueryChannel { request, include_proof, reply_to }) => {
+                            self.query_channel(request, include_proof, reply_to)?
                         },
 
                         Ok(ChainRequest::QueryChannelClientState { request, reply_to }) => {
                             self.query_channel_client_state(request, reply_to)?
                         },
 
-                        Ok(ChainRequest::ProvenClientState { client_id, height, reply_to }) => {
-                            self.proven_client_state(client_id, height, reply_to)?
-                        },
-
-                        Ok(ChainRequest::ProvenConnection { connection_id, height, reply_to }) => {
-                            self.proven_connection(connection_id, height, reply_to)?
-                        },
-
-                        Ok(ChainRequest::ProvenClientConsensus { client_id, consensus_height, height, reply_to }) => {
-                            self.proven_client_consensus(client_id, consensus_height, height, reply_to)?
-                        },
-
                         Ok(ChainRequest::BuildPacketProofs { packet_type, port_id, channel_id, sequence, height, reply_to }) => {
                             self.build_packet_proofs(packet_type, port_id, channel_id, sequence, height, reply_to)?
+                        },
+
+                        Ok(ChainRequest::QueryPacketCommitment { request, include_proof, reply_to }) => {
+                            self.query_packet_commitment(request, include_proof, reply_to)?
                         },
 
                         Ok(ChainRequest::QueryPacketCommitments { request, reply_to }) => {
                             self.query_packet_commitments(request, reply_to)?
                         },
 
+                        Ok(ChainRequest::QueryPacketReceipt { request, include_proof, reply_to }) => {
+                            self.query_packet_receipt(request, include_proof, reply_to)?
+                        },
+
                         Ok(ChainRequest::QueryUnreceivedPackets { request, reply_to }) => {
                             self.query_unreceived_packets(request, reply_to)?
                         },
 
-                        Ok(ChainRequest::QueryPacketAcknowledgement { request, reply_to }) => {
+                        Ok(ChainRequest::QueryPacketAcknowledgement { request, include_proof, reply_to }) => {
+                            self.query_packet_acknowledgement(request, include_proof, reply_to)?
+                        },
+
+                        Ok(ChainRequest::QueryPacketAcknowledgements { request, reply_to }) => {
                             self.query_packet_acknowledgements(request, reply_to)?
                         },
 
@@ -399,8 +407,8 @@ where
                             self.query_unreceived_acknowledgement(request, reply_to)?
                         },
 
-                        Ok(ChainRequest::QueryNextSequenceReceive { request, reply_to }) => {
-                            self.query_next_sequence_receive(request, reply_to)?
+                        Ok(ChainRequest::QueryNextSequenceReceive { request, include_proof, reply_to }) => {
+                            self.query_next_sequence_receive(request, include_proof, reply_to)?
                         },
 
                         Ok(ChainRequest::QueryPacketEventDataFromTxs { request, reply_to }) => {
@@ -418,8 +426,8 @@ where
                             self.update_mmr_root(src_chain_websocket_url,dst_chain_websocket_url,reply_to,)?
                         },
 
-                        Ok(ChainRequest::QueryHostConsensusState { height, reply_to }) => {
-                            self.query_host_consensus_state(height, reply_to)?
+                        Ok(ChainRequest::QueryHostConsensusState { request, reply_to }) => {
+                            self.query_host_consensus_state(request, reply_to)?
                         },
 
                         Err(e) => error!("received error via chain request channel: {}", e),
@@ -468,6 +476,20 @@ where
     ) -> Result<(), Error> {
         let result = self.chain.send_messages_and_wait_check_tx(tracked_msgs);
         reply_to.send(result).map_err(Error::send)
+    }
+
+    fn query_balance(
+        &self,
+        key_name: Option<String>,
+        reply_to: ReplyTo<Balance>,
+    ) -> Result<(), Error> {
+        let balance = self.chain.query_balance(key_name);
+        reply_to.send(balance).map_err(Error::send)
+    }
+
+    fn query_denom_trace(&self, hash: String, reply_to: ReplyTo<DenomTrace>) -> Result<(), Error> {
+        let denom_trace = self.chain.query_denom_trace(hash);
+        reply_to.send(denom_trace).map_err(Error::send)
     }
 
     fn query_application_status(&self, reply_to: ReplyTo<ChainStatus>) -> Result<(), Error> {
@@ -617,26 +639,26 @@ where
 
     fn query_client_state(
         &self,
-        client_id: ClientId,
-        height: Height,
-        reply_to: ReplyTo<AnyClientState>,
+        request: QueryClientStateRequest,
+        include_proof: IncludeProof,
+        reply_to: ReplyTo<(AnyClientState, Option<MerkleProof>)>,
     ) -> Result<(), Error> {
-        let client_state = self
+        let res = self
             .chain
-            .query_client_state(&client_id, height)
-            .map(|cs| cs.wrap_any());
+            .query_client_state(request, include_proof)
+            .map(|(cs, proof)| (cs.wrap_any(), proof));
 
-        reply_to.send(client_state).map_err(Error::send)
+        reply_to.send(res).map_err(Error::send)
     }
 
     fn query_upgraded_client_state(
         &self,
-        height: Height,
+        request: QueryUpgradedClientStateRequest,
         reply_to: ReplyTo<(AnyClientState, MerkleProof)>,
     ) -> Result<(), Error> {
         let result = self
             .chain
-            .query_upgraded_client_state(height)
+            .query_upgraded_client_state(request)
             .map(|(cl, proof)| (cl.wrap_any(), proof));
 
         reply_to.send(result).map_err(Error::send)
@@ -653,26 +675,23 @@ where
 
     fn query_consensus_state(
         &self,
-        client_id: ClientId,
-        consensus_height: Height,
-        query_height: Height,
-        reply_to: ReplyTo<AnyConsensusState>,
+        request: QueryConsensusStateRequest,
+        include_proof: IncludeProof,
+        reply_to: ReplyTo<(AnyConsensusState, Option<MerkleProof>)>,
     ) -> Result<(), Error> {
-        let consensus_state =
-            self.chain
-                .query_consensus_state(client_id, consensus_height, query_height);
+        let res = self.chain.query_consensus_state(request, include_proof);
 
-        reply_to.send(consensus_state).map_err(Error::send)
+        reply_to.send(res).map_err(Error::send)
     }
 
     fn query_upgraded_consensus_state(
         &self,
-        height: Height,
+        request: QueryUpgradedConsensusStateRequest,
         reply_to: ReplyTo<(AnyConsensusState, MerkleProof)>,
     ) -> Result<(), Error> {
         let result = self
             .chain
-            .query_upgraded_consensus_state(height)
+            .query_upgraded_consensus_state(request)
             .map(|(cs, proof)| (cs.wrap_any(), proof));
 
         reply_to.send(result).map_err(Error::send)
@@ -690,11 +709,11 @@ where
 
     fn query_connection(
         &self,
-        connection_id: ConnectionId,
-        height: Height,
-        reply_to: ReplyTo<ConnectionEnd>,
+        request: QueryConnectionRequest,
+        include_proof: IncludeProof,
+        reply_to: ReplyTo<(ConnectionEnd, Option<MerkleProof>)>,
     ) -> Result<(), Error> {
-        let connection_end = self.chain.query_connection(&connection_id, height);
+        let connection_end = self.chain.query_connection(request, include_proof);
         reply_to.send(connection_end).map_err(Error::send)
     }
 
@@ -727,12 +746,11 @@ where
 
     fn query_channel(
         &self,
-        port_id: PortId,
-        channel_id: ChannelId,
-        height: Height,
-        reply_to: ReplyTo<ChannelEnd>,
+        request: QueryChannelRequest,
+        include_proof: IncludeProof,
+        reply_to: ReplyTo<(ChannelEnd, Option<MerkleProof>)>,
     ) -> Result<(), Error> {
-        let result = self.chain.query_channel(&port_id, &channel_id, height);
+        let result = self.chain.query_channel(request, include_proof);
         reply_to.send(result).map_err(Error::send)
     }
 
@@ -742,45 +760,6 @@ where
         reply_to: ReplyTo<Option<IdentifiedAnyClientState>>,
     ) -> Result<(), Error> {
         let result = self.chain.query_channel_client_state(request);
-        reply_to.send(result).map_err(Error::send)
-    }
-
-    fn proven_client_state(
-        &self,
-        client_id: ClientId,
-        height: Height,
-        reply_to: ReplyTo<(AnyClientState, MerkleProof)>,
-    ) -> Result<(), Error> {
-        let result = self
-            .chain
-            .proven_client_state(&client_id, height)
-            .map(|(cs, mp)| (cs.wrap_any(), mp));
-
-        reply_to.send(result).map_err(Error::send)
-    }
-
-    fn proven_connection(
-        &self,
-        connection_id: ConnectionId,
-        height: Height,
-        reply_to: ReplyTo<(ConnectionEnd, MerkleProof)>,
-    ) -> Result<(), Error> {
-        let result = self.chain.proven_connection(&connection_id, height);
-        reply_to.send(result).map_err(Error::send)
-    }
-
-    fn proven_client_consensus(
-        &self,
-        client_id: ClientId,
-        consensus_height: Height,
-        height: Height,
-        reply_to: ReplyTo<(AnyConsensusState, MerkleProof)>,
-    ) -> Result<(), Error> {
-        let result = self
-            .chain
-            .proven_client_consensus(&client_id, consensus_height, height)
-            .map(|(cs, mp)| (cs.wrap_any(), mp));
-
         reply_to.send(result).map_err(Error::send)
     }
 
@@ -805,7 +784,7 @@ where
         channel_id: ChannelId,
         sequence: Sequence,
         height: Height,
-        reply_to: ReplyTo<(Vec<u8>, Proofs)>,
+        reply_to: ReplyTo<Proofs>,
     ) -> Result<(), Error> {
         let result =
             self.chain
@@ -814,28 +793,60 @@ where
         reply_to.send(result).map_err(Error::send)
     }
 
+    fn query_packet_commitment(
+        &self,
+        request: QueryPacketCommitmentRequest,
+        include_proof: IncludeProof,
+        reply_to: ReplyTo<(Vec<u8>, Option<MerkleProof>)>,
+    ) -> Result<(), Error> {
+        let result = self.chain.query_packet_commitment(request, include_proof);
+        reply_to.send(result).map_err(Error::send)
+    }
+
     fn query_packet_commitments(
         &self,
         request: QueryPacketCommitmentsRequest,
-        reply_to: ReplyTo<(Vec<PacketState>, Height)>,
+        reply_to: ReplyTo<(Vec<Sequence>, Height)>,
     ) -> Result<(), Error> {
         let result = self.chain.query_packet_commitments(request);
+        reply_to.send(result).map_err(Error::send)
+    }
+
+    fn query_packet_receipt(
+        &self,
+        request: QueryPacketReceiptRequest,
+        include_proof: IncludeProof,
+        reply_to: ReplyTo<(Vec<u8>, Option<MerkleProof>)>,
+    ) -> Result<(), Error> {
+        let result = self.chain.query_packet_receipt(request, include_proof);
         reply_to.send(result).map_err(Error::send)
     }
 
     fn query_unreceived_packets(
         &self,
         request: QueryUnreceivedPacketsRequest,
-        reply_to: ReplyTo<Vec<u64>>,
+        reply_to: ReplyTo<Vec<Sequence>>,
     ) -> Result<(), Error> {
         let result = self.chain.query_unreceived_packets(request);
+        reply_to.send(result).map_err(Error::send)
+    }
+
+    fn query_packet_acknowledgement(
+        &self,
+        request: QueryPacketAcknowledgementRequest,
+        include_proof: IncludeProof,
+        reply_to: ReplyTo<(Vec<u8>, Option<MerkleProof>)>,
+    ) -> Result<(), Error> {
+        let result = self
+            .chain
+            .query_packet_acknowledgement(request, include_proof);
         reply_to.send(result).map_err(Error::send)
     }
 
     fn query_packet_acknowledgements(
         &self,
         request: QueryPacketAcknowledgementsRequest,
-        reply_to: ReplyTo<(Vec<PacketState>, Height)>,
+        reply_to: ReplyTo<(Vec<Sequence>, Height)>,
     ) -> Result<(), Error> {
         let result = self.chain.query_packet_acknowledgements(request);
         reply_to.send(result).map_err(Error::send)
@@ -844,7 +855,7 @@ where
     fn query_unreceived_acknowledgement(
         &self,
         request: QueryUnreceivedAcksRequest,
-        reply_to: ReplyTo<Vec<u64>>,
+        reply_to: ReplyTo<Vec<Sequence>>,
     ) -> Result<(), Error> {
         let result = self.chain.query_unreceived_acknowledgements(request);
         reply_to.send(result).map_err(Error::send)
@@ -853,9 +864,12 @@ where
     fn query_next_sequence_receive(
         &self,
         request: QueryNextSequenceReceiveRequest,
-        reply_to: ReplyTo<Sequence>,
+        include_proof: IncludeProof,
+        reply_to: ReplyTo<(Sequence, Option<MerkleProof>)>,
     ) -> Result<(), Error> {
-        let result = self.chain.query_next_sequence_receive(request);
+        let result = self
+            .chain
+            .query_next_sequence_receive(request, include_proof);
         reply_to.send(result).map_err(Error::send)
     }
 
@@ -899,12 +913,12 @@ where
 
     fn query_host_consensus_state(
         &self,
-        height: Height,
+        request: QueryHostConsensusStateRequest,
         reply_to: ReplyTo<AnyConsensusState>,
     ) -> Result<(), Error> {
         let result = self
             .chain
-            .query_host_consensus_state(height)
+            .query_host_consensus_state(request)
             .map(|h| h.wrap_any());
 
         reply_to.send(result).map_err(Error::send)?;

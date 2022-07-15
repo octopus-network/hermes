@@ -64,8 +64,8 @@ impl TryFrom<RawMsgChannelCloseConfirm> for MsgChannelCloseConfirm {
             None,
             raw_msg
                 .proof_height
-                .ok_or_else(Error::missing_height)?
-                .into(),
+                .and_then(|raw_height| raw_height.try_into().ok())
+                .ok_or_else(Error::missing_height)?,
         )
         .map_err(Error::invalid_proof)?;
 
@@ -73,7 +73,7 @@ impl TryFrom<RawMsgChannelCloseConfirm> for MsgChannelCloseConfirm {
             port_id: raw_msg.port_id.parse().map_err(Error::identifier)?,
             channel_id: raw_msg.channel_id.parse().map_err(Error::identifier)?,
             proofs,
-            signer: raw_msg.signer.into(),
+            signer: raw_msg.signer.parse().map_err(Error::signer)?,
         })
     }
 }
@@ -187,7 +187,7 @@ mod tests {
                 name: "Bad channel, name too long".to_string(),
                 raw: RawMsgChannelCloseConfirm {
                     channel_id:
-                        "channel-12839128379182739812739879"
+                        "channel-128391283791827398127398791283912837918273981273987912839"
                             .to_string(),
                     ..default_raw_msg.clone()
                 },

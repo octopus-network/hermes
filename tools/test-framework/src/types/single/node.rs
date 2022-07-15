@@ -7,6 +7,7 @@ use core::time::Duration;
 use eyre::eyre;
 use eyre::Report as Error;
 use ibc::core::ics24_host::identifier::ChainId;
+use ibc_relayer::chain::ChainType;
 use ibc_relayer::config;
 use ibc_relayer::keyring::Store;
 use std::sync::{Arc, RwLock};
@@ -18,6 +19,10 @@ use crate::types::env::{prefix_writer, EnvWriter, ExportEnv};
 use crate::types::process::ChildProcess;
 use crate::types::tagged::*;
 use crate::types::wallet::TestWallets;
+
+pub type TaggedFullNode<Chain> = MonoTagged<Chain, FullNode>;
+
+pub type TaggedFullNodeRef<'a, Chain> = MonoTagged<Chain, &'a FullNode>;
 
 /**
    Represents a full node running as a child process managed by the test.
@@ -116,11 +121,12 @@ impl FullNode {
     pub fn generate_chain_config(&self) -> Result<config::ChainConfig, Error> {
         Ok(config::ChainConfig {
             id: self.chain_driver.chain_id.clone(),
+            r#type: ChainType::CosmosSdk,
             rpc_addr: Url::from_str(&self.chain_driver.rpc_address())?,
             websocket_addr: Url::from_str(&self.chain_driver.websocket_address())?,
             grpc_addr: Url::from_str(&self.chain_driver.grpc_address())?,
             rpc_timeout: Duration::from_secs(10),
-            account_prefix: "cosmos".to_string(),
+            account_prefix: self.chain_driver.account_prefix.clone(),
             key_name: self.wallets.relayer.id.0.clone(),
 
             // By default we use in-memory key store to avoid polluting
@@ -131,7 +137,8 @@ impl FullNode {
             store_prefix: "ibc".to_string(),
             default_gas: None,
             max_gas: Some(3000000),
-            gas_adjustment: Some(0.1),
+            gas_adjustment: None,
+            gas_multiplier: None,
             fee_granter: None,
             max_msg_num: Default::default(),
             max_tx_size: Default::default(),
