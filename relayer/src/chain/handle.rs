@@ -628,7 +628,6 @@ pub trait ChainHandle: Clone + Send + Sync + Serialize + Debug + 'static {
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error>;
 
-
     fn query_blocks(
         &self,
         request: QueryBlockRequest,

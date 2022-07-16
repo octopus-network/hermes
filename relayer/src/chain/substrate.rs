@@ -7,9 +7,18 @@ use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::grandpa::LightClient as GPLightClient;
 use crate::util::retry::{retry_with_index, RetryResult};
 
-use crate::chain::requests::{IncludeProof, QueryBlockRequest, QueryClientStateRequest, QueryHeight, QueryHostConsensusStateRequest, QueryPacketAcknowledgementRequest, QueryPacketCommitmentRequest, QueryPacketReceiptRequest, QueryUpgradedClientStateRequest, QueryUpgradedConsensusStateRequest};
+use crate::chain::endpoint::ChainEndpoint;
+use crate::chain::endpoint::ChainStatus;
+use crate::chain::endpoint::HealthCheck;
 use crate::chain::requests::QueryPacketEventDataRequest;
 use crate::chain::requests::QueryTxRequest;
+use crate::chain::requests::{
+    IncludeProof, QueryBlockRequest, QueryClientStateRequest, QueryHeight,
+    QueryHostConsensusStateRequest, QueryPacketAcknowledgementRequest,
+    QueryPacketCommitmentRequest, QueryPacketReceiptRequest, QueryUpgradedClientStateRequest,
+    QueryUpgradedConsensusStateRequest,
+};
+use crate::chain::tracking::TrackedMsgs;
 use alloc::sync::Arc;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
@@ -40,34 +49,28 @@ use ibc::{
     },
     events::{IbcEvent, WithBlockDataType},
     signer::Signer,
-    Height,
-    Height as ICSHeight,
+    Height, Height as ICSHeight,
 };
 use subxt::rpc::ClientT;
-use crate::chain::tracking::TrackedMsgs;
-use crate::chain::endpoint::ChainStatus;
-use crate::chain::endpoint::HealthCheck;
-use crate::chain::endpoint::ChainEndpoint;
 
-use ibc_proto::google::protobuf::Any;
-use ibc::core::ics23_commitment::merkle::MerkleProof;
-use crate::chain::requests::QueryNextSequenceReceiveRequest;
-use crate::chain::requests::QueryUnreceivedAcksRequest;
-use crate::chain::requests::QueryPacketAcknowledgementsRequest;
-use crate::chain::requests::QueryUnreceivedPacketsRequest;
-use crate::chain::requests::QueryPacketCommitmentsRequest;
 use crate::chain::requests::QueryChannelClientStateRequest;
-use crate::chain::requests::QueryChannelsRequest;
-use crate::chain::requests::QueryConnectionChannelsRequest;
-use crate::chain::requests::QueryClientConnectionsRequest;
-use crate::chain::requests::QueryConnectionsRequest;
-use crate::chain::requests::QueryConsensusStatesRequest;
-use crate::chain::requests::QueryClientStatesRequest;
-use crate::chain::requests::QueryConnectionRequest;
-use crate::chain::requests::QueryConsensusStateRequest;
 use crate::chain::requests::QueryChannelRequest;
+use crate::chain::requests::QueryChannelsRequest;
+use crate::chain::requests::QueryClientConnectionsRequest;
+use crate::chain::requests::QueryClientStatesRequest;
+use crate::chain::requests::QueryConnectionChannelsRequest;
+use crate::chain::requests::QueryConnectionRequest;
+use crate::chain::requests::QueryConnectionsRequest;
+use crate::chain::requests::QueryConsensusStateRequest;
+use crate::chain::requests::QueryConsensusStatesRequest;
+use crate::chain::requests::QueryNextSequenceReceiveRequest;
+use crate::chain::requests::QueryPacketAcknowledgementsRequest;
+use crate::chain::requests::QueryPacketCommitmentsRequest;
+use crate::chain::requests::QueryUnreceivedAcksRequest;
+use crate::chain::requests::QueryUnreceivedPacketsRequest;
+use ibc::core::ics23_commitment::merkle::MerkleProof;
+use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::channel::v1::PacketState;
-
 
 use jsonrpsee::rpc_params;
 use octopusxt::MyConfig;
@@ -82,15 +85,17 @@ use subxt::{
 
 use tendermint::abci::{Code, Log};
 
+use crate::account::Balance;
+use crate::denom::DenomTrace;
 use anyhow::Result;
 use beefy_light_client::{commitment, mmr};
-use ics23::InnerOp;
 use ibc::clients::ics10_grandpa::help::Commitment;
 use ibc::core::ics04_channel::events::SendPacket;
 use ibc::core::ics24_host::path::{
     AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
     ConnectionsPath, ReceiptsPath, SeqRecvsPath,
 };
+use ics23::InnerOp;
 use octopusxt::ibc_node::ibc::storage;
 use octopusxt::ibc_node::RuntimeApi;
 use octopusxt::update_client_state::update_client_state;
@@ -103,8 +108,6 @@ use tendermint::abci::transaction;
 use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
-use crate::account::Balance;
-use crate::denom::DenomTrace;
 
 const MAX_QUERY_TIMES: u64 = 100;
 pub const REVISION_NUMBER: u64 = 8888;
@@ -1667,9 +1670,7 @@ pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
         path: vec![_inner_op],
     });
 
-    let parsed = ics23::CommitmentProof {
-        proof: Some(proof),
-    };
+    let parsed = ics23::CommitmentProof { proof: Some(proof) };
     let mproofs: Vec<ics23::CommitmentProof> = vec![parsed];
     MerkleProof { proofs: mproofs }
 }

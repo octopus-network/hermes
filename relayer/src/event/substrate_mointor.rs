@@ -1,5 +1,7 @@
 use crate::util::retry::{retry_count, retry_with_index, RetryResult};
 
+use crate::chain::substrate::REVISION_NUMBER;
+use crate::chain::tracking::TrackingId;
 use alloc::sync::Arc;
 use core::cmp::Ordering;
 use crossbeam_channel as channel;
@@ -16,8 +18,6 @@ use subxt::{Client, ClientBuilder, RawEventDetails};
 use tendermint_rpc::{event::Event as RpcEvent, Url};
 use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, trace};
-use crate::chain::tracking::TrackingId;
-use crate::chain::substrate::REVISION_NUMBER;
 
 mod retry_strategy {
     use crate::util::retry::clamp_total;
@@ -417,7 +417,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "UpdateClient" => {
@@ -448,7 +448,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "ClientMisbehaviour" => {
@@ -480,7 +480,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "OpenInitConnection" => {
@@ -515,7 +515,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "OpenTryConnection" => {
@@ -550,7 +550,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "OpenAckConnection" => {
@@ -585,7 +585,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "OpenConfirmConnection" => {
@@ -620,7 +620,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
 
@@ -656,7 +656,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "OpenTryChannel" => {
@@ -691,7 +691,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "OpenAckChannel" => {
@@ -726,7 +726,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "OpenConfirmChannel" => {
@@ -762,7 +762,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "CloseInitChannel" => {
@@ -797,7 +797,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "CloseConfirmChannel" => {
@@ -833,7 +833,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "SendPacket" => {
@@ -856,7 +856,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "ReceivePacket" => {
@@ -879,7 +879,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "WriteAcknowledgement" => {
@@ -906,7 +906,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "AcknowledgePacket" => {
@@ -930,7 +930,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "TimeoutPacket" => {
@@ -953,7 +953,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "TimeoutOnClosePacket" => {
@@ -978,7 +978,7 @@ fn from_raw_event_to_batch_event(
                 height: height.into(),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "ChainError" => {
@@ -996,7 +996,7 @@ fn from_raw_event_to_batch_event(
                 height: Height::new(REVISION_NUMBER, height).expect("REVISION_NUMBER"),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
         "ExtrinsicSuccess" => {
@@ -1014,17 +1014,15 @@ fn from_raw_event_to_batch_event(
                 height: Height::new(REVISION_NUMBER, height).expect("REVISION_NUMBER"),
                 events: vec![event],
                 chain_id,
-                tracking_id: TrackingId::new_uuid()
+                tracking_id: TrackingId::new_uuid(),
             })
         }
-        _ => {
-            Ok(EventBatch {
-                height: Height::new(REVISION_NUMBER, height).expect("REVISION_NUMBER"),
-                events: vec![],
-                chain_id,
-                tracking_id: TrackingId::new_uuid()
-            })
-        }
+        _ => Ok(EventBatch {
+            height: Height::new(REVISION_NUMBER, height).expect("REVISION_NUMBER"),
+            events: vec![],
+            chain_id,
+            tracking_id: TrackingId::new_uuid(),
+        }),
     }
 }
 
