@@ -802,7 +802,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 QueryPacketCommitmentRequest {
                     port_id: self.src_port_id().clone(),
                     channel_id: self.src_channel_id().clone(),
-                    sequence: packet.sequence,
+                    sequence: send_packet.packet.sequence,
                     height: QueryHeight::Latest,
                 },
                 IncludeProof::No,

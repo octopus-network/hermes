@@ -74,7 +74,7 @@ beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-cli
 # beefy-light-client = { path = "../../beefy-light-client", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
-
+ics23 = { version = "=0.8.0-alpha" }
 
 [dependencies.num-bigint]
 version = "0.4"

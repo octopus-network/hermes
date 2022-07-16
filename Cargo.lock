@@ -2137,6 +2137,7 @@ dependencies = [
  "ibc",
  "ibc-proto",
  "ibc-telemetry",
+ "ics23",
  "itertools",
  "jsonrpsee",
  "k256",

@@ -184,6 +184,7 @@ impl Runnable for QueryClientConsensusCmd {
                             Output::success(states).exit()
                         }
                     }
+                    Err(e) => Output::error(format!("{}", e)).exit(),
                 }
             }
         };
