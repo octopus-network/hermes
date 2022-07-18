@@ -240,17 +240,19 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_client_state(client_id, client))
     }
 
-    /// get consensus_state by client_identifier and height
-    fn get_client_consensus(
+    // TODO( daviairn) add specific_height to query
+    /// Performs a query to retrieve the consensus state for a specified height
+    /// `consensus_height` that the specified light client stores.
+    fn query_client_consensus(
         &self,
         client_id: &ClientId,
-        height: &ICSHeight,
+        consensus_height: &ICSHeight,
     ) -> Result<AnyConsensusState> {
-        tracing::trace!("in substrate: [get_client_consensus]");
+        tracing::trace!("in substrate: [query_client_consensus]");
 
         let client = self.get_client()?;
 
-        self.block_on(octopusxt::get_client_consensus(client_id, height, client))
+        self.block_on(octopusxt::query_client_consensus(client_id, consensus_height, client))
     }
 
     fn get_consensus_state_with_height(
@@ -834,12 +836,34 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_consensus_state]");
 
-        // let consensus_state = self
-        //     .proven_client_consensus(&client_id, consensus_height, query_height)?
-        //     .0;
-        //
-        // Ok(consensus_state)
-        todo!()
+        // query_height to amit to search chain height
+        let QueryConsensusStateRequest{
+            client_id,
+            consensus_height,
+            query_height,
+        } = request;
+
+        let result = self
+            .retry_wapper(|| self.query_client_consensus(&client_id, &consensus_height))
+            .map_err(Error::retry_error)?;
+
+        // search key
+        let client_consensus_state_path = ClientConsensusStatePath {
+            client_id: client_id.clone(),
+            epoch: consensus_height.revision_number(),
+            height: consensus_height.revision_height(),
+        }
+        .to_string()
+        .as_bytes()
+        .to_vec();
+
+        let storage_entry = storage::ConsensusStates(&client_consensus_state_path);
+
+        Ok((
+            result,
+            Some(self.generate_storage_proof(&storage_entry, &consensus_height, "ConsensusStates")?),
+        ))
+
     }
 
     fn query_consensus_states(
@@ -1066,35 +1090,7 @@ impl ChainEndpoint for SubstrateChain {
     //     ))
     // }
     //
-    // fn proven_client_consensus(
-    //     &self,
-    //     client_id: &ClientId,
-    //     consensus_height: ICSHeight,
-    //     height: ICSHeight,
-    // ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
-    //     tracing::trace!("in substrate: [proven_client_consensus] ");
-    //
-    //     let result = self
-    //         .retry_wapper(|| self.get_client_consensus(client_id, &consensus_height))
-    //         .map_err(Error::retry_error)?;
-    //
-    //     // search key
-    //     let client_consensus_state_path = ClientConsensusStatePath {
-    //         client_id: client_id.clone(),
-    //         epoch: consensus_height.revision_number(),
-    //         height: consensus_height.revision_height(),
-    //     }
-    //     .to_string()
-    //     .as_bytes()
-    //     .to_vec();
-    //
-    //     let storage_entry = storage::ConsensusStates(&client_consensus_state_path);
-    //
-    //     Ok((
-    //         result,
-    //         self.generate_storage_proof(&storage_entry, &height, "ConsensusStates")?,
-    //     ))
-    // }
+
     //
     // fn proven_channel(
     //     &self,
