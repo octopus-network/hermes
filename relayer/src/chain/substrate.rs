@@ -190,13 +190,13 @@ impl SubstrateChain {
         self.block_on(octopusxt::get_connection_end(connection_identifier, client))
     }
 
-    /// get channelEnd  by port_identifier, and channel_identifier
-    fn get_channel_end(&self, port_id: &PortId, channel_id: &ChannelId) -> Result<ChannelEnd> {
-        tracing::trace!("in substrate: [get_channel_end]");
+    /// query channelEnd  by port_identifier, and channel_identifier
+    fn query_channel_end(&self, port_id: &PortId, channel_id: &ChannelId) -> Result<ChannelEnd> {
+        tracing::trace!("in substrate: [query_channel_end]");
 
         let client = self.get_client()?;
 
-        self.block_on(octopusxt::get_channel_end(port_id, channel_id, client))
+        self.block_on(octopusxt::query_channel_end(port_id, channel_id, client))
     }
 
     /// get packet receipt by port_id, channel_id and sequence
@@ -1030,15 +1030,43 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_channel]");
 
-        let port_id = request.port_id;
-        let channel_id = request.channel_id;
+        let QueryChannelRequest {
+            port_id,
+            channel_id,
+            height,
+        } = request;
 
         let channel_end = self
-            .retry_wapper(|| self.get_channel_end(&port_id, &channel_id))
+            .retry_wapper(|| self.query_channel_end(&port_id, &channel_id))
             .map_err(Error::retry_error)?;
 
-        // Ok(channel_end)
-        todo!()
+        // use channel_end path as key
+        let channel_end_path = ChannelEndsPath(port_id.clone(), channel_id.clone())
+            .to_string()
+            .as_bytes()
+            .to_vec();
+        let storage_entry = storage::Channels(&channel_end_path);
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let query_height = match height {
+                    QueryHeight::Latest => {
+                        let height = self.get_latest_height().map_err(|_|Error::query_latest_height())?;
+                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                    },
+                    QueryHeight::Specific(value) => value,
+                };
+
+                Ok((
+                    channel_end,
+                    Some(self.generate_storage_proof(&storage_entry, &query_height, "Channels")?),
+                ))
+            }
+            IncludeProof::No => {
+                Ok((channel_end, None))
+            }
+        }
+
     }
 
     fn query_channel_client_state(
@@ -1108,31 +1136,7 @@ impl ChainEndpoint for SubstrateChain {
     //
 
     //
-    // fn proven_channel(
-    //     &self,
-    //     port_id: &PortId,
-    //     channel_id: &ChannelId,
-    //     height: ICSHeight,
-    // ) -> Result<(ChannelEnd, MerkleProof), Error> {
-    //     tracing::trace!("in substrate: [proven_channel]");
-    //
-    //     let result = self
-    //         .retry_wapper(|| self.get_channel_end(port_id, channel_id))
-    //         .map_err(Error::retry_error)?;
-    //
-    //     let channel_id_string = format!("{}", channel_id);
-    //
-    //     // use channel_end path as key
-    //     let channel_end_path = ChannelEndsPath(port_id.clone(), channel_id.clone())
-    //         .to_string()
-    //         .as_bytes()
-    //         .to_vec();
-    //     let storage_entry = storage::Channels(&channel_end_path);
-    //     Ok((
-    //         result,
-    //         self.generate_storage_proof(&storage_entry, &height, "Channels")?,
-    //     ))
-    // }
+
 
     // fn proven_packet(
     //     &self,
