@@ -552,6 +552,19 @@ impl SubstrateChain {
             port_id, channel_id, sequence, client,
         ))
     }
+
+    fn query_packet_receipt(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: &Sequence,
+    ) -> Result<Vec<u8>> {
+        let client = self.get_client()?;
+
+        self.block_on(octopusxt::ibc_rpc::get_packet_receipt_vec(
+            port_id, channel_id, sequence, client,
+        ))
+    }
 }
 
 impl ChainEndpoint for SubstrateChain {
@@ -1357,7 +1370,50 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryPacketReceiptRequest,
         include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
-        todo!()
+        let QueryPacketReceiptRequest {
+            port_id,
+            channel_id,
+            sequence,
+            height,
+        } = request;
+
+        let packet_receipt = self
+            .retry_wapper(|| self.query_packet_receipt(&port_id, &channel_id, &sequence))
+            .map_err(Error::retry_error)?;
+
+        let packet_receipt_path = ReceiptsPath {
+            port_id: port_id.clone(),
+            channel_id: channel_id.clone(),
+            sequence: sequence.clone(),
+        }
+            .to_string()
+            .as_bytes()
+            .to_vec();
+
+        let storage_entry = storage::PacketReceipt(&packet_receipt_path);
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let query_height = match height {
+                    QueryHeight::Latest => {
+                        let height = self
+                            .get_latest_height()
+                            .map_err(|_| Error::query_latest_height())?;
+                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                    }
+                    QueryHeight::Specific(value) => value,
+                };
+                Ok((
+                    packet_receipt,
+                    Some(self.generate_storage_proof(
+                        &storage_entry,
+                        &query_height,
+                        "PacketReceipt",
+                    )?),
+                ))
+            }
+            IncludeProof::No => Ok((packet_receipt, None)),
+        }
     }
 
     fn query_unreceived_packets(
