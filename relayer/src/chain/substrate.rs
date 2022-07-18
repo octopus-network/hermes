@@ -565,6 +565,18 @@ impl SubstrateChain {
             port_id, channel_id, sequence, client,
         ))
     }
+
+    fn query_next_sequence_receive(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+    ) -> Result<Sequence> {
+        let client = self.get_client()?;
+
+        self.block_on(octopusxt::ibc_rpc::get_next_sequence_recv(
+            port_id, channel_id,  client,
+        ))
+    }
 }
 
 impl ChainEndpoint for SubstrateChain {
@@ -1217,21 +1229,6 @@ impl ChainEndpoint for SubstrateChain {
     //
     //     match packet_type {
     //         PacketMsgType::Recv => {
-    //             let packet_commits_path = CommitmentsPath {
-    //                 port_id: port_id.clone(),
-    //                 channel_id: channel_id.clone(),
-    //                 sequence: sequence.clone(),
-    //             }
-    //             .to_string()
-    //             .as_bytes()
-    //             .to_vec();
-    //
-    //             let storage_entry = storage::PacketCommitment(&packet_commits_path);
-    //
-    //             Ok((
-    //                 result,
-    //                 self.generate_storage_proof(&storage_entry, &height, "PacketCommitment")?,
-    //             ))
     //         }
     //         PacketMsgType::Ack => {
     //             let acks_path = AcksPath {
@@ -1251,16 +1248,6 @@ impl ChainEndpoint for SubstrateChain {
     //             ))
     //         }
     //         PacketMsgType::TimeoutOnClose => {
-    //             let packet_receipt_path = ReceiptsPath {
-    //                 port_id: port_id.clone(),
-    //                 channel_id: channel_id.clone(),
-    //                 sequence: sequence.clone(),
-    //             }
-    //             .to_string()
-    //             .as_bytes()
-    //             .to_vec();
-    //
-    //             Ok((vec![], compose_ibc_merkle_proof("12345678".to_string())))
     //         }
     //         // Todo: https://github.com/cosmos/ibc/issues/620
     //         PacketMsgType::TimeoutUnordered => {
@@ -1508,7 +1495,48 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(Sequence, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_next_sequence_receive] ");
 
-        todo!()
+        let QueryNextSequenceReceiveRequest {
+            port_id,
+            channel_id,
+            height,
+        } = request;
+
+        let next_sequence_receive = self
+            .retry_wapper(|| self.query_next_sequence_receive(&port_id, &channel_id))
+            .map_err(Error::retry_error)?;
+
+        let next_sequence_receive_path = SeqRecvsPath (
+            port_id.clone(),
+            channel_id.clone(),
+        )
+            .to_string()
+            .as_bytes()
+            .to_vec();
+
+        let storage_entry = storage::NextSequenceRecv(&next_sequence_receive_path);
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let query_height = match height {
+                    QueryHeight::Latest => {
+                        let height = self
+                            .get_latest_height()
+                            .map_err(|_| Error::query_latest_height())?;
+                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                    }
+                    QueryHeight::Specific(value) => value,
+                };
+                Ok((
+                    next_sequence_receive,
+                    Some(self.generate_storage_proof(
+                        &storage_entry,
+                        &query_height,
+                        "NextSequenceRecv",
+                    )?),
+                ))
+            }
+            IncludeProof::No => Ok((next_sequence_receive, None)),
+        }
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error> {
