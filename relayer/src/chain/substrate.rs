@@ -577,6 +577,19 @@ impl SubstrateChain {
             port_id, channel_id,  client,
         ))
     }
+
+    fn query_packet_acknowledgement(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: &Sequence,
+    ) -> Result<Vec<u8>> {
+        let client = self.get_client()?;
+
+        self.block_on(octopusxt::ibc_rpc::get_packet_ack(
+            port_id, channel_id,  sequence, client,
+        ))
+    }
 }
 
 impl ChainEndpoint for SubstrateChain {
@@ -1433,7 +1446,50 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryPacketAcknowledgementRequest,
         include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
-        todo!()
+        let QueryPacketAcknowledgementRequest {
+            port_id,
+            channel_id,
+            sequence,
+            height,
+        } = request;
+
+        let packet_acknowledgement = self
+            .retry_wapper(|| self.query_packet_acknowledgement(&port_id, &channel_id, &sequence))
+            .map_err(Error::retry_error)?;
+
+        let packet_acknowledgement_path = AcksPath {
+            port_id: port_id.clone(),
+            channel_id: channel_id.clone(),
+            sequence: sequence.clone(),
+        }
+            .to_string()
+            .as_bytes()
+            .to_vec();
+
+        let storage_entry = storage::Acknowledgements(&packet_acknowledgement_path);
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let query_height = match height {
+                    QueryHeight::Latest => {
+                        let height = self
+                            .get_latest_height()
+                            .map_err(|_| Error::query_latest_height())?;
+                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                    }
+                    QueryHeight::Specific(value) => value,
+                };
+                Ok((
+                    packet_acknowledgement,
+                    Some(self.generate_storage_proof(
+                        &storage_entry,
+                        &query_height,
+                        "Acknowledgements",
+                    )?),
+                ))
+            }
+            IncludeProof::No => Ok((packet_acknowledgement, None)),
+        }
     }
 
     fn query_packet_acknowledgements(
