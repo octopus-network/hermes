@@ -21,6 +21,7 @@ use super::{WorkerCmd, WorkerId};
 #[serde(tag = "type")]
 pub enum WorkerData {
     Client { misbehaviour: bool, refresh: bool },
+    Beefy { update_mmr_root: bool },
 }
 
 pub struct WorkerHandle {

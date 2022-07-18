@@ -49,6 +49,7 @@ use crate::{
     connection::ConnectionMsgType,
     error::Error,
     event::{
+        beefy_monitor::{BeefyMonitorCtrl, BeefyReceiver, BeefyResult},
         bus::EventBus,
         monitor::{EventBatch, EventReceiver, MonitorCmd, Result as MonitorResult, TxMonitorCmd},
     },
@@ -57,10 +58,11 @@ use crate::{
 };
 
 use super::{
-    handle::{ChainHandle, ChainRequest, ReplyTo, Subscription},
+    handle::{BeefySubscription, ChainHandle, ChainRequest, ReplyTo, Subscription},
     tx::TrackedMsgs,
     ChainEndpoint, HealthCheck,
 };
+use ibc::clients::ics10_grandpa::help::MmrRoot;
 use ibc::core::ics24_host::identifier::ChainId;
 use std::thread::sleep;
 
@@ -78,7 +80,6 @@ pub enum EventMonitorCtrl {
     Live {
         /// Receiver channel from the event bus
         event_receiver: EventReceiver,
-
         /// Sender channel to terminate the event monitor
         tx_monitor_cmd: TxMonitorCmd,
     },
@@ -145,6 +146,11 @@ pub struct ChainRuntime<Endpoint: ChainEndpoint> {
     /// Interface to the event monitor
     event_monitor_ctrl: EventMonitorCtrl,
 
+    /// An beefy bus, for broadcasting beefy msg that this runtime receives (via `beefy_receiver`) to subscribers
+    beefy_bus: EventBus<Arc<BeefyResult<MmrRoot>>>,
+    /// Interface to the event monitor
+    beefy_monitor_ctrl: BeefyMonitorCtrl,
+
     /// A handle to the light client
     light_client: Endpoint::LightClient,
 
@@ -206,6 +212,8 @@ where
             request_receiver,
             event_bus: EventBus::new(),
             event_monitor_ctrl: EventMonitorCtrl::none(),
+            beefy_bus: EventBus::new(),
+            beefy_monitor_ctrl: BeefyMonitorCtrl::none(),
             light_client,
         }
     }
@@ -233,6 +241,18 @@ where
                         },
                     }
                 },
+                recv(self.beefy_monitor_ctrl.recv()) -> mmr_root => {
+                    match mmr_root {
+                        Ok(mmr_root) => {
+                            self.beefy_bus
+                                .broadcast(Arc::new(mmr_root));
+                        },
+                        Err(e) => {
+                            error!("received error via beefy bus: {}", e);
+                            return Err(Error::channel_receive(e));
+                        },
+                    }
+                },
                 recv(self.request_receiver) -> event => {
                     match event {
                         Ok(ChainRequest::Shutdown { reply_to }) => {
@@ -251,6 +271,11 @@ where
 
                         Ok(ChainRequest::Subscribe { reply_to }) => {
                             self.subscribe(reply_to)?
+                        },
+
+                        Ok(ChainRequest::SubscribeBeefy { reply_to }) => {
+                            println!( "in runtime: [run], ChainRequest::SubscribeBeefy");
+                            self.subscribe_beefy(reply_to)?
                         },
 
                         Ok(ChainRequest::SendMessagesAndWaitCommit { tracked_msgs, reply_to }) => {
@@ -281,7 +306,6 @@ where
                             self.ibc_version(reply_to)?
                         }
 
-
                         Ok(ChainRequest::BuildHeader { trusted_height, target_height, client_state, reply_to }) => {
                             self.build_header(trusted_height, target_height, client_state, reply_to)?
                         }
@@ -294,7 +318,7 @@ where
                             self.build_consensus_state(trusted, target, client_state, reply_to)?
                         }
 
-                       Ok(ChainRequest::BuildMisbehaviour { client_state, update_event, reply_to }) => {
+                        Ok(ChainRequest::BuildMisbehaviour { client_state, update_event, reply_to }) => {
                             self.check_misbehaviour(update_event, client_state, reply_to)?
                         }
 
@@ -417,8 +441,19 @@ where
                             self.websocket_url(reply_to)?
                         },
 
-                        Ok(ChainRequest::UpdateMmrRoot { src_chain_websocket_url, dst_chain_websocket_url, reply_to }) => {
-                            self.update_mmr_root(src_chain_websocket_url,dst_chain_websocket_url,reply_to,)?
+                        Ok(ChainRequest::UpdateMmrRoot { client_id,mmr_root, reply_to }) => {
+                            tracing::trace!(
+                                "in runtime: [run], ChainRequest::UpdateMmrRoot, client_id = {:?},mmr_root ={:?} ",
+                                client_id,
+                                mmr_root
+                            );
+                            println!(
+                                "in runtime: [run], ChainRequest::UpdateMmrRoot, chain_id = {:?},client_id = {:?},mmr_root ={:?} ",
+                                self.chain.id(),
+                                client_id,
+                                mmr_root
+                            );
+                            self.update_mmr_root(client_id,mmr_root,reply_to,)?
                         },
 
                         Ok(ChainRequest::QueryHostConsensusState { height, reply_to }) => {
@@ -427,6 +462,7 @@ where
 
                         Err(e) => error!("received error via chain request channel: {}", e),
                     }
+
                 }
             };
         }
@@ -451,6 +487,27 @@ where
 
         self.event_monitor_ctrl
             .enable(event_receiver, tx_monitor_cmd);
+
+        Ok(())
+    }
+
+    /// only for sustrate app chain
+    fn subscribe_beefy(&mut self, reply_to: ReplyTo<BeefySubscription>) -> Result<(), Error> {
+        if !self.beefy_monitor_ctrl.is_live() {
+            self.enable_beefy_monitor()?;
+        }
+
+        let subscription = self.beefy_bus.subscribe();
+        reply_to.send(Ok(subscription)).map_err(Error::send)
+    }
+
+    fn enable_beefy_monitor(&mut self) -> Result<(), Error> {
+        tracing::trace!("In runtime: [enable_beefy_monitor]");
+        println!("In runtime: [enable_beefy_monitor]");
+        let (beefy_receiver, tx_monitor_cmd) = self.chain.init_beefy_monitor(self.rt.clone())?;
+
+        self.beefy_monitor_ctrl
+            .enable(beefy_receiver, tx_monitor_cmd);
 
         Ok(())
     }
@@ -878,13 +935,11 @@ where
 
     fn update_mmr_root(
         &self,
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
+        client_id: ClientId,
+        mmr_root: MmrRoot,
         reply_to: ReplyTo<()>,
     ) -> Result<(), Error> {
-        let result = self
-            .chain
-            .update_mmr_root(src_chain_websocket_url, dst_chain_websocket_url);
+        let result = self.chain.update_mmr_root(client_id, mmr_root);
         reply_to.send(result).map_err(Error::send)
     }
 

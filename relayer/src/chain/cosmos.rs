@@ -26,6 +26,7 @@ use tracing::{error, span, warn, Level};
 use ibc::clients::ics07_tendermint::client_state::{AllowUpdate, ClientState};
 use ibc::clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
 use ibc::clients::ics07_tendermint::header::Header as TmHeader;
+use ibc::clients::ics10_grandpa::help::MmrRoot;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::core::ics02_client::client_type::ClientType;
@@ -78,6 +79,7 @@ use crate::chain::{ChainEndpoint, HealthCheck};
 use crate::chain::{ChainStatus, QueryResponse};
 use crate::config::ChainConfig;
 use crate::error::Error;
+use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver};
 use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::tendermint::LightClient as TmLightClient;
@@ -509,6 +511,13 @@ impl ChainEndpoint for CosmosSdkChain {
         thread::spawn(move || event_monitor.run());
 
         Ok((event_receiver, monitor_tx))
+    }
+
+    fn init_beefy_monitor(
+        &self,
+        rt: Arc<TokioRuntime>,
+    ) -> Result<(BeefyReceiver, TxMonitorCmd), Error> {
+        todo!()
     }
 
     fn shutdown(self) -> Result<(), Error> {
@@ -1484,11 +1493,7 @@ impl ChainEndpoint for CosmosSdkChain {
         Ok(self.config.websocket_addr.clone().to_string())
     }
 
-    fn update_mmr_root(
-        &self,
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
-    ) -> Result<(), Error> {
+    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
         todo!()
     }
 }

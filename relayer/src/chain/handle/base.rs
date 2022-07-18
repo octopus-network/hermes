@@ -44,8 +44,10 @@ use crate::{
     keyring::KeyEntry,
 };
 
-use super::{reply_channel, ChainHandle, ChainRequest, HealthCheck, ReplyTo, Subscription};
-
+use super::{
+    reply_channel, BeefySubscription, ChainHandle, ChainRequest, HealthCheck, ReplyTo, Subscription,
+};
+use ibc::clients::ics10_grandpa::help::MmrRoot;
 /// A basic chain handle implementation.
 /// For use in interactive CLIs, e.g., `query`, `tx raw`, etc.
 #[derive(Debug, Clone)]
@@ -109,6 +111,15 @@ impl ChainHandle for BaseChainHandle {
 
     fn subscribe(&self) -> Result<Subscription, Error> {
         self.send(|reply_to| ChainRequest::Subscribe { reply_to })
+    }
+
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
+        tracing::trace!("in base chain handle: [subscribe_beefy], send subcribe beefy request to substrate app chain !");
+        println!(
+            "in base chain handle: [subscribe_beefy], send subcribe beefy request to {:?} !",
+            self.id()
+        );
+        self.send(|reply_to| ChainRequest::SubscribeBeefy { reply_to })
     }
 
     fn send_messages_and_wait_commit(
@@ -470,14 +481,22 @@ impl ChainHandle for BaseChainHandle {
     fn websocket_url(&self) -> Result<String, Error> {
         self.send(|reply_to| ChainRequest::WebSocketUrl { reply_to })
     }
-    fn update_mmr_root(
-        &self,
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
-    ) -> Result<(), Error> {
+    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
+        tracing::trace!(
+            "in base chain handle: [update_mmr_root], chain_id = {:?},client_id = {:?},mmr_root ={:?} ",
+            self.id(),
+            client_id,
+            mmr_root
+        );
+        println!(
+            "in base chain handle: [update_mmr_root], chain_id = {:?},client_id = {:?},mmr_root ={:?} ",
+            self.id(),
+            client_id,
+            mmr_root
+        );
         self.send(|reply_to| ChainRequest::UpdateMmrRoot {
-            src_chain_websocket_url,
-            dst_chain_websocket_url,
+            client_id,
+            mmr_root,
             reply_to,
         })
     }

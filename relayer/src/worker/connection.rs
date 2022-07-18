@@ -76,6 +76,7 @@ pub fn spawn_connection_worker<ChainA: ChainHandle, ChainB: ChainHandle>(
 
                     // nothing to do
                     WorkerCmd::ClearPendingPackets => Ok(Next::Continue),
+                    WorkerCmd::Beefy { mmr_root } => Ok(Next::Continue),
                 }
             } else {
                 Ok(Next::Continue)

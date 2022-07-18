@@ -2,6 +2,7 @@ use super::{ChainEndpoint, HealthCheck};
 use crate::config::ChainConfig;
 use crate::error::Error;
 // use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
+use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver};
 use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing, Store};
 use crate::light_client::{grandpa::LightClient as GPLightClient, LightClient};
@@ -74,8 +75,8 @@ use retry::{delay::Fixed, OperationResult};
 use semver::Version;
 use std::thread::{self, sleep};
 use subxt::{
-    rpc::NumberOrHex, storage::StorageEntry, storage::StorageKeyPrefix, BlockNumber, Client,
-    ClientBuilder,
+    self, rpc::NumberOrHex, storage::StorageEntry, storage::StorageKeyPrefix, BlockNumber, Client,
+    ClientBuilder, PairSigner,
 };
 
 use tendermint::{
@@ -85,6 +86,7 @@ use tendermint::{
 
 use bitcoin::hashes::hex::ToHex;
 use ibc::clients::ics10_grandpa::help::Commitment;
+use ibc::clients::ics10_grandpa::help::MmrRoot;
 use jsonrpsee::types::to_json_value;
 use serde::{Deserialize, Serialize};
 use sp_core::{hexdisplay::HexDisplay, storage::StorageKey, Bytes, Pair, Public, H256};
@@ -624,6 +626,34 @@ impl ChainEndpoint for SubstrateChain {
         Ok((event_receiver, monitor_tx))
     }
 
+    fn init_beefy_monitor(
+        &self,
+        rt: Arc<TokioRuntime>,
+    ) -> Result<(BeefyReceiver, TxMonitorCmd), Error> {
+        tracing::debug!(
+            "in substrate: [init_beefy_mointor] >> websocket addr: {:?}",
+            self.config.websocket_addr.clone()
+        );
+        println!(
+            "in substrate: [init_beefy_mointor] >> websocket addr: {:?}",
+            self.config.websocket_addr.clone()
+        );
+        let (mut beefy_monitor, beefy_receiver, monitor_tx) = BeefyMonitor::new(
+            self.config.id.clone(),
+            self.config.websocket_addr.clone(),
+            rt,
+        )
+        .map_err(Error::event_monitor)?;
+
+        beefy_monitor.subscribe().map_err(Error::event_monitor)?;
+
+        thread::spawn(move || beefy_monitor.run());
+        tracing::debug!("in substrate: [init_beefy_mointor] >> beefy monitor is running ...");
+        println!("in substrate: [init_beefy_mointor] >> beefy monitor is running ...");
+
+        Ok((beefy_receiver, monitor_tx))
+    }
+
     fn shutdown(self) -> Result<(), Error> {
         tracing::info!("in substrate: [shutdown]");
 
@@ -888,7 +918,7 @@ impl ChainEndpoint for SubstrateChain {
         height: ICSHeight,
     ) -> Result<ConnectionEnd, Error> {
         tracing::trace!("in substrate: [query_connection]");
-        
+
         let connection_end = self
             .retry_wapper(|| self.get_connection_end(connection_id))
             .map_err(Error::retry_error)?;
@@ -1510,36 +1540,63 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     /// add new api update_mmr_root
-    fn update_mmr_root(
-        &self,
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
-    ) -> Result<(), Error> {
-        tracing::info!("in substrate: [update_mmr_root]");
+    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
+        tracing::trace!(
+            "in substrate: [update_mmr_root], client_id = {:?},mmr_root ={:?} ",
+            client_id,
+            mmr_root
+        );
+        println!(
+            "in substrate: [update_mmr_root], client_id = {:?},mmr_root ={:?} ",
+            client_id,
+            mmr_root
+        );
+        // let result = async {
+        //     let chain_a = ClientBuilder::new()
+        //         .set_url(src_chain_websocket_url)
+        //         .build::<ibc_node::DefaultConfig>()
+        //         .await
+        //         .map_err(|_| Error::substrate_client_builder_error())?;
 
-        let result = async {
-            let chain_a = ClientBuilder::new()
-                .set_url(src_chain_websocket_url)
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .map_err(|_| Error::substrate_client_builder_error())?;
+        //     let chain_b = ClientBuilder::new()
+        //         .set_url(dst_chain_websocket_url)
+        //         .build::<ibc_node::DefaultConfig>()
+        //         .await
+        //         .map_err(|_| Error::substrate_client_builder_error())?;
 
-            let chain_b = ClientBuilder::new()
-                .set_url(dst_chain_websocket_url)
-                .build::<ibc_node::DefaultConfig>()
-                .await
-                .map_err(|_| Error::substrate_client_builder_error())?;
+        //     octopusxt::update_client_state::update_client_state(chain_a.clone(), chain_b.clone())
+        //         .await
+        //         .map_err(|_| Error::update_client_state_error())?;
 
-            octopusxt::update_client_state::update_client_state(chain_a.clone(), chain_b.clone())
-                .await
-                .map_err(|_| Error::update_client_state_error())?;
+        //     octopusxt::update_client_state::update_client_state(chain_b.clone(), chain_a.clone())
+        //         .await
+        //         .map_err(|_| Error::update_client_state_error())
+        // };
+        let dst_client = self.get_client().unwrap();
+        // let signer = self.get_signer().unwrap();
+        // Get the key from key seed file
+        let key = self
+            .keybase()
+            .get_key(&self.config.key_name)
+            .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
+        tracing::trace!("in substrate: [update_mmr_root], key = {:?}", key);
+        println!("in substrate: [update_mmr_root], key = {:?}", key);
 
-            octopusxt::update_client_state::update_client_state(chain_b.clone(), chain_a.clone())
-                .await
-                .map_err(|_| Error::update_client_state_error())
-        };
+        let private_seed = key.mnemonic;
+        let (pair, seed) = sp_core::sr25519::Pair::from_phrase(&private_seed, None).unwrap();
+        //   let public_key = pair.public();
+        let pair_signer = PairSigner::new(pair);
 
-        self.block_on(result)
+        let result = self.block_on(send_update_state_request(
+            dst_client,
+            pair_signer,
+            client_id,
+            mmr_root,
+        ));
+        if let Err(err) = result {
+            println!("in substrate: [update_mmr_root], send_update_state_request err:  {:?}", err);
+        }
+        Ok(())
     }
 
     fn config(&self) -> ChainConfig {
@@ -1589,6 +1646,42 @@ impl ChainEndpoint for SubstrateChain {
     }
 }
 
+/// send Update client state request
+pub async fn send_update_state_request(
+    client: Client<ibc_node::DefaultConfig>,
+    pair_signer: PairSigner<ibc_node::DefaultConfig, sp_core::sr25519::Pair>,
+    client_id: ClientId,
+    mmr_root: MmrRoot,
+) -> Result<H256, Box<dyn std::error::Error>> {
+    tracing::info!("in substrate: [send_update_state_request]");
+    println!("in substrate: [send_update_state_request]");
+
+    let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+
+    // let pair_signer = PairSigner::new(signer);
+    // let client_state_bytes = <commitment::SignedCommitment as codec::Encode>::encode(&client_state);
+
+    let encode_client_id = client_id.as_bytes().to_vec();
+    let encode_mmr_root = <MmrRoot as Encode>::encode(&mmr_root);
+    // println!("encode mmr root is {:?}", encode_mmr_root);
+
+    // // test
+    // let received_mmr_root = encode_mmr_root.clone();
+    // let decode_received_mmr_root = help::MmrRoot::decode(&mut &received_mmr_root[..]).unwrap();
+    // println!("decode mmr root is {:?}", decode_received_mmr_root);
+
+    let result = api
+        .tx()
+        .ibc()
+        .update_client_state(encode_client_id, encode_mmr_root)
+        .sign_and_submit(&pair_signer)
+        .await?;
+
+    tracing::info!("update client state result: {:?}", result);
+    println!("update client state result: {:?}", result);
+
+    Ok(result)
+}
 // Todo: to create a new type in `commitment_proof::Proof`
 /// Compose merkle proof according to ibc proto
 pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {

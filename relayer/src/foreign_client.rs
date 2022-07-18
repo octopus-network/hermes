@@ -13,6 +13,7 @@ use itertools::Itertools;
 use tracing::{debug, error, info, span, trace, warn};
 
 use flex_error::define_error;
+use ibc::clients::ics10_grandpa::help::MmrRoot;
 use ibc::core::ics02_client::client_consensus::{
     AnyConsensusState, AnyConsensusStateWithHeight, ConsensusState, QueryClientEventRequest,
 };
@@ -704,6 +705,30 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         }
     }
 
+    /// Attempts to update a mmr root using header from the latest height of its source chain.
+    pub fn update_mmr_root(&self, mmr_root: MmrRoot) -> Result<(), ForeignClientError> {
+        
+        tracing::trace!("in foreign_client: [update_mmr_root], mmr_root ={:?} ", mmr_root);
+        println!("in foreign_client: [update_mmr_root], mmr_root ={:?} ", mmr_root);
+        // let res = self.build_latest_update_client_and_send()?;
+
+        // debug!("[{}] client updated with return message {:?}\n", self, res);
+        // let events = self
+        //     .dst_chain()
+        //     .send_messages_and_wait_commit(tm)
+        //     .map_err(|e| {
+        //         ForeignClientError::client_update(
+        //             self.dst_chain.id(),
+        //             "failed sending message to dst chain".to_string(),
+        //             e,
+        //         )
+        //     })?;
+        // Ok(events)
+        let _ = self.dst_chain().update_mmr_root(self.id.clone(), mmr_root);
+
+        Ok(())
+    }
+
     /// Wrapper for build_update_client_with_trusted.
     pub fn build_update_client(
         &self,
@@ -912,8 +937,8 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         */
 
         let client_state = match client_state {
-            // #[cfg(any(test, feature = "mocks"))]
-            // AnyClientState::Mock(client_state) => AnyClientState::Mock(client_state),
+            #[cfg(any(test, feature = "mocks"))]
+            AnyClientState::Mock(client_state) => AnyClientState::Mock(client_state),
             AnyClientState::Tendermint(client_state) => AnyClientState::Tendermint(client_state),
             AnyClientState::Grandpa(client_state) => {
                 let mut mmr_root_height = client_state.latest_commitment.block_number;

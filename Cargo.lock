@@ -3067,7 +3067,6 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/v0.9.13#0a04a73305edf0e18d2f5be25d0050b3fe0dd3d0"
 dependencies = [
  "beefy-light-client",
  "beefy-merkle-tree",

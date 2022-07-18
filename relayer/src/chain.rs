@@ -5,6 +5,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 pub use cosmos::CosmosSdkChain;
 pub use substrate::SubstrateChain;
 
+use ibc::clients::ics10_grandpa::help::MmrRoot;
 use ibc::core::ics02_client::client_consensus::{
     AnyConsensusState, AnyConsensusStateWithHeight, ConsensusState,
 };
@@ -41,6 +42,7 @@ use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use crate::config::ChainConfig;
 use crate::connection::ConnectionMsgType;
 use crate::error::Error;
+use crate::event::beefy_monitor::BeefyReceiver;
 use crate::event::monitor::{EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::LightClient;
@@ -110,6 +112,13 @@ pub trait ChainEndpoint: Sized {
         &self,
         rt: Arc<TokioRuntime>,
     ) -> Result<(EventReceiver, TxMonitorCmd), Error>;
+
+    /// Initializes and returns the beefy monitor (if any) associated with this chain.
+    /// only for substrate app chain
+    fn init_beefy_monitor(
+        &self,
+        rt: Arc<TokioRuntime>,
+    ) -> Result<(BeefyReceiver, TxMonitorCmd), Error>;
 
     /// Returns the chain's identifier
     fn id(&self) -> &ChainId;
@@ -270,11 +279,7 @@ pub trait ChainEndpoint: Sized {
 
     fn websocket_url(&self) -> Result<String, Error>;
 
-    fn update_mmr_root(
-        &self,
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
-    ) -> Result<(), Error>;
+    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error>;
 
     fn query_blocks(
         &self,
