@@ -231,16 +231,17 @@ impl SubstrateChain {
         ))
     }
 
+    // TODO(davirain) need add query height
     /// get client_state by client_id
-    fn get_client_state(&self, client_id: &ClientId) -> Result<AnyClientState> {
-        tracing::trace!("in substrate: [get_client_state]");
+    fn query_client_state(&self, client_id: &ClientId) -> Result<AnyClientState> {
+        tracing::trace!("in substrate: [query_client_state]");
 
         let client = self.get_client()?;
 
-        self.block_on(octopusxt::get_client_state(client_id, client))
+        self.block_on(octopusxt::query_client_state(client_id, client))
     }
 
-    // TODO( daviairn) add specific_height to query
+    // TODO(davirain) need add query height
     /// Performs a query to retrieve the consensus state for a specified height
     /// `consensus_height` that the specified light client stores.
     fn query_client_consensus(
@@ -821,12 +822,42 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_client_state]");
 
+        let QueryClientStateRequest  {
+            client_id,
+            height,
+        } = request;
+
+        let query_height = match height {
+            QueryHeight::Latest => {
+                let height = self.get_latest_height().map_err(|_|Error::query_latest_height())?;
+                Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+            },
+            QueryHeight::Specific(value) => value,
+        };
+
         let result = self
-            .retry_wapper(|| self.get_client_state(&request.client_id))
+            .retry_wapper(|| self.query_client_state(&client_id))
             .map_err(Error::retry_error)?;
 
-        // Ok(result)
-        todo!()
+
+        let client_state_path = ClientStatePath(client_id.clone())
+            .to_string()
+            .as_bytes()
+            .to_vec();
+
+        let storage_entry = storage::ClientStates(&client_state_path);
+
+        match include_proof {
+            IncludeProof::Yes => {
+                Ok((
+                    result,
+                    Some(self.generate_storage_proof(&storage_entry, &query_height, "ClientStates")?),
+                ))
+            },
+            IncludeProof::No => {
+                Ok((result, None))
+            }
+        }
     }
 
     fn query_consensus_state(
@@ -859,11 +890,18 @@ impl ChainEndpoint for SubstrateChain {
 
         let storage_entry = storage::ConsensusStates(&client_consensus_state_path);
 
-        Ok((
-            result,
-            Some(self.generate_storage_proof(&storage_entry, &consensus_height, "ConsensusStates")?),
-        ))
+        match include_proof {
+            IncludeProof::Yes => {
+                Ok((
+                    result,
+                    Some(self.generate_storage_proof(&storage_entry, &consensus_height, "ConsensusStates")?),
+                ))
 
+            }
+            IncludeProof::No => {
+                Ok((result, None))
+            }
+        }
     }
 
     fn query_consensus_states(
@@ -1012,29 +1050,7 @@ impl ChainEndpoint for SubstrateChain {
         todo!()
     }
     //
-    // fn proven_client_state(
-    //     &self,
-    //     client_id: &ClientId,
-    //     height: ICSHeight,
-    // ) -> Result<(Self::ClientState, MerkleProof), Error> {
-    //     tracing::trace!("in substrate: [proven_client_state]");
-    //
-    //     let result = self
-    //         .retry_wapper(|| self.get_client_state(client_id))
-    //         .map_err(Error::retry_error)?;
-    //
-    //     let client_state_path = ClientStatePath(client_id.clone())
-    //         .to_string()
-    //         .as_bytes()
-    //         .to_vec();
-    //
-    //     let storage_entry = storage::ClientStates(&client_state_path);
-    //
-    //     Ok((
-    //         result,
-    //         self.generate_storage_proof(&storage_entry, &height, "ClientStates")?,
-    //     ))
-    // }
+
 
     // fn proven_connection(
     //     &self,

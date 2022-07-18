@@ -591,6 +591,9 @@ define_error! {
 
         ProvePacketError
             | _ | { "prove packet error" },
+
+        QueryLatestHeight
+            | _ | { "query latest height error"},
     }
 }
 
