@@ -187,7 +187,10 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
 
-        self.block_on(octopusxt::query_connection_end(connection_identifier, client))
+        self.block_on(octopusxt::query_connection_end(
+            connection_identifier,
+            client,
+        ))
     }
 
     /// query channelEnd  by port_identifier, and channel_identifier
@@ -253,7 +256,11 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
 
-        self.block_on(octopusxt::query_client_consensus(client_id, consensus_height, client))
+        self.block_on(octopusxt::query_client_consensus(
+            client_id,
+            consensus_height,
+            client,
+        ))
     }
 
     fn get_consensus_state_with_height(
@@ -533,15 +540,16 @@ impl SubstrateChain {
             .map_err(Error::key_base)
     }
 
-    fn query_packet_commitment(&self, port_id: &PortId, channel_id: &ChannelId, sequence: &Sequence) -> Result<Vec<u8>> {
-
+    fn query_packet_commitment(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: &Sequence,
+    ) -> Result<Vec<u8>> {
         let client = self.get_client()?;
 
         self.block_on(octopusxt::ibc_rpc::get_packet_commitment(
-            port_id,
-            channel_id,
-            sequence,
-            client,
+            port_id, channel_id, sequence, client,
         ))
     }
 }
@@ -834,23 +842,21 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_client_state]");
 
-        let QueryClientStateRequest  {
-            client_id,
-            height,
-        } = request;
+        let QueryClientStateRequest { client_id, height } = request;
 
         let query_height = match height {
             QueryHeight::Latest => {
-                let height = self.get_latest_height().map_err(|_|Error::query_latest_height())?;
+                let height = self
+                    .get_latest_height()
+                    .map_err(|_| Error::query_latest_height())?;
                 Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
-            },
+            }
             QueryHeight::Specific(value) => value,
         };
 
         let result = self
             .retry_wapper(|| self.query_client_state(&client_id))
             .map_err(Error::retry_error)?;
-
 
         let client_state_path = ClientStatePath(client_id.clone())
             .to_string()
@@ -860,15 +866,11 @@ impl ChainEndpoint for SubstrateChain {
         let storage_entry = storage::ClientStates(&client_state_path);
 
         match include_proof {
-            IncludeProof::Yes => {
-                Ok((
-                    result,
-                    Some(self.generate_storage_proof(&storage_entry, &query_height, "ClientStates")?),
-                ))
-            },
-            IncludeProof::No => {
-                Ok((result, None))
-            }
+            IncludeProof::Yes => Ok((
+                result,
+                Some(self.generate_storage_proof(&storage_entry, &query_height, "ClientStates")?),
+            )),
+            IncludeProof::No => Ok((result, None)),
         }
     }
 
@@ -880,7 +882,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!("in substrate: [query_consensus_state]");
 
         // query_height to amit to search chain height
-        let QueryConsensusStateRequest{
+        let QueryConsensusStateRequest {
             client_id,
             consensus_height,
             query_height,
@@ -903,16 +905,15 @@ impl ChainEndpoint for SubstrateChain {
         let storage_entry = storage::ConsensusStates(&client_consensus_state_path);
 
         match include_proof {
-            IncludeProof::Yes => {
-                Ok((
-                    result,
-                    Some(self.generate_storage_proof(&storage_entry, &consensus_height, "ConsensusStates")?),
-                ))
-
-            }
-            IncludeProof::No => {
-                Ok((result, None))
-            }
+            IncludeProof::Yes => Ok((
+                result,
+                Some(self.generate_storage_proof(
+                    &storage_entry,
+                    &consensus_height,
+                    "ConsensusStates",
+                )?),
+            )),
+            IncludeProof::No => Ok((result, None)),
         }
     }
 
@@ -1019,20 +1020,24 @@ impl ChainEndpoint for SubstrateChain {
             IncludeProof::Yes => {
                 let query_height = match height {
                     QueryHeight::Latest => {
-                        let height = self.get_latest_height().map_err(|_|Error::query_latest_height())?;
+                        let height = self
+                            .get_latest_height()
+                            .map_err(|_| Error::query_latest_height())?;
                         Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
-                    },
+                    }
                     QueryHeight::Specific(value) => value,
                 };
 
                 Ok((
                     connection_end,
-                    Some(self.generate_storage_proof(&storage_entry, &query_height, "Connections")?),
+                    Some(self.generate_storage_proof(
+                        &storage_entry,
+                        &query_height,
+                        "Connections",
+                    )?),
                 ))
             }
-            IncludeProof::No => {
-                Ok((connection_end, None))
-            }
+            IncludeProof::No => Ok((connection_end, None)),
         }
     }
 
@@ -1090,9 +1095,11 @@ impl ChainEndpoint for SubstrateChain {
             IncludeProof::Yes => {
                 let query_height = match height {
                     QueryHeight::Latest => {
-                        let height = self.get_latest_height().map_err(|_|Error::query_latest_height())?;
+                        let height = self
+                            .get_latest_height()
+                            .map_err(|_| Error::query_latest_height())?;
                         Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
-                    },
+                    }
                     QueryHeight::Specific(value) => value,
                 };
 
@@ -1101,11 +1108,8 @@ impl ChainEndpoint for SubstrateChain {
                     Some(self.generate_storage_proof(&storage_entry, &query_height, "Channels")?),
                 ))
             }
-            IncludeProof::No => {
-                Ok((channel_end, None))
-            }
+            IncludeProof::No => Ok((channel_end, None)),
         }
-
     }
 
     fn query_channel_client_state(
@@ -1118,10 +1122,7 @@ impl ChainEndpoint for SubstrateChain {
     }
     //
 
-
-
     //
-
 
     // fn proven_packet(
     //     &self,
@@ -1283,7 +1284,6 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryPacketCommitmentRequest,
         include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
-
         let QueryPacketCommitmentRequest {
             port_id,
             channel_id,
@@ -1291,17 +1291,18 @@ impl ChainEndpoint for SubstrateChain {
             height,
         } = request;
 
-        let packet_commit = self.retry_wapper(|| self.query_packet_commitment(&port_id, &channel_id, &sequence))
+        let packet_commit = self
+            .retry_wapper(|| self.query_packet_commitment(&port_id, &channel_id, &sequence))
             .map_err(Error::retry_error)?;
 
         let packet_commits_path = CommitmentsPath {
-                            port_id: port_id.clone(),
-                            channel_id: channel_id.clone(),
-                            sequence: sequence.clone(),
-                        }
-                        .to_string()
-                        .as_bytes()
-                        .to_vec();
+            port_id: port_id.clone(),
+            channel_id: channel_id.clone(),
+            sequence: sequence.clone(),
+        }
+        .to_string()
+        .as_bytes()
+        .to_vec();
 
         let storage_entry = storage::PacketCommitment(&packet_commits_path);
 
@@ -1309,19 +1310,23 @@ impl ChainEndpoint for SubstrateChain {
             IncludeProof::Yes => {
                 let query_height = match height {
                     QueryHeight::Latest => {
-                        let height = self.get_latest_height().map_err(|_|Error::query_latest_height())?;
+                        let height = self
+                            .get_latest_height()
+                            .map_err(|_| Error::query_latest_height())?;
                         Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
-                    },
+                    }
                     QueryHeight::Specific(value) => value,
                 };
                 Ok((
                     packet_commit,
-                    Some(self.generate_storage_proof(&storage_entry, &query_height, "PacketCommitment")?),
+                    Some(self.generate_storage_proof(
+                        &storage_entry,
+                        &query_height,
+                        "PacketCommitment",
+                    )?),
                 ))
             }
-            IncludeProof::No => {
-                Ok((packet_commit, None))
-            }
+            IncludeProof::No => Ok((packet_commit, None)),
         }
     }
 
