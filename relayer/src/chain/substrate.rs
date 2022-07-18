@@ -182,12 +182,12 @@ impl SubstrateChain {
     }
 
     /// get connectionEnd by connection_identifier
-    fn get_connection_end(&self, connection_identifier: &ConnectionId) -> Result<ConnectionEnd> {
-        tracing::trace!("in substrate: [get_connection_end]");
+    fn query_connection_end(&self, connection_identifier: &ConnectionId) -> Result<ConnectionEnd> {
+        tracing::trace!("in substrate: [query_connection_end]");
 
         let client = self.get_client()?;
 
-        self.block_on(octopusxt::get_connection_end(connection_identifier, client))
+        self.block_on(octopusxt::query_connection_end(connection_identifier, client))
     }
 
     /// query channelEnd  by port_identifier, and channel_identifier
@@ -987,14 +987,41 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_connection]");
 
-        let connection_id = request.connection_id;
+        let QueryConnectionRequest {
+            connection_id,
+            height,
+        } = request;
 
         let connection_end = self
-            .retry_wapper(|| self.get_connection_end(&connection_id))
+            .retry_wapper(|| self.query_connection_end(&connection_id))
             .map_err(Error::retry_error)?;
 
-        // Ok(connection_end)
-        todo!()
+        // update ConnectionsPath key
+        let connections_path = ConnectionsPath(connection_id.clone())
+            .to_string()
+            .as_bytes()
+            .to_vec();
+        let storage_entry = storage::Connections(&connections_path);
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let query_height = match height {
+                    QueryHeight::Latest => {
+                        let height = self.get_latest_height().map_err(|_|Error::query_latest_height())?;
+                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                    },
+                    QueryHeight::Specific(value) => value,
+                };
+
+                Ok((
+                    connection_end,
+                    Some(self.generate_storage_proof(&storage_entry, &query_height, "Connections")?),
+                ))
+            }
+            IncludeProof::No => {
+                Ok((connection_end, None))
+            }
+        }
     }
 
     fn query_connection_channels(
@@ -1080,60 +1107,6 @@ impl ChainEndpoint for SubstrateChain {
     //
 
 
-    // fn proven_connection(
-    //     &self,
-    //     connection_id: &ConnectionId,
-    //     height: ICSHeight,
-    // ) -> Result<(ConnectionEnd, MerkleProof), Error> {
-    //     tracing::trace!("in substrate: [proven_connection]");
-    //
-    //     let result = self
-    //         .retry_wapper(|| self.get_connection_end(connection_id))
-    //         .map_err(Error::retry_error)?;
-    //
-    //     let connection_end = result;
-    //
-    //     let new_connection_end = if connection_end
-    //         .counterparty()
-    //         .clone()
-    //         .connection_id
-    //         .is_none()
-    //     {
-    //         // 构造 Counterparty
-    //         let client_id = connection_end.counterparty().client_id().clone();
-    //         let prefix = connection_end.counterparty().prefix().clone();
-    //         let temp_connection_id = Some(connection_id.clone());
-    //
-    //         let counterparty = Counterparty::new(client_id, temp_connection_id, prefix);
-    //         let state = connection_end.state;
-    //         let client_id = connection_end.client_id().clone();
-    //         let versions = connection_end.versions();
-    //         let delay_period = connection_end.delay_period();
-    //
-    //         ConnectionEnd::new(
-    //             state,
-    //             client_id,
-    //             counterparty,
-    //             versions.to_vec(),
-    //             delay_period,
-    //         )
-    //     } else {
-    //         connection_end
-    //     };
-    //
-    //     // update ConnectionsPath key
-    //     let connections_path = ConnectionsPath(connection_id.clone())
-    //         .to_string()
-    //         .as_bytes()
-    //         .to_vec();
-    //     let storage_entry = storage::Connections(&connections_path);
-    //
-    //     Ok((
-    //         new_connection_end,
-    //         self.generate_storage_proof(&storage_entry, &height, "Connections")?,
-    //     ))
-    // }
-    //
 
     //
 
