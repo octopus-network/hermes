@@ -532,6 +532,18 @@ impl SubstrateChain {
             .get_key(&self.config.key_name)
             .map_err(Error::key_base)
     }
+
+    fn query_packet_commitment(&self, port_id: &PortId, channel_id: &ChannelId, sequence: &Sequence) -> Result<Vec<u8>> {
+
+        let client = self.get_client()?;
+
+        self.block_on(octopusxt::ibc_rpc::get_packet_commitment(
+            port_id,
+            channel_id,
+            sequence,
+            client,
+        ))
+    }
 }
 
 impl ChainEndpoint for SubstrateChain {
@@ -1136,14 +1148,6 @@ impl ChainEndpoint for SubstrateChain {
     //             match packet_type {
     //                 // CommitmentsPath
     //                 PacketMsgType::Recv => {
-    //                     // Packet Commitment generate_storage_proof
-    //                     octopusxt::ibc_rpc::get_packet_commitment(
-    //                         &port_id,
-    //                         &channel_id,
-    //                         &sequence,
-    //                         client,
-    //                     )
-    //                     .await
     //                 }
     //                 // AcksPath
     //                 PacketMsgType::Ack => {
@@ -1279,7 +1283,46 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryPacketCommitmentRequest,
         include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
-        todo!()
+
+        let QueryPacketCommitmentRequest {
+            port_id,
+            channel_id,
+            sequence,
+            height,
+        } = request;
+
+        let packet_commit = self.retry_wapper(|| self.query_packet_commitment(&port_id, &channel_id, &sequence))
+            .map_err(Error::retry_error)?;
+
+        let packet_commits_path = CommitmentsPath {
+                            port_id: port_id.clone(),
+                            channel_id: channel_id.clone(),
+                            sequence: sequence.clone(),
+                        }
+                        .to_string()
+                        .as_bytes()
+                        .to_vec();
+
+        let storage_entry = storage::PacketCommitment(&packet_commits_path);
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let query_height = match height {
+                    QueryHeight::Latest => {
+                        let height = self.get_latest_height().map_err(|_|Error::query_latest_height())?;
+                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                    },
+                    QueryHeight::Specific(value) => value,
+                };
+                Ok((
+                    packet_commit,
+                    Some(self.generate_storage_proof(&storage_entry, &query_height, "PacketCommitment")?),
+                ))
+            }
+            IncludeProof::No => {
+                Ok((packet_commit, None))
+            }
+        }
     }
 
     fn query_packet_commitments(
