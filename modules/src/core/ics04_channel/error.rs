@@ -33,7 +33,7 @@ define_error! {
             | _ | { "ics05 port error" },
 
         Ics20Transfer
-            [ TraceError<transfer_error::Error> ]
+            [ DisplayOnly<transfer_error::Error> ]
             | _| { "ics20 transfer error" },
 
         UnknownState
