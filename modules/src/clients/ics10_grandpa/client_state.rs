@@ -142,17 +142,19 @@ impl TryFrom<RawClientState> for ClientState {
     }
 }
 
+use ibc_proto::ibc::core::client::v1::Height as RawHeight;
+
 impl From<ClientState> for RawClientState {
     fn from(value: ClientState) -> Self {
         Self {
             chain_id: value.chain_id.to_string(),
             block_number: value.block_number,
-            frozen_height: Some(
-                value
-                    .frozen_height
-                    .unwrap_or_else(|| Height::new(8888, 0).unwrap())
-                    .into(),
-            ),
+            frozen_height: Some(value.frozen_height.map(|height| height.into()).unwrap_or(
+                RawHeight {
+                    revision_number: 0,
+                    revision_height: 0,
+                },
+            )),
             block_header: Some(value.block_header.into()),
             latest_commitment: Some(value.latest_commitment.into()),
             validator_set: Some(value.validator_set.into()),

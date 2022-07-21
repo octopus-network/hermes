@@ -102,6 +102,9 @@ port = 3001
 # Specify the chain ID. Required
 id = 'ibc-0'
 
+# specify the Chain Type. default is comsmos SDK
+type = 'substrate'
+
 # Specify the RPC address and port where the chain RPC server listens on. Required
 rpc_addr = 'http://127.0.0.1:9944'
 
@@ -238,6 +241,7 @@ memo_prefix = ''
 
 [[chains]]
 id = 'ibc-1'
+type = 'substrate'
 rpc_addr = 'http://127.0.0.1:8844'
 grpc_addr = 'http://127.0.0.1:9091'
 # subscribe subtstrate client

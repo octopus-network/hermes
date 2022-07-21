@@ -830,11 +830,21 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn query_balance(&self, key_name: Option<String>) -> std::result::Result<Balance, Error> {
-        todo!()
+        // todo(davirain) add mock balance
+        Ok(Balance {
+            amount: String::default(),
+            denom: String::default(),
+        })
     }
 
     fn query_denom_trace(&self, hash: String) -> std::result::Result<DenomTrace, Error> {
-        todo!()
+        // todo(daviarin) add mock denom trace
+        Ok(DenomTrace {
+            /// The chain of port/channel identifiers used for tracing the source of the coin.
+            path: String::default(),
+            /// The base denomination for that coin
+            base_denom: String::default(),
+        })
     }
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
@@ -1495,7 +1505,12 @@ impl ChainEndpoint for SubstrateChain {
                 let result: Vec<IbcEvent> = vec![IbcEvent::UpdateClient(
                     ibc::core::ics02_client::events::UpdateClient::from(Attributes {
                         height: match request.query_height {
-                            QueryHeight::Latest => unimplemented!(),
+                            QueryHeight::Latest => {
+                                let height = self
+                                    .get_latest_height()
+                                    .map_err(|_| Error::query_latest_height())?;
+                                Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                            },
                             QueryHeight::Specific(value) => value.clone(),
                         },
                         client_id: request.client_id,
