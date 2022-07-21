@@ -18,7 +18,7 @@ use crate::chain::requests::{
     QueryPacketCommitmentRequest, QueryPacketReceiptRequest, QueryUpgradedClientStateRequest,
     QueryUpgradedConsensusStateRequest,
 };
-use crate::chain::tracking::TrackedMsgs;
+use crate::chain::tracking::{TrackedMsgs, TrackingId};
 use alloc::sync::Arc;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
@@ -382,12 +382,14 @@ impl SubstrateChain {
         Ok(result)
     }
 
-    fn raw_transfer(&self, msg: Vec<Any>) -> Result<H256> {
+    fn raw_transfer(&self, msgs: Vec<Any>) -> Result<H256> {
         tracing::trace!("in substrate: [raw_transfer]");
 
         let client = self.get_client()?;
 
-        todo!()
+        let result = self.block_on(octopusxt::raw_transfer(msgs, client))?;
+
+        Ok(result)
     }
 
     fn get_write_ack_packet_event(
@@ -726,27 +728,30 @@ impl ChainEndpoint for SubstrateChain {
         );
         use ibc::applications::transfer::msgs::transfer::TYPE_URL as TRANSFER_TYPE_URL;
 
-        for msg in proto_msgs.messages().to_vec() {
-            match msg.type_url.as_str() {
-                TRANSFER_TYPE_URL => {
-                    let result = self
-                        .raw_transfer(vec![msg])
-                        .map_err(|_| Error::ics20_transfer())?;
+        match proto_msgs.tracking_id {
+            TrackingId::Uuid(_) => unimplemented!(),
+            TrackingId::Static(value) => {
+                match value {
+                    "ft-transfer" => {
+                        let result = self
+                            .raw_transfer(proto_msgs.messages().to_vec())
+                            .map_err(|_| Error::ics20_transfer())?;
 
-                    tracing::debug!(
+                        tracing::debug!(
                         "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
                         result
                     );
-                }
-                _ => {
-                    sleep(Duration::from_secs(4));
-                    let result = self
-                        .deliever(vec![msg])
-                        .map_err(|e| Error::deliver_error(e))?;
-                    tracing::debug!(
+                    }
+                    _ => {
+                        sleep(Duration::from_secs(4));
+                        let result = self
+                            .deliever(proto_msgs.messages().to_vec())
+                            .map_err(|e| Error::deliver_error(e))?;
+                        tracing::debug!(
                         "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
                         result
                     );
+                    }
                 }
             }
         }
@@ -767,30 +772,30 @@ impl ChainEndpoint for SubstrateChain {
             proto_msgs.tracking_id
         );
 
-        use ibc::applications::transfer::msgs::transfer::TYPE_URL as TRANSFER_TYPE_URL;
+        match proto_msgs.tracking_id {
+            TrackingId::Uuid(_) => unimplemented!(),
+            TrackingId::Static(value) => {
+                match value {
+                    "ft-transfer" => {
+                        let result = self
+                            .raw_transfer(proto_msgs.messages().to_vec())
+                            .map_err(|_| Error::ics20_transfer())?;
 
-        // seprate messages to one message send
-        for msg in proto_msgs.messages().to_vec() {
-            match msg.type_url.as_str() {
-                TRANSFER_TYPE_URL => {
-                    let result = self
-                        .raw_transfer(vec![msg])
-                        .map_err(|_| Error::ics20_transfer())?;
-
-                    tracing::debug!(
-                        "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash  : {:?}",
+                        tracing::debug!(
+                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
                         result
                     );
-                }
-                _ => {
-                    sleep(Duration::from_secs(4));
-                    let result = self
-                        .deliever(vec![msg])
-                        .map_err(|e| Error::deliver_error(e))?;
-                    tracing::debug!(
-                        "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash  : {:?}",
+                    }
+                    _ => {
+                        sleep(Duration::from_secs(4));
+                        let result = self
+                            .deliever(proto_msgs.messages().to_vec())
+                            .map_err(|e| Error::deliver_error(e))?;
+                        tracing::debug!(
+                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
                         result
                     );
+                    }
                 }
             }
         }

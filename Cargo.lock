@@ -3084,6 +3084,7 @@ dependencies = [
  "parity-scale-codec",
  "prost-types",
  "serde",
+ "serde_json",
  "sp-core",
  "sp-keyring",
  "sp-runtime",
