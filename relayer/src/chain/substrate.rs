@@ -387,7 +387,6 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
 
-
         todo!()
     }
 
@@ -727,15 +726,17 @@ impl ChainEndpoint for SubstrateChain {
         );
         use ibc::applications::transfer::msgs::transfer::TYPE_URL as TRANSFER_TYPE_URL;
 
-
         for msg in proto_msgs.messages().to_vec() {
             match msg.type_url.as_str() {
                 TRANSFER_TYPE_URL => {
-                    let result = self.raw_transfer(vec![msg]).map_err(|_|Error::ics20_transfer())?;
+                    let result = self
+                        .raw_transfer(vec![msg])
+                        .map_err(|_| Error::ics20_transfer())?;
 
                     tracing::debug!(
-                    "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                    result);
+                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
+                        result
+                    );
                 }
                 _ => {
                     sleep(Duration::from_secs(4));
@@ -743,14 +744,12 @@ impl ChainEndpoint for SubstrateChain {
                         .deliever(vec![msg])
                         .map_err(|e| Error::deliver_error(e))?;
                     tracing::debug!(
-                    "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                    result);
+                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
+                        result
+                    );
                 }
             }
         }
-
-
-
 
         let ibc_event = self
             .subscribe_ibc_events()
@@ -768,14 +767,20 @@ impl ChainEndpoint for SubstrateChain {
             proto_msgs.tracking_id
         );
 
+        use ibc::applications::transfer::msgs::transfer::TYPE_URL as TRANSFER_TYPE_URL;
+
+        // seprate messages to one message send
         for msg in proto_msgs.messages().to_vec() {
             match msg.type_url.as_str() {
                 TRANSFER_TYPE_URL => {
-                    let result = self.raw_transfer(vec![msg]).map_err(|_|Error::ics20_transfer())?;
+                    let result = self
+                        .raw_transfer(vec![msg])
+                        .map_err(|_| Error::ics20_transfer())?;
 
                     tracing::debug!(
-                    "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash  : {:?}",
-                    result);
+                        "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash  : {:?}",
+                        result
+                    );
                 }
                 _ => {
                     sleep(Duration::from_secs(4));
@@ -783,23 +788,19 @@ impl ChainEndpoint for SubstrateChain {
                         .deliever(vec![msg])
                         .map_err(|e| Error::deliver_error(e))?;
                     tracing::debug!(
-                    "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash  : {:?}",
-                    result);
+                        "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash  : {:?}",
+                        result
+                    );
                 }
             }
         }
-
-        tracing::debug!(
-            "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash : {:?}",
-            result
-        );
 
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
         let tx_re = TxResponse {
             code: Code::default(),
             data: serde_json::from_str(json).map_err(Error::invalid_serde_json_error)?,
-            log: Log::from("testtest"),
-            hash: transaction::Hash::new(*result.as_fixed_bytes()),
+            log: Log::from("test_test"),
+            hash: transaction::Hash::new([0u8; 32]),
         };
 
         Ok(vec![tx_re])
@@ -1550,8 +1551,9 @@ impl ChainEndpoint for SubstrateChain {
                                 let height = self
                                     .get_latest_height()
                                     .map_err(|_| Error::query_latest_height())?;
-                                Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
-                            },
+                                Height::new(REVISION_NUMBER, height)
+                                    .expect(&REVISION_NUMBER.to_string())
+                            }
                             QueryHeight::Specific(value) => value.clone(),
                         },
                         client_id: request.client_id,
