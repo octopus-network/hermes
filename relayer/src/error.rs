@@ -594,6 +594,9 @@ define_error! {
 
         QueryLatestHeight
             | _ | { "query latest height error"},
+
+        Ics20Transfer
+            | _ | { "ics 20 transfer error"},
     }
 }
 

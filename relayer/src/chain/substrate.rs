@@ -382,6 +382,15 @@ impl SubstrateChain {
         Ok(result)
     }
 
+    fn raw_transfer(&self, msg: Vec<Any>) -> Result<H256> {
+        tracing::trace!("in substrate: [raw_transfer]");
+
+        let client = self.get_client()?;
+
+
+        todo!()
+    }
+
     fn get_write_ack_packet_event(
         &self,
         port_id: &PortId,
@@ -716,16 +725,32 @@ impl ChainEndpoint for SubstrateChain {
             "in substrate: [send_messages_and_wait_commit], proto_msgs={:?}",
             proto_msgs.tracking_id
         );
+        use ibc::applications::transfer::msgs::transfer::TYPE_URL as TRANSFER_TYPE_URL;
 
-        sleep(Duration::from_secs(4));
-        let result = self
-            .deliever(proto_msgs.messages().to_vec())
-            .map_err(|e| Error::deliver_error(e))?;
 
-        tracing::debug!(
-            "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-            result
-        );
+        for msg in proto_msgs.messages().to_vec() {
+            match msg.type_url.as_str() {
+                TRANSFER_TYPE_URL => {
+                    let result = self.raw_transfer(vec![msg]).map_err(|_|Error::ics20_transfer())?;
+
+                    tracing::debug!(
+                    "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
+                    result);
+                }
+                _ => {
+                    sleep(Duration::from_secs(4));
+                    let result = self
+                        .deliever(vec![msg])
+                        .map_err(|e| Error::deliver_error(e))?;
+                    tracing::debug!(
+                    "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
+                    result);
+                }
+            }
+        }
+
+
+
 
         let ibc_event = self
             .subscribe_ibc_events()
@@ -743,10 +768,26 @@ impl ChainEndpoint for SubstrateChain {
             proto_msgs.tracking_id
         );
 
-        sleep(Duration::from_secs(4));
-        let result = self
-            .deliever(proto_msgs.messages().to_vec())
-            .map_err(|e| Error::deliver_error(e))?;
+        for msg in proto_msgs.messages().to_vec() {
+            match msg.type_url.as_str() {
+                TRANSFER_TYPE_URL => {
+                    let result = self.raw_transfer(vec![msg]).map_err(|_|Error::ics20_transfer())?;
+
+                    tracing::debug!(
+                    "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash  : {:?}",
+                    result);
+                }
+                _ => {
+                    sleep(Duration::from_secs(4));
+                    let result = self
+                        .deliever(vec![msg])
+                        .map_err(|e| Error::deliver_error(e))?;
+                    tracing::debug!(
+                    "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash  : {:?}",
+                    result);
+                }
+            }
+        }
 
         tracing::debug!(
             "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash : {:?}",
