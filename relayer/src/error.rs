@@ -549,7 +549,8 @@ define_error! {
             | _ | { "identifier error" },
 
         GetSendPacketEventError
-            | _ | { "get send packet event error" },
+            [ DisplayOnly<String>]
+            | _ | { format!("get send packet event error") },
 
         GetWriteAckPacketEventError
             | _ | { "get write packet event error" },

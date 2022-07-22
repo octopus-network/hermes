@@ -23,6 +23,7 @@ use alloc::sync::Arc;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use core::{future::Future, str::FromStr, time::Duration};
+use ibc::core::ics04_channel::events::WriteAcknowledgement;
 use ibc::{
     clients::{
         ics07_tendermint::header::Header as tHeader,
@@ -397,7 +398,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<WriteAcknowledgement> {
         tracing::trace!("in substrate: [get_send_packet_event]");
 
         let client = self.get_client()?;
@@ -420,7 +421,7 @@ impl SubstrateChain {
                     &request.source_channel_id,
                     sequence,
                 )
-                .map_err(|_| Error::get_send_packet_event_error())?;
+                .map_err(|e| Error::get_send_packet_event_error(e.to_string()))?;
 
             result_event.push(IbcEvent::SendPacket(SendPacket {
                 height: match request.height {
@@ -437,9 +438,7 @@ impl SubstrateChain {
         &self,
         request: QueryPacketEventDataRequest,
     ) -> Result<Vec<IbcEvent>, Error> {
-        use ibc::core::ics04_channel::events::WriteAcknowledgement;
-
-        let result_event = vec![];
+        let mut result_event = vec![];
 
         for sequence in &request.sequences {
             let write_ack = self
@@ -450,9 +449,7 @@ impl SubstrateChain {
                 )
                 .map_err(|_| Error::get_write_ack_packet_event_error())?;
 
-            // TODO(daiovianra)
-            // let write_ack = WriteAcknowledgement::decode(&*write_ack).map_err(Error::decode)?;
-            // result_event.push(IbcEvent::WriteAcknowledgement(write_ack));
+            result_event.push(IbcEvent::WriteAcknowledgement(write_ack));
         }
 
         Ok(result_event)
@@ -729,31 +726,38 @@ impl ChainEndpoint for SubstrateChain {
         use ibc::applications::transfer::msgs::transfer::TYPE_URL as TRANSFER_TYPE_URL;
 
         match proto_msgs.tracking_id {
-            TrackingId::Uuid(_) => unimplemented!(),
-            TrackingId::Static(value) => {
-                match value {
-                    "ft-transfer" => {
-                        let result = self
-                            .raw_transfer(proto_msgs.messages().to_vec())
-                            .map_err(|_| Error::ics20_transfer())?;
-
-                        tracing::debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
-                    }
-                    _ => {
-                        sleep(Duration::from_secs(4));
-                        let result = self
-                            .deliever(proto_msgs.messages().to_vec())
-                            .map_err(|e| Error::deliver_error(e))?;
-                        tracing::debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
-                    }
-                }
+            TrackingId::Uuid(_) => {
+                sleep(Duration::from_secs(4));
+                let result = self
+                    .deliever(proto_msgs.messages().to_vec())
+                    .map_err(|e| Error::deliver_error(e))?;
+                tracing::debug!(
+                    "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
+                    result
+                );
             }
+            TrackingId::Static(value) => match value {
+                "ft-transfer" => {
+                    let result = self
+                        .raw_transfer(proto_msgs.messages().to_vec())
+                        .map_err(|_| Error::ics20_transfer())?;
+
+                    tracing::debug!(
+                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
+                        result
+                    );
+                }
+                _ => {
+                    sleep(Duration::from_secs(4));
+                    let result = self
+                        .deliever(proto_msgs.messages().to_vec())
+                        .map_err(|e| Error::deliver_error(e))?;
+                    tracing::debug!(
+                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
+                        result
+                    );
+                }
+            },
         }
 
         let ibc_event = self
@@ -773,31 +777,38 @@ impl ChainEndpoint for SubstrateChain {
         );
 
         match proto_msgs.tracking_id {
-            TrackingId::Uuid(_) => unimplemented!(),
-            TrackingId::Static(value) => {
-                match value {
-                    "ft-transfer" => {
-                        let result = self
-                            .raw_transfer(proto_msgs.messages().to_vec())
-                            .map_err(|_| Error::ics20_transfer())?;
-
-                        tracing::debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
-                    }
-                    _ => {
-                        sleep(Duration::from_secs(4));
-                        let result = self
-                            .deliever(proto_msgs.messages().to_vec())
-                            .map_err(|e| Error::deliver_error(e))?;
-                        tracing::debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
-                    }
-                }
+            TrackingId::Uuid(_) => {
+                sleep(Duration::from_secs(4));
+                let result = self
+                    .deliever(proto_msgs.messages().to_vec())
+                    .map_err(|e| Error::deliver_error(e))?;
+                tracing::debug!(
+                    "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
+                    result
+                );
             }
+            TrackingId::Static(value) => match value {
+                "ft-transfer" => {
+                    let result = self
+                        .raw_transfer(proto_msgs.messages().to_vec())
+                        .map_err(|_| Error::ics20_transfer())?;
+
+                    tracing::debug!(
+                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
+                        result
+                    );
+                }
+                _ => {
+                    sleep(Duration::from_secs(4));
+                    let result = self
+                        .deliever(proto_msgs.messages().to_vec())
+                        .map_err(|e| Error::deliver_error(e))?;
+                    tracing::debug!(
+                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
+                        result
+                    );
+                }
+            },
         }
 
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
@@ -840,11 +851,11 @@ impl ChainEndpoint for SubstrateChain {
         let public_key = pair.public();
 
         let account_id = format_account_id::<sr25519::Pair>(public_key);
-        let account = AccountId32::from_str(&account_id).unwrap();
-        let encode_account = AccountId32::encode(&account);
-        let hex_account = hex::encode(encode_account);
+        // let account = AccountId32::from_str(&account_id).unwrap();
+        // let encode_account = AccountId32::encode(&account);
+        // let hex_account = hex::encode(encode_account);
 
-        Ok(Signer::from_str(&hex_account).unwrap())
+        Ok(Signer::from_str(&account_id).unwrap())
     }
 
     fn config(&self) -> ChainConfig {
