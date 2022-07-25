@@ -327,7 +327,10 @@ impl BeefyMonitor {
 
         let mut beefy_sub = BeefySubscription::new(sub);
         tracing::trace!("in beefy_monitor: [run], beefy subscripte success ! ");
-        println!("in beefy_monitor: [run], beefy subscripte success ! ");
+        println!(
+            "in beefy_monitor: [run], Successful beefy subscription to {:?} ! ",
+            self.chain_id.as_str()
+        );
 
         // let mut beefy_sub = self.rt.block_on(self.subscribe_beefy());
         // Work around double borrow
@@ -461,8 +464,9 @@ impl BeefyMonitor {
                 mmr_root
             );
             println!(
-                "in beefy_monitor: [process_beefy_msg], send mmr root : {:?} ",
-                mmr_root
+                "in beefy_monitor: [process_beefy_msg], chain id: {:?}, mmr root height: {:?} ",
+                self.chain_id.as_str(),
+                mmr_root.block_header.block_number
             );
             self.tx_beefy
                 .send(Ok(mmr_root))

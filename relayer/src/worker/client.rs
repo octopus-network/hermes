@@ -139,8 +139,14 @@ pub fn spawn_update_mmr_root<ChainA: ChainHandle, ChainB: ChainHandle>(
     receiver: Receiver<WorkerCmd>,
     client: ForeignClient<ChainB, ChainA>,
 ) -> Option<TaskHandle> {
-    tracing::trace!("in worker/client: [spawn_update_mmr_root], client ={:?} ", client);
-    println!("in worker/client: [spawn_update_mmr_root], client ={:?} ", client);
+    tracing::trace!(
+        "in worker/client: [spawn_update_mmr_root], client ={:?} ",
+        client
+    );
+    println!(
+        "in worker/client: [spawn_update_mmr_root], client ={:?} ",
+        client
+    );
 
     if client.is_expired_or_frozen() {
         warn!(
@@ -158,13 +164,18 @@ pub fn spawn_update_mmr_root<ChainA: ChainHandle, ChainB: ChainHandle>(
             src_chain = %client.src_chain.id(),
             dst_chain = %client.dst_chain.id(),
         ),
-        Some(Duration::from_millis(600)),
+        // Some(Duration::from_millis(600)),
+        Some(Duration::from_secs(6)),
         move || -> Result<Next, TaskError<Infallible>> {
             if let Ok(cmd) = receiver.try_recv() {
-                tracing::trace!("in worker/client: [spawn_update_mmr_root], recv work cmd ={:?} ", cmd);
-                println!("in worker/client: [spawn_update_mmr_root], recv work cmd ={:?} ", cmd);
+                tracing::trace!(
+                    "in worker/client: [spawn_update_mmr_root], recv work cmd ={:?} ",
+                    cmd
+                );
+
                 match cmd {
                     WorkerCmd::Beefy { mmr_root } => {
+                        println!("in worker/client: [spawn_update_mmr_root], WorkerCmd::Beefy and mmr root height is :{:?}",mmr_root.block_header.block_number);
                         //TODO: client.update_mmr_root(mmr_root)
                         // let res = client.refresh().map_err(|e| {
                         //     if e.is_expired_or_frozen_error() {

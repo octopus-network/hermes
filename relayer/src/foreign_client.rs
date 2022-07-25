@@ -709,7 +709,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
     pub fn update_mmr_root(&self, mmr_root: MmrRoot) -> Result<(), ForeignClientError> {
         
         tracing::trace!("in foreign_client: [update_mmr_root], mmr_root ={:?} ", mmr_root);
-        println!("in foreign_client: [update_mmr_root], mmr_root ={:?} ", mmr_root);
+        println!("in foreign_client: [update_mmr_root], mmr_root_height ={:?} ", mmr_root.block_header.block_number);
         // let res = self.build_latest_update_client_and_send()?;
 
         // debug!("[{}] client updated with return message {:?}\n", self, res);

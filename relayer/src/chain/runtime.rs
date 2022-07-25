@@ -451,7 +451,7 @@ where
                                 "in runtime: [run], ChainRequest::UpdateMmrRoot, chain_id = {:?},client_id = {:?},mmr_root ={:?} ",
                                 self.chain.id(),
                                 client_id,
-                                mmr_root
+                                mmr_root.block_header.block_number
                             );
                             self.update_mmr_root(client_id,mmr_root,reply_to,)?
                         },

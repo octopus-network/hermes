@@ -460,8 +460,8 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
 
     fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
         println!(
-            "in cache chain handle: [update_mmr_root], client_id = {:?},mmr_root ={:?} ",
-            client_id, mmr_root
+            "in cache chain handle: [update_mmr_root], client_id = {:?},mmr_root_height ={:?} ",
+            client_id, mmr_root.block_header.block_number
         );
         self.inner.update_mmr_root(client_id, mmr_root)
     }

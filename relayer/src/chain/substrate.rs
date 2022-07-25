@@ -1547,9 +1547,8 @@ impl ChainEndpoint for SubstrateChain {
             mmr_root
         );
         println!(
-            "in substrate: [update_mmr_root], client_id = {:?},mmr_root ={:?} ",
-            client_id,
-            mmr_root
+            "in substrate: [update_mmr_root], client_id = {:?},mmr_root_height ={:?} ",
+            client_id, mmr_root.block_header.block_number
         );
         // let result = async {
         //     let chain_a = ClientBuilder::new()
@@ -1572,7 +1571,21 @@ impl ChainEndpoint for SubstrateChain {
         //         .await
         //         .map_err(|_| Error::update_client_state_error())
         // };
-        let dst_client = self.get_client().unwrap();
+
+        let rpc_url = format!("{}", self.config().rpc_addr);
+        println!("in substrate: [update_mmr_root], rpc url:  {:?}", rpc_url);
+        let client = async {
+            ClientBuilder::new()
+                .set_url(rpc_url)
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .map_err(|_| Error::substrate_client_builder_error())
+        };
+
+        let dst_client = self.block_on(client).unwrap();
+
+        // let dst_client = self.get_client().unwrap();
+
         // let signer = self.get_signer().unwrap();
         // Get the key from key seed file
         let key = self
@@ -1580,7 +1593,7 @@ impl ChainEndpoint for SubstrateChain {
             .get_key(&self.config.key_name)
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
         tracing::trace!("in substrate: [update_mmr_root], key = {:?}", key);
-        println!("in substrate: [update_mmr_root], key = {:?}", key);
+        // println!("in substrate: [update_mmr_root], key = {:?}", key);
 
         let private_seed = key.mnemonic;
         let (pair, seed) = sp_core::sr25519::Pair::from_phrase(&private_seed, None).unwrap();
@@ -1590,11 +1603,17 @@ impl ChainEndpoint for SubstrateChain {
         let result = self.block_on(send_update_state_request(
             dst_client,
             pair_signer,
+            self.id().clone(),
             client_id,
             mmr_root,
         ));
         if let Err(err) = result {
-            println!("in substrate: [update_mmr_root], send_update_state_request err:  {:?}", err);
+            println!(
+                "in substrate: [update_mmr_root], {:?},send_update_state_request err:  {:?}",
+                self.id(),
+                err
+            );
+            //TODO: resubmit the failure tx
         }
         Ok(())
     }
@@ -1650,6 +1669,7 @@ impl ChainEndpoint for SubstrateChain {
 pub async fn send_update_state_request(
     client: Client<ibc_node::DefaultConfig>,
     pair_signer: PairSigner<ibc_node::DefaultConfig, sp_core::sr25519::Pair>,
+    chain_id: ChainId,
     client_id: ClientId,
     mmr_root: MmrRoot,
 ) -> Result<H256, Box<dyn std::error::Error>> {
@@ -1678,7 +1698,7 @@ pub async fn send_update_state_request(
         .await?;
 
     tracing::info!("update client state result: {:?}", result);
-    println!("update client state result: {:?}", result);
+    println!("{:?} update client state result: {:?}", chain_id, result);
 
     Ok(result)
 }
