@@ -191,6 +191,7 @@ fn spawn_batch_workers<Chain: ChainHandle>(
             Some(Duration::from_millis(5)),
             move || -> Result<Next, TaskError<Infallible>> {
                 if let Ok(batch) = subscription.try_recv() {
+                    info!("[spawn_batch_workers]>> 🐶🐶🐶🐶 ArcBatch = {:?}", batch);
                     handle_batch(
                         &config,
                         &mut registry.write(),
