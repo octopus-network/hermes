@@ -50,6 +50,7 @@ std = [
     "sp-io/std",
     "beefy-light-client/std",
     "tendermint/std",
+    "sp-timestamp/std"
     # "tendermint-proto/std",
     # "tendermint-light-client-verifier/std",
     # "tendermint-testgen/std",
@@ -95,7 +96,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.13", default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.13", default-features = false }
-
+sp-timestamp = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.13", default-features = false }
 # beefy light client
 beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.13", default-features = false }
 
@@ -128,8 +129,7 @@ tendermint-rpc = { version = "=0.23.6", features = ["http-client", "websocket-cl
 tendermint-testgen = { version = "=0.23.6" } # Needed for generating (synthetic) light blocks.
 codec = { package = "parity-scale-codec", version = "2.0.0", features = ["derive"] }
 hex-literal = "0.3.1"
-# octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.13"}
-# octopusxt = { path = "../../octopusxt" }
+#  octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/v0.9.13"}
 octopusxt = { path = "../../octopusxt/module" }
 tokio = { version = "1.0", features = ["rt-multi-thread", "time", "sync"] }
 subxt = { version = "0.15.0", git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'octopus-v0.9.13' }

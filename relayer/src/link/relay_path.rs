@@ -1200,7 +1200,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     }
 
     fn build_recv_packet(&self, packet: &Packet, height: Height) -> Result<Option<Any>, LinkError> {
-        tracing::trace!("in relay_path: [build_recv_packet]");
+        tracing::trace!(target:"ibc-rs","in relay_path: [build_recv_packet]");
         let (_, proofs) = self
             .src_chain()
             .build_packet_proofs(
@@ -1214,9 +1214,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
 
         let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
 
-        trace!(
-            "built recv_packet msg {}, proofs at height {}",
-            msg.packet,
+        trace!(target:"ibc-rs",
+            "built recv_packet msg {:?}, proofs at height {}",
+            msg,
             proofs.height()
         );
 
@@ -1247,9 +1247,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             self.dst_signer()?,
         );
 
-        trace!(
-            "built acknowledgment msg {}, proofs at height {}",
-            msg.packet,
+        trace!(target:"ibc-rs",
+            "built acknowledgment msg {:?}, proofs at height {}",
+            msg,
             proofs.height()
         );
 
@@ -1295,9 +1295,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             self.src_signer()?,
         );
 
-        trace!(
-            "built timeout msg {}, proofs at height {}",
-            msg.packet,
+        trace!(target:"ibc-rs",
+            "built timeout msg {:?}, proofs at height {}",
+            msg,
             proofs.height()
         );
 
@@ -1327,9 +1327,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             self.src_signer()?,
         );
 
-        trace!(
-            "built timeout on close msg {}, proofs at height {}",
-            msg.packet,
+        trace!(target:"ibc-rs",
+            "built timeout on close msg {:?}, proofs at height {}",
+            msg,
             proofs.height()
         );
 
@@ -1341,7 +1341,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         event: &SendPacket,
         dst_info: &ChainStatus,
     ) -> Result<Option<Any>, LinkError> {
-        tracing::trace!("in relay_path: [build_timeout_from_send_packet_event]");
+        tracing::trace!(target:"ibc-rs","in relay_path: [build_timeout_from_send_packet_event]");
         let packet = event.packet.clone();
         if self
             .dst_channel(dst_info.height)?
@@ -1360,7 +1360,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         event: &SendPacket,
         dst_info: &ChainStatus,
     ) -> Result<(Option<Any>, Option<Any>), LinkError> {
-        tracing::trace!("in relay_path: [build_recv_or_timeout_from_send_packet_event]");
+        tracing::trace!(target:"ibc-rs","in relay_path: [build_recv_or_timeout_from_send_packet_event]");
         let timeout = self.build_timeout_from_send_packet_event(event, dst_info)?;
         if timeout.is_some() {
             Ok((None, timeout))

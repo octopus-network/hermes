@@ -570,6 +570,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })?
             .wrap_any();
+        tracing::trace!(target:"ibc-rs",
+            "In foreign_client: [build_create_client] >> client_state: {:?}",
+            client_state
+        );
 
         let consensus_state = self
             .src_chain
@@ -587,9 +591,19 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             })?
             .wrap_any();
 
+        tracing::trace!(target:"ibc-rs",
+            "In foreign_client: [build_create_client] >> consensus_state: {:?}",
+            consensus_state
+        );
+
         //TODO Get acct_prefix
         let msg = MsgCreateAnyClient::new(client_state, consensus_state, signer)
             .map_err(ForeignClientError::client)?;
+
+        tracing::trace!(target:"ibc-rs",
+            "In foreign_client: [build_create_client] >>  MsyCreateAnyClient: {:?}",
+            msg
+        );
 
         Ok(msg)
     }
@@ -648,6 +662,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })?;
 
+        tracing::trace!(target:"ibc-rs","[validated_client_state] client_state : {:?}",client_state);
         if client_state.is_frozen() {
             return Err(ForeignClientError::expired_or_frozen(
                 self.id().clone(),
@@ -659,9 +674,12 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         let last_update_time = self
             .consensus_state(client_state.latest_height())?
             .timestamp();
+        tracing::trace!(target:"ibc-rs","[validated_client_state] last_update_time : {:?}",last_update_time);
 
         // Compute the duration since the last update of this client
         let elapsed = Timestamp::now().duration_since(&last_update_time);
+
+        tracing::trace!(target:"ibc-rs","[validated_client_state] elapsed_time : {:?}",elapsed);
 
         if client_state.expired(elapsed.unwrap_or_default()) {
             return Err(ForeignClientError::expired_or_frozen(
@@ -836,11 +854,14 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 e,
             )
         })?;
+        tracing::trace!(target:"ibc-rs","[wait_for_header_validation_delay] pts_adjusted : {:?}",ts_adjusted);
 
         if header.timestamp().after(&ts_adjusted) {
             // Header would be considered in the future, wait for destination chain to
             // advance to the next height.
             warn!("[{}] src header {} is after dst latest header {} + client state drift {:?}, wait for next height on {}",
+                   self, header.timestamp(), status.timestamp, client_state.max_clock_drift(), self.dst_chain().id());
+            tracing::trace!(target:"ibc-rs","[{}] src header {} is after dst latest header {} + client state drift {:?}, wait for next height on {}",
                    self, header.timestamp(), status.timestamp, client_state.max_clock_drift(), self.dst_chain().id());
 
             let target_dst_height = status.height.increment();
@@ -902,15 +923,17 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })
         };
-
+        tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] target_height : {:?}, latest_height : {:?}",target_height,latest_height.clone()());
         // Wait for source chain to reach `target_height`
         while latest_height()? < target_height {
-            thread::sleep(Duration::from_millis(100))
+            // thread::sleep(Duration::from_millis(100))
+            tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] lastest height < target height,need to wait ");
+            thread::sleep(Duration::from_secs(5))
         }
 
         // Get the latest client state on destination.
         let (client_state, _) = self.validated_client_state()?;
-
+        tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] client_state : {:?}",client_state);
         // if grandpa client state process this code
 
         /*
@@ -987,6 +1010,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 "[{}] skipping update: trusted height ({}) >= chain target height ({})",
                 self, trusted_height, target_height
             );
+            tracing::trace!(target:"ibc-rs",
+                "[{}] skipping update: trusted height ({}) >= chain target height ({})",
+                self, trusted_height, target_height
+            );
             return Ok(vec![]);
         }
 
@@ -1000,6 +1027,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     e,
                 )
             })?;
+        tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] build header : {:?}",header);
 
         let signer = self.dst_chain().get_signer().map_err(|e| {
             ForeignClientError::client_update(
@@ -1019,7 +1047,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 self,
                 header.height(),
             );
-
+            tracing::trace!(target:"ibc-rs","[{}] MsgUpdateAnyClient for intermediate height {}",
+                self,
+                header.height(),
+            );
             msgs.push(
                 MsgUpdateAnyClient {
                     header,
@@ -1036,6 +1067,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             trusted_height,
             header.height(),
         );
+        tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] MsgUpdateAnyClient from trusted height {} to target height {}",trusted_height,header.height());
 
         msgs.push(
             MsgUpdateAnyClient {
@@ -1071,6 +1103,8 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         };
 
         let new_msgs = self.build_update_client_with_trusted(h, trusted_height)?;
+        tracing::trace!(target:"ibc-rs","[build_update_client_and_send] new_msgs : {:?}",new_msgs);
+
         if new_msgs.is_empty() {
             return Err(ForeignClientError::client_already_up_to_date(
                 self.id.clone(),

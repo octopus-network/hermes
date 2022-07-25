@@ -169,6 +169,11 @@ pub struct ConsensusState {
     pub digest: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "6")]
     pub root: ::core::option::Option<super::super::super::core::commitment::v1::MerkleRoot>,
+     /// timestamp that corresponds to the block height in which the ConsensusState
+    /// was stored.
+    #[prost(message, optional, tag = "7")]
+    pub timestamp: ::core::option::Option<super::super::super::super::google::protobuf::Timestamp>,
+
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Header {

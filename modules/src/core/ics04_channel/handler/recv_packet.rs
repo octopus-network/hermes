@@ -137,6 +137,8 @@ pub fn process(ctx: &dyn ChannelReader, msg: &MsgRecvPacket) -> HandlerResult<Pa
         }
     };
 
+    tracing::trace!(target:"ibc-rs","[recv_packet] process result : {:?}",result);
+
     output.log("success: packet receive");
 
     output.emit(IbcEvent::ReceivePacket(ReceivePacket {

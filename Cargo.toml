@@ -119,6 +119,7 @@ sp-state-machine = { git = "https://github.com/octopus-network/substrate", branc
 sp-inherents = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.13" }
 sp-version = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.13" }
 
+syn =  { git = "https://github.com/DaviRain-Su/syn.git", branch = "branch-1.0.97" }
 # sc-transaction-pool = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.13" }
 # pallet-session = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.13" }
 # sc-client-api = { git = "https://github.com/octopus-network/substrate", branch = "polkadot-v0.9.13" }
@@ -179,3 +180,5 @@ sp-version = { git = "https://github.com/octopus-network/substrate", branch = "p
 [patch."https://github.com/octopus-network/ibc-rs"]
 ibc = { path = "./modules" }
 ibc-proto = { path = "./proto" }
+
+
