@@ -1593,17 +1593,44 @@ impl ChainEndpoint for SubstrateChain {
         Ok(self.websocket_url.clone())
     }
 
-    /// add new api update_mmr_root
-    fn update_mmr_root(
-        &self,
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
-    ) -> Result<(), Error> {
-        tracing::info!(target:"ibc-rs","in substrate: [update_mmr_root]");
+      /// add new api update_mmr_root
+      fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
+        tracing::trace!(
+            "in substrate: [update_mmr_root], client_id = {:?},mmr_root ={:?} ",
+            client_id,
+            mmr_root
+        );
+        println!(
+            "in substrate: [update_mmr_root], client_id = {:?},mmr_root_height ={:?} ",
+            client_id, mmr_root.block_header.block_number
+        );
+        // let result = async {
+        //     let chain_a = ClientBuilder::new()
+        //         .set_url(src_chain_websocket_url)
+        //         .build::<ibc_node::DefaultConfig>()
+        //         .await
+        //         .map_err(|_| Error::substrate_client_builder_error())?;
 
-        let result = async {
-            let chain_a = ClientBuilder::new()
-                .set_url(src_chain_websocket_url)
+        //     let chain_b = ClientBuilder::new()
+        //         .set_url(dst_chain_websocket_url)
+        //         .build::<ibc_node::DefaultConfig>()
+        //         .await
+        //         .map_err(|_| Error::substrate_client_builder_error())?;
+
+        //     octopusxt::update_client_state::update_client_state(chain_a.clone(), chain_b.clone())
+        //         .await
+        //         .map_err(|_| Error::update_client_state_error())?;
+
+        //     octopusxt::update_client_state::update_client_state(chain_b.clone(), chain_a.clone())
+        //         .await
+        //         .map_err(|_| Error::update_client_state_error())
+        // };
+
+        let rpc_url = format!("{}", self.config().rpc_addr);
+        println!("in substrate: [update_mmr_root], rpc url:  {:?}", rpc_url);
+        let client = async {
+            ClientBuilder::new()
+                .set_url(rpc_url)
                 .build::<ibc_node::DefaultConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())

@@ -725,9 +725,14 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
     /// Attempts to update a mmr root using header from the latest height of its source chain.
     pub fn update_mmr_root(&self, mmr_root: MmrRoot) -> Result<(), ForeignClientError> {
-        
-        tracing::trace!("in foreign_client: [update_mmr_root], mmr_root ={:?} ", mmr_root);
-        println!("in foreign_client: [update_mmr_root], mmr_root_height ={:?} ", mmr_root.block_header.block_number);
+        tracing::trace!(
+            "in foreign_client: [update_mmr_root], mmr_root ={:?} ",
+            mmr_root
+        );
+        println!(
+            "in foreign_client: [update_mmr_root], mmr_root_height ={:?} ",
+            mmr_root.block_header.block_number
+        );
         // let res = self.build_latest_update_client_and_send()?;
 
         // debug!("[{}] client updated with return message {:?}\n", self, res);
@@ -926,9 +931,9 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] target_height : {:?}, latest_height : {:?}",target_height,latest_height.clone()());
         // Wait for source chain to reach `target_height`
         while latest_height()? < target_height {
-            // thread::sleep(Duration::from_millis(100))
+            thread::sleep(Duration::from_millis(100));
             tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] lastest height < target height,need to wait ");
-            thread::sleep(Duration::from_secs(5))
+            // thread::sleep(Duration::from_secs(5))
         }
 
         // Get the latest client state on destination.
