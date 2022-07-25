@@ -360,15 +360,16 @@ pub struct MsgChannelCloseConfirm {
 pub struct MsgChannelCloseConfirmResponse {}
 
 
-// #[derive(Clone, PartialEq, ::prost::Message)]
-// pub struct WriteAcknowledgement {
-//     #[prost(message, optional, tag = "1")]
-//     pub height: ::core::option::Option<super::super::client::v1::Height>,
-//     #[prost(message, optional, tag = "2")]
-//     pub packet: ::core::option::Option<Packet>,
-//     #[prost(bytes = "vec", tag = "3")]
-//     pub ack: ::prost::alloc::vec::Vec<u8>,
-// }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WriteAcknowledgement {
+    #[prost(message, optional, tag = "1")]
+    pub height: ::core::option::Option<super::super::client::v1::Height>,
+    #[prost(message, optional, tag = "2")]
+    pub packet: ::core::option::Option<Packet>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub ack: ::prost::alloc::vec::Vec<u8>,
+}
+
 /// MsgRecvPacket receives incoming IBC packet
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]

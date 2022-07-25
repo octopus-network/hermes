@@ -158,6 +158,8 @@ impl core::fmt::Debug for Packet {
     }
 }
 
+impl Protobuf<RawPacket> for Packet {}
+
 impl Packet {
     /// Checks whether a packet from a
     /// [`SendPacket`](crate::core::ics04_channel::events::SendPacket)
