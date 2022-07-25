@@ -1,3 +1,4 @@
+use core::fmt::Debug;
 use sha2::{Digest, Sha256};
 
 use super::error::Error as Ics20Error;
@@ -201,7 +202,7 @@ pub fn on_chan_close_confirm(
     Ok(())
 }
 
-pub fn on_recv_packet<Ctx: 'static + Ics20Context>(
+pub fn on_recv_packet<Ctx: 'static + Ics20Context + Debug>(
     ctx: &Ctx,
     output: &mut ModuleOutputBuilder,
     packet: &Packet,
