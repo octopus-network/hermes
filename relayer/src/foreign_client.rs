@@ -828,7 +828,9 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         target_height: Height,
         client_state: &AnyClientState,
     ) -> Result<Height, ForeignClientError> {
+        info!("[solve_trust_height] >> target height = {:?}", target_height);
         let client_latest_height = client_state.latest_height();
+        info!("[solve_trust_height] >> client_latest_height = {:?}", client_latest_height);
 
         if client_latest_height < target_height {
             // If the latest height of the client is already lower than the
@@ -1466,13 +1468,14 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
             // No header in events, cannot run misbehavior.
             // May happen on chains running older SDKs (e.g., Akash)
-            if update_event.header.is_none() {
-                return Err(ForeignClientError::misbehaviour_exit(format!(
-                    "could not extract header from update client event {:?} emitted by chain {:?}",
-                    update_event,
-                    self.dst_chain.id()
-                )));
-            }
+            // todo(daivainr)
+            // if update_event.header.is_none() {
+            //     return Err(ForeignClientError::misbehaviour_exit(format!(
+            //         "could not extract header from update client event {:?} emitted by chain {:?}",
+            //         update_event,
+            //         self.dst_chain.id()
+            //     )));
+            // }
 
             // Check for misbehaviour according to the specific source chain type.
             // In case of Tendermint client, this will also check the BFT time violation if
