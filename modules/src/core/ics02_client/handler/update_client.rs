@@ -112,9 +112,10 @@ pub fn process(
     };
     output.emit(IbcEvent::UpdateClient(event_attributes.into()));
 
+    let output = output.with_result(result);
     tracing::trace!(target:"ibc-rs","[update_client] process output : {:?}",output);
 
-    Ok(output.with_result(result))
+    Ok(output)
 }
 
 #[cfg(test)]

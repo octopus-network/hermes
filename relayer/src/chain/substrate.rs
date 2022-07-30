@@ -756,26 +756,26 @@ impl ChainEndpoint for SubstrateChain {
             .keybase()
             .get_key(&self.config.key_name)
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
-        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] key = {:?}", key);
+        // tracing::trace!(target:"ibc-rs","In Substraet: [get signer] key = {:?}", key);
 
         let private_seed = key.mnemonic;
-        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] private_seed = {:?}", private_seed);
+        // tracing::trace!(target:"ibc-rs","In Substraet: [get signer] private_seed = {:?}", private_seed);
 
         let (pair, seed) = sp_core::sr25519::Pair::from_phrase(&private_seed, None).unwrap();
         let public_key = pair.public();
-        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] public_key = {:?}", public_key);
+        // tracing::trace!(target:"ibc-rs","In Substraet: [get signer] public_key = {:?}", public_key);
 
         let account_id = format_account_id::<sp_core::sr25519::Pair>(public_key);
-        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] account_id = {:?}", account_id);
+        // tracing::trace!(target:"ibc-rs","In Substraet: [get signer] account_id = {:?}", account_id);
 
         let account = sp_runtime::AccountId32::from_str(&account_id).unwrap();
-        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] account = {:?}", account);
+        // tracing::trace!(target:"ibc-rs","In Substraet: [get signer] account = {:?}", account);
 
         let encode_account = sp_runtime::AccountId32::encode(&account);
-        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] encode_account = {:?}", encode_account);
+        // tracing::trace!(target:"ibc-rs","In Substraet: [get signer] encode_account = {:?}", encode_account);
 
         let hex_account = hex::encode(encode_account);
-        tracing::trace!(target:"ibc-rs","In Substraet: [get signer] hex_account = {:?}", hex_account);
+        // tracing::trace!(target:"ibc-rs","In Substraet: [get signer] hex_account = {:?}", hex_account);
 
         Ok(Signer::new(hex_account))
     }
@@ -877,15 +877,15 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!(target:"ibc-rs","in substrate: [query_consensus_state] consensus_height: {:?} ", consensus_height);
         tracing::trace!(target:"ibc-rs","in substrate: [query_consensus_state] query_height: {:?} ", query_height);
 
-        let result = self
-            .retry_wapper(|| self.get_client_consensus(&client_id, &consensus_height))
-            .map_err(Error::retry_error)?;
+        // let result = self
+        //     .retry_wapper(|| self.get_client_consensus(&client_id, &consensus_height))
+        //     .map_err(Error::retry_error)?;
 
-        // let consensus_state = self
-        //     .proven_client_consensus(&client_id, consensus_height, query_height)?
-        //     .0;
-        tracing::trace!(target:"ibc-rs","in substrate: [query_consensus_state] result {:?}", result);
-        Ok(result)
+        let consensus_state = self
+            .proven_client_consensus(&client_id, consensus_height, query_height)?
+            .0;
+        tracing::trace!(target:"ibc-rs","in substrate: [query_consensus_state] consensus_state {:?}", consensus_state);
+        Ok(consensus_state)
     }
 
     fn query_upgraded_client_state(
@@ -1510,8 +1510,7 @@ impl ChainEndpoint for SubstrateChain {
 
             let mmr_root_height = block_number;
 
-            //TODO: remove comment after test
-            // assert!((target_height.revision_height as u32) <= mmr_root_height);
+            assert!((target_height.revision_height as u32) <= mmr_root_height);
 
             // get block header
 
@@ -1538,7 +1537,7 @@ impl ChainEndpoint for SubstrateChain {
             );
 
             //TODO: remove comment after test
-            let mmr_root_height = target_height.revision_height as u32;
+            // let mmr_root_height = target_height.revision_height as u32;
 
             let block_hash: Option<H256> = api
                 .client
@@ -1593,8 +1592,8 @@ impl ChainEndpoint for SubstrateChain {
         Ok(self.websocket_url.clone())
     }
 
-      /// add new api update_mmr_root
-      fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
+    /// add new api update_mmr_root
+    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
         tracing::trace!(
             "in substrate: [update_mmr_root], client_id = {:?},mmr_root ={:?} ",
             client_id,

@@ -80,18 +80,23 @@ impl ClientDef for GrandpaClient {
         let mut mmr_root = [0u8; 32];
 
         // Fetch the desired mmr root from storage if it's different from the mmr root in client_state
-        if header.mmr_leaf_proof.leaf_count != client_state.latest_commitment.block_number as u64 {
-            let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
-            let any_consensus_state = ctx.consensus_state(&client_id, height)?;
-            let consensus_state = match any_consensus_state {
-                AnyConsensusState::Grandpa(_v) => _v,
-                _ => unimplemented!(),
-            };
+        // if header.mmr_leaf_proof.leaf_count != client_state.latest_commitment.block_number as u64 {
+        //     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state  header.mmr_leaf_proof.leaf_count: {:?}",header.mmr_leaf_proof.leaf_count);
+        //     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state  client_state.latest_commitment.block_number: {:?}",client_state.latest_commitment.block_number);
 
-            mmr_root.copy_from_slice(&consensus_state.digest);
-        } else {
-            mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
-        }
+        //     let height = Height::new(0, header.mmr_leaf_proof.leaf_count);
+        //     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state  expected height: {:?}",height);
+        //     let any_consensus_state = ctx.consensus_state(&client_id, height)?;
+        //     let consensus_state = match any_consensus_state {
+        //         AnyConsensusState::Grandpa(_v) => _v,
+        //         _ => unimplemented!(),
+        //     };
+
+        //     mmr_root.copy_from_slice(&consensus_state.digest);
+        // } else {
+        //     mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
+        // }
+        mmr_root.copy_from_slice(&client_state.latest_commitment.payload);
 
         let mmr_proof = header.clone().mmr_leaf_proof;
         let mmr_proof = beefy_light_client::mmr::MmrLeafProof::from(mmr_proof);
@@ -107,9 +112,22 @@ impl ClientDef for GrandpaClient {
             return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
         }
 
+        // verify header hash
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state  header.mmr_leaf_proof.leaf_count: {:?}",header.mmr_leaf_proof.leaf_count);
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state header.block_header.parent_hash: {:?}",header.block_header.parent_hash);
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
+
         if header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
             return Err(Error::header_hash_not_match());
         }
+        let header_hash = header.block_header.hash().unwrap();
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state header_hash: {:?}",header_hash);
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
+
+        // if header_hash != mmr_leaf.parent_number_and_hash.1 {
+        //     return Err(Error::header_hash_not_match());
+        // }
+
         let result = beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, mmr_proof)
             .map_err(|_| Error::invalid_mmr_leaf_proof())?;
 

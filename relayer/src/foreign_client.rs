@@ -1032,7 +1032,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     e,
                 )
             })?;
-        tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] build header : {:?}",header);
+        // tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] build header : {:?}",header);
 
         let signer = self.dst_chain().get_signer().map_err(|e| {
             ForeignClientError::client_update(
