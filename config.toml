@@ -100,7 +100,7 @@ port = 3001
 [[chains]]
 
 # Specify the chain ID. Required
-id = 'ibc-0'
+id = 'appchain-0'
 
 # Specify the RPC address and port where the chain RPC server listens on. Required
 rpc_addr = 'http://127.0.0.1:9944'
@@ -231,7 +231,7 @@ memo_prefix = ''
 # fee_granter = ''
 
 [[chains]]
-id = 'ibc-1'
+id = 'appchain-1'
 rpc_addr = 'http://127.0.0.1:8844'
 grpc_addr = 'http://127.0.0.1:9091'
 # subscribe subtstrate client
