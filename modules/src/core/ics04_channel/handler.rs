@@ -13,6 +13,7 @@ use crate::core::ics26_routing::context::{
     Acknowledgement, Ics26Context, ModuleId, ModuleOutputBuilder, OnRecvPacketAck, Router,
 };
 use crate::handler::{HandlerOutput, HandlerOutputBuilder};
+use crate::applications::transfer::acknowledgement::Acknowledgement as ApplicationAcknowledgement;
 
 pub mod acknowledgement;
 pub mod chan_close_confirm;
@@ -264,11 +265,15 @@ fn process_write_ack(
     acknowledgement: &dyn Acknowledgement,
     core_output: &mut HandlerOutputBuilder<()>,
 ) -> Result<(), Error> {
+
+    let acknowledgement = acknowledgement.as_any().downcast_ref::<ApplicationAcknowledgement>().expect("downcast cast Acknowledgement Error");
+    let ack = serde_json::to_string(&acknowledgement).unwrap().as_bytes().to_vec();
+
     let HandlerOutput {
         result,
         log,
         events,
-    } = write_acknowledgement::process(ctx, packet, acknowledgement.as_ref().to_vec().into())?;
+    } = write_acknowledgement::process(ctx, packet, ack.into())?;
 
     // store write ack result
     ctx.store_packet_result(result)?;
