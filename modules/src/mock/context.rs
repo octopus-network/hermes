@@ -1525,7 +1525,6 @@ mod tests {
                     Box::new(|module| {
                         let module = module.downcast_mut::<FooModule>().unwrap();
                         module.counter += 1;
-                        std::println!("counter = {:?}", module.counter);
                         Ok(())
                     }),
                 )
