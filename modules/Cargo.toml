@@ -125,8 +125,8 @@ modelator = "0.4.2"
 sha2 = { version = "0.10.2" }
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
 hex-literal = "0.3.1"
-#octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/ics20-davirian-base-0.9.18"}
-octopusxt = { path = "../../octopusxt/module" }
+octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/ics20-davirian-base-0.9.18"}
+#octopusxt = { path = "../../octopusxt/module" }
 tokio = { version = "1.0", features = ["rt-multi-thread", "time", "sync"] }
 subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'master' }
 tendermint-rpc = { version = "=0.23.7", features = ["http-client", "websocket-client"] }
