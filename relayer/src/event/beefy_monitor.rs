@@ -464,9 +464,8 @@ impl BeefyMonitor {
                 mmr_root
             );
             println!(
-                "in beefy_monitor: [process_beefy_msg], chain id: {:?}, mmr root height: {:?} ",
+                "in beefy_monitor: [process_beefy_msg], chain id: {:?} ",
                 self.chain_id.as_str(),
-                mmr_root.block_header.block_number
             );
             self.tx_beefy
                 .send(Ok(mmr_root))

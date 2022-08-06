@@ -43,6 +43,7 @@ pub fn process(
     } = msg;
     tracing::trace!(target:"ibc-rs","[update_client] client_id : {:?}, header : {:?}",client_id,header);
 
+    let header_height = header.height();
     // Read client type from the host chain store. The client should already exist.
     let client_type = ctx.client_type(&client_id)?;
 
@@ -108,7 +109,8 @@ pub fn process(
     let event_attributes = Attributes {
         height: ctx.host_height(),
         client_id,
-        ..Default::default()
+        client_type,
+        consensus_height: header_height,
     };
     output.emit(IbcEvent::UpdateClient(event_attributes.into()));
 

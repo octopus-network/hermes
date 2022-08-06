@@ -389,7 +389,7 @@ where
         todo!()
     }
 
-    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
+    fn update_mmr_root(&self, _client_id: ClientId, _mmr_root: MmrRoot) -> Result<(), Error> {
         todo!()
     }
 

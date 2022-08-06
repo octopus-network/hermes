@@ -3,7 +3,7 @@ use alloc::string::String;
 use crate::core::ics02_client;
 use crate::core::ics24_host::error::ValidationError;
 use flex_error::{define_error, DisplayOnly, TraceError};
-
+use tendermint::Error as TendermintError;
 define_error! {
      #[derive(Debug, PartialEq, Eq)]
     Error{
@@ -34,6 +34,9 @@ define_error! {
         InvalidRawMisbehaviour
             { reason: String }
             | _ | { "invalid raw misbehaviour" },
+        InvalidRawHeader
+            { reason: String }
+            | _ | { "invalid raw header" },
 
         Encode
             [ TraceError<prost::EncodeError> ]
@@ -86,6 +89,15 @@ define_error! {
         EmptyMmrLeafProof
             | _ | { "empty mmr leaf proof" },
 
+        EmptyMmrRoot
+            | _ | { "empty mmr root" },
+
+        EmptyTimestamp
+            | _ | { "empty timestamp" },
+
+        EmptySignedCommitment
+            | _ | { "empty signed commitment" },
+
         InvalidConvertHash
             | _ | { "invalid convert hash" },
 
@@ -101,5 +113,9 @@ define_error! {
         InvalidCodecDecode
             [ DisplayOnly<codec::Error> ]
             |_| { "invalid codec decode" },
+        InvalidMmrRoot
+            { reason: String }
+            |e| { format_args!("invalid mmr root, failed basic validation: {}", e.reason) },
+
     }
 }

@@ -3093,7 +3093,9 @@ dependencies = [
  "structopt",
  "subtle-encoding",
  "subxt",
+ "tendermint",
  "tendermint-proto",
+ "time",
  "tokio",
  "tracing",
 ]

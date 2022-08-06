@@ -92,6 +92,7 @@ use serde::{Deserialize, Serialize};
 use sp_core::{hexdisplay::HexDisplay, storage::StorageKey, Bytes, Pair, Public, H256};
 use sp_runtime::{generic::Header, traits::BlakeTwo256, traits::IdentifyAccount, MultiSigner};
 use tendermint::abci::transaction;
+use tendermint::time::Time;
 use tendermint_light_client::types::Validator;
 use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
@@ -1452,7 +1453,6 @@ impl ChainEndpoint for SubstrateChain {
         let client_state = GPClientState::new(
             self.id().clone(),
             height.revision_height as u32,
-            BlockHeader::default(),
             Commitment::default(),
             beefy_light_client.validator_set.into(),
         )
@@ -1465,8 +1465,10 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
-        tracing::trace!(target:"ibc-rs","in substrate: [build_consensus_state]");
-
+        tracing::trace!(target:"ibc-rs","in substrate: [build_consensus_state] light_block:{:?}",light_block);
+        //build consensus state from header
+        let root = CommitmentRoot::from_bytes(&light_block.block_header.state_root);
+        let consensue_state = GPConsensusState::new(root, light_block.timestamp);
         Ok(AnyConsensusState::Grandpa(GPConsensusState::default()))
     }
 
@@ -1494,95 +1496,166 @@ impl ChainEndpoint for SubstrateChain {
             ));
         }
 
+        let beefy_light_client::commitment::Commitment {
+            payload,
+            block_number,
+            validator_set_id,
+        } = grandpa_client_state.latest_commitment.clone().into();
+        let mmr_root_height = block_number;
+        let target_height = target_height.revision_height as u32;
+
         // build target height header
-        let result = async {
+        let future = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<ibc_node::DefaultConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
-            let beefy_light_client::commitment::Commitment {
-                payload,
-                block_number,
-                validator_set_id,
-            } = grandpa_client_state.latest_commitment.clone().into();
+            //build mmr root
+            let mmr_root = if target_height > mmr_root_height {
+                tracing::trace!(target:"ibc-rs",
+                    "in substrate: [build_header] target_height > mmr_root_height, mmr_root_height = {:?}, target_height = {:?}, need to build new mmr root",
+                    mmr_root_height,
+                    target_height
+                );
 
-            let mmr_root_height = block_number;
+                // subscribe beefy justification and get signed commitment
+                let raw_signed_commitment = octopusxt::ibc_rpc::subscribe_beefy(client.clone())
+                    .await
+                    .map_err(|_| Error::get_signed_commitment())?;
 
-            assert!((target_height.revision_height as u32) <= mmr_root_height);
+                // decode signed commitment
+                let signed_commmitment: beefy_light_client::commitment::SignedCommitment =
+                    Decode::decode(&mut &raw_signed_commitment.0[..]).unwrap();
+                tracing::trace!(target:"ibc-rs",
+                    "in substrate: [build_header] decode signed commitment : {:?},", signed_commmitment);
+                // get commitment
+                let beefy_light_client::commitment::Commitment {
+                    payload,
+                    block_number,
+                    validator_set_id,
+                } = signed_commmitment.commitment;
+
+                // build validator proof
+                let validator_merkle_proofs: Vec<ValidatorMerkleProof> =
+                    octopusxt::update_client_state::build_validator_proof(
+                        client.clone(),
+                        block_number,
+                    )
+                    .await
+                    .map_err(|_| Error::get_validator_merkle_proof())?;
+
+                // build mmr proof
+                let api = client
+                    .clone()
+                    .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+                // get block hash
+                let block_hash: Option<H256> = api
+                    .client
+                    .rpc()
+                    .block_hash(Some(BlockNumber::from(block_number)))
+                    .await
+                    .map_err(|_| Error::get_block_hash_error())?;
+                // create proof
+                let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
+                    Some(BlockNumber::from(target_height - 1)),
+                    block_hash,
+                    client.clone(),
+                )
+                .await
+                .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
+
+                // build new mmr root
+                MmrRoot {
+                    signed_commitment: signed_commmitment.into(),
+                    validator_merkle_proofs: validator_merkle_proofs,
+                    mmr_leaf: mmr_leaf_and_mmr_leaf_proof.1,
+                    mmr_leaf_proof: mmr_leaf_and_mmr_leaf_proof.2,
+                }
+            } else {
+                tracing::trace!(target:"ibc-rs",
+                    "in substrate: [build_header] target_height <= mmr_root_height, mmr_root_height = {:?}, target_height = {:?}, just get mmr leaf and proof",
+                    mmr_root_height,
+                    target_height
+                );
+
+                let api = client
+                    .clone()
+                    .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+                // get block hash
+                let block_hash: Option<H256> = api
+                    .client
+                    .rpc()
+                    .block_hash(Some(BlockNumber::from(mmr_root_height)))
+                    .await
+                    .map_err(|_| Error::get_block_hash_error())?;
+
+                tracing::trace!(target:"ibc-rs",
+                    "in substrate: [build_header] >> block_hash = {:?}",
+                    block_hash
+                );
+                // build mmr proof
+                let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
+                    Some(BlockNumber::from(target_height - 1)),
+                    block_hash,
+                    client.clone(),
+                )
+                .await
+                .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
+
+                // build mmr root,only need mmr leaf and proof
+                MmrRoot {
+                    signed_commitment: SignedCommitment::default(),
+                    validator_merkle_proofs: vec![ValidatorMerkleProof::default()],
+                    mmr_leaf: mmr_leaf_and_mmr_leaf_proof.1,
+                    mmr_leaf_proof: mmr_leaf_and_mmr_leaf_proof.2,
+                }
+            };
+            tracing::trace!(target:"ibc-rs",
+                "in substrate: [build_header] >> mmr_root = {:?}",
+                mmr_root
+            );
 
             // get block header
-
             let block_header = octopusxt::ibc_rpc::get_header_by_block_number(
-                Some(BlockNumber::from(target_height.revision_height as u32)),
+                Some(BlockNumber::from(target_height)),
                 client.clone(),
             )
             .await
             .map_err(|_| Error::get_header_by_block_number_error())?;
 
-            let api = client
-                .clone()
-                .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
-
-            assert_eq!(
-                block_header.block_number,
-                target_height.revision_height as u32
-            );
-
-            tracing::trace!(target:"ibc-rs",
-                "in substrate: [build_header] >> mmr_root_height = {:?}, target_height = {:?}",
-                mmr_root_height,
-                target_height
-            );
-
-            //TODO: remove comment after test
-            // let mmr_root_height = target_height.revision_height as u32;
-
-            let block_hash: Option<H256> = api
-                .client
-                .rpc()
-                .block_hash(Some(BlockNumber::from(mmr_root_height)))
-                .await
-                .map_err(|_| Error::get_block_hash_error())?;
+            //build timestamp
+            // let timestamp = octopusxt::ibc_rpc::get_timestamp(
+            //     Some(BlockNumber::from(target_height)),
+            //     client.clone(),
+            // )
+            // .await
+            // .map_err(|_| Error::get_timestamp())?;
+            let timestamp = Time::from_unix_timestamp(0, 0).unwrap();
 
             tracing::trace!(target:"ibc-rs",
-                "in substrate: [build_header] >> block_hash = {:?}",
-                block_hash
+                "in substrate: [build_header] >> timestamp = {:?}",
+                timestamp
             );
-            let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
-                Some(BlockNumber::from(
-                    (target_height.revision_height - 1) as u32,
-                )),
-                block_hash,
-                client,
-            )
-            .await
-            .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
 
-            Ok((block_header, mmr_leaf_and_mmr_leaf_proof))
+            // build header
+            let grandpa_header = GPHeader {
+                mmr_root: mmr_root,
+                block_header: block_header,
+                timestamp: timestamp,
+            };
+
+            tracing::trace!(target:"ibc-rs",
+                "in substrate: [build_header] >> grandpa_header = {:?}",
+                grandpa_header
+            );
+            Ok(grandpa_header)
         };
 
-        let result = self.block_on(result)?;
+        let header = self.block_on(future)?;
 
-        let encoded_mmr_leaf = result.1 .1;
-        let encoded_mmr_leaf_proof = result.1 .2;
-
-        let leaf: Vec<u8> =
-            Decode::decode(&mut &encoded_mmr_leaf[..]).map_err(Error::invalid_codec_decode)?;
-        let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
-            Decode::decode(&mut &*leaf).map_err(Error::invalid_codec_decode)?;
-        let mmr_leaf_proof =
-            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..])
-                .map_err(Error::invalid_codec_decode)?;
-
-        let grandpa_header = GPHeader {
-            block_header: result.0,
-            mmr_leaf: MmrLeaf::from(mmr_leaf),
-            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
-        };
-
-        Ok((grandpa_header, vec![]))
+        Ok((header, vec![]))
     }
 
     /// add new api websocket_url
@@ -1600,30 +1673,9 @@ impl ChainEndpoint for SubstrateChain {
             mmr_root
         );
         println!(
-            "in substrate: [update_mmr_root], client_id = {:?},mmr_root_height ={:?} ",
-            client_id, mmr_root.block_header.block_number
+            "in substrate: [update_mmr_root], client_id = {:?}",
+            client_id,
         );
-        // let result = async {
-        //     let chain_a = ClientBuilder::new()
-        //         .set_url(src_chain_websocket_url)
-        //         .build::<ibc_node::DefaultConfig>()
-        //         .await
-        //         .map_err(|_| Error::substrate_client_builder_error())?;
-
-        //     let chain_b = ClientBuilder::new()
-        //         .set_url(dst_chain_websocket_url)
-        //         .build::<ibc_node::DefaultConfig>()
-        //         .await
-        //         .map_err(|_| Error::substrate_client_builder_error())?;
-
-        //     octopusxt::update_client_state::update_client_state(chain_a.clone(), chain_b.clone())
-        //         .await
-        //         .map_err(|_| Error::update_client_state_error())?;
-
-        //     octopusxt::update_client_state::update_client_state(chain_b.clone(), chain_a.clone())
-        //         .await
-        //         .map_err(|_| Error::update_client_state_error())
-        // };
 
         let rpc_url = format!("{}", self.config().rpc_addr);
         println!("in substrate: [update_mmr_root], rpc url:  {:?}", rpc_url);

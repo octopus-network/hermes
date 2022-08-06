@@ -491,10 +491,9 @@ impl ChainHandle for BaseChainHandle {
             mmr_root
         );
         println!(
-            "in base chain handle: [update_mmr_root], chain_id = {:?},client_id = {:?},mmr_root_height ={:?} ",
+            "in base chain handle: [update_mmr_root], chain_id = {:?},client_id = {:?} ",
             self.id(),
             client_id,
-            mmr_root.block_header.block_number
         );
         self.send(|reply_to| ChainRequest::UpdateMmrRoot {
             client_id,

@@ -449,10 +449,9 @@ where
                                 mmr_root
                             );
                             println!(
-                                "in runtime: [run], ChainRequest::UpdateMmrRoot, chain_id = {:?},client_id = {:?},mmr_root ={:?} ",
+                                "in runtime: [run], ChainRequest::UpdateMmrRoot, chain_id = {:?},client_id = {:?} ",
                                 self.chain.id(),
                                 client_id,
-                                mmr_root.block_header.block_number
                             );
                             self.update_mmr_root(client_id,mmr_root,reply_to,)?
                         },

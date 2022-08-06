@@ -58,7 +58,8 @@ fi
 if [[ ! -e "$IBC_GO_GIT" ]]
 then
 	echo "Cloning ibc-go source code to as bare git repository to $IBC_GO_GIT"
-	git clone --mirror https://github.com/cosmos/ibc-go.git "$IBC_GO_GIT"
+	# git clone --mirror https://github.com/cosmos/ibc-go.git "$IBC_GO_GIT"
+	git clone --mirror https://github.com/octopus-network/ibc-go.git "$IBC_GO_GIT"
 else
 	echo "Using existing ibc-go bare git repository at $IBC_GO_GIT"
 fi
@@ -106,13 +107,16 @@ mkdir -p proto/src/prost
 
 cd proto-compiler
 
-cargo build --locked
-
+# cargo build --locked
+cargo build 
 # Run the proto-compiler twice,
 # once for std version with --build-tonic set to true
 # and once for no-std version with --build-tonic set to false
 
-cargo run --locked -- compile \
+# cargo run --locked -- compile \
+# 	--sdk "$COSMOS_SDK_DIR" --ibc "$IBC_GO_DIR" --out ../proto/src/prost
+
+cargo run -- compile \
 	--sdk "$COSMOS_SDK_DIR" --ibc "$IBC_GO_DIR" --out ../proto/src/prost
 
 # Remove the temporary checkouts of the repositories
