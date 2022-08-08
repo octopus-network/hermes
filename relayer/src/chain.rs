@@ -279,7 +279,7 @@ pub trait ChainEndpoint: Sized {
 
     fn websocket_url(&self) -> Result<String, Error>;
 
-    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error>;
+    fn update_mmr_root(&mut self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error>;
 
     fn query_blocks(
         &self,

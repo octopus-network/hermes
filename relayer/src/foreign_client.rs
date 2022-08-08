@@ -1105,7 +1105,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         };
 
         let new_msgs = self.build_update_client_with_trusted(h, trusted_height)?;
-        tracing::trace!(target:"ibc-rs","[build_update_client_and_send] new_msgs : {:?}",new_msgs);
+        // tracing::trace!(target:"ibc-rs","[build_update_client_and_send] new_msgs : {:?}",new_msgs);
 
         if new_msgs.is_empty() {
             return Err(ForeignClientError::client_already_up_to_date(

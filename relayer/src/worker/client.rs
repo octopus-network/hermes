@@ -175,7 +175,7 @@ pub fn spawn_update_mmr_root<ChainA: ChainHandle, ChainB: ChainHandle>(
 
                 match cmd {
                     WorkerCmd::Beefy { mmr_root } => {
-                        println!("in worker/client: [spawn_update_mmr_root], WorkerCmd::Beefy and mmr root is :{:?}",mmr_root);
+                        // println!("in worker/client: [spawn_update_mmr_root], WorkerCmd::Beefy and mmr root is :{:?}",mmr_root);
                         //TODO: client.update_mmr_root(mmr_root)
                         // let res = client.refresh().map_err(|e| {
                         //     if e.is_expired_or_frozen_error() {

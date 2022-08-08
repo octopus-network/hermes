@@ -103,7 +103,7 @@ impl ClientDef for GrandpaClient {
 
         // Step0: check header height
         if block_header.block_number <= client_state.block_number {
-            tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state -> the header already updated ! header height={:?}, client_state height={:?}",
+            tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state -> the header already updated ! hblock_header.block_number={:?}, client_state.block_number={:?}",
             block_header.block_number, client_state.block_number);
             return Err(Error::invalid_header_height(
                 client_state.block_number,
@@ -113,6 +113,12 @@ impl ClientDef for GrandpaClient {
 
         // Step1: verfiy mmr root
         let new_mmr_root_height = commitment.clone().unwrap().block_number;
+        tracing::trace!(
+            target: "ibc-rs",
+            "[ics10_grandpa::client_def] check_header_and_update_state new_mmr_root_height={:?},client_state.latest_commitment.block_number={:?}",
+            new_mmr_root_height,client_state.latest_commitment.block_number
+        );
+
         if new_mmr_root_height > client_state.latest_commitment.block_number {
             // use new mmr root in header to verify mmr proof
             // build new beefy light client use client_state
@@ -227,16 +233,16 @@ impl ClientDef for GrandpaClient {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state block_header.parent_hash: {:?}",block_header.parent_hash);
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
 
-        // verfiy block header
-        if block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
-            return Err(Error::header_hash_not_match());
-        }
-
         let beefy_header =
             beefy_light_client::header::Header::try_from(block_header.clone()).unwrap();
         let header_hash = beefy_header.hash();
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state header_hash: {:?}",header_hash);
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
+
+        // verfiy block header
+        if block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
+            return Err(Error::header_hash_not_match());
+        }
 
         // if header_hash != mmr_leaf.parent_number_and_hash.1 {
         //     return Err(Error::header_hash_not_match());

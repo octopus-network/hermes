@@ -1508,7 +1508,7 @@ impl ChainEndpoint for CosmosSdkChain {
         Ok(self.config.websocket_addr.clone().to_string())
     }
 
-    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
+    fn update_mmr_root(&mut self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
         todo!()
     }
 }

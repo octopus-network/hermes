@@ -938,7 +938,7 @@ where
     }
 
     fn update_mmr_root(
-        &self,
+        &mut self,
         client_id: ClientId,
         mmr_root: MmrRoot,
         reply_to: ReplyTo<()>,
