@@ -32,6 +32,10 @@ use crate::core::ics24_host::identifier::ConnectionId;
 use crate::core::ics24_host::identifier::{ChannelId, ClientId, PortId};
 use crate::Height;
 
+use beefy_light_client::{
+    commitment::{self, known_payload_ids::MMR_ROOT_ID},
+    header, mmr,
+};
 use frame_support::{
     storage::{
         storage_prefix,
@@ -225,6 +229,7 @@ impl ClientDef for GrandpaClient {
         let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
             Decode::decode(&mut &*mmr_leaf).map_err(|_| Error::cant_decode_mmr_leaf())?;
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf to data struct: {:?}",mmr_leaf);
+
 
         // check mmr leaf
         if mmr_leaf.parent_number_and_hash.1.is_empty() {
@@ -758,7 +763,7 @@ mod tests {
     fn test_check_header_and_update_state_by_test_case_from_beefy_light_client() {
         let client = GrandpaClient;
 
-        let commitment = beefy_light_client::commitment::Commitment {
+        let commitment = commitment::Commitment {
             payload: hex!("7fe1460305e05d0937df34aa47a251811b0f83032fd153a64ebb8812cb252ee2"),
             block_number: 89,
             validator_set_id: 0,
@@ -798,10 +803,8 @@ mod tests {
             134, 44, 183, 166, 137,
         ];
 
-        let header: beefy_light_client::header::Header =
-            Decode::decode(&mut &encoded_header[..]).unwrap();
-        let header_1: beefy_light_client::header::Header =
-            Decode::decode(&mut &encoded_header[..]).unwrap();
+        let header: header::Header = Decode::decode(&mut &encoded_header[..]).unwrap();
+        let header_1: header::Header = Decode::decode(&mut &encoded_header[..]).unwrap();
         println!("beefy_light_client header = {:?}", header);
         println!("beefy_light_client header hash = {:?}", header.hash());
 
@@ -819,7 +822,7 @@ mod tests {
         let  encoded_mmr_leaf = hex!("c5010051000000f728a8e3b29fb62b3234be2ba31e6beffd00bb571a978962ff9c26ea8dcc20ab010000000000000005000000304803fa5a91d9852caafe04b4b867a4ed27a07a5bee3d1507b4b187a68777a20000000000000000000000000000000000000000000000000000000000000000");
 
         let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
-        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
+        let mmr_leaf: mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
         println!("mmr_leaf: {:?}", mmr_leaf);
         println!(
             "mmr_leaf parent_number_and_hash : {:?}",
@@ -832,8 +835,7 @@ mod tests {
         );
 
         let encoded_mmr_proof =  hex!("5100000000000000590000000000000018bddfdcc0399d0ce1be41f1126f63053ecb26ee19c107c0f96013f216b7b21933f8611a08a46cd74fd96d54d2eb19898dbd743b019bf7ba32b17b9a193f0e65b8c231bab606963f6a5a05071bea9af2a30f22adc43224affe87b3f90d1a07d0db4b6a7c61c56d1174067b6e816970631b8727f6dfe3ebd3923581472d45f47ad3940e1f16782fd635f4789d7f5674d2cbf12d1bbd7823c6ee37c807ad34424d48f0e3888f05a1d6183d9dbf8a91d3400ea2047b5e19d498968011e63b91058fbd");
-        let mmr_proof =
-            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encoded_mmr_proof[..]).unwrap();
+        let mmr_proof = mmr::MmrLeafProof::decode(&mut &encoded_mmr_proof[..]).unwrap();
         // println!("mmr_proof: {:?}", mmr_proof);
 
         let ics10_header = Header {
@@ -873,20 +875,18 @@ mod tests {
         // subscribe beefy justification
         let signed_commitment_raw = subscribe_beefy(client.clone()).await.unwrap().0;
 
-        let signed_commitment = beefy_light_client::commitment::SignedCommitment::decode(
-            &mut &signed_commitment_raw.clone()[..],
-        )
-        .unwrap();
+        let signed_commitment =
+            commitment::SignedCommitment::decode(&mut &signed_commitment_raw.clone()[..]).unwrap();
 
         println!("signed_commitment = {:?}", signed_commitment);
 
-        let beefy_light_client::commitment::Commitment {
+        let commitment::Commitment {
             payload,
             block_number,
             validator_set_id,
         } = signed_commitment.commitment;
 
-        // let commitment = beefy_light_client::commitment::Commitment {
+        // let commitment = commitment::Commitment {
         //     payload: hex!("7fe1460305e05d0937df34aa47a251811b0f83032fd153a64ebb8812cb252ee2"),
         //     block_number: 89,
         //     validator_set_id: 0,
@@ -948,11 +948,10 @@ mod tests {
         let encode_mmr_leaf_proof = mmr_leaf_and_mmr_leaf_proof.2;
 
         let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
-        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
+        let mmr_leaf: mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
         println!("mmr_leaf = {:?}", mmr_leaf);
 
-        let mmr_leaf_proof =
-            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encode_mmr_leaf_proof[..]).unwrap();
+        let mmr_leaf_proof = mmr::MmrLeafProof::decode(&mut &encode_mmr_leaf_proof[..]).unwrap();
         println!("mmr_leaf_proof = {:?}", mmr_leaf_proof);
 
         let ics10_header = Header {
@@ -1001,13 +1000,11 @@ mod tests {
             HexDisplay::from(&signed_commitment_raw)
         );
         // decode signed_commitment
-        let signed_commitment = beefy_light_client::commitment::SignedCommitment::decode(
-            &mut &signed_commitment_raw.clone()[..],
-        )
-        .unwrap();
+        let signed_commitment =
+            commitment::SignedCommitment::decode(&mut &signed_commitment_raw.clone()[..]).unwrap();
         println!("signed_commitment = {:?}", signed_commitment);
 
-        let beefy_light_client::commitment::Commitment {
+        let commitment::Commitment {
             payload,
             block_number,
             validator_set_id,
@@ -1057,8 +1054,7 @@ signed commitment validator_set_id : {}",
             "generated the mmr leaf proof = {:?}",
             format!("{}", HexDisplay::from(&mmr_leaf_proof))
         );
-        let decode_mmr_proof =
-            beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..]).unwrap();
+        let decode_mmr_proof = mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..]).unwrap();
         println!("decode the mmr leaf proof = {:?}", decode_mmr_proof);
 
         // mmr leaf
@@ -1079,7 +1075,7 @@ signed commitment validator_set_id : {}",
             format!("{}", HexDisplay::from(&mmr_leaf_hash))
         );
 
-        let mmr_leaf_2: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*mmr_leaf).unwrap();
+        let mmr_leaf_2: mmr::MmrLeaf = Decode::decode(&mut &*mmr_leaf).unwrap();
         println!("decode the mmr leaf  = {:?}", mmr_leaf_2);
         println!("parent_number  = {}", mmr_leaf_2.parent_number_and_hash.0);
         println!(
@@ -1087,8 +1083,7 @@ signed commitment validator_set_id : {}",
             HexDisplay::from(&mmr_leaf_2.parent_number_and_hash.1)
         );
 
-        let result =
-            beefy_light_client::mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, decode_mmr_proof);
+        let result = mmr::verify_leaf_proof(mmr_root, mmr_leaf_hash, decode_mmr_proof);
 
         match result {
             Ok(b) => {
@@ -1163,11 +1158,10 @@ signed commitment validator_set_id : {}",
         let encode_mmr_leaf_proof = mmr_leaf_and_mmr_leaf_proof.2;
 
         let leaf: Vec<u8> = Decode::decode(&mut &encoded_mmr_leaf[..]).unwrap();
-        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
+        let mmr_leaf: mmr::MmrLeaf = Decode::decode(&mut &*leaf).unwrap();
         println!("mmr_leaf = {:?}", mmr_leaf);
 
-        let mmr_leaf_proof =
-            beefy_light_client::mmr::MmrLeafProof::decode(&mut &encode_mmr_leaf_proof[..]).unwrap();
+        let mmr_leaf_proof = mmr::MmrLeafProof::decode(&mut &encode_mmr_leaf_proof[..]).unwrap();
         println!("mmr_leaf_proof = {:?}", mmr_leaf_proof);
 
         let ics10_header = Header {

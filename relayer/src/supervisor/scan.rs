@@ -545,7 +545,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
         }
     }
 
-    fn client_allowed(&mut self, chain: &Chain, client: &IdentifiedAnyClientState) -> bool {
+    fn _client_allowed(&mut self, chain: &Chain, client: &IdentifiedAnyClientState) -> bool {
         if !self.filtering_enabled() {
             return true;
         };

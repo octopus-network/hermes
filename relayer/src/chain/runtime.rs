@@ -226,7 +226,6 @@ where
     }
 
     fn run(mut self) -> Result<(), Error> {
-        use core::time::Duration;
         loop {
             channel::select! {
                 recv(self.event_monitor_ctrl.recv()) -> event_batch => {

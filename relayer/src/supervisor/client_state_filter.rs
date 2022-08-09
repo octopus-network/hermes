@@ -217,7 +217,7 @@ impl FilterPolicy {
             obj.dst_chain_id
         );
 
-        let client_state = chain
+        let _client_state = chain
             .query_client_state(&obj.dst_client_id, Height::zero())
             .map_err(FilterError::relayer)?;
 
@@ -262,7 +262,7 @@ impl FilterPolicy {
             .query_client_state(connection_end.client_id(), Height::zero())
             .map_err(FilterError::relayer)?;
 
-        self.control_connection_end_and_client(
+        let _ = self.control_connection_end_and_client(
             registry,
             &obj.src_chain_id,
             &client_state,
@@ -341,7 +341,7 @@ impl FilterPolicy {
         registry: &mut Registry<Chain>,
         obj: &object::Channel,
     ) -> Result<Permission, FilterError> {
-        self.control_channel(
+        let _ = self.control_channel(
             registry,
             &obj.src_chain_id,
             &obj.src_port_id,
@@ -355,7 +355,7 @@ impl FilterPolicy {
         registry: &mut Registry<Chain>,
         obj: &object::Packet,
     ) -> Result<Permission, FilterError> {
-        self.control_channel(
+        let _ = self.control_channel(
             registry,
             &obj.src_chain_id,
             &obj.src_port_id,

@@ -1,4 +1,18 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SignedCommitment {
+    #[prost(message, optional, tag = "1")]
+    pub commitment: ::core::option::Option<Commitment>,
+    #[prost(message, repeated, tag = "2")]
+    pub signatures: ::prost::alloc::vec::Vec<InnerSignature>,
+}
+
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InnerSignature {
+    #[prost(message, optional, tag = "1")]
+    pub inner_signature : ::core::option::Option<Signature>,
+}
+
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Commitment {
     /// block height
     ///
@@ -11,18 +25,7 @@ pub struct Commitment {
     #[prost(uint64, tag = "3")]
     pub validator_set_id: u64,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Signature {
-    #[prost(bytes = "vec", tag = "1")]
-    pub signature: ::prost::alloc::vec::Vec<u8>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SignedCommitment {
-    #[prost(message, optional, tag = "1")]
-    pub commitment: ::core::option::Option<Commitment>,
-    #[prost(message, repeated, tag = "2")]
-    pub signatures: ::prost::alloc::vec::Vec<Signature>,
-}
+
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ValidatorMerkleProof {
     //// Proof items (does not contain the leaf hash, nor the root obviously).

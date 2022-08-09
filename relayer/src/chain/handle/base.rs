@@ -80,15 +80,15 @@ impl BaseChainHandle {
         receiver.recv().map_err(Error::channel_receive)?
     }
 
-    fn send_async<F, O>(&self, f: F)
+    fn _send_async<F, O>(&self, f: F)
     where
         F: FnOnce(ReplyTo<O>) -> ChainRequest,
         O: Debug,
     {
-        let (sender, receiver) = reply_channel();
+        let (sender, _receiver) = reply_channel();
         let input = f(sender);
 
-        self.runtime_sender.send(input);
+        let _ = self.runtime_sender.send(input);
     }
 }
 
