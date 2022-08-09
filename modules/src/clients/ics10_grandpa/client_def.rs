@@ -185,12 +185,16 @@ impl ClientDef for GrandpaClient {
             }
         } else {
             // just reuse existing mmr root to verify mmr proof
-            if client_state.latest_commitment.payload.is_empty() {
+            if client_state.latest_commitment.payload.0.is_empty() {
                 return Err(Error::empty_mmr_root());
             }
             // get mmr root from existing client_state.latest_commitment
             let mut payload = [0u8; 32];
-            payload.copy_from_slice(&client_state.latest_commitment.payload);
+            payload.copy_from_slice(&client_state
+                .latest_commitment
+                .payload
+                .get_raw(&MMR_ROOT_ID)
+                .unwrap());
 
             // decode mmr leaf proof
             let mmr_leaf_proof =

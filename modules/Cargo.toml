@@ -50,7 +50,6 @@ std = [
     "sp-io/std",
     "beefy-light-client/std",
     "tendermint/std",
-    # "sp-timestamp/std"
     # "tendermint-proto/std",
     # "tendermint-light-client-verifier/std",
     # "tendermint-testgen/std",
