@@ -18,9 +18,8 @@ use core::{future::Future, str::FromStr, time::Duration};
 use ibc::core::ics02_client::msgs::update_client::MsgUpdateAnyClient;
 use ibc::tx_msg::Msg;
 
-use super::client::ClientSettings;
-use super::tx::TrackedMsgs;
-use crate::chain::{ChainStatus, QueryResponse};
+
+use crate::chain::QueryResponse;
 use crate::connection::ConnectionMsgType;
 use crate::light_client::Verified;
 use ibc::{
@@ -66,7 +65,9 @@ use ibc_proto::ibc::core::{
     commitment::v1::MerkleProof,
     connection::v1::{QueryClientConnectionsRequest, QueryConnectionsRequest},
 };
-
+use ibc::clients::ics10_grandpa::help::SignedCommitment;
+use ibc::clients::ics10_grandpa::help::ValidatorMerkleProof;
+use ibc::core::ics23_commitment::commitment::CommitmentRoot;
 use jsonrpsee::rpc_params;
 use octopusxt::MyConfig;
 use retry::delay::Fixed;
@@ -84,7 +85,7 @@ use anyhow::Result;
 use beefy_light_client::{commitment, mmr};
 use ibc::clients::ics10_grandpa::help::Commitment;
 use ibc::clients::ics10_grandpa::help::MmrRoot;
-use jsonrpsee::types::to_json_value;
+// use jsonrpsee::types::to_json_value;
 use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
 use ibc::core::ics04_channel::events::SendPacket;
 use octopusxt::ibc_node::ibc::storage;
@@ -1445,9 +1446,9 @@ impl ChainEndpoint for SubstrateChain {
 
     fn build_consensus_state(
         &self,
-        _light_block: Self::LightBlock,
+        light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
-        tracing::trace!(target:"ibc-rs","in substrate: [build_consensus_state] light_block:{:?}",light_block);
+        tracing::trace!(target:"ibc-rs","in substrate: [build_consensus_state] light_block:{:?}", light_block);
         //build consensus state from header
         let root = CommitmentRoot::from_bytes(&light_block.block_header.state_root);
         let consensue_state = GPConsensusState::new(root, light_block.timestamp);
@@ -1517,7 +1518,7 @@ impl ChainEndpoint for SubstrateChain {
                     payload,
                     block_number,
                     validator_set_id,
-                } = signed_commmitment.commitment;
+                } = signed_commmitment.commitment.clone();
                 tracing::trace!(target:"ibc-rs",
                 "in substrate: [build_header] new mmr root block_number : {:?},", block_number);
                 // build validator proof
@@ -1530,9 +1531,10 @@ impl ChainEndpoint for SubstrateChain {
                     .map_err(|_| Error::get_validator_merkle_proof())?;
 
                 // build mmr proof
-                let api = client
-                    .clone()
-                    .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+            
+                let api =
+                    client.clone().to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
+
                 // get block hash
                 let block_hash: Option<H256> = api
                     .client
@@ -1578,9 +1580,9 @@ impl ChainEndpoint for SubstrateChain {
                     target_height
                 );
 
-                let api = client
-                    .clone()
-                    .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+                let api =
+                client.clone().to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
+
                 // get block hash
                 let block_hash: Option<H256> = api
                     .client
@@ -1742,7 +1744,7 @@ impl ChainEndpoint for SubstrateChain {
         let future = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
-                .build::<ibc_node::DefaultConfig>()
+                .build::<MyConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
@@ -1944,8 +1946,8 @@ impl ChainEndpoint for SubstrateChain {
 
 /// send Update client state request
 pub async fn send_update_state_request(
-    client: Client<ibc_node::DefaultConfig>,
-    pair_signer: PairSigner<ibc_node::DefaultConfig, sp_core::sr25519::Pair>,
+    client: Client<MyConfig>,
+    pair_signer: PairSigner<MyConfig, sp_core::sr25519::Pair>,
     chain_id: ChainId,
     client_id: ClientId,
     mmr_root: MmrRoot,
@@ -1953,7 +1955,8 @@ pub async fn send_update_state_request(
     tracing::info!("in substrate: [send_update_state_request]");
     println!("in substrate: [send_update_state_request]");
 
-    let api = client.to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+    let api = client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
+
 
     // let pair_signer = PairSigner::new(signer);
     // let client_state_bytes = <commitment::SignedCommitment as codec::Encode>::encode(&client_state);
@@ -1970,8 +1973,8 @@ pub async fn send_update_state_request(
     let result = api
         .tx()
         .ibc()
-        .update_client_state(encode_client_id, encode_mmr_root)
-        .sign_and_submit(&pair_signer)
+        .update_client_state(encode_client_id, encode_mmr_root)?
+        .sign_and_submit_default(&pair_signer)
         .await?;
 
     tracing::info!("update client state result: {:?}", result);

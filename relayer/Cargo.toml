@@ -65,7 +65,7 @@ regex = "1.5.5"
 moka = "0.8.2"
 
 
-jsonrpsee = { version = "0.15.1", features = ["macros", "ws-client", "http-client"] }
+jsonrpsee = { version = "0.14", features = ["macros", "ws-client", "http-client"] }
 octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/integrate_mmr_srv" }
 # octopusxt = { path = "../../octopusxt/module" }
 
