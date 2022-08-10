@@ -13,11 +13,12 @@ use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, trace};
 
 use tendermint_rpc::{event::Event as RpcEvent, Url};
-
-use octopusxt::ibc_node::{DefaultConfig, RuntimeApi};
+use octopusxt::MyConfig;
+use octopusxt::ibc_node::RuntimeApi;
+use octopusxt::SubstrateNodeTemplateExtrinsicParams;
 use subxt::{
-    BeefySubscription, Client, ClientBuilder, Error as SubstrateError, EventSubscription,
-    PairSigner, RawEvent, SignedCommitment,
+    Client, ClientBuilder, Error as SubstrateError,
+    PairSigner, SignedCommitment,
 };
 
 use ibc::clients::ics10_grandpa::help::{self, MmrRoot};
@@ -125,7 +126,7 @@ impl BeefyMonitorCtrl {
 pub struct BeefyMonitor {
     chain_id: ChainId,
     /// WebSocket to collect events from
-    client: Client<DefaultConfig>,
+    client: Client<MyConfig>,
     /// Async task handle for the WebSocket client's driver
     // driver_handle: JoinHandle<()>,
     /// Channel to handler where the monitor for this chain sends the events
@@ -140,7 +141,7 @@ pub struct BeefyMonitor {
     node_addr: Url,
 
     /// beefy subscription
-    subscription: Option<BeefySubscription>,
+    subscription: Option<SignedCommitment>,
 
     /// Tokio runtime
     rt: Arc<TokioRuntime>,
@@ -161,7 +162,7 @@ impl BeefyMonitor {
             .block_on(async move {
                 ClientBuilder::new()
                     .set_url(ws_addr)
-                    .build::<DefaultConfig>()
+                    .build::<MyConfig>()
                     .await
             })
             .map_err(|_| Error::client_creation_failed(chain_id.clone(), node_addr.clone()))?;
@@ -208,7 +209,7 @@ impl BeefyMonitor {
             .block_on(
                 ClientBuilder::new()
                     .set_url(format!("{}", &self.node_addr.clone()))
-                    .build::<DefaultConfig>(),
+                    .build::<MyConfig>(),
             )
             .map_err(|_| {
                 Error::client_creation_failed(self.chain_id.clone(), self.node_addr.clone())
@@ -315,17 +316,16 @@ impl BeefyMonitor {
         // };
 
         // let &mut sub = self.subscription.as_ref().unwrap();
-        let api = self
-            .client
-            .clone()
-            .to_runtime_api::<RuntimeApi<DefaultConfig>>();
+        
+        let api = self.client.clone().to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
         let sub = self
             .rt
             .block_on(api.client.rpc().subscribe_beefy_justifications())
             .unwrap();
 
-        let mut beefy_sub = BeefySubscription::new(sub);
+        let mut beefy_sub = sub;
+
         tracing::trace!("in beefy_monitor: [run], beefy subscripte success ! ");
         println!(
             "in beefy_monitor: [run], Successful beefy subscription to {:?} ! ",
@@ -338,7 +338,7 @@ impl BeefyMonitor {
 
         // msg loop for handle the beefy SignedCommitment
         loop {
-            let raw_sc = self.rt.block_on(beefy_sub.next()).unwrap();
+            let raw_sc = self.rt.block_on(beefy_sub.next()).unwrap().unwrap();
             tracing::trace!(
                 "in beefy_monitor: [run], from {:?} received beefy signed commitment : {:?} ",
                 self.chain_id.as_str(),
@@ -480,17 +480,18 @@ impl BeefyMonitor {
         Ok(())
     }
     /// Subscribe beefy msg
-    async fn subscribe_beefy(&self) -> Result<BeefySubscription, SubstrateError> {
-        tracing::info!("In beefy_monitor: [subscribe_beefy]");
-        // subscribe beefy justification for src chain
-        let api = self
-            .client
-            .clone()
-            .to_runtime_api::<RuntimeApi<DefaultConfig>>();
-        let sub = api.client.rpc().subscribe_beefy_justifications().await?;
-        let beefy_sub = BeefySubscription::new(sub);
-        Ok(beefy_sub)
-        // self.subscription = some(sub)
+    pub async fn subscribe_beefy(
+        &self,
+    ) -> Result<SignedCommitment, Box<dyn std::error::Error>> {
+        tracing::info!("In call_ibc: [subscribe_beefy_justifications]");
+        let api = self.client.clone()
+            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
+    
+        let mut sub = api.client.rpc().subscribe_beefy_justifications().await?;
+    
+        let raw = sub.next().await.unwrap().unwrap();
+    
+        Ok(raw)
     }
 }
 

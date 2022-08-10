@@ -7,9 +7,24 @@ use codec::{Decode, Encode};
 use core::convert::TryFrom;
 use serde::{Deserialize, Serialize};
 
+use ibc_proto::ibc::lightclients::grandpa::v1::BlockHeader as RawBlockHeader;
 use ibc_proto::ibc::lightclients::grandpa::v1::Commitment as RawCommitment;
+use ibc_proto::ibc::lightclients::grandpa::v1::InnerSignature;
+use ibc_proto::ibc::lightclients::grandpa::v1::MmrLeaf as RawMmrLeaf;
+use ibc_proto::ibc::lightclients::grandpa::v1::MmrLeafProof as RawMmrLeafProof;
+use ibc_proto::ibc::lightclients::grandpa::v1::ParentNumberAndHash as RawParentNumberAndHash;
+use ibc_proto::ibc::lightclients::grandpa::v1::Signature as RawSignature;
+use ibc_proto::ibc::lightclients::grandpa::v1::SignedCommitment as RawSignedCommitment;
+use ibc_proto::ibc::lightclients::grandpa::v1::ValidatorMerkleProof as RawValidatorMerkleProof;
+use ibc_proto::ibc::lightclients::grandpa::v1::ValidatorSet as RawValidatorSet;
 
-use crate::alloc::string::ToString;
+use alloc::string::ToString;
+use crate::Height;
+use beefy_light_client::commitment::known_payload_ids::MMR_ROOT_ID;
+use beefy_light_client::commitment::Commitment as BeefyCommitment;
+use beefy_light_client::commitment::Payload;
+use beefy_light_client::ValidatorMerkleProof as BeefyValidatorMerkleProof;
+use beefy_light_client::{commitment, header, mmr, validator_set};
 use flex_error::{define_error, DisplayOnly, TraceError};
 use tendermint_proto::Error as TendermintError;
 
@@ -18,7 +33,7 @@ pub struct Commitment {
     /// block height
     pub block_number: u32,
     /// mmr root
-    pub payload: Vec<u8>,
+    pub payload: Payload,
     ///validator_set_id
     pub validator_set_id: u64,
 }
@@ -27,26 +42,26 @@ impl Default for Commitment {
     fn default() -> Self {
         Self {
             block_number: 0,
-            payload: vec![0u8; 32],
+            payload: Payload(vec![]),
             validator_set_id: 0,
         }
     }
 }
 
-impl From<beefy_light_client::commitment::Commitment> for Commitment {
-    fn from(value: beefy_light_client::commitment::Commitment) -> Self {
+impl From<BeefyCommitment> for Commitment {
+    fn from(value: BeefyCommitment) -> Self {
         Self {
             block_number: value.block_number,
-            payload: Vec::from(value.payload),
+            payload: value.payload.into(),
             validator_set_id: value.validator_set_id,
         }
     }
 }
 
-impl From<Commitment> for beefy_light_client::commitment::Commitment {
+impl From<Commitment> for BeefyCommitment {
     fn from(value: Commitment) -> Self {
         Self {
-            payload: Hash::try_from(value.payload).unwrap_or([0; 32]),
+            payload: value.payload.into(),
             block_number: value.block_number,
             validator_set_id: value.validator_set_id,
         }
@@ -57,7 +72,7 @@ impl From<RawCommitment> for Commitment {
     fn from(raw: RawCommitment) -> Self {
         Self {
             block_number: raw.block_number,
-            payload: raw.payload,
+            payload: Payload::new(MMR_ROOT_ID, raw.payload),
             validator_set_id: raw.validator_set_id,
         }
     }
@@ -66,13 +81,18 @@ impl From<Commitment> for RawCommitment {
     fn from(value: Commitment) -> Self {
         Self {
             block_number: value.block_number,
-            payload: value.payload,
+            payload: value
+                .payload
+                .get_raw(&MMR_ROOT_ID)
+                .map(|value| value.clone())
+                .unwrap_or_default(),
             validator_set_id: value.validator_set_id,
         }
     }
 }
 
-use ibc_proto::ibc::lightclients::grandpa::v1::ValidatorSet as RawValidatorSet;
+/// A typedef for validator set id.
+pub type ValidatorSetId = u64;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct ValidatorSet {
@@ -81,7 +101,8 @@ pub struct ValidatorSet {
     /// Id is required to correlate BEEFY signed commitments with the validator set.
     /// Light Client can easily verify that the commitment witness it is getting is
     /// produced by the latest validator set.
-    pub id: u64,
+    pub id: ValidatorSetId,
+
     /// Number of validators in the set.
     ///
     /// Some BEEFY Light Clients may use an interactive protocol to verify only subset
@@ -96,8 +117,8 @@ pub struct ValidatorSet {
     pub root: Vec<u8>,
 }
 
-impl From<beefy_light_client::validator_set::BeefyNextAuthoritySet> for ValidatorSet {
-    fn from(value: beefy_light_client::validator_set::BeefyNextAuthoritySet) -> Self {
+impl From<validator_set::BeefyNextAuthoritySet> for ValidatorSet {
+    fn from(value: validator_set::BeefyNextAuthoritySet) -> Self {
         Self {
             id: value.id,
             len: value.len,
@@ -106,7 +127,7 @@ impl From<beefy_light_client::validator_set::BeefyNextAuthoritySet> for Validato
     }
 }
 
-impl From<ValidatorSet> for beefy_light_client::validator_set::BeefyNextAuthoritySet {
+impl From<ValidatorSet> for validator_set::BeefyNextAuthoritySet {
     fn from(value: ValidatorSet) -> Self {
         Self {
             id: value.id,
@@ -135,8 +156,6 @@ impl From<ValidatorSet> for RawValidatorSet {
     }
 }
 
-use ibc_proto::ibc::lightclients::grandpa::v1::MmrLeaf as RawMmrLeaf;
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct MmrLeaf {
     //// Version of the leaf format.
@@ -150,8 +169,8 @@ pub struct MmrLeaf {
     pub parachain_heads: Vec<u8>,
 }
 
-impl From<beefy_light_client::mmr::MmrLeaf> for MmrLeaf {
-    fn from(value: beefy_light_client::mmr::MmrLeaf) -> Self {
+impl From<mmr::MmrLeaf> for MmrLeaf {
+    fn from(value: mmr::MmrLeaf) -> Self {
         Self {
             version: value.version.0 as u32,
             parent_number_and_hash: ParentNumberAndHash {
@@ -164,7 +183,7 @@ impl From<beefy_light_client::mmr::MmrLeaf> for MmrLeaf {
     }
 }
 
-impl TryFrom<MmrLeaf> for beefy_light_client::mmr::MmrLeaf {
+impl TryFrom<MmrLeaf> for mmr::MmrLeaf {
     type Error = Error;
 
     fn try_from(value: MmrLeaf) -> Result<Self, Self::Error> {
@@ -175,10 +194,9 @@ impl TryFrom<MmrLeaf> for beefy_light_client::mmr::MmrLeaf {
                 Hash::try_from(value.parent_number_and_hash.parent_header_hash)
                     .map_err(|_| Error::invalid_convert_hash())?,
             ),
-            beefy_next_authority_set:
-                beefy_light_client::validator_set::BeefyNextAuthoritySet::from(
-                    value.beefy_next_authority_set,
-                ),
+            beefy_next_authority_set: validator_set::BeefyNextAuthoritySet::from(
+                value.beefy_next_authority_set,
+            ),
             parachain_heads: Hash::try_from(value.parachain_heads)
                 .map_err(|_| Error::invalid_convert_hash())?,
         })
@@ -214,8 +232,6 @@ impl From<MmrLeaf> for RawMmrLeaf {
     }
 }
 
-use ibc_proto::ibc::lightclients::grandpa::v1::ParentNumberAndHash as RawParentNumberAndHash;
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct ParentNumberAndHash {
     pub parent_header_number: u32,
@@ -241,12 +257,10 @@ impl From<ParentNumberAndHash> for RawParentNumberAndHash {
     }
 }
 
-use ibc_proto::ibc::lightclients::grandpa::v1::SignedCommitment as RawSignedCommitment;
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct SignedCommitment {
     pub commitment: Option<Commitment>,
-    pub signatures: Vec<Signature>,
+    pub signatures: Vec<Option<Signature>>,
 }
 
 impl SignedCommitment {
@@ -254,7 +268,7 @@ impl SignedCommitment {
         SignedCommitment {
             commitment: Some(Commitment {
                 block_number: height.revision_height as u32,
-                payload: vec![],
+                payload: Payload(vec![]),
                 validator_set_id: 0,
             }),
             signatures: vec![],
@@ -262,20 +276,26 @@ impl SignedCommitment {
     }
 }
 
-impl From<beefy_light_client::commitment::SignedCommitment> for SignedCommitment {
-    fn from(value: beefy_light_client::commitment::SignedCommitment) -> Self {
+impl From<commitment::SignedCommitment> for SignedCommitment {
+    fn from(value: commitment::SignedCommitment) -> Self {
         Self {
             commitment: Some(Commitment::from(value.commitment)),
             signatures: value
                 .signatures
                 .into_iter()
-                .map(|value| Signature::from(value.unwrap())) // todo unwrap , cannot remove because map
+                .map(|value| {
+                    if value.is_none() {
+                        None
+                    } else {
+                        Some(Signature::from(value.unwrap()))
+                    }
+                }) // todo unwrap , cannot remove because map
                 .collect(),
         }
     }
 }
 
-impl TryFrom<SignedCommitment> for beefy_light_client::commitment::SignedCommitment {
+impl TryFrom<SignedCommitment> for commitment::SignedCommitment {
     type Error = Error;
 
     fn try_from(value: SignedCommitment) -> Result<Self, Self::Error> {
@@ -284,7 +304,13 @@ impl TryFrom<SignedCommitment> for beefy_light_client::commitment::SignedCommitm
             signatures: value
                 .signatures
                 .into_iter()
-                .map(|value| Some(value.try_into().unwrap())) // todo unwrap , cannot remove because map
+                .map(|value| {
+                    if value.is_none() {
+                        None
+                    } else {
+                        Some(value.unwrap().try_into().unwrap())
+                    }
+                }) // todo unwrap , cannot remove because map
                 .collect(),
         })
     }
@@ -299,7 +325,13 @@ impl TryFrom<RawSignedCommitment> for SignedCommitment {
             signatures: raw
                 .signatures
                 .into_iter()
-                .map(|value| value.into())
+                .map(|value| {
+                    if value.inner_signature.is_none() {
+                        None
+                    } else {
+                        Some(value.inner_signature.unwrap().into())
+                    }
+                })
                 .collect(),
         })
     }
@@ -313,7 +345,17 @@ impl TryFrom<SignedCommitment> for RawSignedCommitment {
             signatures: value
                 .signatures
                 .into_iter()
-                .map(|value| value.into())
+                .map(|value| {
+                    if value.is_none() {
+                        InnerSignature {
+                            inner_signature: None,
+                        }
+                    } else {
+                        InnerSignature {
+                            inner_signature: Some(value.unwrap().into()),
+                        }
+                    }
+                })
                 .collect(),
         })
     }
@@ -328,22 +370,20 @@ impl Default for SignedCommitment {
     }
 }
 
-use ibc_proto::ibc::lightclients::grandpa::v1::Signature as RawSignature;
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode, Default)]
 pub struct Signature {
     pub signature: Vec<u8>,
 }
 
-impl From<beefy_light_client::commitment::Signature> for Signature {
-    fn from(value: beefy_light_client::commitment::Signature) -> Self {
+impl From<commitment::Signature> for Signature {
+    fn from(value: commitment::Signature) -> Self {
         Self {
             signature: Vec::from(value.0),
         }
     }
 }
 
-impl TryFrom<Signature> for beefy_light_client::commitment::Signature {
+impl TryFrom<Signature> for commitment::Signature {
     type Error = Error;
 
     fn try_from(value: Signature) -> Result<Self, Self::Error> {
@@ -370,8 +410,6 @@ impl From<Signature> for RawSignature {
     }
 }
 
-use ibc_proto::ibc::lightclients::grandpa::v1::ValidatorMerkleProof as RawValidatorMerkleProof;
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode, Default)]
 pub struct ValidatorMerkleProof {
     //// Proof items (does not contain the leaf hash, nor the root obviously).
@@ -393,8 +431,8 @@ pub struct ValidatorMerkleProof {
     pub leaf: Vec<u8>,
 }
 
-impl From<beefy_light_client::ValidatorMerkleProof> for ValidatorMerkleProof {
-    fn from(value: beefy_light_client::ValidatorMerkleProof) -> Self {
+impl From<BeefyValidatorMerkleProof> for ValidatorMerkleProof {
+    fn from(value: BeefyValidatorMerkleProof) -> Self {
         let proof: Vec<Vec<u8>> = value.proof.into_iter().map(Vec::from).collect();
         Self {
             proof,
@@ -405,7 +443,7 @@ impl From<beefy_light_client::ValidatorMerkleProof> for ValidatorMerkleProof {
     }
 }
 
-impl From<ValidatorMerkleProof> for beefy_light_client::ValidatorMerkleProof {
+impl From<ValidatorMerkleProof> for BeefyValidatorMerkleProof {
     fn from(value: ValidatorMerkleProof) -> Self {
         let mut proofs = vec![];
         for item in value.proof {
@@ -444,10 +482,6 @@ impl From<ValidatorMerkleProof> for RawValidatorMerkleProof {
     }
 }
 
-use ibc_proto::ibc::lightclients::grandpa::v1::MmrLeafProof as RawMmrLeafProof;
-
-use crate::Height;
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode)]
 pub struct MmrLeafProof {
     //// The index of the leaf the proof is for.
@@ -458,8 +492,8 @@ pub struct MmrLeafProof {
     pub items: Vec<Vec<u8>>,
 }
 
-impl From<beefy_light_client::mmr::MmrLeafProof> for MmrLeafProof {
-    fn from(value: beefy_light_client::mmr::MmrLeafProof) -> Self {
+impl From<mmr::MmrLeafProof> for MmrLeafProof {
+    fn from(value: mmr::MmrLeafProof) -> Self {
         let items = value.items.into_iter().map(Vec::from).collect();
         Self {
             leaf_index: value.leaf_index,
@@ -469,7 +503,7 @@ impl From<beefy_light_client::mmr::MmrLeafProof> for MmrLeafProof {
     }
 }
 
-impl From<MmrLeafProof> for beefy_light_client::mmr::MmrLeafProof {
+impl From<MmrLeafProof> for mmr::MmrLeafProof {
     fn from(value: MmrLeafProof) -> Self {
         Self {
             leaf_index: value.leaf_index,
@@ -477,7 +511,7 @@ impl From<MmrLeafProof> for beefy_light_client::mmr::MmrLeafProof {
             items: value
                 .items
                 .into_iter()
-                .map(|value| Hash::try_from(value).unwrap()) // todo unwrap , cannot remove because map
+                .map(|value| Hash::try_from(value).unwrap_or_default()) // todo unwrap , cannot remove because map
                 .collect(),
         }
     }
@@ -513,8 +547,6 @@ impl Default for MmrLeafProof {
     }
 }
 
-use ibc_proto::ibc::lightclients::grandpa::v1::BlockHeader as RawBlockHeader;
-
 /// Block Header
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Decode, Encode, Default)]
 pub struct BlockHeader {
@@ -533,13 +565,13 @@ pub struct BlockHeader {
 
 impl BlockHeader {
     pub fn hash(&self) -> Result<Hash, Error> {
-        let beefy_header = beefy_light_client::header::Header::try_from(self.clone())?;
+        let beefy_header = header::Header::try_from(self.clone())?;
         Ok(beefy_header.hash())
     }
 }
 
-impl From<beefy_light_client::header::Header> for BlockHeader {
-    fn from(value: beefy_light_client::header::Header) -> Self {
+impl From<header::Header> for BlockHeader {
+    fn from(value: header::Header) -> Self {
         Self {
             parent_hash: Vec::from(value.parent_hash),
             block_number: value.number,
@@ -550,12 +582,12 @@ impl From<beefy_light_client::header::Header> for BlockHeader {
     }
 }
 
-impl TryFrom<BlockHeader> for beefy_light_client::header::Header {
+impl TryFrom<BlockHeader> for header::Header {
     type Error = Error;
 
     fn try_from(value: BlockHeader) -> Result<Self, Self::Error> {
-        let digest = beefy_light_client::header::Digest::decode(&mut &value.digest[..])
-            .map_err(Error::invalid_codec_decode)?;
+        let digest =
+            header::Digest::decode(&mut &value.digest[..]).map_err(Error::invalid_codec_decode)?;
         Ok(Self {
             parent_hash: Hash::try_from(value.parent_hash)
                 .map_err(|_| Error::invalid_convert_hash())?,
