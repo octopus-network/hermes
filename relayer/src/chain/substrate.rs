@@ -1702,7 +1702,7 @@ impl ChainEndpoint for SubstrateChain {
 
     /// add new api update_mmr_root
     fn update_mmr_root(&mut self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
-        tracing::trace!(
+        tracing::trace!(target:"ibc-rs",
             "in substrate: [update_mmr_root], client_id = {:?} ",
             client_id,
         );
@@ -1728,7 +1728,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!(target:"ibc-rs","[update_mmr_root] test_mmr_leaf_proof: {:?}",test_mmr_leaf_proof);
 
         let new_mmr_root_height = signed_commitment.clone().commitment.unwrap().block_number;
-        tracing::trace!(
+        tracing::trace!(target:"ibc-rs",
             "in substrate: [update_mmr_root], mmr root height = {:?}",
             new_mmr_root_height
         );
@@ -1743,14 +1743,14 @@ impl ChainEndpoint for SubstrateChain {
             validator_set_id,
         } = gp_client_state.latest_commitment.clone().into();
 
-        tracing::trace!(
-            "in substrate: [update_mmr_root],mmr root height in client state is: ({:?}) and  new mmr root height is ({:?}), Don't need to update！",
+        tracing::trace!(target:"ibc-rs",
+            "in substrate: [update_mmr_root],mmr root height in client state is: ({:?}) and  new mmr root height is ({:?})！",
             block_number,new_mmr_root_height
         );
 
-        if block_number > new_mmr_root_height {
-            tracing::trace!(
-                "in substrate: [update_mmr_root],mmr root height in client state ({:?}) > new mmr root height({:?}), Don't need to update！",
+        if block_number >= new_mmr_root_height {
+            tracing::trace!(target:"ibc-rs",
+                "in substrate: [update_mmr_root],mmr root height in client state ({:?}) >= new mmr root height({:?}), Don't need to update！",
                 block_number,new_mmr_root_height
             );
             return Err(Error::update_client_state_error());
@@ -1772,8 +1772,12 @@ impl ChainEndpoint for SubstrateChain {
             .await
             .map_err(|_| Error::get_header_by_block_number_error())?;
             tracing::trace!(target:"ibc-rs",
-                "in substrate: [update_mmr_root] >> block_header = {:?}",
-                block_header
+                "in substrate: [update_mmr_root] >> block_header.block_number = {:?}",
+                block_header.block_number
+            );
+            tracing::trace!(target:"ibc-rs",
+                "in substrate: [update_mmr_root] >> block_header.parent_hash = {:?}",
+                block_header.parent_hash
             );
             //build timestamp
             // let timestamp = octopusxt::ibc_rpc::get_timestamp(
@@ -1867,12 +1871,12 @@ impl ChainEndpoint for SubstrateChain {
 
         // Step2: verify header
         let mmr_leaf: Vec<u8> = Decode::decode(&mut &mmr_leaf.clone()[..]).unwrap();
-        tracing::trace!(target:"ibc-rs","[update_mmr_root] check_header_and_update_state mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
         let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*mmr_leaf).unwrap();
-        tracing::trace!(target:"ibc-rs","[update_mmr_root] check_header_and_update_state mmr_leaf to data struct: {:?}",mmr_leaf);
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] mmr_leaf to data struct: {:?}",mmr_leaf);
 
-        tracing::trace!(target:"ibc-rs","[update_mmr_root] check_header_and_update_state block_header.parent_hash: {:?}",header.block_header.parent_hash);
-        tracing::trace!(target:"ibc-rs","[update_mmr_root] check_header_and_update_state mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] block_header.parent_hash: {:?}",header.block_header.parent_hash);
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
 
         // verfiy block header
         if header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
@@ -1882,12 +1886,87 @@ impl ChainEndpoint for SubstrateChain {
         let beefy_header =
             beefy_light_client::header::Header::try_from(header.block_header.clone()).unwrap();
         let header_hash = beefy_header.hash();
-        tracing::trace!(target:"ibc-rs","[update_mmr_root] check_header_and_update_state header_hash: {:?}",header_hash);
-        tracing::trace!(target:"ibc-rs","[update_mmr_root] check_header_and_update_state mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] header_hash: {:?}",header_hash);
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
         if header_hash != mmr_leaf.parent_number_and_hash.1 {
             tracing::trace!(target:"ibc-rs","[update_mmr_root] header_hash != mmr_leaf.parent_number_and_hash.1");
         }
 
+        let future = async {
+            let client = ClientBuilder::new()
+                .set_url(&self.websocket_url.clone())
+                .build::<ibc_node::DefaultConfig>()
+                .await
+                .map_err(|_| Error::substrate_client_builder_error())?;
+            // build mmr proof
+            let api = client
+                .clone()
+                .to_runtime_api::<ibc_node::RuntimeApi<ibc_node::DefaultConfig>>();
+            // get block hash
+            let block_hash: Option<H256> = api
+                .client
+                .rpc()
+                .block_hash(Some(BlockNumber::from(new_mmr_root_height)))
+                .await
+                .map_err(|_| Error::get_block_hash_error())?;
+            // create proof
+            let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
+                Some(BlockNumber::from(new_mmr_root_height)),
+                block_hash,
+                client.clone(),
+            )
+            .await
+            .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
+
+            // get block header
+            let block_header = octopusxt::ibc_rpc::get_header_by_block_number(
+                Some(BlockNumber::from(new_mmr_root_height)),
+                client.clone(),
+            )
+            .await
+            .map_err(|_| Error::get_header_by_block_number_error())?;
+            tracing::trace!(target:"ibc-rs",
+                "in substrate: [update_mmr_root] >> block_header.block_number = {:?}",
+                block_header.block_number
+            );
+            tracing::trace!(target:"ibc-rs",
+                "in substrate: [update_mmr_root] >> block_header.parent_hash = {:?}",
+                block_header.parent_hash
+            );
+
+            Ok((mmr_leaf_and_mmr_leaf_proof, block_header))
+        };
+
+        let (mmr_leaf_and_mmr_leaf_proof, block_header) = self.block_on(future)?;
+        // log mmr leaf
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] --------------------------------------------");
+        let test_mmr_leaf: Vec<u8> =
+            Decode::decode(&mut &mmr_leaf_and_mmr_leaf_proof.1.clone()[..]).unwrap();
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] test_mmr_leaf decode to Vec<u8>: {:?}",test_mmr_leaf);
+        let test_mmr_leaf: beefy_light_client::mmr::MmrLeaf =
+            Decode::decode(&mut &*test_mmr_leaf).unwrap();
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] test_mmr_leaf to data struct: {:?}",test_mmr_leaf);
+
+        // log mmr leaf proof
+        let test_mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(
+            &mut &mmr_leaf_and_mmr_leaf_proof.2.clone()[..],
+        )
+        .unwrap();
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] test_mmr_leaf_proof: {:?}",test_mmr_leaf_proof);
+        // verfiy block header
+        if block_header.parent_hash != test_mmr_leaf.parent_number_and_hash.1.to_vec() {
+            tracing::trace!(target:"ibc-rs","[update_mmr_root] block_header.parent_hash != test_mmr_leaf.parent_number_and_hash.1.to_vec()");
+        }
+
+        let beefy_header =
+            beefy_light_client::header::Header::try_from(block_header.clone()).unwrap();
+        let header_hash = beefy_header.hash();
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] header_hash: {:?}",header_hash);
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] test_mmr_leaf.parent_number_and_hash.1: {:?}",test_mmr_leaf.parent_number_and_hash.1);
+        if header_hash != test_mmr_leaf.parent_number_and_hash.1 {
+            tracing::trace!(target:"ibc-rs","[update_mmr_root] header_hash != test_mmr_leaf.parent_number_and_hash.1");
+        }
+        tracing::trace!(target:"ibc-rs","[update_mmr_root] --------------------------------------------");
         // let mut msgs = vec![];
 
         // let signer = self.get_signer().unwrap();

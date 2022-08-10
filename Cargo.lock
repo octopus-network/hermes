@@ -3072,6 +3072,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/integrate_mmr_srv#1430adbdd67754df03dec85387292d5fb6f4d87b"
 dependencies = [
  "beefy-light-client",
  "beefy-merkle-tree",
@@ -3095,7 +3096,6 @@ dependencies = [
  "subxt",
  "tendermint",
  "tendermint-proto",
- "time",
  "tokio",
  "tracing",
 ]

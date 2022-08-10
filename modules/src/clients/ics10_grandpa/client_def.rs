@@ -75,12 +75,12 @@ impl ClientDef for GrandpaClient {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state  block header : {:?}",block_header);
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state  timestamp : {:?}",timestamp);
 
-        // if block_header.block_number > client_state.latest_commitment.block_number {
-        //     return Err(Error::invalid_mmr_root_height(
-        //         client_state.latest_commitment.block_number,
-        //         header.block_header.block_number,
-        //     ));
-        // }
+        if block_header.block_number > client_state.latest_commitment.block_number {
+            return Err(Error::invalid_mmr_root_height(
+                client_state.latest_commitment.block_number,
+                block_header.block_number,
+            ));
+        }
 
         let help::MmrRoot {
             signed_commitment,
