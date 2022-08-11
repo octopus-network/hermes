@@ -18,8 +18,10 @@ use octopusxt::ibc_node::RuntimeApi;
 use octopusxt::SubstrateNodeTemplateExtrinsicParams;
 use subxt::{
     Client, ClientBuilder, Error as SubstrateError,
-    PairSigner, SignedCommitment,
+    PairSigner, SignedCommitment, rpc::Subscription
 };
+
+
 
 use ibc::clients::ics10_grandpa::help::{self, MmrRoot};
 use ibc::core::ics02_client::height::Height;
@@ -141,7 +143,7 @@ pub struct BeefyMonitor {
     node_addr: Url,
 
     /// beefy subscription
-    subscription: Option<SignedCommitment>,
+    subscription: Option<Subscription<SignedCommitment>>,
 
     /// Tokio runtime
     rt: Arc<TokioRuntime>,
@@ -482,16 +484,14 @@ impl BeefyMonitor {
     /// Subscribe beefy msg
     pub async fn subscribe_beefy(
         &self,
-    ) -> Result<SignedCommitment, Box<dyn std::error::Error>> {
+    ) -> Result<Subscription<SignedCommitment>, Box<dyn std::error::Error>> {
         tracing::info!("In call_ibc: [subscribe_beefy_justifications]");
         let api = self.client.clone()
             .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
     
-        let mut sub = api.client.rpc().subscribe_beefy_justifications().await?;
-    
-        let raw = sub.next().await.unwrap().unwrap();
-    
-        Ok(raw)
+        let sub = api.client.rpc().subscribe_beefy_justifications().await?;
+
+        Ok(sub)
     }
 }
 
