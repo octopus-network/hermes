@@ -326,32 +326,21 @@ impl ClientDef for GrandpaClient {
     ) -> Result<(), Ics02Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_data. port_id={:?}, channel_id={:?}, sequence={:?}",
             port_id, channel_id, sequence);
-        // todo(daviianr)
-        // client_state.verify_height(height)?;
-        // verify_delay_passed(ctx, height, connection_end)?;
 
-        // todo(davirain) ->
-        // 2022-07-25 17:51:24.080 TRACE tokio-runtime-worker runtime::pallet-ibc: deliver error  : ICS04 channel error
-        //
-        // Caused by:
-        // 0: Verification fails for the packet with the sequence number 4
-        // 1: verify membership failed!
-        //
-        // Location:
-        // let commitment_path = CommitmentsPath {
-        //     port_id: port_id.clone(),
-        //     channel_id: channel_id.clone(),
-        //     sequence,
-        // };
-        // verify_membership(
-        //     client_state,
-        //     connection_end.counterparty().prefix(),
-        //     proof,
-        //     root,
-        //     Path::Commitments(commitment_path),
-        //     commitment.into_vec(),
-        // )
-        Ok(())
+        let commitment_path = CommitmentsPath {
+            port_id: port_id.clone(),
+            channel_id: channel_id.clone(),
+            sequence,
+        };
+
+        verify_membership(
+            client_state,
+            connection_end.counterparty().prefix(),
+            proof,
+            root,
+            Path::Commitments(commitment_path),
+            commitment.into_vec(),
+        )
     }
 
     /// Verify a `proof` that a packet reconstructed from storage proof, storage key and state root matches that of
@@ -474,6 +463,8 @@ fn verify_membership(
     // TODO(we need prefix)??
     // let merkle_path = apply_prefix(prefix, vec![path.into().to_string()]);
 
+    tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_membership. path={:?}, value={:?}", path, value);
+
     let (key, storage_name) = match Path::from(path) {
         Path::ClientType(_) => unimplemented!(),
         Path::ClientState(value) => (value.to_string().as_bytes().to_vec(), "ClientStates"),
@@ -492,6 +483,8 @@ fn verify_membership(
         Path::Receipts(value) => (value.to_string().as_bytes().to_vec(), "PacketReceipt"),
         Path::Upgrade(_) => unimplemented!(),
     };
+
+    tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_membership. key={:?}, storage_name={:?}", key, storage_name);
 
     let storage_result = get_storage_via_proof(client_state, proof, key, storage_name)?;
 
