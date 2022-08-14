@@ -24,7 +24,7 @@ use tendermint_proto::Protobuf;
 pub struct ClientState {
     pub chain_id: ChainId,
     /// block_number is height?
-    pub block_number: u32,
+    pub latest_height: u32,
     /// Block height when the client was frozen due to a misbehaviour
     pub frozen_height: Option<Height>,
     pub latest_commitment: Commitment,
@@ -34,13 +34,13 @@ pub struct ClientState {
 impl ClientState {
     pub fn new(
         chain_id: ChainId,
-        block_number: u32,
+        latest_height: u32,
         latest_commitment: Commitment,
         validator_set: ValidatorSet,
     ) -> Result<Self, Error> {
         let client_state = ClientState {
             chain_id,
-            block_number,
+            latest_height,
             latest_commitment,
             validator_set,
             frozen_height: None,
@@ -52,7 +52,7 @@ impl ClientState {
     pub fn with_header(self, h: Header) -> Self {
         // TODO: Clarify which fields should update.
         ClientState {
-            block_number: h.height().revision_number as u32,
+            latest_height: h.height().revision_number as u32,
             ..self
         }
     }
@@ -71,7 +71,7 @@ impl ClientState {
     }
 
     pub fn latest_height(&self) -> Height {
-        Height::new(0, self.block_number as u64)
+        Height::new(0, self.latest_height as u64)
     }
 }
 
@@ -89,7 +89,7 @@ impl crate::core::ics02_client::client_state::ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        Height::new(0, self.block_number as u64)
+        Height::new(0, self.latest_height as u64)
     }
 
     fn frozen_height(&self) -> Option<Height> {
@@ -126,7 +126,7 @@ impl TryFrom<RawClientState> for ClientState {
         Ok(Self {
             chain_id: ChainId::from_str(raw.chain_id.as_str())
                 .map_err(|_| Error::invalid_chain_id())?,
-            block_number: raw.block_number,
+            latest_height: raw.latest_height,
             frozen_height,
             latest_commitment: raw
                 .latest_commitment
@@ -144,7 +144,7 @@ impl From<ClientState> for RawClientState {
     fn from(value: ClientState) -> Self {
         Self {
             chain_id: value.chain_id.to_string(),
-            block_number: value.block_number,
+            latest_height: value.latest_height,
             frozen_height: Some(value.frozen_height.unwrap_or_else(Height::zero).into()),
             latest_commitment: Some(value.latest_commitment.into()),
             validator_set: Some(value.validator_set.into()),

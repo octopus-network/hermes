@@ -1,5 +1,6 @@
 use crossbeam_channel as channel;
 use ibc::clients::ics10_grandpa::help::MmrRoot;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::core::ics02_client::events::UpdateClient;
@@ -465,12 +466,12 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
         self.inner().websocket_url()
     }
 
-    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
         println!(
             "in counting chain handle: [update_mmr_root], client_id = {:?},mmr_root ={:?} ",
-            client_id, mmr_root
+            client_id, header
         );
         self.inc_metric("update_mmr_root");
-        self.inner().update_mmr_root(client_id, mmr_root)
+        self.inner().update_mmr_root(client_id, header)
     }
 }

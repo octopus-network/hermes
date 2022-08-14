@@ -23,22 +23,29 @@ use tendermint_proto::Protobuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ConsensusState {
-    //// The state trie merkle root
-    pub root: CommitmentRoot,
-    //// timestamp
+    ///commitment: Option<Commitment>,used to verify mmr proof
+    pub commitment: Commitment,
+    /// The state trie merkle root that used to verify storage proof
+    pub state_root: CommitmentRoot,
+    /// timestamp
     pub timestamp: Time,
 }
 
 impl ConsensusState {
-    pub fn new(root: CommitmentRoot, timestamp: Time) -> Self {
-        Self { root, timestamp }
+    pub fn new(commitment: Commitment, state_root: CommitmentRoot, timestamp: Time) -> Self {
+        Self {
+            commitment,
+            state_root,
+            timestamp,
+        }
     }
 }
 
 impl Default for ConsensusState {
     fn default() -> Self {
         Self {
-            root: CommitmentRoot::from(vec![0]),
+            commitment: Commitment::default(),
+            state_root: CommitmentRoot::from(vec![0]),
             timestamp: Time::from_unix_timestamp(0, 0).unwrap(),
         }
     }
@@ -53,7 +60,7 @@ impl crate::core::ics02_client::client_consensus::ConsensusState for ConsensusSt
     }
 
     fn root(&self) -> &CommitmentRoot {
-        &self.root
+        &self.state_root
     }
 
     fn wrap_any(self) -> AnyConsensusState {
@@ -77,8 +84,12 @@ impl TryFrom<RawConsensusState> for ConsensusState {
             .map_err(|e| Error::invalid_raw_consensus_state(format!("invalid timestamp: {}", e)))?;
 
         Ok(Self {
-            root: raw
-                .root
+            commitment: raw
+                .commitment
+                .ok_or_else(Error::empty_latest_commitment)?
+                .into(),
+            state_root: raw
+                .state_root
                 .ok_or_else(|| {
                     Error::invalid_raw_consensus_state("missing commitment root".into())
                 })?
@@ -97,8 +108,9 @@ impl From<ConsensusState> for RawConsensusState {
         let timestamp = ibc_proto::google::protobuf::Timestamp { seconds, nanos };
 
         Self {
-            root: Some(ibc_proto::ibc::core::commitment::v1::MerkleRoot {
-                hash: value.root.into_vec(),
+            commitment: Some(value.commitment.into()),
+            state_root: Some(ibc_proto::ibc::core::commitment::v1::MerkleRoot {
+                hash: value.state_root.into_vec(),
             }),
             timestamp: Some(timestamp),
         }
@@ -108,7 +120,8 @@ impl From<ConsensusState> for RawConsensusState {
 impl From<Header> for ConsensusState {
     fn from(header: Header) -> Self {
         Self {
-            root: CommitmentRoot::from_bytes(&header.block_header.state_root),
+            commitment: header.mmr_root.signed_commitment.commitment.unwrap(),
+            state_root: CommitmentRoot::from_bytes(&header.block_header.state_root),
             timestamp: header.timestamp,
         }
     }
