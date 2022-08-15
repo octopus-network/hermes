@@ -20,7 +20,9 @@
    is still a [`ChainHandle`].
 */
 
+use crate::types::tagged::*;
 use crossbeam_channel as channel;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::core::ics02_client::events::UpdateClient;
@@ -55,14 +57,12 @@ use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 use ibc_proto::ibc::core::connection::v1::QueryClientConnectionsRequest;
 use ibc_proto::ibc::core::connection::v1::QueryConnectionsRequest;
 use ibc_relayer::chain::client::ClientSettings;
-use ibc_relayer::chain::handle::{ChainHandle, ChainRequest, Subscription};
+use ibc_relayer::chain::handle::{BeefySubscription, ChainHandle, ChainRequest, Subscription};
 use ibc_relayer::chain::tx::TrackedMsgs;
 use ibc_relayer::chain::{ChainStatus, HealthCheck};
 use ibc_relayer::config::ChainConfig;
 use ibc_relayer::error::Error;
 use ibc_relayer::{connection::ConnectionMsgType, keyring::KeyEntry};
-
-use crate::types::tagged::*;
 
 /**
    Implement `ChainHandle` for any existential type `Handle: ChainHandle`.
@@ -92,6 +92,9 @@ where
 
     fn subscribe(&self) -> Result<Subscription, Error> {
         self.value().subscribe()
+    }
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
+        self.value().subscribe_beefy()
     }
 
     fn send_messages_and_wait_commit(
@@ -386,11 +389,7 @@ where
         todo!()
     }
 
-    fn update_mmr_root(
-        &self,
-        _src_chain_websocket_url: String,
-        _dst_chain_websocket_url: String,
-    ) -> Result<(), Error> {
+    fn update_mmr_root(&self, _client_id: ClientId, _header: GPheader) -> Result<(), Error> {
         todo!()
     }
 

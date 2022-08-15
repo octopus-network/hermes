@@ -10,7 +10,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 use crate::config::ChainConfig;
 use crate::light_client::Verified;
 use ibc::clients::ics10_grandpa::header::Header as GPHeader;
-use ibc::clients::ics10_grandpa::help::BlockHeader;
+use ibc::clients::ics10_grandpa::help::{BlockHeader, Commitment, MmrRoot, SignedCommitment};
 use ibc::core::ics02_client::client_state::AnyClientState;
 use ibc::core::ics02_client::events::UpdateClient;
 
@@ -18,6 +18,7 @@ use ibc::core::ics02_client::misbehaviour::MisbehaviourEvidence;
 use ibc::core::ics24_host::identifier::ChainId;
 
 use ibc::Height;
+use tendermint::time::Time;
 
 pub struct LightClient {
     chain_id: ChainId,
@@ -68,8 +69,8 @@ impl super::LightClient<SubstrateChain> for LightClient {
                     extrinsics_root: vec![],
                     digest: vec![],
                 },
-                mmr_leaf: Default::default(),
-                mmr_leaf_proof: Default::default(),
+                mmr_root: MmrRoot::default(),
+                timestamp: Time::from_unix_timestamp(0, 0).unwrap(),
             },
             supporting: vec![GPHeader {
                 block_header: BlockHeader {
@@ -79,8 +80,8 @@ impl super::LightClient<SubstrateChain> for LightClient {
                     extrinsics_root: vec![],
                     digest: vec![],
                 },
-                mmr_leaf: Default::default(),
-                mmr_leaf_proof: Default::default(),
+                mmr_root: MmrRoot::default(),
+                timestamp: Time::from_unix_timestamp(0, 0).unwrap(),
             }],
         })
     }
@@ -112,12 +113,13 @@ impl super::LightClient<SubstrateChain> for LightClient {
         };
 
         let result = self.block_on(block_header)?;
-
+        //TODO: get mmr root and timestamp 
+        
         Ok(Verified {
             target: GPHeader {
                 block_header: result,
-                mmr_leaf: Default::default(),
-                mmr_leaf_proof: Default::default(),
+                mmr_root: MmrRoot::default(),
+                timestamp: Time::from_unix_timestamp(0, 0).unwrap(),
             },
             supporting: Vec::new(),
         })

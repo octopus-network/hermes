@@ -3,14 +3,14 @@ use core::time::Duration;
 use crossbeam_channel::Receiver;
 use tracing::{debug, span, trace, warn};
 
-use ibc::events::IbcEvent;
-
 use crate::util::task::{spawn_background_task, Next, TaskError, TaskHandle};
 use crate::{
     chain::handle::ChainHandle,
     foreign_client::{ForeignClient, HasExpiredOrFrozenError, MisbehaviourResults},
     telemetry,
 };
+use ibc::clients::ics10_grandpa::help::MmrRoot;
+use ibc::events::IbcEvent;
 
 use super::WorkerCmd;
 
@@ -122,6 +122,77 @@ pub fn detect_misbehavior_task<ChainA: ChainHandle, ChainB: ChainHandle>(
                         }
                     }
 
+                    WorkerCmd::NewBlock { .. } => {}
+                    WorkerCmd::ClearPendingPackets => {}
+                    WorkerCmd::Beefy { .. } => {}
+                }
+            }
+
+            Ok(Next::Continue)
+        },
+    );
+
+    Some(handle)
+}
+
+pub fn spawn_update_mmr_root<ChainA: ChainHandle, ChainB: ChainHandle>(
+    receiver: Receiver<WorkerCmd>,
+    client: ForeignClient<ChainB, ChainA>,
+) -> Option<TaskHandle> {
+    tracing::trace!(
+        "in worker/client: [spawn_update_mmr_root], client ={:?} ",
+        client
+    );
+    println!(
+        "in worker/client: [spawn_update_mmr_root], client ={:?} ",
+        client
+    );
+
+    if client.is_expired_or_frozen() {
+        warn!(
+            client = %client.id(),
+            "skipping detect misbehavior task on frozen client",
+        );
+        return None;
+    }
+
+    let handle = spawn_background_task(
+        span!(
+            tracing::Level::ERROR,
+            "DetectMisbehaviorWorker",
+            client = %client.id,
+            src_chain = %client.src_chain.id(),
+            dst_chain = %client.dst_chain.id(),
+        ),
+        // Some(Duration::from_millis(600)),
+        Some(Duration::from_secs(6)),
+        move || -> Result<Next, TaskError<Infallible>> {
+            if let Ok(cmd) = receiver.try_recv() {
+                tracing::trace!(
+                    "in worker/client: [spawn_update_mmr_root], recv work cmd ={:?} ",
+                    cmd
+                );
+
+                match cmd {
+                    WorkerCmd::Beefy { header } => {
+                        // println!("in worker/client: [spawn_update_mmr_root], WorkerCmd::Beefy and mmr root is :{:?}",mmr_root);
+                        //TODO: client.update_mmr_root(mmr_root)
+                        // let res = client.refresh().map_err(|e| {
+                        //     if e.is_expired_or_frozen_error() {
+                        //         TaskError::Fatal(e)
+                        //     } else {
+                        //         TaskError::Ignore(e)
+                        //     }
+                        // })?;
+
+                        // if res.is_some() {
+                        //     telemetry!(ibc_client_updates, &client.dst_chain.id(), &client.id, 1);
+                        // }
+                        let _ = client.update_mmr_root(header);
+                        // Ok(Next::Continue)
+                    }
+
+                    WorkerCmd::IbcEvents { .. } => {}
                     WorkerCmd::NewBlock { .. } => {}
                     WorkerCmd::ClearPendingPackets => {}
                 }

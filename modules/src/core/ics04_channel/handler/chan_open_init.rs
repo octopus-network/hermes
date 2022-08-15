@@ -15,6 +15,8 @@ pub(crate) fn process(
     ctx: &dyn ChannelReader,
     msg: &MsgChannelOpenInit,
 ) -> HandlerResult<ChannelResult, Error> {
+    tracing::trace!(target:"ibc-rs","[chan_open_init] begin to process the chan_open_init msg : {:?}",msg);
+
     let mut output = HandlerOutput::builder();
 
     // Channel capabilities
@@ -66,6 +68,7 @@ pub(crate) fn process(
         channel_id_state: ChannelIdState::Generated,
         channel_cap,
     };
+    tracing::trace!(target:"ibc-rs","[chan_open_init] process result : {:?}",result);
 
     let event_attributes = Attributes {
         height: ctx.host_height(),
@@ -80,6 +83,8 @@ pub(crate) fn process(
             .try_into()
             .map_err(|_| Error::missing_channel_id())?,
     ));
+
+    tracing::trace!(target:"ibc-rs","[chan_open_init] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

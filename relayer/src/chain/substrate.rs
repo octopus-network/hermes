@@ -5,6 +5,7 @@ use crate::chain::ChainStatus;
 use crate::config::ChainConfig;
 use crate::error::Error;
 // use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
+use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver};
 use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::grandpa::LightClient as GPLightClient;
@@ -14,6 +15,12 @@ use alloc::sync::Arc;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use core::{future::Future, str::FromStr, time::Duration};
+use ibc::core::ics02_client::msgs::update_client::MsgUpdateAnyClient;
+use ibc::tx_msg::Msg;
+
+use crate::chain::QueryResponse;
+use crate::connection::ConnectionMsgType;
+use crate::light_client::Verified;
 use ibc::{
     clients::{
         ics07_tendermint::header::Header as tHeader,
@@ -45,6 +52,9 @@ use ibc::{
 };
 use subxt::rpc::ClientT;
 
+use ibc::clients::ics10_grandpa::help::SignedCommitment;
+use ibc::clients::ics10_grandpa::help::ValidatorMerkleProof;
+use ibc::core::ics23_commitment::commitment::CommitmentRoot;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::{
     channel::v1::{
@@ -57,7 +67,6 @@ use ibc_proto::ibc::core::{
     commitment::v1::MerkleProof,
     connection::v1::{QueryClientConnectionsRequest, QueryConnectionsRequest},
 };
-
 use jsonrpsee::rpc_params;
 use octopusxt::MyConfig;
 use retry::delay::Fixed;
@@ -65,8 +74,8 @@ use semver::Version;
 use sp_core::ByteArray;
 use std::thread::{self, sleep};
 use subxt::{
-    rpc::NumberOrHex, storage::StorageEntry, storage::StorageKeyPrefix, BlockNumber, Client,
-    ClientBuilder,
+    self, rpc::NumberOrHex, storage::StorageEntry, storage::StorageKeyPrefix, BlockNumber, Client,
+    ClientBuilder, PairSigner,
 };
 
 use tendermint::abci::{Code, Log};
@@ -74,17 +83,22 @@ use tendermint::abci::{Code, Log};
 use anyhow::Result;
 use beefy_light_client::{commitment, mmr};
 use ibc::clients::ics10_grandpa::help::Commitment;
+use ibc::clients::ics10_grandpa::help::MmrRoot;
+// use jsonrpsee::types::to_json_value;
 use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
 use ibc::core::ics04_channel::events::SendPacket;
 use octopusxt::ibc_node::ibc::storage;
 use octopusxt::ibc_node::RuntimeApi;
 use octopusxt::update_client_state::update_client_state;
 use octopusxt::SubstrateNodeTemplateExtrinsicParams;
+
 use serde::{Deserialize, Serialize};
 use sp_core::sr25519;
 use sp_core::{hexdisplay::HexDisplay, Bytes, Pair, H256};
 use sp_runtime::{traits::IdentifyAccount, AccountId32, MultiSigner};
 use tendermint::abci::transaction;
+use tendermint::time::Time;
+use tendermint_light_client::types::Validator;
 use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
@@ -229,7 +243,11 @@ impl SubstrateChain {
 
         let client = self.get_client()?;
 
-        self.block_on(octopusxt::get_client_consensus(client_id, height, client))
+        let cs = self
+            .block_on(octopusxt::get_client_consensus(client_id, height, client))
+            .unwrap();
+        tracing::trace!(target:"ibc-rs","in substrate: [get_client_consensus] ConsensusState: {:?}", cs);
+        Ok(cs)
     }
 
     fn get_consensus_state_with_height(
@@ -241,7 +259,7 @@ impl SubstrateChain {
         let client = self.get_client()?;
 
         self.block_on(octopusxt::get_consensus_state_with_height(
-            client_id, client,
+            &client_id, client,
         ))
     }
 
@@ -514,7 +532,7 @@ impl ChainEndpoint for SubstrateChain {
     type LightClient = GPLightClient;
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
-        tracing::info!("in Substrate: [bootstrap function]");
+        tracing::info!(target:"ibc-rs","in Substrate: [bootstrap function]");
 
         let websocket_url = format!("{}", config.websocket_addr);
 
@@ -533,7 +551,8 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn init_light_client(&self) -> Result<Self::LightClient, Error> {
-        tracing::debug!("in substrate: [init_light_client]");
+        tracing::debug!(target:"ibc-rs","in substrate: [init_light_client]");
+        use subxt::sp_core::Public;
 
         let config = self.config.clone();
 
@@ -553,12 +572,12 @@ impl ChainEndpoint for SubstrateChain {
                 .authorities(None)
                 .await
                 .map_err(|_| Error::authorities())?;
-            tracing::info!("authorities length : {:?}", authorities.len());
+            tracing::info!(target:"ibc-rs","authorities length : {:?}", authorities.len());
             let result: Vec<String> = authorities
                 .into_iter()
                 .map(|val| format!("0x{}", HexDisplay::from(&val.to_raw_vec())))
                 .collect();
-            tracing::info!("authorities member: {:?}", result);
+            tracing::info!(target:"ibc-rs","authorities member: {:?}", result);
             Ok(result)
         };
         let public_key = self.block_on(public_key)?;
@@ -577,7 +596,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         rt: Arc<TokioRuntime>,
     ) -> Result<(EventReceiver, TxMonitorCmd), Error> {
-        tracing::debug!(
+        tracing::debug!(target:"ibc-rs",
             "in substrate: [init_event_mointor] >> websocket addr: {:?}",
             self.config.websocket_addr.clone()
         );
@@ -596,8 +615,36 @@ impl ChainEndpoint for SubstrateChain {
         Ok((event_receiver, monitor_tx))
     }
 
+    fn init_beefy_monitor(
+        &self,
+        rt: Arc<TokioRuntime>,
+    ) -> Result<(BeefyReceiver, TxMonitorCmd), Error> {
+        tracing::debug!(
+            "in substrate: [init_beefy_mointor] >> websocket addr: {:?}",
+            self.config.websocket_addr.clone()
+        );
+        println!(
+            "in substrate: [init_beefy_mointor] >> websocket addr: {:?}",
+            self.config.websocket_addr.clone()
+        );
+        let (mut beefy_monitor, beefy_receiver, monitor_tx) = BeefyMonitor::new(
+            self.config.id.clone(),
+            self.config.websocket_addr.clone(),
+            rt,
+        )
+        .map_err(Error::event_monitor)?;
+
+        beefy_monitor.subscribe().map_err(Error::event_monitor)?;
+
+        thread::spawn(move || beefy_monitor.run());
+        tracing::debug!("in substrate: [init_beefy_mointor] >> beefy monitor is running ...");
+        println!("in substrate: [init_beefy_mointor] >> beefy monitor is running ...");
+
+        Ok((beefy_receiver, monitor_tx))
+    }
+
     fn shutdown(self) -> Result<(), Error> {
-        tracing::info!("in substrate: [shutdown]");
+        tracing::info!(target:"ibc-rs","in substrate: [shutdown]");
 
         Ok(())
     }
@@ -607,18 +654,18 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn id(&self) -> &ChainId {
-        tracing::trace!("in substrate: [id]");
+        tracing::trace!(target:"ibc-rs","in substrate: [id]");
 
         &self.config().id
     }
 
     fn keybase(&self) -> &KeyRing {
-        tracing::trace!("in substrate: [keybase]");
+        tracing::trace!(target:"ibc-rs","in substrate: [keybase]");
         &self.keybase
     }
 
     fn keybase_mut(&mut self) -> &mut KeyRing {
-        tracing::trace!("in substrate: [keybase_mut]");
+        tracing::trace!(target:"ibc-rs","in substrate: [keybase_mut]");
         &mut self.keybase
     }
 
@@ -626,7 +673,7 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEvent>, Error> {
-        tracing::trace!(
+        tracing::trace!(target:"ibc-rs",
             "in substrate: [send_messages_and_wait_commit], proto_msgs={:?}",
             proto_msgs.tracking_id
         );
@@ -636,7 +683,7 @@ impl ChainEndpoint for SubstrateChain {
             .deliever(proto_msgs.messages().to_vec())
             .map_err(|e| Error::deliver_error(e))?;
 
-        tracing::debug!(
+        tracing::debug!(target:"ibc-rs",
             "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
             result
         );
@@ -652,7 +699,7 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<TxResponse>, Error> {
-        tracing::debug!(
+        tracing::debug!(target:"ibc-rs",
             "in substrate: [send_messages_and_wait_check_tx], proto_msgs={:?}",
             proto_msgs.tracking_id
         );
@@ -662,7 +709,7 @@ impl ChainEndpoint for SubstrateChain {
             .deliever(proto_msgs.messages().to_vec())
             .map_err(|e| Error::deliver_error(e))?;
 
-        tracing::debug!(
+        tracing::debug!(target:"ibc-rs",
             "in substrate: [send_messages_and_wait_check_tx] >> extrics_hash : {:?}",
             result
         );
@@ -679,7 +726,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn get_signer(&mut self) -> Result<Signer, Error> {
-        tracing::trace!("In Substraet: [get signer]");
+        tracing::trace!(target:"ibc-rs","In Substraet: [get signer]");
         crate::time!("get_signer");
 
         /// Public key type for Runtime
@@ -701,21 +748,25 @@ impl ChainEndpoint for SubstrateChain {
             .keybase()
             .get_key(&self.config.key_name)
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
+        // tracing::trace!(target:"ibc-rs","In Substraet: [get signer] key = {:?}", key);
 
         let private_seed = key.mnemonic;
+
         let (pair, _seed) = sr25519::Pair::from_phrase(&private_seed, None).unwrap();
         let public_key = pair.public();
+        // tracing::trace!(target:"ibc-rs","In Substraet: [get signer] public_key = {:?}", public_key);
 
         let account_id = format_account_id::<sr25519::Pair>(public_key);
         let account = AccountId32::from_str(&account_id).unwrap();
         let encode_account = AccountId32::encode(&account);
         let hex_account = hex::encode(encode_account);
+        // tracing::trace!(target:"ibc-rs","In Substraet: [get signer] hex_account = {:?}", hex_account);
 
         Ok(Signer::new(hex_account))
     }
 
     fn get_key(&mut self) -> Result<KeyEntry, Error> {
-        tracing::trace!("in substrate: [get_key]");
+        tracing::trace!(target:"ibc-rs","in substrate: [get_key]");
         crate::time!("get_key");
 
         // Get the key from key seed file
@@ -728,7 +779,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
-        tracing::trace!("in substrate: [query_commitment_prefix]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_commitment_prefix]");
 
         // TODO - do a real chain query
         CommitmentPrefix::try_from(self.config().store_prefix.as_bytes().to_vec())
@@ -739,7 +790,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryClientStatesRequest,
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
-        tracing::trace!("in substrate: [query_clients]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_clients]");
 
         let result = self
             .retry_wapper(|| self.get_clients())
@@ -753,11 +804,16 @@ impl ChainEndpoint for SubstrateChain {
         client_id: &ClientId,
         _height: ICSHeight,
     ) -> Result<Self::ClientState, Error> {
-        tracing::trace!("in substrate: [query_client_state]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_client_state]");
 
         let result = self
             .retry_wapper(|| self.get_client_state(client_id))
             .map_err(Error::retry_error)?;
+
+        tracing::trace!(target:"ibc-rs",
+            "in substrate: [query_client_state] >> client_state: {:?}",
+            result
+        );
 
         Ok(result)
     }
@@ -766,7 +822,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryConsensusStatesRequest,
     ) -> Result<Vec<AnyConsensusStateWithHeight>, Error> {
-        tracing::trace!("in substrate: [query_consensus_states]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_consensus_states]");
 
         let request_client_id =
             ClientId::from_str(request.client_id.as_str()).map_err(Error::identifier)?;
@@ -784,6 +840,11 @@ impl ChainEndpoint for SubstrateChain {
                 consensus_state,
             };
             any_consensus_state_with_height.push(tmp.clone());
+
+            tracing::trace!(target:"ibc-rs",
+                "in substrate: [query_consensus_state] >> any_consensus_state_with_height: {:?}",
+                tmp
+            );
         }
 
         any_consensus_state_with_height.sort_by(|a, b| a.height.cmp(&b.height));
@@ -797,12 +858,18 @@ impl ChainEndpoint for SubstrateChain {
         consensus_height: ICSHeight,
         query_height: ICSHeight,
     ) -> Result<AnyConsensusState, Error> {
-        tracing::trace!("in substrate: [query_consensus_state]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_consensus_state] client_id: {:?} ", client_id);
+        tracing::trace!(target:"ibc-rs","in substrate: [query_consensus_state] consensus_height: {:?} ", consensus_height);
+        tracing::trace!(target:"ibc-rs","in substrate: [query_consensus_state] query_height: {:?} ", query_height);
+
+        // let result = self
+        //     .retry_wapper(|| self.get_client_consensus(&client_id, &consensus_height))
+        //     .map_err(Error::retry_error)?;
 
         let consensus_state = self
             .proven_client_consensus(&client_id, consensus_height, query_height)?
             .0;
-
+        tracing::trace!(target:"ibc-rs","in substrate: [query_consensus_state] consensus_state {:?}", consensus_state);
         Ok(consensus_state)
     }
 
@@ -810,7 +877,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _height: ICSHeight,
     ) -> Result<(Self::ClientState, MerkleProof), Error> {
-        tracing::trace!("in substrate: [query_upgraded_client_state]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_upgraded_client_state]");
 
         todo!()
     }
@@ -819,7 +886,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _height: ICSHeight,
     ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
-        tracing::trace!("in substrate: [query_upgraded_consensus_state]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_upgraded_consensus_state]");
 
         todo!()
     }
@@ -841,7 +908,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryClientConnectionsRequest,
     ) -> Result<Vec<ConnectionId>, Error> {
-        tracing::trace!("in substrate: [query_client_connections]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_client_connections]");
 
         let client_id =
             ClientId::from_str(request.client_id.as_str()).map_err(Error::identifier)?;
@@ -859,7 +926,7 @@ impl ChainEndpoint for SubstrateChain {
         connection_id: &ConnectionId,
         _height: ICSHeight,
     ) -> Result<ConnectionEnd, Error> {
-        tracing::trace!("in substrate: [query_connection]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_connection]");
 
         let connection_end = self
             .retry_wapper(|| self.get_connection_end(connection_id))
@@ -872,7 +939,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryConnectionChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-        tracing::trace!("in substrate: [query_connection_channels] ");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_connection_channels] ");
 
         let connection_id =
             ConnectionId::from_str(&request.connection).map_err(Error::identifier)?;
@@ -888,7 +955,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-        tracing::trace!("in substrate: [query_channels]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_channels]");
 
         let result = self
             .retry_wapper(|| self.get_channels())
@@ -904,7 +971,7 @@ impl ChainEndpoint for SubstrateChain {
         channel_id: &ChannelId,
         _height: ICSHeight,
     ) -> Result<ChannelEnd, Error> {
-        tracing::trace!("in substrate: [query_channel]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_channel]");
 
         let channel_end = self
             .retry_wapper(|| self.get_channel_end(port_id, channel_id))
@@ -917,7 +984,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryChannelClientStateRequest,
     ) -> Result<Option<IdentifiedAnyClientState>, Error> {
-        tracing::trace!("in substrate: [query_channel_client_state]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_channel_client_state]");
 
         todo!()
     }
@@ -926,7 +993,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryPacketCommitmentsRequest,
     ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
-        tracing::trace!("in substrate: [query_packet_commitments]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_packet_commitments]");
 
         let packet_commitments = self
             .retry_wapper(|| self.get_commitment_packet_state())
@@ -945,7 +1012,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryUnreceivedPacketsRequest,
     ) -> Result<Vec<u64>, Error> {
-        tracing::trace!("in substrate: [query_unreceived_packets]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_unreceived_packets]");
 
         let port_id = PortId::from_str(request.port_id.as_str()).map_err(Error::identifier)?;
         let channel_id =
@@ -967,7 +1034,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryPacketAcknowledgementsRequest,
     ) -> Result<(Vec<PacketState>, ICSHeight), Error> {
-        tracing::trace!("in substrate: [query_packet_acknowledgements]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_packet_acknowledgements]");
 
         let packet_acknowledgements = self
             .retry_wapper(|| self.get_acknowledge_packet_state())
@@ -986,7 +1053,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         request: QueryUnreceivedAcksRequest,
     ) -> Result<Vec<u64>, Error> {
-        tracing::trace!("in substrate: [query_unreceived_acknowledgements] ");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_unreceived_acknowledgements] ");
 
         let port_id = PortId::from_str(request.port_id.as_str()).map_err(Error::identifier)?;
         let channel_id =
@@ -1016,13 +1083,13 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryNextSequenceReceiveRequest,
     ) -> Result<Sequence, Error> {
-        tracing::trace!("in substrate: [query_next_sequence_receive] ");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_next_sequence_receive] ");
 
         todo!()
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error> {
-        tracing::trace!("in substrate: [query_txs]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_txs]");
 
         match request {
             // Todo: Related to https://github.com/octopus-network/ibc-rs/issues/88
@@ -1080,11 +1147,16 @@ impl ChainEndpoint for SubstrateChain {
         client_id: &ClientId,
         height: ICSHeight,
     ) -> Result<(Self::ClientState, MerkleProof), Error> {
-        tracing::trace!("in substrate: [proven_client_state]");
+        tracing::trace!(target:"ibc-rs","in substrate: [proven_client_state]");
 
         let result = self
             .retry_wapper(|| self.get_client_state(client_id))
             .map_err(Error::retry_error)?;
+
+        tracing::trace!(target:"ibc-rs",
+            "in substrate: [proven_client_state] >> client_state : {:?}",
+            result
+        );
 
         let storage_entry = storage::ClientStates(client_id.as_bytes());
 
@@ -1099,11 +1171,16 @@ impl ChainEndpoint for SubstrateChain {
         connection_id: &ConnectionId,
         height: ICSHeight,
     ) -> Result<(ConnectionEnd, MerkleProof), Error> {
-        tracing::trace!("in substrate: [proven_connection]");
+        tracing::trace!(target:"ibc-rs","in substrate: [proven_connection]");
 
         let result = self
             .retry_wapper(|| self.get_connection_end(connection_id))
             .map_err(Error::retry_error)?;
+
+        tracing::trace!(target:"ibc-rs",
+            "in substrate: [proven_connection] >> connection_end: {:?}",
+            result
+        );
 
         let connection_end = result;
 
@@ -1149,12 +1226,16 @@ impl ChainEndpoint for SubstrateChain {
         consensus_height: ICSHeight,
         height: ICSHeight,
     ) -> Result<(Self::ConsensusState, MerkleProof), Error> {
-        tracing::trace!("in substrate: [proven_client_consensus] ");
+        tracing::trace!(target:"ibc-rs","in substrate: [proven_client_consensus] ");
 
         let result = self
             .retry_wapper(|| self.get_client_consensus(client_id, &consensus_height))
             .map_err(Error::retry_error)?;
 
+        tracing::trace!(
+            "in substrate: [proven_client_consensus] >> consensus_state : {:?}",
+            result
+        );
         let storage_entry = storage::ConsensusStates(client_id.as_bytes());
 
         Ok((
@@ -1169,7 +1250,7 @@ impl ChainEndpoint for SubstrateChain {
         channel_id: &ChannelId,
         height: ICSHeight,
     ) -> Result<(ChannelEnd, MerkleProof), Error> {
-        tracing::trace!("in substrate: [proven_channel]");
+        tracing::trace!(target:"ibc-rs","in substrate: [proven_channel]");
 
         let result = self
             .retry_wapper(|| self.get_channel_end(port_id, channel_id))
@@ -1192,7 +1273,7 @@ impl ChainEndpoint for SubstrateChain {
         sequence: Sequence,
         height: ICSHeight,
     ) -> Result<(Vec<u8>, MerkleProof), Error> {
-        tracing::trace!("in substrate: [proven_packet], packet_type={:?}, port_id={:?}, channel_id={:?}, sequence={:?}, height={:?}", packet_type, port_id, channel_id, sequence, height);
+        tracing::trace!(target:"ibc-rs","in substrate: [proven_packet], packet_type={:?}, port_id={:?}, channel_id={:?}, sequence={:?}, height={:?}", packet_type, port_id, channel_id, sequence, height);
 
         let result = retry_with_index(Fixed::from_millis(200), |current_try| {
             if current_try > MAX_QUERY_TIMES {
@@ -1319,7 +1400,7 @@ impl ChainEndpoint for SubstrateChain {
         height: ICSHeight,
         _dst_config: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
-        tracing::trace!("in substrate: [build_client_state]");
+        tracing::trace!(target:"ibc-rs","in substrate: [build_client_state]");
 
         let public_key = async {
             let client = ClientBuilder::new()
@@ -1353,7 +1434,6 @@ impl ChainEndpoint for SubstrateChain {
         let client_state = GPClientState::new(
             self.id().clone(),
             height.revision_height as u32,
-            BlockHeader::default(),
             Commitment::default(),
             beefy_light_client.validator_set.into(),
         )
@@ -1364,11 +1444,14 @@ impl ChainEndpoint for SubstrateChain {
 
     fn build_consensus_state(
         &self,
-        _light_block: Self::LightBlock,
+        light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
-        tracing::trace!("in substrate: [build_consensus_state]");
-
-        Ok(AnyConsensusState::Grandpa(GPConsensusState::default()))
+        tracing::trace!(target:"ibc-rs","in substrate: [build_consensus_state] light_block:{:?}", light_block);
+        //build consensus state from header
+        let commitment = light_block.mmr_root.signed_commitment.commitment.unwrap();
+        let state_root = CommitmentRoot::from_bytes(&light_block.block_header.state_root);
+        let consensue_state = GPConsensusState::new(commitment, state_root, light_block.timestamp);
+        Ok(AnyConsensusState::Grandpa(consensue_state))
     }
 
     fn build_header(
@@ -1378,7 +1461,7 @@ impl ChainEndpoint for SubstrateChain {
         client_state: &AnyClientState,
         _light_client: &mut Self::LightClient,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
-        tracing::trace!("in substrate: [build_header]");
+        tracing::trace!(target:"ibc-rs","in substrate [build_header]");
 
         assert!(trusted_height.revision_height < target_height.revision_height);
 
@@ -1388,127 +1471,301 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         // assert trust_height <= grandpa_client_state height
-        if trusted_height.revision_height > grandpa_client_state.block_number as u64 {
+        if trusted_height.revision_height > grandpa_client_state.latest_height as u64 {
             return Err(Error::trust_height_miss_match_client_state_height(
                 trusted_height.revision_height,
-                grandpa_client_state.block_number as u64,
+                grandpa_client_state.latest_height as u64,
             ));
         }
 
+        let beefy_light_client::commitment::Commitment {
+            payload,
+            block_number,
+            validator_set_id,
+        } = grandpa_client_state.clone().latest_commitment.into();
+        let mmr_root_height = block_number;
+        let target_height = target_height.revision_height as u32;
+
         // build target height header
-        let result = async {
+        let future = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
                 .build::<MyConfig>()
                 .await
                 .map_err(|_| Error::substrate_client_builder_error())?;
 
-            let commitment::Commitment {
-                payload: _payload,
-                block_number,
-                validator_set_id: _validator_set_id,
-            } = grandpa_client_state.latest_commitment.clone().into();
+            //build mmr root
+            let mmr_root = if target_height > mmr_root_height {
+                tracing::trace!(target:"ibc-rs",
+                    "in substrate [build_header] target_height > mmr_root_height, target_height = {:?},  mmr_root_height = {:?}, need to build new mmr root",
+                    target_height,mmr_root_height
+                );
+                // subscribe beefy justification and get signed commitment
+                let raw_signed_commitment = octopusxt::ibc_rpc::subscribe_beefy(client.clone())
+                    .await
+                    .map_err(|_| Error::get_signed_commitment())?;
 
-            let mmr_root_height = block_number;
-            assert!((target_height.revision_height as u32) <= mmr_root_height);
+                // decode signed commitment
+                let signed_commmitment: beefy_light_client::commitment::SignedCommitment =
+                    Decode::decode(&mut &raw_signed_commitment.0[..]).unwrap();
+                tracing::trace!(target:"ibc-rs",
+                    "in substrate [build_header] decode signed commitment : {:?},", signed_commmitment);
+                // get commitment
+                let beefy_light_client::commitment::Commitment {
+                    payload,
+                    block_number,
+                    validator_set_id,
+                } = signed_commmitment.commitment.clone();
+                tracing::trace!(target:"ibc-rs",
+                "in substrate [build_header] new mmr root block_number : {:?},", block_number);
+                // build validator proof
+                let validator_merkle_proofs: Vec<ValidatorMerkleProof> =
+                    octopusxt::update_client_state::build_validator_proof(
+                        client.clone(),
+                        block_number,
+                    )
+                    .await
+                    .map_err(|_| Error::get_validator_merkle_proof())?;
+
+                // build mmr proof
+                let api =
+                    client.clone().to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
+                // get block hash
+                let block_hash: Option<H256> = api
+                    .client
+                    .rpc()
+                    .block_hash(Some(BlockNumber::from(block_number)))
+                    .await
+                    .map_err(|_| Error::get_block_hash_error())?;
+                // create proof
+                let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
+                    Some(BlockNumber::from(target_height - 1)),
+                    block_hash,
+                    client.clone(),
+                )
+                .await
+                .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
+
+                // build new mmr root
+                MmrRoot {
+                    signed_commitment: signed_commmitment.into(),
+                    validator_merkle_proofs: validator_merkle_proofs,
+                    mmr_leaf: mmr_leaf_and_mmr_leaf_proof.1,
+                    mmr_leaf_proof: mmr_leaf_and_mmr_leaf_proof.2,
+                }
+            } else {
+                tracing::trace!(target:"ibc-rs",
+                    "in substrate [build_header] target_height <= mmr_root_height, mmr_root_height = {:?}, target_height = {:?}, just get mmr leaf and proof",
+                    mmr_root_height,
+                    target_height
+                );
+
+                let api =
+                client.clone().to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
+                // get block hash
+                let block_hash: Option<H256> = api
+                    .client
+                    .rpc()
+                    .block_hash(Some(BlockNumber::from(mmr_root_height)))
+                    .await
+                    .map_err(|_| Error::get_block_hash_error())?;
+
+                tracing::trace!(target:"ibc-rs",
+                    "in substrate [build_header] >> block_hash = {:?}",
+                    block_hash
+                );
+                // build mmr proof
+                let (block_hash, mmr_leaf, mmr_leaf_proof) =
+                    octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
+                        Some(BlockNumber::from(target_height - 1)),
+                        block_hash,
+                        client.clone(),
+                    )
+                    .await
+                    .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
+                tracing::trace!(target:"ibc-rs",
+                    "in substrate [build_header] >> block_hash = {:?}",
+                    block_hash
+                );
+
+                // build signed_commitment
+                let signed_commitment = SignedCommitment {
+                    commitment: Some(grandpa_client_state.latest_commitment.clone()),
+                    signatures: vec![],
+                };
+                tracing::trace!(target:"ibc-rs","in substrate [build_header] build signed_commitment by grandpa_client_state.latest_commitment: {:?}",signed_commitment);
+                MmrRoot {
+                    signed_commitment: signed_commitment,
+                    validator_merkle_proofs: vec![ValidatorMerkleProof::default()],
+                    mmr_leaf: mmr_leaf,
+                    mmr_leaf_proof: mmr_leaf_proof,
+                }
+            };
+            // tracing::trace!(target:"ibc-rs",
+            //     "in substrate: [build_header] >> mmr_root = {:?}",
+            //     mmr_root
+            // );
 
             // get block header
-
             let block_header = octopusxt::ibc_rpc::get_header_by_block_number(
-                Some(BlockNumber::from(target_height.revision_height as u32)),
+                Some(BlockNumber::from(target_height)),
                 client.clone(),
             )
             .await
             .map_err(|_| Error::get_header_by_block_number_error())?;
+            // let block_header = block_header.unwrap();
+            tracing::trace!(target:"ibc-rs","in substrate [build_header] block_header: {:?}",block_header);
 
-            let api = client
-                .clone()
-                .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
+            //TODO:[test] log mmr leaf
+            tracing::trace!(target:"ibc-rs","in substrate [build_header] ---------------------test[begin]-----------------------");
+            let mmr_leaf: Vec<u8> = Decode::decode(&mut &mmr_root.mmr_leaf.clone()[..]).unwrap();
+            tracing::trace!(target:"ibc-rs","in substrate [build_header] test_mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
+            let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
+                Decode::decode(&mut &*mmr_leaf).unwrap();
+            tracing::trace!(target:"ibc-rs","in substrate [build_header] test_mmr_leaf to data struct: {:?}",mmr_leaf);
 
-            assert_eq!(
-                block_header.block_number,
-                target_height.revision_height as u32
+            //TODO:[test] log mmr leaf proof
+            let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(
+                &mut &mmr_root.mmr_leaf_proof.clone()[..],
+            )
+            .unwrap();
+            tracing::trace!(target:"ibc-rs","in substrate [build_header]  block_header.block_number:{:?},mmr root heigh:{:?},mmr_leaf.parent_number:{:?},mmr_leaf_proof.leaf_index{:?},mmr_leaf_proof.leaf_count: {:?}",block_header.block_number,block_number,mmr_leaf.parent_number_and_hash.0,mmr_leaf_proof.leaf_index, mmr_leaf_proof.leaf_count);
+
+            // log mmr leaf
+            tracing::trace!(target:"ibc-rs","in substrate [build_header] block_header.parent_hash: {:?}",block_header.parent_hash);
+            tracing::trace!(target:"ibc-rs","in substrate [build_header] mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
+            // verfiy block header
+            if block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
+                tracing::trace!(target:"ibc-rs","in substrate [build_header] header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec()");
+            } else {
+                tracing::trace!(target:"ibc-rs","in substrate [build_header] header.block_header.parent_hash == mmr_leaf.parent_number_and_hash.1.to_vec()");
+            }
+
+            let beefy_header =
+                beefy_light_client::header::Header::try_from(block_header.clone()).unwrap();
+            let header_hash = beefy_header.hash();
+            tracing::trace!(target:"ibc-rs","in substrate [build_header] header_hash: {:?}",header_hash);
+            tracing::trace!(target:"ibc-rs","in substrate [build_header] mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
+            if header_hash != mmr_leaf.parent_number_and_hash.1 {
+                tracing::trace!(target:"ibc-rs","in substrate [build_header] header_hash != mmr_leaf.parent_number_and_hash.1");
+            } else {
+                tracing::trace!(target:"ibc-rs","in substrate [build_header]header_hash == mmr_leaf.parent_number_and_hash.1");
+            }
+
+            tracing::trace!(target:"ibc-rs","in substrate [build_header] ---------------------test[end]-----------------------");
+
+            //build timestamp
+            // let timestamp = octopusxt::ibc_rpc::get_timestamp(
+            //     Some(BlockNumber::from(target_height)),
+            //     client.clone(),
+            // )
+            // .await
+            // .map_err(|_| Error::get_timestamp())?;
+            let timestamp = Time::from_unix_timestamp(0, 0).unwrap();
+            tracing::trace!(target:"ibc-rs",
+                "in substrate: [build_header] >> timestamp = {:?}",
+                timestamp
             );
 
-            let block_hash: Option<H256> = api
-                .client
-                .rpc()
-                .block_hash(Some(BlockNumber::from(mmr_root_height)))
-                .await
-                .map_err(|_| Error::get_block_hash_error())?;
+            // build header
+            let grandpa_header = GPHeader {
+                mmr_root: mmr_root,
+                block_header: block_header,
+                timestamp: timestamp,
+            };
 
-            let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
-                Some(BlockNumber::from(
-                    (target_height.revision_height - 1) as u32,
-                )),
-                block_hash,
-                client,
-            )
-            .await
-            .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
-
-            Ok((block_header, mmr_leaf_and_mmr_leaf_proof))
+            tracing::trace!(target:"ibc-rs",
+                "in substrate: [build_header] >> grandpa_header = {:?}",
+                grandpa_header
+            );
+            Ok(grandpa_header)
         };
 
-        let result = self.block_on(result)?;
-
-        let encoded_mmr_leaf = result.1 .1;
-        let encoded_mmr_leaf_proof = result.1 .2;
-
-        let leaf: Vec<u8> =
-            Decode::decode(&mut &encoded_mmr_leaf[..]).map_err(Error::invalid_codec_decode)?;
-        let mmr_leaf: mmr::MmrLeaf =
-            Decode::decode(&mut &*leaf).map_err(Error::invalid_codec_decode)?;
-        let mmr_leaf_proof = mmr::MmrLeafProof::decode(&mut &encoded_mmr_leaf_proof[..])
-            .map_err(Error::invalid_codec_decode)?;
-
-        let grandpa_header = GPHeader {
-            block_header: result.0,
-            mmr_leaf: MmrLeaf::from(mmr_leaf),
-            mmr_leaf_proof: MmrLeafProof::from(mmr_leaf_proof),
-        };
-
-        Ok((grandpa_header, vec![]))
+        let header = self.block_on(future)?;
+        Ok((header, vec![]))
     }
 
     /// add new api websocket_url
     fn websocket_url(&self) -> Result<String, Error> {
-        tracing::trace!("in substrate: [websocket_url]");
+        tracing::trace!(target:"ibc-rs","in substrate: [websocket_url]");
 
         Ok(self.websocket_url.clone())
     }
 
     /// add new api update_mmr_root
-    fn update_mmr_root(
-        &self,
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
-    ) -> Result<(), Error> {
-        tracing::info!("in substrate: [update_mmr_root]");
+    fn update_mmr_root(&mut self, client_id: ClientId, header: GPHeader) -> Result<(), Error> {
+        tracing::trace!(target:"ibc-rs",
+            "[update_mmr_root] client_id = {:?} ",
+            client_id,
+        );
 
-        let result = async {
-            let chain_a = ClientBuilder::new()
-                .set_url(src_chain_websocket_url)
-                .build::<MyConfig>()
-                .await
-                .map_err(|_| Error::substrate_client_builder_error())?;
+        let MmrRoot {
+            signed_commitment,
+            validator_merkle_proofs,
+            mmr_leaf,
+            mmr_leaf_proof,
+        } = header.mmr_root.clone();
 
-            let chain_b = ClientBuilder::new()
-                .set_url(dst_chain_websocket_url)
-                .build::<MyConfig>()
-                .await
-                .map_err(|_| Error::substrate_client_builder_error())?;
-
-            update_client_state(chain_a.clone(), chain_b.clone())
-                .await
-                .map_err(|_| Error::update_client_state_error())?;
-
-            update_client_state(chain_b.clone(), chain_a.clone())
-                .await
-                .map_err(|_| Error::update_client_state_error())
+        let new_mmr_root_height = signed_commitment.clone().commitment.unwrap().block_number;
+        tracing::trace!(target:"ibc-rs",
+            "[update_mmr_root] mmr root height = {:?}",
+            new_mmr_root_height
+        );
+        let client_state = self.get_client_state(&client_id).unwrap();
+        let gp_client_state = match client_state {
+            AnyClientState::Grandpa(value) => value,
+            _ => unimplemented!(),
         };
 
-        self.block_on(result)
+        // let client = self.get_client().unwrap();
+        // let gp_consensue_state = self
+        //     .get_client_consensus(&client_id, &grandpa_client_state.latest_height())
+        //     .unwrap();
+
+        // let gp_consensue_state = match gp_consensue_state {
+        //     AnyConsensusState::Grandpa(cs) => cs,
+        //     _ => unimplemented!(),
+        // };
+
+        let beefy_light_client::commitment::Commitment {
+            payload,
+            block_number,
+            validator_set_id,
+        } = gp_client_state.latest_commitment.clone().into();
+
+        tracing::trace!(target:"ibc-rs",
+            "[update_mmr_root] mmr root height in client state is: ({:?}) and  new mmr root height is ({:?})!",
+            block_number,new_mmr_root_height
+        );
+
+        if block_number >= new_mmr_root_height {
+            tracing::trace!(target:"ibc-rs",
+                "[update_mmr_root]mmr root height in client state ({:?}) >= new mmr root height({:?}), Don't need to update!",
+                block_number,new_mmr_root_height
+            );
+            return Err(Error::update_client_state_error());
+        }
+
+        let mut msgs = vec![];
+
+        let signer = self.get_signer().unwrap();
+        use ibc::core::ics02_client::header::AnyHeader;
+        msgs.push(
+            MsgUpdateAnyClient {
+                header: AnyHeader::Grandpa(header),
+                signer: signer,
+                client_id: client_id,
+            }
+            .to_any(),
+        );
+
+        let tm = TrackedMsgs::new(msgs, "update client");
+        tracing::trace!(target:"ibc-rs", "in substrate: [update_mmr_root] >> msgs = {:?}",tm);
+
+        let events = self.send_messages_and_wait_commit(tm);
+        tracing::trace!(target:"ibc-rs", "in substrate: [update_mmr_root] >> events = {:?}",events);
+
+        Ok(())
     }
 
     fn config(&self) -> ChainConfig {
@@ -1528,7 +1785,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn query_application_status(&self) -> Result<ChainStatus, Error> {
-        tracing::trace!("in substrate: [query_status]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_status]");
 
         let height = self
             .retry_wapper(|| self.get_latest_height())
@@ -1546,7 +1803,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryBlockRequest,
     ) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error> {
-        tracing::trace!("in substrate: [query_block]");
+        tracing::trace!(target:"ibc-rs","in substrate: [query_block]");
 
         Ok((vec![], vec![]))
     }
@@ -1561,11 +1818,49 @@ impl ChainEndpoint for SubstrateChain {
     }
 }
 
+/// send Update client state request
+pub async fn send_update_state_request(
+    client: Client<MyConfig>,
+    pair_signer: PairSigner<MyConfig, sp_core::sr25519::Pair>,
+    chain_id: ChainId,
+    client_id: ClientId,
+    mmr_root: MmrRoot,
+) -> Result<H256, Box<dyn std::error::Error>> {
+    tracing::info!("in substrate: [send_update_state_request]");
+    println!("in substrate: [send_update_state_request]");
+
+    let api = client
+        .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
+
+    // let pair_signer = PairSigner::new(signer);
+    // let client_state_bytes = <commitment::SignedCommitment as codec::Encode>::encode(&client_state);
+
+    let encode_client_id = client_id.as_bytes().to_vec();
+    let encode_mmr_root = <MmrRoot as Encode>::encode(&mmr_root);
+    // println!("encode mmr root is {:?}", encode_mmr_root);
+
+    // // test
+    // let received_mmr_root = encode_mmr_root.clone();
+    // let decode_received_mmr_root = help::MmrRoot::decode(&mut &received_mmr_root[..]).unwrap();
+    // println!("decode mmr root is {:?}", decode_received_mmr_root);
+
+    let result = api
+        .tx()
+        .ibc()
+        .update_client_state(encode_client_id, encode_mmr_root)?
+        .sign_and_submit_default(&pair_signer)
+        .await?;
+
+    tracing::info!("update client state result: {:?}", result);
+    println!("{:?} update client state result: {:?}", chain_id, result);
+
+    Ok(result)
+}
 // Todo: to create a new type in `commitment_proof::Proof`
 /// Compose merkle proof according to ibc proto
 pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     use ibc_proto::ics23::{commitment_proof, ExistenceProof, InnerOp};
-    tracing::trace!("in substrate: [compose_ibc_merkle_proof]");
+    tracing::trace!(target:"ibc-rs","in substrate: [compose_ibc_merkle_proof]");
 
     let _inner_op = InnerOp {
         hash: 0,

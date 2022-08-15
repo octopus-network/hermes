@@ -5,6 +5,8 @@ use crossbeam_channel as channel;
 use serde::Serialize;
 
 use ibc::{
+    clients::ics10_grandpa::header::Header as GPheader,
+    clients::ics10_grandpa::help::MmrRoot,
     core::{
         ics02_client::{
             client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight},
@@ -47,6 +49,7 @@ use crate::{
     config::ChainConfig,
     connection::ConnectionMsgType,
     error::Error,
+    event::beefy_monitor::BeefyResult,
     event::monitor::{EventBatch, Result as MonitorResult},
     keyring::KeyEntry,
 };
@@ -54,6 +57,8 @@ use crate::{
 use super::client::ClientSettings;
 use super::tx::TrackedMsgs;
 use super::{ChainStatus, HealthCheck};
+
+use subxt::SignedCommitment;
 
 mod base;
 mod cache;
@@ -93,6 +98,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Debug for ChainHandlePair<ChainA,
 }
 
 pub type Subscription = channel::Receiver<Arc<MonitorResult<EventBatch>>>;
+pub type BeefySubscription = channel::Receiver<Arc<BeefyResult<GPheader>>>;
 
 pub type ReplyTo<T> = channel::Sender<Result<T, Error>>;
 pub type Reply<T> = channel::Receiver<Result<T, Error>>;
@@ -115,6 +121,10 @@ pub enum ChainRequest {
 
     Subscribe {
         reply_to: ReplyTo<Subscription>,
+    },
+
+    SubscribeBeefy {
+        reply_to: ReplyTo<BeefySubscription>,
     },
 
     SendMessagesAndWaitCommit {
@@ -336,8 +346,8 @@ pub enum ChainRequest {
     },
 
     UpdateMmrRoot {
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
+        client_id: ClientId,
+        header: GPheader,
         reply_to: ReplyTo<()>,
     },
 
@@ -366,6 +376,10 @@ pub trait ChainHandle: Clone + Send + Sync + Serialize + Debug + 'static {
 
     /// Subscribe to the events emitted by the chain.
     fn subscribe(&self) -> Result<Subscription, Error>;
+
+    /// Subscribe to the beefy signed commitment by the chain.
+    /// only substrate app chain need to implement
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error>;
 
     /// Send the given `msgs` to the chain, packaged as one or more transactions,
     /// and return the list of events emitted by the chain after the transaction was committed.
@@ -577,11 +591,7 @@ pub trait ChainHandle: Clone + Send + Sync + Serialize + Debug + 'static {
     fn websocket_url(&self) -> Result<String, Error>;
 
     // only used by ics10-grandpa
-    fn update_mmr_root(
-        &self,
-        src_chain_websocket_url: String,
-        dst_chain_websocket_url: String,
-    ) -> Result<(), Error>;
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error>;
 
     fn query_blocks(
         &self,

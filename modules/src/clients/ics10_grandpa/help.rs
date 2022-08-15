@@ -18,6 +18,7 @@ use ibc_proto::ibc::lightclients::grandpa::v1::SignedCommitment as RawSignedComm
 use ibc_proto::ibc::lightclients::grandpa::v1::ValidatorMerkleProof as RawValidatorMerkleProof;
 use ibc_proto::ibc::lightclients::grandpa::v1::ValidatorSet as RawValidatorSet;
 
+use alloc::string::ToString;
 use crate::Height;
 use beefy_light_client::commitment::known_payload_ids::MMR_ROOT_ID;
 use beefy_light_client::commitment::Commitment as BeefyCommitment;
@@ -624,11 +625,61 @@ impl From<BlockHeader> for RawBlockHeader {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
+use ibc_proto::ibc::lightclients::grandpa::v1::MmrRoot as RawMmrRoot;
+// #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct MmrRoot {
-    pub block_header: BlockHeader,
     pub signed_commitment: SignedCommitment,
     pub validator_merkle_proofs: Vec<ValidatorMerkleProof>,
     pub mmr_leaf: Vec<u8>,
     pub mmr_leaf_proof: Vec<u8>,
+}
+impl TryFrom<RawMmrRoot> for MmrRoot {
+    type Error = Error;
+
+    fn try_from(raw: RawMmrRoot) -> Result<Self, Self::Error> {
+        Ok(Self {
+            signed_commitment: raw
+                .signed_commitment
+                .ok_or_else(Error::empty_signed_commitment)?
+                .try_into()
+                .map_err(|e| Error::invalid_mmr_root("signed mmr root conversion".to_string()))?,
+
+            validator_merkle_proofs: raw
+                .validator_merkle_proofs
+                .into_iter()
+                .map(|proof| proof.into())
+                .collect(),
+
+            // mmr_leaf: raw
+            //     .mmr_leaf
+            //     .ok_or_else(Error::empty_mmr_leaf)?
+            //     .try_into()
+            //     .map_err(|e| Error::invalid_mmr_leaf())?,
+            mmr_leaf: raw.mmr_leaf,
+
+            // mmr_leaf_proof: raw
+            //     .mmr_leaf_proof
+            //     .ok_or_else(Error::empty_mmr_leaf_proof)?
+            //     .try_into()
+            //     .map_err(|e| Error::invalid_mmr_leaf_proof())?,
+            mmr_leaf_proof: raw.mmr_leaf_proof,
+        })
+    }
+}
+
+impl TryFrom<MmrRoot> for RawMmrRoot {
+    type Error = Error;
+    fn try_from(value: MmrRoot) -> Result<Self, Self::Error> {
+        Ok(Self {
+            signed_commitment: Some(value.signed_commitment.try_into()?),
+            validator_merkle_proofs: value
+                .validator_merkle_proofs
+                .into_iter()
+                .map(|proof| proof.into())
+                .collect(),
+            mmr_leaf: value.mmr_leaf,
+            mmr_leaf_proof: value.mmr_leaf_proof,
+        })
+    }
 }

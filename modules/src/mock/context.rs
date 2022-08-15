@@ -15,6 +15,7 @@ use sha2::Digest;
 use tracing::debug;
 
 use crate::applications::ics20_fungible_token_transfer::context::Ics20Context;
+use crate::applications::ics20_fungible_token_transfer::error::Error as Ics20Error;
 use crate::clients::ics07_tendermint::client_state::test_util::get_dummy_tendermint_client_state;
 use crate::clients::ics10_grandpa::{client_state::ClientState, consensus_state::ConsensusState};
 use crate::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};

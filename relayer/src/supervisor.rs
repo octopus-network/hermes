@@ -10,6 +10,7 @@ use itertools::Itertools;
 use tracing::{debug, error, error_span, info, trace, warn};
 
 use ibc::{
+    core::ics02_client::client_type::ClientType,
     core::ics24_host::identifier::{ChainId, ChannelId, PortId},
     events::IbcEvent,
     Height,
@@ -18,15 +19,17 @@ use ibc::{
 use crate::{
     chain::{handle::ChainHandle, HealthCheck},
     config::Config,
+    event::beefy_monitor,
     event::monitor::{self, Error as EventError, ErrorDetail as EventErrorDetail, EventBatch},
-    object::Object,
+    object::{Beefy, Object},
     registry::{Registry, SharedRegistry},
     rest,
-    supervisor::scan::ScanMode,
+    supervisor::scan::{ChainScan, ChainsScan, ScanMode},
     util::{
         lock::LockExt,
         task::{spawn_background_task, Next, TaskError, TaskHandle},
     },
+    worker::WorkerCmd,
     worker::WorkerMap,
 };
 
@@ -49,6 +52,12 @@ use self::{scan::ChainScanner, spawn::SpawnContext};
 
 type ArcBatch = Arc<monitor::Result<EventBatch>>;
 type Subscription = Receiver<ArcBatch>;
+
+// use subxt::SignedCommitment;
+use ibc::clients::ics10_grandpa::help::MmrRoot;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
+type ArcBeefy = Arc<beefy_monitor::BeefyResult<GPheader>>;
+type BeefySubscription = Receiver<ArcBeefy>;
 
 /**
     A wrapper around the SupervisorCmd sender so that we can
@@ -144,23 +153,40 @@ pub fn spawn_supervisor_tasks<Chain: ChainHandle>(
 
     info!("Scanned chains:");
     info!("{}", scan);
+    // println!("in supervisor: [spawn_supervisor_tasks], scan ={:?}", scan);
+    let chains = scan.get_chains();
+    println!("in supervisor: [spawn_supervisor_tasks], chains ={:?}", chains);
 
     spawn_context(&config, &mut registry.write(), &mut workers.acquire_write()).spawn_workers(scan);
 
     let subscriptions = init_subscriptions(&config, &mut registry.write())?;
-
     let batch_tasks = spawn_batch_workers(
+        &config,
+        registry.clone(),
+        client_state_filter.clone(),
+        workers.clone(),
+        subscriptions,
+    );
+
+    //subscripte beefy signedcommitment and spawn worker
+    let beefy_sub = init_beefy_sub(&config, &mut registry.write())?;
+    println!("in supervisor: [spawn_supervisor_tasks], beefy_sub ={:?}", beefy_sub);
+    let beefy_task = spawn_beefy_workers(
         &config,
         registry.clone(),
         client_state_filter,
         workers.clone(),
-        subscriptions,
+        chains,
+        beefy_sub,
     );
 
     let cmd_task = spawn_cmd_worker(registry.clone(), workers.clone(), cmd_rx);
 
     let mut tasks = vec![cmd_task];
     tasks.extend(batch_tasks);
+
+    //append beefy task
+    tasks.extend(beefy_task);
 
     if let Some(rest_rx) = rest_rx {
         let rest_task = spawn_rest_worker(config, registry, workers, rest_rx);
@@ -197,6 +223,66 @@ fn spawn_batch_workers<Chain: ChainHandle>(
                         &mut workers.acquire_write(),
                         chain.clone(),
                         batch,
+                    );
+                }
+
+                Ok(Next::Continue)
+            },
+        );
+
+        handles.push(handle);
+    }
+
+    handles
+}
+
+fn spawn_beefy_workers<Chain: ChainHandle>(
+    config: &Config,
+    registry: SharedRegistry<Chain>,
+    client_state_filter: Arc<RwLock<FilterPolicy>>,
+    workers: Arc<RwLock<WorkerMap>>,
+    chains_scan: Vec<ChainScan>,
+    subscriptions: Vec<(Chain, BeefySubscription)>,
+) -> Vec<TaskHandle> {
+    tracing::trace!("in supervisor: [spawn_beefy_workers], chains_scan ={:?}", chains_scan);
+    println!("in supervisor: [spawn_beefy_workers], chains_scan ={:?}", chains_scan);
+
+    let mut handles = Vec::with_capacity(subscriptions.len());
+
+    for (src_chain, subscription) in subscriptions {
+        println!("in supervisor: [spawn_beefy_workers], src_chain ={:?}", src_chain);
+        println!("in supervisor: [spawn_beefy_workers], subscription ={:?}", subscription);
+
+        let config = config.clone();
+        let registry = registry.clone();
+        let client_state_filter = client_state_filter.clone();
+        let workers = workers.clone();
+        let dst_chains: Vec<ChainScan> = chains_scan
+            .iter()
+            .filter(|c| c.chain_id != src_chain.id())
+            .cloned()
+            .collect();
+        tracing::trace!("in supervisor: [spawn_beefy_workers], dst_chains ={:?}", dst_chains);
+        // println!("in supervisor: [spawn_beefy_workers], dst_chains ={:?}", dst_chains);
+        if dst_chains.len()==0 {
+            println!("in supervisor: [spawn_beefy_workers], dst_chains len ={:?}", dst_chains.len());
+            continue;
+        }
+
+        let handle = spawn_background_task(
+            tracing::Span::none(),
+            // Some(Duration::from_millis(5)),
+            Some(Duration::from_secs(1)),
+            move || -> Result<Next, TaskError<Infallible>> {
+                if let Ok(mmr_root) = subscription.try_recv() {
+                    handle_beefy(
+                        &config,
+                        &mut registry.write(),
+                        &mut client_state_filter.acquire_write(),
+                        &mut workers.acquire_write(),
+                        src_chain.clone(),
+                        dst_chains.clone(),
+                        mmr_root,
                     );
                 }
 
@@ -317,6 +403,7 @@ fn relay_on_object<Chain: ChainHandle>(
         Object::Connection(conn) => client_state_filter.control_conn_object(registry, conn),
         Object::Channel(chan) => client_state_filter.control_chan_object(registry, chan),
         Object::Packet(u) => client_state_filter.control_packet_object(registry, u),
+        Object::Beefy(beefy) => Ok(Permission::Allow),
     };
 
     match client_filter_outcome {
@@ -503,7 +590,7 @@ fn health_check<Chain: ChainHandle>(config: &Config, registry: &mut Registry<Cha
     }
 }
 
-/// Subscribe to the events emitted by the chains the supervisor is connected to.
+/// Subscribe to the event by the chains the supervisor is connected to.
 fn init_subscriptions<Chain: ChainHandle>(
     config: &Config,
     registry: &mut Registry<Chain>,
@@ -541,6 +628,53 @@ fn init_subscriptions<Chain: ChainHandle>(
     }
 
     Ok(subscriptions)
+}
+
+/// Subscribe to the beefy msg emitted by the chains the supervisor is connected to.
+/// only for substrate app chain
+fn init_beefy_sub<Chain: ChainHandle>(
+    config: &Config,
+    registry: &mut Registry<Chain>,
+) -> Result<Vec<(Chain, BeefySubscription)>, Error> {
+    let chains = &config.chains;
+
+    let mut beefy_subs = Vec::with_capacity(chains.len());
+
+    for chain_config in chains {
+        // check chain type,only substrate app chain can be subscribed beefy msg
+        let account_prefix = chain_config.account_prefix.clone();
+        match account_prefix.as_str() {
+            "substrate" => {
+                let chain = match registry.get_or_spawn(&chain_config.id) {
+                    Ok(chain) => chain,
+                    Err(e) => {
+                        error!(
+                            "failed to spawn chain runtime for {}: {}",
+                            chain_config.id, e
+                        );
+
+                        continue;
+                    }
+                };
+                tracing::trace!("in supervisor: [init_beefy_sub], chain id ={:?}", chain.id());
+                println!("in supervisor: [init_beefy_sub], chain id ={:?}", chain.id());
+                match chain.subscribe_beefy() {
+                    Ok(beefy_sub) => beefy_subs.push((chain, beefy_sub)),
+                    Err(e) => error!(
+                        "failed to subscribe to events of {}: {}",
+                        chain_config.id, e
+                    ),
+                }
+                // At least one chain runtime should be available, otherwise the supervisor
+                // cannot do anything and will hang indefinitely.
+                if registry.size() == 0 {
+                    return Err(Error::no_chains_available());
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(beefy_subs)
 }
 
 /// Dump the state of the supervisor into a [`SupervisorState`] value,
@@ -654,6 +788,59 @@ fn process_batch<Chain: ChainHandle>(
     Ok(())
 }
 
+/// Process beefy msg received from a chain.
+fn process_beefy<Chain: ChainHandle>(
+    config: &Config,
+    registry: &mut Registry<Chain>,
+    client_state_filter: &mut FilterPolicy,
+    workers: &mut WorkerMap,
+    src_chain: Chain,
+    dst_chains: Vec<ChainScan>,
+    header: GPheader,
+) -> Result<(), Error> {
+    tracing::trace!("in supervisor: [process_beefy], mmr_root ={:?}", header);
+
+    for dst_chain in &dst_chains {
+        for (client_id,client_scan) in &dst_chain.clients {
+            match client_scan.client.client_state.client_type() {
+                
+                ClientType::Grandpa => {
+                    tracing::trace!("in supervisor: [process_beefy], client_id ={:?} ", client_id);
+                    println!("in supervisor: [process_beefy], dst_chain = {:?},client_id ={:?} ",dst_chain.chain_id,client_id);
+                    let object = Object::Beefy(Beefy {
+                                dst_chain_id: dst_chain.chain_id.clone(),
+                                    dst_client_id: client_id.clone(),
+                                    src_chain_id: src_chain.id().clone(),
+                                });
+                    tracing::trace!("in supervisor: [process_beefy], object ={:?} ", object);
+                    println!("in supervisor: [process_beefy], object ={:?} ", object);
+                    let src = registry
+                                    .get_or_spawn(object.src_chain_id())
+                                    .map_err(Error::spawn)?;
+                
+                    let dst = registry
+                                    .get_or_spawn(object.dst_chain_id())
+                                    .map_err(Error::spawn)?;
+                
+                    let worker = workers.get_or_spawn(object, src, dst, config);
+                    let header = GPheader { ..header.clone()};
+                    let cmd = WorkerCmd::Beefy { header };
+                    tracing::trace!("in supervisor: [process_beefy], work cmd ={:?} ", cmd);
+                    // println!("in supervisor: [process_beefy], work cmd ={:?} ", cmd);
+                    
+                    worker.try_send_command(cmd);
+                    },
+                _ => {}
+                // ClientType::Tendermint => todo!(),
+                // ClientType::Mock => todo!(),
+            }
+        }
+     
+    }
+
+    Ok(())
+}
+
 /// Process the given batch if it does not contain any errors,
 /// output the errors on the console otherwise.
 fn handle_batch<Chain: ChainHandle>(
@@ -686,6 +873,50 @@ fn handle_batch<Chain: ChainHandle>(
         }
         Err(e) => {
             error!("[{}] error in receiving event batch: {}", chain_id, e)
+        }
+    }
+}
+
+/// Process the given beefy msg if it does not contain any errors,
+/// output the errors on the console otherwise.
+fn handle_beefy<Chain: ChainHandle>(
+    config: &Config,
+    registry: &mut Registry<Chain>,
+    client_state_filter: &mut FilterPolicy,
+    workers: &mut WorkerMap,
+    src_chain: Chain,
+    dst_chains: Vec<ChainScan>,
+    beefy: ArcBeefy,
+) {
+    tracing::trace!("in supervisor: [handle_beefy], src_chain ={:?}", src_chain);
+    let src_chain_id = src_chain.id();
+
+    match beefy.deref() {
+        Ok(mmr_root) => {
+            if let Err(e) = process_beefy(
+                config,
+                registry,
+                client_state_filter,
+                workers,
+                src_chain,
+                dst_chains,
+                mmr_root.clone(),
+            ) {
+                error!("[{}] error during beefy processing: {}", src_chain_id, e);
+            }
+        }
+        // Err(EventError(EventErrorDetail::SubscriptionCancelled(_), _)) => {
+        //     warn!(chain.id = %chain_id, "event subscription was cancelled, clearing pending packets");
+
+        //     let _ = clear_pending_packets(workers, &chain_id).map_err(|e| {
+        //         error!(
+        //             "[{}] error during clearing pending packets: {}",
+        //             chain_id, e
+        //         )
+        //     });
+        // }
+        Err(e) => {
+            error!("[{}] error in receiving beefy: {}", src_chain_id, e)
         }
     }
 }
