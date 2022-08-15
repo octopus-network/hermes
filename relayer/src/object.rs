@@ -45,6 +45,30 @@ impl Client {
     }
 }
 
+/// Beefy,maybe reuse the client
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct Beefy {
+    /// Destination chain identifier.
+    /// This is the chain hosting the client.
+    pub dst_chain_id: ChainId,
+
+    /// Client identifier (allocated on the destination chain `dst_chain_id`).
+    pub dst_client_id: ClientId,
+
+    /// Source chain identifier.
+    /// This is the chain whose headers the client worker is verifying.
+    pub src_chain_id: ChainId,
+}
+
+impl Beefy {
+    pub fn short_name(&self) -> String {
+        format!(
+            "Beefy::{}->{}:{}",
+            self.src_chain_id, self.dst_chain_id, self.dst_client_id
+        )
+    }
+}
+
 /// Connection
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Connection {
@@ -141,6 +165,8 @@ impl Wallet {
 pub enum Object {
     /// See [`Client`].
     Client(Client),
+    /// See [`Beefy`]
+    Beefy(Beefy),
     /// See [`Connection`].
     Connection(Connection),
     /// See [`Channel`].
@@ -194,6 +220,7 @@ impl Object {
     pub fn notify_new_block(&self, src_chain_id: &ChainId) -> bool {
         match self {
             Object::Client(_) => false,
+            Object::Beefy(_) => false,
             Object::Connection(c) => &c.src_chain_id == src_chain_id,
             Object::Channel(c) => &c.src_chain_id == src_chain_id,
             Object::Packet(p) => &p.src_chain_id == src_chain_id,
@@ -205,6 +232,7 @@ impl Object {
     pub fn for_chain(&self, chain_id: &ChainId) -> bool {
         match self {
             Object::Client(c) => &c.src_chain_id == chain_id || &c.dst_chain_id == chain_id,
+            Object::Beefy(b) => &b.src_chain_id == chain_id || &b.dst_chain_id == chain_id,
             Object::Connection(c) => &c.src_chain_id == chain_id || &c.dst_chain_id == chain_id,
             Object::Channel(c) => &c.src_chain_id == chain_id || &c.dst_chain_id == chain_id,
             Object::Packet(p) => &p.src_chain_id == chain_id || &p.dst_chain_id == chain_id,
@@ -216,6 +244,7 @@ impl Object {
     pub fn object_type(&self) -> ObjectType {
         match self {
             Object::Client(_) => ObjectType::Client,
+            Object::Beefy(_) => ObjectType::Beefy,
             Object::Channel(_) => ObjectType::Channel,
             Object::Connection(_) => ObjectType::Connection,
             Object::Packet(_) => ObjectType::Packet,
@@ -232,11 +261,18 @@ pub enum ObjectType {
     Connection,
     Packet,
     Wallet,
+    Beefy,
 }
 
 impl From<Client> for Object {
     fn from(c: Client) -> Self {
         Self::Client(c)
+    }
+}
+
+impl From<Beefy> for Object {
+    fn from(b: Beefy) -> Self {
+        Self::Beefy(b)
     }
 }
 
@@ -268,6 +304,7 @@ impl Object {
     pub fn src_chain_id(&self) -> &ChainId {
         match self {
             Self::Client(ref client) => &client.src_chain_id,
+            Self::Beefy(ref beefy) => &beefy.src_chain_id,
             Self::Connection(ref connection) => &connection.src_chain_id,
             Self::Channel(ref channel) => &channel.src_chain_id,
             Self::Packet(ref path) => &path.src_chain_id,
@@ -278,6 +315,7 @@ impl Object {
     pub fn dst_chain_id(&self) -> &ChainId {
         match self {
             Self::Client(ref client) => &client.dst_chain_id,
+            Self::Beefy(ref beefy) => &beefy.dst_chain_id,
             Self::Connection(ref connection) => &connection.dst_chain_id,
             Self::Channel(ref channel) => &channel.dst_chain_id,
             Self::Packet(ref path) => &path.dst_chain_id,
@@ -288,6 +326,7 @@ impl Object {
     pub fn short_name(&self) -> String {
         match self {
             Self::Client(ref client) => client.short_name(),
+            Self::Beefy(ref beefy) => beefy.short_name(),
             Self::Connection(ref connection) => connection.short_name(),
             Self::Channel(ref channel) => channel.short_name(),
             Self::Packet(ref path) => path.short_name(),

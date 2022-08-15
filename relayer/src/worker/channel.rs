@@ -73,6 +73,7 @@ pub fn spawn_channel_worker<ChainA: ChainHandle, ChainB: ChainHandle>(
 
                     // nothing to do
                     WorkerCmd::ClearPendingPackets => Ok(Next::Continue),
+                    WorkerCmd::Beefy { header } => Ok(Next::Continue),
                 }
             } else {
                 Ok(Next::Continue)

@@ -20,7 +20,9 @@
    is still a [`ChainHandle`].
 */
 
+use crate::types::tagged::*;
 use crossbeam_channel as channel;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::core::ics02_client::events::UpdateClient;
@@ -65,8 +67,6 @@ use ibc_relayer::denom::DenomTrace;
 use ibc_relayer::error::Error;
 use ibc_relayer::keyring::KeyEntry;
 
-use crate::types::tagged::*;
-
 /**
    Implement `ChainHandle` for any existential type `Handle: ChainHandle`.
    This allows us to tag values for chains that are tagged by position
@@ -95,6 +95,9 @@ where
 
     fn subscribe(&self) -> Result<Subscription, Error> {
         self.value().subscribe()
+    }
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
+        self.value().subscribe_beefy()
     }
 
     fn send_messages_and_wait_commit(
@@ -381,6 +384,14 @@ where
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error> {
         self.value().query_txs(request)
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        todo!()
+    }
+
+    fn update_mmr_root(&self, _client_id: ClientId, _header: GPheader) -> Result<(), Error> {
+        todo!()
     }
 
     fn query_blocks(

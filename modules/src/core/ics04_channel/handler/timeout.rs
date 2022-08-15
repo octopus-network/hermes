@@ -27,6 +27,8 @@ pub struct TimeoutPacketResult {
 /// packet can no longer be executed and to allow the calling module to safely
 /// perform appropriate state transitions.
 pub fn process(ctx: &dyn ChannelReader, msg: &MsgTimeout) -> HandlerResult<PacketResult, Error> {
+    tracing::trace!(target:"ibc-rs","[timeout] begin to process the timeout msg : {:?}",msg);
+
     let mut output = HandlerOutput::builder();
 
     let packet = &msg.packet;
@@ -131,13 +133,15 @@ pub fn process(ctx: &dyn ChannelReader, msg: &MsgTimeout) -> HandlerResult<Packe
             channel: None,
         })
     };
-
+    tracing::trace!(target:"ibc-rs","[timeout] process result : {:?}",result);
+    
     output.log("success: packet timeout ");
 
     output.emit(IbcEvent::TimeoutPacket(TimeoutPacket {
         height: ctx.host_height(),
         packet: packet.clone(),
     }));
+    tracing::trace!(target:"ibc-rs","[timeout] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

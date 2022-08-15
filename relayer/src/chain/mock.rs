@@ -12,6 +12,7 @@ use ibc::clients::ics07_tendermint::client_state::{
 };
 use ibc::clients::ics07_tendermint::consensus_state::ConsensusState as TendermintConsensusState;
 use ibc::clients::ics07_tendermint::header::Header as TendermintHeader;
+use ibc::clients::ics10_grandpa::help::MmrRoot;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::core::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd};
@@ -37,6 +38,7 @@ use crate::chain::requests::{
 use crate::config::ChainConfig;
 use crate::denom::DenomTrace;
 use crate::error::Error;
+use crate::event::beefy_monitor::{BeefyReceiver, BeefySender};
 use crate::event::monitor::{EventReceiver, EventSender, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::Verified;
@@ -65,6 +67,10 @@ pub struct MockChain {
     // keep a reference to event sender to prevent it from being dropped
     _event_sender: EventSender,
     event_receiver: EventReceiver,
+
+    // keep a reference to beefy sender to prevent it from being dropped
+    _beefy_sender: BeefySender,
+    beefy_receiver: BeefyReceiver,
 }
 
 impl MockChain {
@@ -84,6 +90,8 @@ impl ChainEndpoint for MockChain {
 
     fn bootstrap(config: ChainConfig, _rt: Arc<Runtime>) -> Result<Self, Error> {
         let (sender, receiver) = channel::unbounded();
+        let (beefy_sender, beefy_receiver) = channel::unbounded();
+
         Ok(MockChain {
             config: config.clone(),
             context: MockContext::new(
@@ -94,6 +102,8 @@ impl ChainEndpoint for MockChain {
             ),
             _event_sender: sender,
             event_receiver: receiver,
+            _beefy_sender: beefy_sender,
+            beefy_receiver: beefy_receiver,
         })
     }
 
@@ -107,6 +117,11 @@ impl ChainEndpoint for MockChain {
     ) -> Result<(EventReceiver, TxMonitorCmd), Error> {
         let (tx, _) = crossbeam_channel::unbounded();
         Ok((self.event_receiver.clone(), tx))
+    }
+
+    fn init_beefy_monitor(&self, rt: Arc<Runtime>) -> Result<(BeefyReceiver, TxMonitorCmd), Error> {
+        let (tx, _) = crossbeam_channel::unbounded();
+        Ok((self.beefy_receiver.clone(), tx))
     }
 
     fn id(&self) -> &ChainId {
@@ -439,6 +454,14 @@ impl ChainEndpoint for MockChain {
         _request: QueryUpgradedConsensusStateRequest,
     ) -> Result<(AnyConsensusState, MerkleProof), Error> {
         unimplemented!()
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        todo!()
+    }
+
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+        todo!()
     }
 }
 

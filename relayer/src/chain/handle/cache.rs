@@ -1,4 +1,6 @@
 use crossbeam_channel as channel;
+use ibc::clients::ics10_grandpa::help::MmrRoot;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::core::ics02_client::events::UpdateClient;
@@ -96,6 +98,10 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
 
     fn subscribe(&self) -> Result<Subscription, Error> {
         self.inner().subscribe()
+    }
+    fn subscribe_beefy(&self) -> Result<Subscription, Error> {
+        println!("in cache chain handle: [subscribe_beefy] ",);
+        self.inner().subscribe_beefy()
     }
 
     fn send_messages_and_wait_commit(
@@ -482,6 +488,19 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
         &self,
         request: QueryHostConsensusStateRequest,
     ) -> Result<AnyConsensusState, Error> {
-        self.inner.query_host_consensus_state(request)
+        self.inner().query_host_consensus_state(request)
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        println!("in cache chain handle: [websocket_url]",);
+        self.inner().websocket_url()
+    }
+
+    fn update_mmr_root(&self, client_id: ClientId, header:GPheader) -> Result<(), Error> {
+        println!(
+            "in cache chain handle: [update_mmr_root], client_id = {:?}",
+            client_id
+        );
+        self.inner().update_mmr_root(client_id, header)
     }
 }

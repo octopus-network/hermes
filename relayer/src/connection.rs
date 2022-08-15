@@ -937,6 +937,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             )
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
 
+        tracing::trace!(target:"ibc-rs","[relay connection] build_conn_try src_connection_id :{:?} ,src_connection : {:?}",src_connection_id,src_connection);
         // TODO - check that the src connection is consistent with the try options
 
         // Cross-check the delay_period
@@ -962,18 +963,22 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?;
 
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
+        // tracing::trace!(target:"ibc-rs","[relay connection] build_update_client_on_src msgs : {:?}",client_msgs);
 
         let tm =
             TrackedMsgs::new_static(client_msgs, "update client on source for ConnectionOpenTry");
         self.src_chain()
             .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
+        //TODO: wait for update client msg into block
+        // std::thread::sleep(Duration::from_secs(5));
 
         let query_height = self
             .src_chain()
             .query_latest_height()
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
-
+        tracing::trace!(target:"ibc-rs","[relay connection] build_conn_try query_latest_height :{:?} ",query_height);
+        tracing::trace!(target:"ibc-rs","[relay connection] build_conn_try src_chain :{:?} ,dst_chain : {:?}",self.src_chain(),self.dst_chain());
         let (client_state, proofs) = self
             .src_chain()
             .build_connection_proofs_and_client_state(
@@ -984,8 +989,19 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             )
             .map_err(ConnectionError::connection_proof)?;
 
+        // tracing::trace!(target:"ibc-rs","[relay connection] build_conn_try client_state : {:?}",client_state);
+        tracing::trace!(target:"ibc-rs","[relay connection] build_conn_try proofs.height :{:?} ",proofs.height());
+
         // Build message(s) for updating client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
+        // tracing::trace!(target:"ibc-rs","[relay connection] build_update_client_on_dst msgs : {:?}",msgs);
+
+        // let tm = TrackedMsgs::new(msgs, "update client on destination for ConnectionOpenTry");
+        // self.dst_chain()
+        //     .send_messages_and_wait_commit(tm)
+        //     .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
+        // //TODO: wait for update client msg into block
+        // std::thread::sleep(Duration::from_secs(5));
 
         let counterparty_versions = if src_connection.versions().is_empty() {
             self.src_chain()
@@ -1030,8 +1046,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         };
 
         msgs.push(new_msg.to_any());
-
         Ok(msgs)
+        // Ok(vec![new_msg.to_any()])
     }
 
     pub fn build_conn_try_and_send(&self) -> Result<IbcEvent, ConnectionError> {
@@ -1043,6 +1059,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .dst_chain()
             .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.dst_chain().id(), e))?;
+        tracing::trace!(target:"ibc-rs","relayer connection [build_conn_try_and_send] events : {:?}",events);
 
         // Find the relevant event for connection try transaction
         let result = events
@@ -1052,6 +1069,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                     || matches!(event, IbcEvent::ChainError(_))
             })
             .ok_or_else(ConnectionError::missing_connection_try_event)?;
+        tracing::trace!(target:"ibc-rs","relayer connection [build_conn_try_and_send] result : {:?}",result);
 
         match result {
             IbcEvent::OpenTryConnection(_) => {
@@ -1103,6 +1121,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         self.src_chain()
             .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
+        //TODO: wait for update client msg into block
+        // std::thread::sleep(Duration::from_secs(5));
 
         let query_height = self
             .src_chain()
@@ -1121,6 +1141,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         // Build message(s) for updating client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
+        // let tm = TrackedMsgs::new(msgs, "update client on destination for ConnectionOpenAck");
+        // self.dst_chain()
+        //     .send_messages_and_wait_commit(tm)
+        //     .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
+        // //TODO: wait for update client msg into block
+        // std::thread::sleep(Duration::from_secs(5));
 
         // Get signer
         let signer = self
@@ -1139,6 +1165,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         msgs.push(new_msg.to_any());
         Ok(msgs)
+        // Ok(vec![new_msg.to_any()])
     }
 
     pub fn build_conn_ack_and_send(&self) -> Result<IbcEvent, ConnectionError> {
@@ -1213,6 +1240,15 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         // Build message(s) for updating client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
+        // let tm = TrackedMsgs::new(
+        //     msgs,
+        //     "update client on destination for ConnectionOpenConfirm",
+        // );
+        // self.dst_chain()
+        //     .send_messages_and_wait_commit(tm)
+        //     .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
+        // //TODO: wait for update client msg into block
+        // std::thread::sleep(Duration::from_secs(5));
 
         // Get signer
         let signer = self
@@ -1228,6 +1264,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         msgs.push(new_msg.to_any());
         Ok(msgs)
+        // Ok(vec![new_msg.to_any()])
     }
 
     pub fn build_conn_confirm_and_send(&self) -> Result<IbcEvent, ConnectionError> {

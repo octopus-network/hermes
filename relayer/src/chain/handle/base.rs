@@ -50,7 +50,11 @@ use crate::{
     keyring::KeyEntry,
 };
 
-use super::{reply_channel, ChainHandle, ChainRequest, HealthCheck, ReplyTo, Subscription};
+use super::{
+    reply_channel, BeefySubscription, ChainHandle, ChainRequest, HealthCheck, ReplyTo, Subscription,
+};
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
+use ibc::clients::ics10_grandpa::help::MmrRoot;
 
 /// A basic chain handle implementation.
 /// For use in interactive CLIs, e.g., `query`, `tx`, etc.
@@ -115,6 +119,15 @@ impl ChainHandle for BaseChainHandle {
 
     fn subscribe(&self) -> Result<Subscription, Error> {
         self.send(|reply_to| ChainRequest::Subscribe { reply_to })
+    }
+
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
+        tracing::trace!("in base chain handle: [subscribe_beefy], send subcribe beefy request to substrate app chain !");
+        println!(
+            "in base chain handle: [subscribe_beefy], send subcribe beefy request to {:?} !",
+            self.id()
+        );
+        self.send(|reply_to| ChainRequest::SubscribeBeefy { reply_to })
     }
 
     fn send_messages_and_wait_commit(
@@ -363,6 +376,8 @@ impl ChainHandle for BaseChainHandle {
         client_id: &ClientId,
         height: Height,
     ) -> Result<(Option<AnyClientState>, Proofs), Error> {
+        tracing::trace!(target:"ibc-rs","in relayer chain base: [build_connection_proofs_and_client_state] client_id:{:?}",client_id);
+
         self.send(
             |reply_to| ChainRequest::BuildConnectionProofsAndClientState {
                 message_type,
@@ -479,6 +494,28 @@ impl ChainHandle for BaseChainHandle {
         request: QueryBlockRequest,
     ) -> Result<(Vec<IbcEvent>, Vec<IbcEvent>), Error> {
         self.send(|reply_to| ChainRequest::QueryPacketEventDataFromBlocks { request, reply_to })
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        self.send(|reply_to| ChainRequest::WebSocketUrl { reply_to })
+    }
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+        tracing::trace!(
+            "in base chain handle: [update_mmr_root], chain_id = {:?},client_id = {:?},mmr_root ={:?} ",
+            self.id(),
+            client_id,
+            header
+        );
+        println!(
+            "in base chain handle: [update_mmr_root], chain_id = {:?},client_id = {:?} ",
+            self.id(),
+            client_id,
+        );
+        self.send(|reply_to| ChainRequest::UpdateMmrRoot {
+            client_id,
+            header,
+            reply_to,
+        })
     }
 
     fn query_host_consensus_state(

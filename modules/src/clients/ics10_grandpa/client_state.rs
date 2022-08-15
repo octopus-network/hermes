@@ -24,10 +24,9 @@ use tendermint_proto::Protobuf;
 pub struct ClientState {
     pub chain_id: ChainId,
     /// block_number is height?
-    pub block_number: u32,
+    pub latest_height: u32,
     /// Block height when the client was frozen due to a misbehaviour
     pub frozen_height: Option<Height>,
-    pub block_header: BlockHeader,
     pub latest_commitment: Commitment,
     pub validator_set: ValidatorSet,
 }
@@ -35,15 +34,13 @@ pub struct ClientState {
 impl ClientState {
     pub fn new(
         chain_id: ChainId,
-        block_number: u32,
-        block_header: BlockHeader,
+        latest_height: u32,
         latest_commitment: Commitment,
         validator_set: ValidatorSet,
     ) -> Result<Self, Error> {
         let client_state = ClientState {
             chain_id,
-            block_number,
-            block_header,
+            latest_height,
             latest_commitment,
             validator_set,
             frozen_height: None,
@@ -124,12 +121,8 @@ impl TryFrom<RawClientState> for ClientState {
         Ok(Self {
             chain_id: ChainId::from_str(raw.chain_id.as_str())
                 .map_err(|_| Error::invalid_chain_id())?,
-            block_number: raw.block_number,
+            latest_height: raw.latest_height,
             frozen_height,
-            block_header: raw
-                .block_header
-                .ok_or_else(Error::empty_block_header)?
-                .into(),
             latest_commitment: raw
                 .latest_commitment
                 .ok_or_else(Error::empty_latest_commitment)?
@@ -148,14 +141,13 @@ impl From<ClientState> for RawClientState {
     fn from(value: ClientState) -> Self {
         Self {
             chain_id: value.chain_id.to_string(),
-            block_number: value.block_number,
+            latest_height: value.latest_height,
             frozen_height: Some(value.frozen_height.map(|height| height.into()).unwrap_or(
                 RawHeight {
                     revision_number: 0,
                     revision_height: 0,
                 },
             )),
-            block_header: Some(value.block_header.into()),
             latest_commitment: Some(value.latest_commitment.into()),
             validator_set: Some(value.validator_set.into()),
         }

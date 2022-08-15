@@ -26,6 +26,8 @@ use tracing::{error, span, warn, Level};
 
 use ibc::clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
 use ibc::clients::ics07_tendermint::header::Header as TmHeader;
+use ibc::clients::ics10_grandpa::help::MmrRoot;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::core::ics02_client::client_type::ClientType;
@@ -71,6 +73,7 @@ use crate::chain::tracking::TrackedMsgs;
 use crate::config::ChainConfig;
 use crate::denom::DenomTrace;
 use crate::error::Error;
+use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver};
 use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::tendermint::LightClient as TmLightClient;
@@ -529,6 +532,13 @@ impl ChainEndpoint for CosmosSdkChain {
         Ok((event_receiver, monitor_tx))
     }
 
+    fn init_beefy_monitor(
+        &self,
+        rt: Arc<TokioRuntime>,
+    ) -> Result<(BeefyReceiver, TxMonitorCmd), Error> {
+        todo!()
+    }
+
     fn shutdown(self) -> Result<(), Error> {
         Ok(())
     }
@@ -611,11 +621,14 @@ impl ChainEndpoint for CosmosSdkChain {
             .keybase()
             .get_key(&self.config.key_name)
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
+        tracing::trace!(target:"ibc-rs","In cosmos: [get signer] key = {:?}", key);
 
         let bech32 = encode_to_bech32(&key.address.to_hex(), &self.config.account_prefix)?;
         bech32
             .parse()
             .map_err(|e| Error::ics02(ClientError::signer(e)))
+
+        Ok(Signer::new(bech32))
     }
 
     /// Get the chain configuration
@@ -1597,6 +1610,14 @@ impl ChainEndpoint for CosmosSdkChain {
             light_client.header_and_minimal_set(trusted_height, target_height, client_state)?;
 
         Ok((target, supporting))
+    
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        Ok(self.config.websocket_addr.clone().to_string())
+    }
+
+    fn update_mmr_root(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+        todo!()
     }
 }
 

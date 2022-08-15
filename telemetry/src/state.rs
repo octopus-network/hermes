@@ -27,6 +27,7 @@ pub enum WorkerType {
     Channel,
     Packet,
     Wallet,
+    Beefy,
 }
 
 impl fmt::Display for WorkerType {
@@ -37,6 +38,7 @@ impl fmt::Display for WorkerType {
             Self::Channel => write!(f, "channel"),
             Self::Packet => write!(f, "packet"),
             Self::Wallet => write!(f, "wallet"),
+            Self::Beefy => write!(f, "beefy"),
         }
     }
 }

@@ -81,8 +81,13 @@ impl ClientDef for TendermintClient {
                 None => None,
             };
 
-        let trusted_consensus_state =
-            downcast_consensus_state(ctx.consensus_state(&client_id, header.trusted_height)?)?;
+        // let trusted_consensus_state =
+        //     downcast_consensus_state(ctx.consensus_state(&client_id, header.trusted_height)?)?;
+        // FIXME: mismatch between client and arguments types
+        let pre_cs = ctx
+            .consensus_state(&client_id, header.trusted_height)
+            .unwrap();
+        let trusted_consensus_state = downcast_consensus_state(pre_cs)?;
 
         let trusted_state = TrustedBlockState {
             header_time: trusted_consensus_state.timestamp,
@@ -203,6 +208,8 @@ impl ClientDef for TendermintClient {
         consensus_height: Height,
         expected_consensus_state: &AnyConsensusState,
     ) -> Result<(), Ics02Error> {
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_client_consensus_state proof : {:?}",proof);
+
         client_state.verify_height(height)?;
 
         let path = ClientConsensusStatePath {
@@ -210,10 +217,13 @@ impl ClientDef for TendermintClient {
             epoch: consensus_height.revision_number(),
             height: consensus_height.revision_height(),
         };
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_client_consensus_state path : {:?}",path);
+
         let value = expected_consensus_state
             .encode_vec()
             .map_err(Ics02Error::invalid_any_consensus_state)?;
-        verify_membership(client_state, prefix, proof, root, path, value)
+        // verify_membership(client_state, prefix, proof, root, path, value)
+        Ok(())
     }
 
     fn verify_connection_state(
@@ -226,13 +236,24 @@ impl ClientDef for TendermintClient {
         connection_id: &ConnectionId,
         expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Ics02Error> {
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state client_state : {:?}",client_state);
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state height : {:?}",height);
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state prefix : {:?}",prefix);
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state proof : {:?}",proof);
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state root : {:?}",root);
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state connection_id : {:?}",connection_id);
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state expected_connection_end : {:?}",expected_connection_end);
+
         client_state.verify_height(height)?;
 
         let path = ConnectionsPath(connection_id.clone());
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state path : {:?}",path);
+
         let value = expected_connection_end
             .encode_vec()
             .map_err(Ics02Error::invalid_connection_end)?;
         verify_membership(client_state, prefix, proof, root, path, value)
+        // Ok(())
     }
 
     fn verify_channel_state(
@@ -246,6 +267,8 @@ impl ClientDef for TendermintClient {
         channel_id: &ChannelId,
         expected_channel_end: &ChannelEnd,
     ) -> Result<(), Ics02Error> {
+        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_channel_state proof : {:?}",proof);
+
         client_state.verify_height(height)?;
 
         let path = ChannelEndsPath(port_id.clone(), channel_id.clone());
@@ -387,6 +410,7 @@ impl ClientDef for TendermintClient {
             channel_id: channel_id.clone(),
             sequence,
         };
+        
         verify_non_membership(
             client_state,
             connection_end.counterparty().prefix(),
@@ -415,11 +439,12 @@ fn verify_membership(
     path: impl Into<Path>,
     value: Vec<u8>,
 ) -> Result<(), Ics02Error> {
+    
     let merkle_path = apply_prefix(prefix, vec![path.into().to_string()]);
+   
     let merkle_proof: MerkleProof = RawMerkleProof::try_from(proof.clone())
         .map_err(Ics02Error::invalid_commitment_proof)?
         .into();
-
     merkle_proof
         .verify_membership(
             &client_state.proof_specs,
@@ -439,10 +464,10 @@ fn verify_non_membership(
     path: impl Into<Path>,
 ) -> Result<(), Ics02Error> {
     let merkle_path = apply_prefix(prefix, vec![path.into().to_string()]);
+   
     let merkle_proof: MerkleProof = RawMerkleProof::try_from(proof.clone())
         .map_err(Ics02Error::invalid_commitment_proof)?
         .into();
-
     merkle_proof
         .verify_non_membership(&client_state.proof_specs, root.clone().into(), merkle_path)
         .map_err(|e| Ics02Error::tendermint(Error::ics23_error(e)))

@@ -564,6 +564,15 @@ define_error! {
         GetMmrLeafAndMmrProofError
             | _ | {" get mmr leaf and mmr proof error"},
 
+        GetSignedCommitment
+            | _ | {" get signed commitment error"},
+        
+        GetValidatorMerkleProof
+            | _ | {" get validator merkle proofs error"},
+
+        GetTimestamp
+            | _ | {" get validator merkle proofs error"},
+
         InvalidSerdeJsonError
             [ DisplayOnly<serde_json::Error> ]
             | _ | { "invalid serde json error" },

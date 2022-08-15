@@ -282,6 +282,9 @@ define_error! {
         MissingLatestCommitment
             | _ | { "Missing Latest Commitment" },
 
+        InvalidSignedCommitment
+            | _ | { "Invalid Signed Commitment" },
+
         EmptyMmrRoot
             | _ | { "Empty Mmr Root" },
 
@@ -299,7 +302,14 @@ define_error! {
             | e | { format!("invalid Mmr Root height, it's not can verify header, header height ({0})> mmr root height ({1})",
                 e.header_height, e.mmr_root_height)
             },
-
+        InvalidHeaderHeight
+            {
+                client_state_height: u32,
+                header_height: u32,
+            }
+            | e | { format!("invalid header height, it's not can verify header, header height ({0}) < client state height ({1})",
+                e.header_height, e.client_state_height)
+            },
         InvalidConsensusStateTimestamp
             {
                 time1: Timestamp,

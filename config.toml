@@ -106,7 +106,7 @@ id = 'ibc-0'
 type = 'substrate'
 
 # Specify the RPC address and port where the chain RPC server listens on. Required
-rpc_addr = 'http://127.0.0.1:9944'
+rpc_addr = 'ws://127.0.0.1:9944'
 
 # Specify the GRPC address and port where the chain GRPC server listens on. Required
 grpc_addr = 'http://127.0.0.1:9090'
@@ -242,7 +242,7 @@ memo_prefix = ''
 [[chains]]
 id = 'ibc-1'
 type = 'substrate'
-rpc_addr = 'http://127.0.0.1:8844'
+rpc_addr = 'ws://127.0.0.1:8844'
 grpc_addr = 'http://127.0.0.1:9091'
 # subscribe subtstrate client
 websocket_addr = 'ws://127.0.0.1:8844/websocket'

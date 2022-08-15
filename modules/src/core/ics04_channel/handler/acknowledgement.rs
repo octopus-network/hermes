@@ -23,6 +23,8 @@ pub fn process(
     ctx: &dyn ChannelReader,
     msg: &MsgAcknowledgement,
 ) -> HandlerResult<PacketResult, Error> {
+    tracing::trace!(target:"ibc-rs","[acknowledgement] begin to process the acknowledgement msg : {:?}",msg);
+
     let mut output = HandlerOutput::builder();
 
     let packet = &msg.packet;
@@ -106,6 +108,7 @@ pub fn process(
             seq_number: None,
         })
     };
+    tracing::trace!(target:"ibc-rs","[acknowledgement] process result : {:?}",result);
 
     output.log("success: packet ack");
 
@@ -113,6 +116,7 @@ pub fn process(
         height: ctx.host_height(),
         packet: packet.clone(),
     }));
+    tracing::trace!(target:"ibc-rs","[acknowledgement] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

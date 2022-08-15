@@ -1,18 +1,15 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct MmrRoot {
-    ///uint32 block_number = 1
-    ///      [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"block_number\""];
-    //// Block Header.
-    #[prost(message, optional, tag = "1")]
-    pub block_header: ::core::option::Option<BlockHeader>,
-    #[prost(message, optional, tag = "2")]
-    pub signed_commitment: ::core::option::Option<SignedCommitment>,
-    #[prost(message, optional, tag = "3")]
-    pub validator_merkle_proof: ::core::option::Option<ValidatorMerkleProof>,
-    #[prost(message, optional, tag = "4")]
-    pub mmr_leaf: ::core::option::Option<MmrLeaf>,
-    #[prost(message, optional, tag = "5")]
-    pub mmr_leaf_proof: ::core::option::Option<MmrLeafProof>,
+pub struct Commitment {
+    /// block height
+    ///
+    /// mmr root
+    #[prost(uint32, tag = "1")]
+    pub block_number: u32,
+    #[prost(bytes = "vec", tag = "2")]
+    pub payload: ::prost::alloc::vec::Vec<u8>,
+    ///validator_set_id
+    #[prost(uint64, tag = "3")]
+    pub validator_set_id: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SignedCommitment {
@@ -25,21 +22,9 @@ pub struct SignedCommitment {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InnerSignature {
     #[prost(message, optional, tag = "1")]
-    pub inner_signature : ::core::option::Option<Signature>,
+    pub inner_signature: ::core::option::Option<Signature>,
 }
 
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Commitment {
-    /// block height
-    #[prost(uint32, tag = "1")]
-    pub block_number: u32,
-    /// mmr root
-    #[prost(bytes = "vec", tag = "2")]
-    pub payload: ::prost::alloc::vec::Vec<u8>,
-    ///validator_set_id
-    #[prost(uint64, tag = "3")]
-    pub validator_set_id: u64,
-}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Signature {
     #[prost(bytes = "vec", tag = "1")]
@@ -51,17 +36,19 @@ pub struct ValidatorMerkleProof {
     ////
     //// This vec contains all inner node hashes necessary to reconstruct the root hash given the
     //// leaf hash.
-    #[prost(bytes = "vec", repeated, tag = "1")]
-    pub proof: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+    ///
     //// Number of leaves in the original tree.
     ////
     //// This is needed to detect a case where we have an odd number of leaves that "get promoted"
     //// to upper layers.
     //// pub number_of_leaves: usize,
+    #[prost(bytes = "vec", repeated, tag = "1")]
+    pub proof: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
     #[prost(uint32, tag = "2")]
     pub number_of_leaves: u32,
-    //// Index of the leaf the proof is for (0-based).
-    //// pub leaf_index: usize,
+    /// Index of the leaf the proof is for (0-based).
+    /// pub leaf_index: usize,
+
     #[prost(uint32, tag = "3")]
     pub leaf_index: u32,
     //// Leaf content.
@@ -136,16 +123,13 @@ pub struct ClientState {
     pub chain_id: ::prost::alloc::string::String,
     /// block_number is height?
     #[prost(uint32, tag = "2")]
-    pub block_number: u32,
+    pub latest_height: u32,
     /// Block height when the client was frozen due to a misbehaviour
-    #[prost(message, tag = "3")]
+    #[prost(message, optional, tag = "3")]
     pub frozen_height: ::core::option::Option<super::super::super::core::client::v1::Height>,
     #[prost(message, optional, tag = "4")]
-    pub block_header: ::core::option::Option<BlockHeader>,
-    ///latest_commitment: Option<Commitment>
-    #[prost(message, optional, tag = "5")]
     pub latest_commitment: ::core::option::Option<Commitment>,
-    #[prost(message, optional, tag = "6")]
+    #[prost(message, optional, tag = "5")]
     pub validator_set: ::core::option::Option<ValidatorSet>,
 }
 // message InProcessState{
@@ -159,33 +143,33 @@ pub struct ClientState {
 /// Consensus state
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConsensusState {
-    //// The parent hash.
-    #[prost(bytes = "vec", tag = "1")]
-    pub parent_hash: ::prost::alloc::vec::Vec<u8>,
-    //// The block number.
-    #[prost(uint32, tag = "2")]
-    pub block_number: u32,
-    //// The state trie merkle root
-    #[prost(bytes = "vec", tag = "3")]
-    pub state_root: ::prost::alloc::vec::Vec<u8>,
-    //// The merkle root of the extrinsics.
-    #[prost(bytes = "vec", tag = "4")]
-    pub extrinsics_root: ::prost::alloc::vec::Vec<u8>,
-    //// A chain-specific digest of data useful for light clients or referencing auxiliary data.
-    #[prost(bytes = "vec", tag = "5")]
-    pub digest: ::prost::alloc::vec::Vec<u8>,
-    #[prost(message, optional, tag = "6")]
-    pub root: ::core::option::Option<super::super::super::core::commitment::v1::MerkleRoot>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Header {
-    //// Block Header.
+    /// bytes state_root = 3 ;
+    /// /// The merkle root of the extrinsics.
+    /// bytes extrinsics_root = 4 ;
+    /// /// A chain-specific digest of data useful for light clients or referencing auxiliary data.
+    /// bytes digest = 5 ;
+    ///commitment: Option<Commitment>,used to verify mmr proof
     #[prost(message, optional, tag = "1")]
-    pub block_header: ::core::option::Option<BlockHeader>,
+    pub commitment: ::core::option::Option<Commitment>,
+    /// /// The state trie merkle root that used to verify storage proof
     #[prost(message, optional, tag = "2")]
-    pub mmr_leaf: ::core::option::Option<MmrLeaf>,
+    pub state_root: ::core::option::Option<super::super::super::core::commitment::v1::MerkleRoot>,
+    /// timestamp that corresponds to the block height in which the ConsensusState
+    /// was stored.
     #[prost(message, optional, tag = "3")]
-    pub mmr_leaf_proof: ::core::option::Option<MmrLeafProof>,
+    pub timestamp: ::core::option::Option<super::super::super::super::google::protobuf::Timestamp>,
+}
+/// Misbehaviour
+/// The Misbehaviour type is used for detecting misbehaviour and freezing the client - to prevent further packet flow -
+/// if applicable. GRANDPA client Misbehaviour consists of two headers at the same height both of which the light client
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Misbehaviour {
+    #[prost(uint64, tag = "1")]
+    pub client_id: u64,
+    #[prost(message, optional, tag = "2")]
+    pub header_1: ::core::option::Option<Header>,
+    #[prost(message, optional, tag = "3")]
+    pub header_2: ::core::option::Option<Header>,
 }
 /// Block Header
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -206,15 +190,34 @@ pub struct BlockHeader {
     #[prost(bytes = "vec", tag = "5")]
     pub digest: ::prost::alloc::vec::Vec<u8>,
 }
-/// Misbehaviour
-/// The Misbehaviour type is used for detecting misbehaviour and freezing the client - to prevent further packet flow -
-/// if applicable. GRANDPA client Misbehaviour consists of two headers at the same height both of which the light client
+///uint32 block_number = 1
+///      [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"block_number\""];
+//// Block Header.
+/// BlockHeader block_header = 1 [(gogoproto.nullable) = false];
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Misbehaviour {
-    #[prost(uint64, tag = "1")]
-    pub client_id: u64,
+pub struct MmrRoot {
+    #[prost(message, optional, tag = "1")]
+    pub signed_commitment: ::core::option::Option<SignedCommitment>,
+    #[prost(message, repeated, tag = "2")]
+    pub validator_merkle_proofs: ::prost::alloc::vec::Vec<ValidatorMerkleProof>,
+    #[prost(bytes = "vec", tag = "3")]
+    pub mmr_leaf: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "4")]
+    pub mmr_leaf_proof: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Header {
+    //// Block Header.
+    #[prost(message, optional, tag = "1")]
+    pub block_header: ::core::option::Option<BlockHeader>,
+    //// mmr root
     #[prost(message, optional, tag = "2")]
-    pub header_1: ::core::option::Option<Header>,
+    pub mmr_root: ::core::option::Option<MmrRoot>,
+    /// MmrLeaf mmr_leaf = 2
+    ///       [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"mmr_leaf\""];
+    /// MmrLeafProof mmr_leaf_proof = 3
+    ///       [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"mmr_leaf_proof\""];
+    //// block timestamp
     #[prost(message, optional, tag = "3")]
-    pub header_2: ::core::option::Option<Header>,
+    pub timestamp: ::core::option::Option<super::super::super::super::google::protobuf::Timestamp>,
 }

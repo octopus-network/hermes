@@ -36,6 +36,12 @@ impl Acknowledgement {
             acknowledgement::Response::Error(_e) => Ok(false),
         }
     }
+    pub fn acknowledgement(&self) -> Result<Vec<u8>, Error> {
+        // encode ack to json bytes
+        let raw_ack: RawAcknowledgement = self.clone().into();
+        let ack = serde_json::to_vec(&raw_ack).map_err(|_| Error::invalid_encode())?;
+        return Ok(ack);
+    }
 }
 
 /// Nested message and enum types in `Acknowledgement`.

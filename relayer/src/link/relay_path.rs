@@ -1160,9 +1160,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
 
         let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
 
-        trace!(
-            "built recv_packet msg {}, proofs at height {}",
-            msg.packet,
+        trace!(target:"ibc-rs",
+            "built recv_packet msg {:?}, proofs at height {}",
+            msg,
             proofs.height()
         );
 
@@ -1193,9 +1193,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             self.dst_signer()?,
         );
 
-        trace!(
-            "built acknowledgment msg {}, proofs at height {}",
-            msg.packet,
+        trace!(target:"ibc-rs",
+            "built acknowledgment msg {:?}, proofs at height {}",
+            msg,
             proofs.height()
         );
 
@@ -1246,9 +1246,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             self.src_signer()?,
         );
 
-        trace!(
-            "built timeout msg {}, proofs at height {}",
-            msg.packet,
+        trace!(target:"ibc-rs",
+            "built timeout msg {:?}, proofs at height {}",
+            msg,
             proofs.height()
         );
 
@@ -1278,9 +1278,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             self.src_signer()?,
         );
 
-        trace!(
-            "built timeout on close msg {}, proofs at height {}",
-            msg.packet,
+        trace!(target:"ibc-rs",
+            "built timeout on close msg {:?}, proofs at height {}",
+            msg,
             proofs.height()
         );
 
