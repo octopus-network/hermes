@@ -77,7 +77,7 @@ impl ClientDef for GrandpaClient {
         client_id: ClientId,
         client_state: Self::ClientState,
         header: Self::Header,
-    ) -> Result<(Self::ClientState, Self::ConsensusState), Error> {
+    ) -> Result<(Self::ClientState, Self::ConsensusState), Ics02Error> {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state client_state={:?}",
             client_state);
 
@@ -104,7 +104,7 @@ impl ClientDef for GrandpaClient {
         } = signed_commitment.clone();
         let commitment = commitment.unwrap();
         if commitment.payload.0.is_empty() {
-            return Err(Error::empty_mmr_root());
+            return Err(Ics02Error::empty_mmr_root());
         }
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state commitment: {:?}",commitment);
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state signatures: {:?}",signatures);
@@ -116,7 +116,7 @@ impl ClientDef for GrandpaClient {
         if block_header.block_number > new_mmr_root_height {
             tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state -> block_header.block_number({:?})> new_mmr_root_height({:?})",
             block_header.block_number, new_mmr_root_height);
-            return Err(Error::invalid_mmr_root_height(
+            return Err(Ics02Error::invalid_mmr_root_height(
                 new_mmr_root_height,
                 block_header.block_number,
             ));
@@ -154,7 +154,7 @@ impl ClientDef for GrandpaClient {
             // covert the signed_commitment to beefy_light_client::commitment::SignedCommitment
             let signed_commitment =
                 beefy_light_client::commitment::SignedCommitment::try_from(signed_commitment)
-                    .map_err(|_| Error::invalid_signed_commitment())?;
+                    .map_err(|_| Ics02Error::invalid_signed_commitment())?;
 
             // encode signed_commitment
             let encoded_signed_commitment =
@@ -172,7 +172,7 @@ impl ClientDef for GrandpaClient {
                     tracing::trace!(target:"ibc-rs","update the beefy light client sucesse! and the beefy light client state is : {:?} \n",light_client);
 
                     //verify header
-                    Self::verify_header(block_header.clone(), mmr_leaf, mmr_leaf_proof)?;
+                    verify_header(block_header.clone(), mmr_leaf, mmr_leaf_proof)?;
 
                     // update validator_set
                     client_state.validator_set =
@@ -180,7 +180,7 @@ impl ClientDef for GrandpaClient {
 
                     let latest_commitment = light_client
                         .latest_commitment
-                        .ok_or(Error::missing_latest_commitment())?;
+                        .ok_or(Ics02Error::missing_latest_commitment())?;
                     client_state.latest_commitment =
                         help::Commitment::from(latest_commitment.clone());
                     // udpate lastest_height
@@ -213,7 +213,7 @@ impl ClientDef for GrandpaClient {
                         e
                     );
 
-                    return Err(Error::invalid_mmr_leaf_proof());
+                    return Err(Ics02Error::invalid_mmr_leaf_proof());
                 }
             }
         } else {
@@ -221,11 +221,11 @@ impl ClientDef for GrandpaClient {
             // decode mmr leaf proof
             let decode_mmr_leaf_proof =
                 beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof.clone()[..])
-                    .map_err(|_| Error::cant_decode_mmr_proof())?;
+                    .map_err(|_| Ics02Error::cant_decode_mmr_proof())?;
             tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state  mmr_leaf_proof: {:?}",mmr_leaf_proof);
 
             let mmr_leaf1: Vec<u8> = Decode::decode(&mut &mmr_leaf.clone()[..])
-                .map_err(|_| Error::cant_decode_mmr_leaf())?;
+                .map_err(|_| Ics02Error::cant_decode_mmr_leaf())?;
             tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
             let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf1[..]);
             tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf_hash: {:?}",mmr_leaf_hash);
@@ -257,15 +257,15 @@ impl ClientDef for GrandpaClient {
                 mmr_leaf_hash,
                 decode_mmr_leaf_proof,
             )
-            .map_err(|_| Error::invalid_mmr_leaf_proof())?;
+            .map_err(|_| Ics02Error::invalid_mmr_leaf_proof())?;
 
             tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verfy mmr root result: {:?}",result);
 
             if !result {
-                return Err(Error::invalid_mmr_leaf_proof());
+                return Err(Ics02Error::invalid_mmr_leaf_proof());
             }
             // verify header
-            Self::verify_header(block_header.clone(), mmr_leaf, mmr_leaf_proof)?;
+            verify_header(block_header.clone(), mmr_leaf, mmr_leaf_proof)?;
 
             // update client state latest height
             client_state.latest_height = block_header.block_number;
@@ -347,7 +347,6 @@ impl ClientDef for GrandpaClient {
         //     .map_err(Ics02Error::invalid_any_consensus_state)?;
         //
         // verify_membership(
-        //     client_state,
         //     prefix,
         //     proof,
         //     root,
@@ -381,7 +380,7 @@ impl ClientDef for GrandpaClient {
             .map_err(Ics02Error::invalid_connection_end)?;
 
         verify_membership(
-            client_state,
+
             prefix,
             proof,
             root,
@@ -413,7 +412,6 @@ impl ClientDef for GrandpaClient {
             .encode_vec()
             .map_err(Ics02Error::invalid_channel_end)?;
         verify_membership(
-            client_state,
             prefix,
             proof,
             root,
@@ -445,7 +443,6 @@ impl ClientDef for GrandpaClient {
             .map_err(Ics02Error::invalid_any_client_state)?;
 
         verify_membership(
-            client_state,
             prefix,
             proof,
             root,
@@ -480,7 +477,6 @@ impl ClientDef for GrandpaClient {
         };
 
         verify_membership(
-            client_state,
             connection_end.counterparty().prefix(),
             proof,
             root,
@@ -517,7 +513,6 @@ impl ClientDef for GrandpaClient {
             sequence,
         };
         verify_membership(
-            client_state,
             connection_end.counterparty().prefix(),
             proof,
             root,
@@ -551,7 +546,6 @@ impl ClientDef for GrandpaClient {
 
         let seq_path = SeqRecvsPath(port_id.clone(), channel_id.clone());
         verify_membership(
-            client_state,
             connection_end.counterparty().prefix(),
             proof,
             root,
@@ -587,7 +581,6 @@ impl ClientDef for GrandpaClient {
         // };
         //
         // verify_non_membership(
-        //     client_state,
         //     connection_end.counterparty().prefix(),
         //     proof,
         //     root,
@@ -599,7 +592,6 @@ impl ClientDef for GrandpaClient {
 }
 
 fn verify_membership(
-    client_state: &ClientState,
     prefix: &CommitmentPrefix,
     proof: &CommitmentProofBytes,
     root: &CommitmentRoot,
@@ -632,7 +624,7 @@ fn verify_membership(
 
     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_membership. key={:?}, storage_name={:?}", key, storage_name);
 
-    let storage_result = get_storage_via_proof(client_state, proof, key, storage_name)?;
+    let storage_result = get_storage_via_proof(root, proof, key, storage_name)?;
 
 
     if storage_result != value {
@@ -643,7 +635,6 @@ fn verify_membership(
 }
 
 fn verify_non_membership(
-    client_state: &ClientState,
     prefix: &CommitmentPrefix,
     proof: &CommitmentProofBytes,
     root: &CommitmentRoot,
@@ -671,7 +662,7 @@ fn verify_non_membership(
         Path::Upgrade(_) => unimplemented!(),
     };
 
-    let storage_result = get_storage_via_proof(client_state, proof, key, storage_name);
+    let storage_result = get_storage_via_proof(root, proof, key, storage_name);
 
     // TODO(is or not correct)
     if storage_result.is_err() {
@@ -683,13 +674,13 @@ fn verify_non_membership(
 
 /// Reconstruct on-chain storage value by proof, key(path), and state root
 fn get_storage_via_proof(
-    client_state: &ClientState,
+    root: &CommitmentRoot,
     proof: &CommitmentProofBytes,
     keys: Vec<u8>,
     storage_name: &str,
 ) -> Result<Vec<u8>, Ics02Error> {
-    tracing::trace!(target:"ibc-rs", "In ics10-client_def.rs: [get_storage_via_proof] >> client_state: {:?}, keys: {:?}, storage_name: {:?}",
-        client_state,  keys, storage_name);
+    tracing::trace!(target:"ibc-rs", "In ics10-client_def.rs: [get_storage_via_proof] >> root: {:?}, keys: {:?}, storage_name: {:?}",
+        root,  keys, storage_name);
 
     use serde::{Deserialize, Serialize};
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -718,7 +709,7 @@ fn get_storage_via_proof(
     };
 
     let storage_keys = storage_map_final_key(keys, storage_name);
-    let state_root = client_state.clone().block_header.state_root;
+    let state_root = root.clone().into_vec();
     tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, state_root = {:?}", state_root);
     tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, storage_proof = {:?}", storage_proof);
     tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, _storage_keys = {:?}", storage_keys);
@@ -769,21 +760,21 @@ fn verify_header(
     block_header: BlockHeader,
     mmr_leaf: Vec<u8>,
     mmr_leaf_proof: Vec<u8>,
-) -> Result<(), Error> {
+) -> Result<(), Ics02Error> {
     tracing::trace!(target:"ibc-rs", "[ics10_grandpa::client_def]: [verify_header] >> block_header: {:?}",
     block_header);
 
     let block_number = block_header.block_number as u64;
     let mmr_leaf: Vec<u8> =
-        Decode::decode(&mut &mmr_leaf[..]).map_err(|_| Error::cant_decode_mmr_leaf())?;
+        Decode::decode(&mut &mmr_leaf[..]).map_err(|_| Ics02Error::cant_decode_mmr_leaf())?;
     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
     let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
-        Decode::decode(&mut &*mmr_leaf).map_err(|_| Error::cant_decode_mmr_leaf())?;
+        Decode::decode(&mut &*mmr_leaf).map_err(|_| Ics02Error::cant_decode_mmr_leaf())?;
     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf to data struct: {:?}",mmr_leaf);
 
     // check mmr leaf
     if mmr_leaf.parent_number_and_hash.1.is_empty() {
-        return Err(Error::empty_mmr_leaf_parent_hash_mmr_root());
+        return Err(Ics02Error::empty_mmr_leaf_parent_hash_mmr_root());
     }
 
     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def]: [verify_header] block_header.parent_hash: {:?}",block_header.parent_hash);
@@ -792,20 +783,20 @@ fn verify_header(
     // decode mmr leaf proof
     let mmr_leaf_proof =
         beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..])
-            .map_err(|_| Error::cant_decode_mmr_proof())?;
+            .map_err(|_| Ics02Error::cant_decode_mmr_proof())?;
     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def]: [verify_header]   mmr_leaf_proof: {:?}",mmr_leaf_proof);
 
     if block_number > mmr_leaf_proof.leaf_count {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def]: [verify_header]  block_header.block_number({:?}) > mmr_leaf_proof.leaf_count ({:?})",block_number,mmr_leaf_proof.leaf_count);
 
-        return Err(Error::invalid_mmr_leaf_proof());
+        return Err(Ics02Error::invalid_mmr_leaf_proof());
     }
 
     // verfiy block header
     if block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
         tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def]: [verify_header] block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec()");
 
-        return Err(Error::header_hash_not_match());
+        return Err(Ics02Error::header_hash_not_match());
     }
 
 

@@ -52,7 +52,7 @@ impl ClientState {
     pub fn with_header(self, h: Header) -> Self {
         // TODO: Clarify which fields should update.
         ClientState {
-            block_number: h.height().revision_number() as u32,
+            latest_height: h.height().revision_number() as u32,
             ..self
         }
     }
@@ -71,7 +71,7 @@ impl ClientState {
     }
 
     pub fn latest_height(&self) -> Height {
-        Height::new(8888, self.block_number as u64).unwrap()
+        Height::new(8888, self.latest_height as u64).unwrap()
     }
 }
 
@@ -89,7 +89,7 @@ impl crate::core::ics02_client::client_state::ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        Height::new(8888, self.block_number as u64).unwrap()
+        Height::new(8888, self.latest_height as u64).unwrap()
     }
 
     fn frozen_height(&self) -> Option<Height> {
