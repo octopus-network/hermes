@@ -3,15 +3,17 @@ use abscissa_core::{config::Override, Command, FrameworkErrorKind, Runnable};
 
 use core::time::Duration;
 use ibc::{
+    applications::transfer::Amount,
     core::{
         ics02_client::client_state::ClientState,
-        ics02_client::height::Height,
         ics24_host::identifier::{ChainId, ChannelId, PortId},
     },
     events::IbcEvent,
 };
 use ibc_relayer::chain::handle::ChainHandle;
-use ibc_relayer::transfer::Amount;
+use ibc_relayer::chain::requests::{
+    IncludeProof, QueryChannelRequest, QueryClientStateRequest, QueryConnectionRequest, QueryHeight,
+};
 use ibc_relayer::{
     config::Config,
     transfer::{build_and_send_transfer_messages, TransferOptions},
@@ -22,66 +24,98 @@ use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::error::Error;
 use crate::prelude::*;
 
-#[derive(Clone, Command, Debug, Parser)]
+#[derive(Clone, Command, Debug, Parser, PartialEq)]
 pub struct TxIcs20MsgTransferCmd {
-    #[clap(required = true, help = "identifier of the destination chain")]
+    #[clap(
+        long = "receiver-chain",
+        required = true,
+        value_name = "RECEIVER_CHAIN_ID",
+        help_heading = "REQUIRED",
+        help = "Identifier of the destination chain"
+    )]
     dst_chain_id: ChainId,
 
-    #[clap(required = true, help = "identifier of the source chain")]
+    #[clap(
+        long = "sender-chain",
+        required = true,
+        value_name = "SENDER_CHAIN_ID",
+        help_heading = "REQUIRED",
+        help = "Identifier of the source chain"
+    )]
     src_chain_id: ChainId,
 
-    #[clap(required = true, help = "identifier of the source port")]
+    #[clap(
+        long = "sender-port",
+        required = true,
+        value_name = "SENDER_PORT_ID",
+        help_heading = "REQUIRED",
+        help = "Identifier of the source port"
+    )]
     src_port_id: PortId,
 
-    #[clap(required = true, help = "identifier of the source channel")]
+    #[clap(
+        long = "sender-channel",
+        visible_alias = "sender-chan",
+        required = true,
+        value_name = "SENDER_CHANNEL_ID",
+        help_heading = "REQUIRED",
+        help = "Identifier of the source channel"
+    )]
     src_channel_id: ChannelId,
 
     #[clap(
+        long = "amount",
         required = true,
-        help = "amount of coins (samoleans, by default) to send (e.g. `100000`)"
+        value_name = "AMOUNT",
+        help_heading = "REQUIRED",
+        help = "Amount of coins (samoleans, by default) to send (e.g. `100000`)"
     )]
     amount: Amount,
 
     #[clap(
-        short = 'o',
-        long,
+        long = "timeout-height-offset",
         default_value = "0",
-        help = "timeout in number of blocks since current"
+        value_name = "TIMEOUT_HEIGHT_OFFSET",
+        help = "Timeout in number of blocks since current"
     )]
     timeout_height_offset: u64,
 
     #[clap(
-        short = 't',
-        long,
+        long = "timeout-seconds",
         default_value = "0",
-        help = "timeout in seconds since current"
+        value_name = "TIMEOUT_SECONDS",
+        help = "Timeout in seconds since current"
     )]
     timeout_seconds: u64,
 
     #[clap(
-        short = 'r',
-        long,
-        help = "receiving account address on the destination chain"
+        long = "receiver",
+        value_name = "RECEIVER",
+        help = "Receiving account address on the destination chain"
     )]
     receiver: Option<String>,
 
     #[clap(
-        short = 'd',
-        long,
-        help = "denomination of the coins to send",
+        long = "denom",
+        value_name = "DENOM",
+        help = "Denomination of the coins to send",
         default_value = "samoleans"
     )]
     denom: String,
 
-    #[clap(short = 'n', long, help = "number of messages to send")]
+    #[clap(
+        long = "number-msgs",
+        value_name = "NUMBER_MSGS",
+        help = "Number of messages to send"
+    )]
     number_msgs: Option<usize>,
 
     #[clap(
-        short = 'k',
-        long,
-        help = "use the given signing key (default: `key_name` config)"
+        long = "key-name",
+        value_name = "KEY_NAME",
+        help = "Use the given signing key name (default: `key_name` config)"
     )]
-    key: Option<String>,
+    key_name: Option<String>,
 }
 
 impl Override<Config> for TxIcs20MsgTransferCmd {
@@ -93,7 +127,7 @@ impl Override<Config> for TxIcs20MsgTransferCmd {
             ))
         })?;
 
-        if let Some(ref key_name) = self.key {
+        if let Some(ref key_name) = self.key_name {
             src_chain_config.key_name = key_name.to_string();
         }
 
@@ -127,17 +161,9 @@ impl TxIcs20MsgTransferCmd {
             return Err("number of messages should be greater than zero".into());
         }
 
-        if self.timeout_height_offset == 0 && self.timeout_seconds == 0 {
-            return Err(
-                "packet timeout height and packet timeout timestamp cannot both be 0, \
-                please specify either --timeout-height-offset or --timeout-seconds"
-                    .into(),
-            );
-        }
-
         let opts = TransferOptions {
             packet_src_port_id: self.src_port_id.clone(),
-            packet_src_channel_id: self.src_channel_id,
+            packet_src_channel_id: self.src_channel_id.clone(),
             amount: self.amount,
             denom,
             receiver: self.receiver.clone(),
@@ -169,12 +195,15 @@ impl Runnable for TxIcs20MsgTransferCmd {
         // To do this, fetch from the source chain the channel end, then the associated connection
         // end, and then the underlying client state; finally, check that this client is verifying
         // headers for the destination chain.
-        let channel_end_src = chains
+        let (channel_end_src, _) = chains
             .src
             .query_channel(
-                &opts.packet_src_port_id,
-                &opts.packet_src_channel_id,
-                Height::zero(),
+                QueryChannelRequest {
+                    port_id: opts.packet_src_port_id.clone(),
+                    channel_id: opts.packet_src_channel_id.clone(),
+                    height: QueryHeight::Latest,
+                },
+                IncludeProof::No,
             )
             .unwrap_or_else(exit_with_unrecoverable_error);
         if !channel_end_src.is_open() {
@@ -199,17 +228,29 @@ impl Runnable for TxIcs20MsgTransferCmd {
             Some(cid) => cid,
         };
 
-        let conn_end = chains
+        let (conn_end, _) = chains
             .src
-            .query_connection(conn_id, Height::zero())
+            .query_connection(
+                QueryConnectionRequest {
+                    connection_id: conn_id.clone(),
+                    height: QueryHeight::Latest,
+                },
+                IncludeProof::No,
+            )
             .unwrap_or_else(exit_with_unrecoverable_error);
 
         debug!("connection hop underlying the channel: {:?}", conn_end);
         tracing::trace!(target:"ibc-rs","[transfer]connection hop underlying the channel: {:?}",conn_end); 
 
-        let src_chain_client_state = chains
+        let (src_chain_client_state, _) = chains
             .src
-            .query_client_state(conn_end.client_id(), Height::zero())
+            .query_client_state(
+                QueryClientStateRequest {
+                    client_id: conn_end.client_id().clone(),
+                    height: QueryHeight::Latest,
+                },
+                IncludeProof::No,
+            )
             .unwrap_or_else(exit_with_unrecoverable_error);
 
         debug!(
@@ -236,5 +277,366 @@ impl Runnable for TxIcs20MsgTransferCmd {
             Ok(ev) => Output::success(ev).exit(),
             Err(e) => Output::error(format!("{}", e)).exit(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ibc::{
+        applications::transfer::Amount,
+        core::ics24_host::identifier::{ChainId, ChannelId, PortId},
+    };
+
+    use super::TxIcs20MsgTransferCmd;
+
+    use abscissa_core::clap::Parser;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_ft_transfer_required_only() {
+        assert_eq!(
+            TxIcs20MsgTransferCmd {
+                dst_chain_id: ChainId::from_string("chain_receiver"),
+                src_chain_id: ChainId::from_string("chain_sender"),
+                src_port_id: PortId::from_str("port_sender").unwrap(),
+                src_channel_id: ChannelId::from_str("channel_sender").unwrap(),
+                amount: Amount::from(42),
+                timeout_height_offset: 0,
+                timeout_seconds: 0,
+                receiver: None,
+                denom: "samoleans".to_owned(),
+                number_msgs: None,
+                key_name: None
+            },
+            TxIcs20MsgTransferCmd::parse_from(&[
+                "test",
+                "--receiver-chain",
+                "chain_receiver",
+                "--sender-chain",
+                "chain_sender",
+                "--sender-port",
+                "port_sender",
+                "--sender-channel",
+                "channel_sender",
+                "--amount",
+                "42"
+            ])
+        )
+    }
+
+    #[test]
+    fn test_ft_transfer_aliases() {
+        assert_eq!(
+            TxIcs20MsgTransferCmd {
+                dst_chain_id: ChainId::from_string("chain_receiver"),
+                src_chain_id: ChainId::from_string("chain_sender"),
+                src_port_id: PortId::from_str("port_sender").unwrap(),
+                src_channel_id: ChannelId::from_str("channel_sender").unwrap(),
+                amount: Amount::from(42),
+                timeout_height_offset: 0,
+                timeout_seconds: 0,
+                receiver: None,
+                denom: "samoleans".to_owned(),
+                number_msgs: None,
+                key_name: None
+            },
+            TxIcs20MsgTransferCmd::parse_from(&[
+                "test",
+                "--receiver-chain",
+                "chain_receiver",
+                "--sender-chain",
+                "chain_sender",
+                "--sender-port",
+                "port_sender",
+                "--sender-chan",
+                "channel_sender",
+                "--amount",
+                "42"
+            ])
+        )
+    }
+
+    #[test]
+    fn test_ft_transfer_denom() {
+        assert_eq!(
+            TxIcs20MsgTransferCmd {
+                dst_chain_id: ChainId::from_string("chain_receiver"),
+                src_chain_id: ChainId::from_string("chain_sender"),
+                src_port_id: PortId::from_str("port_sender").unwrap(),
+                src_channel_id: ChannelId::from_str("channel_sender").unwrap(),
+                amount: Amount::from(42),
+                timeout_height_offset: 0,
+                timeout_seconds: 0,
+                receiver: None,
+                denom: "my_denom".to_owned(),
+                number_msgs: None,
+                key_name: None
+            },
+            TxIcs20MsgTransferCmd::parse_from(&[
+                "test",
+                "--receiver-chain",
+                "chain_receiver",
+                "--sender-chain",
+                "chain_sender",
+                "--sender-port",
+                "port_sender",
+                "--sender-channel",
+                "channel_sender",
+                "--amount",
+                "42",
+                "--denom",
+                "my_denom"
+            ])
+        )
+    }
+
+    #[test]
+    fn test_ft_transfer_key_name() {
+        assert_eq!(
+            TxIcs20MsgTransferCmd {
+                dst_chain_id: ChainId::from_string("chain_receiver"),
+                src_chain_id: ChainId::from_string("chain_sender"),
+                src_port_id: PortId::from_str("port_sender").unwrap(),
+                src_channel_id: ChannelId::from_str("channel_sender").unwrap(),
+                amount: Amount::from(42),
+                timeout_height_offset: 0,
+                timeout_seconds: 0,
+                receiver: None,
+                denom: "samoleans".to_owned(),
+                number_msgs: None,
+                key_name: Some("key_name".to_owned())
+            },
+            TxIcs20MsgTransferCmd::parse_from(&[
+                "test",
+                "--receiver-chain",
+                "chain_receiver",
+                "--sender-chain",
+                "chain_sender",
+                "--sender-port",
+                "port_sender",
+                "--sender-channel",
+                "channel_sender",
+                "--amount",
+                "42",
+                "--key-name",
+                "key_name"
+            ])
+        )
+    }
+
+    #[test]
+    fn test_ft_transfer_number_msgs() {
+        assert_eq!(
+            TxIcs20MsgTransferCmd {
+                dst_chain_id: ChainId::from_string("chain_receiver"),
+                src_chain_id: ChainId::from_string("chain_sender"),
+                src_port_id: PortId::from_str("port_sender").unwrap(),
+                src_channel_id: ChannelId::from_str("channel_sender").unwrap(),
+                amount: Amount::from(42),
+                timeout_height_offset: 0,
+                timeout_seconds: 0,
+                receiver: None,
+                denom: "samoleans".to_owned(),
+                number_msgs: Some(21),
+                key_name: None
+            },
+            TxIcs20MsgTransferCmd::parse_from(&[
+                "test",
+                "--receiver-chain",
+                "chain_receiver",
+                "--sender-chain",
+                "chain_sender",
+                "--sender-port",
+                "port_sender",
+                "--sender-channel",
+                "channel_sender",
+                "--amount",
+                "42",
+                "--number-msgs",
+                "21"
+            ])
+        )
+    }
+
+    #[test]
+    fn test_ft_transfer_receiver() {
+        assert_eq!(
+            TxIcs20MsgTransferCmd {
+                dst_chain_id: ChainId::from_string("chain_receiver"),
+                src_chain_id: ChainId::from_string("chain_sender"),
+                src_port_id: PortId::from_str("port_sender").unwrap(),
+                src_channel_id: ChannelId::from_str("channel_sender").unwrap(),
+                amount: Amount::from(42),
+                timeout_height_offset: 0,
+                timeout_seconds: 0,
+                receiver: Some("receiver_addr".to_owned()),
+                denom: "samoleans".to_owned(),
+                number_msgs: None,
+                key_name: None
+            },
+            TxIcs20MsgTransferCmd::parse_from(&[
+                "test",
+                "--receiver-chain",
+                "chain_receiver",
+                "--sender-chain",
+                "chain_sender",
+                "--sender-port",
+                "port_sender",
+                "--sender-channel",
+                "channel_sender",
+                "--amount",
+                "42",
+                "--receiver",
+                "receiver_addr"
+            ])
+        )
+    }
+
+    #[test]
+    fn test_ft_transfer_timeout_height_offset() {
+        assert_eq!(
+            TxIcs20MsgTransferCmd {
+                dst_chain_id: ChainId::from_string("chain_receiver"),
+                src_chain_id: ChainId::from_string("chain_sender"),
+                src_port_id: PortId::from_str("port_sender").unwrap(),
+                src_channel_id: ChannelId::from_str("channel_sender").unwrap(),
+                amount: Amount::from(42),
+                timeout_height_offset: 21,
+                timeout_seconds: 0,
+                receiver: None,
+                denom: "samoleans".to_owned(),
+                number_msgs: None,
+                key_name: None
+            },
+            TxIcs20MsgTransferCmd::parse_from(&[
+                "test",
+                "--receiver-chain",
+                "chain_receiver",
+                "--sender-chain",
+                "chain_sender",
+                "--sender-port",
+                "port_sender",
+                "--sender-channel",
+                "channel_sender",
+                "--amount",
+                "42",
+                "--timeout-height-offset",
+                "21"
+            ])
+        )
+    }
+
+    #[test]
+    fn test_ft_transfer_timeout_seconds() {
+        assert_eq!(
+            TxIcs20MsgTransferCmd {
+                dst_chain_id: ChainId::from_string("chain_receiver"),
+                src_chain_id: ChainId::from_string("chain_sender"),
+                src_port_id: PortId::from_str("port_sender").unwrap(),
+                src_channel_id: ChannelId::from_str("channel_sender").unwrap(),
+                amount: Amount::from(42),
+                timeout_height_offset: 0,
+                timeout_seconds: 21,
+                receiver: None,
+                denom: "samoleans".to_owned(),
+                number_msgs: None,
+                key_name: None
+            },
+            TxIcs20MsgTransferCmd::parse_from(&[
+                "test",
+                "--receiver-chain",
+                "chain_receiver",
+                "--sender-chain",
+                "chain_sender",
+                "--sender-port",
+                "port_sender",
+                "--sender-channel",
+                "channel_sender",
+                "--amount",
+                "42",
+                "--timeout-seconds",
+                "21"
+            ])
+        )
+    }
+
+    #[test]
+    fn test_ft_transfer_no_amount() {
+        assert!(TxIcs20MsgTransferCmd::try_parse_from(&[
+            "test",
+            "--receiver-chain",
+            "chain_receiver",
+            "--sender-chain",
+            "chain_sender",
+            "--sender-port",
+            "port_sender",
+            "--sender-channel",
+            "channel_sender"
+        ])
+        .is_err())
+    }
+
+    #[test]
+    fn test_ft_transfer_no_sender_channel() {
+        assert!(TxIcs20MsgTransferCmd::try_parse_from(&[
+            "test",
+            "--receiver-chain",
+            "chain_receiver",
+            "--sender-chain",
+            "chain_sender",
+            "--sender-port",
+            "port_sender",
+            "--amount",
+            "42"
+        ])
+        .is_err())
+    }
+
+    #[test]
+    fn test_ft_transfer_no_sender_port() {
+        assert!(TxIcs20MsgTransferCmd::try_parse_from(&[
+            "test",
+            "--receiver-chain",
+            "chain_receiver",
+            "--sender-chain",
+            "chain_sender",
+            "--sender-channel",
+            "channel_sender",
+            "--amount",
+            "42"
+        ])
+        .is_err())
+    }
+
+    #[test]
+    fn test_ft_transfer_no_sender_chain() {
+        assert!(TxIcs20MsgTransferCmd::try_parse_from(&[
+            "test",
+            "--receiver-chain",
+            "chain_receiver",
+            "--sender-port",
+            "port_sender",
+            "--sender-channel",
+            "channel_sender",
+            "--amount",
+            "42"
+        ])
+        .is_err())
+    }
+
+    #[test]
+    fn test_ft_transfer_no_receiver_chain() {
+        assert!(TxIcs20MsgTransferCmd::try_parse_from(&[
+            "test",
+            "--sender-chain",
+            "chain_sender",
+            "--sender-port",
+            "port_sender",
+            "--sender-channel",
+            "channel_sender",
+            "--amount",
+            "42"
+        ])
+        .is_err())
     }
 }

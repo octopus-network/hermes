@@ -2,6 +2,7 @@ use crate::prelude::*;
 
 use tendermint_proto::Protobuf;
 
+use derive_more::{From, Into};
 use ibc_proto::ibc::core::channel::v1::MsgAcknowledgement as RawMsgAcknowledgement;
 
 use crate::core::ics04_channel::error::Error;
@@ -13,22 +14,23 @@ use crate::tx_msg::Msg;
 pub const TYPE_URL: &str = "/ibc.core.channel.v1.MsgAcknowledgement";
 
 /// A generic Acknowledgement type that modules may interpret as they like.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, From, Into)]
 pub struct Acknowledgement(Vec<u8>);
 
 impl Acknowledgement {
-    pub fn into_bytes(self) -> Vec<u8> {
-        self.0
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
-    pub fn from_bytes(bytes: Vec<u8>) -> Self {
-        bytes.into()
+    pub fn into_vec(self) -> Vec<u8> {
+        self.0
     }
 }
 
-impl From<Vec<u8>> for Acknowledgement {
-    fn from(bytes: Vec<u8>) -> Self {
-        Self(bytes)
+
+impl AsRef<[u8]> for Acknowledgement {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
     }
 }
 
@@ -96,8 +98,8 @@ impl TryFrom<RawMsgAcknowledgement> for MsgAcknowledgement {
             None,
             raw_msg
                 .proof_height
-                .ok_or_else(Error::missing_height)?
-                .into(),
+                .and_then(|raw_height| raw_height.try_into().ok())
+                .ok_or_else(Error::missing_height)?,
         )
         .map_err(Error::invalid_proof)?;
 
@@ -107,7 +109,7 @@ impl TryFrom<RawMsgAcknowledgement> for MsgAcknowledgement {
                 .ok_or_else(Error::missing_packet)?
                 .try_into()?,
             acknowledgement: raw_msg.acknowledgement.into(),
-            signer: raw_msg.signer.into(),
+            signer: raw_msg.signer.parse().map_err(Error::signer)?,
             proofs,
         })
     }
@@ -117,7 +119,7 @@ impl From<MsgAcknowledgement> for RawMsgAcknowledgement {
     fn from(domain_msg: MsgAcknowledgement) -> Self {
         RawMsgAcknowledgement {
             packet: Some(domain_msg.packet.into()),
-            acknowledgement: domain_msg.acknowledgement.into_bytes(),
+            acknowledgement: domain_msg.acknowledgement.into(),
             signer: domain_msg.signer.to_string(),
             proof_height: Some(domain_msg.proofs.height().into()),
             proof_acked: domain_msg.proofs.object_proof().clone().into(),
@@ -160,6 +162,7 @@ mod test {
     use crate::core::ics04_channel::error::Error;
     use crate::core::ics04_channel::msgs::acknowledgement::test_util::get_dummy_raw_msg_acknowledgement;
     use crate::core::ics04_channel::msgs::acknowledgement::MsgAcknowledgement;
+    use crate::test_utils::get_dummy_bech32_account;
 
     #[test]
     fn msg_acknowledgment_try_from_raw() {
@@ -197,7 +200,7 @@ mod test {
             Test {
                 name: "Empty signer".to_string(),
                 raw: RawMsgAcknowledgement {
-                    signer: "".to_string(),
+                    signer: get_dummy_bech32_account(),
                     ..default_raw_msg.clone()
                 },
                 want_pass: true,

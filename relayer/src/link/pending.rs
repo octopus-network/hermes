@@ -6,10 +6,12 @@ use tracing::{debug, error, trace, trace_span};
 
 use ibc::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
 use ibc::events::IbcEvent;
-use ibc::query::{QueryTxHash, QueryTxRequest};
 
+use crate::chain::requests::{QueryTxHash, QueryTxRequest};
+use crate::chain::tracking::TrackingId;
 use crate::error::Error as RelayerError;
 use crate::link::{error::LinkError, RelayPath};
+use crate::telemetry;
 use crate::util::queue::Queue;
 use crate::{
     chain::handle::ChainHandle,
@@ -33,7 +35,13 @@ pub struct PendingData {
     pub error_events: Vec<IbcEvent>,
 }
 
-/// The mediator stores all pending data
+impl PendingData {
+    pub fn tracking_id(&self) -> TrackingId {
+        self.original_od.tracking_id
+    }
+}
+
+/// Stores all pending data
 /// and tries to confirm them asynchronously.
 pub struct PendingTxs<Chain> {
     pub chain: Chain,
@@ -114,6 +122,7 @@ impl<Chain: ChainHandle> PendingTxs<Chain> {
             submit_time: Instant::now(),
             error_events,
         };
+
         self.pending_queue.push_back(u);
     }
 
@@ -169,8 +178,7 @@ impl<Chain: ChainHandle> PendingTxs<Chain> {
             trace!("trying to confirm {} ", tx_hashes);
 
             // Check for TX events for the given pending transaction hashes.
-            let events_result = self.check_tx_events(tx_hashes);
-            let res = match events_result {
+            let relay_summary = match self.check_tx_events(tx_hashes) {
                 Ok(None) => {
                     // There is no events for the associated transactions.
                     // This means the transaction has not yet been committed.
@@ -221,22 +229,33 @@ impl<Chain: ChainHandle> PendingTxs<Chain> {
                         Ok(None)
                     }
                 }
-                Ok(Some(events)) => {
+                Ok(Some(mut events)) => {
                     // We get a list of events for the transaction hashes,
                     // Meaning the transaction has been committed successfully
                     // to the chain.
 
                     debug!(
-                        "confirmed after {:#?}: {} ",
-                        pending.submit_time.elapsed(),
-                        tx_hashes
+                        tracking_id = %pending.tracking_id(),
+                        elapsed = ?pending.submit_time.elapsed(),
+                        tx_hashes = %tx_hashes,
+                        "transactions confirmed",
                     );
 
-                    // Convert the events to RelaySummary and return them.
-                    let mut summary = RelaySummary::from_events(events);
-                    summary.extend(RelaySummary::from_events(pending.error_events));
+                    telemetry!(
+                        tx_confirmed,
+                        tx_hashes.0.len(),
+                        pending.tracking_id(),
+                        &self.chain.id(),
+                        &self.channel_id,
+                        &self.port_id,
+                        &self.counterparty_chain_id
+                    );
 
-                    Ok(Some(summary))
+                    // Append the events corresponding to errors from the pending tx.
+                    events.extend(pending.error_events);
+
+                    // Convert the events to RelaySummary and return them.
+                    Ok(Some(RelaySummary::from_events(events)))
                 }
                 Err(e) => {
                     // There are errors querying for the transaction hashes.
@@ -263,7 +282,7 @@ impl<Chain: ChainHandle> PendingTxs<Chain> {
                 );
             }
 
-            res
+            relay_summary
         } else {
             Ok(None)
         }

@@ -8,8 +8,8 @@ use ibc::core::ics24_host::identifier::ChainId;
 use ibc::mock::host::HostBlock;
 use ibc::Height;
 
+use crate::chain::endpoint::ChainEndpoint;
 use crate::chain::mock::MockChain;
-use crate::chain::ChainEndpoint;
 use crate::error::Error;
 
 use super::Verified;
@@ -29,7 +29,7 @@ impl LightClient {
 
     /// Returns a LightBlock at the requested height `h`.
     fn light_block(&self, h: Height) -> TmLightBlock {
-        HostBlock::generate_tm_block(self.chain_id.clone(), h.revision_height, Timestamp::now())
+        HostBlock::generate_tm_block(self.chain_id.clone(), h.revision_height(), Timestamp::now())
     }
 }
 

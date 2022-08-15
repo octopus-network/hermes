@@ -2,7 +2,7 @@ use ibc::core::ics24_host::identifier::ChainId;
 use ibc::Height;
 use tendermint_rpc::{Client, HttpClient, Url};
 
-use crate::chain::ChainStatus;
+use crate::chain::endpoint::ChainStatus;
 use crate::error::Error;
 
 /// Query the chain status via an RPC query.
@@ -28,10 +28,11 @@ pub async fn query_status(
 
     let time = response.sync_info.latest_block_time;
 
-    let height = Height {
-        revision_number: ChainId::chain_version(response.node_info.network.as_str()),
-        revision_height: u64::from(response.sync_info.latest_block_height),
-    };
+    let height = Height::new(
+        ChainId::chain_version(response.node_info.network.as_str()),
+        u64::from(response.sync_info.latest_block_height),
+    )
+    .map_err(|_| Error::invalid_height_no_source())?;
 
     Ok(ChainStatus {
         height,

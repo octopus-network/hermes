@@ -57,7 +57,7 @@ impl Header {
     }
 
     pub fn height(&self) -> Height {
-        Height::new(0, self.block_header.block_number as u64)
+        Height::new(8888, self.block_header.block_number as u64).unwrap()
     }
 }
 

@@ -24,7 +24,7 @@ pub(crate) fn process(
     // Unwrap the old channel end (if any) and validate it against the message.
     let (mut new_channel_end, channel_id) = match &msg.previous_channel_id {
         Some(prev_id) => {
-            let old_channel_end = ctx.channel_end(&(msg.port_id.clone(), *prev_id))?;
+            let old_channel_end = ctx.channel_end(&(msg.port_id.clone(), prev_id.clone()))?;
 
             // Validate that existing channel end matches with the one we're trying to establish.
             if old_channel_end.state_matches(&State::Init)
@@ -34,10 +34,10 @@ pub(crate) fn process(
                 && old_channel_end.version_matches(msg.channel.version())
             {
                 // A ChannelEnd already exists and all validation passed.
-                Ok((old_channel_end, *prev_id))
+                Ok((old_channel_end, prev_id.clone()))
             } else {
                 // A ConnectionEnd already exists and validation failed.
-                Err(Error::channel_mismatch(*prev_id))
+                Err(Error::channel_mismatch(prev_id.clone()))
             }
         }
         // No previous channel id was supplied. Create a new channel end & an identifier.
@@ -89,9 +89,6 @@ pub(crate) fn process(
         return Err(Error::channel_feature_not_suported_by_connection());
     }
 
-    // Channel capabilities
-    let channel_cap = ctx.authenticated_capability(&msg.port_id)?;
-
     // Proof verification in two steps:
     // 1. Setup: build the Channel as we expect to find it on the other party.
     //      the port should be identical with the port we're using; the channel id should not be set
@@ -129,13 +126,12 @@ pub(crate) fn process(
 
     let result = ChannelResult {
         port_id: msg.port_id.clone(),
-        channel_cap,
         channel_id_state: if matches!(msg.previous_channel_id, None) {
             ChannelIdState::Generated
         } else {
             ChannelIdState::Reused
         },
-        channel_id,
+        channel_id: channel_id.clone(),
         channel_end: new_channel_end,
     };
     tracing::trace!(target:"ibc-rs","[chan_open_try] process result : {:?}",result);
@@ -146,7 +142,7 @@ pub(crate) fn process(
         channel_id: Some(channel_id),
         connection_id: msg.channel.connection_hops[0].clone(),
         counterparty_port_id: msg.channel.counterparty().port_id.clone(),
-        counterparty_channel_id: msg.channel.counterparty().channel_id,
+        counterparty_channel_id: msg.channel.counterparty().channel_id.clone(),
     };
     output.emit(IbcEvent::OpenTryChannel(
         event_attributes
@@ -221,7 +217,7 @@ mod tests {
         // this channel should depend on connection `conn_id`.
         let chan_id = ChannelId::new(24);
         let hops = vec![conn_id.clone()];
-        msg.previous_channel_id = Some(chan_id);
+        msg.previous_channel_id = Some(chan_id.clone());
         msg.channel.connection_hops = hops;
 
         // This message does not assume a channel should already be initialized.
@@ -268,7 +264,7 @@ mod tests {
                 want_pass: false,
                 match_error: {
                     let port_id = msg.port_id.clone();
-                    let channel_id = chan_id;
+                    let channel_id = chan_id.clone();
                     Box::new(move |e| match e {
                         error::ErrorDetail::ChannelNotFound(e) => {
                             assert_eq!(e.port_id, port_id);
@@ -303,37 +299,16 @@ mod tests {
                 },
             },
             Test {
-                name: "Processing fails because the port does not have a capability associated"
-                    .to_string(),
-                ctx: context
-                    .clone()
-                    .with_connection(conn_id.clone(), conn_end.clone()),
-                msg: ChannelMsg::ChannelOpenTry(msg_vanilla.clone()),
-                want_pass: false,
-                match_error: {
-                    let port_id = msg.port_id.clone();
-                    Box::new(move |e| match e {
-                        error::ErrorDetail::NoPortCapability(e) => {
-                            assert_eq!(e.port_id, port_id);
-                        }
-                        _ => {
-                            panic!("Expected NoPortCapability, instead got {}", e)
-                        }
-                    })
-                },
-            },
-            Test {
                 name: "Processing fails because of inconsistent version with preexisting channel"
                     .to_string(),
                 ctx: context
                     .clone()
                     .with_connection(conn_id.clone(), conn_end.clone())
-                    .with_port_capability(msg.port_id.clone())
-                    .with_channel(msg.port_id.clone(), chan_id, incorrect_chan_end_ver),
+                    .with_channel(msg.port_id.clone(), chan_id.clone(), incorrect_chan_end_ver),
                 msg: ChannelMsg::ChannelOpenTry(msg.clone()),
                 want_pass: false,
                 match_error: {
-                    let channel_id = chan_id;
+                    let channel_id = chan_id.clone();
                     Box::new(move |e| match e {
                         error::ErrorDetail::ChannelMismatch(e) => {
                             assert_eq!(e.channel_id, channel_id);
@@ -349,12 +324,15 @@ mod tests {
                 ctx: context
                     .clone()
                     .with_connection(conn_id.clone(), conn_end.clone())
-                    .with_port_capability(msg.port_id.clone())
-                    .with_channel(msg.port_id.clone(), chan_id, incorrect_chan_end_hops),
+                    .with_channel(
+                        msg.port_id.clone(),
+                        chan_id.clone(),
+                        incorrect_chan_end_hops,
+                    ),
                 msg: ChannelMsg::ChannelOpenTry(msg.clone()),
                 want_pass: false,
                 match_error: {
-                    let channel_id = chan_id;
+                    let channel_id = chan_id.clone();
                     Box::new(move |e| match e {
                         error::ErrorDetail::ChannelMismatch(e) => {
                             assert_eq!(e.channel_id, channel_id);
@@ -370,8 +348,11 @@ mod tests {
                 ctx: context
                     .clone()
                     .with_connection(conn_id.clone(), conn_end.clone())
-                    .with_port_capability(msg.port_id.clone())
-                    .with_channel(msg.port_id.clone(), chan_id, correct_chan_end.clone()),
+                    .with_channel(
+                        msg.port_id.clone(),
+                        chan_id.clone(),
+                        correct_chan_end.clone(),
+                    ),
                 msg: ChannelMsg::ChannelOpenTry(msg.clone()),
                 want_pass: false,
                 match_error: Box::new(|e| match e {
@@ -398,11 +379,10 @@ mod tests {
                 name: "Processing is successful".to_string(),
                 ctx: context
                     .clone()
-                    .with_client(&client_id, Height::new(0, proof_height))
+                    .with_client(&client_id, Height::new(0, proof_height).unwrap())
                     .with_connection(conn_id.clone(), conn_end.clone())
-                    .with_port_capability(msg.port_id.clone())
                     .with_channel(msg.port_id.clone(), chan_id, correct_chan_end),
-                msg: ChannelMsg::ChannelOpenTry(msg.clone()),
+                msg: ChannelMsg::ChannelOpenTry(msg),
                 want_pass: true,
                 match_error: Box::new(|_| {}),
             },
@@ -410,9 +390,8 @@ mod tests {
                 name: "Processing is successful against an empty context (no preexisting channel)"
                     .to_string(),
                 ctx: context
-                    .with_client(&client_id, Height::new(0, proof_height))
-                    .with_connection(conn_id, conn_end)
-                    .with_port_capability(msg.port_id),
+                    .with_client(&client_id, Height::new(0, proof_height).unwrap())
+                    .with_connection(conn_id, conn_end),
                 msg: ChannelMsg::ChannelOpenTry(msg_vanilla),
                 want_pass: true,
                 match_error: Box::new(|_| {}),

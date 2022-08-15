@@ -267,7 +267,7 @@ impl SignedCommitment {
     pub fn from_height(height: Height) -> SignedCommitment {
         SignedCommitment {
             commitment: Some(Commitment {
-                block_number: height.revision_height as u32,
+                block_number: height.revision_height() as u32,
                 payload: Payload(vec![]),
                 validator_set_id: 0,
             }),

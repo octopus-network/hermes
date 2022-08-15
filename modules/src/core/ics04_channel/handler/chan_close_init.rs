@@ -18,20 +18,17 @@ pub(crate) fn process(
     let mut output = HandlerOutput::builder();
 
     // Unwrap the old channel end and validate it against the message.
-    let mut channel_end = ctx.channel_end(&(msg.port_id.clone(), msg.channel_id))?;
+    let mut channel_end = ctx.channel_end(&(msg.port_id.clone(), msg.channel_id.clone()))?;
 
     // Validate that the channel end is in a state where it can be closed.
     if channel_end.state_matches(&State::Closed) {
         return Err(Error::invalid_channel_state(
-            msg.channel_id,
+            msg.channel_id.clone(),
             channel_end.state,
         ));
     }
 
-    // Channel capabilities
-    let channel_cap = ctx.authenticated_capability(&msg.port_id)?;
     // An OPEN IBC connection running on the local (host) chain should exist.
-
     if channel_end.connection_hops().len() != 1 {
         return Err(Error::invalid_connection_hops_length(
             1,
@@ -54,16 +51,15 @@ pub(crate) fn process(
 
     let result = ChannelResult {
         port_id: msg.port_id.clone(),
-        channel_id: msg.channel_id,
+        channel_id: msg.channel_id.clone(),
         channel_id_state: ChannelIdState::Reused,
-        channel_cap,
         channel_end,
     };
 
     tracing::trace!(target:"ibc-rs","[chan_close_init] process result : {:?}",result);
 
     let event_attributes = Attributes {
-        channel_id: Some(msg.channel_id),
+        channel_id: Some(msg.channel_id.clone()),
         height: ctx.host_height(),
         port_id: msg.port_id.clone(),
         ..Default::default()
@@ -125,7 +121,7 @@ mod tests {
             Order::default(),
             Counterparty::new(
                 msg_chan_close_init.port_id.clone(),
-                Some(msg_chan_close_init.channel_id),
+                Some(msg_chan_close_init.channel_id.clone()),
             ),
             vec![conn_id.clone()],
             Version::default(),
@@ -138,10 +134,9 @@ mod tests {
             default_context
                 .with_client(&client_id, client_consensus_state_height)
                 .with_connection(conn_id, conn_end)
-                .with_port_capability(msg_chan_close_init.port_id.clone())
                 .with_channel(
                     msg_chan_close_init.port_id.clone(),
-                    msg_chan_close_init.channel_id,
+                    msg_chan_close_init.channel_id.clone(),
                     chan_end,
                 )
         };

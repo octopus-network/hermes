@@ -13,13 +13,13 @@ class ClientCreated:
 
 
 @dataclass
-@cmd("tx raw create-client")
+@cmd("create client")
 class TxCreateClient(Cmd[ClientCreated]):
     dst_chain_id: ChainId
     src_chain_id: ChainId
 
     def args(self) -> List[str]:
-        return [self.dst_chain_id, self.src_chain_id]
+        return ["--host-chain", self.dst_chain_id, "--reference-chain", self.src_chain_id]
 
     def process(self, result: Any) -> ClientCreated:
         return from_dict(ClientCreated, result['CreateClient'])
@@ -37,13 +37,13 @@ class ClientUpdated:
 
 
 @dataclass
-@cmd("tx raw update-client")
+@cmd("update client")
 class TxUpdateClient(Cmd[ClientUpdated]):
     dst_chain_id: ChainId
     dst_client_id: ClientId
 
     def args(self) -> List[str]:
-        return [self.dst_chain_id, self.dst_client_id]
+        return ["--host-chain", self.dst_chain_id, "--client", self.dst_client_id]
 
     def process(self, result: Any) -> ClientUpdated:
         return from_dict(ClientUpdated, result[-1]['UpdateClient']['common'])
@@ -86,7 +86,7 @@ class QueryClientState(Cmd[ClientState]):
         if self.proof:
             args.append('--proof')
 
-        args.extend([self.chain_id, self.client_id])
+        args.extend(["--chain", self.chain_id, "--client", self.client_id])
 
         return args
 

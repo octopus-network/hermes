@@ -16,6 +16,7 @@ use ibc::core::ics23_commitment::specs::ProofSpecs;
 use ibc::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
 use ibc::timestamp::ZERO_DURATION;
 
+use crate::chain::ChainType;
 use crate::config::types::{MaxMsgNum, MaxTxSize, Memo};
 use crate::keyring::Store;
 
@@ -44,6 +45,10 @@ impl fmt::Display for GasPrice {
 /// Defaults for various fields
 pub mod default {
     use super::*;
+
+    pub fn chain_type() -> ChainType {
+        ChainType::CosmosSdk
+    }
 
     pub fn tx_confirmation() -> bool {
         true
@@ -309,6 +314,8 @@ impl fmt::Display for AddressType {
 #[serde(deny_unknown_fields)]
 pub struct ChainConfig {
     pub id: ChainId,
+    #[serde(default = "default::chain_type")]
+    pub r#type: ChainType,
     pub rpc_addr: tendermint_rpc::Url,
     pub websocket_addr: tendermint_rpc::Url,
     pub grpc_addr: tendermint_rpc::Url,
@@ -321,7 +328,11 @@ pub struct ChainConfig {
     pub store_prefix: String,
     pub default_gas: Option<u64>,
     pub max_gas: Option<u64>,
+
+    // This field is deprecated, use `gas_multiplier` instead
     pub gas_adjustment: Option<f64>,
+    pub gas_multiplier: Option<f64>,
+
     pub fee_granter: Option<String>,
     #[serde(default)]
     pub max_msg_num: MaxMsgNum,

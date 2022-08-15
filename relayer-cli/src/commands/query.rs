@@ -3,11 +3,13 @@
 use abscissa_core::clap::Parser;
 use abscissa_core::{Command, Runnable};
 
+use crate::commands::query::channel_client::QueryChannelClientCmd;
 use crate::commands::query::channel_ends::QueryChannelEndsCmd;
 use crate::commands::query::channels::QueryChannelsCmd;
 use crate::commands::query::packet::QueryPacketCmds;
 
 mod channel;
+mod channel_client;
 mod channel_ends;
 mod channels;
 mod client;
@@ -15,6 +17,7 @@ mod clients;
 mod connection;
 mod connections;
 mod packet;
+mod transfer;
 mod tx;
 
 /// `query` subcommand
@@ -48,11 +51,15 @@ pub enum QueryCmd {
     /// Query information about transactions
     #[clap(subcommand)]
     Tx(tx::QueryTxCmd),
+
+    /// Query information about token transfers
+    #[clap(subcommand)]
+    Transfer(transfer::TransferCmd),
 }
 
 #[derive(Command, Debug, Parser, Runnable)]
 pub enum QueryClientCmds {
-    /// Query the client full state
+    /// Query the client state
     State(client::QueryClientStateCmd),
 
     /// Query the client consensus state
@@ -76,6 +83,9 @@ pub enum QueryConnectionCmds {
 
 #[derive(Command, Debug, Parser, Runnable)]
 pub enum QueryChannelCmds {
+    /// Query channel's client state
+    Client(QueryChannelClientCmd),
+
     /// Query channel end
     End(channel::QueryChannelEndCmd),
 

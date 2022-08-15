@@ -1,12 +1,16 @@
 use super::packet::Sequence;
+use super::timeout::TimeoutHeight;
+use crate::applications::transfer::error as transfer_error;
 use crate::core::ics02_client::error as client_error;
 use crate::core::ics03_connection::error as connection_error;
 use crate::core::ics04_channel::channel::State;
 use crate::core::ics05_port::error as port_error;
 use crate::core::ics24_host::error::ValidationError;
 use crate::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
+use crate::core::ics24_host::path::PathError;
 use crate::prelude::*;
 use crate::proofs::ProofError;
+use crate::signer::SignerError;
 use crate::timestamp::Timestamp;
 use crate::Height;
 
@@ -16,6 +20,10 @@ use tendermint_proto::Error as TendermintError;
 define_error! {
     #[derive(Debug, PartialEq, Eq)]
     Error {
+        Ics02Client
+            [ client_error::Error ]
+            | _ | { "ics02 client error" },
+
         Ics03Connection
             [ connection_error::Error ]
             | _ | { "ics03 connection error" },
@@ -23,6 +31,10 @@ define_error! {
         Ics05Port
             [ port_error::Error ]
             | _ | { "ics05 port error" },
+
+        Ics20Transfer
+            [ DisplayOnly<transfer_error::Error> ]
+            | _| { "ics20 transfer error" },
 
         UnknownState
             { state: i32 }
@@ -56,7 +68,8 @@ define_error! {
             [ TraceError<TendermintError> ]
             | _ | { "invalid version" },
 
-        InvalidSigner
+        Signer
+            [ SignerError ]
             | _ | { "invalid signer address" },
 
         InvalidProof
@@ -80,9 +93,6 @@ define_error! {
         ZeroPacketData
             | _ | { "packet data bytes cannot be empty" },
 
-        ZeroPacketTimeout
-            | _ | { "packet timeout height and packet timeout timestamp cannot both be 0" },
-
         InvalidTimeoutHeight
             | _ | { "invalid timeout height for the packet" },
 
@@ -103,17 +113,6 @@ define_error! {
 
         MissingChannel
             | _ | { "missing channel end" },
-
-        NoPortCapability
-            { port_id: PortId }
-            | e | {
-                format_args!(
-                    "the port {0} has no capability associated",
-                    e.port_id)
-            },
-
-        InvalidPortCapability
-            | _ | { "the module associated with the port does not have the capability it needs" },
 
         InvalidVersionLengthConnection
             | _ | { "single version must be negociated on connection before opening channel" },
@@ -210,7 +209,7 @@ define_error! {
         LowPacketHeight
             {
                 chain_height: Height,
-                timeout_height: Height
+                timeout_height: TimeoutHeight
             }
             | e | {
                 format_args!(
@@ -220,7 +219,7 @@ define_error! {
 
         PacketTimeoutHeightNotReached
             {
-                timeout_height: Height,
+                timeout_height: TimeoutHeight,
                 chain_height: Height,
             }
             | e | {
@@ -349,6 +348,14 @@ define_error! {
         ImplementationSpecific
             | _ | { "implementation specific error" },
 
+        AppModule
+            { description: String }
+            | e | {
+                format_args!(
+                    "application module error: {0}",
+                    e.description)
+            },
+
         InvalidDecode
             [ DisplayOnly<tendermint_proto::Error> ]
             |_| { "invalid decode" },
@@ -369,10 +376,10 @@ define_error! {
             | _ | { "invalid encode" },
 
         PacketCommitmentKeysNotFound
-            | _ | { "packet commitmet keys not found"},
+            | _ | { "packet commitment keys not found"},
 
         AcknowledgementsKeysNotFound
-            | _ | { "Acknowldegement keys not found" },
+            | _ | { "Acknowledgement keys not found" },
 
         IvalidIncreaseChannelCounter
             | _ | { "invalid increase channel counter" },
@@ -395,8 +402,9 @@ define_error! {
         EmptyAcknowledgeResponse
             | _ | { "empty acknowledge response" },
 
-
-
+        InvalidPathParser
+            [ TraceError<PathError> ]
+            | _ | { "invalid path parser" },
 
     }
 }

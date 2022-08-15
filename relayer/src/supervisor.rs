@@ -17,13 +17,14 @@ use ibc::{
 };
 
 use crate::{
-    chain::{handle::ChainHandle, HealthCheck},
+    chain::{endpoint::HealthCheck, handle::ChainHandle, tracking::TrackingId},
     config::Config,
     event::beefy_monitor,
     event::monitor::{self, Error as EventError, ErrorDetail as EventErrorDetail, EventBatch},
     object::{Beefy, Object},
     registry::{Registry, SharedRegistry},
     rest,
+    telemetry,
     supervisor::scan::{ChainScan, ChainsScan, ScanMode},
     util::{
         lock::LockExt,
@@ -216,6 +217,7 @@ fn spawn_batch_workers<Chain: ChainHandle>(
             Some(Duration::from_millis(5)),
             move || -> Result<Next, TaskError<Infallible>> {
                 if let Ok(batch) = subscription.try_recv() {
+                    info!("[spawn_batch_workers]>> 🐶🐶🐶🐶 ArcBatch = {:?}", batch);
                     handle_batch(
                         &config,
                         &mut registry.write(),
@@ -383,13 +385,13 @@ fn relay_on_object<Chain: ChainHandle>(
     // First, apply the channel filter on packets and channel workers
     match object {
         Object::Packet(p) => {
-            if !is_channel_allowed(config, chain_id, p.src_port_id(), p.src_channel_id()) {
+            if !is_channel_allowed(config, chain_id, &p.src_port_id, &p.src_channel_id) {
                 // Forbid relaying packets on that channel
                 return false;
             }
         }
         Object::Channel(c) => {
-            if !is_channel_allowed(config, chain_id, c.src_port_id(), c.src_channel_id()) {
+            if !is_channel_allowed(config, chain_id, &c.src_port_id, &c.src_channel_id) {
                 // Forbid completing handshake for that channel
                 return false;
             }
@@ -402,8 +404,9 @@ fn relay_on_object<Chain: ChainHandle>(
         Object::Client(client) => client_state_filter.control_client_object(registry, client),
         Object::Connection(conn) => client_state_filter.control_conn_object(registry, conn),
         Object::Channel(chan) => client_state_filter.control_chan_object(registry, chan),
-        Object::Packet(u) => client_state_filter.control_packet_object(registry, u),
-        Object::Beefy(beefy) => Ok(Permission::Allow),
+        Object::Packet(packet) => client_state_filter.control_packet_object(registry, packet),
+        Object::Wallet(_wallet) => Ok(Permission::Allow),
+        Object::Beefy(_beefy) => Ok(Permission::Allow),
     };
 
     match client_filter_outcome {
@@ -465,7 +468,8 @@ pub fn collect_events(
     src_chain: &impl ChainHandle,
     batch: &EventBatch,
 ) -> CollectedEvents {
-    let mut collected = CollectedEvents::new(batch.height, batch.chain_id.clone());
+    let mut collected =
+        CollectedEvents::new(batch.height, batch.chain_id.clone(), batch.tracking_id);
 
     let mode = config.mode;
 
@@ -576,14 +580,15 @@ fn health_check<Chain: ChainHandle>(config: &Config, registry: &mut Registry<Cha
 
         match chain {
             Ok(chain) => match chain.health_check() {
-                Ok(Healthy) => info!("[{}] chain is healthy", id),
-                Ok(Unhealthy(e)) => warn!("[{}] chain is unhealthy: {}", id, e),
-                Err(e) => error!("[{}] failed to perform health check: {}", id, e),
+                Ok(Healthy) => info!(chain = %id, "chain is healthy"),
+                Ok(Unhealthy(e)) => warn!(chain = %id, "chain is unhealthy: {}", e),
+                Err(e) => error!(chain = %id, "failed to perform health check: {}", e),
             },
             Err(e) => {
                 error!(
-                    "skipping health check for chain {}, reason: failed to spawn chain runtime with error: {}",
-                    config.id, e
+                    chain = %id,
+                    "skipping health check, reason: failed to spawn chain runtime with error: {}",
+                    e
                 );
             }
         }
@@ -740,14 +745,13 @@ fn process_batch<Chain: ChainHandle>(
 ) -> Result<(), Error> {
     assert_eq!(src_chain.id(), batch.chain_id);
 
-    let height = batch.height;
-    let chain_id = batch.chain_id.clone();
+    telemetry!(received_event_batch, batch.tracking_id);
 
     let collected = collect_events(config, workers, &src_chain, batch);
 
     // If there is a NewBlock event, forward this event first to any workers affected by it.
     if let Some(IbcEvent::NewBlock(new_block)) = collected.new_block {
-        workers.notify_new_block(&src_chain.id(), height, new_block);
+        workers.notify_new_block(&src_chain.id(), batch.height, new_block);
     }
 
     // Forward the IBC events.
@@ -780,9 +784,45 @@ fn process_batch<Chain: ChainHandle>(
             .get_or_spawn(object.dst_chain_id())
             .map_err(Error::spawn)?;
 
+        if let Object::Packet(_path) = object.clone() {
+            // Update telemetry info
+            telemetry!({
+                for e in events.clone() {
+                    match e {
+                        IbcEvent::SendPacket(send_packet_ev) => {
+                            ibc_telemetry::global().send_packet_count(
+                                send_packet_ev.packet.sequence.into(),
+                                send_packet_ev.height().revision_height(),
+                                &src.id(),
+                                &_path.src_channel_id,
+                                &_path.src_port_id,
+                                &dst.id(),
+                            );
+                        }
+                        IbcEvent::WriteAcknowledgement(write_ack_ev) => {
+                            ibc_telemetry::global().acknowledgement_count(
+                                write_ack_ev.packet.sequence.into(),
+                                write_ack_ev.height().revision_height(),
+                                &dst.id(),
+                                &_path.src_channel_id,
+                                &_path.src_port_id,
+                                &src.id(),
+                            );
+                        }
+                        _ => {}
+                    }
+                }
+            });
+        }
+
         let worker = workers.get_or_spawn(object, src, dst, config);
 
-        worker.send_events(height, events, chain_id.clone());
+        worker.send_events(
+            batch.height,
+            events,
+            batch.chain_id.clone(),
+            batch.tracking_id,
+        );
     }
 
     Ok(())
@@ -933,13 +973,16 @@ pub struct CollectedEvents {
     pub new_block: Option<IbcEvent>,
     /// Mapping between [`Object`]s and their associated [`IbcEvent`]s.
     pub per_object: HashMap<Object, Vec<IbcEvent>>,
+    /// Unique identifier for tracking this event batch
+    pub tracking_id: TrackingId,
 }
 
 impl CollectedEvents {
-    pub fn new(height: Height, chain_id: ChainId) -> Self {
+    pub fn new(height: Height, chain_id: ChainId, tracking_id: TrackingId) -> Self {
         Self {
             height,
             chain_id,
+            tracking_id,
             new_block: Default::default(),
             per_object: Default::default(),
         }

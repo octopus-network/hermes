@@ -4,14 +4,14 @@
 
 Initialize a new unordered channel on `ibc-0`:
 ```shell
-hermes tx raw chan-open-init ibc-0 ibc-1 connection-0 transfer transfer -o UNORDERED
+hermes tx chan-open-init --b-chain ibc-0 --a-chain ibc-1 --b-connection connection-0 --b-port transfer --a-port transfer --order UNORDERED
 ```
 
 ## 3.2 `chan-open-try`
 
 Send a channel open try to `ibc-1`:
 ```shell
-hermes tx raw chan-open-try ibc-1 ibc-0 connection-1 transfer transfer -s channel-0
+hermes tx chan-open-try --b-chain ibc-1 --a-chain ibc-0 --b-connection connection-1 --b-port transfer --a-port transfer --a-channel channel-0
 ```
 
 Take note of the ID allocated by the chain, e.g. `channel-1` on `ibc-1`. Use in the `chan-open-ack` CLI
@@ -20,25 +20,25 @@ Take note of the ID allocated by the chain, e.g. `channel-1` on `ibc-1`. Use in 
 
 Send a channel open acknowledgment to `ibc-0`:
 ```shell
-hermes tx raw chan-open-ack ibc-0 ibc-1 connection-0 transfer transfer -d channel-0 -s channel-1
+hermes tx chan-open-ack --b-chain ibc-0 --a-chain ibc-1 --b-connection connection-0 --b-port transfer --a-port transfer --b-channel channel-0 --a-channel channel-1
 ```
 
 ## 3.4 `chan-open-confirm`
 
 Send the open confirmation to `ibc-1`:
 ```shell
-hermes tx raw chan-open-confirm ibc-1 ibc-0 connection-1 transfer transfer -d channel-1 -s channel-0
+hermes tx chan-open-confirm --b-chain ibc-1 --a-chain ibc-0 --b-connection connection-1 --b-port transfer --a-port transfer --b-channel channel-1 --a-channel channel-0
 ```
 
 ## 3.5 `query channel`
 To verify that the two ends are in `Open` state:
 
 ```shell
-hermes query channel end ibc-0 transfer channel-0
+hermes query channel end --chain ibc-0 --port transfer --channel channel-0
 ```
 
 ```shell
-hermes query channel end ibc-1 transfer channel-1
+hermes query channel end --chain ibc-1 --port transfer --channel channel-1
 ```
 
 ## Next Steps

@@ -53,18 +53,11 @@ impl ClientDef for TendermintClient {
         client_state: Self::ClientState,
         header: Self::Header,
     ) -> Result<(Self::ClientState, Self::ConsensusState), Ics02Error> {
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] check_header_and_update_state : 
-        client_id is {:?}",client_id,);
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] check_header_and_update_state : 
-        client_state is {:?}",client_state);
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] check_header_and_update_state : 
-        header is {:#?}",header);
-
-        if header.height().revision_number != client_state.chain_id.version() {
+        if header.height().revision_number() != client_state.chain_id.version() {
             return Err(Ics02Error::tendermint_handler_error(
                 Error::mismatched_revisions(
                     client_state.chain_id.version(),
-                    header.height().revision_number,
+                    header.height().revision_number(),
                 ),
             ));
         }
@@ -100,11 +93,11 @@ impl ClientDef for TendermintClient {
             header_time: trusted_consensus_state.timestamp,
             height: header
                 .trusted_height
-                .revision_height
+                .revision_height()
                 .try_into()
                 .map_err(|_| {
                     Ics02Error::tendermint_handler_error(Error::invalid_header_height(
-                        header.trusted_height,
+                        header.trusted_height.revision_height(),
                     ))
                 })?,
             next_validators: &header.trusted_validator_set,
@@ -198,18 +191,10 @@ impl ClientDef for TendermintClient {
             }
         }
 
-        //TODO: remove this after test
-        let new_client_state = client_state.with_header(header.clone());
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] check_header_and_update_state : new_client_state is {:?},
-         ",new_client_state,);
-        let new_consensus_state = ConsensusState::from(header);
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] check_header_and_update_state : new_consensus_state is {:?}",new_consensus_state);
-        Ok((new_client_state, new_consensus_state))
-
-        // Ok((
-        //     client_state.with_header(header.clone()),
-        //     ConsensusState::from(header),
-        // ))
+        Ok((
+            client_state.with_header(header.clone())?,
+            ConsensusState::from(header),
+        ))
     }
 
     fn verify_client_consensus_state(
@@ -229,8 +214,8 @@ impl ClientDef for TendermintClient {
 
         let path = ClientConsensusStatePath {
             client_id: client_id.clone(),
-            epoch: consensus_height.revision_number,
-            height: consensus_height.revision_height,
+            epoch: consensus_height.revision_number(),
+            height: consensus_height.revision_height(),
         };
         tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_client_consensus_state path : {:?}",path);
 
@@ -286,14 +271,11 @@ impl ClientDef for TendermintClient {
 
         client_state.verify_height(height)?;
 
-        let path = ChannelEndsPath(port_id.clone(), *channel_id);
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_channel_state path : {:?}",path);
-
+        let path = ChannelEndsPath(port_id.clone(), channel_id.clone());
         let value = expected_channel_end
             .encode_vec()
             .map_err(Ics02Error::invalid_channel_end)?;
         verify_membership(client_state, prefix, proof, root, path, value)
-        // Ok(())
     }
 
     fn verify_client_full_state(
@@ -306,18 +288,13 @@ impl ClientDef for TendermintClient {
         client_id: &ClientId,
         expected_client_state: &AnyClientState,
     ) -> Result<(), Ics02Error> {
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_client_full_state proof : {:?}",proof);
-
         client_state.verify_height(height)?;
 
         let path = ClientStatePath(client_id.clone());
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_client_full_state path : {:?}",path);
-
         let value = expected_client_state
             .encode_vec()
             .map_err(Ics02Error::invalid_any_client_state)?;
         verify_membership(client_state, prefix, proof, root, path, value)
-        // Ok(())
     }
 
     fn verify_packet_data(
@@ -333,17 +310,14 @@ impl ClientDef for TendermintClient {
         sequence: Sequence,
         commitment: PacketCommitment,
     ) -> Result<(), Ics02Error> {
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_packet_data proof : {:?}",proof);
-
         client_state.verify_height(height)?;
         verify_delay_passed(ctx, height, connection_end)?;
 
         let commitment_path = CommitmentsPath {
             port_id: port_id.clone(),
-            channel_id: *channel_id,
+            channel_id: channel_id.clone(),
             sequence,
         };
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_packet_data commitment_path : {:?}",commitment_path);
         verify_membership(
             client_state,
             connection_end.counterparty().prefix(),
@@ -367,18 +341,14 @@ impl ClientDef for TendermintClient {
         sequence: Sequence,
         ack_commitment: AcknowledgementCommitment,
     ) -> Result<(), Ics02Error> {
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_packet_acknowledgement proof : {:?}",proof);
-
         client_state.verify_height(height)?;
         verify_delay_passed(ctx, height, connection_end)?;
 
         let ack_path = AcksPath {
             port_id: port_id.clone(),
-            channel_id: *channel_id,
+            channel_id: channel_id.clone(),
             sequence,
         };
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_packet_acknowledgement ack_path : {:?}",ack_path);
-
         verify_membership(
             client_state,
             connection_end.counterparty().prefix(),
@@ -401,8 +371,6 @@ impl ClientDef for TendermintClient {
         channel_id: &ChannelId,
         sequence: Sequence,
     ) -> Result<(), Ics02Error> {
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_next_sequence_recv proof : {:?}",proof);
-
         client_state.verify_height(height)?;
         verify_delay_passed(ctx, height, connection_end)?;
 
@@ -411,9 +379,7 @@ impl ClientDef for TendermintClient {
             .encode(&mut seq_bytes)
             .expect("buffer size too small");
 
-        let seq_path = SeqRecvsPath(port_id.clone(), *channel_id);
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_next_sequence_recv seq_path : {:?}",seq_path);
-
+        let seq_path = SeqRecvsPath(port_id.clone(), channel_id.clone());
         verify_membership(
             client_state,
             connection_end.counterparty().prefix(),
@@ -436,18 +402,15 @@ impl ClientDef for TendermintClient {
         channel_id: &ChannelId,
         sequence: Sequence,
     ) -> Result<(), Ics02Error> {
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_packet_receipt_absence proof : {:?}",proof);
-
         client_state.verify_height(height)?;
         verify_delay_passed(ctx, height, connection_end)?;
 
         let receipt_path = ReceiptsPath {
             port_id: port_id.clone(),
-            channel_id: *channel_id,
+            channel_id: channel_id.clone(),
             sequence,
         };
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_packet_receipt_absence receipt_path : {:?}",receipt_path);
-
+        
         verify_non_membership(
             client_state,
             connection_end.counterparty().prefix(),
@@ -476,17 +439,12 @@ fn verify_membership(
     path: impl Into<Path>,
     value: Vec<u8>,
 ) -> Result<(), Ics02Error> {
-    tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_membership root : {:?}",root);
-
-    let merkle_path = apply_prefix(prefix, vec![path.into().to_string()]);
-    tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_membership merkle_path : {:?}",merkle_path);
     
+    let merkle_path = apply_prefix(prefix, vec![path.into().to_string()]);
+   
     let merkle_proof: MerkleProof = RawMerkleProof::try_from(proof.clone())
         .map_err(Ics02Error::invalid_commitment_proof)?
         .into();
-
-    tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_membership merkle_proof : {:?}",merkle_proof);
-
     merkle_proof
         .verify_membership(
             &client_state.proof_specs,
@@ -496,7 +454,6 @@ fn verify_membership(
             0,
         )
         .map_err(|e| Ics02Error::tendermint(Error::ics23_error(e)))
-    // Ok(())
 }
 
 fn verify_non_membership(
@@ -506,16 +463,11 @@ fn verify_non_membership(
     root: &CommitmentRoot,
     path: impl Into<Path>,
 ) -> Result<(), Ics02Error> {
-    tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_non_membership proof : {:?}",proof);
-
     let merkle_path = apply_prefix(prefix, vec![path.into().to_string()]);
-    tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_non_membership merkle_path : {:?}",merkle_path);
-
+   
     let merkle_proof: MerkleProof = RawMerkleProof::try_from(proof.clone())
         .map_err(Ics02Error::invalid_commitment_proof)?
         .into();
-    tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_non_membership merkle_proof : {:?}",merkle_proof);
-
     merkle_proof
         .verify_non_membership(&client_state.proof_specs, root.clone().into(), merkle_path)
         .map_err(|e| Ics02Error::tendermint(Error::ics23_error(e)))
@@ -526,8 +478,6 @@ fn verify_delay_passed(
     height: Height,
     connection_end: &ConnectionEnd,
 ) -> Result<(), Ics02Error> {
-    tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_delay_passed connection_end : {:?}",connection_end);
-
     let current_timestamp = ctx.host_timestamp();
     let current_height = ctx.host_height();
 

@@ -1,16 +1,19 @@
 //! This module implements the processing logic for ICS4 (channel) messages.
+use tracing::info;
+use crate::prelude::*;
 
 use crate::core::ics04_channel::channel::ChannelEnd;
 use crate::core::ics04_channel::context::ChannelReader;
 use crate::core::ics04_channel::error::Error;
 use crate::core::ics04_channel::msgs::ChannelMsg;
 use crate::core::ics04_channel::{msgs::PacketMsg, packet::PacketResult};
-use crate::core::ics05_port::capabilities::ChannelCapability;
+use crate::core::ics04_channel::packet::Packet;
 use crate::core::ics24_host::identifier::{ChannelId, PortId};
 use crate::core::ics26_routing::context::{
-    Ics26Context, ModuleId, ModuleOutput, OnRecvPacketAck, Router,
+    Acknowledgement, Ics26Context, ModuleId, ModuleOutputBuilder, OnRecvPacketAck, Router,
 };
 use crate::handler::{HandlerOutput, HandlerOutputBuilder};
+use crate::applications::transfer::acknowledgement::Acknowledgement as ApplicationAcknowledgement;
 
 pub mod acknowledgement;
 pub mod chan_close_confirm;
@@ -42,7 +45,6 @@ pub struct ChannelResult {
     pub port_id: PortId,
     pub channel_id: ChannelId,
     pub channel_id_state: ChannelIdState,
-    pub channel_cap: ChannelCapability,
     pub channel_end: ChannelEnd,
 }
 
@@ -51,6 +53,10 @@ where
     Ctx: Ics26Context,
 {
     let module_id = msg.lookup_module(ctx)?;
+    tracing::trace!(
+        "[in handle] channel_validate --> Module_id = {:?}",
+        module_id
+    );
     if ctx.router().has_route(&module_id) {
         Ok(module_id)
     } else {
@@ -89,7 +95,7 @@ pub fn channel_callback<Ctx>(
     module_id: &ModuleId,
     msg: &ChannelMsg,
     mut result: ChannelResult,
-    module_output: &mut ModuleOutput,
+    module_output: &mut ModuleOutputBuilder,
 ) -> Result<ChannelResult, Error>
 where
     Ctx: Ics26Context,
@@ -106,7 +112,6 @@ where
             &msg.channel.connection_hops,
             &msg.port_id,
             &result.channel_id,
-            &result.channel_cap,
             msg.channel.counterparty(),
             &msg.channel.version,
         )?,
@@ -117,8 +122,8 @@ where
                 &msg.channel.connection_hops,
                 &msg.port_id,
                 &result.channel_id,
-                &result.channel_cap,
                 msg.channel.counterparty(),
+                msg.channel.version(),
                 &msg.counterparty_version,
             )?;
             result.channel_end.version = version;
@@ -142,30 +147,23 @@ where
     Ok(result)
 }
 
-pub fn packet_validate<Ctx>(ctx: &Ctx, msg: &PacketMsg) -> Result<ModuleId, Error>
+pub fn get_module_for_packet_msg<Ctx>(ctx: &Ctx, msg: &PacketMsg) -> Result<ModuleId, Error>
 where
     Ctx: Ics26Context,
 {
     let module_id = match msg {
-        PacketMsg::RecvPacket(msg) => {
-            ctx.lookup_module_by_channel(
-                &msg.packet.destination_channel,
-                &msg.packet.destination_port,
-            )?
-            .0
-        }
-        PacketMsg::AckPacket(msg) => {
-            ctx.lookup_module_by_channel(&msg.packet.source_channel, &msg.packet.source_port)?
-                .0
-        }
-        PacketMsg::ToPacket(msg) => {
-            ctx.lookup_module_by_channel(&msg.packet.source_channel, &msg.packet.source_port)?
-                .0
-        }
-        PacketMsg::ToClosePacket(msg) => {
-            ctx.lookup_module_by_channel(&msg.packet.source_channel, &msg.packet.source_port)?
-                .0
-        }
+        PacketMsg::RecvPacket(msg) => ctx
+            .lookup_module_by_port(&msg.packet.destination_port)
+            .map_err(Error::ics05_port)?,
+        PacketMsg::AckPacket(msg) => ctx
+            .lookup_module_by_port(&msg.packet.source_port)
+            .map_err(Error::ics05_port)?,
+        PacketMsg::ToPacket(msg) => ctx
+            .lookup_module_by_port(&msg.packet.source_port)
+            .map_err(Error::ics05_port)?,
+        PacketMsg::ToClosePacket(msg) => ctx
+            .lookup_module_by_port(&msg.packet.source_port)
+            .map_err(Error::ics05_port)?,
     };
 
     if ctx.router().has_route(&module_id) {
@@ -202,11 +200,28 @@ pub fn packet_callback<Ctx>(
     ctx: &mut Ctx,
     module_id: &ModuleId,
     msg: &PacketMsg,
-    module_output: &mut ModuleOutput,
+    output: &mut HandlerOutputBuilder<()>,
 ) -> Result<(), Error>
 where
     Ctx: Ics26Context,
 {
+    let mut module_output = ModuleOutputBuilder::new();
+    let mut core_output = HandlerOutputBuilder::new();
+
+    let result = do_packet_callback(ctx, module_id, msg, &mut module_output, &mut core_output);
+    output.merge(module_output);
+    output.merge(core_output);
+
+    result
+}
+
+fn do_packet_callback(
+    ctx: &mut impl Ics26Context,
+    module_id: &ModuleId,
+    msg: &PacketMsg,
+    module_output: &mut ModuleOutputBuilder,
+    core_output: &mut HandlerOutputBuilder<()>,
+) -> Result<(), Error> {
     let cb = ctx
         .router_mut()
         .get_route_mut(module_id)
@@ -216,10 +231,17 @@ where
         PacketMsg::RecvPacket(msg) => {
             let result = cb.on_recv_packet(module_output, &msg.packet, &msg.signer);
             match result {
-                OnRecvPacketAck::Nil(write_fn) | OnRecvPacketAck::Successful(_, write_fn) => {
-                    write_fn(cb.as_any_mut());
+                OnRecvPacketAck::Nil(write_fn) => {
+                    write_fn(cb.as_any_mut()).map_err(Error::app_module)
                 }
-                OnRecvPacketAck::Failed(_) => {}
+                OnRecvPacketAck::Successful(ack, write_fn) => {
+                    write_fn(cb.as_any_mut()).map_err(Error::app_module)?;
+
+                    process_write_ack(ctx, msg.packet.clone(), ack.as_ref(), core_output)
+                }
+                OnRecvPacketAck::Failed(ack) => {
+                    process_write_ack(ctx, msg.packet.clone(), ack.as_ref(), core_output)
+                }
             }
         }
         PacketMsg::AckPacket(msg) => cb.on_acknowledgement_packet(
@@ -227,13 +249,41 @@ where
             &msg.packet,
             &msg.acknowledgement,
             &msg.signer,
-        )?,
+        ),
         PacketMsg::ToPacket(msg) => {
-            cb.on_timeout_packet(module_output, &msg.packet, &msg.signer)?
+            cb.on_timeout_packet(module_output, &msg.packet, &msg.signer)
         }
         PacketMsg::ToClosePacket(msg) => {
-            cb.on_timeout_packet(module_output, &msg.packet, &msg.signer)?
+            cb.on_timeout_packet(module_output, &msg.packet, &msg.signer)
         }
-    };
+    }
+}
+
+fn process_write_ack(
+    ctx: &mut impl Ics26Context,
+    packet: Packet,
+    acknowledgement: &dyn Acknowledgement,
+    core_output: &mut HandlerOutputBuilder<()>,
+) -> Result<(), Error> {
+
+    let acknowledgement = acknowledgement.as_any().downcast_ref::<ApplicationAcknowledgement>().expect("downcast cast Acknowledgement Error");
+    let ack = serde_json::to_string(&acknowledgement).unwrap().as_bytes().to_vec();
+
+    let HandlerOutput {
+        result,
+        log,
+        events,
+    } = write_acknowledgement::process(ctx, packet, ack.into())?;
+
+    // store write ack result
+    ctx.store_packet_result(result)?;
+
+    core_output.merge_output(
+        HandlerOutput::builder()
+            .with_log(log)
+            .with_events(events)
+            .with_result(()),
+    );
+
     Ok(())
 }

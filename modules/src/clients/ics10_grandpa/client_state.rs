@@ -52,7 +52,7 @@ impl ClientState {
     pub fn with_header(self, h: Header) -> Self {
         // TODO: Clarify which fields should update.
         ClientState {
-            latest_height: h.height().revision_number as u32,
+            latest_height: h.height().revision_number() as u32,
             ..self
         }
     }
@@ -71,7 +71,7 @@ impl ClientState {
     }
 
     pub fn latest_height(&self) -> Height {
-        Height::new(0, self.latest_height as u64)
+        Height::new(8888, self.latest_height as u64).unwrap()
     }
 }
 
@@ -89,7 +89,7 @@ impl crate::core::ics02_client::client_state::ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        Height::new(0, self.latest_height as u64)
+        Height::new(8888, self.latest_height as u64).unwrap()
     }
 
     fn frozen_height(&self) -> Option<Height> {
@@ -114,14 +114,9 @@ impl TryFrom<RawClientState> for ClientState {
     type Error = Error;
 
     fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
-        let frozen_height = raw.frozen_height.and_then(|raw_height| {
-            let height = raw_height.into();
-            if height == Height::zero() {
-                None
-            } else {
-                Some(height)
-            }
-        });
+        let frozen_height = raw
+            .frozen_height
+            .and_then(|raw_height| raw_height.try_into().ok());
 
         Ok(Self {
             chain_id: ChainId::from_str(raw.chain_id.as_str())
@@ -140,12 +135,19 @@ impl TryFrom<RawClientState> for ClientState {
     }
 }
 
+use ibc_proto::ibc::core::client::v1::Height as RawHeight;
+
 impl From<ClientState> for RawClientState {
     fn from(value: ClientState) -> Self {
         Self {
             chain_id: value.chain_id.to_string(),
             latest_height: value.latest_height,
-            frozen_height: Some(value.frozen_height.unwrap_or_else(Height::zero).into()),
+            frozen_height: Some(value.frozen_height.map(|height| height.into()).unwrap_or(
+                RawHeight {
+                    revision_number: 0,
+                    revision_height: 0,
+                },
+            )),
             latest_commitment: Some(value.latest_commitment.into()),
             validator_set: Some(value.validator_set.into()),
         }

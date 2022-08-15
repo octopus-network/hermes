@@ -110,7 +110,7 @@ impl TryFrom<RawMsgUpgradeClient> for MsgUpgradeAnyClient {
                 .map_err(Error::invalid_upgrade_client_proof)?,
             proof_upgrade_consensus_state: RawMerkleProof::try_from(cs_bytes)
                 .map_err(Error::invalid_upgrade_consensus_state_proof)?,
-            signer: proto_msg.signer.into(),
+            signer: proto_msg.signer.parse().map_err(Error::signer)?,
         })
     }
 }
@@ -186,7 +186,7 @@ mod tests {
         let client_id: ClientId = "tendermint".parse().unwrap();
         let signer = get_dummy_account_id();
 
-        let height = Height::new(1, 1);
+        let height = Height::new(1, 1).unwrap();
 
         let client_state = AnyClientState::Mock(MockClientState::new(MockHeader::new(height)));
         let consensus_state =

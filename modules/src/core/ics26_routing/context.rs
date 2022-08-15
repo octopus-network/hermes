@@ -5,7 +5,8 @@ use core::any::Any;
 use core::fmt::Debug;
 use core::{fmt, str::FromStr};
 
-use crate::applications::ics20_fungible_token_transfer::context::Ics20Context;
+use serde::{Deserialize, Serialize};
+
 use crate::core::ics02_client::context::{ClientKeeper, ClientReader};
 use crate::core::ics03_connection::context::{ConnectionKeeper, ConnectionReader};
 use crate::core::ics04_channel::channel::{Counterparty, Order};
@@ -14,11 +15,10 @@ use crate::core::ics04_channel::error::Error;
 use crate::core::ics04_channel::msgs::acknowledgement::Acknowledgement as GenericAcknowledgement;
 use crate::core::ics04_channel::packet::Packet;
 use crate::core::ics04_channel::Version;
-use crate::core::ics05_port::capabilities::ChannelCapability;
 use crate::core::ics05_port::context::PortReader;
 use crate::core::ics24_host::identifier::{ChannelId, ConnectionId, PortId};
-use crate::events::IbcEvent;
-use crate::handler::HandlerOutput;
+use crate::events::ModuleEvent;
+use crate::handler::HandlerOutputBuilder;
 use crate::signer::Signer;
 
 /// This trait captures all the functional dependencies (i.e., context) which the ICS26 module
@@ -32,7 +32,6 @@ pub trait Ics26Context:
     + ChannelKeeper
     + ChannelReader
     + PortReader
-    + Ics20Context
 {
     type Router: Router;
 
@@ -44,7 +43,7 @@ pub trait Ics26Context:
 #[derive(Debug, PartialEq)]
 pub struct InvalidModuleId;
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct ModuleId(String);
 
 impl ModuleId {
@@ -78,9 +77,11 @@ impl Borrow<str> for ModuleId {
 }
 
 /// Types implementing this trait are expected to implement `From<GenericAcknowledgement>`
-pub trait Acknowledgement: AsRef<[u8]> {}
+pub trait Acknowledgement: AsRef<[u8]> {
+    fn as_any(&self) -> &dyn Any;
+}
 
-pub type WriteFn = dyn FnOnce(&mut dyn Any);
+pub type WriteFn = dyn FnOnce(&mut dyn Any) -> Result<(), String>;
 
 pub enum OnRecvPacketAck {
     Nil(Box<WriteFn>),
@@ -88,20 +89,23 @@ pub enum OnRecvPacketAck {
     Failed(Box<dyn Acknowledgement>),
 }
 
-pub type ModuleEvent = IbcEvent;
+impl OnRecvPacketAck {
+    pub fn is_successful(&self) -> bool {
+        matches!(self, OnRecvPacketAck::Successful(_, _))
+    }
+}
 
-pub type ModuleOutput = HandlerOutput<(), ModuleEvent>;
+pub type ModuleOutputBuilder = HandlerOutputBuilder<(), ModuleEvent>;
 
-pub trait Module: Debug + Send + Sync + AsAnyMut + 'static {
+pub trait Module: Send + Sync + AsAnyMut {
     #[allow(clippy::too_many_arguments)]
     fn on_chan_open_init(
         &mut self,
-        _output: &mut ModuleOutput,
+        _output: &mut ModuleOutputBuilder,
         _order: Order,
         _connection_hops: &[ConnectionId],
         _port_id: &PortId,
         _channel_id: &ChannelId,
-        _channel_cap: &ChannelCapability,
         _counterparty: &Counterparty,
         _version: &Version,
     ) -> Result<(), Error> {
@@ -111,19 +115,19 @@ pub trait Module: Debug + Send + Sync + AsAnyMut + 'static {
     #[allow(clippy::too_many_arguments)]
     fn on_chan_open_try(
         &mut self,
-        _output: &mut ModuleOutput,
+        _output: &mut ModuleOutputBuilder,
         _order: Order,
         _connection_hops: &[ConnectionId],
         _port_id: &PortId,
         _channel_id: &ChannelId,
-        _channel_cap: &ChannelCapability,
         _counterparty: &Counterparty,
+        _version: &Version,
         _counterparty_version: &Version,
     ) -> Result<Version, Error>;
 
     fn on_chan_open_ack(
         &mut self,
-        _output: &mut ModuleOutput,
+        _output: &mut ModuleOutputBuilder,
         _port_id: &PortId,
         _channel_id: &ChannelId,
         _counterparty_version: &Version,
@@ -133,7 +137,7 @@ pub trait Module: Debug + Send + Sync + AsAnyMut + 'static {
 
     fn on_chan_open_confirm(
         &mut self,
-        _output: &mut ModuleOutput,
+        _output: &mut ModuleOutputBuilder,
         _port_id: &PortId,
         _channel_id: &ChannelId,
     ) -> Result<(), Error> {
@@ -142,7 +146,7 @@ pub trait Module: Debug + Send + Sync + AsAnyMut + 'static {
 
     fn on_chan_close_init(
         &mut self,
-        _output: &mut ModuleOutput,
+        _output: &mut ModuleOutputBuilder,
         _port_id: &PortId,
         _channel_id: &ChannelId,
     ) -> Result<(), Error> {
@@ -151,7 +155,7 @@ pub trait Module: Debug + Send + Sync + AsAnyMut + 'static {
 
     fn on_chan_close_confirm(
         &mut self,
-        _output: &mut ModuleOutput,
+        _output: &mut ModuleOutputBuilder,
         _port_id: &PortId,
         _channel_id: &ChannelId,
     ) -> Result<(), Error> {
@@ -160,16 +164,16 @@ pub trait Module: Debug + Send + Sync + AsAnyMut + 'static {
 
     fn on_recv_packet(
         &self,
-        _output: &mut ModuleOutput,
+        _output: &mut ModuleOutputBuilder,
         _packet: &Packet,
         _relayer: &Signer,
     ) -> OnRecvPacketAck {
-        OnRecvPacketAck::Nil(Box::new(|_| {}))
+        OnRecvPacketAck::Nil(Box::new(|_| Ok(())))
     }
 
     fn on_acknowledgement_packet(
         &mut self,
-        _output: &mut ModuleOutput,
+        _output: &mut ModuleOutputBuilder,
         _packet: &Packet,
         _acknowledgement: &GenericAcknowledgement,
         _relayer: &Signer,
@@ -179,7 +183,7 @@ pub trait Module: Debug + Send + Sync + AsAnyMut + 'static {
 
     fn on_timeout_packet(
         &mut self,
-        _output: &mut ModuleOutput,
+        _output: &mut ModuleOutputBuilder,
         _packet: &Packet,
         _relayer: &Signer,
     ) -> Result<(), Error> {

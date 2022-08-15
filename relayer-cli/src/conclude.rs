@@ -84,7 +84,7 @@ pub fn exit_with(out: Output) -> ! {
     }
 }
 
-/// Returns true if the application global json flag `-j` or `--json` is enabled.
+/// Returns true if the application global json flag `--json` is enabled.
 /// Returns false otherwise.
 pub fn json() -> bool {
     let a = app_reader();
@@ -137,7 +137,6 @@ impl fmt::Display for Result {
 /// which typically signals a success (UNIX process return code `0`) or an error (code `1`). An
 /// optional `result` can be added to an output.
 ///
-#[derive(Debug)]
 pub struct Output {
     /// The return status
     pub status: Status,

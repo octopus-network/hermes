@@ -70,8 +70,8 @@ impl TryFrom<RawMsgChannelOpenAck> for MsgChannelOpenAck {
             None,
             raw_msg
                 .proof_height
-                .ok_or_else(Error::missing_height)?
-                .into(),
+                .and_then(|raw_height| raw_height.try_into().ok())
+                .ok_or_else(Error::missing_height)?,
         )
         .map_err(Error::invalid_proof)?;
 
@@ -84,7 +84,7 @@ impl TryFrom<RawMsgChannelOpenAck> for MsgChannelOpenAck {
                 .map_err(Error::identifier)?,
             counterparty_version: raw_msg.counterparty_version.into(),
             proofs,
-            signer: raw_msg.signer.into(),
+            signer: raw_msg.signer.parse().map_err(Error::signer)?,
         })
     }
 }
@@ -200,7 +200,7 @@ mod tests {
             Test {
                 name: "Bad channel, name too long".to_string(),
                 raw: RawMsgChannelOpenAck {
-                    channel_id: "channel-12839128379182739812739879".to_string(),
+                    channel_id: "channel-128391283791827398127398791283912837918273981273987912839".to_string(),
                     ..default_raw_msg.clone()
                 },
                 want_pass: false,
@@ -224,7 +224,7 @@ mod tests {
             Test {
                 name: "[Counterparty] Bad channel, name too long".to_string(),
                 raw: RawMsgChannelOpenAck {
-                    counterparty_channel_id: "channel-12839128379182739812739879".to_string(),
+                    counterparty_channel_id: "channel-128391283791827398127398791283912837918273981273987912839".to_string(),
                     ..default_raw_msg.clone()
                 },
                 want_pass: false,

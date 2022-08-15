@@ -1,21 +1,22 @@
-use core::fmt::{Display, Formatter};
-use core::str::FromStr;
 use core::time::Duration;
 
 use flex_error::{define_error, DetailOnly};
-use ibc::applications::ics20_fungible_token_transfer::msgs::transfer::MsgTransfer;
+use ibc::applications::transfer::error::Error as Ics20Error;
+use ibc::applications::transfer::msgs::transfer::MsgTransfer;
+use ibc::applications::transfer::Amount;
+use ibc::core::ics04_channel::timeout::TimeoutHeight;
 use ibc::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
 use ibc::events::IbcEvent;
+use ibc::signer::Signer;
 use ibc::timestamp::{Timestamp, TimestampOverflowError};
 use ibc::tx_msg::Msg;
-use ibc::Height;
-use uint::FromStrRadixErr;
+use ibc_proto::cosmos::base::v1beta1::Coin;
+use ibc_proto::google::protobuf::Any;
 
+use crate::chain::endpoint::ChainStatus;
 use crate::chain::handle::ChainHandle;
-use crate::chain::tx::TrackedMsgs;
-use crate::chain::ChainStatus;
+use crate::chain::tracking::TrackedMsgs;
 use crate::error::Error;
-use crate::util::bigint::U256;
 
 define_error! {
     TransferError {
@@ -53,31 +54,18 @@ define_error! {
                     e.event)
             },
 
+        TokenTransfer
+            [ Ics20Error ]
+            |_| { "Token transfer error" },
+
         ZeroTimeout
             | _ | { "packet timeout height and packet timeout timestamp cannot both be 0" },
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Amount(pub U256);
-
-impl Display for Amount {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl FromStr for Amount {
-    type Err = FromStrRadixErr;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self(U256::from_str_radix(s, 10)?))
-    }
-}
-
 #[derive(Copy, Clone)]
 pub struct TransferTimeout {
-    pub timeout_height: Height,
+    pub timeout_height: TimeoutHeight,
     pub timeout_timestamp: Timestamp,
 }
 
@@ -98,9 +86,12 @@ impl TransferTimeout {
         destination_chain_status: &ChainStatus,
     ) -> Result<Self, TransferError> {
         let timeout_height = if timeout_height_offset == 0 {
-            Height::zero()
+            TimeoutHeight::no_timeout()
         } else {
-            destination_chain_status.height.add(timeout_height_offset)
+            destination_chain_status
+                .height
+                .add(timeout_height_offset)
+                .into()
         };
 
         let timeout_timestamp = if timeout_duration == Duration::ZERO {
@@ -129,35 +120,58 @@ pub struct TransferOptions {
     pub number_msgs: usize,
 }
 
+pub fn build_transfer_message(
+    packet_src_port_id: PortId,
+    packet_src_channel_id: ChannelId,
+    amount: Amount,
+    denom: String,
+    sender: Signer,
+    receiver: Signer,
+    timeout_height: TimeoutHeight,
+    timeout_timestamp: Timestamp,
+) -> Any {
+    let msg = MsgTransfer {
+        source_port: packet_src_port_id,
+        source_channel: packet_src_channel_id,
+        token: Coin {
+            denom,
+            amount: amount.to_string(),
+        },
+        sender,
+        receiver,
+        timeout_height,
+        timeout_timestamp,
+    };
+
+    msg.to_any()
+}
+
 pub fn build_and_send_transfer_messages<SrcChain: ChainHandle, DstChain: ChainHandle>(
     packet_src_chain: &SrcChain, // the chain whose account is debited
     packet_dst_chain: &DstChain, // the chain whose account eventually gets credited
     opts: &TransferOptions,
 ) -> Result<Vec<IbcEvent>, TransferError> {
-    let receiver = match &opts.receiver {
-        None => packet_dst_chain.get_signer().map_err(TransferError::key)?,
-        Some(r) => r.clone().into(),
-    };
+    let receiver = packet_dst_chain.get_signer().map_err(TransferError::key)?;
 
     let sender = packet_src_chain.get_signer().map_err(TransferError::key)?;
 
-    let application_status = packet_dst_chain
+    let destination_chain_status = packet_dst_chain
         .query_application_status()
         .map_err(TransferError::relayer)?;
 
     let timeout = TransferTimeout::new(
         opts.timeout_height_offset,
         opts.timeout_duration,
-        &application_status,
+        &destination_chain_status,
     )?;
 
     let msg = MsgTransfer {
         source_port: opts.packet_src_port_id.clone(),
-        source_channel: opts.packet_src_channel_id,
-        token: Some(ibc_proto::cosmos::base::v1beta1::Coin {
+        source_channel: opts.packet_src_channel_id.clone(),
+        token: Coin {
             denom: opts.denom.clone(),
             amount: opts.amount.to_string(),
-        }),
+        },
         sender,
         receiver,
         timeout_height: timeout.timeout_height,
@@ -170,7 +184,7 @@ pub fn build_and_send_transfer_messages<SrcChain: ChainHandle, DstChain: ChainHa
     let msgs = vec![raw_msg; opts.number_msgs];
 
     let events = packet_src_chain
-        .send_messages_and_wait_commit(TrackedMsgs::new(msgs, "ft-transfer"))
+        .send_messages_and_wait_commit(TrackedMsgs::new_static(msgs, "ft-transfer"))
         .map_err(|e| TransferError::submit(packet_src_chain.id(), e))?;
 
     // Check if the chain rejected the transaction

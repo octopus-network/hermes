@@ -4,7 +4,7 @@
 
 Initialize a new connection on `ibc-0`:
 ```shell
-hermes tx raw conn-init ibc-0 ibc-1 07-tendermint-0 07-tendermint-1
+hermes conn-init --b-chain ibc-0 --a-chain ibc-1 --b-client 07-tendermint-0 --a-client 07-tendermint-1
 ```
 
 Take note of the ID allocated by the chain, e.g. `connection-0` on `ibc-0` in order to use it in the `conn-try` command below.
@@ -13,7 +13,7 @@ Take note of the ID allocated by the chain, e.g. `connection-0` on `ibc-0` in or
 
 Send a connection try to `ibc-1`:
 ```shell
-hermes tx raw conn-try ibc-1 ibc-0 07-tendermint-1 07-tendermint-0 -s connection-0
+hermes tx conn-try --b-chain ibc-1 --a-chain ibc-0 --b-client 07-tendermint-1 --a-client 07-tendermint-0 --a-connection connection-0
 ```
 
 Take note of the ID allocated by the chain, e.g. `connection-1` on `ibc-1`. Use in the `conn-ack` CLI
@@ -22,14 +22,14 @@ Take note of the ID allocated by the chain, e.g. `connection-1` on `ibc-1`. Use 
 
 Send a connection open acknowledgment to `ibc-0`:
 ```shell
-hermes tx raw conn-ack ibc-0 ibc-1 07-tendermint-0 07-tendermint-1 -d connection-0 -s connection-1
+hermes tx conn-ack --b-chain ibc-0 --a-chain ibc-1 --b-client 07-tendermint-0 --a-client 07-tendermint-1 --b-connection connection-0 --a-connection connection-1
 ```
 
 ## 2.4 `conn-confirm`
 
 Send the open confirmation to `ibc-1`:
 ```shell
-hermes tx raw conn-confirm ibc-1 ibc-0 07-tendermint-1 07-tendermint-0 -d connection-1 -s connection-0
+hermes tx conn-confirm --b-chain ibc-1 --a-chain ibc-0 --b-client 07-tendermint-1 --a-client 07-tendermint-0 --b-connection connection-1 --a-connection connection-0
 ```
 
 ## 2.5 `query connection`
@@ -37,11 +37,11 @@ hermes tx raw conn-confirm ibc-1 ibc-0 07-tendermint-1 07-tendermint-0 -d connec
 To verify that the two ends are in `Open` state:
 
 ```shell
-hermes query connection end ibc-0 connection-0
+hermes query connection end --chain ibc-0 --connection connection-0
 ```
 
 ```shell
-hermes query connection end ibc-1 connection-1
+hermes query connection end --chain ibc-1 --connection connection-1
 ```
 
 
