@@ -179,7 +179,7 @@ fn handle_packet_cmd<ChainA: ChainHandle, ChainB: ChainHandle>(
         }
 
         WorkerCmd::ClearPendingPackets => link.a_to_b.schedule_packet_clearing(None),
-        WorkerCmd::Beefy{mmr_root} => Ok(()),
+        WorkerCmd::Beefy{header} => Ok(()),
     };
 
     if let Err(e) = result {

@@ -66,8 +66,8 @@ moka = "0.8.2"
 
 
 jsonrpsee = { version = "0.14", features = ["macros", "ws-client", "http-client"] }
-octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/integrate_mmr_srv" }
-# octopusxt = { path = "../../octopusxt/module" }
+# octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/integrate_mmr_srv" }
+octopusxt = { path = "../../octopusxt/module" }
 
 subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'master' }
 codec = { package = 'parity-scale-codec', version = '3.1.2', features = ['derive', 'full'] }

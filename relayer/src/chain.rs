@@ -5,6 +5,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 pub use cosmos::CosmosSdkChain;
 pub use substrate::SubstrateChain;
 
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::clients::ics10_grandpa::help::MmrRoot;
 use ibc::core::ics02_client::client_consensus::{
     AnyConsensusState, AnyConsensusStateWithHeight, ConsensusState,
@@ -279,7 +280,7 @@ pub trait ChainEndpoint: Sized {
 
     fn websocket_url(&self) -> Result<String, Error>;
 
-    fn update_mmr_root(&mut self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error>;
+    fn update_mmr_root(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error>;
 
     fn query_blocks(
         &self,

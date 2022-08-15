@@ -174,7 +174,7 @@ pub fn spawn_update_mmr_root<ChainA: ChainHandle, ChainB: ChainHandle>(
                 );
 
                 match cmd {
-                    WorkerCmd::Beefy { mmr_root } => {
+                    WorkerCmd::Beefy { header } => {
                         // println!("in worker/client: [spawn_update_mmr_root], WorkerCmd::Beefy and mmr root is :{:?}",mmr_root);
                         //TODO: client.update_mmr_root(mmr_root)
                         // let res = client.refresh().map_err(|e| {
@@ -188,7 +188,7 @@ pub fn spawn_update_mmr_root<ChainA: ChainHandle, ChainB: ChainHandle>(
                         // if res.is_some() {
                         //     telemetry!(ibc_client_updates, &client.dst_chain.id(), &client.id, 1);
                         // }
-                        let _ = client.update_mmr_root(mmr_root);
+                        let _ = client.update_mmr_root(header);
                         // Ok(Next::Continue)
                     }
 

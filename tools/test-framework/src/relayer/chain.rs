@@ -22,7 +22,7 @@
 
 use crate::types::tagged::*;
 use crossbeam_channel as channel;
-use ibc::clients::ics10_grandpa::help::MmrRoot;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::core::ics02_client::events::UpdateClient;
@@ -389,7 +389,7 @@ where
         todo!()
     }
 
-    fn update_mmr_root(&self, _client_id: ClientId, _mmr_root: MmrRoot) -> Result<(), Error> {
+    fn update_mmr_root(&self, _client_id: ClientId, _header: GPheader) -> Result<(), Error> {
         todo!()
     }
 

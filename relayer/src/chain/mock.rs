@@ -469,7 +469,7 @@ impl ChainEndpoint for MockChain {
         todo!()
     }
 
-    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
         todo!()
     }
 }

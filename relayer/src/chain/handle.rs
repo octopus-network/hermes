@@ -5,6 +5,7 @@ use crossbeam_channel as channel;
 use serde::Serialize;
 
 use ibc::{
+    clients::ics10_grandpa::header::Header as GPheader,
     clients::ics10_grandpa::help::MmrRoot,
     core::{
         ics02_client::{
@@ -97,7 +98,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Debug for ChainHandlePair<ChainA,
 }
 
 pub type Subscription = channel::Receiver<Arc<MonitorResult<EventBatch>>>;
-pub type BeefySubscription = channel::Receiver<Arc<BeefyResult<MmrRoot>>>;
+pub type BeefySubscription = channel::Receiver<Arc<BeefyResult<GPheader>>>;
 
 pub type ReplyTo<T> = channel::Sender<Result<T, Error>>;
 pub type Reply<T> = channel::Receiver<Result<T, Error>>;
@@ -346,7 +347,7 @@ pub enum ChainRequest {
 
     UpdateMmrRoot {
         client_id: ClientId,
-        mmr_root: MmrRoot,
+        header: GPheader,
         reply_to: ReplyTo<()>,
     },
 
@@ -590,7 +591,7 @@ pub trait ChainHandle: Clone + Send + Sync + Serialize + Debug + 'static {
     fn websocket_url(&self) -> Result<String, Error>;
 
     // only used by ics10-grandpa
-    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error>;
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error>;
 
     fn query_blocks(
         &self,

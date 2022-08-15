@@ -47,7 +47,9 @@ use crate::{
 use super::{
     reply_channel, BeefySubscription, ChainHandle, ChainRequest, HealthCheck, ReplyTo, Subscription,
 };
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::clients::ics10_grandpa::help::MmrRoot;
+
 /// A basic chain handle implementation.
 /// For use in interactive CLIs, e.g., `query`, `tx raw`, etc.
 #[derive(Debug, Clone)]
@@ -483,12 +485,12 @@ impl ChainHandle for BaseChainHandle {
     fn websocket_url(&self) -> Result<String, Error> {
         self.send(|reply_to| ChainRequest::WebSocketUrl { reply_to })
     }
-    fn update_mmr_root(&self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
         tracing::trace!(
             "in base chain handle: [update_mmr_root], chain_id = {:?},client_id = {:?},mmr_root ={:?} ",
             self.id(),
             client_id,
-            mmr_root
+            header
         );
         println!(
             "in base chain handle: [update_mmr_root], chain_id = {:?},client_id = {:?} ",
@@ -497,7 +499,7 @@ impl ChainHandle for BaseChainHandle {
         );
         self.send(|reply_to| ChainRequest::UpdateMmrRoot {
             client_id,
-            mmr_root,
+            header,
             reply_to,
         })
     }

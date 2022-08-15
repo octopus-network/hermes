@@ -1,4 +1,17 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Commitment {
+    /// block height
+    ///
+    /// mmr root
+    #[prost(uint32, tag = "1")]
+    pub block_number: u32,
+    #[prost(bytes = "vec", tag = "2")]
+    pub payload: ::prost::alloc::vec::Vec<u8>,
+    ///validator_set_id
+    #[prost(uint64, tag = "3")]
+    pub validator_set_id: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SignedCommitment {
     #[prost(message, optional, tag = "1")]
     pub commitment: ::core::option::Option<Commitment>,
@@ -9,7 +22,7 @@ pub struct SignedCommitment {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InnerSignature {
     #[prost(message, optional, tag = "1")]
-    pub inner_signature : ::core::option::Option<Signature>,
+    pub inner_signature: ::core::option::Option<Signature>,
 }
 
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -17,20 +30,6 @@ pub struct Signature {
     #[prost(bytes = "vec", tag = "1")]
     pub signature: ::prost::alloc::vec::Vec<u8>,
 }
-
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Commitment {
-    /// block height
-
-    #[prost(uint32, tag = "1")]
-    pub block_number: u32,
-    #[prost(bytes = "vec", tag = "2")]
-    pub payload: ::prost::alloc::vec::Vec<u8>,
-    ///validator_set_id
-    #[prost(uint64, tag = "3")]
-    pub validator_set_id: u64,
-}
-
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ValidatorMerkleProof {
     //// Proof items (does not contain the leaf hash, nor the root obviously).
@@ -47,9 +46,13 @@ pub struct ValidatorMerkleProof {
     pub proof: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
     #[prost(uint32, tag = "2")]
     pub number_of_leaves: u32,
+    /// Index of the leaf the proof is for (0-based).
+    /// pub leaf_index: usize,
+
     #[prost(uint32, tag = "3")]
     pub leaf_index: u32,
     //// Leaf content.
+    ////pub leaf: Vec<u8>,
     #[prost(bytes = "vec", tag = "4")]
     pub leaf: ::prost::alloc::vec::Vec<u8>,
 }
@@ -120,7 +123,7 @@ pub struct ClientState {
     pub chain_id: ::prost::alloc::string::String,
     /// block_number is height?
     #[prost(uint32, tag = "2")]
-    pub block_number: u32,
+    pub latest_height: u32,
     /// Block height when the client was frozen due to a misbehaviour
     #[prost(message, optional, tag = "3")]
     pub frozen_height: ::core::option::Option<super::super::super::core::client::v1::Height>,
@@ -129,17 +132,31 @@ pub struct ClientState {
     #[prost(message, optional, tag = "5")]
     pub validator_set: ::core::option::Option<ValidatorSet>,
 }
-
+// message InProcessState{
+//  uint32 position = 1;
+// 	bytes commitment_hash =2;
+// 	SignedCommitment signed_commitment = 3;
+// 	repeated ValidatorMerkleProof validator_proofs = 4;
+// 	BeefyNextAuthoritySet validator_set = 5;
+// }
 
 /// Consensus state
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConsensusState {
-    /// commitment root (i.e app hash)
+    /// bytes state_root = 3 ;
+    /// /// The merkle root of the extrinsics.
+    /// bytes extrinsics_root = 4 ;
+    /// /// A chain-specific digest of data useful for light clients or referencing auxiliary data.
+    /// bytes digest = 5 ;
+    ///commitment: Option<Commitment>,used to verify mmr proof
     #[prost(message, optional, tag = "1")]
-    pub root: ::core::option::Option<super::super::super::core::commitment::v1::MerkleRoot>,
+    pub commitment: ::core::option::Option<Commitment>,
+    /// /// The state trie merkle root that used to verify storage proof
+    #[prost(message, optional, tag = "2")]
+    pub state_root: ::core::option::Option<super::super::super::core::commitment::v1::MerkleRoot>,
     /// timestamp that corresponds to the block height in which the ConsensusState
     /// was stored.
-    #[prost(message, optional, tag = "2")]
+    #[prost(message, optional, tag = "3")]
     pub timestamp: ::core::option::Option<super::super::super::super::google::protobuf::Timestamp>,
 }
 /// Misbehaviour
@@ -173,7 +190,10 @@ pub struct BlockHeader {
     #[prost(bytes = "vec", tag = "5")]
     pub digest: ::prost::alloc::vec::Vec<u8>,
 }
-
+///uint32 block_number = 1
+///      [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"block_number\""];
+//// Block Header.
+/// BlockHeader block_header = 1 [(gogoproto.nullable) = false];
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MmrRoot {
     #[prost(message, optional, tag = "1")]
@@ -193,6 +213,10 @@ pub struct Header {
     //// mmr root
     #[prost(message, optional, tag = "2")]
     pub mmr_root: ::core::option::Option<MmrRoot>,
+    /// MmrLeaf mmr_leaf = 2
+    ///       [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"mmr_leaf\""];
+    /// MmrLeafProof mmr_leaf_proof = 3
+    ///       [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"mmr_leaf_proof\""];
     //// block timestamp
     #[prost(message, optional, tag = "3")]
     pub timestamp: ::core::option::Option<super::super::super::super::google::protobuf::Timestamp>,

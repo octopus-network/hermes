@@ -27,6 +27,7 @@ use ibc::clients::ics07_tendermint::client_state::{AllowUpdate, ClientState};
 use ibc::clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
 use ibc::clients::ics07_tendermint::header::Header as TmHeader;
 use ibc::clients::ics10_grandpa::help::MmrRoot;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::core::ics02_client::client_type::ClientType;
@@ -1508,7 +1509,7 @@ impl ChainEndpoint for CosmosSdkChain {
         Ok(self.config.websocket_addr.clone().to_string())
     }
 
-    fn update_mmr_root(&mut self, client_id: ClientId, mmr_root: MmrRoot) -> Result<(), Error> {
+    fn update_mmr_root(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
         todo!()
     }
 }
