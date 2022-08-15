@@ -488,15 +488,20 @@ impl BeefyMonitor {
     }
     /// Subscribe beefy msg
     pub async fn subscribe_beefy(&self) -> Result<SignedCommitment, Box<dyn std::error::Error>> {
-        tracing::info!("In call_ibc: [subscribe_beefy_justifications]");
-        let api = self.client.clone()
-            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-    
-        let sub = api.client.rpc().subscribe_beefy_justifications().await?;
+        tracing::info!(target:"ibc-rs","in beefy monitor: [subscribe_beefy]");
+        let api = self
+            .client
+            .clone()
+            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
+            );
 
-        Ok(sub)
+        let mut sub = api.client.rpc().subscribe_beefy_justifications().await?;
+
+        let raw = sub.next().await.unwrap().unwrap();
+
+        Ok(raw)
     }
-
+    
     pub async fn build_header(&self, raw_sc: SignedCommitment) -> Result<Header, RelayError> {
         tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header]");
 
