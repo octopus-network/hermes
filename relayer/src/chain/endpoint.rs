@@ -4,6 +4,7 @@ use ibc::core::ics23_commitment::merkle::MerkleProof;
 
 use tokio::runtime::Runtime as TokioRuntime;
 
+use ibc::clients::ics10_grandpa::header::Header as GPHeader;
 use ibc::core::ics02_client::client_consensus::{
     AnyConsensusState, AnyConsensusStateWithHeight, ConsensusState,
 };
@@ -43,6 +44,7 @@ use crate::error::{Error, QUERY_PROOF_EXPECT_MSG};
 use crate::event::monitor::{EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::LightClient;
+use crate::event::beefy_monitor::BeefyReceiver;
 
 use super::requests::{
     IncludeProof, QueryBlockRequest, QueryHeight, QueryPacketAcknowledgementRequest,
@@ -91,6 +93,11 @@ pub trait ChainEndpoint: Sized {
         &self,
         rt: Arc<TokioRuntime>,
     ) -> Result<(EventReceiver, TxMonitorCmd), Error>;
+
+    fn init_beefy_monitor(
+        &self,
+        rt: Arc<TokioRuntime>,
+    ) -> Result<(BeefyReceiver, TxMonitorCmd), Error>;
 
     /// Returns the chain's identifier
     fn id(&self) -> &ChainId;
@@ -348,6 +355,12 @@ pub trait ChainEndpoint: Sized {
         client_state: &AnyClientState,
         light_client: &mut Self::LightClient,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error>;
+
+    /// add new api websocket_url
+    fn websocket_url(&self) -> Result<String, Error>;
+
+    /// add new api update_mmr_root
+    fn update_mmr_root(&mut self, client_id: ClientId, header: GPHeader) -> Result<(), Error>;
 
     /// Builds the required proofs and the client state for connection handshake messages.
     /// The proofs and client state must be obtained from queries at same height.

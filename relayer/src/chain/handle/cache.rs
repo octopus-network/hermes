@@ -29,7 +29,7 @@ use crate::account::Balance;
 use crate::cache::{Cache, CacheStatus};
 use crate::chain::client::ClientSettings;
 use crate::chain::endpoint::{ChainStatus, HealthCheck};
-use crate::chain::handle::{ChainHandle, ChainRequest, Subscription};
+use crate::chain::handle::{ChainHandle, ChainRequest, Subscription, BeefySubscription};
 use crate::chain::requests::{
     IncludeProof, QueryBlockRequest, QueryChannelClientStateRequest, QueryChannelRequest,
     QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStateRequest,
@@ -99,7 +99,7 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
     fn subscribe(&self) -> Result<Subscription, Error> {
         self.inner().subscribe()
     }
-    fn subscribe_beefy(&self) -> Result<Subscription, Error> {
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
         println!("in cache chain handle: [subscribe_beefy] ",);
         self.inner().subscribe_beefy()
     }

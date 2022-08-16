@@ -29,7 +29,7 @@ use tracing::debug;
 use crate::account::Balance;
 use crate::chain::client::ClientSettings;
 use crate::chain::endpoint::{ChainStatus, HealthCheck};
-use crate::chain::handle::{ChainHandle, ChainRequest, Subscription};
+use crate::chain::handle::{ChainHandle, ChainRequest, Subscription, BeefySubscription};
 use crate::chain::requests::{
     IncludeProof, QueryBlockRequest, QueryChannelClientStateRequest, QueryChannelRequest,
     QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStateRequest,
@@ -117,7 +117,7 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
         self.inc_metric("subscribe");
         self.inner().subscribe()
     }
-    fn subscribe_beefy(&self) -> Result<Subscription, Error> {
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
         println!("in counting chain handle: [subscribe_beefy] ",);
         self.inc_metric("subscribe_beefy");
         self.inner().subscribe_beefy()
@@ -474,7 +474,9 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
         &self,
         request: QueryHostConsensusStateRequest,
     ) -> Result<AnyConsensusState, Error> {
+        self.inc_metric("query_host_consensus_state");
         self.inner.query_host_consensus_state(request)
+    }
 
     fn websocket_url(&self) -> Result<String, Error> {
         self.inc_metric("websocket_url");

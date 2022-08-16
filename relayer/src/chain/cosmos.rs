@@ -621,14 +621,11 @@ impl ChainEndpoint for CosmosSdkChain {
             .keybase()
             .get_key(&self.config.key_name)
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
-        tracing::trace!(target:"ibc-rs","In cosmos: [get signer] key = {:?}", key);
 
         let bech32 = encode_to_bech32(&key.address.to_hex(), &self.config.account_prefix)?;
         bech32
             .parse()
             .map_err(|e| Error::ics02(ClientError::signer(e)))
-
-        Ok(Signer::new(bech32))
     }
 
     /// Get the chain configuration
@@ -1610,7 +1607,7 @@ impl ChainEndpoint for CosmosSdkChain {
             light_client.header_and_minimal_set(trusted_height, target_height, client_state)?;
 
         Ok((target, supporting))
-    
+    }
 
     fn websocket_url(&self) -> Result<String, Error> {
         Ok(self.config.websocket_addr.clone().to_string())

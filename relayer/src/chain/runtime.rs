@@ -49,7 +49,7 @@ use crate::{
 use super::{
     client::ClientSettings,
     endpoint::{ChainEndpoint, ChainStatus, HealthCheck},
-    handle::{ChainHandle, ChainRequest, ReplyTo, Subscription},
+    handle::{ChainHandle, ChainRequest, ReplyTo, Subscription, BeefySubscription},
     requests::{
         IncludeProof, QueryBlockRequest, QueryChannelClientStateRequest, QueryChannelRequest,
         QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStateRequest,
@@ -467,8 +467,12 @@ where
                             self.update_mmr_root(client_id,header,reply_to,)?
                         },
 
-                        Ok(ChainRequest::QueryHostConsensusState { height, reply_to }) => {
-                            self.query_host_consensus_state(height, reply_to)?
+                        Ok(ChainRequest::WebSocketUrl{ reply_to}) => {
+                            self.websocket_url(reply_to)?
+                        },
+
+                        Ok(ChainRequest::QueryHostConsensusState { request, reply_to }) => {
+                            self.query_host_consensus_state(request, reply_to)?
                         },
 
                         Err(e) => error!("received error via chain request channel: {}", e),
@@ -503,7 +507,7 @@ where
     }
 
     /// only for sustrate app chain
-    fn subscribe_beefy(&mut self, reply_to: ReplyTo<Subscription>) -> Result<(), Error> {
+    fn subscribe_beefy(&mut self, reply_to: ReplyTo<BeefySubscription>) -> Result<(), Error> {
         if !self.beefy_monitor_ctrl.is_live() {
             self.enable_beefy_monitor()?;
         }

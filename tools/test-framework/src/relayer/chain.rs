@@ -48,7 +48,7 @@ use ibc::{
 use ibc_relayer::account::Balance;
 use ibc_relayer::chain::client::ClientSettings;
 use ibc_relayer::chain::endpoint::{ChainStatus, HealthCheck};
-use ibc_relayer::chain::handle::{ChainHandle, ChainRequest, Subscription};
+use ibc_relayer::chain::handle::{ChainHandle, ChainRequest, Subscription, BeefySubscription};
 use ibc_relayer::chain::requests::{
     IncludeProof, QueryBlockRequest, QueryChannelClientStateRequest, QueryChannelRequest,
     QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStateRequest,

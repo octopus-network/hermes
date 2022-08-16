@@ -23,6 +23,7 @@ use crate::chain::tracking::{TrackedMsgs, TrackingId};
 use alloc::sync::Arc;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
+use ibc::tx_msg::Msg;
 use core::{future::Future, str::FromStr, time::Duration};
 use ibc::core::ics04_channel::events::WriteAcknowledgement;
 use ibc::core::ics02_client::msgs::update_client::MsgUpdateAnyClient;
@@ -97,8 +98,6 @@ use anyhow::Result;
 use beefy_light_client::{commitment, mmr};
 use ibc::clients::ics10_grandpa::help::Commitment;
 use ibc::clients::ics10_grandpa::help::MmrRoot;
-// use jsonrpsee::types::to_json_value;
-use ibc::core::ics04_channel::channel::QueryPacketEventDataRequest;
 
 use ibc::core::ics04_channel::events::SendPacket;
 use ibc::core::ics24_host::path::{
@@ -1735,10 +1734,10 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         // assert trust_height <= grandpa_client_state height
-        if trusted_height.revision_height() > grandpa_client_state.block_number as u64 {
+        if trusted_height.revision_height() > grandpa_client_state.latest_height as u64 {
             return Err(Error::trust_height_miss_match_client_state_height(
                 trusted_height.revision_height(),
-                grandpa_client_state.block_number as u64,
+                grandpa_client_state.latest_height as u64,
             ));
         }
 
@@ -1748,7 +1747,7 @@ impl ChainEndpoint for SubstrateChain {
             validator_set_id,
         } = grandpa_client_state.clone().latest_commitment.into();
         let mmr_root_height = block_number;
-        let target_height = target_height.revision_height as u32;
+        let target_height = target_height.revision_height() as u32;
 
         // build target height header
         let future = async {
@@ -1972,21 +1971,11 @@ impl ChainEndpoint for SubstrateChain {
             "[update_mmr_root] mmr root height = {:?}",
             new_mmr_root_height
         );
-        let client_state = self.get_client_state(&client_id).unwrap();
+        let client_state = self.query_client_state(&client_id).unwrap();
         let gp_client_state = match client_state {
             AnyClientState::Grandpa(value) => value,
             _ => unimplemented!(),
         };
-
-        // let client = self.get_client().unwrap();
-        // let gp_consensue_state = self
-        //     .get_client_consensus(&client_id, &grandpa_client_state.latest_height())
-        //     .unwrap();
-
-        // let gp_consensue_state = match gp_consensue_state {
-        //     AnyConsensusState::Grandpa(cs) => cs,
-        //     _ => unimplemented!(),
-        // };
 
         let beefy_light_client::commitment::Commitment {
             payload,
@@ -2020,7 +2009,7 @@ impl ChainEndpoint for SubstrateChain {
             .to_any(),
         );
 
-        let tm = TrackedMsgs::new(msgs, "update client");
+        let tm = TrackedMsgs::new_static(msgs, "update client");
         tracing::trace!(target:"ibc-rs", "in substrate: [update_mmr_root] >> msgs = {:?}",tm);
 
         let events = self.send_messages_and_wait_commit(tm);
