@@ -64,7 +64,7 @@ pub(crate) fn process(
         counterparty_connection_id: msg.counterparty.connection_id,
     };
     output.emit(IbcEvent::OpenInitConnection(event_attributes.into()));
-    
+
     tracing::trace!(target:"ibc-rs","[conn_open_init] process output : {:?}",output);
 
     Ok(output.with_result(result))

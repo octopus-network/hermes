@@ -89,7 +89,6 @@ pub(crate) fn process(
     };
     tracing::trace!(target:"ibc-rs","[conn_open_ack] process result : {:?}",result);
 
-
     let event_attributes = Attributes {
         height: ctx.host_current_height(),
         connection_id: Some(msg.connection_id),

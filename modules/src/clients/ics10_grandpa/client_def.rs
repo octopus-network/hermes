@@ -230,7 +230,7 @@ impl ClientDef for GrandpaClient {
             let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf1[..]);
             tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf_hash: {:?}",mmr_leaf_hash);
 
-            //TODO: get commitment from ctx.mmr_root(height)  
+            //TODO: get commitment from ctx.mmr_root(height)
             // let commitment = if new_mmr_root_height == client_state.latest_commitment.block_number {
             //     // get mmr root from client_state.latest_commitment
             //     Some(client_state.latest_commitment)
@@ -379,14 +379,7 @@ impl ClientDef for GrandpaClient {
             .encode_vec()
             .map_err(Ics02Error::invalid_connection_end)?;
 
-        verify_membership(
-
-            prefix,
-            proof,
-            root,
-            Path::Connections(path),
-            value,
-        )
+        verify_membership(prefix, proof, root, Path::Connections(path), value)
     }
 
     /// Verify a `proof` that a channel state reconstructed from storage proof, storage key and state root matches that of
@@ -411,13 +404,7 @@ impl ClientDef for GrandpaClient {
         let value = expected_channel_end
             .encode_vec()
             .map_err(Ics02Error::invalid_channel_end)?;
-        verify_membership(
-            prefix,
-            proof,
-            root,
-            Path::ChannelEnds(path),
-            value,
-        )
+        verify_membership(prefix, proof, root, Path::ChannelEnds(path), value)
     }
 
     /// Verify a `proof` that a client state reconstructed from storage proof, storage key and state root matches that of
@@ -442,13 +429,7 @@ impl ClientDef for GrandpaClient {
             .encode_vec()
             .map_err(Ics02Error::invalid_any_client_state)?;
 
-        verify_membership(
-            prefix,
-            proof,
-            root,
-            Path::ClientState(path),
-            value,
-        )
+        verify_membership(prefix, proof, root, Path::ClientState(path), value)
     }
 
     /// Verify a `proof` that a packet reconstructed from storage proof, storage key and state root matches that of
@@ -626,7 +607,6 @@ fn verify_membership(
 
     let storage_result = get_storage_via_proof(root, proof, key, storage_name)?;
 
-
     if storage_result != value {
         Err(Ics02Error::verify_membership_error())
     } else {
@@ -781,9 +761,8 @@ fn verify_header(
     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def]: [verify_header] mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
 
     // decode mmr leaf proof
-    let mmr_leaf_proof =
-        beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..])
-            .map_err(|_| Ics02Error::cant_decode_mmr_proof())?;
+    let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(&mut &mmr_leaf_proof[..])
+        .map_err(|_| Ics02Error::cant_decode_mmr_proof())?;
     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def]: [verify_header]   mmr_leaf_proof: {:?}",mmr_leaf_proof);
 
     if block_number > mmr_leaf_proof.leaf_count {
@@ -799,10 +778,8 @@ fn verify_header(
         return Err(Ics02Error::header_hash_not_match());
     }
 
-
     Ok(())
 }
-
 
 fn vector_to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
     v.try_into()

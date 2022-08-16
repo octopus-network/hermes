@@ -129,7 +129,6 @@ pub(crate) fn process(
     };
     output.emit(IbcEvent::OpenTryConnection(event_attributes.into()));
 
-
     tracing::trace!(target:"ibc-rs","[conn_open_try] process output : {:?}",output);
 
     Ok(output.with_result(result))

@@ -18,8 +18,8 @@ use ibc_proto::ibc::lightclients::grandpa::v1::SignedCommitment as RawSignedComm
 use ibc_proto::ibc::lightclients::grandpa::v1::ValidatorMerkleProof as RawValidatorMerkleProof;
 use ibc_proto::ibc::lightclients::grandpa::v1::ValidatorSet as RawValidatorSet;
 
-use alloc::string::ToString;
 use crate::Height;
+use alloc::string::ToString;
 use beefy_light_client::commitment::known_payload_ids::MMR_ROOT_ID;
 use beefy_light_client::commitment::Commitment as BeefyCommitment;
 use beefy_light_client::commitment::Payload;

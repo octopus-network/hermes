@@ -410,7 +410,7 @@ impl ClientDef for TendermintClient {
             channel_id: channel_id.clone(),
             sequence,
         };
-        
+
         verify_non_membership(
             client_state,
             connection_end.counterparty().prefix(),
@@ -439,9 +439,8 @@ fn verify_membership(
     path: impl Into<Path>,
     value: Vec<u8>,
 ) -> Result<(), Ics02Error> {
-    
     let merkle_path = apply_prefix(prefix, vec![path.into().to_string()]);
-   
+
     let merkle_proof: MerkleProof = RawMerkleProof::try_from(proof.clone())
         .map_err(Ics02Error::invalid_commitment_proof)?
         .into();
@@ -464,7 +463,7 @@ fn verify_non_membership(
     path: impl Into<Path>,
 ) -> Result<(), Ics02Error> {
     let merkle_path = apply_prefix(prefix, vec![path.into().to_string()]);
-   
+
     let merkle_proof: MerkleProof = RawMerkleProof::try_from(proof.clone())
         .map_err(Ics02Error::invalid_commitment_proof)?
         .into();

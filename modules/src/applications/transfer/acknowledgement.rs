@@ -103,7 +103,10 @@ mod test {
 
     #[test]
     fn test_ack_vec() {
-        let temp = serde_json::to_string(&Acknowledgement::success()).unwrap().as_bytes().to_vec();
+        let temp = serde_json::to_string(&Acknowledgement::success())
+            .unwrap()
+            .as_bytes()
+            .to_vec();
 
         let acknowledgement = serde_json::from_slice::<Acknowledgement>(temp.as_ref());
 
