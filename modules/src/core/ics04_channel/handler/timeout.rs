@@ -134,7 +134,7 @@ pub fn process(ctx: &dyn ChannelReader, msg: &MsgTimeout) -> HandlerResult<Packe
         })
     };
     tracing::trace!(target:"ibc-rs","[timeout] process result : {:?}",result);
-    
+
     output.log("success: packet timeout ");
 
     output.emit(IbcEvent::TimeoutPacket(TimeoutPacket {

@@ -49,7 +49,7 @@ use crate::{
 use super::{
     client::ClientSettings,
     endpoint::{ChainEndpoint, ChainStatus, HealthCheck},
-    handle::{ChainHandle, ChainRequest, ReplyTo, Subscription, BeefySubscription},
+    handle::{BeefySubscription, ChainHandle, ChainRequest, ReplyTo, Subscription},
     requests::{
         IncludeProof, QueryBlockRequest, QueryChannelClientStateRequest, QueryChannelRequest,
         QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStateRequest,

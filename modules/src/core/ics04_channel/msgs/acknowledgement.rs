@@ -27,7 +27,6 @@ impl Acknowledgement {
     }
 }
 
-
 impl AsRef<[u8]> for Acknowledgement {
     fn as_ref(&self) -> &[u8] {
         self.0.as_slice()

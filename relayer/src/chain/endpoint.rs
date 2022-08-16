@@ -41,10 +41,10 @@ use crate::config::ChainConfig;
 use crate::connection::ConnectionMsgType;
 use crate::denom::DenomTrace;
 use crate::error::{Error, QUERY_PROOF_EXPECT_MSG};
+use crate::event::beefy_monitor::BeefyReceiver;
 use crate::event::monitor::{EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::LightClient;
-use crate::event::beefy_monitor::BeefyReceiver;
 
 use super::requests::{
     IncludeProof, QueryBlockRequest, QueryHeight, QueryPacketAcknowledgementRequest,

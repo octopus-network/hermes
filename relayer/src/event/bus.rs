@@ -46,7 +46,6 @@ impl<T> EventBus<T> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::EventBus;

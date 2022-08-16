@@ -566,7 +566,7 @@ define_error! {
 
         GetSignedCommitment
             | _ | {" get signed commitment error"},
-        
+
         GetValidatorMerkleProof
             | _ | {" get validator merkle proofs error"},
 

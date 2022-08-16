@@ -240,7 +240,7 @@ impl Runnable for TxIcs20MsgTransferCmd {
             .unwrap_or_else(exit_with_unrecoverable_error);
 
         debug!("connection hop underlying the channel: {:?}", conn_end);
-        tracing::trace!(target:"ibc-rs","[transfer]connection hop underlying the channel: {:?}",conn_end); 
+        tracing::trace!(target:"ibc-rs","[transfer]connection hop underlying the channel: {:?}",conn_end);
 
         let (src_chain_client_state, _) = chains
             .src
@@ -257,7 +257,7 @@ impl Runnable for TxIcs20MsgTransferCmd {
             "client state underlying the channel: {:?}",
             src_chain_client_state
         );
-        tracing::trace!(target:"ibc-rs","[transfer]client state underlying the channel: {:?}",src_chain_client_state); 
+        tracing::trace!(target:"ibc-rs","[transfer]client state underlying the channel: {:?}",src_chain_client_state);
 
         if src_chain_client_state.chain_id() != self.dst_chain_id {
             Output::error(

@@ -501,7 +501,7 @@ impl BeefyMonitor {
 
         Ok(raw)
     }
-    
+
     pub async fn build_header(&self, raw_sc: SignedCommitment) -> Result<Header, RelayError> {
         tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header]");
 

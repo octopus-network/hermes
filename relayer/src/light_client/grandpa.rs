@@ -114,8 +114,8 @@ impl super::LightClient<SubstrateChain> for LightClient {
         };
 
         let result = self.block_on(block_header)?;
-        //TODO: get mmr root and timestamp 
-        
+        //TODO: get mmr root and timestamp
+
         Ok(Verified {
             target: GPHeader {
                 block_header: result,

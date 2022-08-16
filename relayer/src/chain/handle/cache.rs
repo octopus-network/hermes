@@ -1,6 +1,6 @@
 use crossbeam_channel as channel;
-use ibc::clients::ics10_grandpa::help::MmrRoot;
 use ibc::clients::ics10_grandpa::header::Header as GPheader;
+use ibc::clients::ics10_grandpa::help::MmrRoot;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::core::ics02_client::events::UpdateClient;
@@ -29,7 +29,7 @@ use crate::account::Balance;
 use crate::cache::{Cache, CacheStatus};
 use crate::chain::client::ClientSettings;
 use crate::chain::endpoint::{ChainStatus, HealthCheck};
-use crate::chain::handle::{ChainHandle, ChainRequest, Subscription, BeefySubscription};
+use crate::chain::handle::{BeefySubscription, ChainHandle, ChainRequest, Subscription};
 use crate::chain::requests::{
     IncludeProof, QueryBlockRequest, QueryChannelClientStateRequest, QueryChannelRequest,
     QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStateRequest,
@@ -496,7 +496,7 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
         self.inner().websocket_url()
     }
 
-    fn update_mmr_root(&self, client_id: ClientId, header:GPheader) -> Result<(), Error> {
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
         println!(
             "in cache chain handle: [update_mmr_root], client_id = {:?}",
             client_id

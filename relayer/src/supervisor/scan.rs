@@ -98,7 +98,7 @@ impl ChainsScan {
                 chains.push(chain.clone())
             }
         }
-       
+
         chains
     }
 }

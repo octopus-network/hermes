@@ -1,19 +1,19 @@
 //! This module implements the processing logic for ICS4 (channel) messages.
-use tracing::info;
 use crate::prelude::*;
+use tracing::info;
 
+use crate::applications::transfer::acknowledgement::Acknowledgement as ApplicationAcknowledgement;
 use crate::core::ics04_channel::channel::ChannelEnd;
 use crate::core::ics04_channel::context::ChannelReader;
 use crate::core::ics04_channel::error::Error;
 use crate::core::ics04_channel::msgs::ChannelMsg;
-use crate::core::ics04_channel::{msgs::PacketMsg, packet::PacketResult};
 use crate::core::ics04_channel::packet::Packet;
+use crate::core::ics04_channel::{msgs::PacketMsg, packet::PacketResult};
 use crate::core::ics24_host::identifier::{ChannelId, PortId};
 use crate::core::ics26_routing::context::{
     Acknowledgement, Ics26Context, ModuleId, ModuleOutputBuilder, OnRecvPacketAck, Router,
 };
 use crate::handler::{HandlerOutput, HandlerOutputBuilder};
-use crate::applications::transfer::acknowledgement::Acknowledgement as ApplicationAcknowledgement;
 
 pub mod acknowledgement;
 pub mod chan_close_confirm;
@@ -250,9 +250,7 @@ fn do_packet_callback(
             &msg.acknowledgement,
             &msg.signer,
         ),
-        PacketMsg::ToPacket(msg) => {
-            cb.on_timeout_packet(module_output, &msg.packet, &msg.signer)
-        }
+        PacketMsg::ToPacket(msg) => cb.on_timeout_packet(module_output, &msg.packet, &msg.signer),
         PacketMsg::ToClosePacket(msg) => {
             cb.on_timeout_packet(module_output, &msg.packet, &msg.signer)
         }
@@ -265,9 +263,14 @@ fn process_write_ack(
     acknowledgement: &dyn Acknowledgement,
     core_output: &mut HandlerOutputBuilder<()>,
 ) -> Result<(), Error> {
-
-    let acknowledgement = acknowledgement.as_any().downcast_ref::<ApplicationAcknowledgement>().expect("downcast cast Acknowledgement Error");
-    let ack = serde_json::to_string(&acknowledgement).unwrap().as_bytes().to_vec();
+    let acknowledgement = acknowledgement
+        .as_any()
+        .downcast_ref::<ApplicationAcknowledgement>()
+        .expect("downcast cast Acknowledgement Error");
+    let ack = serde_json::to_string(&acknowledgement)
+        .unwrap()
+        .as_bytes()
+        .to_vec();
 
     let HandlerOutput {
         result,

@@ -23,10 +23,10 @@ use crate::chain::tracking::{TrackedMsgs, TrackingId};
 use alloc::sync::Arc;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
-use ibc::tx_msg::Msg;
 use core::{future::Future, str::FromStr, time::Duration};
-use ibc::core::ics04_channel::events::WriteAcknowledgement;
 use ibc::core::ics02_client::msgs::update_client::MsgUpdateAnyClient;
+use ibc::core::ics04_channel::events::WriteAcknowledgement;
+use ibc::tx_msg::Msg;
 use ibc::{
     clients::{
         ics07_tendermint::header::Header as tHeader,
@@ -273,7 +273,6 @@ impl SubstrateChain {
             consensus_height,
             client,
         ))
-
     }
 
     fn get_consensus_state_with_height(
@@ -800,7 +799,6 @@ impl ChainEndpoint for SubstrateChain {
             },
         }
 
-
         let ibc_event = self
             .subscribe_ibc_events()
             .map_err(|_| Error::subscribe_ibc_events())?;
@@ -851,7 +849,6 @@ impl ChainEndpoint for SubstrateChain {
                 }
             },
         }
-
 
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
         let tx_re = TxResponse {
@@ -1882,7 +1879,6 @@ impl ChainEndpoint for SubstrateChain {
             let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
                 Decode::decode(&mut &*mmr_leaf).unwrap();
             tracing::trace!(target:"ibc-rs","in substrate [build_header] test_mmr_leaf to data struct: {:?}",mmr_leaf);
-
 
             //TODO:[test] log mmr leaf proof
             let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(

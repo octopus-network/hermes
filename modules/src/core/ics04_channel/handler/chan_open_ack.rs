@@ -94,7 +94,7 @@ pub(crate) fn process(
         channel_end,
     };
     tracing::trace!(target:"ibc-rs","[chan_open_ack] process result : {:?}",result);
-    
+
     let event_attributes = Attributes {
         channel_id: Some(msg.channel_id.clone()),
         height: ctx.host_height(),

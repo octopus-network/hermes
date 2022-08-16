@@ -755,7 +755,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         }
     }
 
-
     /// Verifies if the consensus state at given [`Height`]
     /// is within or outside of the client's trusting period.
     fn check_consensus_state_trusting_period(
@@ -872,9 +871,15 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         target_height: Height,
         client_state: &AnyClientState,
     ) -> Result<Height, ForeignClientError> {
-        info!("[solve_trust_height] >> target height = {:?}", target_height);
+        info!(
+            "[solve_trust_height] >> target height = {:?}",
+            target_height
+        );
         let client_latest_height = client_state.latest_height();
-        info!("[solve_trust_height] >> client_latest_height = {:?}", client_latest_height);
+        info!(
+            "[solve_trust_height] >> client_latest_height = {:?}",
+            client_latest_height
+        );
 
         if client_latest_height < target_height {
             // If the latest height of the client is already lower than the
@@ -1054,7 +1059,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         // Get the latest client state on destination.
         let (client_state, _) = self.validated_client_state()?;
         tracing::trace!(target:"ibc-rs","[build_update_client_with_trusted] client_state : {:?}",client_state);
-       
+
         let trusted_height = match maybe_trusted_height {
             Some(trusted_height) => {
                 self.validate_trusted_height(trusted_height, &client_state)?;
@@ -1182,10 +1187,9 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             QueryHeight::Specific(height) => height,
         };
 
-
         let new_msgs =
             self.wait_and_build_update_client_with_trusted(target_height, trusted_height)?;
-            
+
         if new_msgs.is_empty() {
             return Err(ForeignClientError::client_already_up_to_date(
                 self.id.clone(),
