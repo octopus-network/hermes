@@ -873,7 +873,6 @@ fn process_beefy<Chain: ChainHandle>(
     for dst_chain in &dst_chains {
         for (client_id, client_scan) in &dst_chain.clients {
             match client_scan.client.client_state.client_type() {
-                
                 ClientType::Grandpa => {
                     tracing::trace!("in supervisor: [process_beefy], client_id ={:?} ", client_id);
                     println!("in supervisor: [process_beefy], dst_chain = {:?},client_id ={:?} ",dst_chain.chain_id,client_id);
@@ -887,17 +886,13 @@ fn process_beefy<Chain: ChainHandle>(
                     let src = registry
                                     .get_or_spawn(object.src_chain_id())
                                     .map_err(Error::spawn)?;
-                
                     let dst = registry
                                     .get_or_spawn(object.dst_chain_id())
                                     .map_err(Error::spawn)?;
-                
                     let worker = workers.get_or_spawn(object, src, dst, config);
                     let header = GPheader { ..header.clone()};
                     let cmd = WorkerCmd::Beefy { header };
                     tracing::trace!("in supervisor: [process_beefy], work cmd ={:?} ", cmd);
-                    // println!("in supervisor: [process_beefy], work cmd ={:?} ", cmd);
-                    
                     worker.try_send_command(cmd);
                     },
                 _ => {}
