@@ -15,8 +15,8 @@ use ibc_proto::google::protobuf::Any;
 use sha2::Digest;
 use tracing::debug;
 
-use crate::applications::ics20_fungible_token_transfer::context::Ics20Context;
-use crate::applications::ics20_fungible_token_transfer::error::Error as Ics20Error;
+use crate::applications::transfer::context::Ics20Context;
+use crate::applications::transfer::error::Error as Ics20Error;
 use crate::clients::ics07_tendermint::client_state::test_util::get_dummy_tendermint_client_state;
 use crate::clients::ics10_grandpa::{client_state::ClientState, consensus_state::ConsensusState};
 use crate::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
@@ -1485,6 +1485,8 @@ mod tests {
 
     #[test]
     fn test_router() {
+        use core::any::Any;
+
         #[derive(Default)]
         struct MockAck(Vec<u8>);
 
@@ -1494,7 +1496,11 @@ mod tests {
             }
         }
 
-        impl Acknowledgement for MockAck {}
+        impl Acknowledgement for MockAck {
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+        }
 
         #[derive(Debug, Default)]
         struct FooModule {

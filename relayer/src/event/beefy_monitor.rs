@@ -669,11 +669,8 @@ mod tests {
     use crate::error::Error;
     use alloc::sync::Arc;
     use ibc::core::ics24_host::identifier::ChainId;
-    use octopusxt::ibc_node::{self, DefaultConfig, RuntimeApi};
-    use subxt::{
-        BeefySubscription, Client, ClientBuilder, Error as SubstrateError, EventSubscription,
-        PairSigner, RawEvent, SignedCommitment,
-    };
+    use octopusxt::ibc_node::{self, RuntimeApi};
+    use subxt::{Client, ClientBuilder, Error as SubstrateError, PairSigner, SignedCommitment};
     use tendermint_rpc::Url;
     use tokio::runtime::Runtime as TokioRuntime;
 
@@ -692,15 +689,7 @@ mod tests {
             websocket_url
         );
         let rt = Arc::new(TokioRuntime::new().unwrap());
-        // let client = async {
-        //     ClientBuilder::new()
-        //         .set_url(websocket_url.clone())
-        //         .build::<DefaultConfig>()
-        //         .await
-        //         .map_err(|_| Error::substrate_client_builder_error())
-        // };
 
-        // let cleint = rt.block_on(client);
         let (beefy_monitor, receiver, tx_cmd) =
             BeefyMonitor::new(chain_id, websocket_url, rt).unwrap();
         beefy_monitor.run()
