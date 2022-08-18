@@ -12,6 +12,7 @@ use ibc::clients::ics07_tendermint::client_state::{
 use ibc::clients::ics07_tendermint::consensus_state::ConsensusState as TendermintConsensusState;
 use ibc::clients::ics07_tendermint::header::Header as TendermintHeader;
 use ibc::clients::ics10_grandpa::help::MmrRoot;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc::core::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd};

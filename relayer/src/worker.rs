@@ -67,11 +67,14 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
             let client = ForeignClient::restore(client.dst_client_id.clone(), chains.b, chains.a);
 
             let (mut refresh, mut misbehaviour) = (false, false);
-            //TODO: let (mut refresh, mut,update_mmr_root,mut misbehaviour) = (false, false);
-            let refresh_task = client::spawn_refresh_client(client.clone());
-            if let Some(refresh_task) = refresh_task {
-                task_handles.push(refresh_task);
-                refresh = true;
+
+            //TODO: disable refresh for substrate app chain
+            if config.mode.clients.refresh {
+                let refresh_task = client::spawn_refresh_client(client.clone());
+                if let Some(refresh_task) = refresh_task {
+                    task_handles.push(refresh_task);
+                    refresh = true;
+                }
             }
 
             let cmd_tx = if config.mode.clients.misbehaviour {
@@ -81,12 +84,6 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
                     task_handles.push(task);
                     misbehaviour = true;
                 }
-                //TODO: spawn update mmr root task
-                // let update_mmr_root_task =  client::spawn_update_mmr_root(cmd_rx,client.clone());
-                // if let Some(update_mmr_root_task) = update_mmr_root_task {
-                //     task_handles.push(update_mmr_root_task);
-                //     update_mmr_root = true;
-                // }
 
                 Some(cmd_tx)
             } else {
@@ -102,8 +99,14 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
             (cmd_tx, Some(data))
         }
         Object::Beefy(beefy) => {
-            tracing::trace!("in worker: [spawn_worker_tasks], Object::Beefy(beefy) ={:?} ", beefy);
-            println!("in worker: [spawn_worker_tasks], Object::Beefy(beefy) ={:?} ", beefy);
+            tracing::trace!(
+                "in worker: [spawn_worker_tasks], Object::Beefy(beefy) ={:?} ",
+                beefy
+            );
+            println!(
+                "in worker: [spawn_worker_tasks], Object::Beefy(beefy) ={:?} ",
+                beefy
+            );
             let client = ForeignClient::restore(beefy.dst_client_id.clone(), chains.b, chains.a);
 
             let mut update_mmr_root = false;

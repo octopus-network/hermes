@@ -669,10 +669,11 @@ mod tests {
     use crate::error::Error;
     use alloc::sync::Arc;
     use ibc::core::ics24_host::identifier::ChainId;
-    use octopusxt::ibc_node::{self, DefaultConfig, RuntimeApi};
+    use octopusxt::ibc_node::{self,  RuntimeApi};
+    use octopusxt::MyConfig;
     use subxt::{
-        BeefySubscription, Client, ClientBuilder, Error as SubstrateError, EventSubscription,
-        PairSigner, RawEvent, SignedCommitment,
+         Client, ClientBuilder, Error as SubstrateError,
+        PairSigner, SignedCommitment,
     };
     use tendermint_rpc::Url;
     use tokio::runtime::Runtime as TokioRuntime;

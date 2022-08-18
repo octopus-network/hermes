@@ -781,6 +781,7 @@ mod tests {
     use crate::core::ics24_host::identifier::ChainId;
     use crate::core::ics24_host::identifier::ClientId;
     use alloc::boxed::Box;
+    use beefy_light_client::mmr;
     use beefy_merkle_tree::Keccak256;
     use codec::{Decode, Encode};
     use hex_literal::hex;

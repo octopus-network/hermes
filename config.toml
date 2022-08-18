@@ -21,7 +21,7 @@ enabled = true
 # trusting period (e.g., refresh every ~9 days if the trusting period is 14 days).
 # Note: Even if this is disabled, clients will be refreshed automatically if
 #      there is activity on a connection or channel they are involved with.
-refresh = true
+refresh = false
 
 # Whether or not to enable misbehaviour detection for clients. [Default: false]
 misbehaviour = true
