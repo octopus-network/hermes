@@ -527,7 +527,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         let updated_relayer_b_id = self.b_side.connection_id();
         // Continue loop if query error
-        std::thread::sleep(Duration::from_secs(8));
+        std::thread::sleep(Duration::from_secs(5));
         let b_connection = self.b_connection(updated_relayer_b_id)?;
         let b_counterparty_id = b_connection.counterparty().connection_id();
 
