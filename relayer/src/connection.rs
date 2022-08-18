@@ -963,7 +963,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?;
 
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
-        
+
         let tm =
             TrackedMsgs::new_static(client_msgs, "update client on source for ConnectionOpenTry");
         self.src_chain()
@@ -990,7 +990,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         // Build message(s) for updating client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
-        
+
         let counterparty_versions = if src_connection.versions().is_empty() {
             self.src_chain()
                 .query_compatible_versions()
@@ -1032,7 +1032,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             delay_period: delay,
             signer,
         };
-        
+
         msgs.push(new_msg.to_any());
 
         Ok(msgs)

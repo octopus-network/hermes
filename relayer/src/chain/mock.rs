@@ -12,6 +12,7 @@ use ibc::clients::ics07_tendermint::client_state::{
 };
 use ibc::clients::ics07_tendermint::consensus_state::ConsensusState as TendermintConsensusState;
 use ibc::clients::ics07_tendermint::header::Header as TendermintHeader;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::clients::ics10_grandpa::help::MmrRoot;
 use ibc::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
 use ibc::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
@@ -20,7 +21,7 @@ use ibc::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
 use ibc::core::ics04_channel::context::ChannelReader;
 use ibc::core::ics04_channel::packet::Sequence;
 use ibc::core::ics23_commitment::{commitment::CommitmentPrefix, specs::ProofSpecs};
-use ibc::core::ics24_host::identifier::{ChainId, ConnectionId};
+use ibc::core::ics24_host::identifier::{ChainId, ClientId, ConnectionId};
 use ibc::events::IbcEvent;
 use ibc::mock::context::MockContext;
 use ibc::mock::host::HostType;
@@ -460,7 +461,7 @@ impl ChainEndpoint for MockChain {
         todo!()
     }
 
-    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+    fn update_mmr_root(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
         todo!()
     }
 }
