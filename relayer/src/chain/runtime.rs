@@ -276,7 +276,6 @@ where
                         },
 
                         Ok(ChainRequest::SubscribeBeefy { reply_to }) => {
-                            println!( "in runtime: [run], ChainRequest::SubscribeBeefy");
                             self.subscribe_beefy(reply_to)?
                         },
 
@@ -459,11 +458,6 @@ where
                                 client_id,
                                 header
                             );
-                            println!(
-                                "in runtime: [run], ChainRequest::UpdateMmrRoot, chain_id = {:?},client_id = {:?} ",
-                                self.chain.id(),
-                                client_id,
-                            );
                             self.update_mmr_root(client_id,header,reply_to,)?
                         },
 
@@ -518,7 +512,6 @@ where
 
     fn enable_beefy_monitor(&mut self) -> Result<(), Error> {
         tracing::trace!("In runtime: [enable_beefy_monitor]");
-        println!("In runtime: [enable_beefy_monitor]");
         let (beefy_receiver, tx_monitor_cmd) = self.chain.init_beefy_monitor(self.rt.clone())?;
 
         self.beefy_monitor_ctrl

@@ -99,8 +99,8 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
     fn subscribe(&self) -> Result<Subscription, Error> {
         self.inner().subscribe()
     }
+
     fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
-        println!("in cache chain handle: [subscribe_beefy] ",);
         self.inner().subscribe_beefy()
     }
 
@@ -492,15 +492,10 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
     }
 
     fn websocket_url(&self) -> Result<String, Error> {
-        println!("in cache chain handle: [websocket_url]",);
         self.inner().websocket_url()
     }
 
     fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
-        println!(
-            "in cache chain handle: [update_mmr_root], client_id = {:?}",
-            client_id
-        );
         self.inner().update_mmr_root(client_id, header)
     }
 }

@@ -118,7 +118,6 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
         self.inner().subscribe()
     }
     fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
-        println!("in counting chain handle: [subscribe_beefy] ",);
         self.inc_metric("subscribe_beefy");
         self.inner().subscribe_beefy()
     }
@@ -484,10 +483,6 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
     }
 
     fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
-        println!(
-            "in counting chain handle: [update_mmr_root], client_id = {:?},mmr_root ={:?} ",
-            client_id, header
-        );
         self.inc_metric("update_mmr_root");
         self.inner().update_mmr_root(client_id, header)
     }

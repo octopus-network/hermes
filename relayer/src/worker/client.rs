@@ -139,11 +139,7 @@ pub fn spawn_update_mmr_root<ChainA: ChainHandle, ChainB: ChainHandle>(
     receiver: Receiver<WorkerCmd>,
     client: ForeignClient<ChainB, ChainA>,
 ) -> Option<TaskHandle> {
-    tracing::trace!(
-        "in worker/client: [spawn_update_mmr_root], client ={:?} ",
-        client
-    );
-    println!(
+    trace!(
         "in worker/client: [spawn_update_mmr_root], client ={:?} ",
         client
     );
@@ -168,28 +164,14 @@ pub fn spawn_update_mmr_root<ChainA: ChainHandle, ChainB: ChainHandle>(
         Some(Duration::from_secs(6)),
         move || -> Result<Next, TaskError<Infallible>> {
             if let Ok(cmd) = receiver.try_recv() {
-                tracing::trace!(
+                trace!(
                     "in worker/client: [spawn_update_mmr_root], recv work cmd ={:?} ",
                     cmd
                 );
 
                 match cmd {
                     WorkerCmd::Beefy { header } => {
-                        // println!("in worker/client: [spawn_update_mmr_root], WorkerCmd::Beefy and mmr root is :{:?}",mmr_root);
-                        //TODO: client.update_mmr_root(mmr_root)
-                        // let res = client.refresh().map_err(|e| {
-                        //     if e.is_expired_or_frozen_error() {
-                        //         TaskError::Fatal(e)
-                        //     } else {
-                        //         TaskError::Ignore(e)
-                        //     }
-                        // })?;
-
-                        // if res.is_some() {
-                        //     telemetry!(ibc_client_updates, &client.dst_chain.id(), &client.id, 1);
-                        // }
                         let _ = client.update_mmr_root(header);
-                        // Ok(Next::Continue)
                     }
 
                     WorkerCmd::IbcEvents { .. } => {}

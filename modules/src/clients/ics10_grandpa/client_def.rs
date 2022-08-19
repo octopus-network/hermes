@@ -252,7 +252,7 @@ impl ClientDef for GrandpaClient {
             payload.copy_from_slice(&commitment.payload.get_raw(&MMR_ROOT_ID).unwrap());
 
             // verify mmr proof
-            let result = beefy_light_client::mmr::verify_leaf_proof(
+            let result = mmr::verify_leaf_proof(
                 payload,
                 mmr_leaf_hash,
                 decode_mmr_leaf_proof,
@@ -748,7 +748,7 @@ fn verify_header(
     let mmr_leaf: Vec<u8> =
         Decode::decode(&mut &mmr_leaf[..]).map_err(|_| Ics02Error::cant_decode_mmr_leaf())?;
     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
-    let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
+    let mmr_leaf: mmr::MmrLeaf =
         Decode::decode(&mut &*mmr_leaf).map_err(|_| Ics02Error::cant_decode_mmr_leaf())?;
     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state mmr_leaf to data struct: {:?}",mmr_leaf);
 

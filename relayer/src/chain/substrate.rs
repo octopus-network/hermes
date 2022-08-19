@@ -635,6 +635,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let (mut event_monitor, event_receiver, monitor_tx) = EventMonitor::new(
             self.config.id.clone(),
+            self.client.clone(),
             self.config.websocket_addr.clone(),
             rt,
         )
@@ -647,12 +648,6 @@ impl ChainEndpoint for SubstrateChain {
         Ok((event_receiver, monitor_tx))
     }
 
-    fn id(&self) -> &ChainId {
-        tracing::trace!("in substrate: [id]");
-
-        &self.config().id
-    }
-
     fn init_beefy_monitor(
         &self,
         rt: Arc<TokioRuntime>,
@@ -661,9 +656,10 @@ impl ChainEndpoint for SubstrateChain {
             "in substrate: [init_beefy_mointor] >> websocket addr: {:?}",
             self.config.websocket_addr.clone()
         );
-       
+
         let (mut beefy_monitor, beefy_receiver, monitor_tx) = BeefyMonitor::new(
             self.config.id.clone(),
+            self.client.clone(),
             self.config.websocket_addr.clone(),
             rt,
         )
@@ -673,8 +669,14 @@ impl ChainEndpoint for SubstrateChain {
 
         thread::spawn(move || beefy_monitor.run());
         tracing::debug!("in substrate: [init_beefy_mointor] >> beefy monitor is running ...");
-       
+
         Ok((beefy_receiver, monitor_tx))
+    }
+
+    fn id(&self) -> &ChainId {
+        tracing::trace!("in substrate: [id]");
+
+        &self.config().id
     }
 
     fn shutdown(self) -> Result<(), Error> {
@@ -1946,7 +1948,7 @@ impl ChainEndpoint for SubstrateChain {
 /// send Update client state request
 pub async fn send_update_state_request(
     client: Client<MyConfig>,
-    pair_signer: PairSigner<MyConfig, sp_core::sr25519::Pair>,
+    pair_signer: PairSigner<MyConfig, sr25519::Pair>,
     chain_id: ChainId,
     client_id: ClientId,
     mmr_root: MmrRoot,
@@ -1956,16 +1958,9 @@ pub async fn send_update_state_request(
     let api = client
         .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
-    // let pair_signer = PairSigner::new(signer);
-    // let client_state_bytes = <commitment::SignedCommitment as codec::Encode>::encode(&client_state);
-
     let encode_client_id = client_id.as_bytes().to_vec();
     let encode_mmr_root = <MmrRoot as Encode>::encode(&mmr_root);
-    
-    // // test
-    // let received_mmr_root = encode_mmr_root.clone();
-    // let decode_received_mmr_root = help::MmrRoot::decode(&mut &received_mmr_root[..]).unwrap();
-   
+
     let result = api
         .tx()
         .ibc()

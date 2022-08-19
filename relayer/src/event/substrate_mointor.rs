@@ -75,21 +75,12 @@ impl EventMonitor {
     /// Create an event monitor, and connect to a node
     pub fn new(
         chain_id: ChainId,
+        client: Client<MyConfig>,
         node_addr: Url,
         rt: Arc<TokioRuntime>,
     ) -> Result<(Self, EventReceiver, TxMonitorCmd)> {
         let (tx_batch, rx_batch) = channel::unbounded();
         let (tx_cmd, rx_cmd) = channel::unbounded();
-
-        let ws_addr = format!("{}", node_addr);
-        let client = rt
-            .block_on(async move {
-                ClientBuilder::new()
-                    .set_url(ws_addr)
-                    .build::<MyConfig>()
-                    .await
-            })
-            .map_err(|_| Error::client_creation_failed(chain_id.clone(), node_addr.clone()))?;
 
         let (tx_err, rx_err) = mpsc::unbounded_channel();
 
@@ -106,22 +97,6 @@ impl EventMonitor {
 
         Ok((monitor, rx_batch, tx_cmd))
     }
-
-    // /// Set the queries to subscribe to.
-    // ///
-    // /// ## Note
-    // /// For this change to take effect, one has to [`subscribe`] again.
-    // pub fn set_queries(&mut self, queries: Vec<Query>) {
-    //     self.event_queries = queries;
-    // }
-    //
-    // /// Add a new query to subscribe to.
-    // ///
-    // /// ## Note
-    // /// For this change to take effect, one has to [`subscribe`] again.
-    // pub fn add_query(&mut self, query: Query) {
-    //     self.event_queries.push(query);
-    // }
 
     /// Clear the current subscriptions, and subscribe again to all queries.
     pub fn subscribe(&mut self) -> Result<()> {
@@ -363,18 +338,6 @@ async fn subscribe_events(client: Client<MyConfig>) -> RawEventDetails {
     unimplemented!()
 }
 
-// fn from_raw_event_to_batch_event(
-//     raw_event: RawEventDetails,
-//     chain_id: ChainId,
-// ) -> Result<EventBatch> {
-//     let ibc_event = octopusxt::inner_process_ibc_event(raw_event);
-//
-//     Ok(EventBatch {
-//         height: ibc_event.height(),
-//         events: vec![ibc_event],
-//         chain_id,
-//     })
-// }
 
 fn from_raw_event_to_batch_event(
     raw_event: RawEventDetails,
@@ -925,7 +888,6 @@ fn from_raw_event_to_batch_event(
                 &mut &raw_event.data[..],
             )
             .unwrap();
-            println!("In call_ibc: [substrate_events] >> AppModule Event");
 
             let app_module = ibc::events::ModuleEvent {
                 kind: String::from_utf8(event.0.kind).expect("convert kind error"),
