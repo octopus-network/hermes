@@ -280,7 +280,6 @@ impl BeefyMonitor {
 
         trace!("in beefy_monitor: [run], beefy subscript success ! ");
 
-
         // let mut beefy_sub = self.rt.block_on(self.subscribe_beefy());
         // Work around double borrow
         let rt = self.rt.clone();
@@ -294,10 +293,8 @@ impl BeefyMonitor {
                 raw_sc
             );
 
-
             let _ = self.process_beefy_msg(raw_sc);
         }
-
     }
 
     fn run_loop(&mut self) -> Next {
@@ -535,14 +532,13 @@ mod tests {
         let websocket_url = Url::from_str("ws://127.0.0.1:9944/websocket").unwrap();
         let rt = Arc::new(TokioRuntime::new().unwrap());
 
-
-        let mut client =
-            rt
+        let mut client = rt
             .block_on(
                 ClientBuilder::new()
                     .set_url(format!("{}", websocket_url))
                     .build::<MyConfig>(),
-            ).unwrap();
+            )
+            .unwrap();
 
         let (beefy_monitor, receiver, tx_cmd) =
             BeefyMonitor::new(chain_id, client, websocket_url, rt).unwrap();

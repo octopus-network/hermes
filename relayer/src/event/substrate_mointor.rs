@@ -338,7 +338,6 @@ async fn subscribe_events(client: Client<MyConfig>) -> RawEventDetails {
     unimplemented!()
 }
 
-
 fn from_raw_event_to_batch_event(
     raw_event: RawEventDetails,
     chain_id: ChainId,

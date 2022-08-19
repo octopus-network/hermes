@@ -252,12 +252,8 @@ impl ClientDef for GrandpaClient {
             payload.copy_from_slice(&commitment.payload.get_raw(&MMR_ROOT_ID).unwrap());
 
             // verify mmr proof
-            let result = mmr::verify_leaf_proof(
-                payload,
-                mmr_leaf_hash,
-                decode_mmr_leaf_proof,
-            )
-            .map_err(|_| Ics02Error::invalid_mmr_leaf_proof())?;
+            let result = mmr::verify_leaf_proof(payload, mmr_leaf_hash, decode_mmr_leaf_proof)
+                .map_err(|_| Ics02Error::invalid_mmr_leaf_proof())?;
 
             tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verfy mmr root result: {:?}",result);
 
