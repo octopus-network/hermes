@@ -507,7 +507,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let relayer_b_id = self.b_side.connection_id().cloned();
 
         // Continue loop if query error
-        // std::thread::sleep(Duration::from_secs(5));
+        std::thread::sleep(Duration::from_secs(6));
         let a_connection = self.a_connection(relayer_a_id)?;
         let a_counterparty_id = a_connection.counterparty().connection_id();
 
@@ -527,7 +527,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         let updated_relayer_b_id = self.b_side.connection_id();
         // Continue loop if query error
-        // std::thread::sleep(Duration::from_secs(5));
+        std::thread::sleep(Duration::from_secs(6));
         let b_connection = self.b_connection(updated_relayer_b_id)?;
         let b_counterparty_id = b_connection.counterparty().connection_id();
 

@@ -432,13 +432,12 @@ impl ClientDef for GrandpaClient {
 //     /Users/davirain/.cargo/registry/src/github.com-1ecc6299db9ec823/flex-error-0.4.4/src/tracer_impl/eyre.rs:10:9
 // 2022-08-22 13
 
-        // let path = ClientStatePath(client_id.clone());
-        // let value = expected_client_state
-        //     .encode_vec()
-        //     .map_err(Ics02Error::invalid_any_client_state)?;
+        let path = ClientStatePath(client_id.clone());
+        let value = expected_client_state
+            .encode_vec()
+            .map_err(Ics02Error::invalid_any_client_state)?;
 
-        // verify_membership(prefix, proof, root, Path::ClientState(path), value)
-        Ok(())
+        verify_membership(prefix, proof, root, Path::ClientState(path), value)
     }
 
     /// Verify a `proof` that a packet reconstructed from storage proof, storage key and state root matches that of
