@@ -530,7 +530,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         let relayer_b_id = self.b_side.channel_id().cloned();
 
         // Continue loop if query error
-        std::thread::sleep(Duration::from_secs(8));
+        std::thread::sleep(Duration::from_secs(6));
         let a_channel = self.a_channel(relayer_a_id)?;
         let a_counterparty_id = a_channel.counterparty().channel_id();
 
@@ -550,7 +550,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         let updated_relayer_b_id = self.b_side.channel_id();
         // Continue loop if query error
-        std::thread::sleep(Duration::from_secs(8));
+        std::thread::sleep(Duration::from_secs(6));
         let b_channel = self.b_channel(updated_relayer_b_id)?;
         let b_counterparty_id = b_channel.counterparty().channel_id();
 
@@ -904,6 +904,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         );
 
         // Retrieve existing channel
+        // std::thread::sleep(Duration::from_secs(5));
         let (dst_channel, _) = self
             .dst_chain()
             .query_channel(
@@ -980,12 +981,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         // Build message(s) to update client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
-        // let tm = TrackedMsgs::new(msgs, "update client on destination for ChannelOpenTry");
-        // self.dst_chain()
-        //     .send_messages_and_wait_commit(tm)
-        //     .map_err(|e| ChannelError::submit(self.src_chain().id(), e))?;
-        // //TODO: wait for update client msg into block
-        // std::thread::sleep(Duration::from_secs(5));
 
         let counterparty =
             Counterparty::new(self.src_port_id().clone(), self.src_channel_id().cloned());
@@ -1025,7 +1020,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         msgs.push(new_msg.to_any());
         Ok(msgs)
-        // Ok(vec![new_msg.to_any()])
     }
 
     pub fn build_chan_open_try_and_send(&self) -> Result<IbcEvent, ChannelError> {
@@ -1107,12 +1101,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         // Build message(s) to update client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
-        // let tm = TrackedMsgs::new(msgs, "update client on destination for ChannelOpenAck");
-        // self.dst_chain()
-        //     .send_messages_and_wait_commit(tm)
-        //     .map_err(|e| ChannelError::submit(self.src_chain().id(), e))?;
-        // //TODO: wait for update client msg into block
-        // std::thread::sleep(Duration::from_secs(5));
 
         // Get signer
         let signer = self
@@ -1132,7 +1120,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         msgs.push(new_msg.to_any());
         Ok(msgs)
-        // Ok(vec![new_msg.to_any()])
     }
 
     pub fn build_chan_open_ack_and_send(&self) -> Result<IbcEvent, ChannelError> {
@@ -1222,13 +1209,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         // Build message(s) to update client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
-        // let tm = TrackedMsgs::new(msgs, "update client on destination for ChannelOpenConfirm");
-        // self.dst_chain()
-        //     .send_messages_and_wait_commit(tm)
-        //     .map_err(|e| ChannelError::submit(self.src_chain().id(), e))?;
-        // //TODO: wait for update client msg into block
-        // std::thread::sleep(Duration::from_secs(5));
-
+     
         // Get signer
         let signer = self
             .dst_chain()
@@ -1245,7 +1226,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         msgs.push(new_msg.to_any());
         Ok(msgs)
-        // Ok(vec![new_msg.to_any()])
     }
 
     pub fn build_chan_open_confirm_and_send(&self) -> Result<IbcEvent, ChannelError> {
@@ -1400,12 +1380,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         // Build message(s) to update client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
-        // let tm = TrackedMsgs::new(msgs, "update client on destination for ChannelCloseConfirm");
-        // self.dst_chain()
-        //     .send_messages_and_wait_commit(tm)
-        //     .map_err(|e| ChannelError::submit(self.src_chain().id(), e))?;
-        // //TODO: wait for update client msg into block
-        // std::thread::sleep(Duration::from_secs(5));
 
         // Get signer
         let signer = self
@@ -1423,7 +1397,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         msgs.push(new_msg.to_any());
         Ok(msgs)
-        // Ok(vec![new_msg.to_any()])
     }
 
     pub fn build_chan_close_confirm_and_send(&self) -> Result<IbcEvent, ChannelError> {
