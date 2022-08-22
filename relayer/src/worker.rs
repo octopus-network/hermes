@@ -68,7 +68,7 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
             let (mut refresh, mut misbehaviour) = (false, false);
 
             //TODO: disable refresh for substrate chain because that update client by update_mmr_root
-            if config.mode.clients.misbehaviour {
+            if config.mode.clients.refresh {
                 let refresh_task = client::spawn_refresh_client(client.clone());
                 if let Some(refresh_task) = refresh_task {
                     task_handles.push(refresh_task);
