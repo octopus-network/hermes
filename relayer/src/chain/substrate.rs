@@ -127,6 +127,7 @@ pub const REVISION_NUMBER: u64 = 8888;
 /// A struct used to start a Substrate chain instance in relayer
 #[derive(Debug)]
 pub struct SubstrateChain {
+    client: Client<MyConfig>,
     config: ChainConfig,
     websocket_url: String,
     keybase: KeyRing,
@@ -141,20 +142,6 @@ impl SubstrateChain {
     /// Run a future to completion on the Tokio runtime.
     fn block_on<F: Future>(&self, f: F) -> F::Output {
         self.rt.block_on(f)
-    }
-
-    fn get_client(&self) -> Result<Client<MyConfig>> {
-        let client = async {
-            ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<MyConfig>()
-                .await
-                .map_err(|_| {
-                    anyhow::anyhow!(format!("{:?}", Error::substrate_client_builder_error()))
-                })
-        };
-
-        self.block_on(client)
     }
 
     fn retry_wapper<O, Op>(&self, operation: Op) -> Result<O, retry::Error<String>>
@@ -179,29 +166,23 @@ impl SubstrateChain {
     fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>> {
         tracing::trace!("in substrate: [subscribe_ibc_events]");
 
-        let client = self.get_client()?;
-
-        self.block_on(octopusxt::subscribe_ibc_event(client))
+        self.block_on(octopusxt::subscribe_ibc_event(self.client.clone()))
     }
 
     /// get latest block height
     fn get_latest_height(&self) -> Result<u64> {
         tracing::trace!("in substrate: [get_latest_height]");
 
-        let client = self.get_client()?;
-
-        self.block_on(octopusxt::get_latest_height(client))
+        self.block_on(octopusxt::get_latest_height(self.client.clone()))
     }
 
     /// get connectionEnd by connection_identifier
     fn query_connection_end(&self, connection_identifier: &ConnectionId) -> Result<ConnectionEnd> {
         tracing::trace!("in substrate: [query_connection_end]");
 
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::query_connection_end(
             connection_identifier,
-            client,
+            self.client.clone(),
         ))
     }
 
@@ -209,9 +190,11 @@ impl SubstrateChain {
     fn query_channel_end(&self, port_id: &PortId, channel_id: &ChannelId) -> Result<ChannelEnd> {
         tracing::trace!("in substrate: [query_channel_end]");
 
-        let client = self.get_client()?;
-
-        self.block_on(octopusxt::query_channel_end(port_id, channel_id, client))
+        self.block_on(octopusxt::query_channel_end(
+            port_id,
+            channel_id,
+            self.client.clone(),
+        ))
     }
 
     /// get packet receipt by port_id, channel_id and sequence
@@ -223,10 +206,11 @@ impl SubstrateChain {
     ) -> Result<Receipt> {
         tracing::trace!("in substrate: [get_packet_receipt]");
 
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::get_packet_receipt(
-            port_id, channel_id, seq, client,
+            port_id,
+            channel_id,
+            seq,
+            self.client.clone(),
         ))
     }
 
@@ -239,10 +223,11 @@ impl SubstrateChain {
     ) -> Result<Packet> {
         tracing::trace!("in substrate: [get_send_packet_event]");
 
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::get_send_packet_event(
-            port_id, channel_id, seq, client,
+            port_id,
+            channel_id,
+            seq,
+            self.client.clone(),
         ))
     }
 
@@ -251,9 +236,10 @@ impl SubstrateChain {
     fn query_client_state(&self, client_id: &ClientId) -> Result<AnyClientState> {
         tracing::trace!("in substrate: [query_client_state]");
 
-        let client = self.get_client()?;
-
-        self.block_on(octopusxt::query_client_state(client_id, client))
+        self.block_on(octopusxt::query_client_state(
+            client_id,
+            self.client.clone(),
+        ))
     }
 
     // TODO(davirain) need add query height
@@ -266,12 +252,10 @@ impl SubstrateChain {
     ) -> Result<AnyConsensusState> {
         tracing::trace!("in substrate: [query_client_consensus]");
 
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::query_client_consensus(
             client_id,
             consensus_height,
-            client,
+            self.client.clone(),
         ))
     }
 
@@ -281,10 +265,9 @@ impl SubstrateChain {
     ) -> Result<Vec<(Height, AnyConsensusState)>> {
         tracing::trace!("in substrate: [get_consensus_state_with_height]");
 
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::get_consensus_state_with_height(
-            &client_id, client,
+            &client_id,
+            self.client.clone(),
         ))
     }
 
@@ -296,46 +279,36 @@ impl SubstrateChain {
     ) -> Result<Vec<u64>> {
         tracing::trace!("in substrate: [get_unreceipt_packet]");
 
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::get_unreceipt_packet(
             port_id,
             channel_id,
             sequences.to_vec(),
-            client,
+            self.client.clone(),
         ))
     }
 
     fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>> {
         tracing::trace!("in substrate: [get_clients]");
 
-        let client = self.get_client()?;
-
-        self.block_on(octopusxt::get_clients(client))
+        self.block_on(octopusxt::get_clients(self.client.clone()))
     }
 
     fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>> {
         tracing::trace!("in substrate: [get_connections]");
 
-        let client = self.get_client()?;
-
-        self.block_on(octopusxt::get_connections(client))
+        self.block_on(octopusxt::get_connections(self.client.clone()))
     }
 
     fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>> {
         tracing::trace!("in substrate: [get_channels]");
 
-        let client = self.get_client()?;
-
-        self.block_on(octopusxt::get_channels(client))
+        self.block_on(octopusxt::get_channels(self.client.clone()))
     }
 
     fn get_commitment_packet_state(&self) -> Result<Vec<PacketState>> {
         tracing::trace!("in substrate: [get_commitment_packet_state]");
 
-        let client = self.get_client()?;
-
-        self.block_on(octopusxt::get_commitment_packet_state(client))
+        self.block_on(octopusxt::get_commitment_packet_state(self.client.clone()))
     }
 
     /// get packet commitment by port_id, channel_id and sequence
@@ -347,28 +320,28 @@ impl SubstrateChain {
     ) -> Result<Vec<u8>> {
         tracing::trace!("in substrate: [get_packet_commitment]");
 
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::get_packet_commitment(
-            port_id, channel_id, sequence, client,
+            port_id,
+            channel_id,
+            sequence,
+            self.client.clone(),
         ))
     }
 
     fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>> {
         tracing::trace!("in substrate: [get_acknowledge_packet_state]");
 
-        let client = self.get_client()?;
-
-        self.block_on(octopusxt::get_acknowledge_packet_state(client))
+        self.block_on(octopusxt::get_acknowledge_packet_state(self.client.clone()))
     }
 
     /// get connection_identifier vector by client_identifier
     fn get_client_connections(&self, client_id: &ClientId) -> Result<Vec<ConnectionId>> {
         tracing::trace!("in substrate: [get_client_connections]");
 
-        let client = self.get_client()?;
-
-        self.block_on(octopusxt::get_client_connections(client_id, client))
+        self.block_on(octopusxt::get_client_connections(
+            client_id,
+            self.client.clone(),
+        ))
     }
 
     fn get_connection_channels(
@@ -377,9 +350,10 @@ impl SubstrateChain {
     ) -> Result<Vec<IdentifiedChannelEnd>> {
         tracing::trace!("in substrate: [get_connection_channels]");
 
-        let client = self.get_client()?;
-
-        self.block_on(octopusxt::get_connection_channels(connection_id, client))
+        self.block_on(octopusxt::get_connection_channels(
+            connection_id,
+            self.client.clone(),
+        ))
     }
 
     /// The function to submit IBC request to a Substrate chain
@@ -387,9 +361,7 @@ impl SubstrateChain {
     fn deliever(&self, msgs: Vec<Any>) -> Result<H256> {
         tracing::trace!("in substrate: [deliever]");
 
-        let client = self.get_client()?;
-
-        let result = self.block_on(octopusxt::deliver(msgs, client))?;
+        let result = self.block_on(octopusxt::deliver(msgs, self.client.clone()))?;
 
         Ok(result)
     }
@@ -397,9 +369,7 @@ impl SubstrateChain {
     fn raw_transfer(&self, msgs: Vec<Any>) -> Result<H256> {
         tracing::trace!("in substrate: [raw_transfer]");
 
-        let client = self.get_client()?;
-
-        let result = self.block_on(octopusxt::raw_transfer(msgs, client))?;
+        let result = self.block_on(octopusxt::raw_transfer(msgs, self.client.clone()))?;
 
         Ok(result)
     }
@@ -412,10 +382,11 @@ impl SubstrateChain {
     ) -> Result<WriteAcknowledgement> {
         tracing::trace!("in substrate: [get_send_packet_event]");
 
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::ibc_rpc::get_write_ack_packet_event(
-            port_id, channel_id, sequence, client,
+            port_id,
+            channel_id,
+            sequence,
+            self.client.clone(),
         ))
     }
 
@@ -478,11 +449,7 @@ impl SubstrateChain {
         <F as StorageEntry>::Value: Serialize + Debug,
     {
         let generate_storage_proof = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<MyConfig>()
-                .await
-                .map_err(|_| Error::substrate_client_builder_error())?;
+            let client = self.client.clone();
 
             let height = NumberOrHex::Number(height.revision_height());
 
@@ -564,10 +531,11 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         sequence: &Sequence,
     ) -> Result<Vec<u8>> {
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::ibc_rpc::get_packet_commitment(
-            port_id, channel_id, sequence, client,
+            port_id,
+            channel_id,
+            sequence,
+            self.client.clone(),
         ))
     }
 
@@ -577,10 +545,11 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         sequence: &Sequence,
     ) -> Result<Vec<u8>> {
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::ibc_rpc::get_packet_receipt_vec(
-            port_id, channel_id, sequence, client,
+            port_id,
+            channel_id,
+            sequence,
+            self.client.clone(),
         ))
     }
 
@@ -589,10 +558,10 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
     ) -> Result<Sequence> {
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::ibc_rpc::get_next_sequence_recv(
-            port_id, channel_id, client,
+            port_id,
+            channel_id,
+            self.client.clone(),
         ))
     }
 
@@ -602,10 +571,11 @@ impl SubstrateChain {
         channel_id: &ChannelId,
         sequence: &Sequence,
     ) -> Result<Vec<u8>> {
-        let client = self.get_client()?;
-
         self.block_on(octopusxt::ibc_rpc::get_packet_ack(
-            port_id, channel_id, sequence, client,
+            port_id,
+            channel_id,
+            sequence,
+            self.client.clone(),
         ))
     }
 }
@@ -626,7 +596,21 @@ impl ChainEndpoint for SubstrateChain {
         let keybase = KeyRing::new(config.key_store_type, &config.account_prefix, &config.id)
             .map_err(Error::key_base)?;
 
+        let client = async {
+            ClientBuilder::new()
+                .set_url(websocket_url.clone())
+                .build::<MyConfig>()
+                .await
+                .map_err(|_| Error::substrate_build_client())
+        };
+
+        let client = rt
+            .clone()
+            .block_on(client)
+            .map_err(|_| Error::substrate_build_client())?;
+
         let chain = Self {
+            client,
             config,
             websocket_url,
             rt,
@@ -643,11 +627,7 @@ impl ChainEndpoint for SubstrateChain {
         let config = self.config.clone();
 
         let public_key = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<MyConfig>()
-                .await
-                .map_err(|_| Error::substrate_client_builder_error())?;
+            let client = self.client.clone();
 
             let api =
                 client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
@@ -658,7 +638,9 @@ impl ChainEndpoint for SubstrateChain {
                 .authorities(None)
                 .await
                 .map_err(|_| Error::authorities())?;
+
             tracing::info!(target:"ibc-rs","authorities length : {:?}", authorities.len());
+
             let result: Vec<String> = authorities
                 .into_iter()
                 .map(|val| format!("0x{}", HexDisplay::from(&val.to_raw_vec())))
@@ -689,6 +671,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let (mut event_monitor, event_receiver, monitor_tx) = EventMonitor::new(
             self.config.id.clone(),
+            self.client.clone(),
             self.config.websocket_addr.clone(),
             rt,
         )
@@ -701,12 +684,6 @@ impl ChainEndpoint for SubstrateChain {
         Ok((event_receiver, monitor_tx))
     }
 
-    fn id(&self) -> &ChainId {
-        tracing::trace!("in substrate: [id]");
-
-        &self.config().id
-    }
-
     fn init_beefy_monitor(
         &self,
         rt: Arc<TokioRuntime>,
@@ -715,12 +692,10 @@ impl ChainEndpoint for SubstrateChain {
             "in substrate: [init_beefy_mointor] >> websocket addr: {:?}",
             self.config.websocket_addr.clone()
         );
-        println!(
-            "in substrate: [init_beefy_mointor] >> websocket addr: {:?}",
-            self.config.websocket_addr.clone()
-        );
+
         let (mut beefy_monitor, beefy_receiver, monitor_tx) = BeefyMonitor::new(
             self.config.id.clone(),
+            self.client.clone(),
             self.config.websocket_addr.clone(),
             rt,
         )
@@ -730,9 +705,14 @@ impl ChainEndpoint for SubstrateChain {
 
         thread::spawn(move || beefy_monitor.run());
         tracing::debug!("in substrate: [init_beefy_mointor] >> beefy monitor is running ...");
-        println!("in substrate: [init_beefy_mointor] >> beefy monitor is running ...");
 
         Ok((beefy_receiver, monitor_tx))
+    }
+
+    fn id(&self) -> &ChainId {
+        tracing::trace!("in substrate: [id]");
+
+        &self.config().id
     }
 
     fn shutdown(self) -> Result<(), Error> {
@@ -1663,11 +1643,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!(target:"ibc-rs","in substrate: [build_client_state]");
 
         let public_key = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<MyConfig>()
-                .await
-                .map_err(|_| Error::substrate_client_builder_error())?;
+            let client = self.client.clone();
 
             let api =
                 client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
@@ -1748,11 +1724,7 @@ impl ChainEndpoint for SubstrateChain {
 
         // build target height header
         let future = async {
-            let client = ClientBuilder::new()
-                .set_url(&self.websocket_url.clone())
-                .build::<MyConfig>()
-                .await
-                .map_err(|_| Error::substrate_client_builder_error())?;
+            let client = self.client.clone();
 
             //build mmr root
             let mmr_root = if target_height > mmr_root_height {
@@ -1911,12 +1883,6 @@ impl ChainEndpoint for SubstrateChain {
             tracing::trace!(target:"ibc-rs","in substrate [build_header] ---------------------test[end]-----------------------");
 
             //build timestamp
-            // let timestamp = octopusxt::ibc_rpc::get_timestamp(
-            //     Some(BlockNumber::from(target_height)),
-            //     client.clone(),
-            // )
-            // .await
-            // .map_err(|_| Error::get_timestamp())?;
             let timestamp = Time::from_unix_timestamp(0, 0).unwrap();
             tracing::trace!(target:"ibc-rs",
                 "in substrate: [build_header] >> timestamp = {:?}",
@@ -2018,28 +1984,18 @@ impl ChainEndpoint for SubstrateChain {
 /// send Update client state request
 pub async fn send_update_state_request(
     client: Client<MyConfig>,
-    pair_signer: PairSigner<MyConfig, sp_core::sr25519::Pair>,
+    pair_signer: PairSigner<MyConfig, sr25519::Pair>,
     chain_id: ChainId,
     client_id: ClientId,
     mmr_root: MmrRoot,
 ) -> Result<H256, Box<dyn std::error::Error>> {
     tracing::info!("in substrate: [send_update_state_request]");
-    println!("in substrate: [send_update_state_request]");
 
     let api = client
         .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
-    // let pair_signer = PairSigner::new(signer);
-    // let client_state_bytes = <commitment::SignedCommitment as codec::Encode>::encode(&client_state);
-
     let encode_client_id = client_id.as_bytes().to_vec();
     let encode_mmr_root = <MmrRoot as Encode>::encode(&mmr_root);
-    // println!("encode mmr root is {:?}", encode_mmr_root);
-
-    // // test
-    // let received_mmr_root = encode_mmr_root.clone();
-    // let decode_received_mmr_root = help::MmrRoot::decode(&mut &received_mmr_root[..]).unwrap();
-    // println!("decode mmr root is {:?}", decode_received_mmr_root);
 
     let result = api
         .tx()
@@ -2049,7 +2005,6 @@ pub async fn send_update_state_request(
         .await?;
 
     tracing::info!("update client state result: {:?}", result);
-    println!("{:?} update client state result: {:?}", chain_id, result);
 
     Ok(result)
 }

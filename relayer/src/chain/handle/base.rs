@@ -123,10 +123,6 @@ impl ChainHandle for BaseChainHandle {
 
     fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
         tracing::trace!("in base chain handle: [subscribe_beefy], send subcribe beefy request to substrate app chain !");
-        println!(
-            "in base chain handle: [subscribe_beefy], send subcribe beefy request to {:?} !",
-            self.id()
-        );
         self.send(|reply_to| ChainRequest::SubscribeBeefy { reply_to })
     }
 
@@ -505,11 +501,6 @@ impl ChainHandle for BaseChainHandle {
             self.id(),
             client_id,
             header
-        );
-        println!(
-            "in base chain handle: [update_mmr_root], chain_id = {:?},client_id = {:?} ",
-            self.id(),
-            client_id,
         );
         self.send(|reply_to| ChainRequest::UpdateMmrRoot {
             client_id,

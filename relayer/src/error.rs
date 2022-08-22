@@ -607,6 +607,9 @@ define_error! {
 
         Ics20Transfer
             | _ | { "ics 20 transfer error"},
+
+        SubstrateBuildClient
+            | _ | { "create substrate build client error" },
     }
 }
 

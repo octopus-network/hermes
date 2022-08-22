@@ -12,8 +12,7 @@ use ibc::{core::ics24_host::identifier::ChainId, events::IbcEvent};
 
 use ibc_relayer::{
     config::ChainConfig,
-    // event::monitor::{EventMonitor, EventReceiver},
-    event::substrate_mointor::{EventMonitor, EventReceiver},
+    event::monitor::{EventMonitor, EventReceiver},
 };
 
 use crate::prelude::*;
@@ -104,16 +103,16 @@ pub fn listen(
     let rt = Arc::new(TokioRuntime::new()?);
     let (event_monitor, rx) = subscribe(config, rt)?;
 
-    // info!(
-    //     "[{}] listening for queries {}",
-    //     config.id,
-    //     event_monitor.queries().iter().format(", "),
-    // );
+    info!(
+        "[{}] listening for queries {}",
+        config.id,
+        event_monitor.queries().iter().format(", "),
+    );
 
     thread::spawn(|| event_monitor.run());
 
     while let Ok(event_batch) = rx.recv() {
-        tracing::info!("in listen: [listen] event_batch {:?}", event_batch);
+        info!("in listen: [listen] event_batch {:?}", event_batch);
         match event_batch {
             Ok(batch) => {
                 let matching_events = batch
