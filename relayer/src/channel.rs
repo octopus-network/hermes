@@ -530,7 +530,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         let relayer_b_id = self.b_side.channel_id().cloned();
 
         // Continue loop if query error
-        std::thread::sleep(Duration::from_secs(6));
+        std::thread::sleep(Duration::from_secs(8));
         let a_channel = self.a_channel(relayer_a_id)?;
         let a_counterparty_id = a_channel.counterparty().channel_id();
 
@@ -550,7 +550,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         let updated_relayer_b_id = self.b_side.channel_id();
         // Continue loop if query error
-        std::thread::sleep(Duration::from_secs(6));
+        std::thread::sleep(Duration::from_secs(8));
         let b_channel = self.b_channel(updated_relayer_b_id)?;
         let b_counterparty_id = b_channel.counterparty().channel_id();
 
