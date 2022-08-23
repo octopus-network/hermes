@@ -155,7 +155,7 @@ pub fn spawn_update_mmr_root<ChainA: ChainHandle, ChainB: ChainHandle>(
     let handle = spawn_background_task(
         span!(
             tracing::Level::ERROR,
-            "DetectMisbehaviorWorker",
+            "UpdateMmrRootWorker",
             client = %client.id,
             src_chain = %client.src_chain.id(),
             dst_chain = %client.dst_chain.id(),

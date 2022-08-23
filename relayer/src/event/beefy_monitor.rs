@@ -365,7 +365,9 @@ impl BeefyMonitor {
         let signed_commmitment: commitment::SignedCommitment =
             Decode::decode(&mut &raw_sc.0[..]).unwrap();
         trace!(
-                "in beefy monitor: [build_header] decode signed commitment : {:?},", signed_commmitment);
+            "in beefy monitor: [build_header] decode signed commitment : {:?},",
+            signed_commmitment
+        );
         // get commitment
         let commitment::Commitment {
             payload,
@@ -373,7 +375,9 @@ impl BeefyMonitor {
             validator_set_id,
         } = signed_commmitment.commitment.clone();
         trace!(
-            "in beefy monitor: [build_header] new mmr root block_number : {:?},", block_number);
+            "in beefy monitor: [build_header] new mmr root block_number : {:?},",
+            block_number
+        );
         // build validator proof
         let validator_merkle_proofs: Vec<ValidatorMerkleProof> =
             octopusxt::update_client_state::build_validator_proof(
@@ -399,7 +403,8 @@ impl BeefyMonitor {
             .map_err(|_| RelayError::get_block_hash_error())?;
 
         trace!(
-            "in beefy monitor: [build_header] block_number:{:?} >> block_hash{:?}",block_number,
+            "in beefy monitor: [build_header] block_number:{:?} >> block_hash{:?}",
+            block_number,
             block_hash
         );
 
@@ -451,45 +456,45 @@ impl BeefyMonitor {
             timestamp
         );
 
-        //TODO: test verify mmr root and verify header
-        trace!("in beefy monitor: [build_header] ---------------------test[begin]-----------------------");
+        // //TODO: test verify mmr root and verify header
+        // trace!("in beefy monitor: [build_header] ---------------------test[begin]-----------------------");
 
-        // decode mmr leaf
-        let mmr_leaf: Vec<u8> = Decode::decode(&mut &mmr_root.mmr_leaf.clone()[..]).unwrap();
-        trace!("in beefy monitor: [build_header] mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
-        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*mmr_leaf).unwrap();
-        trace!("in beefy monitor: [build_header] mmr_leaf to data struct: {:?}",mmr_leaf);
+        // // decode mmr leaf
+        // let mmr_leaf: Vec<u8> = Decode::decode(&mut &mmr_root.mmr_leaf.clone()[..]).unwrap();
+        // trace!("in beefy monitor: [build_header] mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
+        // let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*mmr_leaf).unwrap();
+        // trace!("in beefy monitor: [build_header] mmr_leaf to data struct: {:?}",mmr_leaf);
 
-        // decode mmr leaf proof
-        let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(
-            &mut &mmr_root.mmr_leaf_proof.clone()[..],
-        )
-        .unwrap();
-        trace!("in beefy monitor: [build_header] block_header.block_number:{:?},mmr root heigh:{:?},mmr_leaf.parent_number:{:?},mmr_leaf_proof.leaf_index{:?},mmr_leaf_proof.leaf_count: {:?}",block_header.block_number,block_number,mmr_leaf.parent_number_and_hash.0,mmr_leaf_proof.leaf_index, mmr_leaf_proof.leaf_count);
+        // // decode mmr leaf proof
+        // let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(
+        //     &mut &mmr_root.mmr_leaf_proof.clone()[..],
+        // )
+        // .unwrap();
+        // trace!("in beefy monitor: [build_header] block_header.block_number:{:?},mmr root heigh:{:?},mmr_leaf.parent_number:{:?},mmr_leaf_proof.leaf_index{:?},mmr_leaf_proof.leaf_count: {:?}",block_header.block_number,block_number,mmr_leaf.parent_number_and_hash.0,mmr_leaf_proof.leaf_index, mmr_leaf_proof.leaf_count);
 
-        // log mmr leaf
-        trace!("in beefy monitor: [build_header] block_header.parent_hash: {:?}",block_header.parent_hash);
-        trace!("in beefy monitor: [build_header] mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
+        // // log mmr leaf
+        // trace!("in beefy monitor: [build_header] block_header.parent_hash: {:?}",block_header.parent_hash);
+        // trace!("in beefy monitor: [build_header] mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
 
-        // verfiy block header
-        if block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
-            trace!("in beefy monitor: [build_header] header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec()");
-        } else {
-            trace!("in beefy monitor: [build_header] header.block_header.parent_hash == mmr_leaf.parent_number_and_hash.1.to_vec()");
-        }
+        // // verfiy block header
+        // if block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
+        //     trace!("in beefy monitor: [build_header] header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec()");
+        // } else {
+        //     trace!("in beefy monitor: [build_header] header.block_header.parent_hash == mmr_leaf.parent_number_and_hash.1.to_vec()");
+        // }
 
-        let beefy_header =
-            beefy_light_client::header::Header::try_from(block_header.clone()).unwrap();
-        let header_hash = beefy_header.hash();
-        trace!("in beefy monitor: [build_header] header_hash: {:?}",header_hash);
-        trace!("in beefy monitor: [build_header] mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
-        if header_hash != mmr_leaf.parent_number_and_hash.1 {
-            trace!("in beefy monitor: [build_header] header_hash != mmr_leaf.parent_number_and_hash.1");
-        } else {
-            trace!("in beefy monitor: [build_header] header_hash == mmr_leaf.parent_number_and_hash.1");
-        }
+        // let beefy_header =
+        //     beefy_light_client::header::Header::try_from(block_header.clone()).unwrap();
+        // let header_hash = beefy_header.hash();
+        // trace!("in beefy monitor: [build_header] header_hash: {:?}",header_hash);
+        // trace!("in beefy monitor: [build_header] mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
+        // if header_hash != mmr_leaf.parent_number_and_hash.1 {
+        //     trace!("in beefy monitor: [build_header] header_hash != mmr_leaf.parent_number_and_hash.1");
+        // } else {
+        //     trace!("in beefy monitor: [build_header] header_hash == mmr_leaf.parent_number_and_hash.1");
+        // }
 
-        trace!("in beefy monitor: [build_header] ---------------------test[end]-----------------------");
+        // trace!("in beefy monitor: [build_header] ---------------------test[end]-----------------------");
 
         // build header
         let grandpa_header = Header {

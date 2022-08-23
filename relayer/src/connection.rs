@@ -507,7 +507,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let relayer_b_id = self.b_side.connection_id().cloned();
 
         // Continue loop if query error
-        std::thread::sleep(Duration::from_secs(8));
+        std::thread::sleep(Duration::from_secs(12));
         let a_connection = self.a_connection(relayer_a_id)?;
         let a_counterparty_id = a_connection.counterparty().connection_id();
 
@@ -527,7 +527,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         let updated_relayer_b_id = self.b_side.connection_id();
         // Continue loop if query error
-        std::thread::sleep(Duration::from_secs(8));
+        // std::thread::sleep(Duration::from_secs(12));
         let b_connection = self.b_connection(updated_relayer_b_id)?;
         let b_counterparty_id = b_connection.counterparty().connection_id();
 
@@ -653,7 +653,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
     /// Executes the connection handshake protocol (ICS003)
     fn handshake(&mut self) -> Result<(), ConnectionError> {
         let max_block_times = self.max_block_times()?;
-
+        info!(
+            "connection handshake max_block_times: {:#?}\n",
+            max_block_times
+        );
         retry_with_index(handshake_retry::default_strategy(max_block_times), |_| {
             if let Err(e) = self.do_conn_open_handshake() {
                 if e.is_expired_or_frozen_error() {

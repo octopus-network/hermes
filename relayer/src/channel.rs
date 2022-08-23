@@ -530,7 +530,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         let relayer_b_id = self.b_side.channel_id().cloned();
 
         // Continue loop if query error
-        std::thread::sleep(Duration::from_secs(8));
+        std::thread::sleep(Duration::from_secs(12));
         let a_channel = self.a_channel(relayer_a_id)?;
         let a_counterparty_id = a_channel.counterparty().channel_id();
 
@@ -550,7 +550,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         let updated_relayer_b_id = self.b_side.channel_id();
         // Continue loop if query error
-        std::thread::sleep(Duration::from_secs(8));
+        // std::thread::sleep(Duration::from_secs(12));
         let b_channel = self.b_channel(updated_relayer_b_id)?;
         let b_counterparty_id = b_channel.counterparty().channel_id();
 
@@ -681,7 +681,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
     /// Executes the channel handshake protocol (ICS004)
     fn handshake(&mut self) -> Result<(), ChannelError> {
         let max_block_times = self.max_block_times()?;
-
+        info!(
+            "channel handshake max_block_times: {:#?}\n",
+            max_block_times
+        );
         retry_with_index(handshake_retry::default_strategy(max_block_times), |_| {
             if let Err(e) = self.do_chan_open_handshake() {
                 if e.is_expired_or_frozen_error() {
@@ -1209,7 +1212,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         // Build message(s) to update client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
-     
+
         // Get signer
         let signer = self
             .dst_chain()

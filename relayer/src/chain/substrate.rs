@@ -7,7 +7,7 @@ use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd}
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::light_client::grandpa::LightClient as GPLightClient;
 use crate::util::retry::{retry_with_index, RetryResult};
-use tracing::{debug, error, info, warn, trace};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::chain::endpoint::ChainEndpoint;
 use crate::chain::endpoint::ChainStatus;
@@ -865,12 +865,12 @@ impl ChainEndpoint for SubstrateChain {
             .keybase()
             .get_key(&self.config.key_name)
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
-        
+
         let private_seed = key.mnemonic;
 
         let (pair, _seed) = sr25519::Pair::from_phrase(&private_seed, None).unwrap();
         let public_key = pair.public();
-        
+
         let account_id = format_account_id::<sr25519::Pair>(public_key);
         let account = AccountId32::from_str(&account_id).unwrap();
         let encode_account = AccountId32::encode(&account);
@@ -1131,6 +1131,7 @@ impl ChainEndpoint for SubstrateChain {
         include_proof: IncludeProof,
     ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_connection]");
+        // sleep(Duration::from_secs(6));
 
         let QueryConnectionRequest {
             connection_id,
@@ -1205,6 +1206,8 @@ impl ChainEndpoint for SubstrateChain {
         include_proof: IncludeProof,
     ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
         tracing::trace!("in substrate: [query_channel]");
+
+        // sleep(Duration::from_secs(6));
 
         let QueryChannelRequest {
             port_id,
@@ -1681,7 +1684,10 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
-        tracing::trace!("in substrate: [build_consensus_state] light_block:{:?}", light_block);
+        tracing::trace!(
+            "in substrate: [build_consensus_state] light_block:{:?}",
+            light_block
+        );
         //build consensus state from header
         let commitment = light_block.mmr_root.signed_commitment.commitment.unwrap();
         let state_root = CommitmentRoot::from_bytes(&light_block.block_header.state_root);
@@ -1740,7 +1746,9 @@ impl ChainEndpoint for SubstrateChain {
                 let signed_commmitment: beefy_light_client::commitment::SignedCommitment =
                     Decode::decode(&mut &raw_signed_commitment.0[..]).unwrap();
                 tracing::trace!(
-                    "in substrate [build_header] decode signed commitment : {:?},", signed_commmitment);
+                    "in substrate [build_header] decode signed commitment : {:?},",
+                    signed_commmitment
+                );
                 // get commitment
                 let beefy_light_client::commitment::Commitment {
                     payload,
@@ -1748,7 +1756,9 @@ impl ChainEndpoint for SubstrateChain {
                     validator_set_id,
                 } = signed_commmitment.commitment.clone();
                 tracing::trace!(
-                "in substrate [build_header] new mmr root block_number : {:?},", block_number);
+                    "in substrate [build_header] new mmr root block_number : {:?},",
+                    block_number
+                );
                 // build validator proof
                 let validator_merkle_proofs: Vec<ValidatorMerkleProof> =
                     octopusxt::update_client_state::build_validator_proof(
@@ -1841,45 +1851,48 @@ impl ChainEndpoint for SubstrateChain {
             .await
             .map_err(|_| Error::get_header_by_block_number_error())?;
             // let block_header = block_header.unwrap();
-            tracing::trace!("in substrate [build_header] block_header: {:?}",block_header);
+            tracing::trace!(
+                "in substrate [build_header] block_header: {:?}",
+                block_header
+            );
 
-            //TODO:[test] log mmr leaf
-            tracing::trace!("in substrate [build_header] ---------------------test[begin]-----------------------");
-            let mmr_leaf: Vec<u8> = Decode::decode(&mut &mmr_root.mmr_leaf.clone()[..]).unwrap();
-            tracing::trace!("in substrate [build_header] test_mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
-            let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
-                Decode::decode(&mut &*mmr_leaf).unwrap();
-            tracing::trace!("in substrate [build_header] test_mmr_leaf to data struct: {:?}",mmr_leaf);
+            // //TODO:[test] log mmr leaf
+            // tracing::trace!("in substrate [build_header] ---------------------test[begin]-----------------------");
+            // let mmr_leaf: Vec<u8> = Decode::decode(&mut &mmr_root.mmr_leaf.clone()[..]).unwrap();
+            // tracing::trace!("in substrate [build_header] test_mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
+            // let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
+            //     Decode::decode(&mut &*mmr_leaf).unwrap();
+            // tracing::trace!("in substrate [build_header] test_mmr_leaf to data struct: {:?}",mmr_leaf);
 
-            //TODO:[test] log mmr leaf proof
-            let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(
-                &mut &mmr_root.mmr_leaf_proof.clone()[..],
-            )
-            .unwrap();
-            tracing::trace!("in substrate [build_header]  block_header.block_number:{:?},mmr root heigh:{:?},mmr_leaf.parent_number:{:?},mmr_leaf_proof.leaf_index{:?},mmr_leaf_proof.leaf_count: {:?}",block_header.block_number,block_number,mmr_leaf.parent_number_and_hash.0,mmr_leaf_proof.leaf_index, mmr_leaf_proof.leaf_count);
+            // //TODO:[test] log mmr leaf proof
+            // let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(
+            //     &mut &mmr_root.mmr_leaf_proof.clone()[..],
+            // )
+            // .unwrap();
+            // tracing::trace!("in substrate [build_header]  block_header.block_number:{:?},mmr root heigh:{:?},mmr_leaf.parent_number:{:?},mmr_leaf_proof.leaf_index{:?},mmr_leaf_proof.leaf_count: {:?}",block_header.block_number,block_number,mmr_leaf.parent_number_and_hash.0,mmr_leaf_proof.leaf_index, mmr_leaf_proof.leaf_count);
 
-            // log mmr leaf
-            tracing::trace!("in substrate [build_header] block_header.parent_hash: {:?}",block_header.parent_hash);
-            tracing::trace!("in substrate [build_header] mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
-            // verfiy block header
-            if block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
-                tracing::trace!("in substrate [build_header] header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec()");
-            } else {
-                tracing::trace!("in substrate [build_header] header.block_header.parent_hash == mmr_leaf.parent_number_and_hash.1.to_vec()");
-            }
+            // // log mmr leaf
+            // tracing::trace!("in substrate [build_header] block_header.parent_hash: {:?}",block_header.parent_hash);
+            // tracing::trace!("in substrate [build_header] mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
+            // // verfiy block header
+            // if block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
+            //     tracing::trace!("in substrate [build_header] header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec()");
+            // } else {
+            //     tracing::trace!("in substrate [build_header] header.block_header.parent_hash == mmr_leaf.parent_number_and_hash.1.to_vec()");
+            // }
 
-            let beefy_header =
-                beefy_light_client::header::Header::try_from(block_header.clone()).unwrap();
-            let header_hash = beefy_header.hash();
-            tracing::trace!("in substrate [build_header] header_hash: {:?}",header_hash);
-            tracing::trace!("in substrate [build_header] mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
-            if header_hash != mmr_leaf.parent_number_and_hash.1 {
-                tracing::trace!("in substrate [build_header] header_hash != mmr_leaf.parent_number_and_hash.1");
-            } else {
-                tracing::trace!("in substrate [build_header]header_hash == mmr_leaf.parent_number_and_hash.1");
-            }
+            // let beefy_header =
+            //     beefy_light_client::header::Header::try_from(block_header.clone()).unwrap();
+            // let header_hash = beefy_header.hash();
+            // tracing::trace!("in substrate [build_header] header_hash: {:?}",header_hash);
+            // tracing::trace!("in substrate [build_header] mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
+            // if header_hash != mmr_leaf.parent_number_and_hash.1 {
+            //     tracing::trace!("in substrate [build_header] header_hash != mmr_leaf.parent_number_and_hash.1");
+            // } else {
+            //     tracing::trace!("in substrate [build_header]header_hash == mmr_leaf.parent_number_and_hash.1");
+            // }
 
-            tracing::trace!("in substrate [build_header] ---------------------test[end]-----------------------");
+            // tracing::trace!("in substrate [build_header] ---------------------test[end]-----------------------");
 
             //build timestamp
             let timestamp = Time::from_unix_timestamp(0, 0).unwrap();
@@ -1915,10 +1928,7 @@ impl ChainEndpoint for SubstrateChain {
 
     /// add new api update_mmr_root
     fn update_mmr_root(&mut self, client_id: ClientId, header: GPHeader) -> Result<(), Error> {
-        tracing::trace!(
-            "[update_mmr_root] client_id = {:?} ",
-            client_id,
-        );
+        tracing::trace!("[update_mmr_root] client_id = {:?} ", client_id,);
 
         let MmrRoot {
             signed_commitment,
@@ -1971,10 +1981,10 @@ impl ChainEndpoint for SubstrateChain {
         );
 
         let tm = TrackedMsgs::new_static(msgs, "update client");
-        tracing::trace!("in substrate: [update_mmr_root] >> msgs = {:?}",tm);
+        tracing::trace!("in substrate: [update_mmr_root] >> msgs = {:?}", tm);
 
         let events = self.send_messages_and_wait_commit(tm);
-        tracing::trace!( "in substrate: [update_mmr_root] >> events = {:?}",events);
+        tracing::trace!("in substrate: [update_mmr_root] >> events = {:?}", events);
 
         Ok(())
     }
