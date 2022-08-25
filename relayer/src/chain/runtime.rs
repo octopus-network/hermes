@@ -154,9 +154,6 @@ pub struct ChainRuntime<Endpoint: ChainEndpoint> {
     /// Interface to the event monitor
     beefy_monitor_ctrl: BeefyMonitorCtrl,
 
-    /// A handle to the light client
-    light_client: Endpoint::LightClient,
-
     #[allow(dead_code)]
     rt: Arc<TokioRuntime>, // Making this future-proof, so we keep the runtime around.
 }
@@ -213,7 +210,6 @@ where
             event_monitor_ctrl: EventMonitorCtrl::none(),
             beefy_bus: EventBus::new(),
             beefy_monitor_ctrl: BeefyMonitorCtrl::none(),
-            light_client,
         }
     }
 

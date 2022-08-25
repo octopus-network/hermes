@@ -33,6 +33,7 @@ use crate::{
     worker::WorkerCmd,
     worker::WorkerMap,
 };
+use crate::event::IbcEventWithHeight;
 
 pub mod client_state_filter;
 use client_state_filter::{FilterPolicy, Permission};

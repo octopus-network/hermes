@@ -1575,7 +1575,7 @@ impl ChainEndpoint for CosmosSdkChain {
             .block_on(rpc_call)
             .map_err(|e| Error::rpc(self.config.rpc_addr.clone(), e))?;
 
-        Ok(AnyConsensusState::Tendermint(response.block.header.into()))
+        Ok(response.block.header.into())
     }
 
     fn build_client_state(
@@ -1608,7 +1608,7 @@ impl ChainEndpoint for CosmosSdkChain {
         )
         .map_err(Error::ics07)?;
 
-        Ok(AnyClientState::Tendermint(client_state))
+        Ok(client_state)
     }
 
     fn build_consensus_state(
@@ -1617,9 +1617,9 @@ impl ChainEndpoint for CosmosSdkChain {
     ) -> Result<Self::ConsensusState, Error> {
         crate::time!("build_consensus_state");
 
-        Ok(AnyConsensusState::Tendermint(TMConsensusState::from(
+        Ok(TMConsensusState::from(
             light_block.signed_header.header,
-        )))
+        ))
     }
 
     fn build_header(

@@ -63,6 +63,7 @@ use super::{
 };
 
 use subxt::SignedCommitment;
+use crate::event::beefy_monitor::BeefyResult;
 
 mod base;
 mod cache;

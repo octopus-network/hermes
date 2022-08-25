@@ -64,7 +64,7 @@ uuid = { version = "1.1.2", features = ["v4"] }
 
 
 jsonrpsee = { version = "0.14", features = ["macros", "ws-client", "http-client"] }
-octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "dev" }
+octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/davi-merge-ibc" }
 # octopusxt = { path = "../../octopusxt/module" }
 
 subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'master' }

@@ -103,8 +103,6 @@ pub trait ChainEndpoint: Sized {
         rt: Arc<TokioRuntime>,
     ) -> Result<(BeefyReceiver, TxMonitorCmd), Error>;
 
-    /// Returns the chain's identifier
-    fn id(&self) -> &ChainId;
 
     /// Shutdown the chain runtime
     fn shutdown(self) -> Result<(), Error>;

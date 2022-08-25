@@ -1,6 +1,7 @@
 use super::client::ClientSettings;
 use crate::config::ChainConfig;
 use crate::error::Error;
+use crate::event::IbcEventWithHeight;
 // use crate::event::monitor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver};
 use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd};
@@ -164,10 +165,15 @@ impl SubstrateChain {
     }
 
     /// Subscribe Events
-    fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>> {
+    fn subscribe_ibc_events(&self) -> Result<Vec<IbcEventWithHeight>> {
         tracing::trace!("in substrate: [subscribe_ibc_events]");
 
-        self.block_on(octopusxt::subscribe_ibc_event(self.client.clone()))
+        let ret = self.block_on(octopusxt::subscribe_ibc_event(self.client.clone()))?;
+
+        Ok(ret.iter().map(|value| IbcEventWithHeight {
+            event: value.clone(),
+            height: Height::new(888, 888).expect("faild")
+        }).collect())
     }
 
     /// get latest block height
@@ -394,7 +400,7 @@ impl SubstrateChain {
     fn get_ibc_send_packet_event(
         &self,
         request: QueryPacketEventDataRequest,
-    ) -> Result<Vec<IbcEvent>, Error> {
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
         let mut result_event = vec![];
 
         for sequence in &request.sequences {
@@ -406,21 +412,18 @@ impl SubstrateChain {
                 )
                 .map_err(|e| Error::get_send_packet_event_error(e.to_string()))?;
 
-            result_event.push(IbcEvent::SendPacket(SendPacket {
-                height: match request.height {
-                    QueryHeight::Latest => unimplemented!(),
-                    QueryHeight::Specific(value) => value,
-                },
+            result_event.push(IbcEventWithHeight{ event: IbcEvent::SendPacket(SendPacket {
                 packet,
-            }));
+            }), height: Height::new(888, 888).expect("faild")});
         }
+
         Ok(result_event)
     }
 
     fn get_ibc_write_acknowledgement_event(
         &self,
         request: QueryPacketEventDataRequest,
-    ) -> Result<Vec<IbcEvent>, Error> {
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
         let mut result_event = vec![];
 
         for sequence in &request.sequences {
@@ -432,7 +435,7 @@ impl SubstrateChain {
                 )
                 .map_err(|_| Error::get_write_ack_packet_event_error())?;
 
-            result_event.push(IbcEvent::WriteAcknowledgement(write_ack));
+            result_event.push(IbcEventWithHeight{ event: IbcEvent::WriteAcknowledgement(write_ack), height: Height::new(888, 8888).expect("faild")});
         }
 
         Ok(result_event)
@@ -586,8 +589,7 @@ impl ChainEndpoint for SubstrateChain {
     type Header = GPHeader;
     type ConsensusState = AnyConsensusState;
     type ClientState = AnyClientState;
-    type LightClient = GPLightClient;
-
+    
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
         tracing::info!("in Substrate: [bootstrap function]");
 
@@ -619,46 +621,6 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         Ok(chain)
-    }
-
-    fn init_light_client(&self) -> Result<Self::LightClient, Error> {
-        tracing::debug!("in substrate: [init_light_client]");
-        use subxt::sp_core::Public;
-
-        let config = self.config.clone();
-
-        let public_key = async {
-            let client = self.client.clone();
-
-            let api =
-                client.to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-
-            let authorities = api
-                .storage()
-                .beefy()
-                .authorities(None)
-                .await
-                .map_err(|_| Error::authorities())?;
-
-            tracing::info!("authorities length : {:?}", authorities.len());
-
-            let result: Vec<String> = authorities
-                .into_iter()
-                .map(|val| format!("0x{}", HexDisplay::from(&val.to_raw_vec())))
-                .collect();
-            tracing::info!("authorities member: {:?}", result);
-            Ok(result)
-        };
-        let public_key = self.block_on(public_key)?;
-
-        let initial_public_keys = public_key;
-        let light_client = GPLightClient::from_config(
-            &config,
-            self.websocket_url.clone(),
-            self.rt.clone(),
-            initial_public_keys,
-        );
-        Ok(light_client)
     }
 
     fn init_event_monitor(
@@ -739,7 +701,7 @@ impl ChainEndpoint for SubstrateChain {
     fn send_messages_and_wait_commit(
         &mut self,
         proto_msgs: TrackedMsgs,
-    ) -> Result<Vec<IbcEvent>, Error> {
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
         info!(
             "in substrate: [send_messages_and_wait_commit], proto_msgs={:?}",
             proto_msgs.tracking_id
@@ -778,6 +740,7 @@ impl ChainEndpoint for SubstrateChain {
                     );
                 }
             },
+            TrackingId::ClearedUuid(_) => todo!(),
         }
 
         let ibc_event = self
@@ -829,6 +792,7 @@ impl ChainEndpoint for SubstrateChain {
                     );
                 }
             },
+            TrackingId::ClearedUuid(_) => todo!(),
         }
 
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
@@ -1556,13 +1520,13 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error> {
+    fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
         tracing::trace!("in substrate: [query_txs]");
 
         match request {
             // Todo: Related to https://github.com/octopus-network/ibc-rs/issues/88
             QueryTxRequest::Packet(request) => {
-                let mut result: Vec<IbcEvent> = vec![];
+                let mut result: Vec<IbcEventWithHeight> = vec![];
                 if request.sequences.is_empty() {
                     return Ok(result);
                 }
@@ -1589,23 +1553,15 @@ impl ChainEndpoint for SubstrateChain {
 
                 // Todo: the client event below is mock
                 // replace it with real client event replied from a Substrate chain
-                let result: Vec<IbcEvent> = vec![IbcEvent::UpdateClient(
+                let result: Vec<IbcEventWithHeight> = vec![IbcEventWithHeight {
+                    event: IbcEvent::UpdateClient(
                     ibc::core::ics02_client::events::UpdateClient::from(Attributes {
-                        height: match request.query_height {
-                            QueryHeight::Latest => {
-                                let height = self
-                                    .get_latest_height()
-                                    .map_err(|_| Error::query_latest_height())?;
-                                Height::new(REVISION_NUMBER, height)
-                                    .expect(&REVISION_NUMBER.to_string())
-                            }
-                            QueryHeight::Specific(value) => value.clone(),
-                        },
                         client_id: request.client_id,
                         client_type: ClientType::Grandpa,
                         consensus_height: request.consensus_height,
-                    }),
-                )];
+                    })),
+                    height: Height::new(REVISION_NUMBER, 8888).expect("failed"),
+                }];
 
                 Ok(result)
             }
@@ -1613,7 +1569,7 @@ impl ChainEndpoint for SubstrateChain {
             QueryTxRequest::Transaction(_tx) => {
                 // tracing::trace!("in substrate: [query_txs]: Transaction: {:?}", tx);
                 // Todo: https://github.com/octopus-network/ibc-rs/issues/98
-                let result: Vec<IbcEvent> = vec![];
+                let result: Vec<IbcEventWithHeight> = vec![];
                 Ok(result)
             }
         }
@@ -1696,11 +1652,10 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn build_header(
-        &self,
+        &mut self,
         trusted_height: ICSHeight,
         target_height: ICSHeight,
         client_state: &AnyClientState,
-        _light_client: &mut Self::LightClient,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         tracing::trace!("in substrate [build_header]");
 
@@ -1949,6 +1904,23 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!("in substrate: [update_mmr_root] >> events = {:?}", events);
 
         Ok(())
+    }
+
+    fn verify_header(
+        &mut self,
+        trusted: ICSHeight,
+        target: ICSHeight,
+        client_state: &AnyClientState,
+    ) -> Result<Self::LightBlock, Error> {
+        todo!()
+    }
+
+    fn check_misbehaviour(
+        &mut self,
+        update: &ibc::core::ics02_client::events::UpdateClient,
+        client_state: &AnyClientState,
+    ) -> Result<Option<ibc::core::ics02_client::misbehaviour::MisbehaviourEvidence>, Error> {
+        todo!()
     }
 }
 

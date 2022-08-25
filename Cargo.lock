@@ -3131,7 +3131,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=dev#fa06dce0c68ac55d348bcacaaaea99639e00d9b1"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/davi-merge-ibc#cf7041f0734fe2ba0aa95135d7fe90990a142607"
 dependencies = [
  "anyhow",
  "beefy-light-client",
