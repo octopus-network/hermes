@@ -160,7 +160,7 @@ pub fn get_all_events(
                         && event_is_type_channel(&ibc_event)
                     {
                         let _span = tracing::trace_span!("ibc_channel event").entered();
-                       
+
                         if matches!(ibc_event, IbcEvent::SendPacket(_)) {
                             // Should be the same as the hash of tx_result.tx?
                             if let Some(hash) =

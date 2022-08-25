@@ -15,7 +15,6 @@ pub(crate) fn process(
     ctx: &dyn ChannelReader,
     msg: &MsgChannelOpenConfirm,
 ) -> HandlerResult<ChannelResult, Error> {
-    
     let mut output = HandlerOutput::builder();
 
     // Unwrap the old channel end and validate it against the message.
@@ -87,7 +86,7 @@ pub(crate) fn process(
         channel_id_state: ChannelIdState::Reused,
         channel_end: channel_end.clone(),
     };
-    
+
     let event_attributes = Attributes {
         channel_id: Some(msg.channel_id.clone()),
         port_id: msg.port_id.clone(),
@@ -98,7 +97,7 @@ pub(crate) fn process(
             .try_into()
             .map_err(|_| Error::missing_channel_id())?,
     ));
-    
+
     Ok(output.with_result(result))
 }
 

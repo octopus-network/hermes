@@ -215,7 +215,7 @@ impl ClientDef for TendermintClient {
             epoch: consensus_height.revision_number(),
             height: consensus_height.revision_height(),
         };
-        
+
         let value = expected_consensus_state
             .encode_vec()
             .map_err(Ics02Error::invalid_any_consensus_state)?;
@@ -235,7 +235,7 @@ impl ClientDef for TendermintClient {
         client_state.verify_height(height)?;
 
         let path = ConnectionsPath(connection_id.clone());
-        
+
         let value = expected_connection_end
             .encode_vec()
             .map_err(Ics02Error::invalid_connection_end)?;

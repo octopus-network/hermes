@@ -35,10 +35,9 @@ impl<Chain: ChainHandle> ChainHandlePair<Chain> {
         src_chain_id: &ChainId,
         dst_chain_id: &ChainId,
     ) -> Result<Self, Error> {
-        
         let src = spawn_chain_runtime_generic(config, src_chain_id)?;
         let dst = spawn_chain_runtime_generic(config, dst_chain_id)?;
-        
+
         Ok(ChainHandlePair { src, dst })
     }
 }

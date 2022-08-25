@@ -1028,8 +1028,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             )
             .map_err(ConnectionError::connection_proof)?;
 
-       
-
         // Build message(s) for updating client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
 
@@ -1093,7 +1091,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .dst_chain()
             .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.dst_chain().id(), e))?;
-       
 
         // Find the relevant event for connection try transaction
         let result = events
@@ -1103,7 +1100,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                     || matches!(event_with_height.event, IbcEvent::ChainError(_))
             })
             .ok_or_else(ConnectionError::missing_connection_try_event)?;
-        
 
         match &result.event {
             IbcEvent::OpenTryConnection(_) => {

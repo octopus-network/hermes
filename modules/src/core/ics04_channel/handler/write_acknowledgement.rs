@@ -24,7 +24,6 @@ pub fn process(
     packet: Packet,
     ack: Acknowledgement,
 ) -> HandlerResult<PacketResult, Error> {
-    
     let mut output = HandlerOutput::builder();
 
     let dest_channel_end = ctx.channel_end(&(
@@ -63,14 +62,14 @@ pub fn process(
         seq: packet.sequence,
         ack_commitment: ctx.ack_commitment(ack.clone()),
     });
-    
+
     output.log("success: packet write acknowledgement");
 
     output.emit(IbcEvent::WriteAcknowledgement(WriteAcknowledgement {
         packet,
         ack: ack.into(),
     }));
-    
+
     Ok(output.with_result(result))
 }
 

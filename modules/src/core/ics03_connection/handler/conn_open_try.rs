@@ -18,7 +18,6 @@ pub(crate) fn process(
     ctx: &dyn ConnectionReader,
     msg: MsgConnectionOpenTry,
 ) -> HandlerResult<ConnectionResult, Error> {
-    
     let mut output = HandlerOutput::builder();
 
     // If a consensus proof is present, check that the consensus height (for
@@ -81,7 +80,7 @@ pub(crate) fn process(
         msg.counterparty_versions.clone(),
         msg.delay_period,
     );
-   
+
     // 2. Pass the details to the verification function.
     verify_proofs(
         ctx,

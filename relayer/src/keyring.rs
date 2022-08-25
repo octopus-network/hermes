@@ -192,7 +192,6 @@ impl KeyStore for Test {
             )
         })?;
 
-    
         let key_entry = serde_json::from_reader(file)
             .map_err(|e| Error::key_file_decode(format!("{}", key_file.display()), e))?;
 
@@ -290,7 +289,6 @@ impl KeyRing {
     }
 
     pub fn get_key(&self, key_name: &str) -> Result<KeyEntry, Error> {
-        
         match self {
             KeyRing::Memory(m) => m.get_key(key_name),
             KeyRing::Test(d) => d.get_key(key_name),

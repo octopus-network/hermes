@@ -372,7 +372,6 @@ impl ChainHandle for BaseChainHandle {
         client_id: &ClientId,
         height: Height,
     ) -> Result<(Option<AnyClientState>, Proofs), Error> {
-        
         self.send(
             |reply_to| ChainRequest::BuildConnectionProofsAndClientState {
                 message_type,
@@ -495,7 +494,6 @@ impl ChainHandle for BaseChainHandle {
         self.send(|reply_to| ChainRequest::WebSocketUrl { reply_to })
     }
     fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
-       
         self.send(|reply_to| ChainRequest::UpdateMmrRoot {
             client_id,
             header,

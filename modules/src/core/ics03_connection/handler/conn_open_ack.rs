@@ -85,7 +85,7 @@ pub(crate) fn process(
         connection_id_state: ConnectionIdState::Reused,
         connection_end: conn_end.clone(),
     };
-    
+
     let event_attributes = Attributes {
         connection_id: Some(msg.connection_id),
         client_id: conn_end.client_id().clone(),

@@ -381,7 +381,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         dst_chain: DstChain,
         src_chain: SrcChain,
     ) -> Result<ForeignClient<DstChain, SrcChain>, ForeignClientError> {
-        
         // Sanity check
         if src_chain.id().eq(&dst_chain.id()) {
             return Err(ForeignClientError::same_chain_id(src_chain.id()));
@@ -392,7 +391,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             dst_chain,
             src_chain,
         };
-        
+
         client.create()?;
 
         Ok(client)
@@ -621,7 +620,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })?
             .wrap_any();
-       
 
         let consensus_state = self
             .src_chain
@@ -639,13 +637,9 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             })?
             .wrap_any();
 
-        
-
         //TODO Get acct_prefix
         let msg = MsgCreateAnyClient::new(client_state, consensus_state, signer)
             .map_err(ForeignClientError::client)?;
-
-       
 
         Ok(msg)
     }
@@ -943,13 +937,13 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 e,
             )
         })?;
-        
+
         if header.timestamp().after(&ts_adjusted) {
             // Header would be considered in the future, wait for destination chain to
             // advance to the next height.
             warn!("[{}] src header {} is after dst latest header {} + client state drift {:?}, wait for next height on {}",
                    self, header.timestamp(), status.timestamp, client_state.max_clock_drift(), self.dst_chain().id());
-            
+
             let target_dst_height = status.height.increment();
             loop {
                 thread::sleep(Duration::from_millis(300));
@@ -1029,7 +1023,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
     ) -> Result<Vec<Any>, ForeignClientError> {
         // Get the latest client state on destination.
         let (client_state, _) = self.validated_client_state()?;
-        
+
         let trusted_height = match maybe_trusted_height {
             Some(trusted_height) => {
                 self.validate_trusted_height(trusted_height, &client_state)?;
@@ -1069,7 +1063,9 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             );
             trace!(
                 "[{}] skipping update: trusted height ({}) >= chain target height ({})",
-                self, trusted_height, target_height
+                self,
+                trusted_height,
+                target_height
             );
             return Ok(vec![]);
         }
@@ -1103,7 +1099,8 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 self,
                 header.height(),
             );
-            trace!("[{}] MsgUpdateAnyClient for intermediate height {}",
+            trace!(
+                "[{}] MsgUpdateAnyClient for intermediate height {}",
                 self,
                 header.height(),
             );

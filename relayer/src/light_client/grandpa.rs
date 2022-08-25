@@ -59,7 +59,6 @@ impl super::LightClient<SubstrateChain> for LightClient {
         target: Height,
         _client_state: &AnyClientState,
     ) -> Result<Verified<GPHeader>, Error> {
-        
         Ok(Verified {
             target: GPHeader {
                 block_header: BlockHeader {
@@ -92,7 +91,6 @@ impl super::LightClient<SubstrateChain> for LightClient {
         target: Height,
         _client_state: &AnyClientState,
     ) -> Result<Verified<GPHeader>, Error> {
-       
         let block_header = async {
             let client = ClientBuilder::new()
                 .set_url(&self.websocket_url.clone())
@@ -128,12 +126,11 @@ impl super::LightClient<SubstrateChain> for LightClient {
         &mut self,
         _update: UpdateClient,
         _client_state: &AnyClientState,
-    ) -> Result<Option<MisbehaviourEvidence>, Error> {  
+    ) -> Result<Option<MisbehaviourEvidence>, Error> {
         Ok(None) // Todo: May need to implement the same logic of check_misbehaviour in tendermint.rs
     }
 
     fn fetch(&mut self, _height: Height) -> Result<GPHeader, Error> {
-        
         Ok(GPHeader::default())
     }
 }

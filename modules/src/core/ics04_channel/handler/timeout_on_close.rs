@@ -19,7 +19,6 @@ pub fn process(
     ctx: &dyn ChannelReader,
     msg: &MsgTimeoutOnClose,
 ) -> HandlerResult<PacketResult, Error> {
-    
     let mut output = HandlerOutput::builder();
 
     let packet = &msg.packet;
@@ -131,13 +130,13 @@ pub fn process(
             channel: None,
         })
     };
-    
+
     output.log("success: packet timeout ");
 
     output.emit(IbcEvent::TimeoutOnClosePacket(TimeoutOnClosePacket {
         packet: packet.clone(),
     }));
-    
+
     Ok(output.with_result(result))
 }
 

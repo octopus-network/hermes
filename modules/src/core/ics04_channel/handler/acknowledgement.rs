@@ -23,7 +23,6 @@ pub fn process(
     ctx: &dyn ChannelReader,
     msg: &MsgAcknowledgement,
 ) -> HandlerResult<PacketResult, Error> {
-    
     let mut output = HandlerOutput::builder();
 
     let packet = &msg.packet;
@@ -107,13 +106,13 @@ pub fn process(
             seq_number: None,
         })
     };
-    
+
     output.log("success: packet ack");
 
     output.emit(IbcEvent::AcknowledgePacket(AcknowledgePacket {
         packet: packet.clone(),
     }));
-    
+
     Ok(output.with_result(result))
 }
 

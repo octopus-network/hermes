@@ -152,11 +152,11 @@ pub fn verify_consensus_proof(
 
     // Fetch the expected consensus state from the historical (local) header data.
     let expected_consensus = ctx.host_consensus_state(proof.height())?;
-    
+
     let consensus_state = ctx.client_consensus_state(connection_end.client_id(), height)?;
-    
+
     let client = AnyClient::from_client_type(client_state.client_type());
-    
+
     client
         .verify_client_consensus_state(
             &client_state,

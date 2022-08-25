@@ -15,7 +15,6 @@ pub(crate) fn process(
     ctx: &dyn ChannelReader,
     msg: &MsgChannelOpenInit,
 ) -> HandlerResult<ChannelResult, Error> {
-    
     let mut output = HandlerOutput::builder();
 
     if msg.channel.connection_hops().len() != 1 {
@@ -63,7 +62,7 @@ pub(crate) fn process(
         channel_end: new_channel_end,
         channel_id_state: ChannelIdState::Generated,
     };
-    
+
     let event_attributes = Attributes {
         port_id: msg.port_id.clone(),
         channel_id: Some(chan_id),

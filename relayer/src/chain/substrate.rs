@@ -1856,7 +1856,6 @@ impl ChainEndpoint for SubstrateChain {
                 block_header
             );
 
-            
             //build timestamp
             let timestamp = Time::from_unix_timestamp(0, 0).unwrap();
             tracing::trace!(
@@ -1984,7 +1983,7 @@ pub async fn send_update_state_request(
 /// Compose merkle proof according to ibc proto
 pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     use ics23::{commitment_proof, ExistenceProof, InnerOp};
-    
+
     let _inner_op = InnerOp {
         hash: 0,
         prefix: vec![0],

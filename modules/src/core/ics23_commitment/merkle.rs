@@ -76,7 +76,6 @@ impl MerkleProof {
         value: Vec<u8>,
         start_index: usize,
     ) -> Result<(), Error> {
-        
         // validate arguments
         if self.proofs.is_empty() {
             return Err(Error::empty_merkle_proof());
@@ -97,9 +96,9 @@ impl MerkleProof {
         }
 
         let mut subroot = value.clone();
-        
+
         let mut value = value;
-        
+
         // keys are represented from root-to-leaf
         for ((proof, spec), key) in self
             .proofs
@@ -133,7 +132,7 @@ impl MerkleProof {
         }
 
         if root.hash != subroot {
-           return Err(Error::verification_failure());
+            return Err(Error::verification_failure());
         }
 
         Ok(())

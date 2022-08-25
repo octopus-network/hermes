@@ -28,7 +28,6 @@ pub enum RecvPacketResult {
 }
 
 pub fn process(ctx: &dyn ChannelReader, msg: &MsgRecvPacket) -> HandlerResult<PacketResult, Error> {
-    
     let mut output = HandlerOutput::builder();
 
     let packet = &msg.packet;
@@ -141,7 +140,7 @@ pub fn process(ctx: &dyn ChannelReader, msg: &MsgRecvPacket) -> HandlerResult<Pa
     output.emit(IbcEvent::ReceivePacket(ReceivePacket {
         packet: msg.packet.clone(),
     }));
-   
+
     Ok(output.with_result(result))
 }
 

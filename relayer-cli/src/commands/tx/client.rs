@@ -80,19 +80,18 @@ impl Runnable for TxCreateClientCmd {
         if self.src_chain_id == self.dst_chain_id {
             Output::error("source and destination chains must be different".to_string()).exit()
         }
-        
 
         let chains = match ChainHandlePair::spawn(&config, &self.src_chain_id, &self.dst_chain_id) {
             Ok(chains) => chains,
             Err(e) => Output::error(format!("{}", e)).exit(),
         };
-        
+
         let client = ForeignClient::restore(
             ClientId::new(ClientType::Grandpa, 0).unwrap(), //TODO
             chains.dst,
             chains.src,
         );
-        
+
         let options = CreateOptions {
             max_clock_drift: self.clock_drift.map(Into::into),
             trusting_period: self.trusting_period.map(Into::into),
@@ -103,7 +102,7 @@ impl Runnable for TxCreateClientCmd {
         let res: Result<IbcEventWithHeight, Error> = client
             .build_create_client_and_send(options)
             .map_err(Error::foreign_client);
-       
+
         match res {
             Ok(receipt) => Output::success(receipt.event).exit(),
             Err(e) => Output::error(format!("{}", e)).exit(),

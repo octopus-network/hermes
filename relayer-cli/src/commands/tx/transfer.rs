@@ -186,7 +186,7 @@ impl Runnable for TxIcs20MsgTransferCmd {
         };
 
         debug!("Message: {:?}", opts);
-        
+
         let chains = ChainHandlePair::spawn(&config, &self.src_chain_id, &self.dst_chain_id)
             .unwrap_or_else(exit_with_unrecoverable_error);
 
@@ -239,7 +239,7 @@ impl Runnable for TxIcs20MsgTransferCmd {
             .unwrap_or_else(exit_with_unrecoverable_error);
 
         debug!("connection hop underlying the channel: {:?}", conn_end);
-        
+
         let (src_chain_client_state, _) = chains
             .src
             .query_client_state(
@@ -255,7 +255,7 @@ impl Runnable for TxIcs20MsgTransferCmd {
             "client state underlying the channel: {:?}",
             src_chain_client_state
         );
-        
+
         if src_chain_client_state.chain_id() != self.dst_chain_id {
             Output::error(
                 format!("the requested port/channel ('{}'/'{}') provides a path from chain '{}' to \

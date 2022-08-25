@@ -61,7 +61,6 @@ pub fn verify_packet_recv_proofs(
     connection_end: &ConnectionEnd,
     proofs: &Proofs,
 ) -> Result<(), Error> {
-    
     let client_id = connection_end.client_id();
     let client_state = ctx.client_state(client_id)?;
 

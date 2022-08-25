@@ -17,7 +17,6 @@ pub(crate) fn process(
     ctx: &dyn ChannelReader,
     msg: &MsgChannelOpenTry,
 ) -> HandlerResult<ChannelResult, Error> {
-
     let mut output = HandlerOutput::builder();
 
     // Unwrap the old channel end (if any) and validate it against the message.
@@ -133,7 +132,7 @@ pub(crate) fn process(
         channel_id: channel_id.clone(),
         channel_end: new_channel_end,
     };
-  
+
     let event_attributes = Attributes {
         port_id: msg.port_id.clone(),
         channel_id: Some(channel_id),

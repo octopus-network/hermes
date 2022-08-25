@@ -98,7 +98,6 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
             (cmd_tx, Some(data))
         }
         Object::Beefy(beefy) => {
-            
             let client = ForeignClient::restore(beefy.dst_client_id.clone(), chains.b, chains.a);
 
             let mut update_mmr_root = false;

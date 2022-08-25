@@ -82,12 +82,11 @@ impl Runnable for CreateConnectionCommand {
 impl CreateConnectionCommand {
     /// Creates a connection that uses newly created clients on each side.
     fn run_using_new_clients(&self, chain_b_id: &ChainId) {
-        
         let config = app_config();
 
         let chains = ChainHandlePair::spawn(&config, &self.chain_a_id, chain_b_id)
             .unwrap_or_else(exit_with_unrecoverable_error);
-        
+
         info!(
             "Creating new clients hosted on chains {} and {}",
             self.chain_a_id, chain_b_id

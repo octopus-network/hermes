@@ -252,11 +252,9 @@ fn spawn_beefy_workers<Chain: ChainHandle>(
     chains_scan: Vec<ChainScan>,
     subscriptions: Vec<(Chain, BeefySubscription)>,
 ) -> Vec<TaskHandle> {
-   
     let mut handles = Vec::with_capacity(subscriptions.len());
 
     for (src_chain, subscription) in subscriptions {
-       
         let config = config.clone();
         let registry = registry.clone();
         let client_state_filter = client_state_filter.clone();
@@ -266,7 +264,7 @@ fn spawn_beefy_workers<Chain: ChainHandle>(
             .filter(|c| c.chain_id != src_chain.id())
             .cloned()
             .collect();
-        
+
         if dst_chains.len() == 0 {
             continue;
         }
@@ -703,7 +701,7 @@ fn init_beefy_sub<Chain: ChainHandle>(
                         continue;
                     }
                 };
-               
+
                 match chain.subscribe_beefy() {
                     Ok(beefy_sub) => beefy_subs.push((chain, beefy_sub)),
                     Err(e) => error!(
@@ -887,7 +885,6 @@ fn process_beefy<Chain: ChainHandle>(
     dst_chains: Vec<ChainScan>,
     header: GPheader,
 ) -> Result<(), Error> {
-    
     for dst_chain in &dst_chains {
         for (client_id, client_scan) in &dst_chain.clients {
             match client_scan.client.client_state.client_type() {
@@ -906,7 +903,6 @@ fn process_beefy<Chain: ChainHandle>(
                     let worker = workers.get_or_spawn(object, src, dst, config);
                     let header = GPheader { ..header.clone()};
                     let cmd = WorkerCmd::Beefy { header };
-                    
                     worker.try_send_command(cmd);
                     },
                 _ => {}

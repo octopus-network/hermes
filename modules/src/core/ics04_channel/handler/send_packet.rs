@@ -21,7 +21,6 @@ pub struct SendPacketResult {
 }
 
 pub fn send_packet(ctx: &dyn ChannelReader, packet: Packet) -> HandlerResult<PacketResult, Error> {
-    
     let mut output = HandlerOutput::builder();
 
     let source_channel_end =
@@ -93,7 +92,7 @@ pub fn send_packet(ctx: &dyn ChannelReader, packet: Packet) -> HandlerResult<Pac
             packet.timeout_timestamp,
         ),
     });
-    
+
     output.emit(IbcEvent::SendPacket(SendPacket { packet }));
 
     Ok(output.with_result(result))

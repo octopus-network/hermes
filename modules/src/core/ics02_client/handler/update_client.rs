@@ -40,7 +40,7 @@ pub fn process(
         header,
         signer: _,
     } = msg;
-    
+
     let header_height = header.height();
     // Read client type from the host chain store. The client should already exist.
     let client_type = ctx.client_type(&client_id)?;
@@ -101,7 +101,7 @@ pub fn process(
     output.emit(IbcEvent::UpdateClient(event_attributes.into()));
 
     let output = output.with_result(result);
-    
+
     Ok(output)
 }
 

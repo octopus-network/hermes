@@ -15,7 +15,6 @@ pub fn process_recv_packet<Ctx: 'static + Ics20Context + Debug>(
     packet: &Packet,
     data: PacketData,
 ) -> Result<Box<WriteFn>, Ics20Error> {
-   
     if !ctx.is_receive_enabled() {
         return Err(Ics20Error::receive_disabled());
     }
