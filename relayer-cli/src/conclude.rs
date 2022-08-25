@@ -55,6 +55,7 @@
 //! Output::success(h).with_result(end).exit();
 //! ```
 
+use console::style;
 use core::fmt;
 
 use serde::Serialize;
@@ -73,7 +74,11 @@ pub fn exit_with(out: Output) -> ! {
     if json() {
         println!("{}", serde_json::to_string(&out.into_json()).unwrap()); //TODO
     } else {
-        println!("{}: {}", out.status, out.result);
+        let status = match out.status {
+            Status::Success => style("SUCCESS").green(),
+            Status::Error => style("ERROR").red(),
+        };
+        println!("{} {}", status, out.result);
     }
 
     // The return code

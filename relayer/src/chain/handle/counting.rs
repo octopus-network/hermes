@@ -45,6 +45,7 @@ use crate::chain::tracking::TrackedMsgs;
 use crate::config::ChainConfig;
 use crate::denom::DenomTrace;
 use crate::error::Error;
+use crate::event::IbcEventWithHeight;
 use crate::util::lock::LockExt;
 use crate::{connection::ConnectionMsgType, keyring::KeyEntry};
 
@@ -125,7 +126,7 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
     fn send_messages_and_wait_commit(
         &self,
         tracked_msgs: TrackedMsgs,
-    ) -> Result<Vec<IbcEvent>, Error> {
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
         self.inc_metric("send_messages_and_wait_commit");
         self.inner().send_messages_and_wait_commit(tracked_msgs)
     }
@@ -456,7 +457,7 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
         self.inner().query_unreceived_acknowledgements(request)
     }
 
-    fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error> {
+    fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
         self.inc_metric("query_txs");
         self.inner().query_txs(request)
     }

@@ -31,7 +31,7 @@ pub trait Misbehaviour: Clone + core::fmt::Debug + Send + Sync {
     fn wrap_any(self) -> AnyMisbehaviour;
 }
 
-#[derive(Clone, Debug, PartialEq)] // TODO: Add Eq bound once possible
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(clippy::large_enum_variant)]
 pub enum AnyMisbehaviour {
     Tendermint(TmMisbehaviour),
@@ -129,7 +129,7 @@ impl core::fmt::Display for AnyMisbehaviour {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MisbehaviourEvidence {
     pub misbehaviour: AnyMisbehaviour,
     pub supporting_headers: Vec<AnyHeader>,

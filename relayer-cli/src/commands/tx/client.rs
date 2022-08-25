@@ -13,6 +13,7 @@ use ibc_relayer::chain::requests::{
     IncludeProof, PageRequest, QueryClientStateRequest, QueryClientStatesRequest, QueryHeight,
 };
 use ibc_relayer::config::Config;
+use ibc_relayer::event::IbcEventWithHeight;
 use ibc_relayer::foreign_client::{CreateOptions, ForeignClient};
 use tendermint_light_client_verifier::types::TrustThreshold;
 use tracing::debug;
@@ -23,7 +24,7 @@ use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::error::Error;
 use ibc::core::ics02_client::client_type::ClientType;
 
-#[derive(Clone, Command, Debug, Parser, PartialEq)]
+#[derive(Clone, Command, Debug, Parser, PartialEq, Eq)]
 pub struct TxCreateClientCmd {
     #[clap(
         long = "host-chain",
@@ -106,19 +107,19 @@ impl Runnable for TxCreateClientCmd {
         };
 
         // Trigger client creation via the "build" interface, so that we obtain the resulting event
-        let res: Result<IbcEvent, Error> = client
+        let res: Result<IbcEventWithHeight, Error> = client
             .build_create_client_and_send(options)
             .map_err(Error::foreign_client);
         tracing::trace!("In Client: [run] >> res: {:?}", res);
 
         match res {
-            Ok(receipt) => Output::success(receipt).exit(),
+            Ok(receipt) => Output::success(receipt.event).exit(),
             Err(e) => Output::error(format!("{}", e)).exit(),
         }
     }
 }
 
-#[derive(Clone, Command, Debug, Parser, PartialEq)]
+#[derive(Clone, Command, Debug, Parser, PartialEq, Eq)]
 pub struct TxUpdateClientCmd {
     #[clap(
         long = "host-chain",
@@ -210,7 +211,7 @@ impl Runnable for TxUpdateClientCmd {
     }
 }
 
-#[derive(Clone, Command, Debug, Parser, PartialEq)]
+#[derive(Clone, Command, Debug, Parser, PartialEq, Eq)]
 pub struct TxUpgradeClientCmd {
     #[clap(
         long = "host-chain",
@@ -328,7 +329,7 @@ impl Runnable for TxUpgradeClientCmd {
     }
 }
 
-#[derive(Clone, Command, Debug, Parser, PartialEq)]
+#[derive(Clone, Command, Debug, Parser, PartialEq, Eq)]
 pub struct TxUpgradeClientsCmd {
     #[clap(
         long = "reference-chain",

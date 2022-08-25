@@ -1,6 +1,5 @@
 //! This module implements the processing logic for ICS4 (channel) messages.
 use crate::prelude::*;
-use tracing::info;
 
 use crate::applications::transfer::acknowledgement::Acknowledgement as ApplicationAcknowledgement;
 use crate::core::ics04_channel::channel::ChannelEnd;
@@ -267,6 +266,7 @@ fn process_write_ack(
         .as_any()
         .downcast_ref::<ApplicationAcknowledgement>()
         .expect("downcast cast Acknowledgement Error");
+
     let ack = serde_json::to_string(&acknowledgement)
         .unwrap()
         .as_bytes()

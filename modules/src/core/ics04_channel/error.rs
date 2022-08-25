@@ -406,6 +406,9 @@ define_error! {
             [ TraceError<PathError> ]
             | _ | { "invalid path parser" },
 
+        AbciConversionFailed
+            { abci_event: String }
+            | e | { format_args!("Failed to convert abci event to IbcEvent: {}", e.abci_event)}
     }
 }
 

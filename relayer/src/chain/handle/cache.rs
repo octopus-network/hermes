@@ -46,6 +46,7 @@ use crate::config::ChainConfig;
 use crate::connection::ConnectionMsgType;
 use crate::denom::DenomTrace;
 use crate::error::Error;
+use crate::event::IbcEventWithHeight;
 use crate::keyring::KeyEntry;
 use crate::telemetry;
 
@@ -107,7 +108,7 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
     fn send_messages_and_wait_commit(
         &self,
         tracked_msgs: TrackedMsgs,
-    ) -> Result<Vec<IbcEvent>, Error> {
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
         self.inner().send_messages_and_wait_commit(tracked_msgs)
     }
 
@@ -157,7 +158,7 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
             .get_or_try_update_latest_height_with(|| handle.query_latest_height())?;
 
         if in_cache == CacheStatus::Hit {
-            telemetry!(query_cache_hit, &self.id(), "query_latest_height");
+            telemetry!(queries_cache_hits, &self.id(), "query_latest_height");
         }
 
         Ok(result)
@@ -191,7 +192,7 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
                     )?;
 
                     if in_cache == CacheStatus::Hit {
-                        telemetry!(query_cache_hit, &self.id(), "query_client_state");
+                        telemetry!(queries_cache_hits, &self.id(), "query_client_state");
                     }
 
                     Ok((result, None))
@@ -266,7 +267,7 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
                     )?;
 
                     if in_cache == CacheStatus::Hit {
-                        telemetry!(query_cache_hit, &self.id(), "query_connection");
+                        telemetry!(queries_cache_hits, &self.id(), "query_connection");
                     }
 
                     Ok((result, None))
@@ -327,7 +328,7 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
                     )?;
 
                     if in_cache == CacheStatus::Hit {
-                        telemetry!(query_cache_hit, &self.id(), "query_channel");
+                        telemetry!(queries_cache_hits, &self.id(), "query_channel");
                     }
 
                     Ok((result, None))
@@ -473,7 +474,7 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
         self.inner().query_unreceived_acknowledgements(request)
     }
 
-    fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error> {
+    fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
         self.inner().query_txs(request)
     }
 

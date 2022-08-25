@@ -610,6 +610,12 @@ define_error! {
 
         SubstrateBuildClient
             | _ | { "create substrate build client error" },
+
+        MessageExceedsMaxTxSize
+            { len: usize }
+            |e| {
+                format_args!("message length {} exceeds maximum transaction size", e.len)
+            }
     }
 }
 
@@ -664,10 +670,7 @@ impl GrpcStatusSubdetail {
     /// there are hermes code changes such that the E < G case is not previously caught anymore,
     /// then this predicate will catch all "account sequence mismatch" errors
     pub fn is_account_sequence_mismatch_that_requires_refresh(&self) -> bool {
-        self.status
-            .message()
-            .trim_start()
-            .starts_with("account sequence mismatch")
+        self.status.message().contains("account sequence mismatch")
     }
 
     /// Check whether this gRPC error matches:
@@ -744,6 +747,12 @@ mod tests {
                 name: "good changed mismatch error, expected > got",
                 message:
                     "account sequence mismatch, expected 200, got 100 --> this part has changed",
+                result: Some((200, 100)),
+            },
+            Test {
+                name: "good changed mismatch error, expected > got",
+                message:
+                    "codespace sdk code 32: incorrect account sequence: account sequence mismatch, expected 200, got 100",
                 result: Some((200, 100)),
             },
             Test {

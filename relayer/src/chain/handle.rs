@@ -38,8 +38,10 @@ use crate::{
     connection::ConnectionMsgType,
     denom::DenomTrace,
     error::Error,
-    event::beefy_monitor::BeefyResult,
-    event::monitor::{EventBatch, Result as MonitorResult},
+    event::{
+        monitor::{EventBatch, Result as MonitorResult},
+        IbcEventWithHeight,
+    },
     keyring::KeyEntry,
 };
 
@@ -131,7 +133,7 @@ pub enum ChainRequest {
 
     SendMessagesAndWaitCommit {
         tracked_msgs: TrackedMsgs,
-        reply_to: ReplyTo<Vec<IbcEvent>>,
+        reply_to: ReplyTo<Vec<IbcEventWithHeight>>,
     },
 
     SendMessagesAndWaitCheckTx {
@@ -348,7 +350,7 @@ pub enum ChainRequest {
 
     QueryPacketEventDataFromTxs {
         request: QueryTxRequest,
-        reply_to: ReplyTo<Vec<IbcEvent>>,
+        reply_to: ReplyTo<Vec<IbcEventWithHeight>>,
     },
 
     WebSocketUrl {
@@ -396,7 +398,7 @@ pub trait ChainHandle: Clone + Send + Sync + Serialize + Debug + 'static {
     fn send_messages_and_wait_commit(
         &self,
         tracked_msgs: TrackedMsgs,
-    ) -> Result<Vec<IbcEvent>, Error>;
+    ) -> Result<Vec<IbcEventWithHeight>, Error>;
 
     /// Submit messages asynchronously.
     /// Does not block waiting on the chain to produce the
@@ -650,7 +652,7 @@ pub trait ChainHandle: Clone + Send + Sync + Serialize + Debug + 'static {
         request: QueryUnreceivedAcksRequest,
     ) -> Result<Vec<Sequence>, Error>;
 
-    fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEvent>, Error>;
+    fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error>;
 
     // get host chain websocket_url
     fn websocket_url(&self) -> Result<String, Error>;

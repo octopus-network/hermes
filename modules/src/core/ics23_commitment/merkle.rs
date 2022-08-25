@@ -76,9 +76,7 @@ impl MerkleProof {
         value: Vec<u8>,
         start_index: usize,
     ) -> Result<(), Error> {
-        tracing::trace!(target:"ibc-rs","[ics23_commitment] verify_membership MerkleRoot : {:?}",root);
-        tracing::trace!(target:"ibc-rs","[ics23_commitment] verify_membership MerklePath : {:?}",keys);
-
+        
         // validate arguments
         if self.proofs.is_empty() {
             return Err(Error::empty_merkle_proof());
@@ -99,11 +97,9 @@ impl MerkleProof {
         }
 
         let mut subroot = value.clone();
-        tracing::trace!(target:"ibc-rs","[ics23_commitment]  init subroot : {:?}",subroot);
-
+        
         let mut value = value;
-        tracing::trace!(target:"ibc-rs","[ics23_commitment]  init value : {:?}",value);
-
+        
         // keys are represented from root-to-leaf
         for ((proof, spec), key) in self
             .proofs
@@ -114,24 +110,23 @@ impl MerkleProof {
         {
             match &proof.proof {
                 Some(Proof::Exist(existence_proof)) => {
-                    tracing::trace!(target:"ibc-rs","[ics23_commitment]  verify_membership existence_proof : {:?}",existence_proof);
-                    subroot = calculate_existence_root(existence_proof)
-                        .map_err(|_| Error::invalid_merkle_proof())?;
-                    tracing::trace!(target:"ibc-rs","[ics23_commitment]  verify_membership subroot : {:?}",subroot);
-                    if !verify_membership(proof, spec, &subroot, key.as_bytes(), &value) {
-                        tracing::trace!(target:"ibc-rs","[ics23_commitment] not verify_membership proof : {:?}",proof);
-                        tracing::trace!(target:"ibc-rs","[ics23_commitment] not verify_membership spec : {:?}",spec);
-                        tracing::trace!(target:"ibc-rs","[ics23_commitment] not verify_membership key : {:?}",key);
-                        tracing::trace!(target:"ibc-rs","[ics23_commitment] not verify_membership value : {:?}",value);
+                    subroot =
+                        calculate_existence_root::<ics23::HostFunctionsManager>(existence_proof)
+                            .map_err(|_| Error::invalid_merkle_proof())?;
 
+                    if !verify_membership::<ics23::HostFunctionsManager>(
+                        proof,
+                        spec,
+                        &subroot,
+                        key.as_bytes(),
+                        &value,
+                    ) {
                         return Err(Error::verification_failure());
                     }
                     value = subroot.clone();
                 }
 
                 _ => {
-                    tracing::trace!(target:"ibc-rs","[ics23_commitment]  verify_membership not exist proof : {:?}",proof.proof);
-
                     return Err(Error::invalid_merkle_proof());
                 }
             }
@@ -153,7 +148,6 @@ impl MerkleProof {
         root: MerkleRoot,
         keys: MerklePath,
     ) -> Result<(), Error> {
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_non_membership MerkleRoot : {:?}",root);
         // validate arguments
         if self.proofs.is_empty() {
             return Err(Error::empty_merkle_proof());
@@ -181,9 +175,16 @@ impl MerkleProof {
         match &proof.proof {
             Some(Proof::Nonexist(non_existence_proof)) => {
                 let subroot = calculate_non_existence_root(non_existence_proof)?;
-                if !verify_non_membership(proof, spec, &subroot, key.as_bytes()) {
+
+                if !verify_non_membership::<ics23::HostFunctionsManager>(
+                    proof,
+                    spec,
+                    &subroot,
+                    key.as_bytes(),
+                ) {
                     return Err(Error::verification_failure());
                 }
+
                 // verify membership proofs starting from index 1 with value = subroot
                 self.verify_membership(specs, root, keys, subroot, 1)
             }
@@ -195,9 +196,11 @@ impl MerkleProof {
 // TODO move to ics23
 fn calculate_non_existence_root(proof: &NonExistenceProof) -> Result<Vec<u8>, Error> {
     if let Some(left) = &proof.left {
-        calculate_existence_root(left).map_err(|_| Error::invalid_merkle_proof())
+        calculate_existence_root::<ics23::HostFunctionsManager>(left)
+            .map_err(|_| Error::invalid_merkle_proof())
     } else if let Some(right) = &proof.right {
-        calculate_existence_root(right).map_err(|_| Error::invalid_merkle_proof())
+        calculate_existence_root::<ics23::HostFunctionsManager>(right)
+            .map_err(|_| Error::invalid_merkle_proof())
     } else {
         Err(Error::invalid_merkle_proof())
     }
