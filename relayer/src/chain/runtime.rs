@@ -502,7 +502,6 @@ where
     }
 
     fn enable_beefy_monitor(&mut self) -> Result<(), Error> {
-        tracing::trace!("In runtime: [enable_beefy_monitor]");
         let (beefy_receiver, tx_monitor_cmd) = self.chain.init_beefy_monitor(self.rt.clone())?;
 
         self.beefy_monitor_ctrl

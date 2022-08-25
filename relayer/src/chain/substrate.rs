@@ -1856,44 +1856,7 @@ impl ChainEndpoint for SubstrateChain {
                 block_header
             );
 
-            // //TODO:[test] log mmr leaf
-            // tracing::trace!("in substrate [build_header] ---------------------test[begin]-----------------------");
-            // let mmr_leaf: Vec<u8> = Decode::decode(&mut &mmr_root.mmr_leaf.clone()[..]).unwrap();
-            // tracing::trace!("in substrate [build_header] test_mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
-            // let mmr_leaf: beefy_light_client::mmr::MmrLeaf =
-            //     Decode::decode(&mut &*mmr_leaf).unwrap();
-            // tracing::trace!("in substrate [build_header] test_mmr_leaf to data struct: {:?}",mmr_leaf);
-
-            // //TODO:[test] log mmr leaf proof
-            // let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(
-            //     &mut &mmr_root.mmr_leaf_proof.clone()[..],
-            // )
-            // .unwrap();
-            // tracing::trace!("in substrate [build_header]  block_header.block_number:{:?},mmr root heigh:{:?},mmr_leaf.parent_number:{:?},mmr_leaf_proof.leaf_index{:?},mmr_leaf_proof.leaf_count: {:?}",block_header.block_number,block_number,mmr_leaf.parent_number_and_hash.0,mmr_leaf_proof.leaf_index, mmr_leaf_proof.leaf_count);
-
-            // // log mmr leaf
-            // tracing::trace!("in substrate [build_header] block_header.parent_hash: {:?}",block_header.parent_hash);
-            // tracing::trace!("in substrate [build_header] mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
-            // // verfiy block header
-            // if block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
-            //     tracing::trace!("in substrate [build_header] header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec()");
-            // } else {
-            //     tracing::trace!("in substrate [build_header] header.block_header.parent_hash == mmr_leaf.parent_number_and_hash.1.to_vec()");
-            // }
-
-            // let beefy_header =
-            //     beefy_light_client::header::Header::try_from(block_header.clone()).unwrap();
-            // let header_hash = beefy_header.hash();
-            // tracing::trace!("in substrate [build_header] header_hash: {:?}",header_hash);
-            // tracing::trace!("in substrate [build_header] mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
-            // if header_hash != mmr_leaf.parent_number_and_hash.1 {
-            //     tracing::trace!("in substrate [build_header] header_hash != mmr_leaf.parent_number_and_hash.1");
-            // } else {
-            //     tracing::trace!("in substrate [build_header]header_hash == mmr_leaf.parent_number_and_hash.1");
-            // }
-
-            // tracing::trace!("in substrate [build_header] ---------------------test[end]-----------------------");
-
+            
             //build timestamp
             let timestamp = Time::from_unix_timestamp(0, 0).unwrap();
             tracing::trace!(
@@ -2021,8 +1984,7 @@ pub async fn send_update_state_request(
 /// Compose merkle proof according to ibc proto
 pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     use ics23::{commitment_proof, ExistenceProof, InnerOp};
-    tracing::trace!("in substrate: [compose_ibc_merkle_proof]");
-
+    
     let _inner_op = InnerOp {
         hash: 0,
         prefix: vec![0],

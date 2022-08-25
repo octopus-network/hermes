@@ -208,8 +208,6 @@ impl ClientDef for TendermintClient {
         consensus_height: Height,
         expected_consensus_state: &AnyConsensusState,
     ) -> Result<(), Ics02Error> {
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_client_consensus_state proof : {:?}",proof);
-
         client_state.verify_height(height)?;
 
         let path = ClientConsensusStatePath {
@@ -217,13 +215,11 @@ impl ClientDef for TendermintClient {
             epoch: consensus_height.revision_number(),
             height: consensus_height.revision_height(),
         };
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_client_consensus_state path : {:?}",path);
-
+        
         let value = expected_consensus_state
             .encode_vec()
             .map_err(Ics02Error::invalid_any_consensus_state)?;
-        // verify_membership(client_state, prefix, proof, root, path, value)
-        Ok(())
+        verify_membership(client_state, prefix, proof, root, path, value)
     }
 
     fn verify_connection_state(
@@ -236,24 +232,14 @@ impl ClientDef for TendermintClient {
         connection_id: &ConnectionId,
         expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Ics02Error> {
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state client_state : {:?}",client_state);
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state height : {:?}",height);
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state prefix : {:?}",prefix);
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state proof : {:?}",proof);
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state root : {:?}",root);
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state connection_id : {:?}",connection_id);
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state expected_connection_end : {:?}",expected_connection_end);
-
         client_state.verify_height(height)?;
 
         let path = ConnectionsPath(connection_id.clone());
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_connection_state path : {:?}",path);
-
+        
         let value = expected_connection_end
             .encode_vec()
             .map_err(Ics02Error::invalid_connection_end)?;
         verify_membership(client_state, prefix, proof, root, path, value)
-        // Ok(())
     }
 
     fn verify_channel_state(
@@ -267,8 +253,6 @@ impl ClientDef for TendermintClient {
         channel_id: &ChannelId,
         expected_channel_end: &ChannelEnd,
     ) -> Result<(), Ics02Error> {
-        tracing::trace!(target:"ibc-rs","[ics07_tendermint::client_def] verify_channel_state proof : {:?}",proof);
-
         client_state.verify_height(height)?;
 
         let path = ChannelEndsPath(port_id.clone(), channel_id.clone());

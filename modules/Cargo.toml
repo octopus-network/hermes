@@ -30,7 +30,7 @@ std = [
     "serde_json/std",
     "tracing/std",
     "prost/std",
-    "prost-types/std",
+    # "prost-types/std",
     "bytes/std",
     # "safe-regex/std",
     "subtle-encoding/std",

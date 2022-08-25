@@ -15,8 +15,7 @@ pub(crate) fn process(
     ctx: &dyn ChannelReader,
     msg: &MsgChannelOpenInit,
 ) -> HandlerResult<ChannelResult, Error> {
-    tracing::trace!(target:"ibc-rs","[chan_open_init] begin to process the chan_open_init msg : {:?}",msg);
-
+    
     let mut output = HandlerOutput::builder();
 
     if msg.channel.connection_hops().len() != 1 {
@@ -64,10 +63,8 @@ pub(crate) fn process(
         channel_end: new_channel_end,
         channel_id_state: ChannelIdState::Generated,
     };
-    tracing::trace!(target:"ibc-rs","[chan_open_init] process result : {:?}",result);
-
+    
     let event_attributes = Attributes {
-        height: ctx.host_height(),
         port_id: msg.port_id.clone(),
         channel_id: Some(chan_id),
         connection_id: msg.channel.connection_hops[0].clone(),
@@ -79,8 +76,6 @@ pub(crate) fn process(
             .try_into()
             .map_err(|_| Error::missing_channel_id())?,
     ));
-
-    tracing::trace!(target:"ibc-rs","[chan_open_init] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

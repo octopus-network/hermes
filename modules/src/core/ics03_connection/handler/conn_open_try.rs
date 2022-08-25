@@ -18,8 +18,7 @@ pub(crate) fn process(
     ctx: &dyn ConnectionReader,
     msg: MsgConnectionOpenTry,
 ) -> HandlerResult<ConnectionResult, Error> {
-    tracing::trace!(target:"ibc-rs","[conn_open_try] begin to process the conn_open_try msg : {:?}",msg);
-
+    
     let mut output = HandlerOutput::builder();
 
     // If a consensus proof is present, check that the consensus height (for
@@ -73,7 +72,6 @@ pub(crate) fn process(
         }
     }?;
 
-    tracing::trace!(target:"ibc-rs","[conn_open_try] new_connection_end : {:?}",new_connection_end);
     // Proof verification in two steps:
     // 1. Setup: build the ConnectionEnd as we expect to find it on the other party.
     let expected_conn = ConnectionEnd::new(
@@ -83,8 +81,7 @@ pub(crate) fn process(
         msg.counterparty_versions.clone(),
         msg.delay_period,
     );
-    tracing::trace!(target:"ibc-rs","[conn_open_try] expected_conn : {:?}",expected_conn);
-
+   
     // 2. Pass the details to the verification function.
     verify_proofs(
         ctx,
@@ -118,18 +115,13 @@ pub(crate) fn process(
         connection_end: new_connection_end,
     };
 
-    tracing::trace!(target:"ibc-rs","[conn_open_try] process result : {:?}",result);
-
     let event_attributes = Attributes {
-        height: ctx.host_current_height(),
         connection_id: Some(conn_id),
         client_id: msg.client_id.clone(),
         counterparty_client_id: msg.counterparty.client_id,
         counterparty_connection_id: msg.counterparty.connection_id,
     };
     output.emit(IbcEvent::OpenTryConnection(event_attributes.into()));
-
-    tracing::trace!(target:"ibc-rs","[conn_open_try] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

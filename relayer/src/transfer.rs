@@ -187,8 +187,7 @@ pub fn build_and_send_transfer_messages<SrcChain: ChainHandle, DstChain: ChainHa
         timeout_timestamp: timeout.timeout_timestamp,
     };
 
-    tracing::trace!("[build_and_send_transfer_messages] MsgTransfer : {:?}",msg);
-
+    
     let raw_msg = msg.to_any();
     let msgs = vec![raw_msg; opts.number_msgs];
 

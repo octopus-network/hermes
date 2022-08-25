@@ -68,8 +68,7 @@ use crate::prelude::app_reader;
 /// ## Note: See `Output::exit()` for the preferred method of exiting a relayer command.
 pub fn exit_with(out: Output) -> ! {
     let status = out.status;
-    tracing::info!("In exit with: state {}", status);
-
+    
     // Handle the output message
     if json() {
         println!("{}", serde_json::to_string(&out.into_json()).unwrap()); //TODO

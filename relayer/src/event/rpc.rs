@@ -151,18 +151,16 @@ pub fn get_all_events(
                     if query == queries::ibc_client().to_string()
                         && event_is_type_client(&ibc_event)
                     {
-                        tracing::trace!("extracted ibc_client event {}", ibc_event);
                         events_with_height.push(IbcEventWithHeight::new(ibc_event, height));
                     } else if query == queries::ibc_connection().to_string()
                         && event_is_type_connection(&ibc_event)
                     {
-                        tracing::trace!("extracted ibc_connection event {}", ibc_event);
                         events_with_height.push(IbcEventWithHeight::new(ibc_event, height));
                     } else if query == queries::ibc_channel().to_string()
                         && event_is_type_channel(&ibc_event)
                     {
                         let _span = tracing::trace_span!("ibc_channel event").entered();
-                        tracing::trace!("extracted {}", ibc_event);
+                       
                         if matches!(ibc_event, IbcEvent::SendPacket(_)) {
                             // Should be the same as the hash of tx_result.tx?
                             if let Some(hash) =

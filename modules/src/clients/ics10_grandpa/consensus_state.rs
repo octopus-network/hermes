@@ -77,8 +77,7 @@ impl TryFrom<RawConsensusState> for ConsensusState {
             .ok_or_else(|| Error::invalid_raw_consensus_state("missing timestamp".into()))?;
 
         let proto_timestamp = tpb::Timestamp { seconds, nanos };
-        tracing::trace!(target:"ibc-rs","grandpa consensuse state timestamp! proto_timestamp : {:?} ",proto_timestamp);
-
+        
         let timestamp = proto_timestamp
             .try_into()
             .map_err(|e| Error::invalid_raw_consensus_state(format!("invalid timestamp: {}", e)))?;

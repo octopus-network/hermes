@@ -21,8 +21,7 @@ pub struct SendPacketResult {
 }
 
 pub fn send_packet(ctx: &dyn ChannelReader, packet: Packet) -> HandlerResult<PacketResult, Error> {
-    tracing::trace!(target:"ibc-rs","[send_packet] begin to process the send_packet msg : {:?}",packet);
-
+    
     let mut output = HandlerOutput::builder();
 
     let source_channel_end =
@@ -94,8 +93,7 @@ pub fn send_packet(ctx: &dyn ChannelReader, packet: Packet) -> HandlerResult<Pac
             packet.timeout_timestamp,
         ),
     });
-    tracing::trace!(target:"ibc-rs","[send_packet] process result : {:?}",result);
-
+    
     output.emit(IbcEvent::SendPacket(SendPacket { packet }));
 
     Ok(output.with_result(result))

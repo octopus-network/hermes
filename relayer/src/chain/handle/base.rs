@@ -123,7 +123,6 @@ impl ChainHandle for BaseChainHandle {
     }
 
     fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
-        tracing::trace!("in base chain handle: [subscribe_beefy], send subcribe beefy request to substrate app chain !");
         self.send(|reply_to| ChainRequest::SubscribeBeefy { reply_to })
     }
 
@@ -373,8 +372,7 @@ impl ChainHandle for BaseChainHandle {
         client_id: &ClientId,
         height: Height,
     ) -> Result<(Option<AnyClientState>, Proofs), Error> {
-        tracing::trace!("in relayer chain base: [build_connection_proofs_and_client_state] client_id:{:?}",client_id);
-
+        
         self.send(
             |reply_to| ChainRequest::BuildConnectionProofsAndClientState {
                 message_type,
@@ -497,12 +495,7 @@ impl ChainHandle for BaseChainHandle {
         self.send(|reply_to| ChainRequest::WebSocketUrl { reply_to })
     }
     fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
-        tracing::trace!(
-            "in base chain handle: [update_mmr_root], chain_id = {:?},client_id = {:?},mmr_root ={:?} ",
-            self.id(),
-            client_id,
-            header
-        );
+       
         self.send(|reply_to| ChainRequest::UpdateMmrRoot {
             client_id,
             header,

@@ -15,8 +15,7 @@ pub fn process_recv_packet<Ctx: 'static + Ics20Context + Debug>(
     packet: &Packet,
     data: PacketData,
 ) -> Result<Box<WriteFn>, Ics20Error> {
-    info!("[process_recv_packet] Contest is = {:?}", ctx);
-
+   
     if !ctx.is_receive_enabled() {
         return Err(Ics20Error::receive_disabled());
     }

@@ -15,8 +15,6 @@ pub(crate) fn process(
     ctx: &dyn ConnectionReader,
     msg: MsgConnectionOpenConfirm,
 ) -> HandlerResult<ConnectionResult, Error> {
-    tracing::trace!(target:"ibc-rs","[conn_open_confirm] begin to process the conn_open_confirm msg : {:?}",msg);
-
     let mut output = HandlerOutput::builder();
 
     // Validate the connection end.
@@ -61,18 +59,14 @@ pub(crate) fn process(
         connection_id_state: ConnectionIdState::Reused,
         connection_end: conn_end.clone(),
     };
-    tracing::trace!(target:"ibc-rs","[conn_open_confirm] process result : {:?}",result);
 
     let event_attributes = Attributes {
-        height: ctx.host_current_height(),
         connection_id: Some(msg.connection_id),
         client_id: conn_end.client_id().clone(),
         counterparty_client_id: conn_end.counterparty().client_id.clone(),
         counterparty_connection_id: conn_end.counterparty().connection_id.clone(),
     };
     output.emit(IbcEvent::OpenConfirmConnection(event_attributes.into()));
-
-    tracing::trace!(target:"ibc-rs","[conn_open_confirm] process output : {:?}",output);
 
     Ok(output.with_result(result))
 }

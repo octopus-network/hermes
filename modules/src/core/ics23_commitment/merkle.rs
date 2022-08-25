@@ -132,12 +132,9 @@ impl MerkleProof {
             }
         }
 
-        // if root.hash != subroot {
-        //     tracing::trace!(target:"ibc-rs","[ics23_commitment]  verify_membership root.hash != subroot");
-        //     tracing::trace!(target:"ibc-rs","[ics23_commitment]  verify_membership root.hash: {:?}",root.hash);
-        //     tracing::trace!(target:"ibc-rs","[ics23_commitment]  verify_membership subroot : {:?}",subroot);
-        //     return Err(Error::verification_failure());
-        // }
+        if root.hash != subroot {
+           return Err(Error::verification_failure());
+        }
 
         Ok(())
     }

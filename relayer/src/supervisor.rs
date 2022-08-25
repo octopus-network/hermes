@@ -252,27 +252,11 @@ fn spawn_beefy_workers<Chain: ChainHandle>(
     chains_scan: Vec<ChainScan>,
     subscriptions: Vec<(Chain, BeefySubscription)>,
 ) -> Vec<TaskHandle> {
-    tracing::trace!(
-        "in supervisor: [spawn_beefy_workers], chains_scan ={:?}",
-        chains_scan
-    );
-    println!(
-        "in supervisor: [spawn_beefy_workers], chains_scan ={:?}",
-        chains_scan
-    );
-
+   
     let mut handles = Vec::with_capacity(subscriptions.len());
 
     for (src_chain, subscription) in subscriptions {
-        println!(
-            "in supervisor: [spawn_beefy_workers], src_chain ={:?}",
-            src_chain
-        );
-        println!(
-            "in supervisor: [spawn_beefy_workers], subscription ={:?}",
-            subscription
-        );
-
+       
         let config = config.clone();
         let registry = registry.clone();
         let client_state_filter = client_state_filter.clone();
@@ -282,22 +266,13 @@ fn spawn_beefy_workers<Chain: ChainHandle>(
             .filter(|c| c.chain_id != src_chain.id())
             .cloned()
             .collect();
-        tracing::trace!(
-            "in supervisor: [spawn_beefy_workers], dst_chains ={:?}",
-            dst_chains
-        );
-        // println!("in supervisor: [spawn_beefy_workers], dst_chains ={:?}", dst_chains);
+        
         if dst_chains.len() == 0 {
-            println!(
-                "in supervisor: [spawn_beefy_workers], dst_chains len ={:?}",
-                dst_chains.len()
-            );
             continue;
         }
 
         let handle = spawn_background_task(
             tracing::Span::none(),
-            // Some(Duration::from_millis(5)),
             Some(Duration::from_secs(1)),
             move || -> Result<Next, TaskError<Infallible>> {
                 if let Ok(mmr_root) = subscription.try_recv() {
@@ -728,14 +703,7 @@ fn init_beefy_sub<Chain: ChainHandle>(
                         continue;
                     }
                 };
-                tracing::trace!(
-                    "in supervisor: [init_beefy_sub], chain id ={:?}",
-                    chain.id()
-                );
-                println!(
-                    "in supervisor: [init_beefy_sub], chain id ={:?}",
-                    chain.id()
-                );
+               
                 match chain.subscribe_beefy() {
                     Ok(beefy_sub) => beefy_subs.push((chain, beefy_sub)),
                     Err(e) => error!(
@@ -919,22 +887,17 @@ fn process_beefy<Chain: ChainHandle>(
     dst_chains: Vec<ChainScan>,
     header: GPheader,
 ) -> Result<(), Error> {
-    tracing::trace!("in supervisor: [process_beefy], mmr_root ={:?}", header);
-
+    
     for dst_chain in &dst_chains {
         for (client_id, client_scan) in &dst_chain.clients {
             match client_scan.client.client_state.client_type() {
                 ClientType::Grandpa => {
-                    tracing::trace!("in supervisor: [process_beefy], client_id ={:?} ", client_id);
-                    println!("in supervisor: [process_beefy], dst_chain = {:?},client_id ={:?} ",dst_chain.chain_id,client_id);
                     let object = Object::Beefy(Beefy {
                                 dst_chain_id: dst_chain.chain_id.clone(),
                                     dst_client_id: client_id.clone(),
                                     src_chain_id: src_chain.id().clone(),
                                 });
-                    tracing::trace!("in supervisor: [process_beefy], object ={:?} ", object);
-                    println!("in supervisor: [process_beefy], object ={:?} ", object);
-                    let src = registry
+                   let src = registry
                                     .get_or_spawn(object.src_chain_id())
                                     .map_err(Error::spawn)?;
                     let dst = registry
@@ -943,7 +906,7 @@ fn process_beefy<Chain: ChainHandle>(
                     let worker = workers.get_or_spawn(object, src, dst, config);
                     let header = GPheader { ..header.clone()};
                     let cmd = WorkerCmd::Beefy { header };
-                    tracing::trace!("in supervisor: [process_beefy], work cmd ={:?} ", cmd);
+                    
                     worker.try_send_command(cmd);
                     },
                 _ => {}
@@ -1003,7 +966,6 @@ fn handle_beefy<Chain: ChainHandle>(
     dst_chains: Vec<ChainScan>,
     beefy: ArcBeefy,
 ) {
-    tracing::trace!("in supervisor: [handle_beefy], src_chain ={:?}", src_chain);
     let src_chain_id = src_chain.id();
 
     match beefy.deref() {

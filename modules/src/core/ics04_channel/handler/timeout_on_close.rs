@@ -19,8 +19,7 @@ pub fn process(
     ctx: &dyn ChannelReader,
     msg: &MsgTimeoutOnClose,
 ) -> HandlerResult<PacketResult, Error> {
-    tracing::trace!(target:"ibc-rs","[timeout_on_close] begin to process the timeout_on_close msg : {:?}",msg);
-
+    
     let mut output = HandlerOutput::builder();
 
     let packet = &msg.packet;
@@ -132,15 +131,13 @@ pub fn process(
             channel: None,
         })
     };
-    tracing::trace!(target:"ibc-rs","[timeout_on_close] process result : {:?}",result);
-
+    
     output.log("success: packet timeout ");
 
     output.emit(IbcEvent::TimeoutOnClosePacket(TimeoutOnClosePacket {
         packet: packet.clone(),
     }));
-    tracing::trace!(target:"ibc-rs","[timeout_on_close] process output : {:?}",output);
-
+    
     Ok(output.with_result(result))
 }
 

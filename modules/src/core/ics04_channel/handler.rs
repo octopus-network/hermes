@@ -52,10 +52,6 @@ where
     Ctx: Ics26Context,
 {
     let module_id = msg.lookup_module(ctx)?;
-    tracing::trace!(
-        "[in handle] channel_validate --> Module_id = {:?}",
-        module_id
-    );
     if ctx.router().has_route(&module_id) {
         Ok(module_id)
     } else {

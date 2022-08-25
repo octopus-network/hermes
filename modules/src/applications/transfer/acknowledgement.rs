@@ -100,16 +100,4 @@ mod test {
         assert!(serde_json::from_str::<Acknowledgement>(r#"{"result":"AQ="}"#).is_err());
         assert!(serde_json::from_str::<Acknowledgement>(r#"{"success":"AQ=="}"#).is_err());
     }
-
-    #[test]
-    fn test_ack_vec() {
-        let temp = serde_json::to_string(&Acknowledgement::success())
-            .unwrap()
-            .as_bytes()
-            .to_vec();
-
-        let acknowledgement = serde_json::from_slice::<Acknowledgement>(temp.as_ref());
-
-        std::println!("result = {:?}", acknowledgement);
-    }
 }

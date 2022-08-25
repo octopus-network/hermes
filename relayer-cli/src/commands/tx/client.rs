@@ -75,31 +75,24 @@ pub struct TxCreateClientCmd {
 ///     `hermes create client --host-chain ibc-0 --reference-chain ibc-1`
 impl Runnable for TxCreateClientCmd {
     fn run(&self) {
-        tracing::trace!("In Client: [run]");
         let config = app_config();
 
         if self.src_chain_id == self.dst_chain_id {
             Output::error("source and destination chains must be different".to_string()).exit()
         }
-        tracing::trace!(
-            "In Client: [run] >> src_chain_id: {}, dst_chain_id: {}",
-            self.src_chain_id,
-            self.dst_chain_id
-        );
+        
 
         let chains = match ChainHandlePair::spawn(&config, &self.src_chain_id, &self.dst_chain_id) {
             Ok(chains) => chains,
             Err(e) => Output::error(format!("{}", e)).exit(),
         };
-        tracing::trace!("In Client: [run] >> ChainHandlePair: {:?}", chains);
-
+        
         let client = ForeignClient::restore(
             ClientId::new(ClientType::Grandpa, 0).unwrap(), //TODO
             chains.dst,
             chains.src,
         );
-        tracing::trace!("In Client: [run] >> client: {}", client);
-
+        
         let options = CreateOptions {
             max_clock_drift: self.clock_drift.map(Into::into),
             trusting_period: self.trusting_period.map(Into::into),
@@ -110,8 +103,7 @@ impl Runnable for TxCreateClientCmd {
         let res: Result<IbcEventWithHeight, Error> = client
             .build_create_client_and_send(options)
             .map_err(Error::foreign_client);
-        tracing::trace!("In Client: [run] >> res: {:?}", res);
-
+       
         match res {
             Ok(receipt) => Output::success(receipt.event).exit(),
             Err(e) => Output::error(format!("{}", e)).exit(),

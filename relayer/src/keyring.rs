@@ -177,13 +177,10 @@ impl Test {
 
 impl KeyStore for Test {
     fn get_key(&self, key_name: &str) -> Result<KeyEntry, Error> {
-        tracing::info!("[{:?}] get_key", self);
         let mut key_file = self.store.join(key_name);
         key_file.set_extension(KEYSTORE_FILE_EXTENSION);
 
-        tracing::info!("[{:?}] key_file: {:?}", self, key_file);
         if !key_file.as_path().exists() {
-            tracing::info!("Error: key file not found");
             return Err(Error::key_file_not_found(format!("{}", key_file.display())));
         }
 
@@ -195,8 +192,7 @@ impl KeyStore for Test {
             )
         })?;
 
-        tracing::info!("[{:?}]", file);
-
+    
         let key_entry = serde_json::from_reader(file)
             .map_err(|e| Error::key_file_decode(format!("{}", key_file.display()), e))?;
 
@@ -294,8 +290,7 @@ impl KeyRing {
     }
 
     pub fn get_key(&self, key_name: &str) -> Result<KeyEntry, Error> {
-        tracing::info!("[{:?}] in get key", self);
-
+        
         match self {
             KeyRing::Memory(m) => m.get_key(key_name),
             KeyRing::Test(d) => d.get_key(key_name),

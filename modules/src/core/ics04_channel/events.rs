@@ -619,12 +619,6 @@ impl TryFrom<RawWriteAcknowledgement> for WriteAcknowledgement {
     type Error = Error;
 
     fn try_from(raw_wrt_ack: RawWriteAcknowledgement) -> Result<Self, Self::Error> {
-        let height: Height = raw_wrt_ack
-            .height
-            .ok_or_else(Error::missing_height)?
-            .try_into()
-            .unwrap(); // todo(davirian) handle unwrap()
-
         let packet = Packet::try_from(raw_wrt_ack.packet.ok_or_else(Error::missing_packet)?)
             .map_err(|_| Error::invalid_packet())?;
 
@@ -633,7 +627,6 @@ impl TryFrom<RawWriteAcknowledgement> for WriteAcknowledgement {
         }
 
         Ok(WriteAcknowledgement {
-            height,
             packet,
             ack: raw_wrt_ack.ack,
         })
@@ -643,7 +636,6 @@ impl TryFrom<RawWriteAcknowledgement> for WriteAcknowledgement {
 impl From<WriteAcknowledgement> for RawWriteAcknowledgement {
     fn from(wrt_ack: WriteAcknowledgement) -> Self {
         RawWriteAcknowledgement {
-            height: Some(wrt_ack.height.into()),
             packet: Some(wrt_ack.packet.into()),
             ack: wrt_ack.ack,
         }

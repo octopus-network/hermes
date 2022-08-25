@@ -390,11 +390,11 @@ pub struct MsgChannelCloseConfirmResponse {}
 
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct WriteAcknowledgement {
+    // #[prost(message, optional, tag = "1")]
+    // pub height: ::core::option::Option<super::super::client::v1::Height>,
     #[prost(message, optional, tag = "1")]
-    pub height: ::core::option::Option<super::super::client::v1::Height>,
-    #[prost(message, optional, tag = "2")]
     pub packet: ::core::option::Option<Packet>,
-    #[prost(bytes = "vec", tag = "3")]
+    #[prost(bytes = "vec", tag = "2")]
     pub ack: ::prost::alloc::vec::Vec<u8>,
 }
 
