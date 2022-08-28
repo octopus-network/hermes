@@ -151,11 +151,12 @@ pub struct ChainRuntime<Endpoint: ChainEndpoint> {
 
     /// An beefy bus, for broadcasting beefy msg that this runtime receives (via `beefy_receiver`) to subscribers
     beefy_bus: EventBus<Arc<BeefyResult<GPheader>>>,
+    
     /// Interface to the event monitor
     beefy_monitor_ctrl: BeefyMonitorCtrl,
 
-    #[allow(dead_code)]
-    rt: Arc<TokioRuntime>, // Making this future-proof, so we keep the runtime around.
+    // Making this future-proof, so we keep the runtime around.
+    rt: Arc<TokioRuntime>,
 }
 
 impl<Endpoint> ChainRuntime<Endpoint>

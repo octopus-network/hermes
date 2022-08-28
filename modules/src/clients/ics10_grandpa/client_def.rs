@@ -135,8 +135,7 @@ impl ClientDef for GrandpaClient {
                     .map_err(|_| Ics02Error::invalid_signed_commitment())?;
 
             // encode signed_commitment
-            let encoded_signed_commitment =
-                beefy_light_client::commitment::SignedCommitment::encode(&signed_commitment);
+            let encoded_signed_commitment = signed_commitment.encode();
 
             // verfiy mmr proof and update light client state
             let result = light_client.update_state(
@@ -185,24 +184,6 @@ impl ClientDef for GrandpaClient {
                 .map_err(|_| Ics02Error::cant_decode_mmr_leaf())?;
             let mmr_leaf_hash = beefy_merkle_tree::Keccak256::hash(&mmr_leaf1[..]);
 
-            //TODO: get commitment from ctx.mmr_root(height)
-            // let commitment = if new_mmr_root_height == client_state.latest_commitment.block_number {
-            //     // get mmr root from client_state.latest_commitment
-            //     Some(client_state.latest_commitment)
-            // } else {
-            //     // get consensus state by height
-            //     let height = Height::new(0, new_mmr_root_height as u64);
-            //     let consensus_state = ctx.consensus_state(&client_id, height).unwrap();
-            //     let consensus_state = match consensus_state {
-            //         AnyConsensusState::Grandpa(consensus_state) => consensus_state,
-            //         _ => unimplemented!(),
-            //     };
-            //     tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] check_header_and_update_state consensus_state: {:?}",consensus_state);
-
-            //     // get mmr root from consensus_state
-            //     Some(consensus_state.commitment.clone())
-            // };
-            // let commitment = commitment.unwrap();
             let mut payload = [0u8; 32];
             payload.copy_from_slice(&commitment.payload.get_raw(&MMR_ROOT_ID).unwrap());
 
@@ -222,9 +203,9 @@ impl ClientDef for GrandpaClient {
             // build new consensus state from header
             //build new new_consensus_state
             let new_consensus_state = GpConsensusState {
-                commitment: commitment,
+                commitment,
                 state_root: CommitmentRoot::from_bytes(&block_header.state_root),
-                timestamp: timestamp,
+                timestamp,
             };
 
             return Ok((client_state, new_consensus_state));
