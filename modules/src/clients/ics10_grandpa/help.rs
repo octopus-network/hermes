@@ -166,7 +166,7 @@ pub struct MmrLeaf {
     //// A merkle root of the next BEEFY authority set.
     pub beefy_next_authority_set: ValidatorSet,
     //// A merkle root of all registered parachain heads.
-    pub parachain_heads: Vec<u8>,
+    pub leaf_extra: Vec<u8>,
 }
 
 impl From<mmr::MmrLeaf> for MmrLeaf {
@@ -178,7 +178,7 @@ impl From<mmr::MmrLeaf> for MmrLeaf {
                 parent_header_hash: Vec::from(value.parent_number_and_hash.1),
             },
             beefy_next_authority_set: ValidatorSet::from(value.beefy_next_authority_set),
-            parachain_heads: Vec::from(value.parachain_heads),
+            leaf_extra: Vec::from(value.leaf_extra),
         }
     }
 }
@@ -197,8 +197,7 @@ impl TryFrom<MmrLeaf> for mmr::MmrLeaf {
             beefy_next_authority_set: validator_set::BeefyNextAuthoritySet::from(
                 value.beefy_next_authority_set,
             ),
-            parachain_heads: Hash::try_from(value.parachain_heads)
-                .map_err(|_| Error::invalid_convert_hash())?,
+            leaf_extra: value.leaf_extra,
         })
     }
 }
@@ -216,7 +215,7 @@ impl TryFrom<RawMmrLeaf> for MmrLeaf {
                 .beefy_next_authority_set
                 .ok_or_else(Error::empty_beefy_next_authority_set)?
                 .into(),
-            parachain_heads: raw.parachain_heads,
+            leaf_extra: raw.leaf_extra,
         })
     }
 }
@@ -227,7 +226,7 @@ impl From<MmrLeaf> for RawMmrLeaf {
             version: value.version,
             parent_number_and_hash: Some(value.parent_number_and_hash.into()),
             beefy_next_authority_set: Some(value.beefy_next_authority_set.into()),
-            parachain_heads: value.parachain_heads,
+            leaf_extra: value.leaf_extra,
         }
     }
 }

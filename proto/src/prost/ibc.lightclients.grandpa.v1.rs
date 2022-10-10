@@ -70,7 +70,7 @@ pub struct MmrLeaf {
     pub beefy_next_authority_set: ::core::option::Option<ValidatorSet>,
     //// A merkle root of all registered parachain heads.
     #[prost(bytes = "vec", tag = "4")]
-    pub parachain_heads: ::prost::alloc::vec::Vec<u8>,
+    pub leaf_extra: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ParentNumberAndHash {
