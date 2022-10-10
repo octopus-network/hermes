@@ -666,9 +666,15 @@ where
         height: Height,
         reply_to: ReplyTo<(Option<AnyClientState>, Proofs)>,
     ) -> Result<(), Error> {
-        tracing::trace!("in runtime: [build_connection_proofs_and_client_state] client_id:{:?}",client_id);
+        tracing::trace!(
+            "in runtime: [build_connection_proofs_and_client_state] client_id:{:?}",
+            client_id
+        );
         let config = self.chain.config();
-        tracing::trace!("in runtime: [build_connection_proofs_and_client_state] config:{:?}",config);
+        tracing::trace!(
+            "in runtime: [build_connection_proofs_and_client_state] config:{:?}",
+            config
+        );
 
         let result = self.chain.build_connection_proofs_and_client_state(
             message_type,

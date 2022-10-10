@@ -372,7 +372,10 @@ impl ChainHandle for BaseChainHandle {
         client_id: &ClientId,
         height: Height,
     ) -> Result<(Option<AnyClientState>, Proofs), Error> {
-        tracing::trace!("in relayer chain base: [build_connection_proofs_and_client_state] client_id:{:?}",client_id);
+        tracing::trace!(
+            "in relayer chain base: [build_connection_proofs_and_client_state] client_id:{:?}",
+            client_id
+        );
 
         self.send(
             |reply_to| ChainRequest::BuildConnectionProofsAndClientState {

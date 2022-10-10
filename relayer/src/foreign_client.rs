@@ -717,7 +717,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 })?
         };
 
-        tracing::trace!("[validated_client_state] client_state : {:?}",client_state);
+        tracing::trace!("[validated_client_state] client_state : {:?}", client_state);
         if client_state.is_frozen() {
             return Err(ForeignClientError::expired_or_frozen(
                 self.id().clone(),
@@ -969,7 +969,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 e,
             )
         })?;
-        tracing::trace!("[wait_for_header_validation_delay] pts_adjusted : {:?}",ts_adjusted);
+        tracing::trace!(
+            "[wait_for_header_validation_delay] pts_adjusted : {:?}",
+            ts_adjusted
+        );
 
         if header.timestamp().after(&ts_adjusted) {
             // Header would be considered in the future, wait for destination chain to
@@ -1058,7 +1061,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
     ) -> Result<Vec<Any>, ForeignClientError> {
         // Get the latest client state on destination.
         let (client_state, _) = self.validated_client_state()?;
-        tracing::trace!("[build_update_client_with_trusted] client_state : {:?}",client_state);
+        tracing::trace!(
+            "[build_update_client_with_trusted] client_state : {:?}",
+            client_state
+        );
 
         let trusted_height = match maybe_trusted_height {
             Some(trusted_height) => {
@@ -1099,7 +1105,9 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             );
             trace!(
                 "[{}] skipping update: trusted height ({}) >= chain target height ({})",
-                self, trusted_height, target_height
+                self,
+                trusted_height,
+                target_height
             );
             return Ok(vec![]);
         }
@@ -1133,7 +1141,8 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 self,
                 header.height(),
             );
-            trace!("[{}] MsgUpdateAnyClient for intermediate height {}",
+            trace!(
+                "[{}] MsgUpdateAnyClient for intermediate height {}",
                 self,
                 header.height(),
             );
