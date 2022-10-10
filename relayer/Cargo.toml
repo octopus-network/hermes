@@ -42,7 +42,7 @@ futures = "0.3.21"
 crossbeam-channel = "0.5.5"
 k256 = { version = "0.10.4", features = ["ecdsa-core", "ecdsa", "sha256"]}
 hex = "0.4"
-bitcoin = { version = "=0.28", features = ["use-serde"] }
+bitcoin = { version = "0.29.1" }
 tiny-bip39 = "1.0.0"
 hdpath = { version = "0.6.1" }
 sha2 = "0.10.2"
@@ -71,11 +71,11 @@ octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch =
 
 subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'master' }
 codec = { package = 'parity-scale-codec', version = '3.1.2', features = ['derive', 'full'] }
-pallet-mmr-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
+pallet-mmr-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
 beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "main" }
 # beefy-light-client = { path = "../../beefy-light-client", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
-sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
 ics23 = { version = "=0.8.0-alpha" }
 
 
