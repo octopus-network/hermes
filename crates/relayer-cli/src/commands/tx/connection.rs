@@ -2,7 +2,7 @@ use abscissa_core::clap::Parser;
 use abscissa_core::{Command, Runnable};
 
 use ibc::core::ics24_host::identifier::{ChainId, ClientId, ConnectionId};
-use ibc::events::IbcEvent;
+use ibc_relayer_types::events::IbcEvent;
 use ibc::timestamp::ZERO_DURATION;
 use ibc_relayer::connection::{Connection, ConnectionSide};
 

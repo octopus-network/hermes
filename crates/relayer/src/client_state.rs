@@ -16,6 +16,22 @@ use ibc::core::ics02_client::client_type::ClientType;
 use ibc::core::ics02_client::error::Error;
 use ibc::core::ics02_client::trust_threshold::TrustThreshold;
 use ibc_proto::google::protobuf::Any;
+use ibc_proto::ibc::core::commitment::v1::MerkleProof;
+use ibc::core::ics24_host::identifier::PortId;
+use ibc::core::ics24_host::identifier::ChannelId;
+use ibc::core::ics04_channel::packet::Sequence;
+use ibc::core::ics23_commitment::commitment::CommitmentRoot;
+use ibc::core::ics03_connection::connection::ConnectionEnd;
+use ibc::core::ics04_channel::context::ChannelReader;
+use ibc::core::ics23_commitment::commitment::CommitmentProofBytes;
+use ibc::core::ics04_channel::commitment::AcknowledgementCommitment;
+use ibc::core::ics04_channel::commitment::PacketCommitment;
+use ibc::core::ics23_commitment::commitment::CommitmentPrefix;
+use ibc::core::ics04_channel::channel::ChannelEnd;
+use ibc::core::ics24_host::identifier::ConnectionId;
+use ibc::core::ics02_client::consensus_state::ConsensusState;
+use ibc::core::ics02_client::client_state::UpdatedState;
+use ibc::core::ics02_client::context::ClientReader;
 
 use ibc::core::ics24_host::error::ValidationError;
 use ibc::core::ics24_host::identifier::{ChainId, ClientId};
@@ -76,7 +92,7 @@ impl AnyClientState {
 
     pub fn trust_threshold(&self) -> Option<TrustThreshold> {
         match self {
-            AnyClientState::Tendermint(state) => Some(state.trust_level),
+            AnyClientState::Tendermint(state) => Some(state.trust_level().clone()),
 
             #[cfg(test)]
             AnyClientState::Mock(_) => None,
@@ -85,7 +101,7 @@ impl AnyClientState {
 
     pub fn max_clock_drift(&self) -> Duration {
         match self {
-            AnyClientState::Tendermint(state) => state.max_clock_drift,
+            AnyClientState::Tendermint(state) => state.max_clock_drift().clone(),
 
             #[cfg(test)]
             AnyClientState::Mock(_) => Duration::new(0, 0),
@@ -206,6 +222,215 @@ impl ClientState for AnyClientState {
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.expired(elapsed_since_latest),
+        }
+    }
+
+
+    fn initialise(&self, consensus_state: Any) -> Result<Box<dyn ConsensusState>, Error> {
+        match self {
+            AnyClientState::Tendermint(tm_state) => tm_state.initialise(consensus_state),
+
+            #[cfg(test)]
+            AnyClientState::Mock(mock_state) => mock_state.initialise(consensus_state),
+        }
+    }
+
+    fn check_header_and_update_state(
+        &self,
+        ctx: &dyn ClientReader,
+        client_id: ClientId,
+        header: Any,
+    ) -> Result<UpdatedState, Error> {
+        match self {
+            AnyClientState::Tendermint(tm_state) => tm_state.check_header_and_update_state(ctx, client_id, header),
+
+            #[cfg(test)]
+            AnyClientState::Mock(mock_state) => mock_state.check_header_and_update_state(ctx, client_id, header),
+        }
+    }
+
+
+    fn verify_upgrade_and_update_state(
+        &self,
+        consensus_state: Any,
+        proof_upgrade_client: MerkleProof,
+        proof_upgrade_consensus_state: MerkleProof,
+    ) -> Result<UpdatedState, Error> {
+        match self {
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_upgrade_and_update_state(consensus_state, proof_upgrade_client, proof_upgrade_consensus_state),
+
+            #[cfg(test)]
+            AnyClientState::Mock(mock_state) => mock_state.verify_upgrade_and_update_state(consensus_state, proof_upgrade_client, proof_upgrade_consensus_state),
+        }
+    }
+
+    /// Verification functions as specified in:
+    /// <https://github.com/cosmos/ibc/tree/master/spec/core/ics-002-client-semantics>
+    ///
+    /// Verify a `proof` that the consensus state of a given client (at height `consensus_height`)
+    /// matches the input `consensus_state`. The parameter `counterparty_height` represent the
+    /// height of the counterparty chain that this proof assumes (i.e., the height at which this
+    /// proof was computed).
+    #[allow(clippy::too_many_arguments)]
+    fn verify_client_consensus_state(
+        &self,
+        height: Height,
+        prefix: &CommitmentPrefix,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        client_id: &ClientId,
+        consensus_height: Height,
+        expected_consensus_state: &dyn ConsensusState,
+    ) -> Result<(), Error> {
+        match self {
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_client_consensus_state(height, prefix, proof, root, client_id, consensus_height, expected_consensus_state),
+
+            #[cfg(test)]
+            AnyClientState::Mock(mock_state) => mock_state.verify_client_consensus_state(height, prefix, proof, root, client_id, consensus_height, expected_consensus_state),
+        }
+    }
+
+    /// Verify a `proof` that a connection state matches that of the input `connection_end`.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_connection_state(
+        &self,
+        height: Height,
+        prefix: &CommitmentPrefix,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        connection_id: &ConnectionId,
+        expected_connection_end: &ConnectionEnd,
+    ) -> Result<(), Error> {
+        match self {
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_connection_state(height, prefix, proof, root, connection_id, expected_connection_end),
+
+            #[cfg(test)]
+            AnyClientState::Mock(mock_state) => mock_state.verify_connection_state(height, prefix, proof, root, connection_id, expected_connection_end),
+        }
+    }
+
+    /// Verify a `proof` that a channel state matches that of the input `channel_end`.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_channel_state(
+        &self,
+        height: Height,
+        prefix: &CommitmentPrefix,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        expected_channel_end: &ChannelEnd,
+    ) -> Result<(), Error> {
+        match self {
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_channel_state(height, prefix, proof, root, port_id, channel_id, expected_channel_end),
+
+            #[cfg(test)]
+            AnyClientState::Mock(mock_state) => mock_state.verify_channel_state(height, prefix, proof, root, port_id, channel_id, expected_channel_end),
+        }
+    }
+
+    /// Verify the client state for this chain that it is stored on the counterparty chain.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_client_full_state(
+        &self,
+        height: Height,
+        prefix: &CommitmentPrefix,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        client_id: &ClientId,
+        expected_client_state: Any,
+    ) -> Result<(), Error> {
+        match self {
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_client_full_state(height, prefix, proof, root, client_id, expected_client_state),
+
+            #[cfg(test)]
+            AnyClientState::Mock(mock_state) => mock_state.verify_client_full_state(height, prefix, proof, root, client_id, expected_client_state),
+        }
+    }
+
+    /// Verify a `proof` that a packet has been commited.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_packet_data(
+        &self,
+        ctx: &dyn ChannelReader,
+        height: Height,
+        connection_end: &ConnectionEnd,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: Sequence,
+        commitment: PacketCommitment,
+    ) -> Result<(), Error> {
+        match self {
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_packet_data(ctx, height, connection_end, proof, root, port_id, channel_id, sequence, commitment),
+
+            #[cfg(test)]
+            AnyClientState::Mock(mock_state) => mock_state.verify_packet_data(ctx, height, connection_end, proof, root, port_id, channel_id, sequence, commitment),
+        }
+    }
+
+    /// Verify a `proof` that a packet has been commited.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_packet_acknowledgement(
+        &self,
+        ctx: &dyn ChannelReader,
+        height: Height,
+        connection_end: &ConnectionEnd,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: Sequence,
+        ack: AcknowledgementCommitment,
+    ) -> Result<(), Error> {
+        match self {
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_packet_acknowledgement(ctx, height, connection_end, proof, root, port_id, channel_id, sequence, ack),
+
+            #[cfg(test)]
+            AnyClientState::Mock(mock_state) => mock_state.verify_packet_acknowledgement(ctx, height, connection_end, proof, root, port_id, channel_id, sequence, ack),
+        }
+    }
+
+    /// Verify a `proof` that of the next_seq_received.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_next_sequence_recv(
+        &self,
+        ctx: &dyn ChannelReader,
+        height: Height,
+        connection_end: &ConnectionEnd,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: Sequence,
+    ) -> Result<(), Error> {
+        match self {
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_next_sequence_recv(ctx, height, connection_end, proof, root, port_id, channel_id, sequence),
+
+            #[cfg(test)]
+            AnyClientState::Mock(mock_state) => mock_state.verify_next_sequence_recv(ctx, height, connection_end, proof, root, port_id, channel_id, sequence),
+        }
+    }
+
+    /// Verify a `proof` that a packet has not been received.
+    #[allow(clippy::too_many_arguments)]
+    fn verify_packet_receipt_absence(
+        &self,
+        ctx: &dyn ChannelReader,
+        height: Height,
+        connection_end: &ConnectionEnd,
+        proof: &CommitmentProofBytes,
+        root: &CommitmentRoot,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        sequence: Sequence,
+    ) -> Result<(), Error> {
+        match self {
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_packet_receipt_absence(ctx, height, connection_end, proof, root, port_id, channel_id, sequence),
+
+            #[cfg(test)]
+            AnyClientState::Mock(mock_state) => mock_state.verify_packet_receipt_absence(ctx, height, connection_end, proof, root, port_id, channel_id, sequence),
         }
     }
 }

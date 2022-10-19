@@ -12,8 +12,8 @@ use itertools::Itertools;
 use tokio::runtime::Runtime as TokioRuntime;
 use tracing::{error, info, instrument};
 
-use ibc::{core::ics24_host::identifier::ChainId, events::IbcEvent};
-
+use ibc::{core::ics24_host::identifier::ChainId};
+use ibc_relayer_types::events::IbcEvent;
 use eyre::eyre;
 use ibc_relayer::{
     config::ChainConfig,

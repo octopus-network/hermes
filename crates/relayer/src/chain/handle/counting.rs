@@ -33,11 +33,11 @@ use ibc::{
     core::ics04_channel::channel::ChannelEnd,
     core::ics23_commitment::commitment::CommitmentPrefix,
     core::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId},
-    events::IbcEvent,
     proofs::Proofs,
     signer::Signer,
     Height,
 };
+use ibc_relayer_types::events::IbcEvent;
 
 #[derive(Debug, Clone)]
 pub struct CountingChainHandle<Handle> {

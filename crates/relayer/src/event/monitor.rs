@@ -17,8 +17,9 @@ use tendermint_rpc::{
 };
 
 use ibc::{
-    core::ics02_client::height::Height, core::ics24_host::identifier::ChainId, events::IbcEvent,
+    core::ics02_client::height::Height, core::ics24_host::identifier::ChainId,
 };
+use ibc_relayer_types::events::IbcEvent;
 
 use crate::{
     chain::tracking::TrackingId,

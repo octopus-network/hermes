@@ -92,7 +92,7 @@ pub fn build_and_send_ibc_upgrade_proposal(
     let upgrade_options = UpgradeOptions {
         unbonding_period: opts
             .upgraded_unbonding_period
-            .unwrap_or(client_state.unbonding_period),
+            .unwrap_or(client_state.unbonding_period().clone()),
     };
 
     client_state.upgrade(

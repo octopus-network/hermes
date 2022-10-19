@@ -11,9 +11,9 @@ use tracing::{debug, error, error_span, info, instrument, trace, warn};
 
 use ibc::{
     core::ics24_host::identifier::{ChainId, ChannelId, PortId},
-    events::IbcEvent,
     Height,
 };
+use ibc_relayer_types::events::IbcEvent;
 
 use crate::{
     chain::{endpoint::HealthCheck, handle::ChainHandle, tracking::TrackingId},

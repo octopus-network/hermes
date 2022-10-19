@@ -15,7 +15,7 @@ use ibc::core::ics03_connection::msgs::conn_open_confirm::MsgConnectionOpenConfi
 use ibc::core::ics03_connection::msgs::conn_open_init::MsgConnectionOpenInit;
 use ibc::core::ics03_connection::msgs::conn_open_try::MsgConnectionOpenTry;
 use ibc::core::ics24_host::identifier::{ClientId, ConnectionId};
-use ibc::events::IbcEvent;
+use ibc_relayer_types::events::IbcEvent;
 use ibc::timestamp::ZERO_DURATION;
 use ibc::tx_msg::Msg;
 
@@ -1044,7 +1044,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         let new_msg = MsgConnectionOpenTry {
             client_id: self.dst_client_id().clone(),
-            client_state: client_state.map(Into::into),
+            client_state: client_state.unwrap().into(), // todo(davirian)
             previous_connection_id,
             counterparty,
             counterparty_versions,
@@ -1162,7 +1162,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let new_msg = MsgConnectionOpenAck {
             connection_id: dst_connection_id.clone(),
             counterparty_connection_id: src_connection_id.clone(),
-            client_state: client_state.map(Into::into),
+            client_state: client_state.unwrap().into(),// todo(davirain)
             proofs,
             version: src_connection.versions()[0].clone(),
             signer,

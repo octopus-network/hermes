@@ -1,7 +1,7 @@
 use core::mem;
 
 use ibc::core::ics24_host::identifier::ChainId;
-use ibc::events::IbcEvent;
+use ibc_relayer_types::events::IbcEvent;
 use ibc::Height;
 use ibc_proto::google::protobuf::Any;
 use prost::Message;

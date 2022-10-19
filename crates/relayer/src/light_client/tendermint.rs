@@ -103,20 +103,25 @@ impl super::LightClient<CosmosSdkChain> for LightClient {
     ) -> Result<Option<MisbehaviourEvidence>, Error> {
         crate::time!("light client check_misbehaviour");
 
-        let update_header = update.header.clone().ok_or_else(|| {
-            Error::misbehaviour(format!(
-                "missing header in update client event {}",
-                self.chain_id
-            ))
-        })?;
+        // todo(davirian)
+        // let update_header = update.header().clone().ok_or_else(|| {
+        //     Error::misbehaviour(format!(
+        //         "missing header in update client event {}",
+        //         self.chain_id
+        //     ))
+        // })?;
 
-        let update_header: &TmHeader =
-            downcast_header(update_header.as_ref()).ok_or_else(|| {
-                Error::misbehaviour(format!(
+        // let update_header: &TmHeader =
+        //     downcast_header(update_header.as_ref()).ok_or_else(|| {
+        //         Error::misbehaviour(format!(
+        //             "header type incompatible for chain {}",
+        //             self.chain_id
+        //         ))
+        //     })?;
+        let update_header: TmHeader = TmHeader::try_from(update.header().clone()).map_err(|_| Error::misbehaviour(format!(
                     "header type incompatible for chain {}",
                     self.chain_id
-                ))
-            })?;
+        )))?;
 
         let latest_chain_block = self.fetch_light_block(AtHeight::Highest)?;
         let latest_chain_height =
@@ -124,7 +129,7 @@ impl super::LightClient<CosmosSdkChain> for LightClient {
                 .map_err(|_| Error::invalid_height_no_source())?;
 
         // set the target height to the minimum between the update height and latest chain height
-        let target_height = core::cmp::min(update.consensus_height(), latest_chain_height);
+        let target_height = core::cmp::min(update.consensus_height(), &latest_chain_height);
         let trusted_height = update_header.trusted_height;
 
         // TODO - check that a consensus state at trusted_height still exists on-chain,
@@ -141,7 +146,7 @@ impl super::LightClient<CosmosSdkChain> for LightClient {
         }
 
         let Verified { target, supporting } =
-            self.verify(trusted_height, target_height, client_state)?;
+            self.verify(trusted_height, target_height.clone(), client_state)?;
 
         if !headers_compatible(&target.signed_header, &update_header.signed_header) {
             let (witness, supporting) = self.adjust_headers(trusted_height, target, supporting)?;
@@ -190,11 +195,11 @@ impl LightClient {
 
         let params = TmOptions {
             trust_threshold: client_state
-                .trust_level
+                .trust_level().clone()
                 .try_into()
                 .map_err(Error::light_client_state)?,
-            trusting_period: client_state.trusting_period,
-            clock_drift: client_state.max_clock_drift,
+            trusting_period: client_state.trusting_period().clone(),
+            clock_drift: client_state.max_clock_drift().clone(),
         };
 
         Ok(TmLightClient::new(

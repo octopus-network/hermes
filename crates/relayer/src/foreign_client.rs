@@ -24,7 +24,9 @@ use ibc::core::ics02_client::msgs::upgrade_client::MsgUpgradeClient;
 use ibc::core::ics02_client::trust_threshold::TrustThreshold;
 use ibc::core::ics24_host::identifier::{ChainId, ClientId};
 use ibc::downcast;
-use ibc::events::{IbcEvent, IbcEventType, WithBlockDataType};
+use ibc::events::WithBlockDataType;
+use ibc_relayer_types::events::IbcEvent;
+use ibc_relayer_types::events::IbcEventType;
 use ibc::timestamp::{Timestamp, TimestampOverflowError};
 use ibc::tx_msg::Msg;
 use ibc::Height;
@@ -1483,7 +1485,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         };
 
         let consensus_state_heights = if let Some(event) = update {
-            vec![event.consensus_height()]
+            vec![event.consensus_height().clone()]
         } else {
             // Get the list of consensus state heights in descending order.
             // Note: If chain does not prune consensus states then the last consensus state is
@@ -1517,7 +1519,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
             // Skip over heights higher than the update event one.
             // This can happen if a client update happened with a lower height than latest.
-            if target_height > update_event.consensus_height() {
+            if target_height > *update_event.consensus_height() {
                 continue;
             }
 
@@ -1527,19 +1529,20 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             // - an `update_event` was specified and we should eventually find a consensus state
             //   at that height
             // We break here in case we got a bogus event.
-            if target_height < update_event.consensus_height() {
+            if target_height < *update_event.consensus_height() {
                 break;
             }
 
             // No header in events, cannot run misbehavior.
             // May happen on chains running older SDKs (e.g., Akash)
-            if update_event.header.is_none() {
-                return Err(ForeignClientError::misbehaviour_exit(format!(
-                    "could not extract header from update client event {:?} emitted by chain {}",
-                    update_event,
-                    self.dst_chain.id()
-                )));
-            }
+            // todo(davirian)
+            // if update_event.header.is_none() {
+            //     return Err(ForeignClientError::misbehaviour_exit(format!(
+            //         "could not extract header from update client event {:?} emitted by chain {}",
+            //         update_event,
+            //         self.dst_chain.id()
+            //     )));
+            // }
 
             // Check for misbehaviour according to the specific source chain type.
             // In case of Tendermint client, this will also check the BFT time violation if

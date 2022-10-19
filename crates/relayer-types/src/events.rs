@@ -11,71 +11,21 @@ use tendermint::abci::tag::Tag;
 use tendermint::abci::Event as AbciEvent;
 
 use crate::core::ics02_client::error as client_error;
-use crate::core::ics02_client::events as ClientEvents;
-use crate::core::ics02_client::events::NewBlock;
+use ibc::core::ics02_client::events as ClientEvents;
+use crate::core::ics02_client::events::{NewBlock, UpgradeClient};
 use crate::core::ics03_connection::error as connection_error;
-use crate::core::ics03_connection::events as ConnectionEvents;
-use crate::core::ics03_connection::events::Attributes as ConnectionAttributes;
+use ibc::core::ics03_connection::events as ConnectionEvents;
+use ibc::core::ics03_connection::events::Attributes as ConnectionAttributes;
 use crate::core::ics04_channel::error as channel_error;
-use crate::core::ics04_channel::events as ChannelEvents;
-use crate::core::ics04_channel::events::Attributes as ChannelAttributes;
-use crate::core::ics04_channel::packet::Packet;
+use ibc::core::ics04_channel::events as ChannelEvents;
+use ibc::core::ics04_channel::events::Attributes as ChannelAttributes;
+use ibc::core::ics04_channel::packet::Packet;
 use crate::core::ics24_host::error::ValidationError;
 use crate::timestamp::ParseTimestampError;
-
-define_error! {
-    Error {
-        Height
-            | _ | { "error parsing height" },
-
-        Parse
-            [ ValidationError ]
-            | _ | { "parse error" },
-
-        Client
-            [ client_error::Error ]
-            | _ | { "ICS02 client error" },
-
-        Connection
-            [ connection_error::Error ]
-            | _ | { "connection error" },
-
-        Channel
-            [ channel_error::Error ]
-            | _ | { "channel error" },
-
-        Timestamp
-            [ ParseTimestampError ]
-            | _ | { "error parsing timestamp" },
-
-        MissingKey
-            { key: String }
-            | e | { format_args!("missing event key {}", e.key) },
-
-        Decode
-            [ TraceError<prost::DecodeError> ]
-            | _ | { "error decoding protobuf" },
-
-        SubtleEncoding
-            [ TraceError<subtle_encoding::Error> ]
-            | _ | { "error decoding hex" },
-
-        MissingActionString
-            | _ | { "missing action string" },
-
-        IncorrectEventType
-            { event: String }
-            | e | { format_args!("incorrect event type: {}", e.event) },
-
-        MalformedModuleEvent
-            { event: ModuleEvent }
-            | e | { format_args!("module event cannot use core event types: {:?}", e.event) },
-
-        UnsupportedAbciEvent
-            {event_type: String}
-            |e| { format_args!("Unable to parse abci event type '{}' into IbcEvent", e.event_type)}
-    }
-}
+use ibc::events::Error;
+use ibc::events::ModuleEvent;
+use crate::core::ics03_connection::events::{OpenAck, OpenConfirm, OpenInit, OpenTry};
+use crate::core::ics04_channel::events::{AcknowledgePacket, CloseConfirm, CloseInit, ReceivePacket, SendPacket, TimeoutOnClosePacket, TimeoutPacket, WriteAcknowledgement};
 
 /// Events whose data is not included in the app state and must be extracted using tendermint RPCs
 /// (i.e. /tx_search or /block_search)
@@ -400,6 +350,131 @@ impl IbcEvent {
     }
 }
 
+impl From<ClientEvents::CreateClient> for IbcEvent {
+    fn from(v: ClientEvents::CreateClient) -> Self {
+        IbcEvent::CreateClient(v)
+    }
+}
+
+impl From<ClientEvents::UpdateClient> for IbcEvent {
+    fn from(v: ClientEvents::UpdateClient) -> Self {
+        IbcEvent::UpdateClient(v)
+    }
+}
+
+impl From<ClientEvents::ClientMisbehaviour> for IbcEvent {
+    fn from(v: ClientEvents::ClientMisbehaviour) -> Self {
+        IbcEvent::ClientMisbehaviour(v)
+    }
+}
+
+impl From<ClientEvents::UpgradeClient> for IbcEvent {
+    fn from(v: ClientEvents::UpgradeClient) -> Self {
+        IbcEvent::UpgradeClient(v)
+    }
+}
+
+impl From<ConnectionEvents::OpenInit> for IbcEvent {
+    fn from(v: ConnectionEvents::OpenInit) -> Self {
+        IbcEvent::OpenInitConnection(v)
+    }
+}
+
+impl From<ConnectionEvents::OpenTry> for IbcEvent {
+    fn from(v: ConnectionEvents::OpenTry) -> Self {
+        IbcEvent::OpenTryConnection(v)
+    }
+}
+
+
+impl From<ConnectionEvents::OpenAck> for IbcEvent {
+    fn from(v: ConnectionEvents::OpenAck) -> Self {
+        IbcEvent::OpenAckConnection(v)
+    }
+}
+
+impl From<ConnectionEvents::OpenConfirm> for IbcEvent {
+    fn from(v: ConnectionEvents::OpenConfirm) -> Self {
+        IbcEvent::OpenConfirmConnection(v)
+    }
+}
+
+impl From<ChannelEvents::OpenInit> for IbcEvent {
+    fn from(v: ChannelEvents::OpenInit) -> Self {
+        IbcEvent::OpenInitChannel(v)
+    }
+}
+
+impl From<ChannelEvents::OpenTry> for IbcEvent {
+    fn from(v: ChannelEvents::OpenTry) -> Self {
+        IbcEvent::OpenTryChannel(v)
+    }
+}
+
+
+impl From<ChannelEvents::OpenAck> for IbcEvent {
+    fn from(v: ChannelEvents::OpenAck) -> Self {
+        IbcEvent::OpenAckChannel(v)
+    }
+}
+
+
+impl From<ChannelEvents::OpenConfirm> for IbcEvent {
+    fn from(v: ChannelEvents::OpenConfirm) -> Self {
+        IbcEvent::OpenConfirmChannel(v)
+    }
+}
+
+impl From<ChannelEvents::CloseInit> for IbcEvent {
+    fn from(v: ChannelEvents::CloseInit) -> Self {
+        IbcEvent::CloseInitChannel(v)
+    }
+}
+
+impl From<ChannelEvents::CloseConfirm> for IbcEvent {
+    fn from(v: ChannelEvents::CloseConfirm) -> Self {
+        IbcEvent::CloseConfirmChannel(v)
+    }
+}
+
+impl From<ChannelEvents::SendPacket> for IbcEvent {
+    fn from(v: ChannelEvents::SendPacket) -> Self {
+        IbcEvent::SendPacket(v)
+    }
+}
+
+impl From<ChannelEvents::ReceivePacket> for IbcEvent {
+    fn from(v: ChannelEvents::ReceivePacket) -> Self {
+        IbcEvent::ReceivePacket(v)
+    }
+}
+
+
+impl From<ChannelEvents::WriteAcknowledgement> for IbcEvent {
+    fn from(v: ChannelEvents::WriteAcknowledgement) -> Self {
+        IbcEvent::WriteAcknowledgement(v)
+    }
+}
+
+
+impl From<ChannelEvents::AcknowledgePacket> for IbcEvent {
+    fn from(v: ChannelEvents::AcknowledgePacket) -> Self {
+        IbcEvent::AcknowledgePacket(v)
+    }
+}
+
+impl From<ChannelEvents::TimeoutPacket> for IbcEvent {
+    fn from(v: ChannelEvents::TimeoutPacket) -> Self {
+        IbcEvent::TimeoutPacket(v)
+    }
+}
+
+impl From<ChannelEvents::TimeoutOnClosePacket> for IbcEvent {
+    fn from(v: ChannelEvents::TimeoutOnClosePacket) -> Self {
+        IbcEvent::TimeoutOnClosePacket(v)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct InvalidModuleId;
 
@@ -427,86 +502,5 @@ impl FromStr for ModuleId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::new(Cow::Borrowed(s))
-    }
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct ModuleEvent {
-    pub kind: String,
-    pub module_name: ModuleId,
-    pub attributes: Vec<ModuleEventAttribute>,
-}
-
-impl Display for ModuleEvent {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), FmtError> {
-        write!(
-            f,
-            "ModuleEvent {{ kind: {}, module_name: {}, attributes: {} }}",
-            self.kind,
-            self.module_name,
-            PrettySlice(&self.attributes)
-        )
-    }
-}
-
-impl TryFrom<ModuleEvent> for AbciEvent {
-    type Error = Error;
-
-    fn try_from(event: ModuleEvent) -> Result<Self, Self::Error> {
-        if IbcEventType::from_str(event.kind.as_str()).is_ok() {
-            return Err(Error::malformed_module_event(event));
-        }
-
-        let attributes = event.attributes.into_iter().map(Into::into).collect();
-        Ok(AbciEvent {
-            type_str: event.kind,
-            attributes,
-        })
-    }
-}
-
-impl From<ModuleEvent> for IbcEvent {
-    fn from(e: ModuleEvent) -> Self {
-        IbcEvent::AppModule(e)
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct ModuleEventAttribute {
-    pub key: String,
-    pub value: String,
-}
-
-impl Display for ModuleEventAttribute {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), FmtError> {
-        write!(
-            f,
-            "ModuleEventAttribute {{ key: {}, value: {} }}",
-            self.key, self.value
-        )
-    }
-}
-
-impl<K: ToString, V: ToString> From<(K, V)> for ModuleEventAttribute {
-    fn from((k, v): (K, V)) -> Self {
-        Self {
-            key: k.to_string(),
-            value: v.to_string(),
-        }
-    }
-}
-
-impl From<ModuleEventAttribute> for Tag {
-    fn from(attr: ModuleEventAttribute) -> Self {
-        Self {
-            key: attr
-                .key
-                .parse()
-                .expect("Key::from_str() impl is infallible"),
-            value: attr
-                .key
-                .parse()
-                .expect("Value::from_str() impl is infallible"),
-        }
     }
 }

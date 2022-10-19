@@ -58,12 +58,13 @@ use ibc::{
         },
         ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId},
     },
-    events::{IbcEvent, WithBlockDataType},
+    events::WithBlockDataType,
     signer::Signer,
     timestamp::Timestamp,
     tx_msg::Msg,
     Height,
 };
+use ibc_relayer_types::events::IbcEvent;
 
 const MAX_RETRIES: usize = 5;
 

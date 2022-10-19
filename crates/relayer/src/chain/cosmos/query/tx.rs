@@ -1,7 +1,7 @@
 use ibc::core::ics02_client::height::Height;
 use ibc::core::ics04_channel::packet::{Packet, Sequence};
 use ibc::core::ics24_host::identifier::ChainId;
-use ibc::events::IbcEvent;
+use ibc_relayer_types::events::IbcEvent;
 use ibc::Height as ICSHeight;
 use tendermint::abci::transaction::Hash as TxHash;
 use tendermint::abci::Event;
@@ -199,8 +199,8 @@ fn update_client_from_tx_search_response(
             _ => None,
         })
         .find(|update| {
-            update.common.client_id == request.client_id
-                && update.common.consensus_height == request.consensus_height
+            update.client_id() == &request.client_id
+                && update.consensus_height() == &request.consensus_height
         })
         .map(|update| IbcEventWithHeight::new(IbcEvent::UpdateClient(update), height)))
 }

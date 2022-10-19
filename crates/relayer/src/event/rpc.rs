@@ -6,7 +6,8 @@ use tendermint_rpc::{event::Event as RpcEvent, event::EventData as RpcEventData}
 use ibc::core::ics02_client::{events as ClientEvents, height::Height};
 use ibc::core::ics04_channel::events as ChannelEvents;
 use ibc::core::ics24_host::identifier::ChainId;
-use ibc::events::IbcEvent;
+use ibc_relayer_types::events::IbcEvent;
+use ibc_relayer_types::core::ics02_client::events::NewBlock;
 
 use crate::chain::cosmos::types::events::channel::RawObject;
 use crate::event::monitor::queries;
@@ -134,7 +135,7 @@ pub fn get_all_events(
             .map_err(|_| String::from("tx.height: invalid header height of 0"))?;
 
             events_with_height.push(IbcEventWithHeight::new(
-                ClientEvents::NewBlock::new(height).into(),
+                NewBlock::new(height).into(),
                 height,
             ));
             events_with_height.append(&mut extract_block_events(height, &events));

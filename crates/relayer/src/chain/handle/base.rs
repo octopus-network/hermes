@@ -15,11 +15,11 @@ use ibc::{
         ics24_host::identifier::ChannelId,
         ics24_host::identifier::{ClientId, ConnectionId, PortId},
     },
-    events::IbcEvent,
     proofs::Proofs,
     signer::Signer,
     Height,
 };
+use ibc_relayer_types::events::IbcEvent;
 
 use crate::{
     account::Balance,

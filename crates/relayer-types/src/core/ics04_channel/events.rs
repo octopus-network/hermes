@@ -5,12 +5,13 @@ use serde_derive::{Deserialize, Serialize};
 use tendermint::abci::tag::Tag;
 use tendermint::abci::Event as AbciEvent;
 
-use crate::core::ics04_channel::error::Error;
-use crate::core::ics04_channel::packet::Packet;
-use crate::core::ics24_host::identifier::{ChannelId, ConnectionId, PortId};
-use crate::events::{Error as EventError, IbcEvent, IbcEventType};
+use ibc::core::ics04_channel::error::Error;
+use ibc::core::ics04_channel::packet::Packet;
+use ibc::core::ics24_host::identifier::{ChannelId, ConnectionId, PortId};
+use crate::events::{IbcEvent, IbcEventType};
 use crate::prelude::*;
 use crate::utils::pretty::PrettySlice;
+use ibc::events::Error as EventError;
 
 /// Channel event attribute keys
 pub const CONNECTION_ID_ATTRIBUTE_KEY: &str = "connection_id";
@@ -103,73 +104,73 @@ impl From<Attributes> for Vec<Tag> {
     }
 }
 
-/// Convert attributes to Tendermint ABCI tags
-///
-/// # Note
-/// The parsing of `Key`s and `Value`s never fails, because the
-/// `FromStr` instance of `tendermint::abci::tag::{Key, Value}`
-/// is infallible, even if it is not represented in the error type.
-/// Once tendermint-rs improves the API of the `Key` and `Value` types,
-/// we will be able to remove the `.parse().unwrap()` calls.
-impl TryFrom<Packet> for Vec<Tag> {
-    type Error = Error;
-    fn try_from(p: Packet) -> Result<Self, Self::Error> {
-        let mut attributes = vec![];
-        let src_port = Tag {
-            key: PKT_SRC_PORT_ATTRIBUTE_KEY.parse().unwrap(),
-            value: p.source_port.to_string().parse().unwrap(),
-        };
-        attributes.push(src_port);
-        let src_channel = Tag {
-            key: PKT_SRC_CHANNEL_ATTRIBUTE_KEY.parse().unwrap(),
-            value: p.source_channel.to_string().parse().unwrap(),
-        };
-        attributes.push(src_channel);
-        let dst_port = Tag {
-            key: PKT_DST_PORT_ATTRIBUTE_KEY.parse().unwrap(),
-            value: p.destination_port.to_string().parse().unwrap(),
-        };
-        attributes.push(dst_port);
-        let dst_channel = Tag {
-            key: PKT_DST_CHANNEL_ATTRIBUTE_KEY.parse().unwrap(),
-            value: p.destination_channel.to_string().parse().unwrap(),
-        };
-        attributes.push(dst_channel);
-        let sequence = Tag {
-            key: PKT_SEQ_ATTRIBUTE_KEY.parse().unwrap(),
-            value: p.sequence.to_string().parse().unwrap(),
-        };
-        attributes.push(sequence);
-        let timeout_height = Tag {
-            key: PKT_TIMEOUT_HEIGHT_ATTRIBUTE_KEY.parse().unwrap(),
-            value: p.timeout_height.into(),
-        };
-        attributes.push(timeout_height);
-        let timeout_timestamp = Tag {
-            key: PKT_TIMEOUT_TIMESTAMP_ATTRIBUTE_KEY.parse().unwrap(),
-            value: p
-                .timeout_timestamp
-                .nanoseconds()
-                .to_string()
-                .parse()
-                .unwrap(),
-        };
-        attributes.push(timeout_timestamp);
-        let val =
-            String::from_utf8(p.data).expect("hex-encoded string should always be valid UTF-8");
-        let packet_data = Tag {
-            key: PKT_DATA_ATTRIBUTE_KEY.parse().unwrap(),
-            value: val.parse().unwrap(),
-        };
-        attributes.push(packet_data);
-        let ack = Tag {
-            key: PKT_ACK_ATTRIBUTE_KEY.parse().unwrap(),
-            value: "".parse().unwrap(),
-        };
-        attributes.push(ack);
-        Ok(attributes)
-    }
-}
+// /// Convert attributes to Tendermint ABCI tags
+// ///
+// /// # Note
+// /// The parsing of `Key`s and `Value`s never fails, because the
+// /// `FromStr` instance of `tendermint::abci::tag::{Key, Value}`
+// /// is infallible, even if it is not represented in the error type.
+// /// Once tendermint-rs improves the API of the `Key` and `Value` types,
+// /// we will be able to remove the `.parse().unwrap()` calls.
+// impl TryFrom<Packet> for Vec<Tag> {
+//     type Error = Error;
+//     fn try_from(p: Packet) -> Result<Self, Self::Error> {
+//         let mut attributes = vec![];
+//         let src_port = Tag {
+//             key: PKT_SRC_PORT_ATTRIBUTE_KEY.parse().unwrap(),
+//             value: p.source_port.to_string().parse().unwrap(),
+//         };
+//         attributes.push(src_port);
+//         let src_channel = Tag {
+//             key: PKT_SRC_CHANNEL_ATTRIBUTE_KEY.parse().unwrap(),
+//             value: p.source_channel.to_string().parse().unwrap(),
+//         };
+//         attributes.push(src_channel);
+//         let dst_port = Tag {
+//             key: PKT_DST_PORT_ATTRIBUTE_KEY.parse().unwrap(),
+//             value: p.destination_port.to_string().parse().unwrap(),
+//         };
+//         attributes.push(dst_port);
+//         let dst_channel = Tag {
+//             key: PKT_DST_CHANNEL_ATTRIBUTE_KEY.parse().unwrap(),
+//             value: p.destination_channel.to_string().parse().unwrap(),
+//         };
+//         attributes.push(dst_channel);
+//         let sequence = Tag {
+//             key: PKT_SEQ_ATTRIBUTE_KEY.parse().unwrap(),
+//             value: p.sequence.to_string().parse().unwrap(),
+//         };
+//         attributes.push(sequence);
+//         let timeout_height = Tag {
+//             key: PKT_TIMEOUT_HEIGHT_ATTRIBUTE_KEY.parse().unwrap(),
+//             value: p.timeout_height.into(),
+//         };
+//         attributes.push(timeout_height);
+//         let timeout_timestamp = Tag {
+//             key: PKT_TIMEOUT_TIMESTAMP_ATTRIBUTE_KEY.parse().unwrap(),
+//             value: p
+//                 .timeout_timestamp
+//                 .nanoseconds()
+//                 .to_string()
+//                 .parse()
+//                 .unwrap(),
+//         };
+//         attributes.push(timeout_timestamp);
+//         let val =
+//             String::from_utf8(p.data).expect("hex-encoded string should always be valid UTF-8");
+//         let packet_data = Tag {
+//             key: PKT_DATA_ATTRIBUTE_KEY.parse().unwrap(),
+//             value: val.parse().unwrap(),
+//         };
+//         attributes.push(packet_data);
+//         let ack = Tag {
+//             key: PKT_ACK_ATTRIBUTE_KEY.parse().unwrap(),
+//             value: "".parse().unwrap(),
+//         };
+//         attributes.push(ack);
+//         Ok(attributes)
+//     }
+// }
 
 pub trait EventType {
     fn event_type() -> IbcEventType;
@@ -216,11 +217,6 @@ impl From<OpenInit> for Attributes {
     }
 }
 
-impl From<OpenInit> for IbcEvent {
-    fn from(v: OpenInit) -> Self {
-        IbcEvent::OpenInitChannel(v)
-    }
-}
 
 impl EventType for OpenInit {
     fn event_type() -> IbcEventType {
@@ -268,11 +264,7 @@ impl OpenTry {
     }
 }
 
-impl From<OpenTry> for IbcEvent {
-    fn from(v: OpenTry) -> Self {
-        IbcEvent::OpenTryChannel(v)
-    }
-}
+
 
 impl EventType for OpenTry {
     fn event_type() -> IbcEventType {
@@ -325,11 +317,7 @@ impl OpenAck {
     }
 }
 
-impl From<OpenAck> for IbcEvent {
-    fn from(v: OpenAck) -> Self {
-        IbcEvent::OpenAckChannel(v)
-    }
-}
+
 
 impl EventType for OpenAck {
     fn event_type() -> IbcEventType {
@@ -378,11 +366,6 @@ impl OpenConfirm {
     }
 }
 
-impl From<OpenConfirm> for IbcEvent {
-    fn from(v: OpenConfirm) -> Self {
-        IbcEvent::OpenConfirmChannel(v)
-    }
-}
 
 impl EventType for OpenConfirm {
     fn event_type() -> IbcEventType {
@@ -455,11 +438,7 @@ impl TryFrom<Attributes> for CloseInit {
     }
 }
 
-impl From<CloseInit> for IbcEvent {
-    fn from(v: CloseInit) -> Self {
-        IbcEvent::CloseInitChannel(v)
-    }
-}
+
 
 impl EventType for CloseInit {
     fn event_type() -> IbcEventType {
@@ -505,11 +484,7 @@ impl CloseConfirm {
     }
 }
 
-impl From<CloseConfirm> for IbcEvent {
-    fn from(v: CloseConfirm) -> Self {
-        IbcEvent::CloseConfirmChannel(v)
-    }
-}
+
 
 impl EventType for CloseConfirm {
     fn event_type() -> IbcEventType {
@@ -587,11 +562,7 @@ impl Display for SendPacket {
     }
 }
 
-impl From<SendPacket> for IbcEvent {
-    fn from(v: SendPacket) -> Self {
-        IbcEvent::SendPacket(v)
-    }
-}
+
 
 impl TryFrom<SendPacket> for AbciEvent {
     type Error = Error;
@@ -631,11 +602,6 @@ impl Display for ReceivePacket {
     }
 }
 
-impl From<ReceivePacket> for IbcEvent {
-    fn from(v: ReceivePacket) -> Self {
-        IbcEvent::ReceivePacket(v)
-    }
-}
 
 impl TryFrom<ReceivePacket> for AbciEvent {
     type Error = Error;
@@ -682,11 +648,6 @@ impl Display for WriteAcknowledgement {
     }
 }
 
-impl From<WriteAcknowledgement> for IbcEvent {
-    fn from(v: WriteAcknowledgement) -> Self {
-        IbcEvent::WriteAcknowledgement(v)
-    }
-}
 
 impl TryFrom<WriteAcknowledgement> for AbciEvent {
     type Error = Error;
@@ -728,11 +689,6 @@ impl Display for AcknowledgePacket {
     }
 }
 
-impl From<AcknowledgePacket> for IbcEvent {
-    fn from(v: AcknowledgePacket) -> Self {
-        IbcEvent::AcknowledgePacket(v)
-    }
-}
 
 impl TryFrom<AcknowledgePacket> for AbciEvent {
     type Error = Error;
@@ -772,11 +728,7 @@ impl Display for TimeoutPacket {
     }
 }
 
-impl From<TimeoutPacket> for IbcEvent {
-    fn from(v: TimeoutPacket) -> Self {
-        IbcEvent::TimeoutPacket(v)
-    }
-}
+
 
 impl TryFrom<TimeoutPacket> for AbciEvent {
     type Error = Error;
@@ -816,11 +768,7 @@ impl Display for TimeoutOnClosePacket {
     }
 }
 
-impl From<TimeoutOnClosePacket> for IbcEvent {
-    fn from(v: TimeoutOnClosePacket) -> Self {
-        IbcEvent::TimeoutOnClosePacket(v)
-    }
-}
+
 
 impl TryFrom<TimeoutOnClosePacket> for AbciEvent {
     type Error = Error;

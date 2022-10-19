@@ -19,12 +19,11 @@ use ibc::{
         ics23_commitment::{commitment::CommitmentPrefix, merkle::MerkleProof},
         ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId},
     },
-    events::IbcEvent,
     proofs::Proofs,
     signer::Signer,
     Height,
 };
-
+use ibc_relayer_types::events::IbcEvent;
 use crate::{
     account::Balance,
     client_state::{AnyClientState, IdentifiedAnyClientState},

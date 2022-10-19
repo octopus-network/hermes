@@ -6,9 +6,9 @@ use tendermint::abci::tag::Tag;
 use tendermint::abci::Event as AbciEvent;
 
 use super::header::Header;
-use crate::core::ics02_client::client_type::ClientType;
-use crate::core::ics02_client::height::Height;
-use crate::core::ics24_host::identifier::ClientId;
+use ibc::core::ics02_client::client_type::ClientType;
+use ibc::core::ics02_client::height::Height;
+use ibc::core::ics24_host::identifier::ClientId;
 use crate::events::{IbcEvent, IbcEventType};
 use crate::prelude::*;
 
@@ -130,11 +130,6 @@ impl From<Attributes> for CreateClient {
     }
 }
 
-impl From<CreateClient> for IbcEvent {
-    fn from(v: CreateClient) -> Self {
-        IbcEvent::CreateClient(v)
-    }
-}
 
 impl From<CreateClient> for AbciEvent {
     fn from(v: CreateClient) -> Self {
@@ -187,12 +182,6 @@ impl From<Attributes> for UpdateClient {
     }
 }
 
-impl From<UpdateClient> for IbcEvent {
-    fn from(v: UpdateClient) -> Self {
-        IbcEvent::UpdateClient(v)
-    }
-}
-
 impl From<UpdateClient> for AbciEvent {
     fn from(v: UpdateClient) -> Self {
         let mut attributes = Vec::<Tag>::from(v.common);
@@ -233,11 +222,6 @@ impl From<Attributes> for ClientMisbehaviour {
     }
 }
 
-impl From<ClientMisbehaviour> for IbcEvent {
-    fn from(v: ClientMisbehaviour) -> Self {
-        IbcEvent::ClientMisbehaviour(v)
-    }
-}
 
 impl From<ClientMisbehaviour> for AbciEvent {
     fn from(v: ClientMisbehaviour) -> Self {

@@ -9,7 +9,7 @@ use ibc::applications::transfer::msgs::transfer::MsgTransfer;
 use ibc::applications::transfer::Amount;
 use ibc::core::ics04_channel::timeout::TimeoutHeight;
 use ibc::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
-use ibc::events::IbcEvent;
+use ibc_relayer_types::events::IbcEvent;
 use ibc::signer::Signer;
 use ibc::timestamp::{Timestamp, TimestampOverflowError};
 use ibc::tx_msg::Msg;

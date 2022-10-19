@@ -16,7 +16,7 @@ use ibc::core::ics04_channel::msgs::chan_open_confirm::MsgChannelOpenConfirm;
 use ibc::core::ics04_channel::msgs::chan_open_init::MsgChannelOpenInit;
 use ibc::core::ics04_channel::msgs::chan_open_try::MsgChannelOpenTry;
 use ibc::core::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
-use ibc::events::IbcEvent;
+use ibc_relayer_types::events::IbcEvent;
 use ibc::tx_msg::Msg;
 use ibc::Height;
 

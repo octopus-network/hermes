@@ -1,6 +1,6 @@
 use crate::applications::transfer::acknowledgement::Acknowledgement;
 use crate::applications::transfer::{Amount, PrefixedDenom, MODULE_ID_STR};
-use crate::events::ModuleEvent;
+use ibc::events::ModuleEvent;
 use crate::prelude::*;
 use crate::signer::Signer;
 

@@ -54,7 +54,7 @@ use ibc_relayer_types::core::ics03_connection::connection::IdentifiedConnectionE
 use ibc_relayer_types::core::ics04_channel::channel::IdentifiedChannelEnd;
 use ibc_relayer_types::core::ics04_channel::packet::{PacketMsgType, Sequence};
 use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
-use ibc_relayer_types::{
+use ibc::{
     core::ics03_connection::connection::ConnectionEnd,
     core::ics03_connection::version::Version,
     core::ics04_channel::channel::ChannelEnd,
@@ -62,11 +62,11 @@ use ibc_relayer_types::{
     core::ics24_host::identifier::ChainId,
     core::ics24_host::identifier::ChannelId,
     core::ics24_host::identifier::{ClientId, ConnectionId, PortId},
-    events::IbcEvent,
     proofs::Proofs,
     signer::Signer,
     Height,
 };
+use ibc_relayer_types::events::IbcEvent;
 
 use crate::types::tagged::*;
 

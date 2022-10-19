@@ -23,6 +23,7 @@ telemetry = ["ibc-telemetry"]
 [dependencies]
 ibc-proto        = { version = "0.20.1" }
 ibc-telemetry    = { version = "0.19.0", path = "../telemetry", optional = true }
+ibc-relayer-types   = { version = "0.19.0", path = "../relayer-types", features = ["std", "clock"] }
 ibc = { version = "0.19.0", features = ["mocks"],  git = "https://github.com/octopus-network/ibc-rs.git", branch = "davirain/dev" }
 
 subtle-encoding = "0.5"

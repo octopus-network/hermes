@@ -1,6 +1,6 @@
 use core::time::Duration;
 use ibc::core::ics24_host::identifier::ChainId;
-use ibc::events::IbcEvent;
+use ibc_relayer_types::events::IbcEvent;
 use ibc::Height;
 use itertools::Itertools;
 use std::thread;

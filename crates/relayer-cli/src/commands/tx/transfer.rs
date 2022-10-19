@@ -9,8 +9,8 @@ use ibc::{
         ics02_client::client_state::ClientState,
         ics24_host::identifier::{ChainId, ChannelId, PortId},
     },
-    events::IbcEvent,
 };
+use ibc_relayer_types::events::IbcEvent;
 use ibc_relayer::chain::handle::ChainHandle;
 use ibc_relayer::chain::requests::{
     IncludeProof, QueryChannelRequest, QueryClientStateRequest, QueryConnectionRequest, QueryHeight,
