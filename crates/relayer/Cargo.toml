@@ -23,9 +23,7 @@ telemetry = ["ibc-telemetry"]
 [dependencies]
 ibc-proto        = { version = "0.20.1" }
 ibc-telemetry    = { version = "0.19.0", path = "../telemetry", optional = true }
-#ibc-relayer-types = { version = "0.19.0", path = "../relayer-types", features = ["mocks"] }
-#ibc = { version = "0.19.0", git = "https://github.com/octopus-network/ibc-rs.git", features = ["mocks"] }
-ibc = { version = "0.19.0", path = "../../../ibc-rs/crates/ibc", features = ["mocks"]}
+ibc = { version = "0.19.0", features = ["mocks"],  git = "https://github.com/octopus-network/ibc-rs.git", branch = "davirain/dev" }
 
 subtle-encoding = "0.5"
 humantime-serde = "1.1.1"
@@ -93,8 +91,7 @@ default-features = false
 version = "=0.25.0"
 
 [dev-dependencies]
-#ibc = { version = "0.19.0", git = "https://github.com/octopus-network/ibc-rs.git", features = ["mocks"]}
-ibc = { version = "0.19.0", path = "../../../ibc-rs/crates/ibc", features = ["mocks"]}
+ibc = { version = "0.19.0", features = ["mocks"],  git = "https://github.com/octopus-network/ibc-rs.git", branch = "davirain/dev" }
 
 serial_test = "0.9.0"
 env_logger = "0.9.1"

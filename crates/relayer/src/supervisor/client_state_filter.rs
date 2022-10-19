@@ -7,9 +7,7 @@ use ibc::core::ics02_client::client_state::ClientState;
 use ibc::core::ics02_client::trust_threshold::TrustThreshold;
 use ibc::core::ics03_connection::connection::ConnectionEnd;
 use ibc::core::ics04_channel::error::Error as ChannelError;
-use ibc::core::ics24_host::identifier::{
-    ChainId, ChannelId, ClientId, ConnectionId, PortId,
-};
+use ibc::core::ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId};
 
 use crate::chain::handle::ChainHandle;
 use crate::chain::requests::{

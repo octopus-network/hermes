@@ -4,6 +4,11 @@ use abscissa_core::{Command, Runnable};
 use console::style;
 use dialoguer::Confirm;
 
+use ibc::core::ics02_client::client_state::ClientState;
+use ibc::core::ics03_connection::connection::IdentifiedConnectionEnd;
+use ibc::core::ics04_channel::channel::Order;
+use ibc::core::ics04_channel::version::Version;
+use ibc::core::ics24_host::identifier::{ChainId, ConnectionId, PortId};
 use ibc_relayer::chain::handle::ChainHandle;
 use ibc_relayer::chain::requests::{
     IncludeProof, QueryClientStateRequest, QueryConnectionRequest, QueryHeight,
@@ -11,11 +16,6 @@ use ibc_relayer::chain::requests::{
 use ibc_relayer::channel::Channel;
 use ibc_relayer::connection::Connection;
 use ibc_relayer::foreign_client::ForeignClient;
-use ibc::core::ics02_client::client_state::ClientState;
-use ibc::core::ics03_connection::connection::IdentifiedConnectionEnd;
-use ibc::core::ics04_channel::channel::Order;
-use ibc::core::ics04_channel::version::Version;
-use ibc::core::ics24_host::identifier::{ChainId, ConnectionId, PortId};
 
 use crate::cli_utils::{spawn_chain_runtime, ChainHandlePair};
 use crate::conclude::{exit_with_unrecoverable_error, Output};

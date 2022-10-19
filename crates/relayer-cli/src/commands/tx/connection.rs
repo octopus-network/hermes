@@ -1,10 +1,10 @@
 use abscissa_core::clap::Parser;
 use abscissa_core::{Command, Runnable};
 
-use ibc_relayer::connection::{Connection, ConnectionSide};
 use ibc::core::ics24_host::identifier::{ChainId, ClientId, ConnectionId};
 use ibc::events::IbcEvent;
 use ibc::timestamp::ZERO_DURATION;
+use ibc_relayer::connection::{Connection, ConnectionSide};
 
 use crate::cli_utils::ChainHandlePair;
 use crate::conclude::Output;

@@ -6,7 +6,7 @@
 
 use ibc::{applications::transfer, core::ics24_host::identifier::PortId};
 
-pub use ibc::core::ics04_channel::version::Version;
+pub use ibc::core::ics04_channel::Version;
 
 /// Returns the default channel version, depending on the the given [`PortId`].
 pub fn default_by_port(port_id: &PortId) -> Option<Version> {

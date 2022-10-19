@@ -2,9 +2,6 @@ pub mod tendermint;
 
 use core::ops::Deref;
 
-use ibc_proto::google::protobuf::Any;
-use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawTmHeader;
-use ibc_proto::protobuf::Protobuf as ErasedProtobuf;
 use ibc::clients::ics07_tendermint::header::{
     decode_header, Header as TendermintHeader, TENDERMINT_HEADER_TYPE_URL,
 };
@@ -14,6 +11,9 @@ use ibc::core::ics02_client::events::UpdateClient;
 use ibc::core::ics02_client::header::Header;
 use ibc::timestamp::Timestamp;
 use ibc::Height;
+use ibc_proto::google::protobuf::Any;
+use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawTmHeader;
+use ibc_proto::protobuf::Protobuf as ErasedProtobuf;
 use serde::{Deserialize, Serialize};
 use subtle_encoding::hex;
 

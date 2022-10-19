@@ -24,13 +24,10 @@ use tokio::runtime::Runtime as TokioRuntime;
 use tonic::{codegen::http::Uri, metadata::AsciiMetadataValue};
 use tracing::{error, instrument, warn};
 
-use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
 use ibc::clients::ics07_tendermint::header::Header as TmHeader;
 use ibc::core::ics02_client::client_type::ClientType;
 use ibc::core::ics02_client::error::Error as ClientError;
-use ibc::core::ics03_connection::connection::{
-    ConnectionEnd, IdentifiedConnectionEnd,
-};
+use ibc::core::ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd};
 use ibc::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
 use ibc::core::ics04_channel::packet::{Packet, Sequence};
 use ibc::core::ics23_commitment::commitment::CommitmentPrefix;
@@ -39,9 +36,7 @@ use ibc::core::ics24_host::path::{
     AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
     ConnectionsPath, ReceiptsPath, SeqRecvsPath,
 };
-use ibc::core::ics24_host::{
-    ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH,
-};
+use ibc::core::ics24_host::{ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH};
 use ibc::events::IbcEvent;
 use ibc::signer::Signer;
 use ibc::Height as ICSHeight;
@@ -53,6 +48,7 @@ use ibc::{
     clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState,
     core::ics02_client::events::UpdateClient,
 };
+use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
 
 use crate::account::Balance;
 use crate::chain::client::ClientSettings;

@@ -96,9 +96,7 @@ mod tests {
 
     #[test]
     fn paths_deserialize() {
-        use ibc::core::ics24_host::identifier::{
-            ChannelId, ClientId, ConnectionId, PortId,
-        };
+        use ibc::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
         use std::str::FromStr;
 
         let path = r#"{

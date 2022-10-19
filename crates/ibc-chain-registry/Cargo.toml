@@ -14,8 +14,7 @@ description  = """
 
 [dependencies]
 ibc-proto        = { version = "0.20.1" }
-#ibc = { version = "0.19.0", git = "https://github.com/octopus-network/ibc-rs.git", features = ["std"]}
-ibc = { version = "0.19.0", path = "../../../ibc-rs/crates/ibc", features = ["std"]}
+ibc = { version = "0.19.0", features = ["std"],  git = "https://github.com/octopus-network/ibc-rs.git", branch = "davirain/dev" }
 
 async-trait = "0.1.57"
 flex-error  = { version = "0.4.4", default-features = false }

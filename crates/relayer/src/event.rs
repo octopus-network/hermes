@@ -2,7 +2,7 @@ use core::fmt::{Display, Error as FmtError, Formatter};
 use ibc::{
     core::ics02_client::{
         error::Error as ClientError,
-        events::{self as client_events, Attributes as ClientAttributes, HEADER_ATTRIBUTE_KEY},
+        events::{self as client_events, HEADER_ATTRIBUTE_KEY},
         header::Header,
         height::HeightErrorDetail,
     },
@@ -23,7 +23,6 @@ use serde::Serialize;
 use tendermint::abci::Event as AbciEvent;
 
 use crate::light_client::AnyHeader;
-
 pub mod bus;
 pub mod monitor;
 pub mod rpc;
@@ -122,7 +121,37 @@ pub fn ibc_event_try_from_abci_event(abci_event: &AbciEvent) -> Result<IbcEvent,
 pub fn create_client_try_from_abci_event(
     abci_event: &AbciEvent,
 ) -> Result<client_events::CreateClient, ClientError> {
-    client_extract_attributes_from_tx(abci_event).map(client_events::CreateClient)
+    let client_id: ClientId;
+    let client_type: ClientType;
+    let consensus_height: Height;
+    for tag in &abci_event.attributes {
+        let key = tag.key.as_ref();
+        let value = tag.value.as_ref();
+        match key {
+            client_events::CLIENT_ID_ATTRIBUTE_KEY => {
+                client_id = value
+                    .parse()
+                    .map_err(ClientError::invalid_client_identifier)?
+            }
+            client_events::CLIENT_TYPE_ATTRIBUTE_KEY => {
+                client_type = value
+                    .parse()
+                    .map_err(|_| ClientError::unknown_client_type(value.to_string()))?
+            }
+            client_events::CONSENSUS_HEIGHT_ATTRIBUTE_KEY => {
+                consensus_height = value
+                    .parse()
+                    .map_err(|e| ClientError::invalid_string_as_height(value.to_string(), e))?
+            }
+            _ => {}
+        }
+    }
+
+    Ok(client_events::CreateClient::new(
+        client_id,
+        client_type,
+        consensus_height,
+    ))
 }
 
 pub fn update_client_try_from_abci_event(
@@ -277,34 +306,34 @@ pub fn timeout_packet_try_from_abci_event(
         .map_err(|_| ChannelError::abci_conversion_failed(abci_event.type_str.to_owned()))
 }
 
-fn client_extract_attributes_from_tx(event: &AbciEvent) -> Result<ClientAttributes, ClientError> {
-    let mut attr = ClientAttributes::default();
-
-    for tag in &event.attributes {
-        let key = tag.key.as_ref();
-        let value = tag.value.as_ref();
-        match key {
-            client_events::CLIENT_ID_ATTRIBUTE_KEY => {
-                attr.client_id = value
-                    .parse()
-                    .map_err(ClientError::invalid_client_identifier)?
-            }
-            client_events::CLIENT_TYPE_ATTRIBUTE_KEY => {
-                attr.client_type = value
-                    .parse()
-                    .map_err(|_| ClientError::unknown_client_type(value.to_string()))?
-            }
-            client_events::CONSENSUS_HEIGHT_ATTRIBUTE_KEY => {
-                attr.consensus_height = value
-                    .parse()
-                    .map_err(|e| ClientError::invalid_string_as_height(value.to_string(), e))?
-            }
-            _ => {}
-        }
-    }
-
-    Ok(attr)
-}
+// fn client_extract_attributes_from_tx(event: &AbciEvent) -> Result<ClientAttributes, ClientError> {
+//     let mut attr = ClientAttributes::default();
+//
+//     for tag in &event.attributes {
+//         let key = tag.key.as_ref();
+//         let value = tag.value.as_ref();
+//         match key {
+//             client_events::CLIENT_ID_ATTRIBUTE_KEY => {
+//                 attr.client_id = value
+//                     .parse()
+//                     .map_err(ClientError::invalid_client_identifier)?
+//             }
+//             client_events::CLIENT_TYPE_ATTRIBUTE_KEY => {
+//                 attr.client_type = value
+//                     .parse()
+//                     .map_err(|_| ClientError::unknown_client_type(value.to_string()))?
+//             }
+//             client_events::CONSENSUS_HEIGHT_ATTRIBUTE_KEY => {
+//                 attr.consensus_height = value
+//                     .parse()
+//                     .map_err(|e| ClientError::invalid_string_as_height(value.to_string(), e))?
+//             }
+//             _ => {}
+//         }
+//     }
+//
+//     Ok(attr)
+// }
 
 pub fn extract_header_from_tx(event: &AbciEvent) -> Result<Box<dyn Header>, ClientError> {
     for tag in &event.attributes {

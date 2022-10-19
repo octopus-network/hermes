@@ -14,8 +14,7 @@ description  = """
 """
 
 [dependencies]
-#ibc = { version = "0.19.0", git = "https://github.com/octopus-network/ibc-rs.git" }
-ibc = { version = "0.19.0", path = "../../../ibc-rs/crates/ibc"}
+ibc = { version = "0.19.0", git = "https://github.com/octopus-network/ibc-rs.git", branch = "davirain/dev" }
 
 ibc-relayer      = { version = "0.19.0", path = "../relayer" }
 

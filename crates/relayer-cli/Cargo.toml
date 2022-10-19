@@ -26,8 +26,7 @@ telemetry   = ["ibc-relayer/telemetry", "ibc-telemetry"]
 rest-server = ["ibc-relayer-rest"]
 
 [dependencies]
-#ibc = { version = "0.19.0", default-features = false, git = "https://github.com/octopus-network/ibc-rs.git", features = ["std", "clock"] }
-ibc = { version = "0.19.0", path = "../../../ibc-rs/crates/ibc", features = ["std","clock"]}
+ibc = { version = "0.19.0", features = ["std", "mocks"],  git = "https://github.com/octopus-network/ibc-rs.git", branch = "davirain/dev" }
 
 ibc-relayer        = { version = "0.19.0", path = "../relayer" }
 ibc-proto          = { version = "0.20.1" }

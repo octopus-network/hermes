@@ -2,6 +2,10 @@ use core::fmt::Display;
 
 use crate::error::Error;
 
+use ibc::core::ics04_channel::packet::Sequence;
+use ibc::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
+use ibc::events::WithBlockDataType;
+use ibc::Height;
 use ibc_proto::cosmos::base::query::v1beta1::PageRequest as RawPageRequest;
 use ibc_proto::ibc::core::channel::v1::{
     QueryChannelClientStateRequest as RawQueryChannelClientStateRequest,
@@ -21,10 +25,6 @@ use ibc_proto::ibc::core::connection::v1::{
     QueryClientConnectionsRequest as RawQueryClientConnectionsRequest,
     QueryConnectionsRequest as RawQueryConnectionsRequest,
 };
-use ibc::core::ics04_channel::packet::Sequence;
-use ibc::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
-use ibc::events::WithBlockDataType;
-use ibc::Height;
 
 use serde::{Deserialize, Serialize};
 use tendermint::abci::transaction::Hash as TxHash;

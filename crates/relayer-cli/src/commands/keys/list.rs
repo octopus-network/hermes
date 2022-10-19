@@ -6,11 +6,11 @@ use abscissa_core::{Command, Runnable};
 
 use crate::conclude::Output;
 use crate::{application::app_config, conclude::json};
+use ibc::core::ics24_host::identifier::ChainId;
 use ibc_relayer::{
     config::{ChainConfig, Config},
     keyring::{KeyEntry, KeyRing, Store},
 };
-use ibc::core::ics24_host::identifier::ChainId;
 
 #[derive(Clone, Command, Debug, Parser, PartialEq, Eq)]
 pub struct KeysListCmd {
