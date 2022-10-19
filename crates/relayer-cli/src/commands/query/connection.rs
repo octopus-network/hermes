@@ -5,12 +5,12 @@ use ibc_relayer::chain::requests::{
     IncludeProof, PageRequest, QueryConnectionChannelsRequest, QueryConnectionRequest, QueryHeight,
 };
 
-use ibc_relayer_types::core::{
+use ibc::core::{
     ics03_connection::connection::State,
     ics24_host::identifier::ConnectionId,
     ics24_host::identifier::{ChainId, PortChannelId},
 };
-use ibc_relayer_types::Height;
+use ibc::Height;
 
 use crate::cli_utils::spawn_chain_runtime;
 use crate::conclude::{exit_with_unrecoverable_error, Output};
@@ -145,7 +145,7 @@ mod tests {
     use std::str::FromStr;
 
     use abscissa_core::clap::Parser;
-    use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ConnectionId};
+    use ibc::core::ics24_host::identifier::{ChainId, ConnectionId};
 
     #[test]
     fn test_query_connection_channels() {

@@ -9,12 +9,12 @@ use ibc_relayer::chain::requests::{
 };
 use ibc_relayer::client_state::AnyClientState;
 use ibc_relayer::registry::Registry;
-use ibc_relayer_types::core::ics02_client::client_state::ClientState;
-use ibc_relayer_types::core::ics03_connection::connection::ConnectionEnd;
-use ibc_relayer_types::core::ics04_channel::channel::{ChannelEnd, State};
-use ibc_relayer_types::core::ics24_host::identifier::ChainId;
-use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
-use ibc_relayer_types::Height;
+use ibc::core::ics02_client::client_state::ClientState;
+use ibc::core::ics03_connection::connection::ConnectionEnd;
+use ibc::core::ics04_channel::channel::{ChannelEnd, State};
+use ibc::core::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
+use ibc::Height;
 
 use crate::conclude::{exit_with_unrecoverable_error, Output};
 use crate::prelude::*;
@@ -260,7 +260,7 @@ mod tests {
     use std::str::FromStr;
 
     use abscissa_core::clap::Parser;
-    use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
+    use ibc::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
 
     #[test]
     fn test_query_channel_ends_required_only() {

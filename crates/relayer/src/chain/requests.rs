@@ -21,10 +21,10 @@ use ibc_proto::ibc::core::connection::v1::{
     QueryClientConnectionsRequest as RawQueryClientConnectionsRequest,
     QueryConnectionsRequest as RawQueryConnectionsRequest,
 };
-use ibc_relayer_types::core::ics04_channel::packet::Sequence;
-use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
-use ibc_relayer_types::events::WithBlockDataType;
-use ibc_relayer_types::Height;
+use ibc::core::ics04_channel::packet::Sequence;
+use ibc::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
+use ibc::events::WithBlockDataType;
+use ibc::Height;
 
 use serde::{Deserialize, Serialize};
 use tendermint::abci::transaction::Hash as TxHash;

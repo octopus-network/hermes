@@ -4,21 +4,21 @@ use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as RawConsensus
 #[cfg(test)]
 use ibc_proto::ibc::mock::ConsensusState as RawMockConsensusState;
 use ibc_proto::protobuf::Protobuf;
-use ibc_relayer_types::clients::ics07_tendermint::consensus_state::{
+use ibc::clients::ics07_tendermint::consensus_state::{
     ConsensusState as TmConsensusState, TENDERMINT_CONSENSUS_STATE_TYPE_URL,
 };
-use ibc_relayer_types::core::ics02_client::client_type::ClientType;
-use ibc_relayer_types::core::ics02_client::consensus_state::{
+use ibc::core::ics02_client::client_type::ClientType;
+use ibc::core::ics02_client::consensus_state::{
     downcast_consensus_state, ConsensusState,
 };
-use ibc_relayer_types::core::ics02_client::error::Error;
-use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
+use ibc::core::ics02_client::error::Error;
+use ibc::core::ics23_commitment::commitment::CommitmentRoot;
 #[cfg(test)]
-use ibc_relayer_types::mock::consensus_state::MockConsensusState;
+use ibc::mock::consensus_state::MockConsensusState;
 #[cfg(test)]
-use ibc_relayer_types::mock::consensus_state::MOCK_CONSENSUS_STATE_TYPE_URL;
-use ibc_relayer_types::timestamp::Timestamp;
-use ibc_relayer_types::Height;
+use ibc::mock::consensus_state::MOCK_CONSENSUS_STATE_TYPE_URL;
+use ibc::timestamp::Timestamp;
+use ibc::Height;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -8,11 +8,11 @@ use ibc_relayer::chain::requests::{
     QueryTxRequest,
 };
 
-use ibc_relayer_types::core::ics02_client::client_state::ClientState;
-use ibc_relayer_types::core::ics24_host::identifier::ChainId;
-use ibc_relayer_types::core::ics24_host::identifier::ClientId;
-use ibc_relayer_types::events::WithBlockDataType;
-use ibc_relayer_types::Height;
+use ibc::core::ics02_client::client_state::ClientState;
+use ibc::core::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ClientId;
+use ibc::events::WithBlockDataType;
+use ibc::Height;
 
 use crate::application::app_config;
 use crate::cli_utils::spawn_chain_runtime;
@@ -332,7 +332,7 @@ mod tests {
     use std::str::FromStr;
 
     use abscissa_core::clap::Parser;
-    use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ClientId};
+    use ibc::core::ics24_host::identifier::{ChainId, ClientId};
 
     #[test]
     fn test_query_client_connections_required_only() {

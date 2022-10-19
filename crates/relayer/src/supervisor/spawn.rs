@@ -1,6 +1,6 @@
 use tracing::{error, info};
 
-use ibc_relayer_types::core::{
+use ibc::core::{
     ics02_client::client_state::ClientState, ics03_connection::connection::IdentifiedConnectionEnd,
     ics04_channel::channel::State as ChannelState, ics24_host::identifier::ChainId,
 };

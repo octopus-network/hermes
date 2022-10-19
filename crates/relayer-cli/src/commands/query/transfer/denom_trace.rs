@@ -2,7 +2,7 @@ use abscissa_core::clap::Parser;
 use abscissa_core::{Command, Runnable};
 
 use ibc_relayer::chain::handle::ChainHandle;
-use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ChainId;
 
 use crate::application::app_config;
 use crate::cli_utils::spawn_chain_runtime;
@@ -62,7 +62,7 @@ mod tests {
     use super::DenomTraceCmd;
 
     use abscissa_core::clap::Parser;
-    use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+    use ibc::core::ics24_host::identifier::ChainId;
 
     #[test]
     fn test_transfer_denom_trace() {

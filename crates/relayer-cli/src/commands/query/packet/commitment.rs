@@ -5,9 +5,9 @@ use serde::Serialize;
 use subtle_encoding::{Encoding, Hex};
 
 use ibc_relayer::chain::handle::ChainHandle;
-use ibc_relayer_types::core::ics04_channel::packet::Sequence;
-use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
-use ibc_relayer_types::Height;
+use ibc::core::ics04_channel::packet::Sequence;
+use ibc::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
+use ibc::Height;
 
 use crate::cli_utils::spawn_chain_runtime;
 use crate::conclude::{exit_with_unrecoverable_error, Output};
@@ -117,7 +117,7 @@ mod tests {
     use std::str::FromStr;
 
     use abscissa_core::clap::Parser;
-    use ibc_relayer_types::core::{
+    use ibc::core::{
         ics04_channel::packet::Sequence,
         ics24_host::identifier::{ChainId, ChannelId, PortId},
     };

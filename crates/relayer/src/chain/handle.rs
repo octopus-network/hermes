@@ -4,7 +4,7 @@ use core::fmt::{self, Debug, Display};
 use crossbeam_channel as channel;
 use tracing::Span;
 
-use ibc_relayer_types::{
+use ibc::{
     core::{
         ics02_client::events::UpdateClient,
         ics03_connection::{

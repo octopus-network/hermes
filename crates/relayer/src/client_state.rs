@@ -8,24 +8,24 @@ use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
 
 use ibc_proto::google::protobuf::Any;
-use ibc_relayer_types::clients::ics07_tendermint::client_state::{
+use ibc::clients::ics07_tendermint::client_state::{
     ClientState as TmClientState, UpgradeOptions as TmUpgradeOptions,
     TENDERMINT_CLIENT_STATE_TYPE_URL,
 };
-use ibc_relayer_types::core::ics02_client::client_state::{
+use ibc::core::ics02_client::client_state::{
     downcast_client_state, ClientState, UpgradeOptions,
 };
-use ibc_relayer_types::core::ics02_client::client_type::ClientType;
-use ibc_relayer_types::core::ics02_client::error::Error;
-use ibc_relayer_types::core::ics02_client::trust_threshold::TrustThreshold;
+use ibc::core::ics02_client::client_type::ClientType;
+use ibc::core::ics02_client::error::Error;
+use ibc::core::ics02_client::trust_threshold::TrustThreshold;
 
-use ibc_relayer_types::core::ics24_host::error::ValidationError;
-use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ClientId};
+use ibc::core::ics24_host::error::ValidationError;
+use ibc::core::ics24_host::identifier::{ChainId, ClientId};
 #[cfg(test)]
-use ibc_relayer_types::mock::client_state::MockClientState;
+use ibc::mock::client_state::MockClientState;
 #[cfg(test)]
-use ibc_relayer_types::mock::client_state::MOCK_CLIENT_STATE_TYPE_URL;
-use ibc_relayer_types::Height;
+use ibc::mock::client_state::MOCK_CLIENT_STATE_TYPE_URL;
+use ibc::Height;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -286,8 +286,8 @@ impl From<IdentifiedAnyClientState> for IdentifiedClientState {
 #[cfg(test)]
 mod tests {
     use ibc_proto::google::protobuf::Any;
-    use ibc_relayer_types::clients::ics07_tendermint::client_state::test_util::get_dummy_tendermint_client_state;
-    use ibc_relayer_types::clients::ics07_tendermint::header::test_util::get_dummy_tendermint_header;
+    use ibc::clients::ics07_tendermint::client_state::test_util::get_dummy_tendermint_client_state;
+    use ibc::clients::ics07_tendermint::header::test_util::get_dummy_tendermint_header;
     use test_log::test;
 
     use super::AnyClientState;

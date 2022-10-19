@@ -7,7 +7,7 @@ use ibc_relayer::{
     rest::request::{Request, VersionInfo},
     supervisor::dump_state::SupervisorState,
 };
-use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ChainId;
 
 use ibc_relayer_rest::{server::spawn, Config};
 

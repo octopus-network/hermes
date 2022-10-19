@@ -2,7 +2,7 @@ use core::str::FromStr;
 use core::time::Duration;
 use http::Uri;
 use ibc_proto::google::protobuf::Any;
-use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ChainId;
 use tendermint_rpc::{HttpClient, Url};
 
 use crate::chain::cosmos::types::gas::GasConfig;

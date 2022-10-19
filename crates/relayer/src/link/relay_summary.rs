@@ -1,6 +1,6 @@
 use core::fmt::{Display, Error as FmtError, Formatter};
 
-use ibc_relayer_types::events::IbcEvent;
+use ibc::events::IbcEvent;
 
 #[derive(Clone, Debug)]
 pub struct RelaySummary {

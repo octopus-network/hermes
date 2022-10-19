@@ -10,7 +10,7 @@ use ibc_relayer::{
     config::{ChainConfig, Config},
     keyring::{KeyEntry, KeyRing, Store},
 };
-use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ChainId;
 
 #[derive(Clone, Command, Debug, Parser, PartialEq, Eq)]
 pub struct KeysListCmd {
@@ -78,7 +78,7 @@ mod tests {
     use super::KeysListCmd;
 
     use abscissa_core::clap::Parser;
-    use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+    use ibc::core::ics24_host::identifier::ChainId;
 
     #[test]
     fn test_keys_list() {

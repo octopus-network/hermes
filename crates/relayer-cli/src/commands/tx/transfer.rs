@@ -11,7 +11,7 @@ use ibc_relayer::{
     config::Config,
     transfer::{build_and_send_transfer_messages, TransferOptions},
 };
-use ibc_relayer_types::{
+use ibc::{
     applications::transfer::Amount,
     core::{
         ics02_client::client_state::ClientState,
@@ -275,7 +275,7 @@ impl Runnable for TxIcs20MsgTransferCmd {
 
 #[cfg(test)]
 mod tests {
-    use ibc_relayer_types::{
+    use ibc::{
         applications::transfer::Amount,
         core::ics24_host::identifier::{ChainId, ChannelId, PortId},
     };

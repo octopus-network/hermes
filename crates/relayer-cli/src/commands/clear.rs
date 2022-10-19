@@ -6,8 +6,8 @@ use ibc_relayer::chain::handle::{BaseChainHandle, ChainHandle};
 use ibc_relayer::config::Config;
 use ibc_relayer::link::error::LinkError;
 use ibc_relayer::link::{Link, LinkParameters};
-use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
-use ibc_relayer_types::events::IbcEvent;
+use ibc::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
+use ibc::events::IbcEvent;
 
 use crate::application::app_config;
 use crate::cli_utils::spawn_chain_counterparty;
@@ -158,7 +158,7 @@ mod tests {
     use std::str::FromStr;
 
     use abscissa_core::clap::Parser;
-    use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
+    use ibc::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
 
     #[test]
     fn test_clear_packets_required_only() {

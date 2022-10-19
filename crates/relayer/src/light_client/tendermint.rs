@@ -12,7 +12,7 @@ use tendermint_light_client_verifier::types::{Height as TMHeight, LightBlock, Pe
 use tendermint_light_client_verifier::ProdVerifier;
 use tendermint_rpc as rpc;
 
-use ibc_relayer_types::{
+use ibc::{
     clients::ics07_tendermint::{
         header::{headers_compatible, Header as TmHeader},
         misbehaviour::Misbehaviour as TmMisbehaviour,

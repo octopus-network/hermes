@@ -14,10 +14,10 @@ use ibc_relayer::chain::requests::{
 use ibc_relayer::config::Config;
 use ibc_relayer::event::IbcEventWithHeight;
 use ibc_relayer::foreign_client::{CreateOptions, ForeignClient};
-use ibc_relayer_types::core::ics02_client::client_state::ClientState;
-use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ClientId};
-use ibc_relayer_types::events::IbcEvent;
-use ibc_relayer_types::Height;
+use ibc::core::ics02_client::client_state::ClientState;
+use ibc::core::ics24_host::identifier::{ChainId, ClientId};
+use ibc::events::IbcEvent;
+use ibc::Height;
 use tendermint_light_client_verifier::types::TrustThreshold;
 use tracing::debug;
 
@@ -566,7 +566,7 @@ mod tests {
 
     use abscissa_core::clap::Parser;
     use humantime::Duration;
-    use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ClientId};
+    use ibc::core::ics24_host::identifier::{ChainId, ClientId};
     use tendermint_light_client_verifier::types::TrustThreshold;
 
     #[test]

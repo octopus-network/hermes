@@ -12,7 +12,7 @@ use ibc_relayer::{
         RestApiError,
     },
 };
-use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ChainId;
 
 pub const NAME: &str = env!(
     "CARGO_PKG_NAME",

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use itertools::Itertools;
 use tracing::{debug, error, error_span, info, warn};
 
-use ibc_relayer_types::core::{
+use ibc::core::{
     ics02_client::client_state::ClientState,
     ics03_connection::connection::{IdentifiedConnectionEnd, State as ConnectionState},
     ics04_channel::{

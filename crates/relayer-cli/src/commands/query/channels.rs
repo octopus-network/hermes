@@ -11,9 +11,9 @@ use ibc_relayer::chain::requests::{
     QueryConnectionRequest, QueryHeight,
 };
 use ibc_relayer::registry::Registry;
-use ibc_relayer_types::core::ics02_client::client_state::ClientState;
-use ibc_relayer_types::core::ics04_channel::channel::{ChannelEnd, State};
-use ibc_relayer_types::core::ics24_host::identifier::{
+use ibc::core::ics02_client::client_state::ClientState;
+use ibc::core::ics04_channel::channel::{ChannelEnd, State};
+use ibc::core::ics24_host::identifier::{
     ChainId, ChannelId, ConnectionId, PortChannelId, PortId,
 };
 
@@ -387,7 +387,7 @@ mod tests {
     use super::QueryChannelsCmd;
 
     use abscissa_core::clap::Parser;
-    use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+    use ibc::core::ics24_host::identifier::ChainId;
 
     #[test]
     fn test_query_channels_required_only() {
