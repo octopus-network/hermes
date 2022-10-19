@@ -10,7 +10,7 @@ use tokio::runtime::Runtime;
 
 use ibc_proto::google::protobuf::Any;
 use ibc_relayer::chain::cosmos::types::config::TxConfig;
-use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ChainId;
 
 use crate::chain::cli::query::query_balance;
 use crate::error::Error;

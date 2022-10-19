@@ -6,7 +6,7 @@ use core::convert::TryFrom;
 use eyre::eyre;
 use ibc_relayer::chain::handle::ChainHandle;
 use ibc_relayer::channel::Channel;
-use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, PortId};
+use ibc::core::ics24_host::identifier::{ChannelId, PortId};
 
 use super::aliases::NthChainHandle;
 use crate::error::Error;

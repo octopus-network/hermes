@@ -49,11 +49,11 @@ use ibc_relayer::event::IbcEventWithHeight;
 use ibc_relayer::keyring::KeyEntry;
 use ibc_relayer::light_client::AnyHeader;
 use ibc_relayer::misbehaviour::MisbehaviourEvidence;
-use ibc_relayer_types::core::ics02_client::events::UpdateClient;
-use ibc_relayer_types::core::ics03_connection::connection::IdentifiedConnectionEnd;
-use ibc_relayer_types::core::ics04_channel::channel::IdentifiedChannelEnd;
-use ibc_relayer_types::core::ics04_channel::packet::{PacketMsgType, Sequence};
-use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
+use ibc::core::ics02_client::events::UpdateClient;
+use ibc::core::ics03_connection::connection::IdentifiedConnectionEnd;
+use ibc::core::ics04_channel::channel::IdentifiedChannelEnd;
+use ibc::core::ics04_channel::packet::{PacketMsgType, Sequence};
+use ibc::core::ics23_commitment::merkle::MerkleProof;
 use ibc::{
     core::ics03_connection::connection::ConnectionEnd,
     core::ics03_connection::version::Version,

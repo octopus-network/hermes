@@ -4,7 +4,7 @@ resolver = "2"
 
 members = [
     "crates/relayer",
-#    "crates/relayer-types",
+    "crates/relayer-types",
     "crates/relayer-cli",
     "crates/relayer-rest",
     "crates/telemetry",

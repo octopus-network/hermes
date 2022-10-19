@@ -9,7 +9,7 @@ use eyre::Report as Error;
 use ibc_relayer::chain::ChainType;
 use ibc_relayer::config;
 use ibc_relayer::keyring::Store;
-use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use ibc::core::ics24_host::identifier::ChainId;
 use std::sync::{Arc, RwLock};
 use tendermint_rpc::Url;
 
