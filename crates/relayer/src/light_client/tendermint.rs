@@ -18,7 +18,9 @@ use ibc::{
         misbehaviour::Misbehaviour as TmMisbehaviour,
     },
     core::{
-        ics02_client::{client_type::ClientType, events::UpdateClient, header::downcast_header},
+        ics02_client::{
+            client_type::ClientType, events::UpdateClient, /*header::downcast_header*/
+        },
         ics24_host::identifier::ChainId,
     },
     downcast, Height as ICSHeight,
@@ -118,10 +120,13 @@ impl super::LightClient<CosmosSdkChain> for LightClient {
         //             self.chain_id
         //         ))
         //     })?;
-        let update_header: TmHeader = TmHeader::try_from(update.header().clone()).map_err(|_| Error::misbehaviour(format!(
+        let update_header: TmHeader =
+            TmHeader::try_from(update.header().clone()).map_err(|_| {
+                Error::misbehaviour(format!(
                     "header type incompatible for chain {}",
                     self.chain_id
-        )))?;
+                ))
+            })?;
 
         let latest_chain_block = self.fetch_light_block(AtHeight::Highest)?;
         let latest_chain_height =
@@ -195,7 +200,8 @@ impl LightClient {
 
         let params = TmOptions {
             trust_threshold: client_state
-                .trust_level().clone()
+                .trust_level()
+                .clone()
                 .try_into()
                 .map_err(Error::light_client_state)?,
             trusting_period: client_state.trusting_period().clone(),

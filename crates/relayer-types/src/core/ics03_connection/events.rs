@@ -6,7 +6,7 @@ use tendermint::abci::tag::Tag;
 use tendermint::abci::Event as AbciEvent;
 
 use crate::core::ics24_host::identifier::{ClientId, ConnectionId};
-use crate::events::{IbcEvent, IbcEventType};
+use crate::events::IbcEventType;
 use crate::prelude::*;
 
 /// The content of the `key` field for the attribute containing the connection identifier.
@@ -97,8 +97,6 @@ impl From<Attributes> for OpenInit {
     }
 }
 
-
-
 impl From<OpenInit> for AbciEvent {
     fn from(v: OpenInit) -> Self {
         let attributes = Vec::<Tag>::from(v.0);
@@ -132,8 +130,6 @@ impl From<Attributes> for OpenTry {
         OpenTry(attrs)
     }
 }
-
-
 
 impl From<OpenTry> for AbciEvent {
     fn from(v: OpenTry) -> Self {
@@ -169,7 +165,6 @@ impl From<Attributes> for OpenAck {
     }
 }
 
-
 impl From<OpenAck> for AbciEvent {
     fn from(v: OpenAck) -> Self {
         let attributes = Vec::<Tag>::from(v.0);
@@ -203,8 +198,6 @@ impl From<Attributes> for OpenConfirm {
         OpenConfirm(attrs)
     }
 }
-
-
 
 impl From<OpenConfirm> for AbciEvent {
     fn from(v: OpenConfirm) -> Self {

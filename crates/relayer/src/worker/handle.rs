@@ -6,10 +6,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use tracing::{debug, trace};
 
-use ibc::{
-    core::ics24_host::identifier::ChainId,
-    Height,
-};
+use ibc::{core::ics24_host::identifier::ChainId, Height};
 use ibc_relayer_types::core::ics02_client::events::NewBlock;
 
 use crate::chain::tracking::TrackingId;

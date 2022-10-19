@@ -25,11 +25,11 @@ use ibc::core::ics02_client::trust_threshold::TrustThreshold;
 use ibc::core::ics24_host::identifier::{ChainId, ClientId};
 use ibc::downcast;
 use ibc::events::WithBlockDataType;
-use ibc_relayer_types::events::IbcEvent;
-use ibc_relayer_types::events::IbcEventType;
 use ibc::timestamp::{Timestamp, TimestampOverflowError};
 use ibc::tx_msg::Msg;
 use ibc::Height;
+use ibc_relayer_types::events::IbcEvent;
+use ibc_relayer_types::events::IbcEventType;
 
 use crate::chain::client::ClientSettings;
 use crate::chain::handle::ChainHandle;

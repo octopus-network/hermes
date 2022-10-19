@@ -11,27 +11,27 @@ use ibc::clients::ics07_tendermint::client_state::{
     ClientState as TmClientState, UpgradeOptions as TmUpgradeOptions,
     TENDERMINT_CLIENT_STATE_TYPE_URL,
 };
+use ibc::core::ics02_client::client_state::UpdatedState;
 use ibc::core::ics02_client::client_state::{downcast_client_state, ClientState, UpgradeOptions};
 use ibc::core::ics02_client::client_type::ClientType;
+use ibc::core::ics02_client::consensus_state::ConsensusState;
+use ibc::core::ics02_client::context::ClientReader;
 use ibc::core::ics02_client::error::Error;
 use ibc::core::ics02_client::trust_threshold::TrustThreshold;
-use ibc_proto::google::protobuf::Any;
-use ibc_proto::ibc::core::commitment::v1::MerkleProof;
-use ibc::core::ics24_host::identifier::PortId;
-use ibc::core::ics24_host::identifier::ChannelId;
-use ibc::core::ics04_channel::packet::Sequence;
-use ibc::core::ics23_commitment::commitment::CommitmentRoot;
 use ibc::core::ics03_connection::connection::ConnectionEnd;
-use ibc::core::ics04_channel::context::ChannelReader;
-use ibc::core::ics23_commitment::commitment::CommitmentProofBytes;
+use ibc::core::ics04_channel::channel::ChannelEnd;
 use ibc::core::ics04_channel::commitment::AcknowledgementCommitment;
 use ibc::core::ics04_channel::commitment::PacketCommitment;
+use ibc::core::ics04_channel::context::ChannelReader;
+use ibc::core::ics04_channel::packet::Sequence;
 use ibc::core::ics23_commitment::commitment::CommitmentPrefix;
-use ibc::core::ics04_channel::channel::ChannelEnd;
+use ibc::core::ics23_commitment::commitment::CommitmentProofBytes;
+use ibc::core::ics23_commitment::commitment::CommitmentRoot;
+use ibc::core::ics24_host::identifier::ChannelId;
 use ibc::core::ics24_host::identifier::ConnectionId;
-use ibc::core::ics02_client::consensus_state::ConsensusState;
-use ibc::core::ics02_client::client_state::UpdatedState;
-use ibc::core::ics02_client::context::ClientReader;
+use ibc::core::ics24_host::identifier::PortId;
+use ibc_proto::google::protobuf::Any;
+use ibc_proto::ibc::core::commitment::v1::MerkleProof;
 
 use ibc::core::ics24_host::error::ValidationError;
 use ibc::core::ics24_host::identifier::{ChainId, ClientId};
@@ -225,7 +225,6 @@ impl ClientState for AnyClientState {
         }
     }
 
-
     fn initialise(&self, consensus_state: Any) -> Result<Box<dyn ConsensusState>, Error> {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.initialise(consensus_state),
@@ -242,13 +241,16 @@ impl ClientState for AnyClientState {
         header: Any,
     ) -> Result<UpdatedState, Error> {
         match self {
-            AnyClientState::Tendermint(tm_state) => tm_state.check_header_and_update_state(ctx, client_id, header),
+            AnyClientState::Tendermint(tm_state) => {
+                tm_state.check_header_and_update_state(ctx, client_id, header)
+            }
 
             #[cfg(test)]
-            AnyClientState::Mock(mock_state) => mock_state.check_header_and_update_state(ctx, client_id, header),
+            AnyClientState::Mock(mock_state) => {
+                mock_state.check_header_and_update_state(ctx, client_id, header)
+            }
         }
     }
-
 
     fn verify_upgrade_and_update_state(
         &self,
@@ -257,10 +259,18 @@ impl ClientState for AnyClientState {
         proof_upgrade_consensus_state: MerkleProof,
     ) -> Result<UpdatedState, Error> {
         match self {
-            AnyClientState::Tendermint(tm_state) => tm_state.verify_upgrade_and_update_state(consensus_state, proof_upgrade_client, proof_upgrade_consensus_state),
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_upgrade_and_update_state(
+                consensus_state,
+                proof_upgrade_client,
+                proof_upgrade_consensus_state,
+            ),
 
             #[cfg(test)]
-            AnyClientState::Mock(mock_state) => mock_state.verify_upgrade_and_update_state(consensus_state, proof_upgrade_client, proof_upgrade_consensus_state),
+            AnyClientState::Mock(mock_state) => mock_state.verify_upgrade_and_update_state(
+                consensus_state,
+                proof_upgrade_client,
+                proof_upgrade_consensus_state,
+            ),
         }
     }
 
@@ -283,10 +293,26 @@ impl ClientState for AnyClientState {
         expected_consensus_state: &dyn ConsensusState,
     ) -> Result<(), Error> {
         match self {
-            AnyClientState::Tendermint(tm_state) => tm_state.verify_client_consensus_state(height, prefix, proof, root, client_id, consensus_height, expected_consensus_state),
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_client_consensus_state(
+                height,
+                prefix,
+                proof,
+                root,
+                client_id,
+                consensus_height,
+                expected_consensus_state,
+            ),
 
             #[cfg(test)]
-            AnyClientState::Mock(mock_state) => mock_state.verify_client_consensus_state(height, prefix, proof, root, client_id, consensus_height, expected_consensus_state),
+            AnyClientState::Mock(mock_state) => mock_state.verify_client_consensus_state(
+                height,
+                prefix,
+                proof,
+                root,
+                client_id,
+                consensus_height,
+                expected_consensus_state,
+            ),
         }
     }
 
@@ -302,10 +328,24 @@ impl ClientState for AnyClientState {
         expected_connection_end: &ConnectionEnd,
     ) -> Result<(), Error> {
         match self {
-            AnyClientState::Tendermint(tm_state) => tm_state.verify_connection_state(height, prefix, proof, root, connection_id, expected_connection_end),
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_connection_state(
+                height,
+                prefix,
+                proof,
+                root,
+                connection_id,
+                expected_connection_end,
+            ),
 
             #[cfg(test)]
-            AnyClientState::Mock(mock_state) => mock_state.verify_connection_state(height, prefix, proof, root, connection_id, expected_connection_end),
+            AnyClientState::Mock(mock_state) => mock_state.verify_connection_state(
+                height,
+                prefix,
+                proof,
+                root,
+                connection_id,
+                expected_connection_end,
+            ),
         }
     }
 
@@ -322,10 +362,26 @@ impl ClientState for AnyClientState {
         expected_channel_end: &ChannelEnd,
     ) -> Result<(), Error> {
         match self {
-            AnyClientState::Tendermint(tm_state) => tm_state.verify_channel_state(height, prefix, proof, root, port_id, channel_id, expected_channel_end),
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_channel_state(
+                height,
+                prefix,
+                proof,
+                root,
+                port_id,
+                channel_id,
+                expected_channel_end,
+            ),
 
             #[cfg(test)]
-            AnyClientState::Mock(mock_state) => mock_state.verify_channel_state(height, prefix, proof, root, port_id, channel_id, expected_channel_end),
+            AnyClientState::Mock(mock_state) => mock_state.verify_channel_state(
+                height,
+                prefix,
+                proof,
+                root,
+                port_id,
+                channel_id,
+                expected_channel_end,
+            ),
         }
     }
 
@@ -341,10 +397,24 @@ impl ClientState for AnyClientState {
         expected_client_state: Any,
     ) -> Result<(), Error> {
         match self {
-            AnyClientState::Tendermint(tm_state) => tm_state.verify_client_full_state(height, prefix, proof, root, client_id, expected_client_state),
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_client_full_state(
+                height,
+                prefix,
+                proof,
+                root,
+                client_id,
+                expected_client_state,
+            ),
 
             #[cfg(test)]
-            AnyClientState::Mock(mock_state) => mock_state.verify_client_full_state(height, prefix, proof, root, client_id, expected_client_state),
+            AnyClientState::Mock(mock_state) => mock_state.verify_client_full_state(
+                height,
+                prefix,
+                proof,
+                root,
+                client_id,
+                expected_client_state,
+            ),
         }
     }
 
@@ -363,10 +433,30 @@ impl ClientState for AnyClientState {
         commitment: PacketCommitment,
     ) -> Result<(), Error> {
         match self {
-            AnyClientState::Tendermint(tm_state) => tm_state.verify_packet_data(ctx, height, connection_end, proof, root, port_id, channel_id, sequence, commitment),
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_packet_data(
+                ctx,
+                height,
+                connection_end,
+                proof,
+                root,
+                port_id,
+                channel_id,
+                sequence,
+                commitment,
+            ),
 
             #[cfg(test)]
-            AnyClientState::Mock(mock_state) => mock_state.verify_packet_data(ctx, height, connection_end, proof, root, port_id, channel_id, sequence, commitment),
+            AnyClientState::Mock(mock_state) => mock_state.verify_packet_data(
+                ctx,
+                height,
+                connection_end,
+                proof,
+                root,
+                port_id,
+                channel_id,
+                sequence,
+                commitment,
+            ),
         }
     }
 
@@ -385,10 +475,30 @@ impl ClientState for AnyClientState {
         ack: AcknowledgementCommitment,
     ) -> Result<(), Error> {
         match self {
-            AnyClientState::Tendermint(tm_state) => tm_state.verify_packet_acknowledgement(ctx, height, connection_end, proof, root, port_id, channel_id, sequence, ack),
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_packet_acknowledgement(
+                ctx,
+                height,
+                connection_end,
+                proof,
+                root,
+                port_id,
+                channel_id,
+                sequence,
+                ack,
+            ),
 
             #[cfg(test)]
-            AnyClientState::Mock(mock_state) => mock_state.verify_packet_acknowledgement(ctx, height, connection_end, proof, root, port_id, channel_id, sequence, ack),
+            AnyClientState::Mock(mock_state) => mock_state.verify_packet_acknowledgement(
+                ctx,
+                height,
+                connection_end,
+                proof,
+                root,
+                port_id,
+                channel_id,
+                sequence,
+                ack,
+            ),
         }
     }
 
@@ -406,10 +516,28 @@ impl ClientState for AnyClientState {
         sequence: Sequence,
     ) -> Result<(), Error> {
         match self {
-            AnyClientState::Tendermint(tm_state) => tm_state.verify_next_sequence_recv(ctx, height, connection_end, proof, root, port_id, channel_id, sequence),
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_next_sequence_recv(
+                ctx,
+                height,
+                connection_end,
+                proof,
+                root,
+                port_id,
+                channel_id,
+                sequence,
+            ),
 
             #[cfg(test)]
-            AnyClientState::Mock(mock_state) => mock_state.verify_next_sequence_recv(ctx, height, connection_end, proof, root, port_id, channel_id, sequence),
+            AnyClientState::Mock(mock_state) => mock_state.verify_next_sequence_recv(
+                ctx,
+                height,
+                connection_end,
+                proof,
+                root,
+                port_id,
+                channel_id,
+                sequence,
+            ),
         }
     }
 
@@ -427,10 +555,28 @@ impl ClientState for AnyClientState {
         sequence: Sequence,
     ) -> Result<(), Error> {
         match self {
-            AnyClientState::Tendermint(tm_state) => tm_state.verify_packet_receipt_absence(ctx, height, connection_end, proof, root, port_id, channel_id, sequence),
+            AnyClientState::Tendermint(tm_state) => tm_state.verify_packet_receipt_absence(
+                ctx,
+                height,
+                connection_end,
+                proof,
+                root,
+                port_id,
+                channel_id,
+                sequence,
+            ),
 
             #[cfg(test)]
-            AnyClientState::Mock(mock_state) => mock_state.verify_packet_receipt_absence(ctx, height, connection_end, proof, root, port_id, channel_id, sequence),
+            AnyClientState::Mock(mock_state) => mock_state.verify_packet_receipt_absence(
+                ctx,
+                height,
+                connection_end,
+                proof,
+                root,
+                port_id,
+                channel_id,
+                sequence,
+            ),
         }
     }
 }

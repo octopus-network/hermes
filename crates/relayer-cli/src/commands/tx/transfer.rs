@@ -10,7 +10,6 @@ use ibc::{
         ics24_host::identifier::{ChainId, ChannelId, PortId},
     },
 };
-use ibc_relayer_types::events::IbcEvent;
 use ibc_relayer::chain::handle::ChainHandle;
 use ibc_relayer::chain::requests::{
     IncludeProof, QueryChannelRequest, QueryClientStateRequest, QueryConnectionRequest, QueryHeight,
@@ -19,6 +18,7 @@ use ibc_relayer::{
     config::Config,
     transfer::{build_and_send_transfer_messages, TransferOptions},
 };
+use ibc_relayer_types::events::IbcEvent;
 
 use crate::cli_utils::ChainHandlePair;
 use crate::conclude::{exit_with_unrecoverable_error, Output};

@@ -5,6 +5,23 @@ use crossbeam_channel as channel;
 use tokio::runtime::Runtime as TokioRuntime;
 use tracing::{error, Span};
 
+use crate::{
+    account::Balance,
+    client_state::{AnyClientState, IdentifiedAnyClientState},
+    config::ChainConfig,
+    connection::ConnectionMsgType,
+    consensus_state::{AnyConsensusState, AnyConsensusStateWithHeight},
+    denom::DenomTrace,
+    error::Error,
+    event::{
+        bus::EventBus,
+        monitor::{EventBatch, EventReceiver, MonitorCmd, Result as MonitorResult, TxMonitorCmd},
+        IbcEventWithHeight,
+    },
+    keyring::KeyEntry,
+    light_client::AnyHeader,
+    misbehaviour::MisbehaviourEvidence,
+};
 use ibc::{
     core::{
         ics02_client::events::UpdateClient,
@@ -24,23 +41,6 @@ use ibc::{
     Height,
 };
 use ibc_relayer_types::events::IbcEvent;
-use crate::{
-    account::Balance,
-    client_state::{AnyClientState, IdentifiedAnyClientState},
-    config::ChainConfig,
-    connection::ConnectionMsgType,
-    consensus_state::{AnyConsensusState, AnyConsensusStateWithHeight},
-    denom::DenomTrace,
-    error::Error,
-    event::{
-        bus::EventBus,
-        monitor::{EventBatch, EventReceiver, MonitorCmd, Result as MonitorResult, TxMonitorCmd},
-        IbcEventWithHeight,
-    },
-    keyring::KeyEntry,
-    light_client::AnyHeader,
-    misbehaviour::MisbehaviourEvidence,
-};
 
 use super::{
     client::ClientSettings,

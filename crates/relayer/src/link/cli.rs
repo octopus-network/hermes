@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 use ibc::core::ics04_channel::packet::Sequence;
 use tracing::{error_span, info};
 
-use ibc_relayer_types::events::IbcEvent;
 use ibc::Height;
+use ibc_relayer_types::events::IbcEvent;
 
 use crate::chain::counterparty::{unreceived_acknowledgements, unreceived_packets};
 use crate::chain::handle::ChainHandle;

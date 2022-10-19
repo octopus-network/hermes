@@ -5,12 +5,12 @@ use serde_derive::{Deserialize, Serialize};
 use tendermint::abci::tag::Tag;
 use tendermint::abci::Event as AbciEvent;
 
+use crate::events::IbcEventType;
+use crate::prelude::*;
+use crate::utils::pretty::PrettySlice;
 use ibc::core::ics04_channel::error::Error;
 use ibc::core::ics04_channel::packet::Packet;
 use ibc::core::ics24_host::identifier::{ChannelId, ConnectionId, PortId};
-use crate::events::{IbcEvent, IbcEventType};
-use crate::prelude::*;
-use crate::utils::pretty::PrettySlice;
 use ibc::events::Error as EventError;
 
 /// Channel event attribute keys
@@ -217,7 +217,6 @@ impl From<OpenInit> for Attributes {
     }
 }
 
-
 impl EventType for OpenInit {
     fn event_type() -> IbcEventType {
         IbcEventType::OpenInitChannel
@@ -263,8 +262,6 @@ impl OpenTry {
         &self.port_id
     }
 }
-
-
 
 impl EventType for OpenTry {
     fn event_type() -> IbcEventType {
@@ -317,8 +314,6 @@ impl OpenAck {
     }
 }
 
-
-
 impl EventType for OpenAck {
     fn event_type() -> IbcEventType {
         IbcEventType::OpenAckChannel
@@ -365,7 +360,6 @@ impl OpenConfirm {
         &self.port_id
     }
 }
-
 
 impl EventType for OpenConfirm {
     fn event_type() -> IbcEventType {
@@ -438,8 +432,6 @@ impl TryFrom<Attributes> for CloseInit {
     }
 }
 
-
-
 impl EventType for CloseInit {
     fn event_type() -> IbcEventType {
         IbcEventType::CloseInitChannel
@@ -483,8 +475,6 @@ impl CloseConfirm {
         self.channel_id.as_ref()
     }
 }
-
-
 
 impl EventType for CloseConfirm {
     fn event_type() -> IbcEventType {
@@ -562,8 +552,6 @@ impl Display for SendPacket {
     }
 }
 
-
-
 impl TryFrom<SendPacket> for AbciEvent {
     type Error = Error;
 
@@ -601,7 +589,6 @@ impl Display for ReceivePacket {
         write!(f, "ReceivePacket {{ packet: {} }}", self.packet)
     }
 }
-
 
 impl TryFrom<ReceivePacket> for AbciEvent {
     type Error = Error;
@@ -648,7 +635,6 @@ impl Display for WriteAcknowledgement {
     }
 }
 
-
 impl TryFrom<WriteAcknowledgement> for AbciEvent {
     type Error = Error;
 
@@ -689,7 +675,6 @@ impl Display for AcknowledgePacket {
     }
 }
 
-
 impl TryFrom<AcknowledgePacket> for AbciEvent {
     type Error = Error;
 
@@ -728,8 +713,6 @@ impl Display for TimeoutPacket {
     }
 }
 
-
-
 impl TryFrom<TimeoutPacket> for AbciEvent {
     type Error = Error;
 
@@ -767,8 +750,6 @@ impl Display for TimeoutOnClosePacket {
         write!(f, "TimeoutOnClosePacket {{ packet: {}}}", self.packet)
     }
 }
-
-
 
 impl TryFrom<TimeoutOnClosePacket> for AbciEvent {
     type Error = Error;

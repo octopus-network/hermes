@@ -1,8 +1,8 @@
 use crate::applications::transfer::acknowledgement::Acknowledgement;
 use crate::applications::transfer::{Amount, PrefixedDenom, MODULE_ID_STR};
-use ibc::events::ModuleEvent;
 use crate::prelude::*;
 use crate::signer::Signer;
+use ibc::events::ModuleEvent;
 
 const EVENT_TYPE_PACKET: &str = "fungible_token_packet";
 const EVENT_TYPE_TIMEOUT: &str = "timeout";

@@ -9,7 +9,6 @@ use abscissa_core::{Command, Runnable};
 
 use ibc::core::ics02_client::client_state::ClientState;
 use ibc::core::ics24_host::identifier::{ChainId, ClientId};
-use ibc_relayer_types::events::IbcEvent;
 use ibc::Height;
 use ibc_relayer::chain::handle::ChainHandle;
 use ibc_relayer::chain::requests::{
@@ -18,6 +17,7 @@ use ibc_relayer::chain::requests::{
 use ibc_relayer::config::Config;
 use ibc_relayer::event::IbcEventWithHeight;
 use ibc_relayer::foreign_client::{CreateOptions, ForeignClient};
+use ibc_relayer_types::events::IbcEvent;
 use tendermint_light_client_verifier::types::TrustThreshold;
 use tracing::debug;
 

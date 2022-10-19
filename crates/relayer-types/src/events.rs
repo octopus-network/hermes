@@ -1,31 +1,21 @@
 use crate::prelude::*;
-use crate::utils::pretty::PrettySlice;
 
 use alloc::borrow::Cow;
 use core::convert::{TryFrom, TryInto};
 use core::fmt::{Display, Error as FmtError, Formatter};
 use core::str::FromStr;
-use flex_error::{define_error, TraceError};
 use serde_derive::{Deserialize, Serialize};
-use tendermint::abci::tag::Tag;
 use tendermint::abci::Event as AbciEvent;
 
-use crate::core::ics02_client::error as client_error;
+use crate::core::ics02_client::events::NewBlock;
 use ibc::core::ics02_client::events as ClientEvents;
-use crate::core::ics02_client::events::{NewBlock, UpgradeClient};
-use crate::core::ics03_connection::error as connection_error;
 use ibc::core::ics03_connection::events as ConnectionEvents;
 use ibc::core::ics03_connection::events::Attributes as ConnectionAttributes;
-use crate::core::ics04_channel::error as channel_error;
 use ibc::core::ics04_channel::events as ChannelEvents;
 use ibc::core::ics04_channel::events::Attributes as ChannelAttributes;
 use ibc::core::ics04_channel::packet::Packet;
-use crate::core::ics24_host::error::ValidationError;
-use crate::timestamp::ParseTimestampError;
 use ibc::events::Error;
 use ibc::events::ModuleEvent;
-use crate::core::ics03_connection::events::{OpenAck, OpenConfirm, OpenInit, OpenTry};
-use crate::core::ics04_channel::events::{AcknowledgePacket, CloseConfirm, CloseInit, ReceivePacket, SendPacket, TimeoutOnClosePacket, TimeoutPacket, WriteAcknowledgement};
 
 /// Events whose data is not included in the app state and must be extracted using tendermint RPCs
 /// (i.e. /tx_search or /block_search)
@@ -386,7 +376,6 @@ impl From<ConnectionEvents::OpenTry> for IbcEvent {
     }
 }
 
-
 impl From<ConnectionEvents::OpenAck> for IbcEvent {
     fn from(v: ConnectionEvents::OpenAck) -> Self {
         IbcEvent::OpenAckConnection(v)
@@ -411,13 +400,11 @@ impl From<ChannelEvents::OpenTry> for IbcEvent {
     }
 }
 
-
 impl From<ChannelEvents::OpenAck> for IbcEvent {
     fn from(v: ChannelEvents::OpenAck) -> Self {
         IbcEvent::OpenAckChannel(v)
     }
 }
-
 
 impl From<ChannelEvents::OpenConfirm> for IbcEvent {
     fn from(v: ChannelEvents::OpenConfirm) -> Self {
@@ -449,13 +436,11 @@ impl From<ChannelEvents::ReceivePacket> for IbcEvent {
     }
 }
 
-
 impl From<ChannelEvents::WriteAcknowledgement> for IbcEvent {
     fn from(v: ChannelEvents::WriteAcknowledgement) -> Self {
         IbcEvent::WriteAcknowledgement(v)
     }
 }
-
 
 impl From<ChannelEvents::AcknowledgePacket> for IbcEvent {
     fn from(v: ChannelEvents::AcknowledgePacket) -> Self {

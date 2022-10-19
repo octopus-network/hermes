@@ -1,8 +1,8 @@
 use core::fmt::{Display, Error as FmtError, Formatter};
 
+use crate::event::monitor::EventBatch;
 use ibc::Height;
 use ibc_relayer_types::core::ics02_client::events::NewBlock;
-use crate::event::monitor::EventBatch;
 
 /// A command for a [`WorkerHandle`](crate::worker::WorkerHandle).
 #[derive(Debug, Clone)]

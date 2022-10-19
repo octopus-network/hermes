@@ -16,9 +16,7 @@ use tendermint_rpc::{
     WebSocketClient, WebSocketClientDriver,
 };
 
-use ibc::{
-    core::ics02_client::height::Height, core::ics24_host::identifier::ChainId,
-};
+use ibc::{core::ics02_client::height::Height, core::ics24_host::identifier::ChainId};
 use ibc_relayer_types::events::IbcEvent;
 
 use crate::{

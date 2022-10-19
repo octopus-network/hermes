@@ -37,7 +37,6 @@ use ibc::core::ics24_host::path::{
     ConnectionsPath, ReceiptsPath, SeqRecvsPath,
 };
 use ibc::core::ics24_host::{ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH};
-use ibc_relayer_types::events::IbcEvent;
 use ibc::signer::Signer;
 use ibc::Height as ICSHeight;
 use ibc::{
@@ -49,7 +48,7 @@ use ibc::{
     core::ics02_client::events::UpdateClient,
 };
 use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
-use ibc_relayer_types::core::ics02_client::height::Height;
+use ibc_relayer_types::events::IbcEvent;
 
 use crate::account::Balance;
 use crate::chain::client::ClientSettings;

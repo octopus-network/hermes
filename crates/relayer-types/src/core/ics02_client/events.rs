@@ -6,11 +6,11 @@ use tendermint::abci::tag::Tag;
 use tendermint::abci::Event as AbciEvent;
 
 use super::header::Header;
+use crate::events::{IbcEvent, IbcEventType};
+use crate::prelude::*;
 use ibc::core::ics02_client::client_type::ClientType;
 use ibc::core::ics02_client::height::Height;
 use ibc::core::ics24_host::identifier::ClientId;
-use crate::events::{IbcEvent, IbcEventType};
-use crate::prelude::*;
 
 /// The content of the `key` field for the attribute containing the client identifier.
 pub const CLIENT_ID_ATTRIBUTE_KEY: &str = "client_id";
@@ -130,7 +130,6 @@ impl From<Attributes> for CreateClient {
     }
 }
 
-
 impl From<CreateClient> for AbciEvent {
     fn from(v: CreateClient) -> Self {
         let attributes = Vec::<Tag>::from(v.0);
@@ -221,7 +220,6 @@ impl From<Attributes> for ClientMisbehaviour {
         ClientMisbehaviour(attrs)
     }
 }
-
 
 impl From<ClientMisbehaviour> for AbciEvent {
     fn from(v: ClientMisbehaviour) -> Self {
