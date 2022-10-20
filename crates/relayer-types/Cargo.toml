@@ -18,7 +18,15 @@ all-features = true
 
 [features]
 default = ["std"]
-std = ["flex-error/std", "flex-error/eyre_tracer", "ibc-proto/std", "clock"]
+std = [
+    "flex-error/std",
+    "flex-error/eyre_tracer",
+    "ibc-proto/std",
+    "clock",
+    "codec/std",
+    "beefy-merkle-tree/std",
+    "beefy-light-client/std",
+]
 clock = ["tendermint/clock", "time/std"]
 
 # This feature grants access to development-time mocking libraries, such as `MockContext` or `MockHeader`.
@@ -46,6 +54,11 @@ derive_more = { version = "0.99.17", default-features = false, features = ["from
 uint = { version = "0.9", default-features = false }
 primitive-types = { version = "0.12.0", default-features = false, features = ["serde_no_std"] }
 dyn-clone = "1.0.8"
+
+#substrate dep
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+beefy-merkle-tree = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28", features = ["keccak"], default-features = false }
+beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "main", default-features = false }
 
 [dependencies.tendermint]
 version = "=0.25.0"
