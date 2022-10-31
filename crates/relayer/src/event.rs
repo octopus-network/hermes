@@ -26,6 +26,8 @@ use crate::light_client::AnyHeader;
 
 pub mod bus;
 pub mod monitor;
+pub mod beefy_monitor;
+pub mod substrate_mointor;
 pub mod rpc;
 
 #[derive(Clone, Debug, Serialize)]

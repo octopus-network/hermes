@@ -1,5 +1,6 @@
 pub mod client;
 pub mod cosmos;
+pub mod substrate;
 pub mod counterparty;
 pub mod endpoint;
 pub mod handle;
