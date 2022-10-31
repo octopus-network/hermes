@@ -141,6 +141,9 @@ pub fn detect_misbehavior_task<ChainA: ChainHandle, ChainB: ChainHandle>(
 
                     WorkerCmd::NewBlock { .. } => {}
                     WorkerCmd::ClearPendingPackets => {}
+                    WorkerCmd::Beefy { header } => {
+                        let _ = client.update_mmr_root(header);
+                    }
                 }
             }
 

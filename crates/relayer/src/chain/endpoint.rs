@@ -56,6 +56,9 @@ use super::requests::{
     QueryPacketCommitmentRequest, QueryPacketReceiptRequest, QueryTxRequest,
 };
 
+use ibc::clients::ics10_grandpa::header::Header as GPHeader;
+use crate::event::beefy_monitor::BeefyReceiver;
+
 /// The result of a health check.
 #[derive(Debug)]
 pub enum HealthCheck {
@@ -100,6 +103,11 @@ pub trait ChainEndpoint: Sized {
         &self,
         rt: Arc<TokioRuntime>,
     ) -> Result<(EventReceiver, TxMonitorCmd), Error>;
+
+    fn init_beefy_monitor(
+        &self,
+        rt: Arc<TokioRuntime>,
+    ) -> Result<(BeefyReceiver, TxMonitorCmd), Error>;
 
     /// Shutdown the chain runtime
     fn shutdown(self) -> Result<(), Error>;
@@ -375,6 +383,12 @@ pub trait ChainEndpoint: Sized {
         target_height: ICSHeight,
         client_state: &AnyClientState,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error>;
+
+    /// add new api websocket_url
+    fn websocket_url(&self) -> Result<String, Error>;
+
+    /// add new api update_mmr_root
+    fn update_mmr_root(&mut self, client_id: ClientId, header: GPHeader) -> Result<(), Error>;
 
     /// Builds the required proofs and the client state for connection handshake messages.
     /// The proofs and client state must be obtained from queries at same height.

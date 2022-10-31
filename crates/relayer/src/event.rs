@@ -27,6 +27,8 @@ use crate::light_client::AnyHeader;
 pub mod bus;
 pub mod monitor;
 pub mod rpc;
+pub mod beefy_monitor;
+pub mod substrate_mointor;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct IbcEventWithHeight {

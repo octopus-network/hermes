@@ -1,4 +1,3 @@
-use core::fmt::{Display, Error as FmtError, Formatter};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 
@@ -8,7 +7,7 @@ use tracing::{debug, Span};
 use crate::account::Balance;
 use crate::chain::client::ClientSettings;
 use crate::chain::endpoint::{ChainStatus, HealthCheck};
-use crate::chain::handle::{ChainHandle, ChainRequest, Subscription};
+use crate::chain::handle::{BeefySubscription, ChainHandle, ChainRequest, Subscription};
 use crate::chain::requests::*;
 use crate::chain::tracking::TrackedMsgs;
 use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
@@ -22,12 +21,18 @@ use crate::keyring::KeyEntry;
 use crate::light_client::AnyHeader;
 use crate::misbehaviour::MisbehaviourEvidence;
 use crate::util::lock::LockExt;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
+use ibc_relayer_types::clients::ics10_grandpa::help::MmrRoot;
+use ibc_relayer_types::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
+use ibc_relayer_types::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
+use ibc_relayer_types::core::ics02_client::misbehaviour::MisbehaviourEvidence;
 use ibc_relayer_types::core::ics03_connection::connection::IdentifiedConnectionEnd;
 use ibc_relayer_types::core::ics04_channel::channel::IdentifiedChannelEnd;
 use ibc_relayer_types::core::ics04_channel::packet::{PacketMsgType, Sequence};
 use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
 use ibc_relayer_types::{
+    core::ics02_client::header::AnyHeader,
     core::ics03_connection::connection::ConnectionEnd,
     core::ics03_connection::version::Version,
     core::ics04_channel::channel::ChannelEnd,
@@ -38,6 +43,8 @@ use ibc_relayer_types::{
     signer::Signer,
     Height,
 };
+use serde::{Serialize, Serializer};
+use crate::{connection::ConnectionMsgType, keyring::KeyEntry};
 
 #[derive(Debug, Clone)]
 pub struct CountingChainHandle<Handle> {
@@ -81,6 +88,15 @@ impl<Handle: ChainHandle> Display for CountingChainHandle<Handle> {
     }
 }
 
+impl<Handle: Serialize> Serialize for CountingChainHandle<Handle> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        self.inner.serialize(serializer)
+    }
+}
+
 impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
     fn new(chain_id: ChainId, sender: channel::Sender<(Span, ChainRequest)>) -> Self {
         Self::new(Handle::new(chain_id, sender))
@@ -108,6 +124,10 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
     fn subscribe(&self) -> Result<Subscription, Error> {
         self.inc_metric("subscribe");
         self.inner().subscribe()
+    }
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
+        self.inc_metric("subscribe_beefy");
+        self.inner().subscribe_beefy()
     }
 
     fn send_messages_and_wait_commit(
@@ -464,4 +484,15 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
         self.inc_metric("query_host_consensus_state");
         self.inner.query_host_consensus_state(request)
     }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        self.inc_metric("websocket_url");
+        self.inner().websocket_url()
+    }
+
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+        self.inc_metric("update_mmr_root");
+        self.inner().update_mmr_root(client_id, header)
+    }
 }
+

@@ -159,6 +159,27 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
 
             (None, None)
         }
+
+        Object::Beefy(beefy) => {
+            tracing::trace!(
+                "in worker: [spawn_worker_tasks], Object::Beefy(beefy) ={:?} ",
+                beefy
+            );
+            let client = ForeignClient::restore(beefy.dst_client_id.clone(), chains.b, chains.a);
+
+            let mut update_mmr_root = false;
+            let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded();
+            //TODO: spawn update mmr root task
+            let update_mmr_root_task = client::spawn_update_mmr_root(cmd_rx, client.clone());
+            if let Some(update_mmr_root_task) = update_mmr_root_task {
+                task_handles.push(update_mmr_root_task);
+                update_mmr_root = true;
+            }
+
+            let data = WorkerData::Beefy { update_mmr_root };
+
+            (Some(cmd_tx), Some(data))
+        }
     };
 
     WorkerHandle::new(id, object, data, cmd_tx, task_handles)

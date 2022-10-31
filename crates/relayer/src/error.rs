@@ -526,6 +526,12 @@ define_error! {
             |e| {
                 format_args!("message with length {} is too large for a transaction", e.len)
             }
+
+        Ics20Transfer
+            | _ | { "ics 20 transfer error"},
+
+        SubstrateBuildClient
+            | _ | { "create substrate build client error" },
     }
 }
 

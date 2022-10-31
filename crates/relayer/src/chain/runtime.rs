@@ -7,7 +7,13 @@ use tracing::{error, Span};
 
 use ibc_relayer_types::{
     core::{
-        ics02_client::events::UpdateClient,
+        ics02_client::{
+            client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight, ConsensusState},
+            client_state::{AnyClientState, ClientState, IdentifiedAnyClientState},
+            events::UpdateClient,
+            header::{AnyHeader, Header},
+            misbehaviour::MisbehaviourEvidence,
+        },
         ics03_connection::{
             connection::{ConnectionEnd, IdentifiedConnectionEnd},
             version::Version,
@@ -18,6 +24,8 @@ use ibc_relayer_types::{
         },
         ics23_commitment::{commitment::CommitmentPrefix, merkle::MerkleProof},
         ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId},
+        ics24_host::identifier::ChainId,
+        clients::ics10_grandpa::{header::Header as GPheader, help::MmrRoot},
     },
     events::IbcEvent,
     proofs::Proofs,
@@ -34,19 +42,20 @@ use crate::{
     denom::DenomTrace,
     error::Error,
     event::{
+        beefy_monitor::{BeefyMonitorCtrl, BeefyReceiver, BeefyResult},
         bus::EventBus,
         monitor::{EventBatch, EventReceiver, MonitorCmd, Result as MonitorResult, TxMonitorCmd},
         IbcEventWithHeight,
     },
     keyring::KeyEntry,
-    light_client::AnyHeader,
+    light_client::{AnyHeader, LightClient},
     misbehaviour::MisbehaviourEvidence,
 };
 
 use super::{
     client::ClientSettings,
     endpoint::{ChainEndpoint, ChainStatus, HealthCheck},
-    handle::{ChainHandle, ChainRequest, ReplyTo, Subscription},
+    handle::{BeefySubscription, ChainHandle, ChainRequest, ReplyTo, Subscription},
     requests::{
         IncludeProof, QueryBlockRequest, QueryChannelClientStateRequest, QueryChannelRequest,
         QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStateRequest,
@@ -60,6 +69,8 @@ use super::{
     },
     tracking::TrackedMsgs,
 };
+
+use ibc_relayer_types::thread::sleep;
 
 pub struct Threads {
     pub chain_runtime: thread::JoinHandle<()>,
@@ -142,6 +153,14 @@ pub struct ChainRuntime<Endpoint: ChainEndpoint> {
     /// Interface to the event monitor
     event_monitor_ctrl: EventMonitorCtrl,
 
+    /// An beefy bus, for broadcasting beefy msg that this runtime receives (via `beefy_receiver`) to subscribers
+    beefy_bus: EventBus<Arc<BeefyResult<GPheader>>>,
+    /// Interface to the event monitor
+    beefy_monitor_ctrl: BeefyMonitorCtrl,
+
+    /// A handle to the light client
+    light_client: Endpoint::LightClient,
+
     #[allow(dead_code)]
     rt: Arc<TokioRuntime>, // Making this future-proof, so we keep the runtime around.
 }
@@ -158,8 +177,11 @@ where
         // Similar to `from_config`.
         let chain = Endpoint::bootstrap(config, rt.clone())?;
 
+        // Start the light client
+        let light_client = chain.init_light_client()?;
+
         // Instantiate & spawn the runtime
-        let (handle, _) = Self::init(chain, rt);
+        let (handle, _) = Self::init(chain, light_client, rt);
 
         Ok(handle)
     }
@@ -167,9 +189,10 @@ where
     /// Initializes a runtime for a given chain, and spawns the associated thread
     fn init<Handle: ChainHandle>(
         chain: Endpoint,
+        light_client: Endpoint::LightClient,
         rt: Arc<TokioRuntime>,
     ) -> (Handle, thread::JoinHandle<()>) {
-        let chain_runtime = Self::new(chain, rt);
+        let chain_runtime = Self::new(chain, light_client, rt);
 
         // Get a handle to the runtime
         let handle: Handle = chain_runtime.handle();
@@ -186,7 +209,7 @@ where
     }
 
     /// Basic constructor
-    fn new(chain: Endpoint, rt: Arc<TokioRuntime>) -> Self {
+    fn new(chain: Endpoint, light_client: Endpoint::LightClient, rt: Arc<TokioRuntime>) -> Self {
         let (request_sender, request_receiver) = channel::unbounded();
 
         Self {
@@ -196,6 +219,9 @@ where
             request_receiver,
             event_bus: EventBus::new(),
             event_monitor_ctrl: EventMonitorCtrl::none(),
+            beefy_bus: EventBus::new(),
+            beefy_monitor_ctrl: BeefyMonitorCtrl::none(),
+            light_client,
         }
     }
 
@@ -217,6 +243,18 @@ where
                         },
                         Err(e) => {
                             error!("received error via event bus: {}", e);
+                            return Err(Error::channel_receive(e));
+                        },
+                    }
+                },
+                recv(self.beefy_monitor_ctrl.recv()) -> header => {
+                    match header {
+                        Ok(header) => {
+                            self.beefy_bus
+                                .broadcast(Arc::new(header));
+                        },
+                        Err(e) => {
+                            error!("received error via beefy bus: {}", e);
                             return Err(Error::channel_receive(e));
                         },
                     }
@@ -422,9 +460,26 @@ where
                         ChainRequest::QueryHostConsensusState { request, reply_to } => {
                             self.query_host_consensus_state(request, reply_to)?
                         },
+
+                        ChainRequest::UpdateMmrRoot { client_id,header, reply_to } => {
+                            tracing::trace!(
+                                "in runtime: [run], ChainRequest::UpdateMmrRoot, client_id = {:?},mmr_root ={:?} ",
+                                client_id,
+                                header
+                            );
+                            self.update_mmr_root(client_id,header,reply_to,)?
+                        },
+
+                        ChainRequest::WebSocketUrl{ reply_to} => {
+                            self.websocket_url(reply_to)?
+                        },
+
+                        ChainRequest::QueryHostConsensusState { request, reply_to } => {
+                            self.query_host_consensus_state(request, reply_to)?
+                        },
                     }
-                },
-            }
+                }
+            };
         }
 
         Ok(())
@@ -449,6 +504,26 @@ where
 
         self.event_monitor_ctrl
             .enable(event_receiver, tx_monitor_cmd);
+
+        Ok(())
+    }
+
+    /// only for sustrate app chain
+    fn subscribe_beefy(&mut self, reply_to: ReplyTo<BeefySubscription>) -> Result<(), Error> {
+        if !self.beefy_monitor_ctrl.is_live() {
+            self.enable_beefy_monitor()?;
+        }
+
+        let subscription = self.beefy_bus.subscribe();
+        reply_to.send(Ok(subscription)).map_err(Error::send)
+    }
+
+    fn enable_beefy_monitor(&mut self) -> Result<(), Error> {
+        tracing::trace!("In runtime: [enable_beefy_monitor]");
+        let (beefy_receiver, tx_monitor_cmd) = self.chain.init_beefy_monitor(self.rt.clone())?;
+
+        self.beefy_monitor_ctrl
+            .enable(beefy_receiver, tx_monitor_cmd);
 
         Ok(())
     }
@@ -529,7 +604,12 @@ where
     ) -> Result<(), Error> {
         let result = self
             .chain
-            .build_header(trusted_height, target_height, &client_state)
+            .build_header(
+                trusted_height,
+                target_height,
+                &client_state,
+                &mut self.light_client,
+            )
             .map(|(header, support)| {
                 let header = header.into();
                 let support = support.into_iter().map(|h| h.into()).collect();
@@ -853,6 +933,21 @@ where
         reply_to: ReplyTo<Vec<IbcEventWithHeight>>,
     ) -> Result<(), Error> {
         let result = self.chain.query_txs(request);
+        reply_to.send(result).map_err(Error::send)
+    }
+
+    fn websocket_url(&self, reply_to: ReplyTo<String>) -> Result<(), Error> {
+        let result = self.chain.websocket_url();
+        reply_to.send(result).map_err(Error::send)
+    }
+
+    fn update_mmr_root(
+        &mut self,
+        client_id: ClientId,
+        header: GPheader,
+        reply_to: ReplyTo<()>,
+    ) -> Result<(), Error> {
+        let result = self.chain.update_mmr_root(client_id, header);
         reply_to.send(result).map_err(Error::send)
     }
 

@@ -2,12 +2,18 @@ use core::fmt::{Display, Error as FmtError, Formatter};
 use crossbeam_channel as channel;
 use tracing::Span;
 
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
+use ibc_relayer_types::clients::ics10_grandpa::help::MmrRoot;
+use ibc_relayer_types::core::ics02_client::client_consensus::{AnyConsensusState, AnyConsensusStateWithHeight};
+use ibc_relayer_types::core::ics02_client::client_state::{AnyClientState, IdentifiedAnyClientState};
+use ibc_relayer_types::core::ics02_client::misbehaviour::MisbehaviourEvidence;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
 use ibc_relayer_types::core::ics03_connection::connection::IdentifiedConnectionEnd;
 use ibc_relayer_types::core::ics04_channel::channel::IdentifiedChannelEnd;
 use ibc_relayer_types::core::ics04_channel::packet::{PacketMsgType, Sequence};
 use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
 use ibc_relayer_types::{
+    core::ics02_client::header::AnyHeader,
     core::ics03_connection::connection::ConnectionEnd,
     core::ics03_connection::version::Version,
     core::ics04_channel::channel::ChannelEnd,
@@ -20,12 +26,13 @@ use ibc_relayer_types::{
     signer::Signer,
     Height,
 };
+use serde::{Serialize, Serializer};
 
 use crate::account::Balance;
 use crate::cache::{Cache, CacheStatus};
 use crate::chain::client::ClientSettings;
 use crate::chain::endpoint::{ChainStatus, HealthCheck};
-use crate::chain::handle::{ChainHandle, ChainRequest, Subscription};
+use crate::chain::handle::{BeefySubscription, ChainHandle, ChainRequest, Subscription};
 use crate::chain::requests::*;
 use crate::chain::tracking::TrackedMsgs;
 use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
@@ -71,6 +78,15 @@ impl<Handle: ChainHandle> Display for CachingChainHandle<Handle> {
     }
 }
 
+impl<Handle: Serialize> Serialize for CachingChainHandle<Handle> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        self.inner.serialize(serializer)
+    }
+}
+
 impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
     fn new(chain_id: ChainId, sender: channel::Sender<(Span, ChainRequest)>) -> Self {
         Self::new(Handle::new(chain_id, sender))
@@ -90,6 +106,10 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
 
     fn subscribe(&self) -> Result<Subscription, Error> {
         self.inner().subscribe()
+    }
+
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
+        self.inner().subscribe_beefy()
     }
 
     fn send_messages_and_wait_commit(
@@ -476,6 +496,14 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
         &self,
         request: QueryHostConsensusStateRequest,
     ) -> Result<AnyConsensusState, Error> {
-        self.inner.query_host_consensus_state(request)
+        self.inner().query_host_consensus_state(request)
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        self.inner().websocket_url()
+    }
+
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+        self.inner().update_mmr_root(client_id, header)
     }
 }

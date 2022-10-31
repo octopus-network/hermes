@@ -5,6 +5,8 @@ use crossbeam_channel as channel;
 use tracing::Span;
 
 use ibc_relayer_types::{
+    clients::ics10_grandpa::header::Header as GPheader,
+    clients::ics10_grandpa::help::MmrRoot,
     core::{
         ics02_client::events::UpdateClient,
         ics03_connection::{
@@ -35,6 +37,7 @@ use crate::{
     event::{
         monitor::{EventBatch, Result as MonitorResult},
         IbcEventWithHeight,
+        beefy_monitor::BeefyResult,
     },
     keyring::KeyEntry,
     light_client::AnyHeader,
@@ -52,6 +55,7 @@ mod base;
 mod cache;
 mod counting;
 
+use subxt::SignedCommitment;
 pub use base::BaseChainHandle;
 pub use counting::CountingChainHandle;
 
@@ -86,6 +90,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Debug for ChainHandlePair<ChainA,
 }
 
 pub type Subscription = channel::Receiver<Arc<MonitorResult<EventBatch>>>;
+pub type BeefySubscription = channel::Receiver<Arc<BeefyResult<GPheader>>>;
 
 pub type ReplyTo<T> = channel::Sender<Result<T, Error>>;
 pub type Reply<T> = channel::Receiver<Result<T, Error>>;
@@ -340,6 +345,20 @@ pub enum ChainRequest {
     QueryHostConsensusState {
         request: QueryHostConsensusStateRequest,
         reply_to: ReplyTo<AnyConsensusState>,
+    },
+
+    SubscribeBeefy {
+        reply_to: ReplyTo<BeefySubscription>,
+    },
+
+    WebSocketUrl {
+        reply_to: ReplyTo<String>,
+    },
+
+    UpdateMmrRoot {
+        client_id: ClientId,
+        header: GPheader,
+        reply_to: ReplyTo<()>,
     },
 }
 
@@ -628,4 +647,14 @@ pub trait ChainHandle: Clone + Display + Send + Sync + Debug + 'static {
         &self,
         request: QueryHostConsensusStateRequest,
     ) -> Result<AnyConsensusState, Error>;
+
+    /// Subscribe to the beefy signed commitment by the chain.
+    /// only substrate app chain need to implement
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error>;
+
+    // get host chain websocket_url
+    fn websocket_url(&self) -> Result<String, Error>;
+
+    // only used by ics10-grandpa
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error>;
 }

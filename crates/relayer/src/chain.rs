@@ -6,6 +6,7 @@ pub mod handle;
 pub mod requests;
 pub mod runtime;
 pub mod tracking;
+pub mod substrate;
 
 use serde::{de::Error, Deserialize, Serialize};
 

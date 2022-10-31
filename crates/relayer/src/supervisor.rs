@@ -21,6 +21,7 @@ use crate::{
     event::{
         monitor::{self, Error as EventError, ErrorDetail as EventErrorDetail, EventBatch},
         IbcEventWithHeight,
+        beefy_monitor,
     },
     object::{Object, Packet},
     registry::{Registry, SharedRegistry},
@@ -33,6 +34,11 @@ use crate::{
     },
     worker::WorkerMap,
 };
+
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
+use ibc::clients::ics10_grandpa::help::MmrRoot;
+type ArcBeefy = Arc<beefy_monitor::BeefyResult<GPheader>>;
+type BeefySubscription = Receiver<ArcBeefy>;
 
 pub mod client_state_filter;
 use client_state_filter::{FilterPolicy, Permission};
@@ -322,6 +328,7 @@ fn relay_on_object<Chain: ChainHandle>(
         Object::Channel(chan) => client_state_filter.control_chan_object(registry, chan),
         Object::Packet(packet) => client_state_filter.control_packet_object(registry, packet),
         Object::Wallet(_wallet) => Ok(Permission::Allow),
+        Object::Beefy(_beefy) => Ok(Permission::Allow),
     };
 
     match client_filter_outcome {
@@ -722,6 +729,53 @@ fn process_batch<Chain: ChainHandle>(
             batch.chain_id.clone(),
             batch.tracking_id,
         );
+    }
+
+    Ok(())
+}
+
+/// Process beefy msg received from a chain.
+fn process_beefy<Chain: ChainHandle>(
+    config: &Config,
+    registry: &mut Registry<Chain>,
+    client_state_filter: &mut FilterPolicy,
+    workers: &mut WorkerMap,
+    src_chain: Chain,
+    dst_chains: Vec<ChainScan>,
+    header: GPheader,
+) -> Result<(), Error> {
+    tracing::trace!("in supervisor: [process_beefy], mmr_root ={:?}", header);
+
+    for dst_chain in &dst_chains {
+        for (client_id, client_scan) in &dst_chain.clients {
+            match client_scan.client.client_state.client_type() {
+                ClientType::Grandpa => {
+                    tracing::trace!("in supervisor: [process_beefy], client_id ={:?} ", client_id);
+                    tracing::trace!("in supervisor: [process_beefy], dst_chain = {:?},client_id ={:?} ",dst_chain.chain_id,client_id);
+                    let object = Object::Beefy(Beefy {
+                        dst_chain_id: dst_chain.chain_id.clone(),
+                        dst_client_id: client_id.clone(),
+                        src_chain_id: src_chain.id().clone(),
+                    });
+                    tracing::trace!("in supervisor: [process_beefy], object ={:?} ", object);
+                    tracing::trace!("in supervisor: [process_beefy], object ={:?} ", object);
+                    let src = registry
+                        .get_or_spawn(object.src_chain_id())
+                        .map_err(Error::spawn)?;
+                    let dst = registry
+                        .get_or_spawn(object.dst_chain_id())
+                        .map_err(Error::spawn)?;
+                    let worker = workers.get_or_spawn(object, src, dst, config);
+                    let header = GPheader { ..header.clone()};
+                    let cmd = WorkerCmd::Beefy { header };
+                    tracing::trace!("in supervisor: [process_beefy], work cmd ={:?} ", cmd);
+                    worker.try_send_command(cmd);
+                },
+                _ => {}
+                // ClientType::Tendermint => todo!(),
+                // ClientType::Mock => todo!(),
+            }
+        }
     }
 
     Ok(())

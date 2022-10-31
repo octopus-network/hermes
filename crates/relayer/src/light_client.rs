@@ -1,4 +1,5 @@
 pub mod tendermint;
+pub mod grandpa;
 
 use core::ops::Deref;
 

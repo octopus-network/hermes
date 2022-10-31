@@ -20,11 +20,16 @@ use ibc_relayer_types::mock::consensus_state::MOCK_CONSENSUS_STATE_TYPE_URL;
 use ibc_relayer_types::timestamp::Timestamp;
 use ibc_relayer_types::Height;
 use serde::{Deserialize, Serialize};
+use tendermint_proto::Protobuf;
+
+use ibc_relayer_types::clients::ics10_grandpa;
+use ibc_relayer_types::clients::ics10_grandpa::consensus_state::GRANDPA_CONSENSUS_STATE_TYPE_URL;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum AnyConsensusState {
     Tendermint(TmConsensusState),
+    Grandpa(ics10_grandpa::consensus_state::ConsensusState),
 
     #[cfg(test)]
     Mock(MockConsensusState),
@@ -34,6 +39,7 @@ impl AnyConsensusState {
     pub fn timestamp(&self) -> Timestamp {
         match self {
             Self::Tendermint(cs_state) => cs_state.timestamp.into(),
+            Self::Grandpa(cs_state) => cs_state.timestamp.into(), // todo Fix in the future
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.timestamp(),
@@ -43,6 +49,7 @@ impl AnyConsensusState {
     pub fn client_type(&self) -> ClientType {
         match self {
             AnyConsensusState::Tendermint(_cs) => ClientType::Tendermint,
+            AnyConsensusState::Grandpa(_cs) => ClientType::Grandpa,
 
             #[cfg(test)]
             AnyConsensusState::Mock(_cs) => ClientType::Mock,
@@ -61,6 +68,13 @@ impl TryFrom<Any> for AnyConsensusState {
 
             TENDERMINT_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Tendermint(
                 Protobuf::<RawConsensusState>::decode_vec(&value.value)
+                    .map_err(Error::decode_raw_client_state)?,
+            )),
+
+            GRANDPA_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Grandpa(
+                ics10_grandpa::consensus_state::ConsensusState::decode_vec(
+                    &value.value,
+                )
                     .map_err(Error::decode_raw_client_state)?,
             )),
 
@@ -83,6 +97,13 @@ impl From<AnyConsensusState> for Any {
                 value: Protobuf::<RawConsensusState>::encode_vec(&value)
                     .expect("encoding to `Any` from `AnyConsensusState::Tendermint`"),
             },
+            AnyConsensusState::Grandpa(value) => Any {
+                type_url: GRANDPA_CONSENSUS_STATE_TYPE_URL.to_string(),
+                value: value
+                    .encode_vec()
+                    .expect("encoding to `Any` from `AnyConsensusState::Grandpa`"),
+            },
+
             #[cfg(test)]
             AnyConsensusState::Mock(value) => Any {
                 type_url: MOCK_CONSENSUS_STATE_TYPE_URL.to_string(),

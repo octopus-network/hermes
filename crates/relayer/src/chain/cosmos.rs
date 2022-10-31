@@ -108,6 +108,8 @@ use super::requests::{
     QueryUpgradedConsensusStateRequest,
 };
 
+use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver};
+
 pub mod batch;
 pub mod client;
 pub mod compatibility;
@@ -573,6 +575,13 @@ impl ChainEndpoint for CosmosSdkChain {
         thread::spawn(move || event_monitor.run());
 
         Ok((event_receiver, monitor_tx))
+    }
+
+    fn init_beefy_monitor(
+        &self,
+        rt: Arc<TokioRuntime>,
+    ) -> Result<(BeefyReceiver, TxMonitorCmd), Error> {
+        todo!()
     }
 
     fn shutdown(self) -> Result<(), Error> {
@@ -1711,6 +1720,15 @@ impl ChainEndpoint for CosmosSdkChain {
         )?;
 
         Ok((target, supporting))
+    }
+
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        Ok(self.config.websocket_addr.clone().to_string())
+    }
+
+    fn update_mmr_root(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+        todo!()
     }
 }
 
