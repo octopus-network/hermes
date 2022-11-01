@@ -1,8 +1,9 @@
+use super::super::config::{ibc_node, MyConfig};
 use super::channel::query_channel_end;
-use super::super::config::{MyConfig, ibc_node};
 use crate::chain::substrate::rpc::storage_iter;
 use anyhow::Result;
 use core::str::FromStr;
+use ibc_proto::protobuf::Protobuf;
 use ibc_relayer_types::core::ics24_host::identifier::ClientId;
 use ibc_relayer_types::core::ics24_host::path::{ChannelEndsPath, ConnectionsPath};
 use ibc_relayer_types::core::ics24_host::Path;
@@ -13,13 +14,12 @@ use ibc_relayer_types::core::{
 };
 use sp_core::H256;
 use subxt::OnlineClient;
-use ibc_proto::protobuf::Protobuf;
 
 /// get connectionEnd according by connection_identifier and read Connections StorageMaps
 pub async fn query_connection_end(
-        connection_identifier: &ConnectionId,
-        client: OnlineClient<MyConfig>,
-        ) -> Result<ConnectionEnd> {
+    connection_identifier: &ConnectionId,
+    client: OnlineClient<MyConfig>,
+) -> Result<ConnectionEnd> {
     tracing::info!("in call_ibc: [get_connection_end]");
 
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
@@ -29,20 +29,20 @@ pub async fn query_connection_end(
     let block_hash: H256 = block_header.hash();
 
     let connections_path = ConnectionsPath(connection_identifier.clone())
-    .to_string()
-    .as_bytes()
-    .to_vec();
+        .to_string()
+        .as_bytes()
+        .to_vec();
 
     let data: Vec<u8> = client
-    .storage()
-    .ibc()
-    .connections(&connections_path, Some(block_hash))
-    .await?;
+        .storage()
+        .ibc()
+        .connections(&connections_path, Some(block_hash))
+        .await?;
 
     if data.is_empty() {
         return Err(anyhow::anyhow!(
-                "get_connection_end is empty! by connection_identifier = ({})",
-        connection_identifier
+            "get_connection_end is empty! by connection_identifier = ({})",
+            connection_identifier
         ));
     }
 
@@ -52,34 +52,36 @@ pub async fn query_connection_end(
 }
 
 /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
-pub async fn get_connections(client: OnlineClient<MyConfig>) -> Result<Vec<IdentifiedConnectionEnd>> {
+pub async fn get_connections(
+    client: OnlineClient<MyConfig>,
+) -> Result<Vec<IdentifiedConnectionEnd>> {
     tracing::info!("in call_ibc: [get_connections]");
 
     let callback = Box::new(
-            |path: Path,
-            result: &mut Vec<IdentifiedConnectionEnd>,
-            value: Vec<u8>,
-            _client_id: ClientId| {
-                match path {
-                    Path::Connections(connections_path) => {
-                        let ConnectionsPath(connection_id) = connections_path;
-                        // store key-value
-                        let connection_end = ConnectionEnd::decode_vec(&*value).unwrap();
+        |path: Path,
+         result: &mut Vec<IdentifiedConnectionEnd>,
+         value: Vec<u8>,
+         _client_id: ClientId| {
+            match path {
+                Path::Connections(connections_path) => {
+                    let ConnectionsPath(connection_id) = connections_path;
+                    // store key-value
+                    let connection_end = ConnectionEnd::decode_vec(&*value).unwrap();
 
-                        result.push(IdentifiedConnectionEnd::new(connection_id, connection_end));
-                    }
-                    _ => unimplemented!(),
+                    result.push(IdentifiedConnectionEnd::new(connection_id, connection_end));
                 }
-            },
+                _ => unimplemented!(),
+            }
+        },
     );
 
     let mut result = vec![];
 
     let _ret = storage_iter::<IdentifiedConnectionEnd, ibc_node::ibc::storage::Connections>(
-            client.clone(),
-    &mut result,
-    ClientId::default(),
-    callback,
+        client.clone(),
+        &mut result,
+        ClientId::default(),
+        callback,
     )
     .await?;
 
@@ -87,9 +89,9 @@ pub async fn get_connections(client: OnlineClient<MyConfig>) -> Result<Vec<Ident
 }
 
 pub async fn get_connection_channels(
-        connection_id: &ConnectionId,
-        client: OnlineClient<MyConfig>,
-        ) -> Result<Vec<IdentifiedChannelEnd>> {
+    connection_id: &ConnectionId,
+    client: OnlineClient<MyConfig>,
+) -> Result<Vec<IdentifiedChannelEnd>> {
     tracing::info!("in call_ibc: [get_connection_channels]");
 
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
@@ -99,21 +101,21 @@ pub async fn get_connection_channels(
     let block_hash: H256 = block_header.hash();
 
     let connections_path = ConnectionsPath(connection_id.clone())
-    .to_string()
-    .as_bytes()
-    .to_vec();
+        .to_string()
+        .as_bytes()
+        .to_vec();
 
     // ConnectionsPath(connection_id) <-> Vec<ChannelEndsPath(port_id, channel_id)>
     let connections_paths: Vec<Vec<u8>> = client
-    .storage()
-    .ibc()
-    .channels_connection(&connections_path, Some(block_hash))
-    .await?;
+        .storage()
+        .ibc()
+        .channels_connection(&connections_path, Some(block_hash))
+        .await?;
 
     if connections_paths.is_empty() {
         return Err(anyhow::anyhow!(
-                "get_connection_channels is empty! by connection_id = ({})",
-        connection_id
+            "get_connection_channels is empty! by connection_id = ({})",
+            connection_id
         ));
     }
 

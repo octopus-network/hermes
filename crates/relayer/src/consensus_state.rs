@@ -1,7 +1,7 @@
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::client::v1::ConsensusStateWithHeight;
-use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as RawConsensusState;
 use ibc_proto::ibc::lightclients::grandpa::v1::ConsensusState as RawGpConsensusState;
+use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as RawConsensusState;
 #[cfg(test)]
 use ibc_proto::ibc::mock::ConsensusState as RawMockConsensusState;
 use ibc_proto::protobuf::Protobuf;
@@ -72,7 +72,7 @@ impl TryFrom<Any> for AnyConsensusState {
             )),
 
             GRANDPA_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Tendermint(
-                    Protobuf::<RawGpConsensusState>::decode_vec(&value.value)
+                Protobuf::<RawGpConsensusState>::decode_vec(&value.value)
                     .map_err(Error::decode_raw_client_state)?,
             )),
 
@@ -98,7 +98,7 @@ impl From<AnyConsensusState> for Any {
             AnyConsensusState::Grandpa(value) => Any {
                 type_url: GRANDPA_CONSENSUS_STATE_TYPE_URL.to_string(),
                 value: Protobuf::<RawGpConsensusState>::encode_vec(&value)
-                .expect("encoding to `Any` from `AnyConsensusState::Grandpa`"),
+                    .expect("encoding to `Any` from `AnyConsensusState::Grandpa`"),
             },
             #[cfg(test)]
             AnyConsensusState::Mock(value) => Any {

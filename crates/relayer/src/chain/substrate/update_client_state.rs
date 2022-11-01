@@ -1,8 +1,9 @@
-use super::rpc::get_mmr_leaf_and_mmr_proof;
-use super::config::{MyConfig, ibc_node};
+use super::config::{ibc_node, MyConfig};
 use super::rpc::get_latest_height;
+use super::rpc::get_mmr_leaf_and_mmr_proof;
 use crate::client_state::AnyClientState;
 use anyhow::Result;
+use beefy_light_client::commitment::SignedCommitment;
 use beefy_light_client::{
     beefy_ecdsa_to_ethereum,
     commitment::{self, known_payload_ids::MMR_ROOT_ID},
@@ -14,19 +15,15 @@ use ibc_relayer_types::core::ics24_host::path::ClientStatePath;
 use ibc_relayer_types::core::ics24_host::Path;
 use ibc_relayer_types::{
     clients::ics10_grandpa::help,
-    core::{
-        ics02_client::client_type::ClientType,
-        ics24_host::identifier::ClientId,
-    },
+    core::{ics02_client::client_type::ClientType, ics24_host::identifier::ClientId},
 };
 use sp_core::{hexdisplay::HexDisplay, H256};
 use sp_keyring::AccountKeyring;
-use subxt::OnlineClient;
 use std::str::FromStr;
-use subxt::storage::StorageClient;
 use subxt::rpc::BlockNumber;
-use beefy_light_client::commitment::SignedCommitment;
+use subxt::storage::StorageClient;
 use subxt::tx::PairSigner;
+use subxt::OnlineClient;
 
 /// mmr proof struct
 #[derive(Clone, Debug, Default)]
@@ -37,35 +34,33 @@ pub struct MmrProof {
 
 /// build merkle proof for validator
 pub async fn build_validator_proof(
-        src_client: OnlineClient<MyConfig>,
-        block_number: u32,
-        ) -> Result<Vec<help::ValidatorMerkleProof>> {
-
+    src_client: OnlineClient<MyConfig>,
+    block_number: u32,
+) -> Result<Vec<help::ValidatorMerkleProof>> {
     // get block hash
     let block_hash = src_client
-    .rpc()
-    .block_hash(Some(BlockNumber::from(block_number)))
-    .await?;
+        .rpc()
+        .block_hash(Some(BlockNumber::from(block_number)))
+        .await?;
 
     //get validator set(authorities)
     let authorities = src_client.storage().beefy().authorities(block_hash).await?;
 
     // covert authorities to strings
     let authority_strs: Vec<String> = authorities
-    .into_iter()
-    .map(|authority| format!("{}", HexDisplay::from(&authority.to_raw_vec())))
-    .collect();
+        .into_iter()
+        .map(|authority| format!("{}", HexDisplay::from(&authority.to_raw_vec())))
+        .collect();
 
     // Convert BEEFY secp256k1 public keys into Ethereum addresses
     let validators: Vec<Vec<u8>> = authority_strs
-    .into_iter()
-    .map(|authority| {
-        hex::decode(&authority)
-        .map(|compressed_key| beefy_ecdsa_to_ethereum(&compressed_key))
-        .unwrap_or_default()
-    })
-    .collect();
-
+        .into_iter()
+        .map(|authority| {
+            hex::decode(&authority)
+                .map(|compressed_key| beefy_ecdsa_to_ethereum(&compressed_key))
+                .unwrap_or_default()
+        })
+        .collect();
 
     let mut validator_merkle_proofs: Vec<help::ValidatorMerkleProof> = Vec::new();
     for l in 0..validators.len() {
@@ -75,12 +70,12 @@ pub async fn build_validator_proof(
         println!("get validator proof root = {}", hex::encode(&proof.root));
 
         let validator_merkle_proof =
-        help::ValidatorMerkleProof::from(beefy_light_client::ValidatorMerkleProof {
-            proof: proof.proof,
-            number_of_leaves: proof.number_of_leaves,
-            leaf_index: proof.leaf_index,
-            leaf: proof.leaf,
-        });
+            help::ValidatorMerkleProof::from(beefy_light_client::ValidatorMerkleProof {
+                proof: proof.proof,
+                number_of_leaves: proof.number_of_leaves,
+                leaf_index: proof.leaf_index,
+                leaf: proof.leaf,
+            });
 
         validator_merkle_proofs.push(validator_merkle_proof);
     }
@@ -89,37 +84,38 @@ pub async fn build_validator_proof(
 }
 
 /// build mmr proof
-pub async fn build_mmr_proof(src_client: OnlineClient<MyConfig>, block_number: u32) -> Result<MmrProof> {
-
+pub async fn build_mmr_proof(
+    src_client: OnlineClient<MyConfig>,
+    block_number: u32,
+) -> Result<MmrProof> {
     // asset block block number < get laset height
     {
         let latest_height = get_latest_height(src_client.clone()).await?;
         println!("[build_mmr_proof] latest height = {:?}", latest_height);
         assert!(
-                u64::from(block_number) <= latest_height,
-        "block_number must less than or equal latest height"
+            u64::from(block_number) <= latest_height,
+            "block_number must less than or equal latest height"
         );
     }
 
     //get block hash by block_number
-    let block_hash =
-    src_client
-    .rpc()
-    .block_hash(Some(BlockNumber::from(block_number)))
-    .await?;
+    let block_hash = src_client
+        .rpc()
+        .block_hash(Some(BlockNumber::from(block_number)))
+        .await?;
 
     println!(
-            "block number : {} -> block hash : {:?}",
-    block_number, block_hash
+        "block number : {} -> block hash : {:?}",
+        block_number, block_hash
     );
 
     //get mmr leaf and proof
     // Note: target_height = signed_commitment.commitment.block_number-1
     let target_height = BlockNumber::from(block_number - 1);
     let (block_hash, mmr_leaf, mmr_leaf_proof) = get_mmr_leaf_and_mmr_proof(
-            Some(target_height),
-    Some(block_hash.unwrap()),
-    src_client.clone(),
+        Some(target_height),
+        Some(block_hash.unwrap()),
+        src_client.clone(),
     )
     .await?;
     println!("generate_proof block hash : {:?}", block_hash);
@@ -135,35 +131,34 @@ pub async fn build_mmr_proof(src_client: OnlineClient<MyConfig>, block_number: u
 
 /// build mmr root
 pub async fn build_mmr_root(
-        src_client: OnlineClient<MyConfig>,
-        raw_signed_commitment: SignedCommitment,
-        ) -> Result<help::MmrRoot, Box<dyn std::error::Error>> {
+    src_client: OnlineClient<MyConfig>,
+    raw_signed_commitment: SignedCommitment,
+) -> Result<help::MmrRoot, Box<dyn std::error::Error>> {
     // decode signed commitment
     let signed_commmitment: commitment::SignedCommitment =
-    <commitment::SignedCommitment as codec::Decode>::decode(
+        <commitment::SignedCommitment as codec::Decode>::decode(
             &mut &raw_signed_commitment.0.clone()[..],
-    )
-    .unwrap();
+        )
+        .unwrap();
 
     // get commitment
     let commitment::Commitment {
         payload,
-    block_number,
-    validator_set_id: _,
+        block_number,
+        validator_set_id: _,
     } = signed_commmitment.clone().commitment;
     let payload = format!("{:?}", payload.get_raw(&MMR_ROOT_ID));
     println!("signed commitment payload : {:?}", payload);
 
-
     // build validator proof
     let validator_merkle_proofs = build_validator_proof(src_client.clone(), block_number)
-    .await
-    .unwrap();
+        .await
+        .unwrap();
 
     // build mmr proof
     let mmr_proof = build_mmr_proof(src_client.clone(), block_number)
-    .await
-    .unwrap();
+        .await
+        .unwrap();
 
     // build mmr root
     let mmr_root = help::MmrRoot {
@@ -177,10 +172,10 @@ pub async fn build_mmr_root(
 }
 /// send Update client state request
 pub async fn send_update_state_request(
-        client: OnlineClient<MyConfig>,
-        client_id: ClientId,
-        mmr_root: help::MmrRoot,
-        ) -> Result<H256> {
+    client: OnlineClient<MyConfig>,
+    client_id: ClientId,
+    mmr_root: help::MmrRoot,
+) -> Result<H256> {
     tracing::info!("in call_ibc: [update_client_state]");
     let signer = PairSigner::new(AccountKeyring::Bob.pair());
 
@@ -189,11 +184,11 @@ pub async fn send_update_state_request(
     println!("encode mmr root is {:?}", encode_mmr_root);
 
     let result = client
-    .tx()
-    .ibc()
-    .update_client_state(encode_client_id, encode_mmr_root)?
-    .sign_and_submit_default(&signer)
-    .await?;
+        .tx()
+        .ibc()
+        .update_client_state(encode_client_id, encode_mmr_root)?
+        .sign_and_submit_default(&signer)
+        .await?;
 
     tracing::info!("update client state result: {:?}", result);
 
@@ -202,22 +197,22 @@ pub async fn send_update_state_request(
 
 /// update client state by cli for single.
 pub async fn update_client_state(
-        src_client: OnlineClient<MyConfig>,
-        target_client: OnlineClient<MyConfig>,
-        ) -> Result<()> {
+    src_client: OnlineClient<MyConfig>,
+    target_client: OnlineClient<MyConfig>,
+) -> Result<()> {
     // subscribe beefy justification for src chain
     let mut sub = src_client.rpc().subscribe_beefy_justifications().await?;
 
     let raw_signed_commitment = sub.next().await.unwrap().unwrap().0;
     // decode signed commitment
     let signed_commitment =
-    commitment::SignedCommitment::decode(&mut &raw_signed_commitment.clone()[..]).unwrap();
+        commitment::SignedCommitment::decode(&mut &raw_signed_commitment.clone()[..]).unwrap();
 
     // get commitment
     let commitment::Commitment {
         payload,
-    block_number,
-    validator_set_id,
+        block_number,
+        validator_set_id,
     } = signed_commitment.clone().commitment;
     println!("signed commitment block_number : {}", block_number);
     println!("signed commitment validator_set_id : {}", validator_set_id);
@@ -226,13 +221,13 @@ pub async fn update_client_state(
 
     // build validator proof
     let validator_merkle_proofs = build_validator_proof(src_client.clone(), block_number)
-    .await
-    .unwrap();
+        .await
+        .unwrap();
 
     // build mmr proof
     let mmr_proof = build_mmr_proof(src_client.clone(), block_number)
-    .await
-    .unwrap();
+        .await
+        .unwrap();
 
     // build mmr root
     let mmr_root = help::MmrRoot {
@@ -245,11 +240,11 @@ pub async fn update_client_state(
 
     // get client id from target chain
     let client_ids = get_client_ids(target_client.clone(), ClientType::Grandpa)
-    .await
-    .unwrap();
+        .await
+        .unwrap();
     for client_id in client_ids {
         let result =
-        send_update_state_request(target_client.clone(), client_id, mmr_root.clone()).await;
+            send_update_state_request(target_client.clone(), client_id, mmr_root.clone()).await;
 
         match result {
             Ok(r) => {
@@ -267,9 +262,9 @@ pub async fn update_client_state(
 
 /// update client state service.
 pub async fn update_client_state_service(
-        src_client: OnlineClient<MyConfig>,
-        target_client: OnlineClient<MyConfig>,
-        ) -> Result<()> {
+    src_client: OnlineClient<MyConfig>,
+    target_client: OnlineClient<MyConfig>,
+) -> Result<()> {
     // subscribe beefy justification for src chain
     let mut sub = src_client.rpc().subscribe_beefy_justifications().await?;
 
@@ -281,8 +276,8 @@ pub async fn update_client_state_service(
 
         let commitment::Commitment {
             payload,
-        block_number,
-        validator_set_id,
+            block_number,
+            validator_set_id,
         } = signed_commitment.clone().commitment;
         println!("signed commitment block_number : {}", block_number);
         println!("signed commitment validator_set_id : {}", validator_set_id);
@@ -290,22 +285,22 @@ pub async fn update_client_state_service(
         println!("signed commitment payload : {:?}", payload);
 
         let signatures: Vec<String> = signed_commitment
-        .signatures
-        .clone()
-        .into_iter()
-        .map(|signature| format!("{}", HexDisplay::from(&signature.unwrap().0)))
-        .collect();
+            .signatures
+            .clone()
+            .into_iter()
+            .map(|signature| format!("{}", HexDisplay::from(&signature.unwrap().0)))
+            .collect();
         println!("signature :  {:?}", signatures);
 
         // build validator proof
         let validator_merkle_proofs = build_validator_proof(src_client.clone(), block_number)
-        .await
-        .unwrap();
+            .await
+            .unwrap();
 
         // build mmr proof
         let mmr_proof = build_mmr_proof(src_client.clone(), block_number)
-        .await
-        .unwrap();
+            .await
+            .unwrap();
 
         // build mmr root
         let mmr_root = help::MmrRoot {
@@ -319,11 +314,11 @@ pub async fn update_client_state_service(
 
         // get client id from target chain
         let client_ids = get_client_ids(target_client.clone(), ClientType::Grandpa)
-        .await
-        .unwrap();
+            .await
+            .unwrap();
         for client_id in client_ids {
             let result =
-            send_update_state_request(target_client.clone(), client_id, mmr_root.clone()).await;
+                send_update_state_request(target_client.clone(), client_id, mmr_root.clone()).await;
 
             match result {
                 Ok(r) => {
@@ -340,58 +335,58 @@ pub async fn update_client_state_service(
 // verify commitment signatures,copy from beefy light client
 // #[warn(unused_must_use)]
 pub fn verify_commitment_signatures(
-        commitment_hash: &Hash,
-        signatures: &[Option<commitment::Signature>],
-        validator_set_root: &Hash,
-        validator_proofs: &[beefy_light_client::ValidatorMerkleProof],
-        start_position: usize,
-        interations: usize,
-        ) -> core::result::Result<(), Error> {
+    commitment_hash: &Hash,
+    signatures: &[Option<commitment::Signature>],
+    validator_set_root: &Hash,
+    validator_proofs: &[beefy_light_client::ValidatorMerkleProof],
+    start_position: usize,
+    interations: usize,
+) -> core::result::Result<(), Error> {
     let msg =
-    libsecp256k1::Message::parse_slice(&commitment_hash[..]).or(Err(Error::InvalidMessage))?;
+        libsecp256k1::Message::parse_slice(&commitment_hash[..]).or(Err(Error::InvalidMessage))?;
     println!("verify_commitment_signatures:comment msg is {:?}", msg);
 
     for signature in signatures
-    .iter()
-    .skip(start_position)
-    .take(interations)
-    .flatten()
+        .iter()
+        .skip(start_position)
+        .take(interations)
+        .flatten()
     {
         let sig = libsecp256k1::Signature::parse_standard_slice(&signature.0[..64])
-        .or(Err(Error::InvalidSignature))?;
+            .or(Err(Error::InvalidSignature))?;
         println!("verify_commitment_signatures:signature is {:?}", sig);
 
         let recovery_id =
-        libsecp256k1::RecoveryId::parse(signature.0[64]).or(Err(Error::InvalidRecoveryId))?;
+            libsecp256k1::RecoveryId::parse(signature.0[64]).or(Err(Error::InvalidRecoveryId))?;
         println!(
-                "verify_commitment_signatures:recovery_id is {:?}",
-        recovery_id
+            "verify_commitment_signatures:recovery_id is {:?}",
+            recovery_id
         );
 
         let validator = libsecp256k1::recover(&msg, &sig, &recovery_id)
-        .or(Err(Error::WrongSignature))?
-        .serialize()
-        .to_vec();
+            .or(Err(Error::WrongSignature))?
+            .serialize()
+            .to_vec();
         let validator_address = Keccak256::hash(&validator[1..])[12..].to_vec();
         println!(
-                "verify_commitment_signatures:validator_address is {:?}",
-        hex::encode(&validator_address)
+            "verify_commitment_signatures:validator_address is {:?}",
+            hex::encode(&validator_address)
         );
 
         let mut found = false;
         for proof in validator_proofs.iter() {
             if validator_address == *proof.leaf {
                 println!(
-                        "verify_commitment_signatures:proof.leaf is {:?}",
-                hex::encode(&proof.leaf)
+                    "verify_commitment_signatures:proof.leaf is {:?}",
+                    hex::encode(&proof.leaf)
                 );
                 found = true;
                 if !verify_proof::<Keccak256, _, _>(
-                        validator_set_root,
-                proof.proof.clone(),
-                proof.number_of_leaves,
-                proof.leaf_index,
-                &proof.leaf,
+                    validator_set_root,
+                    proof.proof.clone(),
+                    proof.number_of_leaves,
+                    proof.leaf_index,
+                    &proof.leaf,
                 ) {
                     return Err(Error::InvalidValidatorProof);
                 }
@@ -408,10 +403,9 @@ pub fn verify_commitment_signatures(
 
 /// get client ids store in chain
 pub async fn get_client_ids(
-        client: OnlineClient<MyConfig>,
-        expect_client_type: ClientType,
-        ) -> Result<Vec<ClientId>> {
-
+    client: OnlineClient<MyConfig>,
+    expect_client_type: ClientType,
+) -> Result<Vec<ClientId>> {
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
@@ -422,8 +416,8 @@ pub async fn get_client_ids(
     let storage: StorageClient<'_, MyConfig> = client.storage();
 
     let mut iter = storage
-    .iter::<ibc_node::ibc::storage::ClientStates>(Some(block_hash))
-    .await?;
+        .iter::<ibc_node::ibc::storage::ClientStates>(Some(block_hash))
+        .await?;
 
     let mut client_ids = vec![];
 
@@ -434,7 +428,7 @@ pub async fn get_client_ids(
         let client_state_path = String::from_utf8(raw_key)?;
         // decode key
         let path =
-        Path::from_str(&client_state_path).map_err(|_| anyhow::anyhow!("decode path error"))?;
+            Path::from_str(&client_state_path).map_err(|_| anyhow::anyhow!("decode path error"))?;
 
         let client_id = match path {
             Path::ClientState(ClientStatePath(client_id)) => client_id,

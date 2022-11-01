@@ -5,19 +5,19 @@ use std::future::Future;
 use std::sync::Arc;
 use tokio::runtime::Runtime as TokioRuntime;
 
+use crate::chain::substrate::rpc::get_header_by_block_number;
 use crate::config::ChainConfig;
+use crate::light_client::AnyClientState;
 use crate::light_client::Verified;
+use crate::misbehaviour::MisbehaviourEvidence;
 use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPHeader;
 use ibc_relayer_types::clients::ics10_grandpa::help::{BlockHeader, MmrRoot};
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
-use crate::light_client::AnyClientState;
-use crate::misbehaviour::MisbehaviourEvidence;
 use ibc_relayer_types::Height;
-use tendermint::time::Time;
 use subxt::rpc::BlockNumber;
 use subxt::OnlineClient;
-use crate::chain::substrate::rpc::get_header_by_block_number;
+use tendermint::time::Time;
 
 pub struct LightClient {
     chain_id: ChainId,
@@ -27,11 +27,11 @@ pub struct LightClient {
 
 impl LightClient {
     pub fn from_config(
-            config: &ChainConfig,
-            websocket_url: String,
-            rt: Arc<TokioRuntime>,
-            _initial_public_keys: Vec<String>,
-            ) -> Self {
+        config: &ChainConfig,
+        websocket_url: String,
+        rt: Arc<TokioRuntime>,
+        _initial_public_keys: Vec<String>,
+    ) -> Self {
         let chain_id = config.id.clone();
         // let beefy_light_client = beefy_light_client::new(initial_public_keys);
         Self {
@@ -51,11 +51,11 @@ impl LightClient {
 
 impl super::LightClient<SubstrateChain> for LightClient {
     fn header_and_minimal_set(
-            &mut self,
-            trusted: Height,
-            target: Height,
-            _client_state: &AnyClientState,
-            ) -> Result<Verified<GPHeader>, Error> {
+        &mut self,
+        trusted: Height,
+        target: Height,
+        _client_state: &AnyClientState,
+    ) -> Result<Verified<GPHeader>, Error> {
         tracing::info!("In grandpa: [header_and_minimal_set]");
 
         Ok(Verified {
@@ -85,22 +85,22 @@ impl super::LightClient<SubstrateChain> for LightClient {
     }
 
     fn verify(
-            &mut self,
-            _trusted: Height,
-            target: Height,
-            _client_state: &AnyClientState,
-            ) -> Result<Verified<GPHeader>, Error> {
+        &mut self,
+        _trusted: Height,
+        target: Height,
+        _client_state: &AnyClientState,
+    ) -> Result<Verified<GPHeader>, Error> {
         tracing::info!("In grandpa: [verify]");
 
         let block_header = async {
             let client = OnlineClient::from_url(&self.websocket_url.clone())
-            .await
-            .map_err(|_| Error::report_error("substrate client builder error".to_string()))?;
+                .await
+                .map_err(|_| Error::report_error("substrate client builder error".to_string()))?;
 
             // get block header
             let block_header = get_header_by_block_number(
-                    Some(BlockNumber::from(target.revision_height() as u32)),
-            client.clone(),
+                Some(BlockNumber::from(target.revision_height() as u32)),
+                client.clone(),
             )
             .await
             .map_err(|_| Error::report_error("get header by block number error".to_string()))?;
@@ -122,10 +122,10 @@ impl super::LightClient<SubstrateChain> for LightClient {
     }
 
     fn check_misbehaviour(
-            &mut self,
-            _update: UpdateClient,
-            _client_state: &AnyClientState,
-            ) -> Result<Option<MisbehaviourEvidence>, Error> {
+        &mut self,
+        _update: UpdateClient,
+        _client_state: &AnyClientState,
+    ) -> Result<Option<MisbehaviourEvidence>, Error> {
         tracing::info!("in grandpa: [check_misbehaviour]");
 
         Ok(None) // Todo: May need to implement the same logic of check_misbehaviour in tendermint.rs

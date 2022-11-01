@@ -1,8 +1,8 @@
 use core::time::Duration;
 
 use ibc_proto::ibc::core::client::v1::IdentifiedClientState;
-use ibc_proto::ibc::lightclients::tendermint::v1::ClientState as RawClientState;
 use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawGpClientState;
+use ibc_proto::ibc::lightclients::tendermint::v1::ClientState as RawClientState;
 #[cfg(test)]
 use ibc_proto::ibc::mock::ClientState as RawMockClientState;
 use ibc_proto::protobuf::Protobuf;
@@ -14,8 +14,7 @@ use ibc_relayer_types::clients::ics07_tendermint::client_state::{
     TENDERMINT_CLIENT_STATE_TYPE_URL,
 };
 use ibc_relayer_types::clients::ics10_grandpa::client_state::{
-    ClientState as GpClientState, UpgradeOptions as GpUpgradeOptions,
-    GRANDPA_CLIENT_STATE_TYPE_URL,
+    ClientState as GpClientState, UpgradeOptions as GpUpgradeOptions, GRANDPA_CLIENT_STATE_TYPE_URL,
 };
 use ibc_relayer_types::core::ics02_client::client_state::{
     downcast_client_state, ClientState, UpgradeOptions,
@@ -144,7 +143,7 @@ impl TryFrom<Any> for AnyClientState {
             )),
 
             GRANDPA_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Grandpa(
-                    Protobuf::<RawGpClientState>::decode_vec(&raw.value)
+                Protobuf::<RawGpClientState>::decode_vec(&raw.value)
                     .map_err(Error::decode_raw_client_state)?,
             )),
 
@@ -170,7 +169,7 @@ impl From<AnyClientState> for Any {
             AnyClientState::Grandpa(value) => Any {
                 type_url: GRANDPA_CLIENT_STATE_TYPE_URL.to_string(),
                 value: Protobuf::<RawGpClientState>::encode_vec(&value)
-                .expect("encoding to `Any` from `AnyClientState::Grandpa`"),
+                    .expect("encoding to `Any` from `AnyClientState::Grandpa`"),
             },
             #[cfg(test)]
             AnyClientState::Mock(value) => Any {
@@ -222,7 +221,7 @@ impl ClientState for AnyClientState {
                 chain_id,
             ),
             AnyClientState::Grandpa(gp_state) => gp_state.upgrade(
-                    upgrade_height,
+                upgrade_height,
                 upgrade_options.as_tm_upgrade_options().unwrap(),
                 chain_id,
             ),
