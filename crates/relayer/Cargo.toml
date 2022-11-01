@@ -67,8 +67,8 @@ uuid = { version = "1.2.1", features = ["v4"] }
 jsonrpsee = { version = "0.14", features = ["macros", "ws-client", "http-client"] }
 subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'master' }
 codec = { package = 'parity-scale-codec', version = '3.1.2', features = ['derive', 'full'] }
-pallet-mmr-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
-beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "main" }
+pallet-mmr-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
+beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "davirain/dev" }
 
 sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }
 sp-keyring = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }

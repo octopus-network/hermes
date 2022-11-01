@@ -58,8 +58,8 @@ dyn-clone = "1.0.8"
 
 #substrate dep
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-beefy-merkle-tree = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28", features = ["keccak"], default-features = false }
-beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "main", default-features = false }
+beefy-merkle-tree = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30", features = ["keccak"], default-features = false }
+beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "davirain/dev", default-features = false }
 
 [dependencies.tendermint]
 version = "=0.25.0"
