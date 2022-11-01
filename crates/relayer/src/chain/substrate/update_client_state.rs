@@ -190,7 +190,7 @@ pub async fn send_update_state_request(
         client: Client<MyConfig>,
         client_id: ClientId,
         mmr_root: help::MmrRoot,
-        ) -> Result<subxt::sp_core::H256> {
+        ) -> Result<H256> {
     tracing::info!("in call_ibc: [update_client_state]");
     let signer = PairSigner::new(AccountKeyring::Bob.pair());
     let api = client
@@ -440,7 +440,7 @@ pub async fn get_client_ids(
     let block_hash: H256 = block_header.hash();
 
     // Obtain the storage client wrapper from the API.
-    let storage: StorageClient<_> = api.client.storage();
+    let storage: StorageClient<'_, MyConfig> = api.client.storage();
 
     let mut iter = storage
     .iter::<ibc_node::ibc::storage::ClientStates>(Some(block_hash))

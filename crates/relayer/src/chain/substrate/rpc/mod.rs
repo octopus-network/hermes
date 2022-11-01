@@ -282,7 +282,7 @@ pub async fn get_mmr_leaf_and_mmr_proof(
 pub async fn get_header_by_block_hash(
         block_hash: Option<H256>,
         client: Client<MyConfig>,
-        ) -> Result<ibc::clients::ics10_grandpa::help::BlockHeader> {
+        ) -> Result<ibc_relayer_types::clients::ics10_grandpa::help::BlockHeader> {
     let api = client
     .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
@@ -297,7 +297,7 @@ pub async fn get_header_by_block_hash(
 pub async fn get_header_by_block_number(
         block_number: Option<BlockNumber>,
         client: Client<MyConfig>,
-        ) -> Result<ibc::clients::ics10_grandpa::help::BlockHeader> {
+        ) -> Result<ibc_relayer_types::clients::ics10_grandpa::help::BlockHeader> {
     let api = client
     .clone()
     .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
@@ -395,7 +395,7 @@ pub async fn storage_iter<T, H: StorageEntry>(
     let block_hash: H256 = block_header.hash();
 
     // Obtain the storage client wrapper from the API.
-    let storage: StorageClient<MyConfig> = api.client.storage();
+    let storage: StorageClient<'_, MyConfig> = api.client.storage();
 
     // Read Store
     let mut iter = storage.iter::<H>(Some(block_hash)).await?;

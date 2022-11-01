@@ -1,42 +1,31 @@
 use alloc::sync::Arc;
-use core::cmp::Ordering;
 use tendermint::Time;
 
 use crossbeam_channel as channel;
-use flex_error::{define_error, TraceError};
 use futures::{
-    pin_mut,
-    stream::{self, select_all, StreamExt},
-    Stream, TryStreamExt,
+    stream::StreamExt,
+    TryStreamExt,
 };
-use tokio::task::JoinHandle;
 use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, trace};
-
-use octopusxt::ibc_node::RuntimeApi;
-use octopusxt::MyConfig;
-use octopusxt::SubstrateNodeTemplateExtrinsicParams;
+use crate::chain::substrate::config::MyConfig;
+use crate::chain::substrate::config::SubstrateNodeTemplateExtrinsicParams;
 use subxt::{
-    BlockNumber, Client, ClientBuilder, Error as SubstrateError, PairSigner, SignedCommitment,
+    BlockNumber, Client, ClientBuilder, SignedCommitment,
 };
-use tendermint_rpc::{event::Event as RpcEvent, Url};
+use tendermint_rpc::Url;
 
 use crate::error::Error as RelayError;
 use crate::util::{
-    retry::{retry_count, retry_with_index, RetryResult},
-    stream::try_group_while,
+    retry::{retry_with_index, retry_count, RetryResult},
 };
 use beefy_light_client::commitment;
-use codec::{Decode, Encode};
-use ibc_relayer_types::clients::ics10_grandpa::help::{self, MmrRoot};
+use codec::Decode;
+use ibc_relayer_types::clients::ics10_grandpa::help::MmrRoot;
 use ibc_relayer_types::clients::ics10_grandpa::{header::Header, help::ValidatorMerkleProof};
-use ibc_relayer_types::core::ics02_client::height::Height;
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
-use ibc_relayer_types::events::IbcEvent;
-use sp_core::{hexdisplay::HexDisplay, H256};
+use sp_core::H256;
 
-use std::future::Future;
-use tokio::runtime::Runtime;
 
 mod retry_strategy {
     use crate::util::retry::clamp_total;

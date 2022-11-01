@@ -6,16 +6,15 @@ use config::MyConfig;
 use super::client::ClientSettings;
 use crate::config::ChainConfig;
 use crate::error::Error;
-use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver};
 use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
 use crate::util::retry::{retry_with_index, RetryResult};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, info, trace};
 
 use crate::chain::endpoint::ChainEndpoint;
 use crate::chain::endpoint::ChainStatus;
 use crate::chain::endpoint::HealthCheck;
-use crate::chain::requests::QueryPacketEventDataRequest;
+
 use crate::chain::requests::QueryTxRequest;
 use crate::chain::requests::{
     IncludeProof, QueryBlockRequest, QueryClientStateRequest, QueryHeight,
@@ -30,7 +29,6 @@ use core::fmt::Debug;
 use core::{future::Future, str::FromStr, time::Duration};
 use ibc_relayer_types::core::ics02_client::msgs::update_client::MsgUpdateAnyClient;
 use ibc_relayer_types::core::ics04_channel::events::WriteAcknowledgement;
-use ibc_relayer_types::tx_msg::Msg;
 use ibc_relayer_types::{
     clients::{
         ics07_tendermint::header::Header as tHeader,
@@ -38,7 +36,6 @@ use ibc_relayer_types::{
             client_state::ClientState as GpClientState,
             consensus_state::ConsensusState as GpConsensusState,
             header::Header as GPHeader,
-            help::{BlockHeader, MmrLeaf, MmrLeafProof},
         },
     },
     core::{
@@ -47,10 +44,10 @@ use ibc_relayer_types::{
             client_state::ClientState,
             client_type::ClientType,
         },
-        ics03_connection::connection::{ConnectionEnd, Counterparty, IdentifiedConnectionEnd},
+        ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd},
         ics04_channel::{
             channel::{ChannelEnd, IdentifiedChannelEnd},
-            packet::{Packet, PacketMsgType, Receipt, Sequence},
+            packet::{Packet, Receipt, Sequence},
         },
         ics23_commitment::commitment::CommitmentPrefix,
         ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId},
@@ -98,11 +95,10 @@ use tendermint::abci::{Code, Log};
 use crate::account::Balance;
 use crate::denom::DenomTrace;
 use anyhow::Result;
-use beefy_light_client::{commitment, mmr};
+//use beefy_light_client::{commitment, mmr};
 use ibc_relayer_types::clients::ics10_grandpa::help::Commitment;
 use ibc_relayer_types::clients::ics10_grandpa::help::MmrRoot;
 
-use ibc_relayer_types::core::ics04_channel::events::SendPacket;
 use ibc_relayer_types::core::ics24_host::path::{
     AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
     ConnectionsPath, ReceiptsPath, SeqRecvsPath,
@@ -120,6 +116,8 @@ use tokio::runtime::Runtime as TokioRuntime;
 use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
 use crate::consensus_state::{AnyConsensusState, AnyConsensusStateWithHeight};
 use crate::chain::substrate::config::SubstrateNodeTemplateExtrinsicParams;
+use crate::misbehaviour::MisbehaviourEvidence;
+use ibc_relayer_types::core::ics02_client::events::UpdateClient;
 
 const MAX_QUERY_TIMES: u64 = 100;
 pub const REVISION_NUMBER: u64 = 8888;
