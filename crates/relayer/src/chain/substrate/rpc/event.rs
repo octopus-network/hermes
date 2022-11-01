@@ -1,21 +1,17 @@
-use super::super::config::MyConfig;
+use super::super::config::{MyConfig, ibc_node};
 use anyhow::Result;
 use futures::StreamExt;
 use ibc_relayer_types::events::IbcEvent;
-use subxt::{Client, RawEventDetails};
-use crate::chain::substrate::SubstrateNodeTemplateExtrinsicParams;
+use subxt::OnlineClient;
 
 /// Subscribe ibc events
 /// Maybe in the future call ocw
-pub async fn subscribe_ibc_event(client: Client<MyConfig>) -> Result<Vec<IbcEvent>> {
+pub async fn subscribe_ibc_event(client: OnlineClient<MyConfig>) -> Result<Vec<IbcEvent>> {
     println!("In call_ibc: [subscribe_events]");
     const COUNTER: i32 = 3;
 
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-
     // Subscribe to any events that occur:
-    let mut event_sub = api.events().subscribe().await?;
+    let mut event_sub = client.events().subscribe().await?;
 
     let mut result_events = Vec::new();
     let mut counter = 0;
@@ -29,13 +25,21 @@ pub async fn subscribe_ibc_event(client: Client<MyConfig>) -> Result<Vec<IbcEven
         );
         let event_length = events.len();
         'inner: for event in events.iter_raw() {
-            let event: RawEventDetails = event?;
+            let event = event?;
+
+            let block_hash = events.block_hash();
+
+            // We can dynamically decode events:
+            println!("  Dynamic event details: {block_hash:?}:");
 
             let raw_event = event.clone();
 
-            let variant = event.variant;
+            let pallet = event.pallet_name();
 
-            println!("In substrate: [subscribe_events] >> variant: {:?}", variant);
+            let variant = event.variant_name();
+            println!(
+                    "    {pallet}::{variant}"
+            );
             match variant.as_str() {
                 "CreateClient" => {
                     let event = <ibc_node::ibc::events::CreateClient as codec::Decode>::decode(
@@ -52,7 +56,6 @@ pub async fn subscribe_ibc_event(client: Client<MyConfig>) -> Result<Vec<IbcEven
                     use ibc_relayer_types::core::ics02_client::events::Attributes;
                     result_events.push(IbcEvent::CreateClient(
                             ibc_relayer_types::core::ics02_client::events::CreateClient::from(Attributes {
-
                                 client_id: client_id.into(),
                                 client_type: client_type.into(),
                                 consensus_height: consensus_height.into(),
@@ -75,7 +78,6 @@ pub async fn subscribe_ibc_event(client: Client<MyConfig>) -> Result<Vec<IbcEven
                     use ibc_relayer_types::core::ics02_client::events::Attributes;
                     result_events.push(IbcEvent::UpdateClient(
                             ibc_relayer_types::core::ics02_client::events::UpdateClient::from(Attributes {
-
                                 client_id: client_id.into(),
                                 client_type: client_type.into(),
                                 consensus_height: consensus_height.into(),
@@ -622,7 +624,7 @@ pub fn from_substrate_event_to_ibc_event(raw_events: Vec<RawEventDetails>) -> Ve
                 .unwrap();
                 println!("In call_ibc: [subscribe_events] >> OpenInitConnection Event");
 
-                let connection_id = event.connection_id.map(|val| val.into());
+                let connection_id = event.connection_id.into();
                 let client_id = event.client_id;
                 let counterparty_connection_id =
                 event.counterparty_connection_id.map(|val| val.into());
@@ -648,7 +650,7 @@ pub fn from_substrate_event_to_ibc_event(raw_events: Vec<RawEventDetails>) -> Ve
                 println!("In call_ibc: [subscribe_events] >> OpenTryConnection Event");
 
 
-                let connection_id = event.connection_id.map(|val| val.into());
+                let connection_id = event.connection_id.into();
                 let client_id = event.client_id;
                 let counterparty_connection_id =
                 event.counterparty_connection_id.map(|val| val.into());
@@ -673,7 +675,7 @@ pub fn from_substrate_event_to_ibc_event(raw_events: Vec<RawEventDetails>) -> Ve
                 .unwrap();
                 println!("In call_ibc: [subscribe_events] >> OpenAckConnection Event");
 
-                let connection_id = event.connection_id.map(|val| val.into());
+                let connection_id = event.connection_id.into();
                 let client_id = event.client_id;
                 let counterparty_connection_id =
                 event.counterparty_connection_id.map(|val| val.into());
@@ -699,7 +701,7 @@ pub fn from_substrate_event_to_ibc_event(raw_events: Vec<RawEventDetails>) -> Ve
                 println!("In call_ibc: [subscribe_events] >> OpenConfirmConnection Event");
 
 
-                let connection_id = event.connection_id.map(|val| val.into());
+                let connection_id = event.connection_id.into();
                 let client_id = event.client_id;
                 let counterparty_connection_id =
                 event.counterparty_connection_id.map(|val| val.into());
@@ -747,8 +749,8 @@ pub fn from_substrate_event_to_ibc_event(raw_events: Vec<RawEventDetails>) -> Ve
                 .unwrap();
                 println!("In call_ibc: [subscribe_events] >> OpenTryChannel Event");
 
-                let height = event.height;
-                let port_id = event.port_id;
+
+
                 let channel_id = event.channel_id.map(|val| val.into());
                 let connection_id = event.connection_id;
                 let counterparty_port_id = event.counterparty_port_id;
@@ -771,7 +773,6 @@ pub fn from_substrate_event_to_ibc_event(raw_events: Vec<RawEventDetails>) -> Ve
                 .unwrap();
                 println!("In call_ibc: [subscribe_events] >> OpenAckChannel Event");
 
-                let height = event.height;
                 let port_id = event.port_id;
                 let channel_id = event.channel_id.map(|val| val.into());
                 let connection_id = event.connection_id;
@@ -796,7 +797,7 @@ pub fn from_substrate_event_to_ibc_event(raw_events: Vec<RawEventDetails>) -> Ve
                 .unwrap();
                 println!("In call_ibc: [subscribe_events] >> OpenConfirmChannel Event");
 
-                let height = event.height;
+
                 let port_id = event.port_id;
                 let channel_id = event.channel_id.map(|val| val.into());
                 let connection_id = event.connection_id;
@@ -820,7 +821,7 @@ pub fn from_substrate_event_to_ibc_event(raw_events: Vec<RawEventDetails>) -> Ve
                 .unwrap();
                 println!("In call_ibc: [subscribe_events] >> CloseInitChannel Event");
 
-                let height = event.height;
+
                 let port_id = event.port_id;
                 let channel_id = event.channel_id.map(|val| val.into());
                 let connection_id = event.connection_id;
@@ -846,7 +847,6 @@ pub fn from_substrate_event_to_ibc_event(raw_events: Vec<RawEventDetails>) -> Ve
 
                 println!("In call_ibc: [subscribe_events] >> CloseConfirmChannel Event");
 
-                let height = event.height;
                 let port_id = event.port_id;
                 let channel_id = event.channel_id.map(|val| val.into());
                 let connection_id = event.connection_id;

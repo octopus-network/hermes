@@ -1,39 +1,31 @@
-use super::super::config::MyConfig;
-use super::storage_iter;
+use super::super::config::{MyConfig, ibc_node};
+use crate::chain::substrate::rpc::storage_iter;
 use crate::client_state::AnyClientState;
 use crate::consensus_state::AnyConsensusState;
 use crate::client_state::IdentifiedAnyClientState;
-
-use crate::chain::substrate::SubstrateNodeTemplateExtrinsicParams;
 use anyhow::Result;
 use core::str::FromStr;
 use ibc_relayer_types::core::ics24_host::path::{ClientConnectionsPath, ClientConsensusStatePath};
 use ibc_relayer_types::core::ics24_host::Path;
 use ibc_relayer_types::{
     core::{
-        ics02_client::{
-            consensus_state::ConsensusState,
-            client_state::ClientState,
-        },
         ics24_host::identifier::{ClientId, ConnectionId},
         ics24_host::path::ClientStatePath,
     },
     Height as ICSHeight,
 };
 use sp_core::H256;
-use subxt::Client;
-use tendermint_proto::Protobuf;
+use subxt::OnlineClient;
+
 
 /// query client_state according by client_id, and read ClientStates StorageMap
 pub async fn query_client_state(
         client_id: &ClientId,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<AnyClientState> {
     tracing::info!("in call_ibc : [get_client_state]");
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -44,7 +36,7 @@ pub async fn query_client_state(
     .as_bytes()
     .to_vec();
 
-    let data: Vec<u8> = api
+    let data: Vec<u8> = client
     .storage()
     .ibc()
     .client_states(&client_state_path, Some(block_hash))
@@ -69,14 +61,12 @@ pub async fn query_client_state(
 pub async fn query_client_consensus(
         client_id: &ClientId,
         consensus_height: &ICSHeight,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<AnyConsensusState> {
     tracing::info!("in call_ibc: [get_client_consensus]");
 
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -92,7 +82,7 @@ pub async fn query_client_consensus(
     .as_bytes()
     .to_vec();
 
-    let consensus_state: Vec<u8> = api
+    let consensus_state: Vec<u8> = client
     .storage()
     .ibc()
     .consensus_states(&client_consensus_state_path, Some(block_hash))
@@ -119,7 +109,7 @@ pub async fn query_client_consensus(
 /// get consensus state with height
 pub async fn get_consensus_state_with_height(
         client_id: &ClientId,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<Vec<(ICSHeight, AnyConsensusState)>> {
     tracing::info!("in call_ibc: [get_consensus_state_with_height]");
 
@@ -160,7 +150,7 @@ pub async fn get_consensus_state_with_height(
 }
 
 /// get key-value pair (client_identifier, client_state) construct IdentifierAny Client state
-pub async fn get_clients(client: Client<MyConfig>) -> Result<Vec<IdentifiedAnyClientState>> {
+pub async fn get_clients(client: OnlineClient<MyConfig>) -> Result<Vec<IdentifiedAnyClientState>> {
     tracing::info!("in call_ibc: [get_clients]");
 
     let callback = Box::new(
@@ -195,14 +185,11 @@ pub async fn get_clients(client: Client<MyConfig>) -> Result<Vec<IdentifiedAnyCl
 /// get connection_identifier vector according by client_identifier
 pub async fn get_client_connections(
         client_id: &ClientId,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<Vec<ConnectionId>> {
     tracing::info!("in call_ibc: [get_client_connections]");
 
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -214,7 +201,7 @@ pub async fn get_client_connections(
     .to_vec();
 
     // client_id <-> connection_id
-    let connection_id: Vec<u8> = api
+    let connection_id: Vec<u8> = client
     .storage()
     .ibc()
     .connection_client(&client_connection_paths, Some(block_hash))

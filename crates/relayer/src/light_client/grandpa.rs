@@ -1,31 +1,28 @@
-// use crate::chain::SubstrateChain;
 use crate::chain::substrate::SubstrateChain;
 use crate::error::Error;
 
-use octopusxt::MyConfig;
 use std::future::Future;
 use std::sync::Arc;
-use subxt::{BlockNumber, ClientBuilder};
 use tokio::runtime::Runtime as TokioRuntime;
 
 use crate::config::ChainConfig;
 use crate::light_client::Verified;
-use ibc::clients::ics10_grandpa::header::Header as GPHeader;
-use ibc::clients::ics10_grandpa::help::{BlockHeader, Commitment, MmrRoot, SignedCommitment};
-use ibc::core::ics02_client::client_state::AnyClientState;
-use ibc::core::ics02_client::events::UpdateClient;
-
-use ibc::core::ics02_client::misbehaviour::MisbehaviourEvidence;
-use ibc::core::ics24_host::identifier::ChainId;
-
-use ibc::Height;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPHeader;
+use ibc_relayer_types::clients::ics10_grandpa::help::{BlockHeader, MmrRoot};
+use ibc_relayer_types::core::ics02_client::events::UpdateClient;
+use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use crate::light_client::AnyClientState;
+use crate::misbehaviour::MisbehaviourEvidence;
+use ibc_relayer_types::Height;
 use tendermint::time::Time;
+use subxt::rpc::BlockNumber;
+use subxt::OnlineClient;
+use crate::chain::substrate::rpc::get_header_by_block_number;
 
 pub struct LightClient {
     chain_id: ChainId,
     websocket_url: String,
     rt: Arc<TokioRuntime>,
-    // beefy_light_client: beefy_light_client::LightClient,
 }
 
 impl LightClient {
@@ -96,19 +93,17 @@ impl super::LightClient<SubstrateChain> for LightClient {
         tracing::info!("In grandpa: [verify]");
 
         let block_header = async {
-            let client = ClientBuilder::new()
-            .set_url(&self.websocket_url.clone())
-            .build::<MyConfig>()
+            let client = OnlineClient::from_url(&self.websocket_url.clone())
             .await
-            .map_err(|_| Error::substrate_client_builder_error())?;
+            .map_err(|_| Error::report_error("substrate client builder error".to_string()))?;
 
             // get block header
-            let block_header = octopusxt::ibc_rpc::get_header_by_block_number(
+            let block_header = get_header_by_block_number(
                     Some(BlockNumber::from(target.revision_height() as u32)),
             client.clone(),
             )
             .await
-            .map_err(|_| Error::get_header_by_block_number_error())?;
+            .map_err(|_| Error::report_error("get header by block number error".to_string()))?;
 
             Ok(block_header)
         };

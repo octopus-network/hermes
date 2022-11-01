@@ -1,11 +1,15 @@
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::client::v1::ConsensusStateWithHeight;
 use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as RawConsensusState;
+use ibc_proto::ibc::lightclients::grandpa::v1::ConsensusState as RawGpConsensusState;
 #[cfg(test)]
 use ibc_proto::ibc::mock::ConsensusState as RawMockConsensusState;
 use ibc_proto::protobuf::Protobuf;
 use ibc_relayer_types::clients::ics07_tendermint::consensus_state::{
     ConsensusState as TmConsensusState, TENDERMINT_CONSENSUS_STATE_TYPE_URL,
+};
+use ibc_relayer_types::clients::ics10_grandpa::consensus_state::{
+    ConsensusState as GpConsensusState, GRANDPA_CONSENSUS_STATE_TYPE_URL,
 };
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::consensus_state::{
@@ -25,6 +29,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type")]
 pub enum AnyConsensusState {
     Tendermint(TmConsensusState),
+    Grandpa(GpConsensusState),
 
     #[cfg(test)]
     Mock(MockConsensusState),
@@ -34,6 +39,7 @@ impl AnyConsensusState {
     pub fn timestamp(&self) -> Timestamp {
         match self {
             Self::Tendermint(cs_state) => cs_state.timestamp.into(),
+            Self::Grandpa(gp_state) => gp_state.timestamp.into(),
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.timestamp(),
@@ -43,6 +49,7 @@ impl AnyConsensusState {
     pub fn client_type(&self) -> ClientType {
         match self {
             AnyConsensusState::Tendermint(_cs) => ClientType::Tendermint,
+            AnyConsensusState::Grandpa(_cs) => ClientType::Grandpa,
 
             #[cfg(test)]
             AnyConsensusState::Mock(_cs) => ClientType::Mock,
@@ -61,6 +68,11 @@ impl TryFrom<Any> for AnyConsensusState {
 
             TENDERMINT_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Tendermint(
                 Protobuf::<RawConsensusState>::decode_vec(&value.value)
+                    .map_err(Error::decode_raw_client_state)?,
+            )),
+
+            GRANDPA_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Tendermint(
+                    Protobuf::<RawGpConsensusState>::decode_vec(&value.value)
                     .map_err(Error::decode_raw_client_state)?,
             )),
 
@@ -83,6 +95,11 @@ impl From<AnyConsensusState> for Any {
                 value: Protobuf::<RawConsensusState>::encode_vec(&value)
                     .expect("encoding to `Any` from `AnyConsensusState::Tendermint`"),
             },
+            AnyConsensusState::Grandpa(value) => Any {
+                type_url: GRANDPA_CONSENSUS_STATE_TYPE_URL.to_string(),
+                value: Protobuf::<RawGpConsensusState>::encode_vec(&value)
+                .expect("encoding to `Any` from `AnyConsensusState::Grandpa`"),
+            },
             #[cfg(test)]
             AnyConsensusState::Mock(value) => Any {
                 type_url: MOCK_CONSENSUS_STATE_TYPE_URL.to_string(),
@@ -100,6 +117,12 @@ impl From<MockConsensusState> for AnyConsensusState {
     }
 }
 
+impl From<GpConsensusState> for AnyConsensusState {
+    fn from(cs: GpConsensusState) -> Self {
+        Self::Grandpa(cs)
+    }
+}
+
 impl From<TmConsensusState> for AnyConsensusState {
     fn from(cs: TmConsensusState) -> Self {
         Self::Tendermint(cs)
@@ -114,6 +137,8 @@ impl From<&dyn ConsensusState> for AnyConsensusState {
         }
 
         if let Some(cs) = downcast_consensus_state::<TmConsensusState>(cs) {
+            AnyConsensusState::from(cs.clone())
+        } else if let Some(cs) = downcast_consensus_state::<GpConsensusState>(cs) {
             AnyConsensusState::from(cs.clone())
         } else {
             unreachable!()
@@ -166,6 +191,7 @@ impl ConsensusState for AnyConsensusState {
     fn root(&self) -> &CommitmentRoot {
         match self {
             Self::Tendermint(cs_state) => cs_state.root(),
+            Self::Grandpa(cs_state) => cs_state.root(),
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.root(),

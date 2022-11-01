@@ -1,23 +1,14 @@
 use alloc::sync::Arc;
 use tendermint::Time;
-
 use crossbeam_channel as channel;
-use futures::{
-    stream::StreamExt,
-    TryStreamExt,
-};
 use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, trace};
 use crate::chain::substrate::config::MyConfig;
-use crate::chain::substrate::config::SubstrateNodeTemplateExtrinsicParams;
-use subxt::{
-    BlockNumber, Client, ClientBuilder, SignedCommitment,
-};
+use subxt::OnlineClient;
 use tendermint_rpc::Url;
-
 use crate::error::Error as RelayError;
 use crate::util::{
-    retry::{retry_with_index, retry_count, RetryResult},
+    retry::{retry_with_index, RetryResult},
 };
 use beefy_light_client::commitment;
 use codec::Decode;
@@ -25,7 +16,9 @@ use ibc_relayer_types::clients::ics10_grandpa::help::MmrRoot;
 use ibc_relayer_types::clients::ics10_grandpa::{header::Header, help::ValidatorMerkleProof};
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
 use sp_core::H256;
-
+use crate::chain::substrate::update_client_state::build_validator_proof;
+use crate::chain::substrate::rpc::get_mmr_leaf_and_mmr_proof;
+use crate::chain::substrate::rpc::get_header_by_block_number;
 
 mod retry_strategy {
     use crate::util::retry::clamp_total;
@@ -46,7 +39,8 @@ pub use super::monitor::Error;
 pub type BeefyResult<T> = Result<T, Error>;
 pub type BeefySender = channel::Sender<BeefyResult<Header>>;
 pub type BeefyReceiver = channel::Receiver<BeefyResult<Header>>;
-
+use subxt::rpc::BlockNumber;
+use beefy_light_client::commitment::SignedCommitment;
 pub use super::monitor::MonitorCmd;
 pub use super::monitor::TxMonitorCmd;
 
@@ -111,7 +105,7 @@ impl BeefyMonitorCtrl {
 pub struct BeefyMonitor {
     chain_id: ChainId,
     /// WebSocket to collect events from
-    client: Client<MyConfig>,
+    client: OnlineClient<MyConfig>,
     /// Channel to handler where the monitor for this chain sends the events
     tx_beefy: channel::Sender<BeefyResult<Header>>,
     /// Channel where to receive client driver errors
@@ -132,7 +126,7 @@ impl BeefyMonitor {
     /// Create an event monitor, and connect to a node
     pub fn new(
             chain_id: ChainId,
-            client: Client<MyConfig>,
+            client: OnlineClient<MyConfig>,
             node_addr: Url,
             rt: Arc<TokioRuntime>,
             ) -> BeefyResult<(Self, BeefyReceiver, TxMonitorCmd)> {
@@ -175,9 +169,7 @@ impl BeefyMonitor {
         let mut client = self
         .rt
         .block_on(
-                ClientBuilder::new()
-                .set_url(format!("{}", &self.node_addr.clone()))
-                .build::<MyConfig>(),
+                OnlineClient::from_url(format!("{}", &self.node_addr.clone()))
         )
         .map_err(|_| {
             Error::client_creation_failed(self.chain_id.clone(), self.node_addr.clone())
@@ -232,15 +224,13 @@ impl BeefyMonitor {
         });
 
         match result {
-            Ok(()) => info!(
-                    "[{}] successfully reconnected to WebSocket endpoint {}",
-            self.chain_id, self.node_addr
+              Ok(()) => info!(
+                "successfully reconnected to WebSocket endpoint {}",
+                self.node_addr
             ),
-            Err(retries) => error!(
-                    "[{}] failed to reconnect to {} after {} retries",
-            self.chain_id,
-            self.node_addr,
-            retry_count(&retries)
+            Err(e) => error!(
+                "failed to reconnect to {} after {} retries",
+                self.node_addr, e.tries
             ),
         }
     }
@@ -254,15 +244,10 @@ impl BeefyMonitor {
         self.chain_id
         );
 
-        let api = self
-        .client
-        .clone()
-        .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
-                );
 
         let sub = self
         .rt
-        .block_on(api.client.rpc().subscribe_beefy_justifications())
+        .block_on(self.client.rpc().subscribe_beefy_justifications()) // todo(davirain) need add subscribe_beefy_justifications
         .unwrap();
 
         let mut beefy_sub = sub;
@@ -334,13 +319,8 @@ impl BeefyMonitor {
     /// Subscribe beefy msg
     pub async fn subscribe_beefy(&self) -> Result<SignedCommitment, Box<dyn std::error::Error>> {
         info!("in beefy monitor: [subscribe_beefy]");
-        let api = self
-        .client
-        .clone()
-        .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
-                );
 
-        let mut sub = api.client.rpc().subscribe_beefy_justifications().await?;
+        let mut sub = self.client.rpc().subscribe_beefy_justifications().await?;
 
         let raw = sub.next().await.unwrap().unwrap();
 
@@ -369,22 +349,16 @@ impl BeefyMonitor {
         );
         // build validator proof
         let validator_merkle_proofs: Vec<ValidatorMerkleProof> =
-        octopusxt::update_client_state::build_validator_proof(
+        build_validator_proof(
                 self.client.clone(),
         block_number,
         )
         .await
         .map_err(|_| RelayError::get_validator_merkle_proof())?;
 
-        // build mmr proof
-        let api = self
-        .client
-        .clone()
-        .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
-                );
 
         // get block hash
-        let block_hash: Option<H256> = api
+        let block_hash: Option<H256> = self
         .client
         .rpc()
         .block_hash(Some(BlockNumber::from(block_number)))
@@ -398,7 +372,7 @@ impl BeefyMonitor {
         );
 
         // create proof
-        let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
+        let mmr_leaf_and_mmr_leaf_proof = get_mmr_leaf_and_mmr_proof(
                 Some(BlockNumber::from(block_number - 1)),
         block_hash,
         self.client.clone(),
@@ -418,14 +392,8 @@ impl BeefyMonitor {
             mmr_leaf_proof: mmr_leaf_and_mmr_leaf_proof.2,
         };
 
-        let api = self
-        .client
-        .clone()
-        .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
-                );
-
         // get block header
-        let block_header = rpc::get_header_by_block_number(
+        let block_header = get_header_by_block_number(
                 Some(BlockNumber::from(block_number)),
         self.client.clone(),
         )

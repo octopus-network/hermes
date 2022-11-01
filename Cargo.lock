@@ -384,7 +384,9 @@ name = "beefy-merkle-tree"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
+ "array-bytes",
  "beefy-primitives",
+ "log",
  "sp-api",
  "tiny-keccak",
 ]
@@ -2281,6 +2283,8 @@ dependencies = [
  "async-stream",
  "bech32",
  "beefy-light-client",
+ "beefy-merkle-tree",
+ "beefy-primitives",
  "bitcoin",
  "bytes",
  "crossbeam-channel 0.5.6",
@@ -2300,6 +2304,7 @@ dependencies = [
  "itertools",
  "jsonrpsee 0.14.0",
  "k256",
+ "libsecp256k1",
  "moka",
  "num-bigint",
  "num-rational",

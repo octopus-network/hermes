@@ -1,6 +1,5 @@
-use super::super::config::MyConfig;
-use crate::chain::substrate::SubstrateNodeTemplateExtrinsicParams;
-use super::storage_iter;
+use super::super::config::{MyConfig, ibc_node};
+use crate::chain::substrate::rpc::storage_iter;
 use anyhow::Result;
 use ibc_relayer_types::core::ics24_host::identifier::ClientId;
 use ibc_relayer_types::core::ics24_host::path::{
@@ -16,11 +15,10 @@ use ibc_relayer_types::core::{
 };
 use ibc_proto::ibc::core::channel::v1::PacketState;
 use sp_core::H256;
-use subxt::Client;
-use tendermint_proto::Protobuf;
+use subxt::OnlineClient;
 
 /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
-pub async fn get_channels(client: Client<MyConfig>) -> Result<Vec<IdentifiedChannelEnd>> {
+pub async fn get_channels(client: OnlineClient<MyConfig>) -> Result<Vec<IdentifiedChannelEnd>> {
     tracing::info!("in call_ibc: [get_channels]");
     println!("in call_ibc: [get_channels]");
 
@@ -58,14 +56,11 @@ pub async fn get_channels(client: Client<MyConfig>) -> Result<Vec<IdentifiedChan
 pub async fn query_channel_end(
         port_id: &PortId,
         channel_id: &ChannelId,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<ChannelEnd> {
     tracing::info!("in call_ibc: [get_channel_end]");
 
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -76,7 +71,7 @@ pub async fn query_channel_end(
     .as_bytes()
     .to_vec();
 
-    let data: Vec<u8> = api
+    let data: Vec<u8> = client
     .storage()
     .ibc()
     .channels(&channel_end_path, Some(block_hash))
@@ -100,13 +95,11 @@ pub async fn get_packet_receipt(
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<Receipt> {
     tracing::info!("in call_ibc : [get_packet_receipt]");
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -121,7 +114,7 @@ pub async fn get_packet_receipt(
     .as_bytes()
     .to_vec();
 
-    let data: Vec<u8> = api
+    let data: Vec<u8> = client
     .storage()
     .ibc()
     .packet_receipt(&packet_receipt_path, Some(block_hash))
@@ -151,13 +144,11 @@ pub async fn get_packet_receipt_vec(
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<Vec<u8>> {
     tracing::info!("in call_ibc : [get_packet_receipt]");
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -172,7 +163,7 @@ pub async fn get_packet_receipt_vec(
     .as_bytes()
     .to_vec();
 
-    let data: Vec<u8> = api
+    let data: Vec<u8> = client
     .storage()
     .ibc()
     .packet_receipt(&packet_receipt_path, Some(block_hash))
@@ -194,14 +185,12 @@ pub async fn get_unreceipt_packet(
         port_id: &PortId,
         channel_id: &ChannelId,
         sequences: Vec<Sequence>,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<Vec<u64>> {
     tracing::info!("in call_ibc: [get_receipt_packet]");
 
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -223,7 +212,7 @@ pub async fn get_unreceipt_packet(
         .as_bytes()
         .to_vec();
 
-        let data: Vec<u8> = api
+        let data: Vec<u8> = client
         .storage()
         .ibc()
         .packet_receipt(&packet_receipt_path, Some(block_hash))
@@ -237,7 +226,7 @@ pub async fn get_unreceipt_packet(
 }
 
 /// get get_commitment_packet_state
-pub async fn get_commitment_packet_state(client: Client<MyConfig>) -> Result<Vec<PacketState>> {
+pub async fn get_commitment_packet_state(client: OnlineClient<MyConfig>) -> Result<Vec<PacketState>> {
     tracing::info!("in call_ibc: [get_commitment_packet_state]");
 
     let callback = Box::new(
@@ -280,14 +269,11 @@ pub async fn get_packet_commitment(
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<Vec<u8>> {
     tracing::info!("in call_ibc: [get_packet_commitment]");
 
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -302,7 +288,7 @@ pub async fn get_packet_commitment(
     .as_bytes()
     .to_vec();
 
-    let data: Vec<u8> = api
+    let data: Vec<u8> = client
     .storage()
     .ibc()
     .packet_commitment(&packet_commits_path, Some(block_hash))
@@ -325,14 +311,11 @@ pub async fn get_packet_ack(
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<Vec<u8>> {
     tracing::info!("in call_ibc: [get_packet_ack]");
 
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -347,7 +330,7 @@ pub async fn get_packet_ack(
     .as_bytes()
     .to_vec();
 
-    let data: Vec<u8> = api
+    let data: Vec<u8> = client
     .storage()
     .ibc()
     .acknowledgements(&acks_path, Some(block_hash))
@@ -369,14 +352,11 @@ pub async fn get_packet_ack(
 pub async fn get_next_sequence_recv(
         port_id: &PortId,
         channel_id: &ChannelId,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<Sequence> {
     tracing::info!("in call_ibc: [get_next_sequence_recv]");
 
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -387,7 +367,7 @@ pub async fn get_next_sequence_recv(
     .as_bytes()
     .to_vec();
 
-    let sequence: u64 = api
+    let sequence: u64 = client
     .storage()
     .ibc()
     .next_sequence_recv(&seq_recvs_path, Some(block_hash))
@@ -397,7 +377,7 @@ pub async fn get_next_sequence_recv(
 }
 
 /// get get_commitment_packet_state
-pub async fn get_acknowledge_packet_state(client: Client<MyConfig>) -> Result<Vec<PacketState>> {
+pub async fn get_acknowledge_packet_state(client: OnlineClient<MyConfig>) -> Result<Vec<PacketState>> {
     tracing::info!("in call_ibc: [get_acknowledge_packet_state]");
 
     let callback = Box::new(

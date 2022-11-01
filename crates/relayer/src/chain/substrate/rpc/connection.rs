@@ -1,7 +1,6 @@
 use super::channel::query_channel_end;
-use super::super::config::MyConfig;
-use super::storage_iter;
-use crate::chain::substrate::SubstrateNodeTemplateExtrinsicParams;
+use super::super::config::{MyConfig, ibc_node};
+use crate::chain::substrate::rpc::storage_iter;
 use anyhow::Result;
 use core::str::FromStr;
 use ibc_relayer_types::core::ics24_host::identifier::ClientId;
@@ -13,19 +12,17 @@ use ibc_relayer_types::core::{
     ics24_host::identifier::ConnectionId,
 };
 use sp_core::H256;
-use subxt::Client;
-use tendermint_proto::Protobuf;
+use subxt::OnlineClient;
+use ibc_proto::protobuf::Protobuf;
 
 /// get connectionEnd according by connection_identifier and read Connections StorageMaps
 pub async fn query_connection_end(
         connection_identifier: &ConnectionId,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<ConnectionEnd> {
     tracing::info!("in call_ibc: [get_connection_end]");
-    let api = client
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -36,7 +33,7 @@ pub async fn query_connection_end(
     .as_bytes()
     .to_vec();
 
-    let data: Vec<u8> = api
+    let data: Vec<u8> = client
     .storage()
     .ibc()
     .connections(&connections_path, Some(block_hash))
@@ -55,7 +52,7 @@ pub async fn query_connection_end(
 }
 
 /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
-pub async fn get_connections(client: Client<MyConfig>) -> Result<Vec<IdentifiedConnectionEnd>> {
+pub async fn get_connections(client: OnlineClient<MyConfig>) -> Result<Vec<IdentifiedConnectionEnd>> {
     tracing::info!("in call_ibc: [get_connections]");
 
     let callback = Box::new(
@@ -91,15 +88,11 @@ pub async fn get_connections(client: Client<MyConfig>) -> Result<Vec<IdentifiedC
 
 pub async fn get_connection_channels(
         connection_id: &ConnectionId,
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         ) -> Result<Vec<IdentifiedChannelEnd>> {
     tracing::info!("in call_ibc: [get_connection_channels]");
 
-    let api = client
-    .clone()
-    .to_runtime_api::<ibc_node::RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
@@ -111,7 +104,7 @@ pub async fn get_connection_channels(
     .to_vec();
 
     // ConnectionsPath(connection_id) <-> Vec<ChannelEndsPath(port_id, channel_id)>
-    let connections_paths: Vec<Vec<u8>> = api
+    let connections_paths: Vec<Vec<u8>> = client
     .storage()
     .ibc()
     .channels_connection(&connections_path, Some(block_hash))

@@ -541,6 +541,12 @@ define_error! {
             |e| {
                 format_args!("message with length {} is too large for a transaction", e.len)
             },
+
+        ReportError
+            { error: String }
+            |e| {
+                format_args!("Report Error: ({})", e.error)
+            },
     }
 }
 

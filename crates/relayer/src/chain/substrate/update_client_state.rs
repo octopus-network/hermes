@@ -1,8 +1,5 @@
-//use super::ibc_node::{self, RuntimeApi};
 use super::rpc::get_mmr_leaf_and_mmr_proof;
-//use super::rpc::{ MyConfig, SubstrateNodeTemplateExtrinsicParams};
-use crate::chain::substrate::SubstrateNodeTemplateExtrinsicParams;
-use super::config::MyConfig;
+use super::config::{MyConfig, ibc_node};
 use super::rpc::get_latest_height;
 use crate::client_state::AnyClientState;
 use anyhow::Result;
@@ -18,19 +15,18 @@ use ibc_relayer_types::core::ics24_host::Path;
 use ibc_relayer_types::{
     clients::ics10_grandpa::help,
     core::{
-        ics02_client::{client_state::ClientState, client_type::ClientType},
+        ics02_client::client_type::ClientType,
         ics24_host::identifier::ClientId,
     },
 };
-use sp_core::{hexdisplay::HexDisplay, ByteArray, H256};
+use sp_core::{hexdisplay::HexDisplay, H256};
 use sp_keyring::AccountKeyring;
-
-use subxt::{BlockNumber, Client, PairSigner, SignedCommitment};
-
+use subxt::OnlineClient;
 use std::str::FromStr;
 use subxt::storage::StorageClient;
-use tendermint_proto::Protobuf;
-
+use subxt::rpc::BlockNumber;
+use beefy_light_client::commitment::SignedCommitment;
+use subxt::tx::PairSigner;
 
 /// mmr proof struct
 #[derive(Clone, Debug, Default)]
@@ -41,21 +37,18 @@ pub struct MmrProof {
 
 /// build merkle proof for validator
 pub async fn build_validator_proof(
-        src_client: Client<MyConfig>,
+        src_client: OnlineClient<MyConfig>,
         block_number: u32,
         ) -> Result<Vec<help::ValidatorMerkleProof>> {
-    let api = src_client
-    .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
     // get block hash
-    let block_hash = api
-    .client
+    let block_hash = src_client
     .rpc()
     .block_hash(Some(BlockNumber::from(block_number)))
     .await?;
 
     //get validator set(authorities)
-    let authorities = api.storage().beefy().authorities(block_hash).await?;
+    let authorities = src_client.storage().beefy().authorities(block_hash).await?;
 
     // covert authorities to strings
     let authority_strs: Vec<String> = authorities
@@ -96,10 +89,7 @@ pub async fn build_validator_proof(
 }
 
 /// build mmr proof
-pub async fn build_mmr_proof(src_client: Client<MyConfig>, block_number: u32) -> Result<MmrProof> {
-    let api = src_client
-    .clone()
-    .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
+pub async fn build_mmr_proof(src_client: OnlineClient<MyConfig>, block_number: u32) -> Result<MmrProof> {
 
     // asset block block number < get laset height
     {
@@ -112,8 +102,8 @@ pub async fn build_mmr_proof(src_client: Client<MyConfig>, block_number: u32) ->
     }
 
     //get block hash by block_number
-    let block_hash = api
-    .client
+    let block_hash =
+    src_client
     .rpc()
     .block_hash(Some(BlockNumber::from(block_number)))
     .await?;
@@ -145,7 +135,7 @@ pub async fn build_mmr_proof(src_client: Client<MyConfig>, block_number: u32) ->
 
 /// build mmr root
 pub async fn build_mmr_root(
-        src_client: Client<MyConfig>,
+        src_client: OnlineClient<MyConfig>,
         raw_signed_commitment: SignedCommitment,
         ) -> Result<help::MmrRoot, Box<dyn std::error::Error>> {
     // decode signed commitment
@@ -187,20 +177,18 @@ pub async fn build_mmr_root(
 }
 /// send Update client state request
 pub async fn send_update_state_request(
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         client_id: ClientId,
         mmr_root: help::MmrRoot,
         ) -> Result<H256> {
     tracing::info!("in call_ibc: [update_client_state]");
     let signer = PairSigner::new(AccountKeyring::Bob.pair());
-    let api = client
-    .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
     let encode_client_id = client_id.as_bytes().to_vec();
     let encode_mmr_root = help::MmrRoot::encode(&mmr_root);
     println!("encode mmr root is {:?}", encode_mmr_root);
 
-    let result = api
+    let result = client
     .tx()
     .ibc()
     .update_client_state(encode_client_id, encode_mmr_root)?
@@ -214,14 +202,11 @@ pub async fn send_update_state_request(
 
 /// update client state by cli for single.
 pub async fn update_client_state(
-        src_client: Client<MyConfig>,
-        target_client: Client<MyConfig>,
+        src_client: OnlineClient<MyConfig>,
+        target_client: OnlineClient<MyConfig>,
         ) -> Result<()> {
     // subscribe beefy justification for src chain
-    let api_a = src_client
-    .clone()
-    .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-    let mut sub = api_a.client.rpc().subscribe_beefy_justifications().await?;
+    let mut sub = src_client.rpc().subscribe_beefy_justifications().await?;
 
     let raw_signed_commitment = sub.next().await.unwrap().unwrap().0;
     // decode signed commitment
@@ -282,15 +267,11 @@ pub async fn update_client_state(
 
 /// update client state service.
 pub async fn update_client_state_service(
-        src_client: Client<MyConfig>,
-        target_client: Client<MyConfig>,
+        src_client: OnlineClient<MyConfig>,
+        target_client: OnlineClient<MyConfig>,
         ) -> Result<()> {
     // subscribe beefy justification for src chain
-    let api_a = src_client
-    .clone()
-    .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-
-    let mut sub = api_a.client.rpc().subscribe_beefy_justifications().await?;
+    let mut sub = src_client.rpc().subscribe_beefy_justifications().await?;
 
     // msg loop for handle the beefy SignedCommitment
     loop {
@@ -427,20 +408,18 @@ pub fn verify_commitment_signatures(
 
 /// get client ids store in chain
 pub async fn get_client_ids(
-        client: Client<MyConfig>,
+        client: OnlineClient<MyConfig>,
         expect_client_type: ClientType,
         ) -> Result<Vec<ClientId>> {
-    let api = client
-    .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
 
-    let mut block = api.client.rpc().subscribe_finalized_blocks().await?;
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
     let block_hash: H256 = block_header.hash();
 
     // Obtain the storage client wrapper from the API.
-    let storage: StorageClient<'_, MyConfig> = api.client.storage();
+    let storage: StorageClient<'_, MyConfig> = client.storage();
 
     let mut iter = storage
     .iter::<ibc_node::ibc::storage::ClientStates>(Some(block_hash))

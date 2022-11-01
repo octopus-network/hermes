@@ -45,6 +45,10 @@ define_error! {
         Rpc
             [ TraceError<RpcError> ]
             |_| { "RPC error" },
+
+        ReportError
+            { error: String }
+            |e| { format_args!("Report Error: ()", e.error) },
     }
 }
 
