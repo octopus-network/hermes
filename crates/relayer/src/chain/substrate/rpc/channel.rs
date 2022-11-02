@@ -19,7 +19,9 @@ use sp_core::H256;
 use subxt::OnlineClient;
 
 /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
-pub async fn get_channels(client: OnlineClient<MyConfig>) -> Result<Vec<IdentifiedChannelEnd>> {
+pub async fn get_channels(
+    client: OnlineClient<MyConfig>,
+) -> Result<Vec<IdentifiedChannelEnd>, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_channels]");
 
     let callback = Box::new(
@@ -71,22 +73,21 @@ pub async fn query_channel_end(
         .as_bytes()
         .to_vec();
 
-    let data: Vec<u8> = client
-        .storage()
-        .ibc()
-        .channels(&channel_end_path, Some(block_hash))
-        .await?;
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage().ibc().channels(channel_end_path);
 
-    if data.is_empty() {
-        return Err(subxt::error::Error::Other(format!(
+    let value: Option<Vec<u8>> = client.storage().fetch(&address, Some(block_hash)).await?;
+
+    if let Some(data) = value {
+        let channel_end = ChannelEnd::decode_vec(&*data).unwrap();
+
+        Ok(channel_end)
+    } else {
+        Err(subxt::error::Error::Other(format!(
             "get_channel_end is empty by port_id = ({}), channel_id = ({})",
             port_id, channel_id
-        )));
+        )))
     }
-
-    let channel_end = ChannelEnd::decode_vec(&*data).unwrap();
-
-    Ok(channel_end)
 }
 
 /// get packet receipt by port_id, channel_id and sequence
@@ -113,26 +114,28 @@ pub async fn get_packet_receipt(
     .as_bytes()
     .to_vec();
 
-    let data: Vec<u8> = client
-        .storage()
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage()
         .ibc()
-        .packet_receipt(&packet_receipt_path, Some(block_hash))
-        .await?;
+        .packet_receipt(packet_receipt_path);
 
-    if data.is_empty() {
-        return Err(subxt::error::Error::Other(format!(
-            "get_packet_receipt is empty! by port_id = ({}), channel_id = ({})",
-            port_id, channel_id
-        )));
-    }
+    let value: Option<Vec<u8>> = client.storage().fetch(&address, Some(block_hash)).await?;
 
-    let receipt = String::from_utf8(data)?;
-    if receipt.eq("Ok") {
-        Ok(Receipt::Ok)
+    if let Some(data) = value {
+        let receipt = String::from_utf8(data)
+            .map_err(|_| subxt::error::Error::Other("decode receipt Error".to_string()))?;
+        if receipt.eq("Ok") {
+            Ok(Receipt::Ok)
+        } else {
+            Err(subxt::error::Error::Other(format!(
+                "unrecognized packet receipt: {:?}",
+                receipt
+            )))
+        }
     } else {
         Err(subxt::error::Error::Other(format!(
-            "unrecognized packet receipt: {:?}",
-            receipt
+            "get_packet_receipt is empty! by port_id = ({}), channel_id = ({})",
+            port_id, channel_id
         )))
     }
 }
@@ -161,20 +164,21 @@ pub async fn get_packet_receipt_vec(
     .as_bytes()
     .to_vec();
 
-    let data: Vec<u8> = client
-        .storage()
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage()
         .ibc()
-        .packet_receipt(&packet_receipt_path, Some(block_hash))
-        .await?;
+        .packet_receipt(packet_receipt_path);
 
-    if data.is_empty() {
-        return Err(subxt::error::Error::Other(format!(
+    let value: Option<Vec<u8>> = client.storage().fetch(&address, Some(block_hash)).await?;
+
+    if let Some(data) = value {
+        Ok(data)
+    } else {
+        Err(subxt::error::Error::Other(format!(
             "get_packet_receipt is empty! by port_id = ({}), channel_id = ({})",
             port_id, channel_id
-        )));
+        )))
     }
-
-    Ok(data)
 }
 
 /// get  unreceipt packet
@@ -208,12 +212,14 @@ pub async fn get_unreceipt_packet(
         .as_bytes()
         .to_vec();
 
-        let data: Vec<u8> = client
-            .storage()
+        // Address to a storage entry we'd like to access.
+        let address = ibc_node::storage()
             .ibc()
-            .packet_receipt(&packet_receipt_path, Some(block_hash))
-            .await?;
-        if data.is_empty() {
+            .packet_receipt(packet_receipt_path);
+
+        let value: Option<Vec<u8>> = client.storage().fetch(&address, Some(block_hash)).await?;
+
+        if value.is_none() {
             result.push(u64::from(sequence));
         }
     }
@@ -224,7 +230,7 @@ pub async fn get_unreceipt_packet(
 /// get get_commitment_packet_state
 pub async fn get_commitment_packet_state(
     client: OnlineClient<MyConfig>,
-) -> Result<Vec<PacketState>> {
+) -> Result<Vec<PacketState>, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_commitment_packet_state]");
 
     let callback = Box::new(
@@ -286,19 +292,20 @@ pub async fn get_packet_commitment(
     .as_bytes()
     .to_vec();
 
-    let data: Vec<u8> = client
-        .storage()
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage()
         .ibc()
-        .packet_commitment(&packet_commits_path, Some(block_hash))
-        .await?;
+        .packet_commitment(packet_commits_path);
 
-    if data.is_empty() {
+    let value: Option<Vec<u8>> = client.storage().fetch(&address, Some(block_hash)).await?;
+
+    if let Some(data) = value {
+        Ok(data)
+    } else {
         Err(subxt::error::Error::Other(format!(
             "get_packet_commitment is empty! by port_id = ({}), channel_id = ({}), sequence = ({})",
             port_id, channel_id, sequence
         )))
-    } else {
-        Ok(data)
     }
 }
 
@@ -326,19 +333,18 @@ pub async fn get_packet_ack(
     .as_bytes()
     .to_vec();
 
-    let data: Vec<u8> = client
-        .storage()
-        .ibc()
-        .acknowledgements(&acks_path, Some(block_hash))
-        .await?;
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage().ibc().acknowledgements(acks_path);
 
-    if data.is_empty() {
+    let value: Option<Vec<u8>> = client.storage().fetch(&address, Some(block_hash)).await?;
+
+    if let Some(data) = value {
+        Ok(data)
+    } else {
         Err(subxt::error::Error::Other(format!(
             "get_packet_ack is empty! by port_id = ({}), channel_id = ({}), sequence = ({})",
             port_id, channel_id, sequence
         )))
-    } else {
-        Ok(data)
     }
 }
 
@@ -361,19 +367,24 @@ pub async fn get_next_sequence_recv(
         .as_bytes()
         .to_vec();
 
-    let sequence: u64 = client
-        .storage()
-        .ibc()
-        .next_sequence_recv(&seq_recvs_path, Some(block_hash))
-        .await?;
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage().ibc().next_sequence_recv(seq_recvs_path);
 
-    Ok(Sequence::from(sequence))
+    let value: Option<u64> = client.storage().fetch(&address, Some(block_hash)).await?;
+
+    if let Some(sequence) = value {
+        Ok(Sequence::from(sequence))
+    } else {
+        Err(subxt::error::Error::Other(format!(
+            "get_next_sequence_recv is empty!"
+        )))
+    }
 }
 
 /// get get_commitment_packet_state
 pub async fn get_acknowledge_packet_state(
     client: OnlineClient<MyConfig>,
-) -> Result<Vec<PacketState>> {
+) -> Result<Vec<PacketState>, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_acknowledge_packet_state]");
 
     let callback = Box::new(

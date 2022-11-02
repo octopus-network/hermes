@@ -7,6 +7,7 @@ pub use client::*;
 pub use connection::*;
 
 use crate::chain::substrate::config::ibc_node;
+use crate::chain::substrate::rpc::ibc_node::runtime_types::ibc_support::Any as RuntimeAny;
 use crate::chain::substrate::MyConfig;
 use anyhow::Result;
 use beefy_light_client::commitment::SignedCommitment;
@@ -14,14 +15,8 @@ use beefy_merkle_tree::Hash;
 use codec::Decode;
 use core::str::FromStr;
 use ibc_proto::google::protobuf::Any;
-use ibc_relayer_types::core::ics04_channel::events::WriteAcknowledgement;
 use ibc_relayer_types::core::ics24_host::identifier::ClientId;
 use ibc_relayer_types::core::ics24_host::Path;
-use ibc_relayer_types::core::{
-    ics04_channel::packet::{Packet, Sequence},
-    ics24_host::identifier::{ChannelId, PortId},
-};
-use jsonrpsee::rpc_params;
 use sp_core::{
     storage::{StorageKey, TrackedStorageKey},
     H256,
@@ -29,6 +24,7 @@ use sp_core::{
 use sp_keyring::AccountKeyring;
 use subxt::metadata::DecodeWithMetadata;
 use subxt::rpc::BlockNumber;
+use subxt::rpc_params;
 use subxt::storage::StorageClient;
 use subxt::tx::PairSigner;
 use subxt::OnlineClient;
@@ -61,102 +57,18 @@ pub async fn get_latest_height(client: OnlineClient<MyConfig>) -> Result<u64, su
     Ok(height)
 }
 
-/// get send packet event by port_id, channel_id and sequence
-/// (port_id, channel_id, sequence), packet)
-pub async fn get_send_packet_event(
-    port_id: &PortId,
-    channel_id: &ChannelId,
-    sequence: &Sequence,
-    client: OnlineClient<MyConfig>,
-) -> Result<Packet, subxt::error::Error> {
-    tracing::info!("in call_ibc: [get_send_packet_event]");
-
-    let mut block = client.rpc().subscribe_finalized_blocks().await?;
-
-    let block_header = block.next().await.unwrap().unwrap();
-
-    let block_hash: H256 = block_header.hash();
-
-    let data: Vec<u8> = client
-        .storage()
-        .ibc()
-        .send_packet_event(
-            port_id.as_bytes(),
-            format!("{}", channel_id).as_bytes(),
-            &u64::from(*sequence),
-            Some(block_hash),
-        )
-        .await?;
-
-    if data.is_empty() {
-        println!("get_send_packet_event packet vec<u8> is empty!");
-        return Err(subxt::error::Error::Other(format!(
-            "get_send_packet_event is empty! by port_id = ({}), channel_id = ({}), sequence = ({})",
-            port_id, channel_id, sequence
-        )));
-    }
-
-    // serde to packet, just is decode to packet
-    let packet = Packet::decode_vec(&mut &*data).unwrap();
-    println!("get_send_packet_event packet is = {:?}", packet);
-
-    Ok(packet)
-}
-
-/// (port_id, channel_id, sequence), ackHash)
-pub async fn get_write_ack_packet_event(
-    port_id: &PortId,
-    channel_id: &ChannelId,
-    sequence: &Sequence,
-    client: OnlineClient<MyConfig>,
-) -> Result<WriteAcknowledgement, subxt::error::Error> {
-    tracing::info!("in call_ibc: [get_write_ack_packet_event] --> port_id = {}, channel_id = {}, sequence = {}",
-    port_id, channel_id, sequence);
-
-    let mut block = client.rpc().subscribe_finalized_blocks().await?;
-
-    let block_header = block.next().await.unwrap().unwrap();
-
-    let block_hash: H256 = block_header.hash();
-
-    let data: Vec<u8> = client
-        .storage()
-        .ibc()
-        .write_ack_packet_event(
-            port_id.as_bytes(),
-            format!("{}", channel_id).as_bytes(),
-            &u64::from(*sequence),
-            Some(block_hash),
-        )
-        .await?;
-
-    if data.is_empty() {
-        eprintln!("get write acknowledgement is empty!");
-        return Err(subxt::error::Error::Other(format!(
-                "get_write_ack_packet_event is empty! by port_id = ({}), channel_id = ({}), sequence = ({})",
-        port_id, channel_id, sequence
-        )));
-    }
-
-    // serde to packet, just is decode to packet
-
-    let write_ack = WriteAcknowledgement::decode_vec(&mut &*data).unwrap();
-
-    Ok(write_ack)
-}
-
 /// ibc protocol core function, ics26 deliver function
 /// this function will dispatch msg to process
 /// return block_hash, extrinsic_hash, and event
 pub async fn deliver(
     msg: Vec<Any>,
     client: OnlineClient<MyConfig>,
-) -> Result<H256, subtx::error::Error> {
+) -> Result<H256, subxt::error::Error> {
     tracing::info!("in call_ibc: [deliver]");
 
-    let msg: Vec<ibc_node::runtime_types::pallet_ibc::Any> = msg
+    let msg: Vec<RuntimeAny> = msg
         .into_iter()
-        .map(|value| ibc_node::runtime_types::pallet_ibc::Any {
+        .map(|value| RuntimeAny {
             type_url: value.type_url.as_bytes().to_vec(),
             value: value.value,
         })
@@ -164,14 +76,13 @@ pub async fn deliver(
 
     let signer = PairSigner::new(AccountKeyring::Bob.pair());
 
-    let result = client
-        .tx()
-        .ibc()
-        .deliver(msg)?
-        .sign_and_submit_default(&signer)
-        .await?;
+    // Create a transaction to submit:
+    let tx = ibc_node::tx().ibc().deliver(msg);
 
-    Ok(result)
+    // Submit the transaction with default params:
+    let hash = client.tx().sign_and_submit_default(&tx, &signer).await?;
+
+    Ok(hash)
 }
 
 // process ibc transfer
@@ -181,9 +92,9 @@ pub async fn raw_transfer(
 ) -> Result<H256, subxt::error::Error> {
     tracing::info!("in call_ibc: [deliver]");
 
-    let msg: Vec<ibc_node::runtime_types::pallet_ibc::Any> = msg
+    let msg: Vec<RuntimeAny> = msg
         .into_iter()
-        .map(|value| ibc_node::runtime_types::pallet_ibc::Any {
+        .map(|value| RuntimeAny {
             type_url: value.type_url.as_bytes().to_vec(),
             value: value.value,
         })
@@ -191,46 +102,13 @@ pub async fn raw_transfer(
 
     let signer = PairSigner::new(AccountKeyring::Bob.pair());
 
-    let result = client
-        .tx()
-        .ibc()
-        .raw_transfer(msg)?
-        .sign_and_submit_default(&signer)
-        .await?;
+    // Create a transaction to submit:
+    let tx = ibc_node::tx().ics20().raw_transfer(msg);
 
-    Ok(result)
-}
+    // Submit the transaction with default params:
+    let hash = client.tx().sign_and_submit_default(&tx, &signer).await?;
 
-pub async fn delete_send_packet_event(
-    client: OnlineClient<MyConfig>,
-) -> Result<H256, subxt::error::Error> {
-    tracing::info!("in call_ibc: [delete_send_packet_event]");
-
-    let signer = PairSigner::new(AccountKeyring::Bob.pair());
-
-    let result = client
-        .tx()
-        .ibc()
-        .delete_send_packet_event()?
-        .sign_and_submit_default(&signer)
-        .await?;
-
-    Ok(result)
-}
-
-pub async fn delete_write_packet_event(client: OnlineClient<MyConfig>) -> Result<H256> {
-    tracing::info!("in call_ibc: [delete_write_packet_event]");
-
-    let signer = PairSigner::new(AccountKeyring::Bob.pair());
-
-    let result = client
-        .tx()
-        .ibc()
-        .delete_ack_packet_event()?
-        .sign_and_submit_default(&signer)
-        .await?;
-
-    Ok(result)
+    Ok(hash)
 }
 
 pub async fn get_mmr_leaf_and_mmr_proof(
@@ -242,11 +120,8 @@ pub async fn get_mmr_leaf_and_mmr_proof(
 
     let params = rpc_params![block_number, block_hash];
 
-    let generate_proof: pallet_mmr_rpc::LeafProof<String> = client
-        .rpc()
-        .client
-        .request("mmr_generateProof", params)
-        .await?;
+    let generate_proof: pallet_mmr_rpc::LeafProof<String> =
+        client.rpc().request("mmr_generateProof", params).await?;
 
     Ok((
         generate_proof.block_hash,
@@ -351,7 +226,7 @@ pub async fn storage_iter<T, H: DecodeWithMetadata>(
     result: &mut Vec<T>,
     client_id: ClientId,
     mut callback: Box<dyn FnMut(Path, &mut Vec<T>, <H as DecodeWithMetadata>::Target, ClientId)>,
-) -> Result<()> {
+) -> Result<(), subxt::error::Error> {
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
@@ -370,8 +245,8 @@ pub async fn storage_iter<T, H: DecodeWithMetadata>(
         let raw_key = Vec::<u8>::decode(&mut &*raw_key)?;
         let client_state_path = String::from_utf8(raw_key)?;
         // decode key
-        let path =
-            Path::from_str(&client_state_path).map_err(|_| anyhow::anyhow!("decode path error"))?;
+        let path = Path::from_str(&client_state_path)
+            .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
 
         let _ret = callback(path, result, value, client_id.clone());
     }

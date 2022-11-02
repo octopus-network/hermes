@@ -209,13 +209,11 @@ impl BeefyMonitor {
         let result = retry_with_index(retry_strategy::default(), |_| {
             // Try to reconnect
             if let Err(e) = self.try_reconnect() {
-                trace!("[{}] error when reconnecting: {}", self.chain_id, e);
                 return RetryResult::Retry(());
             }
 
             // Try to resubscribe
             if let Err(e) = self.try_resubscribe() {
-                trace!("[{}] error when resubscribing: {}", self.chain_id, e);
                 return RetryResult::Retry(());
             }
 
@@ -238,10 +236,6 @@ impl BeefyMonitor {
     #[allow(clippy::while_let_loop)]
     pub fn run(self) {
         debug!("[{}] starting beefy monitor", self.chain_id);
-        trace!(
-            "in beefy_monitor: [run], [{}] starting beefy monitor ",
-            self.chain_id
-        );
 
         let sub = self
             .rt
@@ -259,11 +253,6 @@ impl BeefyMonitor {
         // msg loop for handle the beefy SignedCommitment
         loop {
             let raw_sc = self.rt.block_on(beefy_sub.next()).unwrap().unwrap();
-            trace!(
-                "in beefy_monitor: [run], from {:?} received beefy signed commitment : {:?} ",
-                self.chain_id.as_str(),
-                raw_sc
-            );
 
             let _ = self.process_beefy_msg(raw_sc);
         }
@@ -295,17 +284,9 @@ impl BeefyMonitor {
         trace!("in beefy_mointor: [process_beefy_msg]");
 
         let header = self.rt.block_on(self.build_header(raw_sc));
-        trace!(
-            "in beefy_monitor: [process_beefy_msg], build header: {:?} ",
-            header
-        );
 
         if let Ok(h) = header {
             // send to msg queue
-            trace!(
-                "in beefy_monitor: [process_beefy_msg], send mmr root : {:?} ",
-                h
-            );
 
             self.tx_beefy
                 .send(Ok(h))
@@ -325,26 +306,19 @@ impl BeefyMonitor {
         Ok(raw)
     }
 
-    pub async fn build_header(&self, raw_sc: SignedCommitment) -> Result<Header, RelayError> {
+    pub async fn build_header(
+        &self,
+        signed_commitment: SignedCommitment,
+    ) -> Result<Header, RelayError> {
         trace!("in beefy monitor: [build_header]");
 
-        // decode signed commitment
-        let signed_commmitment: commitment::SignedCommitment =
-            Decode::decode(&mut &raw_sc.0[..]).unwrap();
-        trace!(
-            "in beefy monitor: [build_header] decode signed commitment : {:?},",
-            signed_commmitment
-        );
         // get commitment
         let commitment::Commitment {
             payload,
             block_number,
             validator_set_id,
-        } = signed_commmitment.commitment.clone();
-        trace!(
-            "in beefy monitor: [build_header] new mmr root block_number : {:?},",
-            block_number
-        );
+        } = signed_commitment.commitment.clone();
+
         // build validator proof
         let validator_merkle_proofs: Vec<ValidatorMerkleProof> =
             build_validator_proof(self.client.clone(), block_number)
@@ -359,12 +333,6 @@ impl BeefyMonitor {
             .await
             .map_err(|_| RelayError::report_error("get_block_hash_error".to_string()))?;
 
-        trace!(
-            "in beefy monitor: [build_header] block_number:{:?} >> block_hash{:?}",
-            block_number,
-            block_hash
-        );
-
         // create proof
         let mmr_leaf_and_mmr_leaf_proof = get_mmr_leaf_and_mmr_proof(
             Some(BlockNumber::from(block_number - 1)),
@@ -373,15 +341,11 @@ impl BeefyMonitor {
         )
         .await
         .map_err(|_| RelayError::report_error("get_mmr_leaf_and_mmr_proof_error".to_string()))?;
-        trace!(
-            "in beefy monitor: [build_header] get_mmr_leaf_and_mmr_proof block_hash{:?}",
-            mmr_leaf_and_mmr_leaf_proof.0
-        );
 
         // build new mmr root
         let mmr_root = MmrRoot {
-            signed_commitment: signed_commmitment.into(),
-            validator_merkle_proofs: validator_merkle_proofs,
+            signed_commitment: signed_commitment.into(),
+            validator_merkle_proofs,
             mmr_leaf: mmr_leaf_and_mmr_leaf_proof.1,
             mmr_leaf_proof: mmr_leaf_and_mmr_leaf_proof.2,
         };
@@ -394,30 +358,16 @@ impl BeefyMonitor {
                     RelayError::report_error("get_header_by_block_number_error".to_string())
                 })?;
 
-        trace!(
-            "in beefy monitor: [build_header] >> block_header = {:?}",
-            block_header
-        );
-
         //build timestamp
         let timestamp = Time::from_unix_timestamp(0, 0).unwrap();
 
-        trace!(
-            "in beefy monitor: [build_header] >> timestamp = {:?}",
-            timestamp
-        );
-
         // build header
         let grandpa_header = Header {
-            mmr_root: mmr_root,
-            block_header: block_header,
-            timestamp: timestamp,
+            mmr_root,
+            block_header,
+            timestamp,
         };
 
-        trace!(
-            "in beefy monitor: [build_header] >> grandpa_header = {:?}",
-            grandpa_header
-        );
         Ok(grandpa_header)
     }
 }

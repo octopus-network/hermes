@@ -33,28 +33,27 @@ pub async fn query_connection_end(
         .as_bytes()
         .to_vec();
 
-    let data: Vec<u8> = client
-        .storage()
-        .ibc()
-        .connections(&connections_path, Some(block_hash))
-        .await?;
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage().ibc().connections(connections_path);
 
-    if data.is_empty() {
-        return Err(subxt::error::Error::Other(format!(
+    let data: Option<Vec<u8>> = client.storage().fetch(&address, Some(block_hash)).await?;
+
+    if let Some(data) = data {
+        let connection_end = ConnectionEnd::decode_vec(&*data).unwrap();
+
+        Ok(connection_end)
+    } else {
+        Err(subxt::error::Error::Other(format!(
             "get_connection_end is empty! by connection_identifier = ({})",
             connection_identifier
-        )));
+        )))
     }
-
-    let connection_end = ConnectionEnd::decode_vec(&*data).unwrap();
-
-    Ok(connection_end)
 }
 
 /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
 pub async fn get_connections(
     client: OnlineClient<MyConfig>,
-) -> Result<Vec<IdentifiedConnectionEnd>> {
+) -> Result<Vec<IdentifiedConnectionEnd>, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_connections]");
 
     let callback = Box::new(
@@ -105,14 +104,16 @@ pub async fn get_connection_channels(
         .as_bytes()
         .to_vec();
 
-    // ConnectionsPath(connection_id) <-> Vec<ChannelEndsPath(port_id, channel_id)>
-    let connections_paths: Vec<Vec<u8>> = client
-        .storage()
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage()
         .ibc()
-        .channels_connection(&connections_path, Some(block_hash))
-        .await?;
+        .channels_connection(connections_path);
 
-    if connections_paths.is_empty() {
+    // ConnectionsPath(connection_id) <-> Vec<ChannelEndsPath(port_id, channel_id)>
+    let connections_paths: Option<Vec<Vec<u8>>> =
+        client.storage().fetch(&address, Some(block_hash)).await?;
+
+    if connections_paths.is_none() {
         return Err(subxt::error::Error::Other(format!(
             "get_connection_channels is empty! by connection_id = ({})",
             connection_id
@@ -122,9 +123,11 @@ pub async fn get_connection_channels(
     let mut result = vec![];
 
     for connections_path in connections_paths.into_iter() {
-        let raw_path = String::from_utf8(connections_path)?;
+        let raw_path = String::from_utf8(connections_path.unwrap())
+            .map_err(|e| subxt::error::Error::Other(format!("{}", e.to_string())))?;
         // decode key
-        let path = Path::from_str(&raw_path).map_err(|_| anyhow::anyhow!("decode path error"))?;
+        let path = Path::from_str(&raw_path)
+            .map_err(|_| subxt::error::Error::Other(format!("decode path error")))?;
 
         match path {
             Path::ChannelEnds(channel_ends_path) => {

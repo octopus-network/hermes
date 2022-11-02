@@ -64,7 +64,6 @@ uuid = { version = "1.2.1", features = ["v4"] }
 
 
 # for substrate chain
-jsonrpsee = { version = "0.14", features = ["macros", "ws-client", "http-client"] }
 subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'master' }
 codec = { package = 'parity-scale-codec', version = '3.1.2', features = ['derive', 'full'] }
 pallet-mmr-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.30" }

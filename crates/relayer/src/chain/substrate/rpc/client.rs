@@ -36,22 +36,21 @@ pub async fn query_client_state(
         .as_bytes()
         .to_vec();
 
-    let data: Vec<u8> = client
-        .storage()
-        .ibc()
-        .client_states(&client_state_path, Some(block_hash))
-        .await?;
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage().ibc().client_states(client_state_path);
 
-    if data.is_empty() {
-        return Err(subxt::error::Error::Other(format!(
+    let value: Option<Vec<u8>> = client.storage().fetch(&address, Some(block_hash)).await?;
+
+    if let Some(data) = value {
+        let client_state = AnyClientState::decode_vec(&*data).unwrap();
+
+        Ok(client_state)
+    } else {
+        Err(subxt::error::Error::Other(format!(
             "get_client_state is empty! by client_id = ({})",
             client_id
-        )));
+        )))
     }
-
-    let client_state = AnyClientState::decode_vec(&*data).unwrap();
-
-    Ok(client_state)
 }
 
 /// get appoint height consensus_state according by client_identifier and height
@@ -81,25 +80,21 @@ pub async fn query_client_consensus(
     .as_bytes()
     .to_vec();
 
-    let consensus_state: Vec<u8> = client
-        .storage()
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage()
         .ibc()
-        .consensus_states(&client_consensus_state_path, Some(block_hash))
-        .await?;
+        .consensus_states(client_consensus_state_path);
 
-    tracing::info!(
-        "query_client_consensus is empty! by client_id = ({}), consensus_height = ({})",
-        client_id,
-        consensus_height
-    );
+    let consensus_state: Option<Vec<u8>> =
+        client.storage().fetch(&address, Some(block_hash)).await?;
 
-    let consensus_state = if consensus_state.is_empty() {
+    let consensus_state = if let Some(consensus_state) = consensus_state {
+        AnyConsensusState::decode_vec(&*consensus_state).unwrap()
+    } else {
         // TODO
         AnyConsensusState::Grandpa(
             ibc_relayer_types::clients::ics10_grandpa::consensus_state::ConsensusState::default(),
         )
-    } else {
-        AnyConsensusState::decode_vec(&*consensus_state).unwrap()
     };
 
     Ok(consensus_state)
@@ -109,7 +104,7 @@ pub async fn query_client_consensus(
 pub async fn get_consensus_state_with_height(
     client_id: &ClientId,
     client: OnlineClient<MyConfig>,
-) -> Result<Vec<(ICSHeight, AnyConsensusState)>> {
+) -> Result<Vec<(ICSHeight, AnyConsensusState)>, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_consensus_state_with_height]");
 
     let callback = Box::new(
@@ -149,7 +144,9 @@ pub async fn get_consensus_state_with_height(
 }
 
 /// get key-value pair (client_identifier, client_state) construct IdentifierAny Client state
-pub async fn get_clients(client: OnlineClient<MyConfig>) -> Result<Vec<IdentifiedAnyClientState>> {
+pub async fn get_clients(
+    client: OnlineClient<MyConfig>,
+) -> Result<Vec<IdentifiedAnyClientState>, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_clients]");
 
     let callback = Box::new(
@@ -199,26 +196,26 @@ pub async fn get_client_connections(
         .as_bytes()
         .to_vec();
 
-    // client_id <-> connection_id
-    let connection_id: Vec<u8> = client
-        .storage()
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage()
         .ibc()
-        .connection_client(&client_connection_paths, Some(block_hash))
-        .await?;
+        .connection_client(client_connection_paths);
 
-    if connection_id.is_empty() {
-        return Err(subxt::error::Error::Other(format!(
+    let connection_id: Option<Vec<u8>> = client.storage().fetch(&address, Some(block_hash)).await?;
+
+    if let Some(connection_id) = connection_id {
+        let mut result = vec![];
+
+        let connection_id_str = String::from_utf8(connection_id).unwrap();
+        let connection_id = ConnectionId::from_str(connection_id_str.as_str()).unwrap();
+
+        result.push(connection_id);
+
+        Ok(result)
+    } else {
+        Err(subxt::error::Error::Other(format!(
             "get_client_connections is empty! by client_id = ({})",
             client_id
-        )));
+        )))
     }
-
-    let mut result = vec![];
-
-    let connection_id_str = String::from_utf8(connection_id).unwrap();
-    let connection_id = ConnectionId::from_str(connection_id_str.as_str()).unwrap();
-
-    result.push(connection_id);
-
-    Ok(result)
 }

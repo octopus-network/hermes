@@ -4,11 +4,7 @@ use super::rpc::get_mmr_leaf_and_mmr_proof;
 use crate::client_state::AnyClientState;
 use anyhow::Result;
 use beefy_light_client::commitment::SignedCommitment;
-use beefy_light_client::{
-    beefy_ecdsa_to_ethereum,
-    commitment::{self, known_payload_ids::MMR_ROOT_ID},
-    Error,
-};
+use beefy_light_client::{beefy_ecdsa_to_ethereum, commitment, Error};
 use beefy_merkle_tree::{merkle_proof, verify_proof, Hash, Keccak256};
 use codec::{Decode, Encode};
 use ibc_proto::protobuf::Protobuf;
@@ -124,22 +120,10 @@ pub async fn build_mmr_proof(
 /// build mmr root
 pub async fn build_mmr_root(
     src_client: OnlineClient<MyConfig>,
-    raw_signed_commitment: SignedCommitment,
+    signed_commitment: SignedCommitment,
 ) -> Result<help::MmrRoot, Box<dyn std::error::Error>> {
-    // decode signed commitment
-    let signed_commmitment: commitment::SignedCommitment =
-        <commitment::SignedCommitment as codec::Decode>::decode(
-            &mut &raw_signed_commitment.0.clone()[..],
-        )
-        .unwrap();
-
     // get commitment
-    let commitment::Commitment {
-        payload,
-        block_number,
-        validator_set_id: _,
-    } = signed_commmitment.clone().commitment;
-    let payload = format!("{:?}", payload.get_raw(&MMR_ROOT_ID));
+    let commitment::Commitment { block_number, .. } = signed_commitment.clone().commitment;
 
     // build validator proof
     let validator_merkle_proofs = build_validator_proof(src_client.clone(), block_number)
@@ -153,7 +137,7 @@ pub async fn build_mmr_root(
 
     // build mmr root
     let mmr_root = help::MmrRoot {
-        signed_commitment: help::SignedCommitment::from(signed_commmitment),
+        signed_commitment: help::SignedCommitment::from(signed_commitment),
         validator_merkle_proofs,
         mmr_leaf: mmr_proof.mmr_leaf,
         mmr_leaf_proof: mmr_proof.mmr_leaf_proof,
@@ -199,12 +183,7 @@ pub async fn update_client_state(
         commitment::SignedCommitment::decode(&mut &raw_signed_commitment.clone()[..]).unwrap();
 
     // get commitment
-    let commitment::Commitment {
-        payload,
-        block_number,
-        validator_set_id,
-    } = signed_commitment.clone().commitment;
-    let payload = format!("{:?}", payload.get_raw(&MMR_ROOT_ID));
+    let commitment::Commitment { block_number, .. } = signed_commitment.clone().commitment;
 
     // build validator proof
     let validator_merkle_proofs = build_validator_proof(src_client.clone(), block_number)
@@ -260,12 +239,8 @@ pub async fn update_client_state_service(
         // let target_raw = raw.clone();
         let signed_commitment = commitment::SignedCommitment::decode(&mut &raw[..]).unwrap();
 
-        let commitment::Commitment {
-            payload,
-            block_number,
-            validator_set_id,
-        } = signed_commitment.clone().commitment;
-        let payload = format!("{:?}", payload.get_raw(&MMR_ROOT_ID));
+        let commitment::Commitment { block_number, .. } = signed_commitment.clone().commitment;
+
         let signatures: Vec<String> = signed_commitment
             .signatures
             .clone()
@@ -369,7 +344,7 @@ pub fn verify_commitment_signatures(
 pub async fn get_client_ids(
     client: OnlineClient<MyConfig>,
     expect_client_type: ClientType,
-) -> Result<Vec<ClientId>> {
+) -> Result<Vec<ClientId>, subxt::error::Error> {
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();

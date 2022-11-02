@@ -48,7 +48,7 @@ define_error! {
 
         ReportError
             { error: String }
-            |e| { format_args!("Report Error: ()", e.error) },
+            |e| { format_args!("Report Error: ({})", e.error) },
     }
 }
 

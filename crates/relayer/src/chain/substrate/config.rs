@@ -1,4 +1,5 @@
 // mod codegen;
+use crate::chain::substrate::config::ibc_node::runtime_types::ibc_support::Any as RuntimeAny;
 use core::str::FromStr;
 use prost_types::Any;
 use subxt::{
@@ -171,9 +172,9 @@ impl From<ibc_node::runtime_types::pallet_ibc::module::core::ics24_host::Timesta
     }
 }
 
-impl From<Any> for ibc_node::runtime_types::pallet_ibc::Any {
+impl From<Any> for RuntimeAny {
     fn from(value: Any) -> Self {
-        ibc_node::runtime_types::pallet_ibc::Any {
+        RuntimeAny {
             type_url: value.type_url.as_bytes().to_vec(),
             value: value.value,
         }
