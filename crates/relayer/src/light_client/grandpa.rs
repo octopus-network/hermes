@@ -123,7 +123,7 @@ impl super::LightClient<SubstrateChain> for LightClient {
 
     fn check_misbehaviour(
         &mut self,
-        _update: UpdateClient,
+        _update: &UpdateClient,
         _client_state: &AnyClientState,
     ) -> Result<Option<MisbehaviourEvidence>, Error> {
         tracing::info!("in grandpa: [check_misbehaviour]");

@@ -349,7 +349,7 @@ impl BeefyMonitor {
         let validator_merkle_proofs: Vec<ValidatorMerkleProof> =
             build_validator_proof(self.client.clone(), block_number)
                 .await
-                .map_err(|_| RelayError::get_validator_merkle_proof())?;
+                .map_err(|_| RelayError::report_error("get_validator_merkle_proof".to_string()))?;
 
         // get block hash
         let block_hash: Option<H256> = self
@@ -357,7 +357,7 @@ impl BeefyMonitor {
             .rpc()
             .block_hash(Some(BlockNumber::from(block_number)))
             .await
-            .map_err(|_| RelayError::get_block_hash_error())?;
+            .map_err(|_| RelayError::report_error("get_block_hash_error".to_string()))?;
 
         trace!(
             "in beefy monitor: [build_header] block_number:{:?} >> block_hash{:?}",
@@ -372,7 +372,7 @@ impl BeefyMonitor {
             self.client.clone(),
         )
         .await
-        .map_err(|_| RelayError::get_mmr_leaf_and_mmr_proof_error())?;
+        .map_err(|_| RelayError::report_error("get_mmr_leaf_and_mmr_proof_error".to_string()))?;
         trace!(
             "in beefy monitor: [build_header] get_mmr_leaf_and_mmr_proof block_hash{:?}",
             mmr_leaf_and_mmr_leaf_proof.0
@@ -390,7 +390,9 @@ impl BeefyMonitor {
         let block_header =
             get_header_by_block_number(Some(BlockNumber::from(block_number)), self.client.clone())
                 .await
-                .map_err(|_| RelayError::get_header_by_block_number_error())?;
+                .map_err(|_| {
+                    RelayError::report_error("get_header_by_block_number_error".to_string())
+                })?;
 
         trace!(
             "in beefy monitor: [build_header] >> block_header = {:?}",

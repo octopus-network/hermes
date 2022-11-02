@@ -2,12 +2,14 @@ use super::super::config::{ibc_node, MyConfig};
 use anyhow::Result;
 use futures::StreamExt;
 use ibc_relayer_types::events::IbcEvent;
+use ibc_relayer_types::Height;
+use subxt::events::EventDetails;
 use subxt::OnlineClient;
 
 /// Subscribe ibc events
-/// Maybe in the future call ocw
-pub async fn subscribe_ibc_event(client: OnlineClient<MyConfig>) -> Result<Vec<IbcEvent>> {
-    println!("In call_ibc: [subscribe_events]");
+pub async fn subscribe_ibc_event(
+    client: OnlineClient<MyConfig>,
+) -> Result<Vec<IbcEvent>, subxt::error::Error> {
     const COUNTER: i32 = 3;
 
     // Subscribe to any events that occur:
@@ -19,494 +21,456 @@ pub async fn subscribe_ibc_event(client: OnlineClient<MyConfig>) -> Result<Vec<I
     // Our subscription will see the events emitted as a result of this:
     'outer: while let Some(events) = event_sub.next().await {
         let events = events?;
-        println!(
-            "In substrate: [subscribe_events] >> events length : {:?}",
-            events.len()
-        );
         let event_length = events.len();
-        'inner: for event in events.iter_raw() {
+        'inner: for event in events.iter() {
             let event = event?;
-
-            let block_hash = events.block_hash();
-
-            // We can dynamically decode events:
-            println!("  Dynamic event details: {block_hash:?}:");
-
-            let raw_event = event.clone();
-
             let pallet = event.pallet_name();
-
             let variant = event.variant_name();
             println!("    {pallet}::{variant}");
-            match variant.as_str() {
+
+            match variant {
                 "CreateClient" => {
-                    let event = <ibc_node::ibc::events::CreateClient as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
+                    if let Some(event) = event.as_event::<ibc_node::ibc::events::CreateClient>()? {
+                        println!("In call_ibc: [subscribe_events] >> CreateClient Event");
 
-                    println!("In call_ibc: [subscribe_events] >> CreateClient Event");
+                        let client_id = event.client_id;
+                        let client_type = event.client_type;
+                        let consensus_height = event.consensus_height;
 
-                    let client_id = event.client_id;
-                    let client_type = event.client_type;
-                    let consensus_height = event.consensus_height;
-
-                    use ibc_relayer_types::core::ics02_client::events::Attributes;
-                    result_events.push(IbcEvent::CreateClient(
-                        ibc_relayer_types::core::ics02_client::events::CreateClient::from(
-                            Attributes {
-                                client_id: client_id.into(),
-                                client_type: client_type.into(),
-                                consensus_height: consensus_height.into(),
-                            },
-                        ),
-                    ));
-                    break 'outer;
+                        use ibc_relayer_types::core::ics02_client::events::Attributes;
+                        result_events.push(IbcEvent::CreateClient(
+                            ibc_relayer_types::core::ics02_client::events::CreateClient::from(
+                                Attributes {
+                                    client_id: client_id.into(),
+                                    client_type: client_type.into(),
+                                    consensus_height: consensus_height.into(),
+                                },
+                            ),
+                        ));
+                        break 'outer;
+                    }
                 }
                 "UpdateClient" => {
-                    let event = <ibc_node::ibc::events::UpdateClient as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> UpdateClient Event");
+                    if let Some(event) = event.as_event::<ibc_node::ibc::events::UpdateClient>()? {
+                        println!("In call_ibc: [subscribe_events] >> UpdateClient Event");
 
-                    let client_id = event.client_id;
-                    let client_type = event.client_type;
-                    let consensus_height = event.consensus_height;
+                        let client_id = event.client_id;
+                        let client_type = event.client_type;
+                        let consensus_height = event.consensus_height;
 
-                    use ibc_relayer_types::core::ics02_client::events::Attributes;
-                    result_events.push(IbcEvent::UpdateClient(
-                        ibc_relayer_types::core::ics02_client::events::UpdateClient::from(
-                            Attributes {
-                                client_id: client_id.into(),
-                                client_type: client_type.into(),
-                                consensus_height: consensus_height.into(),
-                            },
-                        ),
-                    ));
-                    if event_length > 1 {
-                        continue;
-                    } else {
-                        break 'inner;
+                        use ibc_relayer_types::core::ics02_client::events::Attributes;
+                        result_events.push(IbcEvent::UpdateClient(
+                            ibc_relayer_types::core::ics02_client::events::UpdateClient::from(
+                                Attributes {
+                                    client_id: client_id.into(),
+                                    client_type: client_type.into(),
+                                    consensus_height: consensus_height.into(),
+                                },
+                            ),
+                        ));
+                        if event_length > 1 {
+                            continue;
+                        } else {
+                            break 'inner;
+                        }
                     }
                 }
                 "ClientMisbehaviour" => {
-                    let event =
-                        <ibc_node::ibc::events::ClientMisbehaviour as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> ClientMisbehaviour Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::ClientMisbehaviour>()?
+                    {
+                        println!("In call_ibc: [subscribe_events] >> ClientMisbehaviour Event");
 
-                    let client_id = event.client_id;
-                    let client_type = event.client_type;
-                    let consensus_height = event.consensus_height;
+                        let client_id = event.client_id;
+                        let client_type = event.client_type;
+                        let consensus_height = Height::new(0, 9).unwrap(); // todo(davirain)
 
-                    use ibc_relayer_types::core::ics02_client::events::Attributes;
-                    result_events.push(IbcEvent::ClientMisbehaviour(
-                        ibc_relayer_types::core::ics02_client::events::ClientMisbehaviour::from(
-                            Attributes {
-                                client_id: client_id.into(),
-                                client_type: client_type.into(),
-                                consensus_height: consensus_height.into(),
-                            },
-                        ),
-                    ));
-                    break 'outer;
+                        use ibc_relayer_types::core::ics02_client::events::Attributes;
+                        result_events.push(IbcEvent::ClientMisbehaviour(
+                            ibc_relayer_types::core::ics02_client::events::ClientMisbehaviour::from(
+                                Attributes {
+                                    client_id: client_id.into(),
+                                    client_type: client_type.into(),
+                                    consensus_height: consensus_height.into(),
+                                },
+                            ),
+                        ));
+                        break 'outer;
+                    }
                 }
                 "OpenInitConnection" => {
-                    let event =
-                        <ibc_node::ibc::events::OpenInitConnection as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenInitConnection Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::OpenInitConnection>()?
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenInitConnection Event");
 
-                    let connection_id = event.connection_id.map(|val| val.into());
-                    let client_id = event.client_id;
-                    let counterparty_connection_id =
-                        event.counterparty_connection_id.map(|val| val.into());
-                    let counterparty_client_id = event.counterparty_client_id;
+                        let connection_id = Some(event.connection_id.into());
+                        let client_id = event.client_id;
+                        let counterparty_connection_id =
+                            event.counterparty_connection_id.map(|val| val.into());
+                        let counterparty_client_id = event.counterparty_client_id;
 
-                    use ibc_relayer_types::core::ics03_connection::events::Attributes;
-                    result_events.push(IbcEvent::OpenInitConnection(
-                        ibc_relayer_types::core::ics03_connection::events::OpenInit::from(
-                            Attributes {
-                                connection_id,
-                                client_id: client_id.into(),
-                                counterparty_connection_id,
-                                counterparty_client_id: counterparty_client_id.into(),
-                            },
-                        ),
-                    ));
-                    break 'outer;
+                        use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                        result_events.push(IbcEvent::OpenInitConnection(
+                            ibc_relayer_types::core::ics03_connection::events::OpenInit::from(
+                                Attributes {
+                                    connection_id,
+                                    client_id: client_id.into(),
+                                    counterparty_connection_id,
+                                    counterparty_client_id: counterparty_client_id.into(),
+                                },
+                            ),
+                        ));
+                        break 'outer;
+                    }
                 }
                 "OpenTryConnection" => {
-                    let event =
-                        <ibc_node::ibc::events::OpenTryConnection as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenTryConnection Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::OpenTryConnection>()?
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenTryConnection Event");
 
-                    let connection_id = event.connection_id.map(|val| val.into());
-                    let client_id = event.client_id;
-                    let counterparty_connection_id =
-                        event.counterparty_connection_id.map(|val| val.into());
-                    let counterparty_client_id = event.counterparty_client_id;
+                        let connection_id = Some(event.connection_id.into());
+                        let client_id = event.client_id;
+                        let counterparty_connection_id =
+                            event.counterparty_connection_id.map(|val| val.into());
+                        let counterparty_client_id = event.counterparty_client_id;
 
-                    use ibc_relayer_types::core::ics03_connection::events::Attributes;
-                    result_events.push(IbcEvent::OpenTryConnection(
-                        ibc_relayer_types::core::ics03_connection::events::OpenTry::from(
-                            Attributes {
-                                connection_id,
-                                client_id: client_id.into(),
-                                counterparty_connection_id,
-                                counterparty_client_id: counterparty_client_id.into(),
-                            },
-                        ),
-                    ));
-                    break 'outer;
+                        use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                        result_events.push(IbcEvent::OpenTryConnection(
+                            ibc_relayer_types::core::ics03_connection::events::OpenTry::from(
+                                Attributes {
+                                    connection_id,
+                                    client_id: client_id.into(),
+                                    counterparty_connection_id,
+                                    counterparty_client_id: counterparty_client_id.into(),
+                                },
+                            ),
+                        ));
+                        break 'outer;
+                    }
                 }
                 "OpenAckConnection" => {
-                    let event =
-                        <ibc_node::ibc::events::OpenAckConnection as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenAckConnection Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::OpenAckConnection>()?
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenAckConnection Event");
 
-                    let connection_id = event.connection_id.map(|val| val.into());
-                    let client_id = event.client_id;
-                    let counterparty_connection_id =
-                        event.counterparty_connection_id.map(|val| val.into());
-                    let counterparty_client_id = event.counterparty_client_id;
+                        let connection_id = Some(event.connection_id.into());
+                        let client_id = event.client_id;
+                        let counterparty_connection_id =
+                            event.counterparty_connection_id.map(|val| val.into());
+                        let counterparty_client_id = event.counterparty_client_id;
 
-                    use ibc_relayer_types::core::ics03_connection::events::Attributes;
-                    result_events.push(IbcEvent::OpenAckConnection(
-                        ibc_relayer_types::core::ics03_connection::events::OpenAck::from(
-                            Attributes {
-                                connection_id,
-                                client_id: client_id.into(),
-                                counterparty_connection_id,
-                                counterparty_client_id: counterparty_client_id.into(),
-                            },
-                        ),
-                    ));
-                    break 'outer;
+                        use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                        result_events.push(IbcEvent::OpenAckConnection(
+                            ibc_relayer_types::core::ics03_connection::events::OpenAck::from(
+                                Attributes {
+                                    connection_id,
+                                    client_id: client_id.into(),
+                                    counterparty_connection_id,
+                                    counterparty_client_id: counterparty_client_id.into(),
+                                },
+                            ),
+                        ));
+                        break 'outer;
+                    }
                 }
                 "OpenConfirmConnection" => {
-                    let event =
-                        <ibc_node::ibc::events::OpenConfirmConnection as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenConfirmConnection Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::OpenConfirmConnection>()?
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenConfirmConnection Event");
 
-                    let connection_id = event.connection_id.map(|val| val.into());
-                    let client_id = event.client_id;
-                    let counterparty_connection_id =
-                        event.counterparty_connection_id.map(|val| val.into());
-                    let counterparty_client_id = event.counterparty_client_id;
+                        let connection_id = Some(event.connection_id.into());
+                        let client_id = event.client_id;
+                        let counterparty_connection_id =
+                            event.counterparty_connection_id.map(|val| val.into());
+                        let counterparty_client_id = event.counterparty_client_id;
 
-                    use ibc_relayer_types::core::ics03_connection::events::Attributes;
-                    result_events.push(IbcEvent::OpenConfirmConnection(
-                        ibc_relayer_types::core::ics03_connection::events::OpenConfirm::from(
-                            Attributes {
-                                connection_id,
-                                client_id: client_id.into(),
-                                counterparty_connection_id,
-                                counterparty_client_id: counterparty_client_id.into(),
-                            },
-                        ),
-                    ));
-                    break 'outer;
+                        use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                        result_events.push(IbcEvent::OpenConfirmConnection(
+                            ibc_relayer_types::core::ics03_connection::events::OpenConfirm::from(
+                                Attributes {
+                                    connection_id,
+                                    client_id: client_id.into(),
+                                    counterparty_connection_id,
+                                    counterparty_client_id: counterparty_client_id.into(),
+                                },
+                            ),
+                        ));
+                        break 'outer;
+                    }
                 }
                 "OpenInitChannel" => {
-                    let event = <ibc_node::ibc::events::OpenInitChannel as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenInitChannel Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::OpenInitChannel>()?
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenInitChannel Event");
 
-                    let port_id = event.port_id;
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    result_events.push(IbcEvent::OpenInitChannel(
-                        ibc_relayer_types::core::ics04_channel::events::OpenInit {
-                            port_id: port_id.into(),
-                            channel_id,
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    ));
-                    break 'outer;
+                        result_events.push(IbcEvent::OpenInitChannel(
+                            ibc_relayer_types::core::ics04_channel::events::OpenInit {
+                                port_id: port_id.into(),
+                                channel_id,
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ));
+                        break 'outer;
+                    }
                 }
                 "OpenTryChannel" => {
-                    let event = <ibc_node::ibc::events::OpenTryChannel as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenTryChannel Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::OpenTryChannel>()?
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenTryChannel Event");
 
-                    let port_id = event.port_id;
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    result_events.push(IbcEvent::OpenTryChannel(
-                        ibc_relayer_types::core::ics04_channel::events::OpenTry {
-                            port_id: port_id.into(),
-                            channel_id,
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    ));
-                    break 'outer;
+                        result_events.push(IbcEvent::OpenTryChannel(
+                            ibc_relayer_types::core::ics04_channel::events::OpenTry {
+                                port_id: port_id.into(),
+                                channel_id,
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ));
+                        break 'outer;
+                    }
                 }
                 "OpenAckChannel" => {
-                    let event = <ibc_node::ibc::events::OpenAckChannel as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenAckChannel Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::OpenAckChannel>()?
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenAckChannel Event");
 
-                    let port_id = event.port_id;
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    result_events.push(IbcEvent::OpenAckChannel(
-                        ibc_relayer_types::core::ics04_channel::events::OpenAck {
-                            port_id: port_id.into(),
-                            channel_id,
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    ));
-                    break 'outer;
+                        result_events.push(IbcEvent::OpenAckChannel(
+                            ibc_relayer_types::core::ics04_channel::events::OpenAck {
+                                port_id: port_id.into(),
+                                channel_id,
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ));
+                        break 'outer;
+                    }
                 }
                 "OpenConfirmChannel" => {
-                    let event =
-                        <ibc_node::ibc::events::OpenConfirmChannel as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenConfirmChannel Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::OpenConfirmChannel>()?
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenConfirmChannel Event");
 
-                    let port_id = event.port_id;
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    result_events.push(IbcEvent::OpenConfirmChannel(
-                        ibc_relayer_types::core::ics04_channel::events::OpenConfirm {
-                            port_id: port_id.into(),
-                            channel_id,
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    ));
-                    break 'outer;
+                        result_events.push(IbcEvent::OpenConfirmChannel(
+                            ibc_relayer_types::core::ics04_channel::events::OpenConfirm {
+                                port_id: port_id.into(),
+                                channel_id,
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ));
+                        break 'outer;
+                    }
                 }
                 "CloseInitChannel" => {
-                    let event = <ibc_node::ibc::events::CloseInitChannel as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> CloseInitChannel Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::CloseInitChannel>()?
+                    {
+                        println!("In call_ibc: [subscribe_events] >> CloseInitChannel Event");
 
-                    let port_id = event.port_id;
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    result_events.push(IbcEvent::CloseInitChannel(
-                        ibc_relayer_types::core::ics04_channel::events::CloseInit {
-                            port_id: port_id.into(),
-                            channel_id: channel_id.unwrap_or_default(),
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    ));
-                    break 'outer;
+                        result_events.push(IbcEvent::CloseInitChannel(
+                            ibc_relayer_types::core::ics04_channel::events::CloseInit {
+                                port_id: port_id.into(),
+                                channel_id: channel_id.unwrap_or_default(),
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ));
+                        break 'outer;
+                    }
                 }
                 "CloseConfirmChannel" => {
-                    let event =
-                        <ibc_node::ibc::events::CloseConfirmChannel as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::CloseConfirmChannel>()?
+                    {
+                        println!("In call_ibc: [subscribe_events] >> CloseConfirmChannel Event");
 
-                    println!("In call_ibc: [subscribe_events] >> CloseConfirmChannel Event");
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    let port_id = event.port_id;
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
-
-                    result_events.push(IbcEvent::CloseConfirmChannel(
-                        ibc_relayer_types::core::ics04_channel::events::CloseConfirm {
-                            port_id: port_id.into(),
-                            channel_id,
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    ));
-                    break 'outer;
+                        result_events.push(IbcEvent::CloseConfirmChannel(
+                            ibc_relayer_types::core::ics04_channel::events::CloseConfirm {
+                                port_id: port_id.into(),
+                                channel_id,
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ));
+                        break 'outer;
+                    }
                 }
                 "SendPacket" => {
-                    let event = <ibc_node::ibc::events::SendPacket as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [substrate_events] >> SendPacket Event");
+                    if let Some(event) = event.as_event::<ibc_node::ibc::events::SendPacket>()? {
+                        println!("In call_ibc: [substrate_events] >> SendPacket Event");
 
-                    let send_packet = ibc_relayer_types::core::ics04_channel::events::SendPacket {
-                        packet: event.packet.into(),
-                    };
+                        let send_packet =
+                            ibc_relayer_types::core::ics04_channel::events::SendPacket {
+                                packet: event.packet.into(),
+                            };
 
-                    result_events.push(IbcEvent::SendPacket(send_packet));
-                    break 'outer;
+                        result_events.push(IbcEvent::SendPacket(send_packet));
+                        break 'outer;
+                    }
                 }
                 "ReceivePacket" => {
-                    let event = <ibc_node::ibc::events::ReceivePacket as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
+                    if let Some(event) = event.as_event::<ibc_node::ibc::events::ReceivePacket>()? {
+                        println!("In call_ibc: [substrate_events] >> ReceivePacket Event");
 
-                    println!("In call_ibc: [substrate_events] >> ReceivePacket Event");
+                        let receive_packet =
+                            ibc_relayer_types::core::ics04_channel::events::ReceivePacket {
+                                packet: event.packet.into(),
+                            };
 
-                    let receive_packet =
-                        ibc_relayer_types::core::ics04_channel::events::ReceivePacket {
-                            packet: event.packet.into(),
-                        };
+                        result_events.push(IbcEvent::ReceivePacket(receive_packet));
 
-                    result_events.push(IbcEvent::ReceivePacket(receive_packet));
-
-                    break 'outer;
+                        break 'outer;
+                    }
                 }
                 "WriteAcknowledgement" => {
-                    let event =
-                        <ibc_node::ibc::events::WriteAcknowledgement as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [substrate_events] >> WriteAcknowledgement Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::WriteAcknowledgement>()?
+                    {
+                        println!("In call_ibc: [substrate_events] >> WriteAcknowledgement Event");
 
-                    let write_acknowledgement =
-                        ibc_relayer_types::core::ics04_channel::events::WriteAcknowledgement {
-                            packet: event.packet.into(),
-                            ack: event.ack,
-                        };
+                        let write_acknowledgement =
+                            ibc_relayer_types::core::ics04_channel::events::WriteAcknowledgement {
+                                packet: event.packet.into(),
+                                ack: event.ack,
+                            };
 
-                    result_events.push(IbcEvent::WriteAcknowledgement(write_acknowledgement));
+                        result_events.push(IbcEvent::WriteAcknowledgement(write_acknowledgement));
 
-                    break 'outer;
+                        break 'outer;
+                    }
                 }
                 "AcknowledgePacket" => {
-                    let event =
-                        <ibc_node::ibc::events::AcknowledgePacket as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [substrate_events] >> AcknowledgePacket Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::AcknowledgePacket>()?
+                    {
+                        println!("In call_ibc: [substrate_events] >> AcknowledgePacket Event");
 
-                    let acknowledge_packet =
-                        ibc_relayer_types::core::ics04_channel::events::AcknowledgePacket {
-                            packet: event.packet.into(),
-                        };
+                        let acknowledge_packet =
+                            ibc_relayer_types::core::ics04_channel::events::AcknowledgePacket {
+                                packet: event.packet.into(),
+                            };
 
-                    result_events.push(IbcEvent::AcknowledgePacket(acknowledge_packet));
+                        result_events.push(IbcEvent::AcknowledgePacket(acknowledge_packet));
 
-                    break 'outer;
+                        break 'outer;
+                    }
                 }
                 "TimeoutPacket" => {
-                    let event = <ibc_node::ibc::events::TimeoutPacket as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [substrate_events] >> TimeoutPacket Event");
+                    if let Some(event) = event.as_event::<ibc_node::ibc::events::TimeoutPacket>()? {
+                        println!("In call_ibc: [substrate_events] >> TimeoutPacket Event");
 
-                    let timeout_packet =
-                        ibc_relayer_types::core::ics04_channel::events::TimeoutPacket {
-                            packet: event.packet.into(),
-                        };
+                        let timeout_packet =
+                            ibc_relayer_types::core::ics04_channel::events::TimeoutPacket {
+                                packet: event.packet.into(),
+                            };
 
-                    result_events.push(IbcEvent::TimeoutPacket(timeout_packet));
+                        result_events.push(IbcEvent::TimeoutPacket(timeout_packet));
 
-                    break 'outer;
+                        break 'outer;
+                    }
                 }
                 "TimeoutOnClosePacket" => {
-                    let event =
-                        <ibc_node::ibc::events::TimeoutOnClosePacket as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [substrate_events] >> TimeoutOnClosePacket Event");
+                    if let Some(event) =
+                        event.as_event::<ibc_node::ibc::events::TimeoutOnClosePacket>()?
+                    {
+                        println!("In call_ibc: [substrate_events] >> TimeoutOnClosePacket Event");
 
-                    let timeout_on_close_packet =
-                        ibc_relayer_types::core::ics04_channel::events::TimeoutOnClosePacket {
-                            packet: event.packet.into(),
-                        };
+                        let timeout_on_close_packet =
+                            ibc_relayer_types::core::ics04_channel::events::TimeoutOnClosePacket {
+                                packet: event.packet.into(),
+                            };
 
-                    result_events.push(IbcEvent::TimeoutOnClosePacket(timeout_on_close_packet));
+                        result_events.push(IbcEvent::TimeoutOnClosePacket(timeout_on_close_packet));
 
-                    break 'outer;
+                        break 'outer;
+                    }
                 }
                 "ChainError" => {
-                    let event = <ibc_node::ibc::events::ChainError as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("in call_ibc: [substrate_events] >> ChainError Event");
+                    if let Some(event) = event.as_event::<ibc_node::ibc::events::Empty>()? {
+                        println!("in call_ibc: [substrate_events] >> ChainError Event");
 
-                    let data = String::from_utf8(event.0).unwrap();
+                        let data = String::from("substrate chain eorrr");
 
-                    result_events.push(IbcEvent::ChainError(data));
-                    break 'outer;
+                        result_events.push(IbcEvent::ChainError(data));
+                        break 'outer;
+                    }
                 }
                 "AppModule" => {
-                    let event = <ibc_node::ibc::events::AppModule as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [substrate_events] >> AppModule Event");
+                    if let Some(event) = event.as_event::<ibc_node::ibc::events::AppModule>()? {
+                        println!("In call_ibc: [substrate_events] >> AppModule Event");
 
-                    let app_module = ibc_relayer_types::events::ModuleEvent {
-                        kind: String::from_utf8(event.0.kind).expect("convert kind error"),
-                        module_name: event.0.module_name.into(),
-                        attributes: event
-                            .0
-                            .attributes
-                            .into_iter()
-                            .map(|attribute| attribute.into())
-                            .collect(),
-                    };
+                        let app_module = ibc_relayer_types::events::ModuleEvent {
+                            kind: String::from_utf8(event.0.kind).expect("convert kind error"),
+                            module_name: event.0.module_name.into(),
+                            attributes: event
+                                .0
+                                .attributes
+                                .into_iter()
+                                .map(|attribute| attribute.into())
+                                .collect(),
+                        };
 
-                    result_events.push(IbcEvent::AppModule(app_module));
+                        result_events.push(IbcEvent::AppModule(app_module));
 
-                    break 'outer;
+                        break 'outer;
+                    }
                 }
                 _ => {
                     println!("In call_ibc: [subscribe_events] >> other event");
@@ -524,456 +488,502 @@ pub async fn subscribe_ibc_event(client: OnlineClient<MyConfig>) -> Result<Vec<I
 
     Ok(result_events)
 }
-fn inner_convert_event(raw_events: Vec<RawEventDetails>, module: &str) -> Vec<RawEventDetails> {
+fn inner_convert_event(raw_events: Vec<EventDetails>, module: &str) -> Vec<EventDetails> {
     raw_events
         .into_iter()
-        .filter(|raw| raw.pallet == module)
+        .filter(|raw| raw.pallet_name() == module)
         .collect::<Vec<_>>()
 }
 
 /// convert substrate event to ibc event
-pub fn from_substrate_event_to_ibc_event(raw_events: Vec<RawEventDetails>) -> Vec<IbcEvent> {
+pub fn from_substrate_event_to_ibc_event(raw_events: Vec<EventDetails>) -> Vec<Option<IbcEvent>> {
     let ret = inner_convert_event(raw_events, "Ibc");
 
     ret.into_iter()
         .map(|raw_event| {
-            let variant = raw_event.variant;
-            let ibc_event = match variant.as_str() {
+            let variant = raw_event.variant_name();
+            let ibc_event = match variant {
                 "CreateClient" => {
-                    let event = <ibc_node::ibc::events::CreateClient as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> CreateClient Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::CreateClient>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> CreateClient Event");
 
-                    let client_id = event.client_id;
-                    let client_type = event.client_type;
-                    let consensus_height = event.consensus_height;
+                        let client_id = event.client_id;
+                        let client_type = event.client_type;
+                        let consensus_height = event.consensus_height;
 
-                    use ibc_relayer_types::core::ics02_client::events::Attributes;
-                    IbcEvent::CreateClient(
-                        ibc_relayer_types::core::ics02_client::events::CreateClient::from(
-                            Attributes {
-                                client_id: client_id.into(),
-                                client_type: client_type.into(),
-                                consensus_height: consensus_height.into(),
-                            },
-                        ),
-                    )
+                        use ibc_relayer_types::core::ics02_client::events::Attributes;
+                        Some(IbcEvent::CreateClient(
+                            ibc_relayer_types::core::ics02_client::events::CreateClient::from(
+                                Attributes {
+                                    client_id: client_id.into(),
+                                    client_type: client_type.into(),
+                                    consensus_height: consensus_height.into(),
+                                },
+                            ),
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "UpdateClient" => {
-                    let event = <ibc_node::ibc::events::UpdateClient as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> UpdateClient Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::UpdateClient>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> UpdateClient Event");
 
-                    let client_id = event.client_id;
-                    let client_type = event.client_type;
-                    let consensus_height = event.consensus_height;
+                        let client_id = event.client_id;
+                        let client_type = event.client_type;
+                        let consensus_height = event.consensus_height;
 
-                    use ibc_relayer_types::core::ics02_client::events::Attributes;
-                    IbcEvent::UpdateClient(
-                        ibc_relayer_types::core::ics02_client::events::UpdateClient::from(
-                            Attributes {
-                                client_id: client_id.into(),
-                                client_type: client_type.into(),
-                                consensus_height: consensus_height.into(),
-                            },
-                        ),
-                    )
+                        use ibc_relayer_types::core::ics02_client::events::Attributes;
+                        Some(IbcEvent::UpdateClient(
+                            ibc_relayer_types::core::ics02_client::events::UpdateClient::from(
+                                Attributes {
+                                    client_id: client_id.into(),
+                                    client_type: client_type.into(),
+                                    consensus_height: consensus_height.into(),
+                                },
+                            ),
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "ClientMisbehaviour" => {
-                    let event =
-                        <ibc_node::ibc::events::ClientMisbehaviour as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> ClientMisbehaviour Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::ClientMisbehaviour>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> ClientMisbehaviour Event");
 
-                    let client_id = event.client_id;
-                    let client_type = event.client_type;
-                    let consensus_height = event.consensus_height;
+                        let client_id = event.client_id;
+                        let client_type = event.client_type;
+                        let consensus_height = Height::new(0, 9).unwrap(); // todo(davirian)
 
-                    use ibc_relayer_types::core::ics02_client::events::Attributes;
-                    IbcEvent::ClientMisbehaviour(
-                        ibc_relayer_types::core::ics02_client::events::ClientMisbehaviour::from(
-                            Attributes {
-                                client_id: client_id.into(),
-                                client_type: client_type.into(),
-                                consensus_height: consensus_height.into(),
-                            },
-                        ),
-                    )
+                        use ibc_relayer_types::core::ics02_client::events::Attributes;
+                        Some(IbcEvent::ClientMisbehaviour(
+                            ibc_relayer_types::core::ics02_client::events::ClientMisbehaviour::from(
+                                Attributes {
+                                    client_id: client_id.into(),
+                                    client_type: client_type.into(),
+                                    consensus_height: consensus_height.into(),
+                                },
+                            ),
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "OpenInitConnection" => {
-                    let event =
-                        <ibc_node::ibc::events::OpenInitConnection as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenInitConnection Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::OpenInitConnection>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenInitConnection Event");
 
-                    let connection_id = event.connection_id.into();
-                    let client_id = event.client_id;
-                    let counterparty_connection_id =
-                        event.counterparty_connection_id.map(|val| val.into());
-                    let counterparty_client_id = event.counterparty_client_id;
+                        let connection_id = Some(event.connection_id.into());
+                        let client_id = event.client_id;
+                        let counterparty_connection_id =
+                            event.counterparty_connection_id.map(|val| val.into());
+                        let counterparty_client_id = event.counterparty_client_id;
 
-                    use ibc_relayer_types::core::ics03_connection::events::Attributes;
-                    IbcEvent::OpenInitConnection(
-                        ibc_relayer_types::core::ics03_connection::events::OpenInit::from(
-                            Attributes {
-                                connection_id,
-                                client_id: client_id.into(),
-                                counterparty_connection_id,
-                                counterparty_client_id: counterparty_client_id.into(),
-                            },
-                        ),
-                    )
+                        use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                        Some(IbcEvent::OpenInitConnection(
+                            ibc_relayer_types::core::ics03_connection::events::OpenInit::from(
+                                Attributes {
+                                    connection_id,
+                                    client_id: client_id.into(),
+                                    counterparty_connection_id,
+                                    counterparty_client_id: counterparty_client_id.into(),
+                                },
+                            ),
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "OpenTryConnection" => {
-                    let event =
-                        <ibc_node::ibc::events::OpenTryConnection as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenTryConnection Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::OpenTryConnection>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenTryConnection Event");
 
-                    let connection_id = event.connection_id.into();
-                    let client_id = event.client_id;
-                    let counterparty_connection_id =
-                        event.counterparty_connection_id.map(|val| val.into());
-                    let counterparty_client_id = event.counterparty_client_id;
+                        let connection_id = Some(event.connection_id.into());
+                        let client_id = event.client_id;
+                        let counterparty_connection_id =
+                            event.counterparty_connection_id.map(|val| val.into());
+                        let counterparty_client_id = event.counterparty_client_id;
 
-                    use ibc_relayer_types::core::ics03_connection::events::Attributes;
-                    IbcEvent::OpenTryConnection(
-                        ibc_relayer_types::core::ics03_connection::events::OpenTry::from(
-                            Attributes {
-                                connection_id,
-                                client_id: client_id.into(),
-                                counterparty_connection_id,
-                                counterparty_client_id: counterparty_client_id.into(),
-                            },
-                        ),
-                    )
+                        use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                        Some(IbcEvent::OpenTryConnection(
+                            ibc_relayer_types::core::ics03_connection::events::OpenTry::from(
+                                Attributes {
+                                    connection_id,
+                                    client_id: client_id.into(),
+                                    counterparty_connection_id,
+                                    counterparty_client_id: counterparty_client_id.into(),
+                                },
+                            ),
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "OpenAckConnection" => {
-                    let event =
-                        <ibc_node::ibc::events::OpenAckConnection as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenAckConnection Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::OpenAckConnection>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenAckConnection Event");
 
-                    let connection_id = event.connection_id.into();
-                    let client_id = event.client_id;
-                    let counterparty_connection_id =
-                        event.counterparty_connection_id.map(|val| val.into());
-                    let counterparty_client_id = event.counterparty_client_id;
+                        let connection_id = Some(event.connection_id.into());
+                        let client_id = event.client_id;
+                        let counterparty_connection_id =
+                            event.counterparty_connection_id.map(|val| val.into());
+                        let counterparty_client_id = event.counterparty_client_id;
 
-                    use ibc_relayer_types::core::ics03_connection::events::Attributes;
-                    IbcEvent::OpenAckConnection(
-                        ibc_relayer_types::core::ics03_connection::events::OpenAck::from(
-                            Attributes {
-                                connection_id,
-                                client_id: client_id.into(),
-                                counterparty_connection_id,
-                                counterparty_client_id: counterparty_client_id.into(),
-                            },
-                        ),
-                    )
+                        use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                        Some(IbcEvent::OpenAckConnection(
+                            ibc_relayer_types::core::ics03_connection::events::OpenAck::from(
+                                Attributes {
+                                    connection_id,
+                                    client_id: client_id.into(),
+                                    counterparty_connection_id,
+                                    counterparty_client_id: counterparty_client_id.into(),
+                                },
+                            ),
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "OpenConfirmConnection" => {
-                    let event =
-                        <ibc_node::ibc::events::OpenConfirmConnection as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenConfirmConnection Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::OpenConfirmConnection>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenConfirmConnection Event");
 
-                    let connection_id = event.connection_id.into();
-                    let client_id = event.client_id;
-                    let counterparty_connection_id =
-                        event.counterparty_connection_id.map(|val| val.into());
-                    let counterparty_client_id = event.counterparty_client_id;
+                        let connection_id = Some(event.connection_id.into());
+                        let client_id = event.client_id;
+                        let counterparty_connection_id =
+                            event.counterparty_connection_id.map(|val| val.into());
+                        let counterparty_client_id = event.counterparty_client_id;
 
-                    use ibc_relayer_types::core::ics03_connection::events::Attributes;
-                    IbcEvent::OpenConfirmConnection(
-                        ibc_relayer_types::core::ics03_connection::events::OpenConfirm::from(
-                            Attributes {
-                                connection_id,
-                                client_id: client_id.into(),
-                                counterparty_connection_id,
-                                counterparty_client_id: counterparty_client_id.into(),
-                            },
-                        ),
-                    )
+                        use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                        Some(IbcEvent::OpenConfirmConnection(
+                            ibc_relayer_types::core::ics03_connection::events::OpenConfirm::from(
+                                Attributes {
+                                    connection_id,
+                                    client_id: client_id.into(),
+                                    counterparty_connection_id,
+                                    counterparty_client_id: counterparty_client_id.into(),
+                                },
+                            ),
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "OpenInitChannel" => {
-                    let event = <ibc_node::ibc::events::OpenInitChannel as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenInitChannel Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::OpenInitChannel>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenInitChannel Event");
 
-                    let port_id = event.port_id;
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    IbcEvent::OpenInitChannel(
-                        ibc_relayer_types::core::ics04_channel::events::OpenInit {
-                            port_id: port_id.into(),
-                            channel_id,
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    )
+                        Some(IbcEvent::OpenInitChannel(
+                            ibc_relayer_types::core::ics04_channel::events::OpenInit {
+                                port_id: port_id.into(),
+                                channel_id,
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "OpenTryChannel" => {
-                    let event = <ibc_node::ibc::events::OpenTryChannel as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenTryChannel Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::OpenTryChannel>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenTryChannel Event");
 
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    IbcEvent::OpenTryChannel(
-                        ibc_relayer_types::core::ics04_channel::events::OpenTry {
-                            port_id: port_id.into(),
-                            channel_id,
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    )
+                        Some(IbcEvent::OpenTryChannel(
+                            ibc_relayer_types::core::ics04_channel::events::OpenTry {
+                                port_id: port_id.into(),
+                                channel_id,
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "OpenAckChannel" => {
-                    let event = <ibc_node::ibc::events::OpenAckChannel as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenAckChannel Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::OpenTryChannel>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenAckChannel Event");
 
-                    let port_id = event.port_id;
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    IbcEvent::OpenAckChannel(
-                        ibc_relayer_types::core::ics04_channel::events::OpenAck {
-                            port_id: port_id.into(),
-                            channel_id,
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    )
+                        Some(IbcEvent::OpenAckChannel(
+                            ibc_relayer_types::core::ics04_channel::events::OpenAck {
+                                port_id: port_id.into(),
+                                channel_id,
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "OpenConfirmChannel" => {
-                    let event =
-                        <ibc_node::ibc::events::OpenConfirmChannel as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> OpenConfirmChannel Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::OpenConfirmChannel>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> OpenConfirmChannel Event");
 
-                    let port_id = event.port_id;
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    IbcEvent::OpenConfirmChannel(
-                        ibc_relayer_types::core::ics04_channel::events::OpenConfirm {
-                            port_id: port_id.into(),
-                            channel_id,
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    )
+                        Some(IbcEvent::OpenConfirmChannel(
+                            ibc_relayer_types::core::ics04_channel::events::OpenConfirm {
+                                port_id: port_id.into(),
+                                channel_id,
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "CloseInitChannel" => {
-                    let event = <ibc_node::ibc::events::CloseInitChannel as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [subscribe_events] >> CloseInitChannel Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::CloseInitChannel>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> CloseInitChannel Event");
 
-                    let port_id = event.port_id;
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    IbcEvent::CloseInitChannel(
-                        ibc_relayer_types::core::ics04_channel::events::CloseInit {
-                            port_id: port_id.into(),
-                            channel_id: channel_id.unwrap_or_default(),
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    )
+                        Some(IbcEvent::CloseInitChannel(
+                            ibc_relayer_types::core::ics04_channel::events::CloseInit {
+                                port_id: port_id.into(),
+                                channel_id: channel_id.unwrap_or_default(),
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "CloseConfirmChannel" => {
-                    let event =
-                        <ibc_node::ibc::events::CloseConfirmChannel as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::CloseConfirmChannel>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [subscribe_events] >> CloseConfirmChannel Event");
 
-                    println!("In call_ibc: [subscribe_events] >> CloseConfirmChannel Event");
+                        let port_id = event.port_id;
+                        let channel_id = event.channel_id.map(|val| val.into());
+                        let connection_id = event.connection_id;
+                        let counterparty_port_id = event.counterparty_port_id;
+                        let counterparty_channel_id =
+                            event.counterparty_channel_id.map(|val| val.into());
 
-                    let port_id = event.port_id;
-                    let channel_id = event.channel_id.map(|val| val.into());
-                    let connection_id = event.connection_id;
-                    let counterparty_port_id = event.counterparty_port_id;
-                    let counterparty_channel_id =
-                        event.counterparty_channel_id.map(|val| val.into());
-
-                    IbcEvent::CloseConfirmChannel(
-                        ibc_relayer_types::core::ics04_channel::events::CloseConfirm {
-                            port_id: port_id.into(),
-                            channel_id,
-                            connection_id: connection_id.into(),
-                            counterparty_port_id: counterparty_port_id.into(),
-                            counterparty_channel_id,
-                        },
-                    )
+                        Some(IbcEvent::CloseConfirmChannel(
+                            ibc_relayer_types::core::ics04_channel::events::CloseConfirm {
+                                port_id: port_id.into(),
+                                channel_id,
+                                connection_id: connection_id.into(),
+                                counterparty_port_id: counterparty_port_id.into(),
+                                counterparty_channel_id,
+                            },
+                        ))
+                    } else {
+                        None
+                    }
                 }
                 "SendPacket" => {
-                    let event = <ibc_node::ibc::events::SendPacket as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [substrate_events] >> SendPacket Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::SendPacket>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [substrate_events] >> SendPacket Event");
 
-                    let send_packet = ibc_relayer_types::core::ics04_channel::events::SendPacket {
-                        packet: event.packet.into(),
-                    };
+                        let send_packet =
+                            ibc_relayer_types::core::ics04_channel::events::SendPacket {
+                                packet: event.packet.into(),
+                            };
 
-                    IbcEvent::SendPacket(send_packet)
+                        Some(IbcEvent::SendPacket(send_packet))
+                    } else {
+                        None
+                    }
                 }
                 "ReceivePacket" => {
-                    let event = <ibc_node::ibc::events::ReceivePacket as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [substrate_events] >> ReceivePacket Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::ReceivePacket>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [substrate_events] >> ReceivePacket Event");
 
-                    let receive_packet =
-                        ibc_relayer_types::core::ics04_channel::events::ReceivePacket {
-                            packet: event.packet.into(),
-                        };
+                        let receive_packet =
+                            ibc_relayer_types::core::ics04_channel::events::ReceivePacket {
+                                packet: event.packet.into(),
+                            };
 
-                    IbcEvent::ReceivePacket(receive_packet)
+                        Some(IbcEvent::ReceivePacket(receive_packet))
+                    } else {
+                        None
+                    }
                 }
                 "WriteAcknowledgement" => {
-                    let event =
-                        <ibc_node::ibc::events::WriteAcknowledgement as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [substrate_events] >> WriteAcknowledgement Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::WriteAcknowledgement>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [substrate_events] >> WriteAcknowledgement Event");
 
-                    let write_acknowledgement =
-                        ibc_relayer_types::core::ics04_channel::events::WriteAcknowledgement {
-                            packet: event.packet.into(),
-                            ack: event.ack,
-                        };
+                        let write_acknowledgement =
+                            ibc_relayer_types::core::ics04_channel::events::WriteAcknowledgement {
+                                packet: event.packet.into(),
+                                ack: event.ack,
+                            };
 
-                    IbcEvent::WriteAcknowledgement(write_acknowledgement)
+                        Some(IbcEvent::WriteAcknowledgement(write_acknowledgement))
+                    } else {
+                        None
+                    }
                 }
                 "AcknowledgePacket" => {
-                    let event =
-                        <ibc_node::ibc::events::AcknowledgePacket as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [substrate_events] >> AcknowledgePacket Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::AcknowledgePacket>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [substrate_events] >> AcknowledgePacket Event");
 
-                    let acknowledge_packet =
-                        ibc_relayer_types::core::ics04_channel::events::AcknowledgePacket {
-                            packet: event.packet.into(),
-                        };
+                        let acknowledge_packet =
+                            ibc_relayer_types::core::ics04_channel::events::AcknowledgePacket {
+                                packet: event.packet.into(),
+                            };
 
-                    IbcEvent::AcknowledgePacket(acknowledge_packet)
+                        Some(IbcEvent::AcknowledgePacket(acknowledge_packet))
+                    } else {
+                        None
+                    }
                 }
                 "TimeoutPacket" => {
-                    let event = <ibc_node::ibc::events::TimeoutPacket as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [substrate_events] >> TimeoutPacket Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::TimeoutPacket>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [substrate_events] >> TimeoutPacket Event");
 
-                    let timeout_packet =
-                        ibc_relayer_types::core::ics04_channel::events::TimeoutPacket {
-                            packet: event.packet.into(),
-                        };
+                        let timeout_packet =
+                            ibc_relayer_types::core::ics04_channel::events::TimeoutPacket {
+                                packet: event.packet.into(),
+                            };
 
-                    IbcEvent::TimeoutPacket(timeout_packet)
+                        Some(IbcEvent::TimeoutPacket(timeout_packet))
+                    } else {
+                        None
+                    }
                 }
                 "TimeoutOnClosePacket" => {
-                    let event =
-                        <ibc_node::ibc::events::TimeoutOnClosePacket as codec::Decode>::decode(
-                            &mut &raw_event.data[..],
-                        )
-                        .unwrap();
-                    println!("In call_ibc: [substrate_events] >> TimeoutOnClosePacket Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::TimeoutOnClosePacket>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [substrate_events] >> TimeoutOnClosePacket Event");
 
-                    let timeout_on_close_packet =
-                        ibc_relayer_types::core::ics04_channel::events::TimeoutOnClosePacket {
-                            packet: event.packet.into(),
-                        };
+                        let timeout_on_close_packet =
+                            ibc_relayer_types::core::ics04_channel::events::TimeoutOnClosePacket {
+                                packet: event.packet.into(),
+                            };
 
-                    IbcEvent::TimeoutOnClosePacket(timeout_on_close_packet)
+                        Some(IbcEvent::TimeoutOnClosePacket(timeout_on_close_packet))
+                    } else {
+                        None
+                    }
                 }
                 "AppModule" => {
-                    let event = <ibc_node::ibc::events::AppModule as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-                    println!("In call_ibc: [substrate_events] >> AppModule Event");
+                    if let Some(event) = raw_event
+                        .as_event::<ibc_node::ibc::events::AppModule>()
+                        .unwrap()
+                    {
+                        println!("In call_ibc: [substrate_events] >> AppModule Event");
 
-                    let app_module = ibc_relayer_types::events::ModuleEvent {
-                        kind: String::from_utf8(event.0.kind).expect("convert kind error"),
-                        module_name: event.0.module_name.into(),
-                        attributes: event
-                            .0
-                            .attributes
-                            .into_iter()
-                            .map(|attribute| attribute.into())
-                            .collect(),
-                    };
+                        let app_module = ibc_relayer_types::events::ModuleEvent {
+                            kind: String::from_utf8(event.0.kind).expect("convert kind error"),
+                            module_name: event.0.module_name.into(),
+                            attributes: event
+                                .0
+                                .attributes
+                                .into_iter()
+                                .map(|attribute| attribute.into())
+                                .collect(),
+                        };
 
-                    IbcEvent::AppModule(app_module)
+                        Some(IbcEvent::AppModule(app_module))
+                    } else {
+                        None
+                    }
                 }
                 "ChainError" => {
-                    let event = <ibc_node::ibc::events::ChainError as codec::Decode>::decode(
-                        &mut &raw_event.data[..],
-                    )
-                    .unwrap();
-
                     println!("in call_ibc: [substrate_events] >> ChainError Event");
 
-                    let data = String::from_utf8(event.0).unwrap();
+                    let data = String::from("chain error substrate");
 
-                    IbcEvent::ChainError(data)
+                    Some(IbcEvent::ChainError(data))
                 }
                 _ => unimplemented!(),
             };

@@ -22,7 +22,7 @@ use subxt::OnlineClient;
 pub async fn query_client_state(
     client_id: &ClientId,
     client: OnlineClient<MyConfig>,
-) -> Result<AnyClientState> {
+) -> Result<AnyClientState, subxt::error::Error> {
     tracing::info!("in call_ibc : [get_client_state]");
 
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
@@ -43,10 +43,10 @@ pub async fn query_client_state(
         .await?;
 
     if data.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(subxt::error::Error::Other(format!(
             "get_client_state is empty! by client_id = ({})",
             client_id
-        ));
+        )));
     }
 
     let client_state = AnyClientState::decode_vec(&*data).unwrap();
@@ -62,7 +62,7 @@ pub async fn query_client_consensus(
     client_id: &ClientId,
     consensus_height: &ICSHeight,
     client: OnlineClient<MyConfig>,
-) -> Result<AnyConsensusState> {
+) -> Result<AnyConsensusState, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_client_consensus]");
 
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
@@ -185,7 +185,7 @@ pub async fn get_clients(client: OnlineClient<MyConfig>) -> Result<Vec<Identifie
 pub async fn get_client_connections(
     client_id: &ClientId,
     client: OnlineClient<MyConfig>,
-) -> Result<Vec<ConnectionId>> {
+) -> Result<Vec<ConnectionId>, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_client_connections]");
 
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
@@ -207,10 +207,10 @@ pub async fn get_client_connections(
         .await?;
 
     if connection_id.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(subxt::error::Error::Other(format!(
             "get_client_connections is empty! by client_id = ({})",
             client_id
-        ));
+        )));
     }
 
     let mut result = vec![];

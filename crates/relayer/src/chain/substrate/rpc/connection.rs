@@ -19,7 +19,7 @@ use subxt::OnlineClient;
 pub async fn query_connection_end(
     connection_identifier: &ConnectionId,
     client: OnlineClient<MyConfig>,
-) -> Result<ConnectionEnd> {
+) -> Result<ConnectionEnd, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_connection_end]");
 
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
@@ -40,10 +40,10 @@ pub async fn query_connection_end(
         .await?;
 
     if data.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(subxt::error::Error::Other(format!(
             "get_connection_end is empty! by connection_identifier = ({})",
             connection_identifier
-        ));
+        )));
     }
 
     let connection_end = ConnectionEnd::decode_vec(&*data).unwrap();
@@ -91,7 +91,7 @@ pub async fn get_connections(
 pub async fn get_connection_channels(
     connection_id: &ConnectionId,
     client: OnlineClient<MyConfig>,
-) -> Result<Vec<IdentifiedChannelEnd>> {
+) -> Result<Vec<IdentifiedChannelEnd>, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_connection_channels]");
 
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
@@ -113,10 +113,10 @@ pub async fn get_connection_channels(
         .await?;
 
     if connections_paths.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(subxt::error::Error::Other(format!(
             "get_connection_channels is empty! by connection_id = ({})",
             connection_id
-        ));
+        )));
     }
 
     let mut result = vec![];

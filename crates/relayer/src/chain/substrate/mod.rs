@@ -57,7 +57,8 @@ use ibc_relayer_types::clients::ics10_grandpa::help::MmrRoot;
 use ibc_relayer_types::clients::ics10_grandpa::help::SignedCommitment;
 use ibc_relayer_types::clients::ics10_grandpa::help::ValidatorMerkleProof;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
-use ibc_relayer_types::core::ics02_client::msgs::update_client::MsgUpdateClient;
+//use ibc_relayer_types::core::ics02_client::msgs::update_client::MsgUpdateClient;
+use crate::chain::substrate::rpc::get_header_by_block_number;
 use ibc_relayer_types::core::ics04_channel::events::WriteAcknowledgement;
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
 use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
@@ -67,8 +68,8 @@ use ibc_relayer_types::core::ics24_host::path::{
 };
 use ibc_relayer_types::{
     clients::ics10_grandpa::{
-        client_state::ClientState as GpClientState,
-        consensus_state::ConsensusState as GpConsensusState, header::Header as GPHeader,
+        client_state::ClientState as GPClientState,
+        consensus_state::ConsensusState as GPConsensusState, header::Header as GPHeader,
     },
     core::{
         ics02_client::client_type::ClientType,
@@ -89,11 +90,8 @@ use retry::delay::Fixed;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use sp_core::sr25519;
+use sp_core::storage::TrackedStorageKey;
 use sp_core::{hexdisplay::HexDisplay, Bytes, Pair, H256};
-use sp_core::{
-    storage::{StorageKey, TrackedStorageKey},
-    H256,
-};
 use sp_runtime::{traits::IdentifyAccount, AccountId32, MultiSigner};
 use std::thread::{self, sleep};
 use subxt::metadata::DecodeWithMetadata;
@@ -104,8 +102,6 @@ use tendermint::abci::{Code, Log};
 use tendermint::time::Time;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
-//use crate::chain::substrate::rpc::get_mmr_leaf_and_mmr_proof;
-use crate::chain::substrate::rpc::get_header_by_block_number;
 
 const MAX_QUERY_TIMES: u64 = 100;
 pub const REVISION_NUMBER: u64 = 0;
@@ -245,7 +241,7 @@ impl SubstrateChain {
     fn get_consensus_state_with_height(
         &self,
         client_id: &ClientId,
-    ) -> Result<Vec<(Height, AnyConsensusState)>> {
+    ) -> Result<Vec<(Height, AnyConsensusState)>, subxt::error::Error> {
         tracing::trace!("in substrate: [get_consensus_state_with_height]");
 
         self.block_on(rpc::get_consensus_state_with_height(
@@ -259,7 +255,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequences: &[Sequence],
-    ) -> Result<Vec<u64>> {
+    ) -> Result<Vec<u64>, subxt::error::Error> {
         tracing::trace!("in substrate: [get_unreceipt_packet]");
 
         self.block_on(rpc::get_unreceipt_packet(
@@ -270,25 +266,25 @@ impl SubstrateChain {
         ))
     }
 
-    fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>> {
+    fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>, subxt::error::Error> {
         tracing::trace!("in substrate: [get_clients]");
 
         self.block_on(rpc::get_clients(self.client.clone()))
     }
 
-    fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>> {
+    fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>, subxt::error::Error> {
         tracing::trace!("in substrate: [get_connections]");
 
         self.block_on(rpc::get_connections(self.client.clone()))
     }
 
-    fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>> {
+    fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>, subxt::error::Error> {
         tracing::trace!("in substrate: [get_channels]");
 
         self.block_on(rpc::get_channels(self.client.clone()))
     }
 
-    fn get_commitment_packet_state(&self) -> Result<Vec<PacketState>> {
+    fn get_commitment_packet_state(&self) -> Result<Vec<PacketState>, subxt::error::Error> {
         tracing::trace!("in substrate: [get_commitment_packet_state]");
 
         self.block_on(rpc::get_commitment_packet_state(self.client.clone()))
@@ -300,7 +296,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<Vec<u8>, subxt::error::Error> {
         tracing::trace!("in substrate: [get_packet_commitment]");
 
         self.block_on(rpc::get_packet_commitment(
@@ -311,14 +307,17 @@ impl SubstrateChain {
         ))
     }
 
-    fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>> {
+    fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>, subxt::error::Error> {
         tracing::trace!("in substrate: [get_acknowledge_packet_state]");
 
         self.block_on(rpc::get_acknowledge_packet_state(self.client.clone()))
     }
 
     /// get connection_identifier vector by client_identifier
-    fn get_client_connections(&self, client_id: &ClientId) -> Result<Vec<ConnectionId>> {
+    fn get_client_connections(
+        &self,
+        client_id: &ClientId,
+    ) -> Result<Vec<ConnectionId>, subxt::error::Error> {
         tracing::trace!("in substrate: [get_client_connections]");
 
         self.block_on(rpc::get_client_connections(client_id, self.client.clone()))
@@ -327,7 +326,7 @@ impl SubstrateChain {
     fn get_connection_channels(
         &self,
         connection_id: &ConnectionId,
-    ) -> Result<Vec<IdentifiedChannelEnd>> {
+    ) -> Result<Vec<IdentifiedChannelEnd>, subxt::error::Error> {
         tracing::trace!("in substrate: [get_connection_channels]");
 
         self.block_on(rpc::get_connection_channels(
@@ -338,7 +337,7 @@ impl SubstrateChain {
 
     /// The function to submit IBC request to a Substrate chain
     /// This function handles most of the IBC reqeusts, except the MMR root update
-    fn deliever(&self, msgs: Vec<Any>) -> Result<H256> {
+    fn deliever(&self, msgs: Vec<Any>) -> Result<H256, subxt::error::Error> {
         info!("in substrate: [deliever]");
 
         let result = self.block_on(rpc::deliver(msgs, self.client.clone()))?;
@@ -346,7 +345,7 @@ impl SubstrateChain {
         Ok(result)
     }
 
-    fn raw_transfer(&self, msgs: Vec<Any>) -> Result<H256> {
+    fn raw_transfer(&self, msgs: Vec<Any>) -> Result<H256, subxt::error::Error> {
         tracing::trace!("in substrate: [raw_transfer]");
 
         let result = self.block_on(rpc::raw_transfer(msgs, self.client.clone()))?;
@@ -359,7 +358,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> Result<WriteAcknowledgement> {
+    ) -> Result<WriteAcknowledgement, subxt::error::Error> {
         tracing::trace!("in substrate: [get_send_packet_event]");
 
         self.block_on(rpc::get_write_ack_packet_event(
@@ -452,18 +451,12 @@ impl SubstrateChain {
         Ok(compose_ibc_merkle_proof(storage_proof))
     }
 
-    fn _key(&self) -> Result<KeyEntry, Error> {
-        self.keybase()
-            .get_key(&self.config.key_name)
-            .map_err(Error::key_base)
-    }
-
     fn query_packet_commitment(
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<Vec<u8>, subxt::error::Error> {
         self.block_on(rpc::get_packet_commitment(
             port_id,
             channel_id,
@@ -477,7 +470,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<Vec<u8>, subxt::error::Error> {
         self.block_on(rpc::get_packet_receipt_vec(
             port_id,
             channel_id,
@@ -490,7 +483,7 @@ impl SubstrateChain {
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
-    ) -> Result<Sequence> {
+    ) -> Result<Sequence, subxt::error::Error> {
         self.block_on(rpc::get_next_sequence_recv(
             port_id,
             channel_id,
@@ -503,7 +496,7 @@ impl SubstrateChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<Vec<u8>, subxt::error::Error> {
         self.block_on(rpc::get_packet_ack(
             port_id,
             channel_id,
@@ -516,8 +509,8 @@ impl SubstrateChain {
 impl ChainEndpoint for SubstrateChain {
     type LightBlock = GPHeader;
     type Header = GPHeader;
-    type ConsensusState = GpConsensusState;
-    type ClientState = GpClientState;
+    type ConsensusState = GPConsensusState;
+    type ClientState = GPClientState;
 
     fn id(&self) -> &ChainId {
         &self.config().id
@@ -602,7 +595,7 @@ impl ChainEndpoint for SubstrateChain {
         &mut self.keybase
     }
 
-    fn get_signer(&mut self) -> Result<Signer, Error> {
+    fn get_signer(&self) -> Result<Signer, Error> {
         trace!("In Substraet: [get signer]");
         crate::time!("get_signer");
 
@@ -768,7 +761,8 @@ impl ChainEndpoint for SubstrateChain {
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
         let tx_re = TxResponse {
             code: Code::default(),
-            data: serde_json::from_str(json).map_err(Error::invalid_serde_json_error)?,
+            data: serde_json::from_str(json)
+                .map_err(|_| Error::report_error("invalid_serde_json_error".to_string()))?,
             log: Log::from("test_test"),
             hash: transaction::Hash::new([0u8; 32]),
         };
@@ -1008,7 +1002,7 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!("in substrate: [query_client_connections]");
 
         let client_id = ClientId::from_str(request.client_id.as_str())
-            .map_err(|_| Error::report_erorr("identifier".to_string()))?;
+            .map_err(|_| Error::report_error("identifier".to_string()))?;
 
         let result = self
             .retry_wapper(|| self.get_client_connections(&client_id))
@@ -1279,8 +1273,8 @@ impl ChainEndpoint for SubstrateChain {
 
         let port_id = PortId::from_str(request.port_id.as_str())
             .map_err(|_| Error::report_error("identifier".to_string()))?;
-        let channel_id =
-            ChannelId::from_str(request.channel_id.as_str()).map_err(Error::identifier)?;
+        let channel_id = ChannelId::from_str(request.channel_id.as_str())
+            .map_err(Error::report_error("identifier".to_string()))?;
         let sequences = request
             .packet_commitment_sequences
             .into_iter()
@@ -1453,28 +1447,6 @@ impl ChainEndpoint for SubstrateChain {
         tracing::trace!("in substrate: [query_txs]");
 
         match request {
-            // Todo: Related to https://github.com/octopus-network/ibc-rs/issues/88
-            QueryTxRequest::Transaction(request) => {
-                let mut result: Vec<IbcEvent> = vec![];
-                if request.sequences.is_empty() {
-                    return Ok(result);
-                }
-
-                match request.event_id {
-                    WithBlockDataType::SendPacket => {
-                        //                        let mut send_packet_event = self.get_ibc_send_packet_event(request)?;
-                        //                        result.append(&mut send_packet_event);
-                    }
-                    WithBlockDataType::WriteAck => {
-                        //                        let mut ack_event = self.get_ibc_write_acknowledgement_event(request)?;
-                        //                        result.append(&mut ack_event);
-                    }
-                    _ => unimplemented!(),
-                }
-
-                Ok(result)
-            }
-
             QueryTxRequest::Client(request) => {
                 use ibc_relayer_types::core::ics02_client::events::Attributes;
 
@@ -1482,16 +1454,6 @@ impl ChainEndpoint for SubstrateChain {
                 // replace it with real client event replied from a Substrate chain
                 let result: Vec<IbcEvent> = vec![IbcEvent::UpdateClient(
                     ibc_relayer_types::core::ics02_client::events::UpdateClient::from(Attributes {
-                        height: match request.query_height {
-                            QueryHeight::Latest => {
-                                let height = self.get_latest_height().map_err(|_| {
-                                    Error::report_error("query_latest_height".to_string())
-                                })?;
-                                Height::new(REVISION_NUMBER, height)
-                                    .expect(&REVISION_NUMBER.to_string())
-                            }
-                            QueryHeight::Specific(value) => value.clone(),
-                        },
                         client_id: request.client_id,
                         client_type: ClientType::Grandpa,
                         consensus_height: request.consensus_height,
@@ -1555,7 +1517,7 @@ impl ChainEndpoint for SubstrateChain {
         )
         .map_err(|_| Error::report_error("ics10 grandpa client state create error".to_string()))?;
 
-        Ok(AnyClientState::Grandpa(client_state))
+        Ok(client_state)
     }
 
     fn build_consensus_state(
@@ -1570,7 +1532,7 @@ impl ChainEndpoint for SubstrateChain {
         let commitment = light_block.mmr_root.signed_commitment.commitment.unwrap();
         let state_root = CommitmentRoot::from_bytes(&light_block.block_header.state_root);
         let consensue_state = GPConsensusState::new(commitment, state_root, light_block.timestamp);
-        Ok(AnyConsensusState::Grandpa(consensue_state))
+        Ok(consensue_state)
     }
 
     fn build_header(
@@ -1623,7 +1585,9 @@ impl ChainEndpoint for SubstrateChain {
                 // decode signed commitment
                 let signed_commmitment: beefy_light_client::commitment::SignedCommitment =
                     Decode::decode(&mut &raw_signed_commitment.0[..]).map_err(|_| {
-                        Error::report_error("decode beefy light client SignedCommitment Error")
+                        Error::report_error(
+                            "decode beefy light client SignedCommitment Error".to_string(),
+                        )
                     })?;
                 tracing::trace!(
                     "in substrate [build_header] decode signed commitment : {:?},",
@@ -1696,7 +1660,7 @@ impl ChainEndpoint for SubstrateChain {
                     client.clone(),
                 )
                 .await
-                .map_err(|_| Error::repot_error("get_mmr_leaf_and_mmr_proof_error".to_string()))?;
+                .map_err(|_| Error::report_error("get_mmr_leaf_and_mmr_proof_error".to_string()))?;
                 tracing::trace!(
                     "in substrate [build_header] >> block_hash = {:?}",
                     block_hash

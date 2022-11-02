@@ -1,5 +1,4 @@
 // mod codegen;
-use codec::{Decode, Encode};
 use core::str::FromStr;
 use prost_types::Any;
 use subxt::{

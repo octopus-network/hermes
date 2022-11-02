@@ -343,575 +343,642 @@ fn from_raw_event_to_batch_event(
     let variant = raw_event.variant_name();
     match variant {
         "CreateClient" => {
-            let event = <ibc_node::ibc::events::CreateClient as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::CreateClient>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> CreateClient Event");
 
-            trace!("In substrate_monitor: [subscribe_events] >> CreateClient Event");
+                let client_id = event.client_id;
+                let client_type = event.client_type;
+                let consensus_height = event.consensus_height;
 
-            let client_id = event.client_id;
-            let client_type = event.client_type;
-            let consensus_height = event.consensus_height;
-
-            use ibc_relayer_types::core::ics02_client::events::Attributes;
-            let event = IbcEvent::CreateClient(
-                ibc_relayer_types::core::ics02_client::events::CreateClient::from(Attributes {
-                    client_id: client_id.into(),
-                    client_type: client_type.into(),
-                    consensus_height: consensus_height.into(),
-                }),
-            );
-
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
-
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
-        }
-        "UpdateClient" => {
-            let event = <ibc_node::ibc::events::UpdateClient as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> UpdateClient Event");
-
-            let client_id = event.client_id;
-            let client_type = event.client_type;
-            let consensus_height = event.consensus_height;
-
-            use ibc_relayer_types::core::ics02_client::events::Attributes;
-            let event = IbcEvent::UpdateClient(
-                ibc_relayer_types::core::ics02_client::events::UpdateClient::from(Attributes {
-                    client_id: client_id.into(),
-                    client_type: client_type.into(),
-                    consensus_height: consensus_height.into(),
-                }),
-            );
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
-
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
-        }
-        "ClientMisbehaviour" => {
-            let event = <ibc_node::ibc::events::ClientMisbehaviour as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> ClientMisbehaviour Event");
-
-            let client_id = event.client_id;
-            let client_type = event.client_type;
-            let consensus_height = height.clone(); // todo(davirian), in ibc-rs(latest) have not this variant
-
-            use ibc_relayer_types::core::ics02_client::events::Attributes;
-            let event = IbcEvent::ClientMisbehaviour(
-                ibc_relayer_types::core::ics02_client::events::ClientMisbehaviour::from(
-                    Attributes {
+                use ibc_relayer_types::core::ics02_client::events::Attributes;
+                let event = IbcEvent::CreateClient(
+                    ibc_relayer_types::core::ics02_client::events::CreateClient::from(Attributes {
                         client_id: client_id.into(),
                         client_type: client_type.into(),
                         consensus_height: consensus_height.into(),
-                    },
-                ),
-            );
+                    }),
+                );
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("Empty Event".to_string()))
+            }
+        }
+        "UpdateClient" => {
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::UpdateClient>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> UpdateClient Event");
+
+                let client_id = event.client_id;
+                let client_type = event.client_type;
+                let consensus_height = event.consensus_height;
+
+                use ibc_relayer_types::core::ics02_client::events::Attributes;
+                let event = IbcEvent::UpdateClient(
+                    ibc_relayer_types::core::ics02_client::events::UpdateClient::from(Attributes {
+                        client_id: client_id.into(),
+                        client_type: client_type.into(),
+                        consensus_height: consensus_height.into(),
+                    }),
+                );
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("Empty Event".to_string()))
+            }
+        }
+        "ClientMisbehaviour" => {
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::ClientMisbehaviour>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> ClientMisbehaviour Event");
+
+                let client_id = event.client_id;
+                let client_type = event.client_type;
+                let consensus_height = height.clone(); // todo(davirian), in ibc-rs(latest) have not this variant
+
+                use ibc_relayer_types::core::ics02_client::events::Attributes;
+                let event = IbcEvent::ClientMisbehaviour(
+                    ibc_relayer_types::core::ics02_client::events::ClientMisbehaviour::from(
+                        Attributes {
+                            client_id: client_id.into(),
+                            client_type: client_type.into(),
+                            consensus_height: consensus_height.into(),
+                        },
+                    ),
+                );
+
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "OpenInitConnection" => {
-            let event = <ibc_node::ibc::events::OpenInitConnection as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> OpenInitConnection Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::OpenInitConnection>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> OpenInitConnection Event");
 
-            let connection_id = Some(event.connection_id.into());
-            let client_id = event.client_id;
-            let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.into());
-            let counterparty_client_id = event.counterparty_client_id;
+                let connection_id = Some(event.connection_id.into());
+                let client_id = event.client_id;
+                let counterparty_connection_id =
+                    event.counterparty_connection_id.map(|val| val.into());
+                let counterparty_client_id = event.counterparty_client_id;
 
-            use ibc_relayer_types::core::ics03_connection::events::Attributes;
-            let event = IbcEvent::OpenInitConnection(
-                ibc_relayer_types::core::ics03_connection::events::OpenInit::from(Attributes {
-                    connection_id,
-                    client_id: client_id.into(),
-                    counterparty_connection_id,
-                    counterparty_client_id: counterparty_client_id.into(),
-                }),
-            );
+                use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                let event = IbcEvent::OpenInitConnection(
+                    ibc_relayer_types::core::ics03_connection::events::OpenInit::from(Attributes {
+                        connection_id,
+                        client_id: client_id.into(),
+                        counterparty_connection_id,
+                        counterparty_client_id: counterparty_client_id.into(),
+                    }),
+                );
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "OpenTryConnection" => {
-            let event = <ibc_node::ibc::events::OpenTryConnection as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> OpenTryConnection Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::OpenTryConnection>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> OpenTryConnection Event");
 
-            let connection_id = Some(event.connection_id.into());
-            let client_id = event.client_id;
-            let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.into());
-            let counterparty_client_id = event.counterparty_client_id;
+                let connection_id = Some(event.connection_id.into());
+                let client_id = event.client_id;
+                let counterparty_connection_id =
+                    event.counterparty_connection_id.map(|val| val.into());
+                let counterparty_client_id = event.counterparty_client_id;
 
-            use ibc_relayer_types::core::ics03_connection::events::Attributes;
-            let event = IbcEvent::OpenTryConnection(
-                ibc_relayer_types::core::ics03_connection::events::OpenTry::from(Attributes {
-                    connection_id,
-                    client_id: client_id.into(),
-                    counterparty_connection_id,
-                    counterparty_client_id: counterparty_client_id.into(),
-                }),
-            );
+                use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                let event = IbcEvent::OpenTryConnection(
+                    ibc_relayer_types::core::ics03_connection::events::OpenTry::from(Attributes {
+                        connection_id,
+                        client_id: client_id.into(),
+                        counterparty_connection_id,
+                        counterparty_client_id: counterparty_client_id.into(),
+                    }),
+                );
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "OpenAckConnection" => {
-            let event = <ibc_node::ibc::events::OpenAckConnection as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> OpenAckConnection Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::OpenAckConnection>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> OpenAckConnection Event");
 
-            let connection_id = Some(event.connection_id.into());
-            let client_id = event.client_id;
-            let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.into());
-            let counterparty_client_id = event.counterparty_client_id;
+                let connection_id = Some(event.connection_id.into());
+                let client_id = event.client_id;
+                let counterparty_connection_id =
+                    event.counterparty_connection_id.map(|val| val.into());
+                let counterparty_client_id = event.counterparty_client_id;
 
-            use ibc_relayer_types::core::ics03_connection::events::Attributes;
-            let event = IbcEvent::OpenAckConnection(
-                ibc_relayer_types::core::ics03_connection::events::OpenAck::from(Attributes {
-                    connection_id,
-                    client_id: client_id.into(),
-                    counterparty_connection_id,
-                    counterparty_client_id: counterparty_client_id.into(),
-                }),
-            );
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                let event = IbcEvent::OpenAckConnection(
+                    ibc_relayer_types::core::ics03_connection::events::OpenAck::from(Attributes {
+                        connection_id,
+                        client_id: client_id.into(),
+                        counterparty_connection_id,
+                        counterparty_client_id: counterparty_client_id.into(),
+                    }),
+                );
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "OpenConfirmConnection" => {
-            let event = <ibc_node::ibc::events::OpenConfirmConnection as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> OpenConfirmConnection Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::OpenConfirmConnection>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> OpenConfirmConnection Event");
 
-            let connection_id = Some(event.connection_id.into());
-            let client_id = event.client_id;
-            let counterparty_connection_id = event.counterparty_connection_id.map(|val| val.into());
-            let counterparty_client_id = event.counterparty_client_id;
+                let connection_id = Some(event.connection_id.into());
+                let client_id = event.client_id;
+                let counterparty_connection_id =
+                    event.counterparty_connection_id.map(|val| val.into());
+                let counterparty_client_id = event.counterparty_client_id;
 
-            use ibc_relayer_types::core::ics03_connection::events::Attributes;
-            let event = IbcEvent::OpenConfirmConnection(
-                ibc_relayer_types::core::ics03_connection::events::OpenConfirm::from(Attributes {
-                    connection_id,
-                    client_id: client_id.into(),
-                    counterparty_connection_id,
-                    counterparty_client_id: counterparty_client_id.into(),
-                }),
-            );
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                use ibc_relayer_types::core::ics03_connection::events::Attributes;
+                let event = IbcEvent::OpenConfirmConnection(
+                    ibc_relayer_types::core::ics03_connection::events::OpenConfirm::from(
+                        Attributes {
+                            connection_id,
+                            client_id: client_id.into(),
+                            counterparty_connection_id,
+                            counterparty_client_id: counterparty_client_id.into(),
+                        },
+                    ),
+                );
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
 
         "OpenInitChannel" => {
-            let event = <ibc_node::ibc::events::OpenInitChannel as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> OpenInitChannel Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::OpenInitChannel>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> OpenInitChannel Event");
 
-            let port_id = event.port_id;
-            let channel_id = event.channel_id.map(|val| val.into());
-            let connection_id = event.connection_id;
-            let counterparty_port_id = event.counterparty_port_id;
-            let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
+                let port_id = event.port_id;
+                let channel_id = event.channel_id.map(|val| val.into());
+                let connection_id = event.connection_id;
+                let counterparty_port_id = event.counterparty_port_id;
+                let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
 
-            let event = IbcEvent::OpenInitChannel(
-                ibc_relayer_types::core::ics04_channel::events::OpenInit {
-                    port_id: port_id.into(),
-                    channel_id,
-                    connection_id: connection_id.into(),
-                    counterparty_port_id: counterparty_port_id.into(),
-                    counterparty_channel_id,
-                },
-            );
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let event = IbcEvent::OpenInitChannel(
+                    ibc_relayer_types::core::ics04_channel::events::OpenInit {
+                        port_id: port_id.into(),
+                        channel_id,
+                        connection_id: connection_id.into(),
+                        counterparty_port_id: counterparty_port_id.into(),
+                        counterparty_channel_id,
+                    },
+                );
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "OpenTryChannel" => {
-            let event = <ibc_node::ibc::events::OpenTryChannel as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> OpenTryChannel Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::OpenTryChannel>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> OpenTryChannel Event");
 
-            let port_id = event.port_id;
-            let channel_id = event.channel_id.map(|val| val.into());
-            let connection_id = event.connection_id;
-            let counterparty_port_id = event.counterparty_port_id;
-            let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
+                let port_id = event.port_id;
+                let channel_id = event.channel_id.map(|val| val.into());
+                let connection_id = event.connection_id;
+                let counterparty_port_id = event.counterparty_port_id;
+                let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
 
-            let event =
-                IbcEvent::OpenTryChannel(ibc_relayer_types::core::ics04_channel::events::OpenTry {
-                    port_id: port_id.into(),
-                    channel_id,
-                    connection_id: connection_id.into(),
-                    counterparty_port_id: counterparty_port_id.into(),
-                    counterparty_channel_id,
-                });
+                let event = IbcEvent::OpenTryChannel(
+                    ibc_relayer_types::core::ics04_channel::events::OpenTry {
+                        port_id: port_id.into(),
+                        channel_id,
+                        connection_id: connection_id.into(),
+                        counterparty_port_id: counterparty_port_id.into(),
+                        counterparty_channel_id,
+                    },
+                );
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "OpenAckChannel" => {
-            let event = <ibc_node::ibc::events::OpenAckChannel as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> OpenAckChannel Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::OpenAckChannel>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> OpenAckChannel Event");
 
-            let port_id = event.port_id;
-            let channel_id = event.channel_id.map(|val| val.into());
-            let connection_id = event.connection_id;
-            let counterparty_port_id = event.counterparty_port_id;
-            let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
+                let port_id = event.port_id;
+                let channel_id = event.channel_id.map(|val| val.into());
+                let connection_id = event.connection_id;
+                let counterparty_port_id = event.counterparty_port_id;
+                let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
 
-            let event =
-                IbcEvent::OpenAckChannel(ibc_relayer_types::core::ics04_channel::events::OpenAck {
-                    port_id: port_id.into(),
-                    channel_id,
-                    connection_id: connection_id.into(),
-                    counterparty_port_id: counterparty_port_id.into(),
-                    counterparty_channel_id,
-                });
+                let event = IbcEvent::OpenAckChannel(
+                    ibc_relayer_types::core::ics04_channel::events::OpenAck {
+                        port_id: port_id.into(),
+                        channel_id,
+                        connection_id: connection_id.into(),
+                        counterparty_port_id: counterparty_port_id.into(),
+                        counterparty_channel_id,
+                    },
+                );
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "OpenConfirmChannel" => {
-            let event = <ibc_node::ibc::events::OpenConfirmChannel as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> OpenConfirmChannel Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::OpenConfirmChannel>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> OpenConfirmChannel Event");
 
-            let port_id = event.port_id;
-            let channel_id = event.channel_id.map(|val| val.into());
-            let connection_id = event.connection_id;
-            let counterparty_port_id = event.counterparty_port_id;
-            let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
+                let port_id = event.port_id;
+                let channel_id = event.channel_id.map(|val| val.into());
+                let connection_id = event.connection_id;
+                let counterparty_port_id = event.counterparty_port_id;
+                let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
 
-            let event = IbcEvent::OpenConfirmChannel(
-                ibc_relayer_types::core::ics04_channel::events::OpenConfirm {
-                    port_id: port_id.into(),
-                    channel_id,
-                    connection_id: connection_id.into(),
-                    counterparty_port_id: counterparty_port_id.into(),
-                    counterparty_channel_id,
-                },
-            );
+                let event = IbcEvent::OpenConfirmChannel(
+                    ibc_relayer_types::core::ics04_channel::events::OpenConfirm {
+                        port_id: port_id.into(),
+                        channel_id,
+                        connection_id: connection_id.into(),
+                        counterparty_port_id: counterparty_port_id.into(),
+                        counterparty_channel_id,
+                    },
+                );
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "CloseInitChannel" => {
-            let event = <ibc_node::ibc::events::CloseInitChannel as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> CloseInitChannel Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::CloseInitChannel>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> CloseInitChannel Event");
 
-            let port_id = event.port_id;
-            let channel_id = event.channel_id.map(|val| val.into());
-            let connection_id = event.connection_id;
-            let counterparty_port_id = event.counterparty_port_id;
-            let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
+                let port_id = event.port_id;
+                let channel_id = event.channel_id.map(|val| val.into());
+                let connection_id = event.connection_id;
+                let counterparty_port_id = event.counterparty_port_id;
+                let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
 
-            let event = IbcEvent::CloseInitChannel(
-                ibc_relayer_types::core::ics04_channel::events::CloseInit {
-                    port_id: port_id.into(),
-                    channel_id: channel_id.unwrap_or_default(),
-                    connection_id: connection_id.into(),
-                    counterparty_port_id: counterparty_port_id.into(),
-                    counterparty_channel_id,
-                },
-            );
+                let event = IbcEvent::CloseInitChannel(
+                    ibc_relayer_types::core::ics04_channel::events::CloseInit {
+                        port_id: port_id.into(),
+                        channel_id: channel_id.unwrap_or_default(),
+                        connection_id: connection_id.into(),
+                        counterparty_port_id: counterparty_port_id.into(),
+                        counterparty_channel_id,
+                    },
+                );
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "CloseConfirmChannel" => {
-            let event = <ibc_node::ibc::events::CloseConfirmChannel as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> CloseConfirmChannel Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::CloseConfirmChannel>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> CloseConfirmChannel Event");
 
-            let port_id = event.port_id;
-            let channel_id = event.channel_id.map(|val| val.into());
-            let connection_id = event.connection_id;
-            let counterparty_port_id = event.counterparty_port_id;
-            let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
+                let port_id = event.port_id;
+                let channel_id = event.channel_id.map(|val| val.into());
+                let connection_id = event.connection_id;
+                let counterparty_port_id = event.counterparty_port_id;
+                let counterparty_channel_id = event.counterparty_channel_id.map(|val| val.into());
 
-            let event = IbcEvent::CloseConfirmChannel(
-                ibc_relayer_types::core::ics04_channel::events::CloseConfirm {
-                    port_id: port_id.into(),
-                    channel_id,
-                    connection_id: connection_id.into(),
-                    counterparty_port_id: counterparty_port_id.into(),
-                    counterparty_channel_id,
-                },
-            );
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let event = IbcEvent::CloseConfirmChannel(
+                    ibc_relayer_types::core::ics04_channel::events::CloseConfirm {
+                        port_id: port_id.into(),
+                        channel_id,
+                        connection_id: connection_id.into(),
+                        counterparty_port_id: counterparty_port_id.into(),
+                        counterparty_channel_id,
+                    },
+                );
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "SendPacket" => {
-            let event = <ibc_node::ibc::events::SendPacket as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [substrate_events] >> SendPacket Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::SendPacket>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [substrate_events] >> SendPacket Event");
 
-            let packet = event.packet;
+                let packet = event.packet;
 
-            let event =
-                IbcEvent::SendPacket(ibc_relayer_types::core::ics04_channel::events::SendPacket {
-                    packet: packet.into(),
-                });
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let event = IbcEvent::SendPacket(
+                    ibc_relayer_types::core::ics04_channel::events::SendPacket {
+                        packet: packet.into(),
+                    },
+                );
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "ReceivePacket" => {
-            let event = <ibc_node::ibc::events::ReceivePacket as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [substrate_events] >> ReceivePacket Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::ReceivePacket>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [substrate_events] >> ReceivePacket Event");
 
-            let packet = event.packet;
+                let packet = event.packet;
 
-            let event = IbcEvent::ReceivePacket(
-                ibc_relayer_types::core::ics04_channel::events::ReceivePacket {
-                    packet: packet.into(),
-                },
-            );
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let event = IbcEvent::ReceivePacket(
+                    ibc_relayer_types::core::ics04_channel::events::ReceivePacket {
+                        packet: packet.into(),
+                    },
+                );
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "WriteAcknowledgement" => {
-            let event = <ibc_node::ibc::events::WriteAcknowledgement as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [substrate_events] >> WriteAcknowledgement Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::WriteAcknowledgement>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [substrate_events] >> WriteAcknowledgement Event");
 
-            let packet = event.packet;
-            let ack = event.ack;
+                let packet = event.packet;
+                let ack = event.ack;
 
-            let event = IbcEvent::WriteAcknowledgement(
-                ibc_relayer_types::core::ics04_channel::events::WriteAcknowledgement {
-                    packet: packet.into(),
-                    ack,
-                },
-            );
+                let event = IbcEvent::WriteAcknowledgement(
+                    ibc_relayer_types::core::ics04_channel::events::WriteAcknowledgement {
+                        packet: packet.into(),
+                        ack,
+                    },
+                );
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "AcknowledgePacket" => {
-            let event = <ibc_node::ibc::events::AcknowledgePacket as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [substrate_events] >> AcknowledgePacket Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::AcknowledgePacket>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [substrate_events] >> AcknowledgePacket Event");
 
-            let packet = event.packet;
+                let packet = event.packet;
 
-            let event = IbcEvent::AcknowledgePacket(
-                ibc_relayer_types::core::ics04_channel::events::AcknowledgePacket {
-                    packet: packet.into(),
-                },
-            );
+                let event = IbcEvent::AcknowledgePacket(
+                    ibc_relayer_types::core::ics04_channel::events::AcknowledgePacket {
+                        packet: packet.into(),
+                    },
+                );
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "TimeoutPacket" => {
-            let event = <ibc_node::ibc::events::TimeoutPacket as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [substrate_events] >> TimeoutPacket Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::TimeoutPacket>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [substrate_events] >> TimeoutPacket Event");
 
-            let packet = event.packet;
+                let packet = event.packet;
 
-            let event = IbcEvent::TimeoutPacket(
-                ibc_relayer_types::core::ics04_channel::events::TimeoutPacket {
-                    packet: packet.into(),
-                },
-            );
+                let event = IbcEvent::TimeoutPacket(
+                    ibc_relayer_types::core::ics04_channel::events::TimeoutPacket {
+                        packet: packet.into(),
+                    },
+                );
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "TimeoutOnClosePacket" => {
-            let event = <ibc_node::ibc::events::TimeoutOnClosePacket as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [substrate_events] >> TimeoutOnClosePacket Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::TimeoutOnClosePacket>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [substrate_events] >> TimeoutOnClosePacket Event");
 
-            let packet = event.packet;
+                let packet = event.packet;
 
-            let event = IbcEvent::TimeoutOnClosePacket(
-                ibc_relayer_types::core::ics04_channel::events::TimeoutOnClosePacket {
-                    packet: packet.into(),
-                },
-            );
+                let event = IbcEvent::TimeoutOnClosePacket(
+                    ibc_relayer_types::core::ics04_channel::events::TimeoutOnClosePacket {
+                        packet: packet.into(),
+                    },
+                );
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "AppModule" => {
-            let event = <ibc_node::ibc::events::AppModule as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::ibc::events::AppModule>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                let app_module = ibc_relayer_types::events::ModuleEvent {
+                    kind: String::from_utf8(event.0.kind).expect("convert kind error"),
+                    module_name: event.0.module_name.into(),
+                    attributes: event
+                        .0
+                        .attributes
+                        .into_iter()
+                        .map(|attribute| attribute.into())
+                        .collect(),
+                };
 
-            let app_module = ibc_relayer_types::events::ModuleEvent {
-                kind: String::from_utf8(event.0.kind).expect("convert kind error"),
-                module_name: event.0.module_name.into(),
-                attributes: event
-                    .0
-                    .attributes
-                    .into_iter()
-                    .map(|attribute| attribute.into())
-                    .collect(),
-            };
+                let event = IbcEvent::AppModule(app_module);
 
-            let event = IbcEvent::AppModule(app_module);
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
-
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         "ChainError" => {
             // substrate chain error
@@ -931,25 +998,28 @@ fn from_raw_event_to_batch_event(
             })
         }
         "ExtrinsicSuccess" => {
-            let event = <ibc_node::system::events::ExtrinsicSuccess as codec::Decode>::decode(
-                &mut &raw_event.data[..],
-            )
-            .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?;
-            trace!("In substrate_monitor: [subscribe_events] >> ExtrinsicSuccess Event");
+            if let Some(event) = raw_event
+                .as_event::<ibc_node::system::events::ExtrinsicSuccess>()
+                .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
+            {
+                trace!("In substrate_monitor: [subscribe_events] >> ExtrinsicSuccess Event");
 
-            let event =
-                IbcEvent::NewBlock(ibc_relayer_types::core::ics02_client::events::NewBlock {
-                    height: height.clone(),
-                });
+                let event =
+                    IbcEvent::NewBlock(ibc_relayer_types::core::ics02_client::events::NewBlock {
+                        height: height.clone(),
+                    });
 
-            let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
+                let ibc_event_with_height = IbcEventWithHeight::new(event, height.clone());
 
-            Ok(EventBatch {
-                height,
-                events: vec![ibc_event_with_height],
-                chain_id,
-                tracking_id: TrackingId::new_uuid(),
-            })
+                Ok(EventBatch {
+                    height,
+                    events: vec![ibc_event_with_height],
+                    chain_id,
+                    tracking_id: TrackingId::new_uuid(),
+                })
+            } else {
+                Err(Error::report_error("empty Event".to_string()))
+            }
         }
         _ => Ok(EventBatch {
             height,

@@ -36,7 +36,7 @@ use subxt::OnlineClient;
 /// Subscribe beefy justifications
 pub async fn subscribe_beefy(
     client: OnlineClient<MyConfig>,
-) -> Result<SignedCommitment, Box<dyn std::error::Error>> {
+) -> Result<SignedCommitment, subxt::error::Error> {
     tracing::info!("In call_ibc: [subscribe_beefy_justifications]");
 
     let mut sub = client.rpc().subscribe_beefy_justifications().await?;
@@ -47,7 +47,7 @@ pub async fn subscribe_beefy(
 }
 
 /// get latest height used by subscribe_blocks
-pub async fn get_latest_height(client: OnlineClient<MyConfig>) -> Result<u64> {
+pub async fn get_latest_height(client: OnlineClient<MyConfig>) -> Result<u64, subxt::error::Error> {
     tracing::info!("In call_ibc: [get_latest_height]");
 
     let mut blocks = client.rpc().subscribe_finalized_blocks().await?;
@@ -68,7 +68,7 @@ pub async fn get_send_packet_event(
     channel_id: &ChannelId,
     sequence: &Sequence,
     client: OnlineClient<MyConfig>,
-) -> Result<Packet> {
+) -> Result<Packet, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_send_packet_event]");
 
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
@@ -88,16 +88,12 @@ pub async fn get_send_packet_event(
         )
         .await?;
 
-    println!("get_send_packet_event packet vec<u8> = {:?}", data);
-
     if data.is_empty() {
         println!("get_send_packet_event packet vec<u8> is empty!");
-        return Err(anyhow::anyhow!(
+        return Err(subxt::error::Error::Other(format!(
             "get_send_packet_event is empty! by port_id = ({}), channel_id = ({}), sequence = ({})",
-            port_id,
-            channel_id,
-            sequence
-        ));
+            port_id, channel_id, sequence
+        )));
     }
 
     // serde to packet, just is decode to packet
@@ -113,7 +109,7 @@ pub async fn get_write_ack_packet_event(
     channel_id: &ChannelId,
     sequence: &Sequence,
     client: OnlineClient<MyConfig>,
-) -> Result<WriteAcknowledgement> {
+) -> Result<WriteAcknowledgement, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_write_ack_packet_event] --> port_id = {}, channel_id = {}, sequence = {}",
     port_id, channel_id, sequence);
 
@@ -136,10 +132,10 @@ pub async fn get_write_ack_packet_event(
 
     if data.is_empty() {
         eprintln!("get write acknowledgement is empty!");
-        return Err(anyhow::anyhow!(
+        return Err(subxt::error::Error::Other(format!(
                 "get_write_ack_packet_event is empty! by port_id = ({}), channel_id = ({}), sequence = ({})",
         port_id, channel_id, sequence
-        ));
+        )));
     }
 
     // serde to packet, just is decode to packet
@@ -152,7 +148,10 @@ pub async fn get_write_ack_packet_event(
 /// ibc protocol core function, ics26 deliver function
 /// this function will dispatch msg to process
 /// return block_hash, extrinsic_hash, and event
-pub async fn deliver(msg: Vec<Any>, client: OnlineClient<MyConfig>) -> Result<H256> {
+pub async fn deliver(
+    msg: Vec<Any>,
+    client: OnlineClient<MyConfig>,
+) -> Result<H256, subtx::error::Error> {
     tracing::info!("in call_ibc: [deliver]");
 
     let msg: Vec<ibc_node::runtime_types::pallet_ibc::Any> = msg
@@ -176,7 +175,10 @@ pub async fn deliver(msg: Vec<Any>, client: OnlineClient<MyConfig>) -> Result<H2
 }
 
 // process ibc transfer
-pub async fn raw_transfer(msg: Vec<Any>, client: OnlineClient<MyConfig>) -> Result<H256> {
+pub async fn raw_transfer(
+    msg: Vec<Any>,
+    client: OnlineClient<MyConfig>,
+) -> Result<H256, subxt::error::Error> {
     tracing::info!("in call_ibc: [deliver]");
 
     let msg: Vec<ibc_node::runtime_types::pallet_ibc::Any> = msg
@@ -199,7 +201,9 @@ pub async fn raw_transfer(msg: Vec<Any>, client: OnlineClient<MyConfig>) -> Resu
     Ok(result)
 }
 
-pub async fn delete_send_packet_event(client: OnlineClient<MyConfig>) -> Result<H256> {
+pub async fn delete_send_packet_event(
+    client: OnlineClient<MyConfig>,
+) -> Result<H256, subxt::error::Error> {
     tracing::info!("in call_ibc: [delete_send_packet_event]");
 
     let signer = PairSigner::new(AccountKeyring::Bob.pair());
@@ -233,7 +237,7 @@ pub async fn get_mmr_leaf_and_mmr_proof(
     block_number: Option<BlockNumber>,
     block_hash: Option<H256>,
     client: OnlineClient<MyConfig>,
-) -> Result<(String, Vec<u8>, Vec<u8>)> {
+) -> Result<(String, Vec<u8>, Vec<u8>), subxt::error::Error> {
     tracing::info!("in call_ibc [get_mmr_leaf_and_mmr_proof]");
 
     let params = rpc_params![block_number, block_hash];
@@ -255,7 +259,7 @@ pub async fn get_mmr_leaf_and_mmr_proof(
 pub async fn get_header_by_block_hash(
     block_hash: Option<H256>,
     client: OnlineClient<MyConfig>,
-) -> Result<ibc_relayer_types::clients::ics10_grandpa::help::BlockHeader> {
+) -> Result<ibc_relayer_types::clients::ics10_grandpa::help::BlockHeader, subxt::error::Errro> {
     let header = client.rpc().header(block_hash).await?.unwrap();
 
     let header = convert_substrate_header_to_ibc_header(header);
@@ -267,7 +271,7 @@ pub async fn get_header_by_block_hash(
 pub async fn get_header_by_block_number(
     block_number: Option<BlockNumber>,
     client: OnlineClient<MyConfig>,
-) -> Result<ibc_relayer_types::clients::ics10_grandpa::help::BlockHeader> {
+) -> Result<ibc_relayer_types::clients::ics10_grandpa::help::BlockHeader, subxt::error::Error> {
     let block_hash = client.rpc().block_hash(block_number).await?;
 
     let header = client.rpc().header(block_hash).await?.unwrap();
@@ -280,7 +284,7 @@ pub async fn get_header_by_block_number(
 pub async fn get_timestamp(
     block_number: Option<BlockNumber>,
     client: OnlineClient<MyConfig>,
-) -> Result<u64, Box<dyn std::error::Error>> {
+) -> Result<u64, subxt::error::Error> {
     let block_hash = client.rpc().block_hash(block_number).await?;
 
     let storage_api = ibc_node::timestamp::storage::StorageApi::new(&client);
@@ -355,7 +359,7 @@ pub async fn storage_iter<T, H: DecodeWithMetadata>(
     let block_hash: H256 = block_header.hash();
 
     // Obtain the storage client wrapper from the API.
-    let storage: StorageClient<'_, MyConfig> = client.storage();
+    let storage: StorageClient<MyConfig> = client.storage();
 
     // Read Store
     let mut iter = storage.iter::<H>(Some(block_hash)).await?;

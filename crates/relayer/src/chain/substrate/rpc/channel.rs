@@ -21,7 +21,6 @@ use subxt::OnlineClient;
 /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
 pub async fn get_channels(client: OnlineClient<MyConfig>) -> Result<Vec<IdentifiedChannelEnd>> {
     tracing::info!("in call_ibc: [get_channels]");
-    println!("in call_ibc: [get_channels]");
 
     let callback = Box::new(
         |path: Path,
@@ -121,21 +120,20 @@ pub async fn get_packet_receipt(
         .await?;
 
     if data.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(subxt::error::Error::Other(format!(
             "get_packet_receipt is empty! by port_id = ({}), channel_id = ({})",
-            port_id,
-            channel_id
-        ));
+            port_id, channel_id
+        )));
     }
 
     let receipt = String::from_utf8(data)?;
     if receipt.eq("Ok") {
         Ok(Receipt::Ok)
     } else {
-        Err(anyhow::anyhow!(
+        Err(subxt::error::Error::Other(format!(
             "unrecognized packet receipt: {:?}",
             receipt
-        ))
+        )))
     }
 }
 
@@ -170,11 +168,10 @@ pub async fn get_packet_receipt_vec(
         .await?;
 
     if data.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(subxt::error::Error::Other(format!(
             "get_packet_receipt is empty! by port_id = ({}), channel_id = ({})",
-            port_id,
-            channel_id
-        ));
+            port_id, channel_id
+        )));
     }
 
     Ok(data)
@@ -296,12 +293,10 @@ pub async fn get_packet_commitment(
         .await?;
 
     if data.is_empty() {
-        Err(anyhow::anyhow!(
+        Err(subxt::error::Error::Other(format!(
             "get_packet_commitment is empty! by port_id = ({}), channel_id = ({}), sequence = ({})",
-            port_id,
-            channel_id,
-            sequence
-        ))
+            port_id, channel_id, sequence
+        )))
     } else {
         Ok(data)
     }
@@ -338,12 +333,10 @@ pub async fn get_packet_ack(
         .await?;
 
     if data.is_empty() {
-        Err(anyhow::anyhow!(
+        Err(subxt::error::Error::Other(format!(
             "get_packet_ack is empty! by port_id = ({}), channel_id = ({}), sequence = ({})",
-            port_id,
-            channel_id,
-            sequence
-        ))
+            port_id, channel_id, sequence
+        )))
     } else {
         Ok(data)
     }
