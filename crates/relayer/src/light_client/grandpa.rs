@@ -13,14 +13,12 @@ use crate::misbehaviour::MisbehaviourEvidence;
 use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPHeader;
 use ibc_relayer_types::clients::ics10_grandpa::help::{BlockHeader, MmrRoot};
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
-use ibc_relayer_types::core::ics24_host::identifier::ChainId;
 use ibc_relayer_types::Height;
 use subxt::rpc::BlockNumber;
 use subxt::OnlineClient;
 use tendermint::time::Time;
 
 pub struct LightClient {
-    chain_id: ChainId,
     websocket_url: String,
     rt: Arc<TokioRuntime>,
 }
@@ -32,13 +30,9 @@ impl LightClient {
         rt: Arc<TokioRuntime>,
         _initial_public_keys: Vec<String>,
     ) -> Self {
-        let chain_id = config.id.clone();
-        // let beefy_light_client = beefy_light_client::new(initial_public_keys);
         Self {
-            chain_id,
             websocket_url,
             rt,
-            // beefy_light_client,
         }
     }
 

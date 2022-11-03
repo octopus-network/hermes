@@ -15,7 +15,7 @@ use sp_core::H256;
 use subxt::OnlineClient;
 use tendermint::Time;
 use tendermint_rpc::Url;
-use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
+use tokio::runtime::Runtime as TokioRuntime;
 use tracing::{debug, error, info, trace};
 
 mod retry_strategy {
@@ -108,18 +108,14 @@ pub struct BeefyMonitor {
     client: OnlineClient<MyConfig>,
     /// Channel to handler where the monitor for this chain sends the events
     tx_beefy: channel::Sender<BeefyResult<Header>>,
-    /// Channel where to receive client driver errors
-    rx_err: mpsc::UnboundedReceiver<tendermint_rpc::Error>,
-    /// Channel where to send client driver errors
-    tx_err: mpsc::UnboundedSender<tendermint_rpc::Error>,
-    /// Channel where to receive commands
-    rx_cmd: channel::Receiver<MonitorCmd>,
-    /// Node Address
-    node_addr: Url,
     /// beefy subscription
     subscription: Option<RawSignedCommitment>,
+    /// Channel where to receive commands
+    rx_cmd: channel::Receiver<MonitorCmd>,
     /// Tokio runtime
     rt: Arc<TokioRuntime>,
+    /// Node Address
+    node_addr: Url,
 }
 
 impl BeefyMonitor {
@@ -132,15 +128,12 @@ impl BeefyMonitor {
     ) -> BeefyResult<(Self, BeefyReceiver, TxMonitorCmd)> {
         let (tx_beefy, rx_beefy) = channel::unbounded();
         let (tx_cmd, rx_cmd) = channel::unbounded();
-        let (tx_err, rx_err) = mpsc::unbounded_channel();
 
         let monitor = Self {
             rt,
             chain_id,
             client,
             tx_beefy,
-            rx_err,
-            tx_err,
             rx_cmd,
             node_addr,
             subscription: None,

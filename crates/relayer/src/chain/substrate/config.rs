@@ -127,7 +127,7 @@ impl From<ibc_node::runtime_types::pallet_ibc::module::core::ics24_host::Connect
         connection_id: ibc_node::runtime_types::pallet_ibc::module::core::ics24_host::ConnectionId,
     ) -> Self {
         let value = String::from_utf8(connection_id.0).unwrap();
-        Self(value)
+        Self::from_str(&value).expect("never failed")
     }
 }
 
@@ -149,7 +149,7 @@ impl From<ibc_node::runtime_types::pallet_ibc::module::core::ics24_host::PortId>
         port_id: ibc_node::runtime_types::pallet_ibc::module::core::ics24_host::PortId,
     ) -> Self {
         let value = String::from_utf8(port_id.0).unwrap();
-        Self(value)
+        Self::from_str(&value).expect("never failed")
     }
 }
 
@@ -160,7 +160,7 @@ impl From<ibc_node::runtime_types::pallet_ibc::module::core::ics24_host::ClientI
         client_id: ibc_node::runtime_types::pallet_ibc::module::core::ics24_host::ClientId,
     ) -> Self {
         let value = String::from_utf8(client_id.0).unwrap();
-        Self(value)
+        Self::from_str(&value).expect("never failed")
     }
 }
 

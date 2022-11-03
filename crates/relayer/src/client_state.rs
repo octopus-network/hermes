@@ -50,16 +50,6 @@ impl AnyUpgradeOptions {
             AnyUpgradeOptions::Mock(_) => None,
         }
     }
-
-    fn as_gp_upgrade_options(&self) -> Option<&GpUpgradeOptions> {
-        match self {
-            AnyUpgradeOptions::Tendermint(_) => None,
-            AnyUpgradeOptions::Grandpa(gp) => Some(gp),
-
-            #[cfg(test)]
-            AnyUpgradeOptions::Mock(_) => None,
-        }
-    }
 }
 
 impl UpgradeOptions for AnyUpgradeOptions {}

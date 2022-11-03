@@ -7,7 +7,6 @@ use crate::config::ChainConfig;
 use crate::error::Error;
 use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
-use crate::util::retry::{retry_with_index, RetryResult};
 use config::{ibc_node, MyConfig};
 use tracing::{debug, info, trace};
 
@@ -85,7 +84,6 @@ use ibc_relayer_types::{
     signer::Signer,
     Height, Height as ICSHeight,
 };
-use retry::delay::Fixed;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use sp_core::sr25519;
@@ -99,7 +97,7 @@ use tendermint::time::Time;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
 
-const MAX_QUERY_TIMES: u64 = 100;
+//const MAX_QUERY_TIMES: u64 = 100;
 pub const REVISION_NUMBER: u64 = 0;
 
 /// A struct used to start a Substrate chain instance in relayer
@@ -107,7 +105,6 @@ pub const REVISION_NUMBER: u64 = 0;
 pub struct SubstrateChain {
     client: OnlineClient<MyConfig>,
     config: ChainConfig,
-    websocket_url: String,
     keybase: KeyRing,
     rt: Arc<TokioRuntime>,
 }
@@ -122,23 +119,6 @@ impl SubstrateChain {
         self.rt.block_on(f)
     }
 
-    fn retry_wapper<O, Op>(&self, operation: Op) -> Result<O, retry::Error<String>>
-    where
-        Op: FnOnce() -> Result<O> + Copy,
-    {
-        retry_with_index(Fixed::from_millis(200), |current_try| {
-            if current_try > MAX_QUERY_TIMES {
-                return RetryResult::Err("did not succeed within tries".to_string());
-            }
-
-            let result = operation();
-
-            match result {
-                Ok(v) => RetryResult::Ok(v),
-                Err(_) => RetryResult::Retry("Fail to retry".to_string()),
-            }
-        })
-    }
 
     /// Subscribe Events
     fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>, subxt::error::Error> {
@@ -489,7 +469,6 @@ impl ChainEndpoint for SubstrateChain {
         let chain = Self {
             client,
             config,
-            websocket_url,
             rt,
             keybase,
         };
