@@ -71,7 +71,7 @@ impl TryFrom<Any> for AnyConsensusState {
                     .map_err(Error::decode_raw_client_state)?,
             )),
 
-            GRANDPA_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Tendermint(
+            GRANDPA_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Grandpa(
                 Protobuf::<RawGpConsensusState>::decode_vec(&value.value)
                     .map_err(Error::decode_raw_client_state)?,
             )),

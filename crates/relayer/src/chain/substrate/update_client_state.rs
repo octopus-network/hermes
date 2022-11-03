@@ -51,8 +51,7 @@ pub async fn build_validator_proof(
     let authority_strs: Vec<String> = authorities
         .into_inner()
         .into_iter()
-        .map(|val| {
-        format!("0x{}", HexDisplay::from(&format!("{:?}", val).into_bytes()))}) // todo(davirain) HexDisplay beefy_primitives::crypto::Public
+        .map(|val| format!("0x{}", HexDisplay::from(&format!("{:?}", val).into_bytes()))) // todo(davirain) HexDisplay beefy_primitives::crypto::Public
         .collect();
 
     // Convert BEEFY secp256k1 public keys into Ethereum addresses
