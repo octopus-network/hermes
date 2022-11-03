@@ -1391,16 +1391,19 @@ impl ChainEndpoint for SubstrateChain {
         match request {
             QueryTxRequest::Client(request) => {
                 use ibc_relayer_types::core::ics02_client::events::Attributes;
-
                 // Todo: the client event below is mock
                 // replace it with real client event replied from a Substrate chain
-                let result: Vec<IbcEventWithHeight> = vec![IbcEvent::UpdateClient(
-                    ibc_relayer_types::core::ics02_client::events::UpdateClient::from(Attributes {
-                        client_id: request.client_id,
-                        client_type: ClientType::Grandpa,
-                        consensus_height: request.consensus_height,
-                    }),
-                )];
+                // todo(davirian)
+                let result: Vec<IbcEventWithHeight> = vec![IbcEventWithHeight {
+                    event: IbcEvent::UpdateClient(
+                            ibc_relayer_types::core::ics02_client::events::UpdateClient::from(Attributes {
+                                client_id: request.client_id,
+                                client_type: ClientType::Grandpa,
+                                consensus_height: request.consensus_height,
+                            }),
+                    ),
+                    height: Height::new(0, 9).unwrap()
+                }];
 
                 Ok(result)
             }
@@ -1442,7 +1445,9 @@ impl ChainEndpoint for SubstrateChain {
 
             let result: Vec<String> = authorities
                 .into_iter()
-                .map(|val| format!("0x{}", HexDisplay::from(&val)))
+                .map(|val| {
+                    format!("0x{}", HexDisplay::from(&Vec::from(val)))
+                })
                 .collect();
 
             Ok(result)

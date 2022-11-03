@@ -45,7 +45,17 @@ impl AnyUpgradeOptions {
     fn as_tm_upgrade_options(&self) -> Option<&TmUpgradeOptions> {
         match self {
             AnyUpgradeOptions::Tendermint(tm) => Some(tm),
+            AnyUpgradeOptions::Grandpa(gp) => None,
+            #[cfg(test)]
+            AnyUpgradeOptions::Mock(_) => None,
+        }
+    }
+    
+    fn as_gp_upgrade_options(&self) -> Option<&GpUpgradeOptions> {
+        match self {
+            AnyUpgradeOptions::Tendermint(tm) => None,
             AnyUpgradeOptions::Grandpa(gp) => Some(gp),
+
             #[cfg(test)]
             AnyUpgradeOptions::Mock(_) => None,
         }
