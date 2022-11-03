@@ -42,7 +42,7 @@ pub async fn build_validator_proof(
 
     let authorities = src_client
         .storage()
-        .fetch(&address, None)
+    .fetch(&address, block_hash)
         .await?
         .ok_or(subxt::error::Error::Other("empty authorities".into()))?;
 
@@ -107,7 +107,7 @@ pub async fn build_mmr_proof(
     //get mmr leaf and proof
     // Note: target_height = signed_commitment.commitment.block_number-1
     let target_height = BlockNumber::from(block_number - 1);
-    let (block_hash, mmr_leaf, mmr_leaf_proof) = get_mmr_leaf_and_mmr_proof(
+    let (_block_hash, mmr_leaf, mmr_leaf_proof) = get_mmr_leaf_and_mmr_proof(
         Some(target_height),
         Some(block_hash.unwrap()),
         src_client.clone(),
@@ -222,7 +222,7 @@ pub async fn get_client_ids(
     let address = ibc_node::storage().ibc().client_states_root();
 
     // Iterate over keys and values at that address.
-    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
+    let mut iter = client.storage().iter(address, 10, Some(block_hash)).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {

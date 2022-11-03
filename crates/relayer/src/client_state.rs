@@ -45,7 +45,7 @@ impl AnyUpgradeOptions {
     fn as_tm_upgrade_options(&self) -> Option<&TmUpgradeOptions> {
         match self {
             AnyUpgradeOptions::Tendermint(tm) => Some(tm),
-            AnyUpgradeOptions::Grandpa(gp) => None,
+            AnyUpgradeOptions::Grandpa(_) => None,
             #[cfg(test)]
             AnyUpgradeOptions::Mock(_) => None,
         }
@@ -53,7 +53,7 @@ impl AnyUpgradeOptions {
 
     fn as_gp_upgrade_options(&self) -> Option<&GpUpgradeOptions> {
         match self {
-            AnyUpgradeOptions::Tendermint(tm) => None,
+            AnyUpgradeOptions::Tendermint(_) => None,
             AnyUpgradeOptions::Grandpa(gp) => Some(gp),
 
             #[cfg(test)]
@@ -99,7 +99,7 @@ impl AnyClientState {
         match self {
             AnyClientState::Tendermint(state) => Some(state.trust_level),
             // todo(davirian), need how to set correct a value
-            AnyClientState::Grandpa(state) => None,
+            AnyClientState::Grandpa(_) => None,
 
             #[cfg(test)]
             AnyClientState::Mock(_) => None,
@@ -110,7 +110,7 @@ impl AnyClientState {
         match self {
             AnyClientState::Tendermint(state) => state.max_clock_drift,
             // todo(davirian), need how to set correct a value
-            AnyClientState::Grandpa(state) => Duration::new(0, 0),
+            AnyClientState::Grandpa(_) => Duration::new(0, 0),
 
             #[cfg(test)]
             AnyClientState::Mock(_) => Duration::new(0, 0),

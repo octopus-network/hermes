@@ -118,7 +118,7 @@ pub async fn get_consensus_state_with_height(
     let address = ibc_node::storage().ibc().consensus_states_root();
 
     // Iterate over keys and values at that address.
-    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
+    let mut iter = client.storage().iter(address, 10, Some(block_hash)).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {
@@ -170,7 +170,7 @@ pub async fn get_clients(
     let address = ibc_node::storage().ibc().client_states_root();
 
     // Iterate over keys and values at that address.
-    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
+    let mut iter = client.storage().iter(address, 10, Some(block_hash)).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {

@@ -55,6 +55,7 @@ impl From<ibc_node::runtime_types::pallet_ibc::module::core::ics24_host::ClientT
             TENDERMINT_TYPE => Self::Tendermint,
             GRANDPA_TYPE => Self::Grandpa,
             MOCK_STR => Self::Mock,
+            _ => unimplemented!(),
         }
     }
 }

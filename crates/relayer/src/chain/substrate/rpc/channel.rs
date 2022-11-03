@@ -35,7 +35,7 @@ pub async fn get_channels(
     let address = ibc_node::storage().ibc().channels_root();
 
     // Iterate over keys and values at that address.
-    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
+    let mut iter = client.storage().iter(address, 10, Some(block_hash)).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {
@@ -252,7 +252,7 @@ pub async fn get_commitment_packet_state(
     let address = ibc_node::storage().ibc().packet_commitment_root();
 
     // Iterate over keys and values at that address.
-    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
+    let mut iter = client.storage().iter(address, 10, Some(block_hash)).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {
@@ -418,7 +418,7 @@ pub async fn get_acknowledge_packet_state(
     let address = ibc_node::storage().ibc().acknowledgements_root();
 
     // Iterate over keys and values at that address.
-    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
+    let mut iter = client.storage().iter(address, 10, Some(block_hash)).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {

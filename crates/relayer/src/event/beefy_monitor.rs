@@ -210,12 +210,12 @@ impl BeefyMonitor {
     fn reconnect(&mut self) {
         let result = retry_with_index(retry_strategy::default(), |_| {
             // Try to reconnect
-            if let Err(e) = self.try_reconnect() {
+            if let Err(_) = self.try_reconnect() {
                 return RetryResult::Retry(());
             }
 
             // Try to resubscribe
-            if let Err(e) = self.try_resubscribe() {
+            if let Err(_) = self.try_resubscribe() {
                 return RetryResult::Retry(());
             }
 
@@ -250,7 +250,7 @@ impl BeefyMonitor {
 
         // let mut beefy_sub = self.rt.block_on(self.subscribe_beefy());
         // Work around double borrow
-        let rt = self.rt.clone();
+        let _rt = self.rt.clone();
 
         // msg loop for handle the beefy RawSignedCommitment
         loop {
@@ -319,9 +319,9 @@ impl BeefyMonitor {
 
         // get commitment
         let commitment::Commitment {
-            payload,
+            payload: _,
             block_number,
-            validator_set_id,
+            validator_set_id: _,
         } = signed_commitment.commitment.clone();
 
         // build validator proof

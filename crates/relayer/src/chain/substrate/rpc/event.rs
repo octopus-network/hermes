@@ -443,7 +443,7 @@ pub async fn subscribe_ibc_event(
                     }
                 }
                 "ChainError" => {
-                    if let Some(event) = event.as_event::<ibc_node::ibc::events::Empty>()? {
+                    if let Some(_event) = event.as_event::<ibc_node::ibc::events::Empty>()? {
                         println!("in call_ibc: [substrate_events] >> ChainError Event");
 
                         let data = String::from("substrate chain eorrr");

@@ -50,7 +50,7 @@ use crate::event::IbcEventWithHeight;
 use crate::misbehaviour::MisbehaviourEvidence;
 use alloc::sync::Arc;
 use anyhow::Result;
-use codec::{Decode, Encode};
+use codec::Decode;
 use core::fmt::Debug;
 use core::{future::Future, str::FromStr};
 use ibc_proto::google::protobuf::Any;
@@ -90,7 +90,7 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 use sp_core::sr25519;
 use sp_core::{hexdisplay::HexDisplay, Pair, H256};
-use sp_runtime::{traits::IdentifyAccount, AccountId32, MultiSigner};
+use sp_runtime::{traits::IdentifyAccount, MultiSigner};
 use std::thread;
 use subxt::{self, rpc::BlockNumber, rpc::NumberOrHex, OnlineClient};
 use tendermint::abci::transaction;
@@ -350,7 +350,7 @@ impl SubstrateChain {
         &self,
         storage_entry: impl IntoIterator<Item = &'a [u8]>,
         height: &Height,
-        storage_name: &str,
+        _storage_name: &str,
     ) -> Result<MerkleProof, Error> {
         let generate_storage_proof = async {
             let client = self.client.clone();
@@ -363,20 +363,6 @@ impl SubstrateChain {
                 .await
                 .map_err(|_| Error::report_error("get_block_hash_error".to_string()))?
                 .ok_or(Error::report_error("empty_hash".to_string()))?;
-
-            //            let storage_key = storage_entry.key().final_key(TrackedStorageKey::new::<F>());
-
-            ////            let params = rpc_params![vec![storage_key], block_hash];
-            //
-            //            let keys: Vec<String> = keys.into_iter().map(to_hex).collect();
-            //            let params = rpc_params![keys, hash];
-
-            //            #[derive(Debug, PartialEq, Serialize, Deserialize)]
-            //            #[serde(rename_all = "camelCase")]
-            //            pub struct ReadProof_ {
-            //                pub at: String,
-            //                pub proof: Vec<Bytes>,
-            //            }
 
             let storage_proof: subxt::rpc::ReadProof<H256> = client
                 .rpc()
@@ -577,16 +563,13 @@ impl ChainEndpoint for SubstrateChain {
             .get_key(&self.config.key_name)
             .map_err(|e| Error::key_not_found(self.config.key_name.clone(), e))?;
 
-        //        let private_seed = key.mnemonic;
-        let private_seed = todo!(); // todo(davirain) mnemonic
+        let private_seed = key.private_key.private_key;
 
-        let (pair, _seed) = sr25519::Pair::from_phrase(&private_seed, None).unwrap();
+        let pair = sr25519::Pair::from_seed_slice(private_seed.as_ref())
+        .map_err(|e| Error::report_error(format!("{:?}", e)))?;
         let public_key = pair.public();
 
         let account_id = format_account_id::<sr25519::Pair>(public_key);
-        let account = AccountId32::from_str(&account_id).unwrap();
-        let encode_account = AccountId32::encode(&account);
-        let hex_account = hex::encode(encode_account);
 
         Ok(Signer::from_str(&account_id).unwrap())
     }
@@ -741,10 +724,10 @@ impl ChainEndpoint for SubstrateChain {
 
     /// Fetch a header from the chain at the given height and verify it.
     fn verify_header(
-        &mut self,
-        trusted: ICSHeight,
-        target: ICSHeight,
-        client_state: &AnyClientState,
+            &mut self,
+            _trusted: ICSHeight,
+            _target: ICSHeight,
+            _client_state: &AnyClientState,
     ) -> Result<Self::LightBlock, Error> {
         todo!()
     }
@@ -753,8 +736,8 @@ impl ChainEndpoint for SubstrateChain {
     /// look for misbehaviour by fetching a header at same or latest height.
     fn check_misbehaviour(
         &mut self,
-        update: &UpdateClient,
-        client_state: &AnyClientState,
+        _update: &UpdateClient,
+        _client_state: &AnyClientState,
     ) -> Result<Option<MisbehaviourEvidence>, Error> {
         todo!()
     }
@@ -762,9 +745,9 @@ impl ChainEndpoint for SubstrateChain {
     // Queries
 
     fn query_balance(
-        &self,
-        key_name: Option<&str>,
-        denom: Option<&str>,
+            &self,
+            _key_name: Option<&str>,
+            _denom: Option<&str>,
     ) -> std::result::Result<Balance, Error> {
         // todo(davirain) add mock balance
         Ok(Balance {
@@ -773,7 +756,7 @@ impl ChainEndpoint for SubstrateChain {
         })
     }
 
-    fn query_denom_trace(&self, hash: String) -> std::result::Result<DenomTrace, Error> {
+    fn query_denom_trace(&self, _hash: String) -> std::result::Result<DenomTrace, Error> {
         // todo(daviarin) add mock denom trace
         Ok(DenomTrace {
             /// The chain of port/channel identifiers used for tracing the source of the coin.
@@ -840,13 +823,13 @@ impl ChainEndpoint for SubstrateChain {
             .query_client_state(&client_id)
             .map_err(|_| Error::report_error("query_client_state".to_string()))?;
 
-        let client_state_path = ClientStatePath(client_id.clone()).to_string().as_bytes();
+        let client_state_path = ClientStatePath(client_id.clone()).to_string();
 
         match include_proof {
             IncludeProof::Yes => Ok((
                 result,
                 Some(self.generate_storage_proof(
-                    vec![client_state_path],
+                    vec![client_state_path.as_bytes()],
                     &query_height,
                     "ClientStates",
                 )?),
@@ -866,7 +849,7 @@ impl ChainEndpoint for SubstrateChain {
         let QueryConsensusStateRequest {
             client_id,
             consensus_height,
-            query_height,
+            query_height: _,
         } = request;
 
         let result = self
@@ -879,14 +862,13 @@ impl ChainEndpoint for SubstrateChain {
             epoch: consensus_height.revision_number(),
             height: consensus_height.revision_height(),
         }
-        .to_string()
-        .as_bytes();
+        .to_string();
 
         match include_proof {
             IncludeProof::Yes => Ok((
                 result,
                 Some(self.generate_storage_proof(
-                    vec![client_consensus_state_path],
+                    vec![client_consensus_state_path.as_bytes()],
                     &consensus_height,
                     "ConsensusStates",
                 )?),
@@ -931,7 +913,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_upgraded_client_state(
         &self,
-        request: QueryUpgradedClientStateRequest,
+        _request: QueryUpgradedClientStateRequest,
     ) -> Result<(AnyClientState, MerkleProof), Error> {
         tracing::trace!("in substrate: [query_upgraded_client_state]");
 
@@ -940,7 +922,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_upgraded_consensus_state(
         &self,
-        request: QueryUpgradedConsensusStateRequest,
+        _request: QueryUpgradedConsensusStateRequest,
     ) -> Result<(AnyConsensusState, MerkleProof), Error> {
         tracing::trace!("in substrate: [query_upgraded_consensus_state]");
 
@@ -994,8 +976,7 @@ impl ChainEndpoint for SubstrateChain {
 
         // update ConnectionsPath key
         let connections_path = ConnectionsPath(connection_id.clone())
-            .to_string()
-            .as_bytes();
+            .to_string();
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1012,7 +993,7 @@ impl ChainEndpoint for SubstrateChain {
                 Ok((
                     connection_end,
                     Some(self.generate_storage_proof(
-                        vec![connections_path],
+                            vec![connections_path.as_bytes()],
                         &query_height,
                         "Connections",
                     )?),
@@ -1067,8 +1048,7 @@ impl ChainEndpoint for SubstrateChain {
 
         // use channel_end path as key
         let channel_end_path = ChannelEndsPath(port_id.clone(), channel_id.clone())
-            .to_string()
-            .as_bytes();
+            .to_string();
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1085,7 +1065,7 @@ impl ChainEndpoint for SubstrateChain {
                 Ok((
                     channel_end,
                     Some(self.generate_storage_proof(
-                        vec![channel_end_path],
+                            vec![channel_end_path.as_bytes()],
                         &query_height,
                         "Channels",
                     )?),
@@ -1125,8 +1105,7 @@ impl ChainEndpoint for SubstrateChain {
             channel_id: channel_id.clone(),
             sequence: sequence.clone(),
         }
-        .to_string()
-        .as_bytes();
+        .to_string();
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1142,7 +1121,7 @@ impl ChainEndpoint for SubstrateChain {
                 Ok((
                     packet_commit,
                     Some(self.generate_storage_proof(
-                        vec![packet_commits_path],
+                            vec![packet_commits_path.as_bytes()],
                         &query_height,
                         "PacketCommitment",
                     )?),
@@ -1193,8 +1172,7 @@ impl ChainEndpoint for SubstrateChain {
             channel_id: channel_id.clone(),
             sequence: sequence.clone(),
         }
-        .to_string()
-        .as_bytes();
+        .to_string();
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1210,7 +1188,7 @@ impl ChainEndpoint for SubstrateChain {
                 Ok((
                     packet_receipt,
                     Some(self.generate_storage_proof(
-                        vec![packet_receipt_path],
+                            vec![packet_receipt_path.as_bytes()],
                         &query_height,
                         "PacketReceipt",
                     )?),
@@ -1267,8 +1245,7 @@ impl ChainEndpoint for SubstrateChain {
             channel_id: channel_id.clone(),
             sequence: sequence.clone(),
         }
-        .to_string()
-        .as_bytes();
+        .to_string();
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1284,7 +1261,7 @@ impl ChainEndpoint for SubstrateChain {
                 Ok((
                     packet_acknowledgement,
                     Some(self.generate_storage_proof(
-                        vec![packet_acknowledgement_path],
+                            vec![packet_acknowledgement_path.as_bytes()],
                         &query_height,
                         "Acknowledgements",
                     )?),
@@ -1363,8 +1340,7 @@ impl ChainEndpoint for SubstrateChain {
             .map_err(|_| Error::report_error("query_next_sequence_receive".to_string()))?;
 
         let next_sequence_receive_path = SeqRecvsPath(port_id.clone(), channel_id.clone())
-            .to_string()
-            .as_bytes();
+        .to_string();
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1380,7 +1356,7 @@ impl ChainEndpoint for SubstrateChain {
                 Ok((
                     next_sequence_receive,
                     Some(self.generate_storage_proof(
-                        vec![next_sequence_receive_path],
+                            vec![next_sequence_receive_path.as_bytes()],
                         &query_height,
                         "NextSequenceRecv",
                     )?),
@@ -1425,7 +1401,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_host_consensus_state(
         &self,
-        request: QueryHostConsensusStateRequest,
+        _request: QueryHostConsensusStateRequest,
     ) -> Result<Self::ConsensusState, Error> {
         tracing::trace!("in substrate: [query_host_consensus_state]");
 
@@ -1517,9 +1493,9 @@ impl ChainEndpoint for SubstrateChain {
         }
 
         let beefy_light_client::commitment::Commitment {
-            payload,
+            payload: _,
             block_number,
-            validator_set_id,
+            validator_set_id: _,
         } = grandpa_client_state.clone().latest_commitment.into();
         let mmr_root_height = block_number;
         let target_height = target_height.revision_height() as u32;
@@ -1545,9 +1521,9 @@ impl ChainEndpoint for SubstrateChain {
 
                 // get commitment
                 let beefy_light_client::commitment::Commitment {
-                    payload,
+                    payload: _,
                     block_number,
-                    validator_set_id,
+                    validator_set_id: _,
                 } = signed_commmitment.commitment.clone();
 
                 // build validator proof
@@ -1591,7 +1567,7 @@ impl ChainEndpoint for SubstrateChain {
                     .map_err(|_| Error::report_error("get_block_hash_error".to_string()))?;
 
                 // build mmr proof
-                let (block_hash, mmr_leaf, mmr_leaf_proof) = get_mmr_leaf_and_mmr_proof(
+                let (_block_hash, mmr_leaf, mmr_leaf_proof) = get_mmr_leaf_and_mmr_proof(
                     Some(BlockNumber::from(target_height - 1)),
                     block_hash,
                     client.clone(),
@@ -1637,22 +1613,22 @@ impl ChainEndpoint for SubstrateChain {
         Ok((header, vec![]))
     }
 
-    fn query_all_balances(&self, key_name: Option<&str>) -> Result<Vec<Balance>, Error> {
+    fn query_all_balances(&self, _key_name: Option<&str>) -> Result<Vec<Balance>, Error> {
         todo!()
     }
 
     fn query_packet_events(
         &self,
-        request: QueryPacketEventDataRequest,
+        _request: QueryPacketEventDataRequest,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
         todo!()
     }
 
     fn maybe_register_counterparty_payee(
         &mut self,
-        channel_id: &ChannelId,
-        port_id: &PortId,
-        counterparty_payee: &Signer,
+        _channel_id: &ChannelId,
+        _port_id: &PortId,
+        _counterparty_payee: &Signer,
     ) -> Result<(), Error> {
         todo!()
     }

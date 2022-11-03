@@ -219,7 +219,7 @@ impl EventMonitor {
 
         let sub_event = async move {
             // Subscribe to any events that occur:
-            let mut event_sub = self.client.events().subscribe().await.unwrap();
+            let mut event_sub = client.events().subscribe().await.unwrap();
 
             // Our subscription will see the events emitted as a result of this:
             while let Some(events) = event_sub.next().await {
@@ -998,7 +998,7 @@ fn from_raw_event_to_batch_event(
             })
         }
         "ExtrinsicSuccess" => {
-            if let Some(event) = raw_event
+            if let Some(_event) = raw_event
                 .as_event::<ibc_node::system::events::ExtrinsicSuccess>()
                 .map_err(|_| Error::report_error("invalid_codec_decode".to_string()))?
             {
