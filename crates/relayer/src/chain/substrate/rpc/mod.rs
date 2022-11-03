@@ -12,20 +12,11 @@ use crate::chain::substrate::MyConfig;
 use anyhow::Result;
 use beefy_light_client::commitment::SignedCommitment;
 use beefy_merkle_tree::Hash;
-use codec::Decode;
-use core::str::FromStr;
 use ibc_proto::google::protobuf::Any;
-use ibc_relayer_types::core::ics24_host::identifier::ClientId;
-use ibc_relayer_types::core::ics24_host::Path;
-use sp_core::{
-    storage::{StorageKey, TrackedStorageKey},
-    H256,
-};
+use sp_core::H256;
 use sp_keyring::AccountKeyring;
-use subxt::metadata::DecodeWithMetadata;
 use subxt::rpc::BlockNumber;
 use subxt::rpc_params;
-use subxt::storage::StorageClient;
 use subxt::tx::PairSigner;
 use subxt::OnlineClient;
 
@@ -134,7 +125,7 @@ pub async fn get_mmr_leaf_and_mmr_proof(
 pub async fn get_header_by_block_hash(
     block_hash: Option<H256>,
     client: OnlineClient<MyConfig>,
-) -> Result<ibc_relayer_types::clients::ics10_grandpa::help::BlockHeader, subxt::error::Errro> {
+) -> Result<ibc_relayer_types::clients::ics10_grandpa::help::BlockHeader, subxt::error::Error> {
     let header = client.rpc().header(block_hash).await?.unwrap();
 
     let header = convert_substrate_header_to_ibc_header(header);
@@ -162,8 +153,11 @@ pub async fn get_timestamp(
 ) -> Result<u64, subxt::error::Error> {
     let block_hash = client.rpc().block_hash(block_number).await?;
 
-    let storage_api = ibc_node::timestamp::storage::StorageApi::new(&client);
-    let timestamp = storage_api.now(block_hash).await?;
+    let address = ibc_node::storage().timestamp().now();
+
+    let timestamp: u64 = client.storage().fetch(&address, block_hash).await?
+    .ok_or(subxt::error::Error::Other("timestamp is empty".to_string()))?;
+
     tracing::info!("in get_timestamp timestamp = {:?}", timestamp);
 
     Ok(timestamp)
@@ -214,42 +208,4 @@ fn convert_substrate_digest_item_to_beefy_light_client_digest_item(
             beefy_light_client::header::DigestItem::RuntimeEnvironmentUpdated
         }
     }
-}
-
-pub fn get_storage_key<F: DecodeWithMetadata>(store: &F) -> StorageKey {
-    let prefix = TrackedStorageKey::new::<F>();
-    store.key().final_key(prefix)
-}
-
-pub async fn storage_iter<T, H: DecodeWithMetadata>(
-    client: OnlineClient<MyConfig>,
-    result: &mut Vec<T>,
-    client_id: ClientId,
-    mut callback: Box<dyn FnMut(Path, &mut Vec<T>, <H as DecodeWithMetadata>::Target, ClientId)>,
-) -> Result<(), subxt::error::Error> {
-    let mut block = client.rpc().subscribe_finalized_blocks().await?;
-
-    let block_header = block.next().await.unwrap().unwrap();
-
-    let block_hash: H256 = block_header.hash();
-
-    // Obtain the storage client wrapper from the API.
-    let storage: StorageClient<MyConfig> = client.storage();
-
-    // Read Store
-    let mut iter = storage.iter::<H>(Some(block_hash)).await?;
-
-    // prefix(32) + hash(data)(16) + data
-    while let Some((key, value)) = iter.next().await? {
-        let raw_key = key.0[48..].to_vec();
-        let raw_key = Vec::<u8>::decode(&mut &*raw_key)?;
-        let client_state_path = String::from_utf8(raw_key)?;
-        // decode key
-        let path = Path::from_str(&client_state_path)
-            .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
-
-        let _ret = callback(path, result, value, client_id.clone());
-    }
-
-    Ok(())
 }

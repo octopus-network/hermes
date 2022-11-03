@@ -1,5 +1,5 @@
 use super::super::config::{ibc_node, MyConfig};
-use crate::chain::substrate::rpc::storage_iter;
+use codec::Decode;
 use crate::client_state::AnyClientState;
 use crate::client_state::IdentifiedAnyClientState;
 use crate::consensus_state::AnyConsensusState;
@@ -107,12 +107,33 @@ pub async fn get_consensus_state_with_height(
 ) -> Result<Vec<(ICSHeight, AnyConsensusState)>, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_consensus_state_with_height]");
 
-    let callback = Box::new(
-        |path: Path,
-         result: &mut Vec<(ICSHeight, AnyConsensusState)>,
-         value: Vec<u8>,
-         client_id: ClientId| {
-            match path {
+    let mut result = vec![];
+
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
+
+    let block_header = block.next().await.unwrap().unwrap();
+
+    let block_hash: H256 = block_header.hash();
+
+    let address = ibc_node::storage().ibc().consensus_states_root();
+
+    // Iterate over keys and values at that address.
+    let mut iter = client
+    .storage()
+    .iter(address, 10, None)
+    .await
+    .unwrap();
+
+    // prefix(32) + hash(data)(16) + data
+    while let Some((key, value)) = iter.next().await? {
+        let raw_key = key.0[48..].to_vec();
+        let raw_key = Vec::<u8>::decode(&mut &*raw_key).map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
+        let client_state_path = String::from_utf8(raw_key).map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
+        // decode key
+        let path = Path::from_str(&client_state_path)
+        .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
+
+        match path {
                 Path::ClientConsensusState(client_consensus_state) => {
                     let ClientConsensusStatePath {
                         client_id: read_client_id,
@@ -128,17 +149,8 @@ pub async fn get_consensus_state_with_height(
                     }
                 }
                 _ => unimplemented!(),
-            }
-        },
-    );
-
-    let mut result = vec![];
-
-    let _ret = storage_iter::<
-        (ICSHeight, AnyConsensusState),
-        ibc_node::ibc::storage::ConsensusStates,
-    >(client.clone(), &mut result, client_id.clone(), callback)
-    .await?;
+        }
+    }
 
     Ok(result)
 }
@@ -149,31 +161,41 @@ pub async fn get_clients(
 ) -> Result<Vec<IdentifiedAnyClientState>, subxt::error::Error> {
     tracing::info!("in call_ibc: [get_clients]");
 
-    let callback = Box::new(
-        |path: Path,
-         result: &mut Vec<IdentifiedAnyClientState>,
-         value: Vec<u8>,
-         _client_id: ClientId| {
-            match path {
+    let mut result = vec![];
+
+    let mut block = client.rpc().subscribe_finalized_blocks().await?;
+
+    let block_header = block.next().await.unwrap().unwrap();
+
+    let block_hash: H256 = block_header.hash();
+
+    let address = ibc_node::storage().ibc().client_states_root();
+
+    // Iterate over keys and values at that address.
+    let mut iter = client
+    .storage()
+    .iter(address, 10, None)
+    .await
+    .unwrap();
+
+    // prefix(32) + hash(data)(16) + data
+    while let Some((key, value)) = iter.next().await? {
+        let raw_key = key.0[48..].to_vec();
+        let raw_key = Vec::<u8>::decode(&mut &*raw_key).map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
+        let client_state_path = String::from_utf8(raw_key).map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
+        // decode key
+        let path = Path::from_str(&client_state_path)
+        .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
+
+        match path {
                 Path::ClientState(ClientStatePath(ibc_client_id)) => {
                     let client_state = AnyClientState::decode_vec(&*value).unwrap();
 
                     result.push(IdentifiedAnyClientState::new(ibc_client_id, client_state));
                 }
                 _ => unimplemented!(),
-            }
-        },
-    );
-
-    let mut result = vec![];
-
-    let _ret = storage_iter::<IdentifiedAnyClientState, ibc_node::ibc::storage::ClientStates>(
-        client.clone(),
-        &mut result,
-        ClientId::default(),
-        callback,
-    )
-    .await?;
+        }
+    }
 
     Ok(result)
 }

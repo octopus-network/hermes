@@ -60,7 +60,6 @@ use ibc_relayer_types::clients::ics10_grandpa::help::MmrRoot;
 use ibc_relayer_types::clients::ics10_grandpa::help::SignedCommitment;
 use ibc_relayer_types::clients::ics10_grandpa::help::ValidatorMerkleProof;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
-use ibc_relayer_types::core::ics04_channel::events::WriteAcknowledgement;
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
 use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
 use ibc_relayer_types::core::ics24_host::path::{
@@ -77,7 +76,7 @@ use ibc_relayer_types::{
         ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd},
         ics04_channel::{
             channel::{ChannelEnd, IdentifiedChannelEnd},
-            packet::{Packet, Receipt, Sequence},
+            packet::{Receipt, Sequence},
         },
         ics23_commitment::commitment::CommitmentPrefix,
         ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId},
@@ -90,12 +89,9 @@ use retry::delay::Fixed;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use sp_core::sr25519;
-use sp_core::storage::TrackedStorageKey;
-use sp_core::{hexdisplay::HexDisplay, Bytes, Pair, H256};
+use sp_core::{hexdisplay::HexDisplay, Pair, H256};
 use sp_runtime::{traits::IdentifyAccount, AccountId32, MultiSigner};
 use std::thread;
-use subxt::metadata::DecodeWithMetadata;
-use subxt::rpc_params;
 use subxt::{self, rpc::BlockNumber, rpc::NumberOrHex, OnlineClient};
 use tendermint::abci::transaction;
 use tendermint::abci::{Code, Log};
@@ -152,10 +148,12 @@ impl SubstrateChain {
     }
 
     /// get latest block height
-    fn get_latest_height(&self) -> Result<u64, subxt::error::Error> {
+    fn get_latest_height(&self) -> Result<Height, subxt::error::Error> {
         tracing::trace!("in substrate: [get_latest_height]");
 
-        self.block_on(rpc::get_latest_height(self.client.clone()))
+        let height_number = self.block_on(rpc::get_latest_height(self.client.clone()))?;
+
+        Ok(Height::new(0, height_number).expect("never failed"))
     }
 
     /// get connectionEnd by connection_identifier
@@ -203,22 +201,6 @@ impl SubstrateChain {
         ))
     }
 
-    /// get send packet event by port_id, channel_id and sequence
-    fn get_send_packet_event(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        seq: &Sequence,
-    ) -> Result<Packet, subxt::error::Error> {
-        tracing::trace!("in substrate: [get_send_packet_event]");
-
-        self.block_on(rpc::get_send_packet_event(
-            port_id,
-            channel_id,
-            seq,
-            self.client.clone(),
-        ))
-    }
 
     // TODO(davirain) need add query height
     /// get client_state by client_id
@@ -363,32 +345,14 @@ impl SubstrateChain {
         Ok(result)
     }
 
-    fn get_write_ack_packet_event(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        sequence: &Sequence,
-    ) -> Result<WriteAcknowledgement, subxt::error::Error> {
-        tracing::trace!("in substrate: [get_send_packet_event]");
-
-        self.block_on(rpc::get_write_ack_packet_event(
-            port_id,
-            channel_id,
-            sequence,
-            self.client.clone(),
-        ))
-    }
-
     /// Retrieve the storage proof according to storage keys
     /// And convert the proof to IBC compatible type
-    fn generate_storage_proof<F: DecodeWithMetadata>(
+    fn generate_storage_proof<'a>(
         &self,
-        storage_entry: &F,
+        storage_entry: impl IntoIterator<Item = &'a [u8]>,
         height: &Height,
         storage_name: &str,
     ) -> Result<MerkleProof, Error>
-    where
-        <F as DecodeWithMetadata>::Target: Serialize + Debug,
     {
         let generate_storage_proof = async {
             let client = self.client.clone();
@@ -402,21 +366,23 @@ impl SubstrateChain {
                 .map_err(|_| Error::report_error("get_block_hash_error".to_string()))?
                 .ok_or(Error::report_error("empty_hash".to_string()))?;
 
-            let storage_key = storage_entry.key().final_key(TrackedStorageKey::new::<F>());
+//            let storage_key = storage_entry.key().final_key(TrackedStorageKey::new::<F>());
 
-            let params = rpc_params![vec![storage_key], block_hash];
+////            let params = rpc_params![vec![storage_key], block_hash];
+//
+//            let keys: Vec<String> = keys.into_iter().map(to_hex).collect();
+//            let params = rpc_params![keys, hash];
 
-            #[derive(Debug, PartialEq, Serialize, Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            pub struct ReadProof_ {
-                pub at: String,
-                pub proof: Vec<Bytes>,
-            }
+//            #[derive(Debug, PartialEq, Serialize, Deserialize)]
+//            #[serde(rename_all = "camelCase")]
+//            pub struct ReadProof_ {
+//                pub at: String,
+//                pub proof: Vec<Bytes>,
+//            }
 
-            let storage_proof: ReadProof_ = client
+            let storage_proof: subxt::rpc::ReadProof<H256> = client
                 .rpc()
-                .client
-                .request("state_getReadProof", params)
+                .read_proof(storage_entry, Some(block_hash))
                 .await
                 .map_err(|_| Error::report_error("get_read_proof_error".to_string()))?;
 
@@ -427,7 +393,7 @@ impl SubstrateChain {
                 pub proof: Vec<Vec<u8>>,
             }
             let storage_proof_ = ReadProofU8 {
-                at: storage_proof.at,
+                at: storage_proof.at.to_string(),
                 proof: storage_proof
                     .proof
                     .iter()
@@ -703,7 +669,16 @@ impl ChainEndpoint for SubstrateChain {
             .subscribe_ibc_events()
             .map_err(|_| Error::report_error("subscribe_ibc_events".to_string()))?;
 
-        Ok(ibc_event)
+        let height = self.get_latest_height().map_err(|e| {
+            Error::report_error(format!("get_latest_height ({:?})", e.to_string()))
+        })?;
+
+        let ibc_event_with_height = ibc_event.into_iter().map(|value | IbcEventWithHeight {
+            event: value,
+            height: height.clone(),
+        }).collect();
+
+        Ok(ibc_event_with_height)
     }
 
     fn send_messages_and_wait_check_tx(
@@ -818,11 +793,9 @@ impl ChainEndpoint for SubstrateChain {
     fn query_application_status(&self) -> Result<ChainStatus, Error> {
         tracing::trace!("in substrate: [query_status]");
 
-        let height = self
+        let latest_height = self
             .get_latest_height()
             .map_err(|_| Error::report_error("get_latest_height".to_string()))?;
-
-        let latest_height = Height::new(REVISION_NUMBER, height).expect("REVISION_NUMBER");
 
         Ok(ChainStatus {
             height: latest_height,
@@ -857,7 +830,7 @@ impl ChainEndpoint for SubstrateChain {
                 let height = self
                     .get_latest_height()
                     .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                height
             }
             QueryHeight::Specific(value) => value,
         };
@@ -868,15 +841,13 @@ impl ChainEndpoint for SubstrateChain {
 
         let client_state_path = ClientStatePath(client_id.clone())
             .to_string()
-            .as_bytes()
-            .to_vec();
+            .as_bytes();
 
-        let storage_entry = storage::ClientStates(&client_state_path);
 
         match include_proof {
             IncludeProof::Yes => Ok((
                 result,
-                Some(self.generate_storage_proof(&storage_entry, &query_height, "ClientStates")?),
+            Some(self.generate_storage_proof(vec![client_state_path], &query_height, "ClientStates")?),
             )),
             IncludeProof::No => Ok((result, None)),
         }
@@ -907,16 +878,14 @@ impl ChainEndpoint for SubstrateChain {
             height: consensus_height.revision_height(),
         }
         .to_string()
-        .as_bytes()
-        .to_vec();
+        .as_bytes();
 
-        let storage_entry = storage::ConsensusStates(&client_consensus_state_path);
 
         match include_proof {
             IncludeProof::Yes => Ok((
                 result,
                 Some(self.generate_storage_proof(
-                    &storage_entry,
+                        vec![client_consensus_state_path],
                     &consensus_height,
                     "ConsensusStates",
                 )?),
@@ -1025,9 +994,7 @@ impl ChainEndpoint for SubstrateChain {
         // update ConnectionsPath key
         let connections_path = ConnectionsPath(connection_id.clone())
             .to_string()
-            .as_bytes()
-            .to_vec();
-        let storage_entry = storage::Connections(&connections_path);
+            .as_bytes();
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1036,7 +1003,7 @@ impl ChainEndpoint for SubstrateChain {
                         let height = self
                             .get_latest_height()
                             .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                       height
                     }
                     QueryHeight::Specific(value) => value,
                 };
@@ -1044,7 +1011,7 @@ impl ChainEndpoint for SubstrateChain {
                 Ok((
                     connection_end,
                     Some(self.generate_storage_proof(
-                        &storage_entry,
+                            vec![connections_path],
                         &query_height,
                         "Connections",
                     )?),
@@ -1100,9 +1067,7 @@ impl ChainEndpoint for SubstrateChain {
         // use channel_end path as key
         let channel_end_path = ChannelEndsPath(port_id.clone(), channel_id.clone())
             .to_string()
-            .as_bytes()
-            .to_vec();
-        let storage_entry = storage::Channels(&channel_end_path);
+            .as_bytes();
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1111,14 +1076,14 @@ impl ChainEndpoint for SubstrateChain {
                         let height = self
                             .get_latest_height()
                             .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                        height
                     }
                     QueryHeight::Specific(value) => value,
                 };
 
                 Ok((
                     channel_end,
-                    Some(self.generate_storage_proof(&storage_entry, &query_height, "Channels")?),
+                Some(self.generate_storage_proof(vec![channel_end_path], &query_height, "Channels")?),
                 ))
             }
             IncludeProof::No => Ok((channel_end, None)),
@@ -1156,10 +1121,7 @@ impl ChainEndpoint for SubstrateChain {
             sequence: sequence.clone(),
         }
         .to_string()
-        .as_bytes()
-        .to_vec();
-
-        let storage_entry = storage::PacketCommitment(&packet_commits_path);
+        .as_bytes();
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1168,14 +1130,14 @@ impl ChainEndpoint for SubstrateChain {
                         let height = self
                             .get_latest_height()
                             .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                        height
                     }
                     QueryHeight::Specific(value) => value,
                 };
                 Ok((
                     packet_commit,
                     Some(self.generate_storage_proof(
-                        &storage_entry,
+                            vec![packet_commits_path],
                         &query_height,
                         "PacketCommitment",
                     )?),
@@ -1198,11 +1160,8 @@ impl ChainEndpoint for SubstrateChain {
             .map(|value| Sequence::from(value.sequence))
             .collect();
 
-        let height = self
-            .retry_wapper(|| self.get_latest_height())
-            .map_err(|_| Error::report_error("retry_error".to_string()))?;
-
-        let latest_height = Height::new(REVISION_NUMBER, height).expect("REVISION_NUMBER");
+        let latest_height = self.get_latest_height()
+        .map_err(|_| Error::report_error("get_latest_height_error".to_string()))?;
 
         Ok((packet_commitments, latest_height))
     }
@@ -1229,10 +1188,8 @@ impl ChainEndpoint for SubstrateChain {
             sequence: sequence.clone(),
         }
         .to_string()
-        .as_bytes()
-        .to_vec();
+        .as_bytes();
 
-        let storage_entry = storage::PacketReceipt(&packet_receipt_path);
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1241,14 +1198,13 @@ impl ChainEndpoint for SubstrateChain {
                         let height = self
                             .get_latest_height()
                             .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                        height
                     }
                     QueryHeight::Specific(value) => value,
                 };
                 Ok((
                     packet_receipt,
-                    Some(self.generate_storage_proof(
-                        &storage_entry,
+                Some(self.generate_storage_proof(vec![packet_receipt_path],
                         &query_height,
                         "PacketReceipt",
                     )?),
@@ -1306,10 +1262,7 @@ impl ChainEndpoint for SubstrateChain {
             sequence: sequence.clone(),
         }
         .to_string()
-        .as_bytes()
-        .to_vec();
-
-        let storage_entry = storage::Acknowledgements(&packet_acknowledgement_path);
+        .as_bytes();
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1318,14 +1271,14 @@ impl ChainEndpoint for SubstrateChain {
                         let height = self
                             .get_latest_height()
                             .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                        height
                     }
                     QueryHeight::Specific(value) => value,
                 };
                 Ok((
                     packet_acknowledgement,
                     Some(self.generate_storage_proof(
-                        &storage_entry,
+                            vec![packet_acknowledgement_path],
                         &query_height,
                         "Acknowledgements",
                     )?),
@@ -1348,11 +1301,10 @@ impl ChainEndpoint for SubstrateChain {
             .map(|value| Sequence::from(value.sequence))
             .collect();
 
-        let height = self
+        let latest_height = self
             .get_latest_height()
             .map_err(|_| Error::report_error("get_latest_height".to_string()))?;
 
-        let latest_height = Height::new(REVISION_NUMBER, height).expect("REVISION_NUMBER");
 
         Ok((packet_acknowledgements, latest_height))
     }
@@ -1407,10 +1359,7 @@ impl ChainEndpoint for SubstrateChain {
 
         let next_sequence_receive_path = SeqRecvsPath(port_id.clone(), channel_id.clone())
             .to_string()
-            .as_bytes()
-            .to_vec();
-
-        let storage_entry = storage::NextSequenceRecv(&next_sequence_receive_path);
+            .as_bytes();
 
         match include_proof {
             IncludeProof::Yes => {
@@ -1419,14 +1368,14 @@ impl ChainEndpoint for SubstrateChain {
                         let height = self
                             .get_latest_height()
                             .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                        Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+                        height
                     }
                     QueryHeight::Specific(value) => value,
                 };
                 Ok((
                     next_sequence_receive,
                     Some(self.generate_storage_proof(
-                        &storage_entry,
+                            vec![next_sequence_receive_path],
                         &query_height,
                         "NextSequenceRecv",
                     )?),

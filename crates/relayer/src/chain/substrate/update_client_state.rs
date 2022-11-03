@@ -18,7 +18,6 @@ use sp_core::{hexdisplay::HexDisplay, H256};
 use sp_keyring::AccountKeyring;
 use std::str::FromStr;
 use subxt::rpc::BlockNumber;
-use subxt::storage::StorageClient;
 use subxt::tx::PairSigner;
 use subxt::OnlineClient;
 
@@ -345,29 +344,32 @@ pub async fn get_client_ids(
     client: OnlineClient<MyConfig>,
     expect_client_type: ClientType,
 ) -> Result<Vec<ClientId>, subxt::error::Error> {
+
+    let mut client_ids = vec![];
+
     let mut block = client.rpc().subscribe_finalized_blocks().await?;
 
     let block_header = block.next().await.unwrap().unwrap();
 
     let block_hash: H256 = block_header.hash();
 
-    // Obtain the storage client wrapper from the API.
-    let storage: StorageClient<'_, MyConfig> = client.storage();
+    let address = ibc_node::storage().ibc().client_states_root();
 
-    let mut iter = storage
-        .iter::<ibc_node::ibc::storage::ClientStates>(Some(block_hash))
-        .await?;
-
-    let mut client_ids = vec![];
+    // Iterate over keys and values at that address.
+    let mut iter = client
+    .storage()
+    .iter(address, 10, None)
+    .await
+    .unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {
         let raw_key = key.0[48..].to_vec();
-        let raw_key = Vec::<u8>::decode(&mut &*raw_key)?;
-        let client_state_path = String::from_utf8(raw_key)?;
+        let raw_key = Vec::<u8>::decode(&mut &*raw_key).map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
+        let client_state_path = String::from_utf8(raw_key).map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
         // decode key
-        let path =
-            Path::from_str(&client_state_path).map_err(|_| anyhow::anyhow!("decode path error"))?;
+        let path = Path::from_str(&client_state_path)
+        .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
 
         let client_id = match path {
             Path::ClientState(ClientStatePath(client_id)) => client_id,

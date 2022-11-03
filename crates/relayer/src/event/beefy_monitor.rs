@@ -6,7 +6,6 @@ use crate::error::Error as RelayError;
 use crate::util::retry::{retry_with_index, RetryResult};
 use alloc::sync::Arc;
 use beefy_light_client::commitment;
-use codec::Decode;
 use crossbeam_channel as channel;
 use ibc_relayer_types::clients::ics10_grandpa::help::MmrRoot;
 use ibc_relayer_types::clients::ics10_grandpa::{header::Header, help::ValidatorMerkleProof};
