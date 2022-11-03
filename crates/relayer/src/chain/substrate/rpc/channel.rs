@@ -1,6 +1,5 @@
 use super::super::config::{ibc_node, MyConfig};
 use anyhow::Result;
-use std::str::FromStr;
 use codec::Decode;
 use ibc_proto::ibc::core::channel::v1::PacketState;
 use ibc_proto::protobuf::Protobuf;
@@ -16,6 +15,7 @@ use ibc_relayer_types::core::{
     ics24_host::identifier::{ChannelId, PortId},
 };
 use sp_core::H256;
+use std::str::FromStr;
 use subxt::OnlineClient;
 
 /// get key-value pair (connection_id, connection_end) construct IdentifiedConnectionEnd
@@ -34,21 +34,19 @@ pub async fn get_channels(
 
     let address = ibc_node::storage().ibc().channels_root();
 
-     // Iterate over keys and values at that address.
-    let mut iter = client
-         .storage()
-         .iter(address, 10, None)
-         .await
-         .unwrap();
+    // Iterate over keys and values at that address.
+    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {
         let raw_key = key.0[48..].to_vec();
-        let raw_key = Vec::<u8>::decode(&mut &*raw_key).map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
-        let client_state_path = String::from_utf8(raw_key).map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
+        let raw_key = Vec::<u8>::decode(&mut &*raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
+        let client_state_path = String::from_utf8(raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
         // decode key
         let path = Path::from_str(&client_state_path)
-        .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
+            .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
 
         match path {
             Path::ChannelEnds(channel_ends_path) => {
@@ -59,7 +57,6 @@ pub async fn get_channels(
             }
             _ => unimplemented!(),
         }
-
     }
 
     Ok(result)
@@ -255,20 +252,18 @@ pub async fn get_commitment_packet_state(
     let address = ibc_node::storage().ibc().packet_commitment_root();
 
     // Iterate over keys and values at that address.
-    let mut iter = client
-    .storage()
-    .iter(address, 10, None)
-    .await
-    .unwrap();
+    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {
         let raw_key = key.0[48..].to_vec();
-        let raw_key = Vec::<u8>::decode(&mut &*raw_key).map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
-        let client_state_path = String::from_utf8(raw_key).map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
+        let raw_key = Vec::<u8>::decode(&mut &*raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
+        let client_state_path = String::from_utf8(raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
         // decode key
         let path = Path::from_str(&client_state_path)
-        .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
+            .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
 
         match path {
             Path::Commitments(commitments) => {
@@ -423,28 +418,25 @@ pub async fn get_acknowledge_packet_state(
     let address = ibc_node::storage().ibc().acknowledgements_root();
 
     // Iterate over keys and values at that address.
-    let mut iter = client
-    .storage()
-    .iter(address, 10, None)
-    .await
-    .unwrap();
+    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {
         let raw_key = key.0[48..].to_vec();
-        let raw_key = Vec::<u8>::decode(&mut &*raw_key).map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
-        let client_state_path = String::from_utf8(raw_key).map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
+        let raw_key = Vec::<u8>::decode(&mut &*raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
+        let client_state_path = String::from_utf8(raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
         // decode key
         let path = Path::from_str(&client_state_path)
-        .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
+            .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
 
-        match path
-        {
+        match path {
             Path::Acks(acks_path) => {
                 let AcksPath {
                     port_id,
-                channel_id,
-                sequence,
+                    channel_id,
+                    sequence,
                 } = acks_path;
 
                 let packet_state = PacketState {

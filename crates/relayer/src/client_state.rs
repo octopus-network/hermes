@@ -50,7 +50,7 @@ impl AnyUpgradeOptions {
             AnyUpgradeOptions::Mock(_) => None,
         }
     }
-    
+
     fn as_gp_upgrade_options(&self) -> Option<&GpUpgradeOptions> {
         match self {
             AnyUpgradeOptions::Tendermint(tm) => None,

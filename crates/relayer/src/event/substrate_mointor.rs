@@ -292,7 +292,7 @@ fn process_batch_for_substrate(
 fn collect_events(
     chain_id: &ChainId,
     event: RpcEvent,
-    ) -> impl Stream<Item = Result<IbcEventWithHeight>> {
+) -> impl Stream<Item = Result<IbcEventWithHeight>> {
     trace!("in substrate_mointor: [collect_events]");
 
     let events = crate::event::rpc::get_all_events(chain_id, event).unwrap_or_default();

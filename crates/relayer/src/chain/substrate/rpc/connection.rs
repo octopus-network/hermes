@@ -1,9 +1,9 @@
 use super::super::config::{ibc_node, MyConfig};
 use super::channel::query_channel_end;
 use anyhow::Result;
+use codec::Decode;
 use core::str::FromStr;
 use ibc_proto::protobuf::Protobuf;
-use codec::Decode;
 use ibc_relayer_types::core::ics24_host::path::{ChannelEndsPath, ConnectionsPath};
 use ibc_relayer_types::core::ics24_host::Path;
 use ibc_relayer_types::core::{
@@ -66,30 +66,28 @@ pub async fn get_connections(
     let address = ibc_node::storage().ibc().connections_root();
 
     // Iterate over keys and values at that address.
-    let mut iter = client
-    .storage()
-    .iter(address, 10, None)
-    .await
-    .unwrap();
+    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {
         let raw_key = key.0[48..].to_vec();
-        let raw_key = Vec::<u8>::decode(&mut &*raw_key).map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
-        let client_state_path = String::from_utf8(raw_key).map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
+        let raw_key = Vec::<u8>::decode(&mut &*raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
+        let client_state_path = String::from_utf8(raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
         // decode key
         let path = Path::from_str(&client_state_path)
-        .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
+            .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
 
         match path {
-                Path::Connections(connections_path) => {
-                    let ConnectionsPath(connection_id) = connections_path;
-                    // store key-value
-                    let connection_end = ConnectionEnd::decode_vec(&*value).unwrap();
+            Path::Connections(connections_path) => {
+                let ConnectionsPath(connection_id) = connections_path;
+                // store key-value
+                let connection_end = ConnectionEnd::decode_vec(&*value).unwrap();
 
-                    result.push(IdentifiedConnectionEnd::new(connection_id, connection_end));
-                }
-                _ => unimplemented!(),
+                result.push(IdentifiedConnectionEnd::new(connection_id, connection_end));
+            }
+            _ => unimplemented!(),
         }
     }
 

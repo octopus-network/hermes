@@ -1,9 +1,9 @@
 use super::super::config::{ibc_node, MyConfig};
-use codec::Decode;
 use crate::client_state::AnyClientState;
 use crate::client_state::IdentifiedAnyClientState;
 use crate::consensus_state::AnyConsensusState;
 use anyhow::Result;
+use codec::Decode;
 use core::str::FromStr;
 use ibc_proto::protobuf::Protobuf;
 use ibc_relayer_types::core::ics24_host::path::{ClientConnectionsPath, ClientConsensusStatePath};
@@ -118,37 +118,35 @@ pub async fn get_consensus_state_with_height(
     let address = ibc_node::storage().ibc().consensus_states_root();
 
     // Iterate over keys and values at that address.
-    let mut iter = client
-    .storage()
-    .iter(address, 10, None)
-    .await
-    .unwrap();
+    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {
         let raw_key = key.0[48..].to_vec();
-        let raw_key = Vec::<u8>::decode(&mut &*raw_key).map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
-        let client_state_path = String::from_utf8(raw_key).map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
+        let raw_key = Vec::<u8>::decode(&mut &*raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
+        let client_state_path = String::from_utf8(raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
         // decode key
         let path = Path::from_str(&client_state_path)
-        .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
+            .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
 
         match path {
-                Path::ClientConsensusState(client_consensus_state) => {
-                    let ClientConsensusStatePath {
-                        client_id: read_client_id,
-                        epoch,
-                        height,
-                    } = client_consensus_state;
+            Path::ClientConsensusState(client_consensus_state) => {
+                let ClientConsensusStatePath {
+                    client_id: read_client_id,
+                    epoch,
+                    height,
+                } = client_consensus_state;
 
-                    if read_client_id == client_id.clone() {
-                        let height = ICSHeight::new(epoch, height).unwrap();
-                        let consensus_state = AnyConsensusState::decode_vec(&*value).unwrap();
-                        // store key-value
-                        result.push((height, consensus_state));
-                    }
+                if read_client_id == client_id.clone() {
+                    let height = ICSHeight::new(epoch, height).unwrap();
+                    let consensus_state = AnyConsensusState::decode_vec(&*value).unwrap();
+                    // store key-value
+                    result.push((height, consensus_state));
                 }
-                _ => unimplemented!(),
+            }
+            _ => unimplemented!(),
         }
     }
 
@@ -172,28 +170,26 @@ pub async fn get_clients(
     let address = ibc_node::storage().ibc().client_states_root();
 
     // Iterate over keys and values at that address.
-    let mut iter = client
-    .storage()
-    .iter(address, 10, None)
-    .await
-    .unwrap();
+    let mut iter = client.storage().iter(address, 10, None).await.unwrap();
 
     // prefix(32) + hash(data)(16) + data
     while let Some((key, value)) = iter.next().await? {
         let raw_key = key.0[48..].to_vec();
-        let raw_key = Vec::<u8>::decode(&mut &*raw_key).map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
-        let client_state_path = String::from_utf8(raw_key).map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
+        let raw_key = Vec::<u8>::decode(&mut &*raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode vec<u8> error".to_string()))?;
+        let client_state_path = String::from_utf8(raw_key)
+            .map_err(|_| subxt::error::Error::Other("decode string error".to_string()))?;
         // decode key
         let path = Path::from_str(&client_state_path)
-        .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
+            .map_err(|_| subxt::error::Error::Other("decode path error".to_string()))?;
 
         match path {
-                Path::ClientState(ClientStatePath(ibc_client_id)) => {
-                    let client_state = AnyClientState::decode_vec(&*value).unwrap();
+            Path::ClientState(ClientStatePath(ibc_client_id)) => {
+                let client_state = AnyClientState::decode_vec(&*value).unwrap();
 
-                    result.push(IdentifiedAnyClientState::new(ibc_client_id, client_state));
-                }
-                _ => unimplemented!(),
+                result.push(IdentifiedAnyClientState::new(ibc_client_id, client_state));
+            }
+            _ => unimplemented!(),
         }
     }
 

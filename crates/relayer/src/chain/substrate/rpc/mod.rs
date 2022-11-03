@@ -155,8 +155,11 @@ pub async fn get_timestamp(
 
     let address = ibc_node::storage().timestamp().now();
 
-    let timestamp: u64 = client.storage().fetch(&address, block_hash).await?
-    .ok_or(subxt::error::Error::Other("timestamp is empty".to_string()))?;
+    let timestamp: u64 = client
+        .storage()
+        .fetch(&address, block_hash)
+        .await?
+        .ok_or(subxt::error::Error::Other("timestamp is empty".to_string()))?;
 
     tracing::info!("in get_timestamp timestamp = {:?}", timestamp);
 
