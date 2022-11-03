@@ -1443,17 +1443,22 @@ impl ChainEndpoint for SubstrateChain {
             // Address to a storage entry we'd like to access.
             let address = ibc_node::storage().beefy().authorities();
 
-            let authorities = self
-                .client
-                .storage()
-                .fetch(&address, None)
-                .await
-                .map_err(|_| Error::report_error("get authorities error".to_string()))?;
+
+            let authorities = self.client
+            .storage()
+            .fetch(&address, None)
+            .await
+            .map_err(|_| Error::report_error("get authorities error".to_string()))?
+            .ok_or(Error::report_error("empty authorities".into()))?;
+
+            // covert authorities to strings
 
             let result: Vec<String> = authorities
-                .into_iter()
-                .map(|val| format!("0x{}", HexDisplay::from(&Vec::from(val))))
-                .collect();
+            .into_inner()
+            .into_iter()
+            .map(|val| {
+                format!("0x{}", HexDisplay::from(&format!("{:?}", val).into_bytes()))}) // todo(davirain) HexDisplay beefy_primitives::crypto::Public
+            .collect();
 
             Ok(result)
         };
@@ -1533,7 +1538,7 @@ impl ChainEndpoint for SubstrateChain {
 
                 // decode signed commitment
                 let signed_commmitment: beefy_light_client::commitment::SignedCommitment =
-                    Decode::decode(&mut &raw_signed_commitment.commitment.payload.0[..]).map_err(
+                    Decode::decode(&mut &raw_signed_commitment.0[..]).map_err(
                         |_| {
                             Error::report_error(
                                 "decode beefy light client SignedCommitment Error".to_string(),

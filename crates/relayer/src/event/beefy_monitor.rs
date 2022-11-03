@@ -1,4 +1,5 @@
 use crate::chain::substrate::config::MyConfig;
+use crate::chain::substrate::rpc::beefy::subscribe_beefy_justifications;
 use crate::chain::substrate::rpc::get_header_by_block_number;
 use crate::chain::substrate::rpc::get_mmr_leaf_and_mmr_proof;
 use crate::chain::substrate::update_client_state::build_validator_proof;
@@ -38,7 +39,9 @@ pub type BeefySender = channel::Sender<BeefyResult<Header>>;
 pub type BeefyReceiver = channel::Receiver<BeefyResult<Header>>;
 pub use super::monitor::MonitorCmd;
 pub use super::monitor::TxMonitorCmd;
-use beefy_light_client::commitment::SignedCommitment;
+//use beefy_light_client::commitment::SignedCommitment;
+use crate::chain::substrate::rpc::beefy::SignedCommitment as RawSignedCommitment;
+use codec::Decode;
 use subxt::rpc::BlockNumber;
 
 #[derive(Debug)]
@@ -114,7 +117,7 @@ pub struct BeefyMonitor {
     /// Node Address
     node_addr: Url,
     /// beefy subscription
-    subscription: Option<SignedCommitment>,
+    subscription: Option<RawSignedCommitment>,
     /// Tokio runtime
     rt: Arc<TokioRuntime>,
 }
@@ -238,7 +241,7 @@ impl BeefyMonitor {
 
         let sub = self
             .rt
-            .block_on(self.client.rpc().subscribe_beefy_justifications()) // todo(davirain) need add subscribe_beefy_justifications
+            .block_on(subscribe_beefy_justifications(self.client.clone())) // todo(davirain) need add subscribe_beefy_justifications
             .unwrap();
 
         let mut beefy_sub = sub;
@@ -249,7 +252,7 @@ impl BeefyMonitor {
         // Work around double borrow
         let rt = self.rt.clone();
 
-        // msg loop for handle the beefy SignedCommitment
+        // msg loop for handle the beefy RawSignedCommitment
         loop {
             let raw_sc = self.rt.block_on(beefy_sub.next()).unwrap().unwrap();
 
@@ -279,7 +282,7 @@ impl BeefyMonitor {
     }
 
     /// Collect the IBC events from the subscriptions
-    fn process_beefy_msg(&self, raw_sc: SignedCommitment) -> BeefyResult<()> {
+    fn process_beefy_msg(&self, raw_sc: RawSignedCommitment) -> BeefyResult<()> {
         trace!("in beefy_mointor: [process_beefy_msg]");
 
         let header = self.rt.block_on(self.build_header(raw_sc));
@@ -295,10 +298,10 @@ impl BeefyMonitor {
         Ok(())
     }
     /// Subscribe beefy msg
-    pub async fn subscribe_beefy(&self) -> Result<SignedCommitment, Box<dyn std::error::Error>> {
+    pub async fn subscribe_beefy(&self) -> Result<RawSignedCommitment, Box<dyn std::error::Error>> {
         info!("in beefy monitor: [subscribe_beefy]");
 
-        let mut sub = self.client.rpc().subscribe_beefy_justifications().await?;
+        let mut sub = subscribe_beefy_justifications(self.client.clone()).await?;
 
         let raw = sub.next().await.unwrap().unwrap();
 
@@ -307,9 +310,12 @@ impl BeefyMonitor {
 
     pub async fn build_header(
         &self,
-        signed_commitment: SignedCommitment,
+        signed_commitment: RawSignedCommitment,
     ) -> Result<Header, RelayError> {
         trace!("in beefy monitor: [build_header]");
+        // decode signed commitment
+        let signed_commitment: commitment::SignedCommitment =
+            Decode::decode(&mut &signed_commitment.0[..]).unwrap();
 
         // get commitment
         let commitment::Commitment {

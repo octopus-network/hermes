@@ -31,6 +31,18 @@ impl From<ibc_relayer_types::core::ics02_client::client_type::ClientType>
     }
 }
 
+impl<T> AsRef<[T]> for ibc_node::runtime_types::sp_core::bounded::bounded_vec::BoundedVec<T> {
+    fn as_ref(&self) -> &[T] {
+        &self.0
+    }
+}
+
+impl<T> ibc_node::runtime_types::sp_core::bounded::bounded_vec::BoundedVec<T> {
+    pub fn into_inner(self) -> Vec<T> {
+        self.0
+    }
+}
+
 impl From<ibc_node::runtime_types::pallet_ibc::module::core::ics24_host::ClientType>
     for ibc_relayer_types::core::ics02_client::client_type::ClientType
 {

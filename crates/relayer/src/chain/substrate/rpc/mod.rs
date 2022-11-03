@@ -1,3 +1,4 @@
+pub mod beefy;
 pub mod channel;
 pub mod client;
 pub mod connection;
@@ -10,7 +11,7 @@ use crate::chain::substrate::config::ibc_node;
 use crate::chain::substrate::rpc::ibc_node::runtime_types::ibc_support::Any as RuntimeAny;
 use crate::chain::substrate::MyConfig;
 use anyhow::Result;
-use beefy_light_client::commitment::SignedCommitment;
+use beefy::subscribe_beefy_justifications;
 use beefy_merkle_tree::Hash;
 use ibc_proto::google::protobuf::Any;
 use sp_core::H256;
@@ -23,10 +24,10 @@ use subxt::OnlineClient;
 /// Subscribe beefy justifications
 pub async fn subscribe_beefy(
     client: OnlineClient<MyConfig>,
-) -> Result<SignedCommitment, subxt::error::Error> {
+) -> Result<beefy::SignedCommitment, subxt::error::Error> {
     tracing::info!("In call_ibc: [subscribe_beefy_justifications]");
 
-    let mut sub = client.rpc().subscribe_beefy_justifications().await?;
+    let mut sub = subscribe_beefy_justifications(client).await?;
 
     let raw = sub.next().await.unwrap().unwrap();
 

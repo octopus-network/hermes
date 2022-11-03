@@ -6,7 +6,7 @@ use anyhow::Result;
 use beefy_light_client::commitment::SignedCommitment;
 use beefy_light_client::{beefy_ecdsa_to_ethereum, commitment, Error};
 use beefy_merkle_tree::{merkle_proof, verify_proof, Hash, Keccak256};
-use codec::{Decode, Encode};
+use codec::Decode;
 use ibc_proto::protobuf::Protobuf;
 use ibc_relayer_types::core::ics24_host::path::ClientStatePath;
 use ibc_relayer_types::core::ics24_host::Path;
@@ -15,10 +15,8 @@ use ibc_relayer_types::{
     core::{ics02_client::client_type::ClientType, ics24_host::identifier::ClientId},
 };
 use sp_core::{hexdisplay::HexDisplay, H256};
-use sp_keyring::AccountKeyring;
 use std::str::FromStr;
 use subxt::rpc::BlockNumber;
-use subxt::tx::PairSigner;
 use subxt::OnlineClient;
 
 /// mmr proof struct
@@ -39,13 +37,22 @@ pub async fn build_validator_proof(
         .block_hash(Some(BlockNumber::from(block_number)))
         .await?;
 
-    //get validator set(authorities)
-    let authorities = src_client.storage().beefy().authorities(block_hash).await?;
+    // Address to a storage entry we'd like to access.
+    let address = ibc_node::storage().beefy().authorities();
+
+    let authorities = src_client
+        .storage()
+        .fetch(&address, None)
+        .await?
+        .ok_or(subxt::error::Error::Other("empty authorities".into()))?;
 
     // covert authorities to strings
+
     let authority_strs: Vec<String> = authorities
+        .into_inner()
         .into_iter()
-        .map(|authority| format!("{}", HexDisplay::from(&authority.to_raw_vec())))
+        .map(|val| {
+        format!("0x{}", HexDisplay::from(&format!("{:?}", val).into_bytes()))}) // todo(davirain) HexDisplay beefy_primitives::crypto::Public
         .collect();
 
     // Convert BEEFY secp256k1 public keys into Ethereum addresses
@@ -143,145 +150,6 @@ pub async fn build_mmr_root(
     };
 
     Ok(mmr_root)
-}
-/// send Update client state request
-pub async fn send_update_state_request(
-    client: OnlineClient<MyConfig>,
-    client_id: ClientId,
-    mmr_root: help::MmrRoot,
-) -> Result<H256> {
-    tracing::info!("in call_ibc: [update_client_state]");
-    let signer = PairSigner::new(AccountKeyring::Bob.pair());
-
-    let encode_client_id = client_id.as_bytes().to_vec();
-    let encode_mmr_root = help::MmrRoot::encode(&mmr_root);
-
-    let result = client
-        .tx()
-        .ibc()
-        .update_client_state(encode_client_id, encode_mmr_root)?
-        .sign_and_submit_default(&signer)
-        .await?;
-
-    tracing::info!("update client state result: {:?}", result);
-
-    Ok(result)
-}
-
-/// update client state by cli for single.
-pub async fn update_client_state(
-    src_client: OnlineClient<MyConfig>,
-    target_client: OnlineClient<MyConfig>,
-) -> Result<()> {
-    // subscribe beefy justification for src chain
-    let mut sub = src_client.rpc().subscribe_beefy_justifications().await?;
-
-    let raw_signed_commitment = sub.next().await.unwrap().unwrap().0;
-    // decode signed commitment
-    let signed_commitment =
-        commitment::SignedCommitment::decode(&mut &raw_signed_commitment.clone()[..]).unwrap();
-
-    // get commitment
-    let commitment::Commitment { block_number, .. } = signed_commitment.clone().commitment;
-
-    // build validator proof
-    let validator_merkle_proofs = build_validator_proof(src_client.clone(), block_number)
-        .await
-        .unwrap();
-
-    // build mmr proof
-    let mmr_proof = build_mmr_proof(src_client.clone(), block_number)
-        .await
-        .unwrap();
-
-    // build mmr root
-    let mmr_root = help::MmrRoot {
-        signed_commitment: help::SignedCommitment::from(signed_commitment),
-        validator_merkle_proofs,
-        mmr_leaf: mmr_proof.mmr_leaf,
-        mmr_leaf_proof: mmr_proof.mmr_leaf_proof,
-    };
-
-    // get client id from target chain
-    let client_ids = get_client_ids(target_client.clone(), ClientType::Grandpa)
-        .await
-        .unwrap();
-    for client_id in client_ids {
-        let result =
-            send_update_state_request(target_client.clone(), client_id, mmr_root.clone()).await;
-
-        match result {
-            Ok(r) => {
-                println!("update client state success and result is : {:?}", r);
-            }
-            Err(e) => {
-                println!("update client state client failure and error is : {:?}", e);
-            }
-        }
-    }
-    // send mmr root to substrate-ibc
-
-    Ok(())
-}
-
-/// update client state service.
-pub async fn update_client_state_service(
-    src_client: OnlineClient<MyConfig>,
-    target_client: OnlineClient<MyConfig>,
-) -> Result<()> {
-    // subscribe beefy justification for src chain
-    let mut sub = src_client.rpc().subscribe_beefy_justifications().await?;
-
-    // msg loop for handle the beefy SignedCommitment
-    loop {
-        let raw = sub.next().await.unwrap().unwrap().0;
-        // let target_raw = raw.clone();
-        let signed_commitment = commitment::SignedCommitment::decode(&mut &raw[..]).unwrap();
-
-        let commitment::Commitment { block_number, .. } = signed_commitment.clone().commitment;
-
-        let signatures: Vec<String> = signed_commitment
-            .signatures
-            .clone()
-            .into_iter()
-            .map(|signature| format!("{}", HexDisplay::from(&signature.unwrap().0)))
-            .collect();
-
-        // build validator proof
-        let validator_merkle_proofs = build_validator_proof(src_client.clone(), block_number)
-            .await
-            .unwrap();
-
-        // build mmr proof
-        let mmr_proof = build_mmr_proof(src_client.clone(), block_number)
-            .await
-            .unwrap();
-
-        // build mmr root
-        let mmr_root = help::MmrRoot {
-            signed_commitment: help::SignedCommitment::from(signed_commitment),
-            validator_merkle_proofs,
-            mmr_leaf: mmr_proof.mmr_leaf,
-            mmr_leaf_proof: mmr_proof.mmr_leaf_proof,
-        };
-        // get client id from target chain
-        let client_ids = get_client_ids(target_client.clone(), ClientType::Grandpa)
-            .await
-            .unwrap();
-        for client_id in client_ids {
-            let result =
-                send_update_state_request(target_client.clone(), client_id, mmr_root.clone()).await;
-
-            match result {
-                Ok(r) => {
-                    println!("update client state success and result is : {:?}", r);
-                }
-                Err(e) => {
-                    println!("update client state client failure and error is : {:?}", e);
-                }
-            }
-        }
-    }
 }
 
 // verify commitment signatures,copy from beefy light client
