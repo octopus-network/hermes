@@ -633,6 +633,10 @@ pub struct MmrRoot {
     pub mmr_leaf: Vec<u8>,
     pub mmr_leaf_proof: Vec<u8>,
 }
+
+use tendermint_proto::Protobuf;
+impl Protobuf<RawMmrRoot> for MmrRoot {}
+
 impl TryFrom<RawMmrRoot> for MmrRoot {
     type Error = Error;
 
@@ -667,11 +671,10 @@ impl TryFrom<RawMmrRoot> for MmrRoot {
     }
 }
 
-impl TryFrom<MmrRoot> for RawMmrRoot {
-    type Error = Error;
-    fn try_from(value: MmrRoot) -> Result<Self, Self::Error> {
-        Ok(Self {
-            signed_commitment: Some(value.signed_commitment.try_into()?),
+impl From<MmrRoot> for RawMmrRoot {
+    fn from(value: MmrRoot) -> Self {
+        Self {
+            signed_commitment: Some(value.signed_commitment.try_into().unwrap()),
             validator_merkle_proofs: value
                 .validator_merkle_proofs
                 .into_iter()
@@ -679,6 +682,6 @@ impl TryFrom<MmrRoot> for RawMmrRoot {
                 .collect(),
             mmr_leaf: value.mmr_leaf,
             mmr_leaf_proof: value.mmr_leaf_proof,
-        })
+        }
     }
 }

@@ -51,6 +51,7 @@ use ibc::{
     core::ics23_commitment::merkle::MerkleProof,
 };
 use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
+use ibc_proto::google::protobuf::Any;
 
 use crate::account::Balance;
 use crate::chain::client::ClientSettings;
@@ -1614,7 +1615,74 @@ impl ChainEndpoint for CosmosSdkChain {
     }
 
     fn update_mmr_root(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
-        todo!()
+        tracing::trace!("cosmos.rs [update_mmr_root] client_id = {:?} ", client_id,);
+
+        let MmrRoot {
+            signed_commitment,
+            validator_merkle_proofs,
+            mmr_leaf,
+            mmr_leaf_proof,
+        } = header.mmr_root.clone();
+
+        if signed_commitment.clone().commitment.is_none() {
+            tracing::error!("cosmos.rs [update_mmr_root] No commitment in header! signed_commitment = {:?}", signed_commitment);
+            return Err(Error::update_client_state_error());
+        }
+
+        let commitment = match signed_commitment.clone().commitment {
+            Some(commitment) => {
+                tracing::trace!(
+                    "cosmos.rs [update_mmr_root] mmr root height = {:?}",
+                    commitment.block_number
+                );
+                commitment
+            },
+            _ => unimplemented!()
+        };
+
+        let new_mmr_root_height = commitment.block_number;
+        tracing::trace!(
+            "cosmos.rs [update_mmr_root] mmr root height = {:?}",
+            new_mmr_root_height
+        );
+
+        let client_state = self.query_client_state(
+                QueryClientStateRequest {
+                            client_id: client_id.clone(),
+                            height: QueryHeight::Latest,
+                        },
+                IncludeProof::No,
+            )?;  // Todo: the client state return from beefy-go doesn't contain the heigh of MMR root stored in the Cosmos chain yet
+
+        let tm_client_state = match client_state {
+            (AnyClientState::Tendermint(value), _) => value,
+            _ => unimplemented!(),
+        };
+
+        let block_number = tm_client_state.latest_height;
+        tracing::trace!(
+            "cosmos.rs [update_mmr_root] mmr root height in client state is: ({:?})",
+            block_number.revision_height()
+        );
+
+        if block_number.revision_height() >= new_mmr_root_height as u64 {
+            tracing::error!(
+                "[update_mmr_root]mmr root height in client state ({:?}) >= new mmr root height({:?}), Don't need to update!",
+                block_number,new_mmr_root_height
+            );
+            return Err(Error::update_client_state_error());
+        }
+
+        let mut msgs = vec![];
+        let msg_any = Any{type_url: "mmr_root".to_string(), value: header.mmr_root.encode_vec().unwrap()};
+        msgs.push(msg_any);  // Todo: to adjust the msg according to the corresponding interface in beefy-go if needed
+        let tm = TrackedMsgs::new_static(msgs, "update beefy light client on cosmos");
+        tracing::trace!("cosmos.rs [update_mmr_root] >> msgs = {:?}", tm);
+
+        let events = self.send_messages_and_wait_commit(tm);
+        tracing::trace!("cosmos.rs [update_mmr_root] >> events = {:?}", events);
+
+        Ok(())
     }
 }
 
