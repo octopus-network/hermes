@@ -97,8 +97,7 @@ frame-system = { git = "https://github.com/paritytech/substrate.git", branch = "
 sp-io = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28", default-features = false }
 
 # beefy light client
-beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "main", default-features = false }
-# beefy-light-client = { path = "../../beefy-light-client", default-features = false }
+beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "feature/v0.9.28", default-features = false }
 
 [dependencies.tendermint]
 version = "=0.23.7"
@@ -126,7 +125,6 @@ sha2 = { version = "0.10.2" }
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
 hex-literal = "0.3.1"
 octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "dev"}
-#octopusxt = { path = "../../octopusxt/module" }
 
 tokio = { version = "1.0", features = ["rt-multi-thread", "time", "sync"] }
 subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'master' }
