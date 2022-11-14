@@ -3027,7 +3027,6 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/integrate_mmr_srv#238162cb5f6cdba42918ca260cfdefb3d27702b9"
 dependencies = [
  "anyhow",
  "beefy-light-client",
