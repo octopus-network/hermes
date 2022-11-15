@@ -13,6 +13,7 @@ use itertools::Itertools;
 use tracing::{debug, error, info, span, trace, warn};
 
 use flex_error::define_error;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::clients::ics10_grandpa::help::MmrRoot;
 use ibc::core::ics02_client::client_consensus::{
     AnyConsensusState, AnyConsensusStateWithHeight, ConsensusState, QueryClientEventRequest,
@@ -724,10 +725,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
     }
 
     /// Attempts to update a mmr root using header from the latest height of its source chain.
-    pub fn update_mmr_root(&self, mmr_root: MmrRoot) -> Result<(), ForeignClientError> {
+    pub fn update_mmr_root(&self, header: GPheader) -> Result<(), ForeignClientError> {
         tracing::trace!(
             "in foreign_client: [update_mmr_root], mmr_root ={:?} ",
-            mmr_root
+            header
         );
 
         // let res = self.build_latest_update_client_and_send()?;
@@ -744,7 +745,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         //         )
         //     })?;
         // Ok(events)
-        let _ = self.dst_chain().update_mmr_root(self.id.clone(), mmr_root);
+        let _ = self.dst_chain().update_mmr_root(self.id.clone(), header);
 
         Ok(())
     }

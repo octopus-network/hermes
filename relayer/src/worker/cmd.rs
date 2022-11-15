@@ -3,6 +3,7 @@ use core::fmt;
 use ibc::{core::ics02_client::events::NewBlock, Height};
 
 use crate::event::monitor::EventBatch;
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::clients::ics10_grandpa::help::MmrRoot;
 
 /// A command for a [`WorkerHandle`](crate::worker::WorkerHandle).
@@ -18,7 +19,7 @@ pub enum WorkerCmd {
     ClearPendingPackets,
 
     /// A beefy msg has been receive
-    Beefy { mmr_root: MmrRoot },
+    Beefy { header: GPheader },
 }
 
 impl fmt::Display for WorkerCmd {
@@ -35,8 +36,8 @@ impl fmt::Display for WorkerCmd {
                 write!(f, "NewBlock({}, {:?})", height, new_block)
             }
             WorkerCmd::ClearPendingPackets => write!(f, "CleaPendingPackets"),
-            WorkerCmd::Beefy { mmr_root } => {
-                write!(f, "mmr root: {:?}", mmr_root)
+            WorkerCmd::Beefy { header } => {
+                write!(f, "mmr root: {:?}", header)
             }
         }
     }

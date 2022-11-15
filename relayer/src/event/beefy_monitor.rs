@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
 use core::cmp::Ordering;
+use tendermint::Time;
 
 use crossbeam_channel as channel;
 use flex_error::{define_error, TraceError};
@@ -12,19 +13,13 @@ use tokio::task::JoinHandle;
 use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, trace};
 
-use tendermint_rpc::{event::Event as RpcEvent, Url};
-use octopusxt::MyConfig;
 use octopusxt::ibc_node::RuntimeApi;
+use octopusxt::MyConfig;
 use octopusxt::SubstrateNodeTemplateExtrinsicParams;
 use subxt::{
-    Client, ClientBuilder, Error as SubstrateError,
-    PairSigner, SignedCommitment,
+    BlockNumber, Client, ClientBuilder, Error as SubstrateError, PairSigner, SignedCommitment,
 };
-
-use ibc::clients::ics10_grandpa::help::{self, MmrRoot};
-use ibc::core::ics02_client::height::Height;
-use ibc::core::ics24_host::identifier::ChainId;
-use ibc::events::IbcEvent;
+use tendermint_rpc::{event::Event as RpcEvent, Url};
 
 use crate::error::Error as RelayError;
 use crate::util::{
@@ -32,7 +27,13 @@ use crate::util::{
     stream::try_group_while,
 };
 use beefy_light_client::commitment;
-use sp_core::hexdisplay::HexDisplay;
+use codec::{Decode, Encode};
+use ibc::clients::ics10_grandpa::help::{self, MmrRoot};
+use ibc::clients::ics10_grandpa::{header::Header, help::ValidatorMerkleProof};
+use ibc::core::ics02_client::height::Height;
+use ibc::core::ics24_host::identifier::ChainId;
+use ibc::events::IbcEvent;
+use sp_core::{hexdisplay::HexDisplay, H256};
 
 use std::future::Future;
 use tokio::runtime::Runtime;
@@ -59,8 +60,8 @@ pub use super::monitor::Error;
 // pub type EventReceiver = channel::Receiver<Result<EventBatch>>;
 
 pub type BeefyResult<T> = Result<T, Error>;
-pub type BeefySender = channel::Sender<BeefyResult<MmrRoot>>;
-pub type BeefyReceiver = channel::Receiver<BeefyResult<MmrRoot>>;
+pub type BeefySender = channel::Sender<BeefyResult<Header>>;
+pub type BeefyReceiver = channel::Receiver<BeefyResult<Header>>;
 
 pub use super::monitor::MonitorCmd;
 pub use super::monitor::TxMonitorCmd;
@@ -130,7 +131,7 @@ pub struct BeefyMonitor {
     /// Async task handle for the WebSocket client's driver
     // driver_handle: JoinHandle<()>,
     /// Channel to handler where the monitor for this chain sends the events
-    tx_beefy: channel::Sender<BeefyResult<MmrRoot>>,
+    tx_beefy: channel::Sender<BeefyResult<Header>>,
     /// Channel where to receive client driver errors
     rx_err: mpsc::UnboundedReceiver<tendermint_rpc::Error>,
     /// Channel where to send client driver errors
@@ -316,8 +317,12 @@ impl BeefyMonitor {
         // };
 
         // let &mut sub = self.subscription.as_ref().unwrap();
-        
-        let api = self.client.clone().to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
+
+        let api = self
+            .client
+            .clone()
+            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
+            );
 
         let sub = self
             .rt
@@ -443,32 +448,34 @@ impl BeefyMonitor {
 
     /// Collect the IBC events from the subscriptions
     fn process_beefy_msg(&self, raw_sc: SignedCommitment) -> BeefyResult<()> {
-        tracing::trace!("in beefy_mointor: [process_beefy_msg]");
+        tracing::trace!(target:"ibc-rs","in beefy_mointor: [process_beefy_msg]");
         println!("in beefy_mointor: [process_beefy_msg]");
         //build mmr root
-        let result = self
-            .rt
-            .block_on(octopusxt::build_mmr_root(self.client.clone(), raw_sc));
-        tracing::trace!(
-            "in beefy_monitor: [process_beefy_msg], build mmr root : {:?} ",
-            result
+        // let result = self
+        //     .rt
+        //     .block_on(octopusxt::build_mmr_root(self.client.clone(), raw_sc));
+
+        let header = self.rt.block_on(self.build_header(raw_sc));
+        tracing::trace!(target:"ibc-rs",
+            "in beefy_monitor: [process_beefy_msg], build header: {:?} ",
+            header
         );
         // println!(
         //     "in beefy_monitor: [process_beefy_msg], build mmr root : {:?} ",
         //     result
         // );
-        if let Ok(mmr_root) = result {
+        if let Ok(h) = header {
             // send to msg queue
-            tracing::trace!(
+            tracing::trace!(target:"ibc-rs",
                 "in beefy_monitor: [process_beefy_msg], send mmr root : {:?} ",
-                mmr_root
+                h
             );
             println!(
                 "in beefy_monitor: [process_beefy_msg], chain id: {:?} ",
                 self.chain_id.as_str(),
             );
             self.tx_beefy
-                .send(Ok(mmr_root))
+                .send(Ok(h))
                 .map_err(|_| Error::channel_send_failed())?;
         }
         // if result.is_ok() {
@@ -480,18 +487,173 @@ impl BeefyMonitor {
         Ok(())
     }
     /// Subscribe beefy msg
-    pub async fn subscribe_beefy(
-        &self,
-    ) -> Result<SignedCommitment, Box<dyn std::error::Error>> {
-        tracing::info!("In call_ibc: [subscribe_beefy_justifications]");
-        let api = self.client.clone()
-            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>();
-    
+    pub async fn subscribe_beefy(&self) -> Result<SignedCommitment, Box<dyn std::error::Error>> {
+        tracing::info!(target:"ibc-rs","in beefy monitor: [subscribe_beefy]");
+        let api = self
+            .client
+            .clone()
+            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
+            );
+
         let mut sub = api.client.rpc().subscribe_beefy_justifications().await?;
-    
+
         let raw = sub.next().await.unwrap().unwrap();
-    
+
         Ok(raw)
+    }
+    
+    pub async fn build_header(&self, raw_sc: SignedCommitment) -> Result<Header, RelayError> {
+        tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header]");
+
+        // decode signed commitment
+        let signed_commmitment: beefy_light_client::commitment::SignedCommitment =
+            Decode::decode(&mut &raw_sc.0[..]).unwrap();
+        tracing::trace!(target:"ibc-rs",
+                "in beefy monitor: [build_header] decode signed commitment : {:?},", signed_commmitment);
+        // get commitment
+        let beefy_light_client::commitment::Commitment {
+            payload,
+            block_number,
+            validator_set_id,
+        } = signed_commmitment.commitment.clone();
+        tracing::trace!(target:"ibc-rs",
+            "in beefy monitor: [build_header] new mmr root block_number : {:?},", block_number);
+        // build validator proof
+        let validator_merkle_proofs: Vec<ValidatorMerkleProof> =
+            octopusxt::update_client_state::build_validator_proof(
+                self.client.clone(),
+                block_number,
+            )
+            .await
+            .map_err(|_| RelayError::get_validator_merkle_proof())?;
+
+        // build mmr proof
+        let api = self
+            .client
+            .clone()
+            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
+            );
+
+        // get block hash
+        let block_hash: Option<H256> = api
+            .client
+            .rpc()
+            .block_hash(Some(BlockNumber::from(block_number)))
+            .await
+            .map_err(|_| RelayError::get_block_hash_error())?;
+
+        tracing::trace!(target:"ibc-rs",
+            "in beefy monitor: [build_header] block_number:{:?} >> block_hash{:?}",block_number,
+            block_hash
+        );
+
+        // create proof
+        let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
+            Some(BlockNumber::from(block_number - 1)),
+            block_hash,
+            self.client.clone(),
+        )
+        .await
+        .map_err(|_| RelayError::get_mmr_leaf_and_mmr_proof_error())?;
+        tracing::trace!(target:"ibc-rs",
+            "in beefy monitor: [build_header] get_mmr_leaf_and_mmr_proof block_hash{:?}",
+            mmr_leaf_and_mmr_leaf_proof.0
+        );
+
+        // build new mmr root
+        let mmr_root = MmrRoot {
+            signed_commitment: signed_commmitment.into(),
+            validator_merkle_proofs: validator_merkle_proofs,
+            mmr_leaf: mmr_leaf_and_mmr_leaf_proof.1,
+            mmr_leaf_proof: mmr_leaf_and_mmr_leaf_proof.2,
+        };
+
+        let api = self
+            .client
+            .clone()
+            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
+            );
+
+        // get block header
+        let block_header = octopusxt::ibc_rpc::get_header_by_block_number(
+            Some(BlockNumber::from(block_number)),
+            self.client.clone(),
+        )
+        .await
+        .map_err(|_| RelayError::get_header_by_block_number_error())?;
+
+        // let block_header = block_header.unwrap();
+        tracing::trace!(target:"ibc-rs",
+            "in beefy monitor: [build_header] >> block_header = {:?}",
+            block_header
+        );
+
+        //build timestamp
+        // let timestamp = octopusxt::ibc_rpc::get_timestamp(
+        //     Some(BlockNumber::from(target_height)),
+        //     client.clone(),
+        // )
+        // .await
+        // .map_err(|_| Error::get_timestamp())?;
+        let timestamp = Time::from_unix_timestamp(0, 0).unwrap();
+
+        tracing::trace!(target:"ibc-rs",
+            "in beefy monitor: [build_header] >> timestamp = {:?}",
+            timestamp
+        );
+
+        //TODO: test verify mmr root and verify header
+        tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] ---------------------test[begin]-----------------------");
+
+        // decode mmr leaf
+        let mmr_leaf: Vec<u8> = Decode::decode(&mut &mmr_root.mmr_leaf.clone()[..]).unwrap();
+        tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
+        let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*mmr_leaf).unwrap();
+        tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] mmr_leaf to data struct: {:?}",mmr_leaf);
+
+        // decode mmr leaf proof
+        let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(
+            &mut &mmr_root.mmr_leaf_proof.clone()[..],
+        )
+        .unwrap();
+        tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] block_header.block_number:{:?},mmr root heigh:{:?},mmr_leaf.parent_number:{:?},mmr_leaf_proof.leaf_index{:?},mmr_leaf_proof.leaf_count: {:?}",block_header.block_number,block_number,mmr_leaf.parent_number_and_hash.0,mmr_leaf_proof.leaf_index, mmr_leaf_proof.leaf_count);
+
+        // log mmr leaf
+        tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] block_header.parent_hash: {:?}",block_header.parent_hash);
+        tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
+
+        // verfiy block header
+        if block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
+            tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec()");
+        } else {
+            tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] header.block_header.parent_hash == mmr_leaf.parent_number_and_hash.1.to_vec()");
+        }
+
+        let beefy_header =
+            beefy_light_client::header::Header::try_from(block_header.clone()).unwrap();
+        let header_hash = beefy_header.hash();
+        tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] header_hash: {:?}",header_hash);
+        tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
+        if header_hash != mmr_leaf.parent_number_and_hash.1 {
+            tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] header_hash != mmr_leaf.parent_number_and_hash.1");
+        } else {
+            tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] header_hash == mmr_leaf.parent_number_and_hash.1");
+        }
+
+        tracing::trace!(target:"ibc-rs","in beefy monitor: [build_header] ---------------------test[end]-----------------------");
+
+        // build header
+        let grandpa_header = Header {
+            mmr_root: mmr_root,
+            block_header: block_header,
+            timestamp: timestamp,
+        };
+
+        tracing::trace!(target:"ibc-rs",
+            "in beefy monitor: [build_header] >> grandpa_header = {:?}",
+            grandpa_header
+        );
+        Ok(grandpa_header)
     }
 }
 

@@ -62,7 +62,9 @@ use super::{
     tx::TrackedMsgs,
     ChainEndpoint, HealthCheck,
 };
+use ibc::clients::ics10_grandpa::header::Header as GPheader;
 use ibc::clients::ics10_grandpa::help::MmrRoot;
+
 use ibc::core::ics24_host::identifier::ChainId;
 use std::thread::sleep;
 
@@ -147,7 +149,7 @@ pub struct ChainRuntime<Endpoint: ChainEndpoint> {
     event_monitor_ctrl: EventMonitorCtrl,
 
     /// An beefy bus, for broadcasting beefy msg that this runtime receives (via `beefy_receiver`) to subscribers
-    beefy_bus: EventBus<Arc<BeefyResult<MmrRoot>>>,
+    beefy_bus: EventBus<Arc<BeefyResult<GPheader>>>,
     /// Interface to the event monitor
     beefy_monitor_ctrl: BeefyMonitorCtrl,
 
@@ -240,11 +242,11 @@ where
                         },
                     }
                 },
-                recv(self.beefy_monitor_ctrl.recv()) -> mmr_root => {
-                    match mmr_root {
-                        Ok(mmr_root) => {
+                recv(self.beefy_monitor_ctrl.recv()) -> header => {
+                    match header {
+                        Ok(header) => {
                             self.beefy_bus
-                                .broadcast(Arc::new(mmr_root));
+                                .broadcast(Arc::new(header));
                         },
                         Err(e) => {
                             error!("received error via beefy bus: {}", e);
@@ -441,18 +443,18 @@ where
                             self.websocket_url(reply_to)?
                         },
 
-                        Ok(ChainRequest::UpdateMmrRoot { client_id,mmr_root, reply_to }) => {
+                        Ok(ChainRequest::UpdateMmrRoot { client_id,header, reply_to }) => {
                             tracing::trace!(
                                 "in runtime: [run], ChainRequest::UpdateMmrRoot, client_id = {:?},mmr_root ={:?} ",
                                 client_id,
-                                mmr_root
+                                header
                             );
                             println!(
                                 "in runtime: [run], ChainRequest::UpdateMmrRoot, chain_id = {:?},client_id = {:?} ",
                                 self.chain.id(),
                                 client_id,
                             );
-                            self.update_mmr_root(client_id,mmr_root,reply_to,)?
+                            self.update_mmr_root(client_id,header,reply_to,)?
                         },
 
                         Ok(ChainRequest::QueryHostConsensusState { height, reply_to }) => {
@@ -939,10 +941,10 @@ where
     fn update_mmr_root(
         &mut self,
         client_id: ClientId,
-        mmr_root: MmrRoot,
+        header: GPheader,
         reply_to: ReplyTo<()>,
     ) -> Result<(), Error> {
-        let result = self.chain.update_mmr_root(client_id, mmr_root);
+        let result = self.chain.update_mmr_root(client_id, header);
         reply_to.send(result).map_err(Error::send)
     }
 
