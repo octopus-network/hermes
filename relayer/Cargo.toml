@@ -66,8 +66,8 @@ uuid = { version = "1.1.2", features = ["v4"] }
 
 
 jsonrpsee = { version = "0.14", features = ["macros", "ws-client", "http-client"] }
-octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "dev" }
-# octopusxt = { path = "../../octopusxt/module" }
+octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/m4v2-hermes1.0" }
+# octopusxt = { path = "/home/burt/p2/src/blk/cdot/octopus/octopusxt/module" }
 
 subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'master' }
 codec = { package = 'parity-scale-codec', version = '3.1.2', features = ['derive', 'full'] }
