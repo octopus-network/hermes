@@ -350,6 +350,22 @@ dependencies = [
 [[package]]
 name = "beefy-light-client"
 version = "0.1.0"
+source = "git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.18#c625ba01e349fac212da67bbdfd7c837472fefc1"
+dependencies = [
+ "beefy-merkle-tree",
+ "blake2-rfc",
+ "borsh",
+ "ckb-merkle-mountain-range",
+ "hex",
+ "libsecp256k1",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+]
+
+[[package]]
+name = "beefy-light-client"
+version = "0.1.0"
 source = "git+https://github.com/octopus-network/beefy-light-client.git?branch=main#113215ed340d3cc3f61dd9f4e8b8a6138f5ab736"
 dependencies = [
  "beefy-merkle-tree",
@@ -2044,7 +2060,7 @@ dependencies = [
 name = "ibc"
 version = "0.16.0"
 dependencies = [
- "beefy-light-client",
+ "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.18)",
  "beefy-merkle-tree",
  "blake2-rfc",
  "bytes",
@@ -2126,7 +2142,7 @@ dependencies = [
  "anyhow",
  "async-stream",
  "bech32 0.9.1",
- "beefy-light-client",
+ "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=main)",
  "bitcoin",
  "bytes",
  "crossbeam-channel 0.5.6",
@@ -3090,7 +3106,7 @@ version = "0.1.0"
 source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/m4v2-hermes1.0#c9997d55e050b83de250fea2a8a2aa2530d500a9"
 dependencies = [
  "anyhow",
- "beefy-light-client",
+ "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=main)",
  "beefy-merkle-tree",
  "beefy-primitives",
  "env_logger",
