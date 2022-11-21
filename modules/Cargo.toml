@@ -131,6 +131,9 @@ subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch
 tendermint-rpc = { version = "=0.23.7", features = ["http-client", "websocket-client"] }
 tendermint-testgen = { version = "=0.23.7" } # Needed for generating (synthetic) light blocks.
 
+octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/m4v2-hermes1.0" }
+# octopusxt = { path = "../../octopusxt/module" }
+
 [[test]]
 name = "mbt"
 path = "tests/mbt.rs"
