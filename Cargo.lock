@@ -3087,6 +3087,7 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/m4v3-hermes1.0#81a83bf895eb36be0b42b6961cbaee5fe6f4f949"
 dependencies = [
  "anyhow",
  "beefy-light-client",
