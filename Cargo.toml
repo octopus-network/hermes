@@ -123,7 +123,7 @@ sp-version = { git = "https://github.com/paritytech/substrate.git", branch = "po
 beefy-primitives = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18"}
 sp-keyring = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18"}
 
-syn =  { git = "https://github.com/DaviRain-Su/syn.git", branch = "branch-1.0.97" }
+syn =  { git = "https://github.com/octopus-network/syn.git " }
 
 # sc-transaction-pool = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
 # pallet-session = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.18" }
