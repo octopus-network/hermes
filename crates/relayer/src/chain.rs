@@ -7,6 +7,7 @@ pub mod requests;
 pub mod runtime;
 pub mod substrate;
 pub mod tracking;
+pub mod near;
 
 use serde::{de::Error, Deserialize, Serialize};
 
@@ -19,6 +20,7 @@ use serde::{de::Error, Deserialize, Serialize};
 pub enum ChainType {
     /// Chains based on the Cosmos SDK
     CosmosSdk,
+    Near,
 }
 
 impl<'de> Deserialize<'de> for ChainType {
