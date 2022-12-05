@@ -1,7 +1,7 @@
 use super::client::ClientSettings;
 use crate::config::ChainConfig;
 use crate::error::Error;
-use crate::event::substrate_mointor::{EventMonitor, EventReceiver, TxMonitorCmd};
+use crate::event::near_mointor::{EventMonitor, EventReceiver, TxMonitorCmd};
 use crate::keyring::{KeyEntry, KeyRing};
 use tracing::{debug, info, trace};
 
@@ -85,7 +85,7 @@ use sp_core::sr25519;
 use sp_core::{hexdisplay::HexDisplay, Pair, H256};
 use sp_runtime::{traits::IdentifyAccount, MultiSigner};
 use std::thread;
-use subxt::{self, rpc::BlockNumber, rpc::NumberOrHex, OnlineClient};
+use subxt::{self, rpc::BlockNumber, rpc::NumberOrHex, OnlineClient, SubstrateConfig};
 use subxt::rpc::RpcClient;
 use tendermint::abci::transaction;
 use tendermint::abci::{Code, Log};
@@ -98,7 +98,7 @@ pub const REVISION_NUMBER: u64 = 0;
 /// A struct used to start a Near chain instance in relayer
 #[derive(Debug)]
 pub struct NearChain {
-    client: RpcClient, //todo!()//Bob,
+    client: OnlineClient<SubstrateConfig>, //todo!()//Bob,
     config: ChainConfig,
     keybase: KeyRing,
     rt: Arc<TokioRuntime>,
@@ -342,7 +342,20 @@ impl ChainEndpoint for NearChain {
             "in near: [init_event_mointor] >> websocket addr: {:?}",
             self.config.websocket_addr.clone()
         );
-        todo!()//Bob
+
+        let (mut event_monitor, event_receiver, monitor_tx) = EventMonitor::new(
+            self.config.id.clone(),
+            self.client.clone(),
+            self.config.websocket_addr.clone(),
+            rt,
+        )
+            .map_err(Error::event_monitor)?;
+
+        event_monitor.subscribe().map_err(Error::event_monitor)?;
+
+        thread::spawn(move || event_monitor.run());
+
+        Ok((event_receiver, monitor_tx))
     }
 
     fn shutdown(self) -> Result<(), Error> {
