@@ -1031,12 +1031,22 @@ impl ChainEndpoint for SubstrateChain {
 
         let storage_entry = storage::ConsensusStates(&client_consensus_state_path);
 
+        let query_height = match query_height {
+            QueryHeight::Latest => {
+                let height = self
+                    .get_latest_height()
+                    .map_err(|_| Error::query_latest_height())?;
+                Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+            }
+            QueryHeight::Specific(value) => value,
+        };
+
         match include_proof {
             IncludeProof::Yes => Ok((
                 result,
                 Some(self.generate_storage_proof(
                     &storage_entry,
-                    &consensus_height,
+                    &query_height,
                     "ConsensusStates",
                 )?),
             )),
