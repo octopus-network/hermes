@@ -79,6 +79,10 @@ impl WorkerHandle {
             tracking_id,
         };
 
+        if self.tx.acquire_read().as_ref().unwrap().len() != 0 {
+            tracing::trace!("in runtime: [send_events] -- relayer_process_channel_events 20) len: {:?}", self.tx.acquire_read().as_ref().unwrap().len());
+        }
+
         self.try_send_command(WorkerCmd::IbcEvents { batch });
     }
 

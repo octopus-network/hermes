@@ -31,12 +31,19 @@ impl<T> EventBus<T> {
         T: Clone + core::fmt::Debug,
     {
         let mut disconnected = Vec::new();
+        tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 4) len: {:?}, value: {:?}",
+                        self.txs.len(), value.clone());
 
         for (idx, tx) in self.txs.iter().enumerate() {
+            tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 4.5) len: {:?}, value: {:?}",
+                            tx.len(), value.clone());
             // TODO: Avoid cloning when sending to last subscriber
             if let Err(channel::SendError(_)) = tx.send(value.clone()) {
                 disconnected.push(idx);
+                tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 6), disconnected. len: {:?} value: {:?}",
+                                tx.len(), value.clone());
             }
+            tracing::trace!("in bus: [broadcast] -- relayer_process_channel_events 5), len: {:?}, value: {:?}", tx.len(), value.clone());
         }
 
         // Remove all disconnected subscribers

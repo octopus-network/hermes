@@ -72,6 +72,10 @@ pub fn spawn_packet_cmd_worker<ChainA: ChainHandle, ChainB: ChainHandle>(
         )
     };
 
+    if cmd_rx.len() != 0 {
+        tracing::trace!("in packet: [run] -- relayer_process_channel_events 30) len: {:?}", cmd_rx.len());
+    }
+
     spawn_background_task(span, Some(Duration::from_millis(200)), move || {
         if let Ok(cmd) = cmd_rx.try_recv() {
             // Try to clear pending packets. At different levels down in `handle_packet_cmd` there

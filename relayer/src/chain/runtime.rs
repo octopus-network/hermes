@@ -234,6 +234,7 @@ where
                 recv(self.event_monitor_ctrl.recv()) -> event_batch => {
                     match event_batch {
                         Ok(event_batch) => {
+                            tracing::trace!("runtime -[run] -- relayer_process_channel_events 2.1 event_batch={:?}", event_batch);
                             self.event_bus
                                 .broadcast(Arc::new(event_batch));
                         },
@@ -246,6 +247,7 @@ where
                 recv(self.beefy_monitor_ctrl.recv()) -> header => {
                     match header {
                         Ok(header) => {
+                            tracing::trace!("runtime -[run] -- relayer_process_channel_events 2.2 beefy_monitor_ctrl header={:?}", header);
                             self.beefy_bus
                                 .broadcast(Arc::new(header));
                         },
@@ -256,6 +258,7 @@ where
                     }
                 },
                 recv(self.request_receiver) -> event => {
+                    tracing::trace!("runtime -[run] -- relayer_process_channel_events 2.3 request_receiver={:?}", event);
                     match event {
                         Ok(ChainRequest::Shutdown { reply_to }) => {
                             self.event_monitor_ctrl.shutdown()?;
