@@ -456,8 +456,8 @@ impl ClientDef for GrandpaClient {
         sequence: Sequence,
         commitment: PacketCommitment,
     ) -> Result<(), Ics02Error> {
-        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_data. port_id={:?}, channel_id={:?}, sequence={:?}",
-            port_id, channel_id, sequence);
+        tracing::trace!(target:"ibc-rs","[ics10_grandpa::client_def] verify_packet_data. port_id={:?}, channel_id={:?}, sequence={:?}, height={:?}",
+            port_id, channel_id, sequence, height);
 
         let commitment_path = CommitmentsPath {
             port_id: port_id.clone(),
@@ -700,7 +700,7 @@ fn get_storage_via_proof(
     let state_root = root.clone().into_vec();
     tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, state_root = {:?}", state_root);
     tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, storage_proof = {:?}", storage_proof);
-    tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, _storage_keys = {:?}", storage_keys);
+    tracing::trace!(target:"ibc-rs", "in client_def -- get_storage_via_proof, storage_keys = {:?}", storage_keys);
     let state_root = vector_to_array::<u8, 32>(state_root);
 
     let storage_result = read_proof_check::<BlakeTwo256>(

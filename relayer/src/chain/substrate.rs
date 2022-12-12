@@ -122,7 +122,7 @@ use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
 
-const MAX_QUERY_TIMES: u64 = 100;
+const MAX_QUERY_TIMES: u64 = 800;
 pub const REVISION_NUMBER: u64 = 8888;
 
 /// A struct used to start a Substrate chain instance in relayer
@@ -740,49 +740,32 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEvent>, Error> {
+        use itertools::Itertools;
         info!(
-            "in substrate: [send_messages_and_wait_commit], proto_msgs={:?}",
-            proto_msgs.tracking_id
+            "in substrate: [send_messages_and_wait_commit], proto_msgs={:?}, first 10 msg_type_urls={:?}",
+            proto_msgs.tracking_id, proto_msgs.msgs.iter().take(10).map(|i| i.type_url.clone()).format(", ")
         );
         use ibc::applications::transfer::msgs::transfer::TYPE_URL as TRANSFER_TYPE_URL;
 
-        match proto_msgs.tracking_id {
-            TrackingId::Uuid(_) => {
-                sleep(Duration::from_secs(4));
-                let result = self
-                    .deliever(proto_msgs.messages().to_vec())
-                    .map_err(|e| Error::deliver_error(e))?;
-                debug!(
-                    "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                    result
-                );
-            }
+        let result = match proto_msgs.tracking_id {
+            TrackingId::Uuid(_) => self.deliever(proto_msgs.messages().to_vec()),
             TrackingId::Static(value) => match value {
-                "ft-transfer" => {
-                    let result = self
-                        .raw_transfer(proto_msgs.messages().to_vec())
-                        .map_err(|_| Error::ics20_transfer())?;
-                    debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
-                }
-                _ => {
-                    sleep(Duration::from_secs(4));
-                    let result = self
-                        .deliever(proto_msgs.messages().to_vec())
-                        .map_err(|e| Error::deliver_error(e))?;
-                    debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
-                }
-            },
-        }
+                "ft-transfer" => self.raw_transfer(proto_msgs.messages().to_vec()),
+                _ => self.deliever(proto_msgs.messages().to_vec()),
+            }
+        };
 
+        if !result.is_ok() {
+            tracing::error!("in Substrate: [send_messages_and_wait_commit] >> error : {:?}", result.err());
+            return Ok(vec![]);
+        }
+        trace!("in substrate: [send_messages_and_wait_commit] >> result: {:?}", result);
+
+        sleep(Duration::from_secs(2));  // Todo: Query the event via the hash in result
         let ibc_event = self
             .subscribe_ibc_events()
             .map_err(|_| Error::subscribe_ibc_events())?;
+        trace!("in substrate: [send_messages_and_wait_commit] >> ibc_event received: {:?}", ibc_event);
 
         Ok(ibc_event)
     }
@@ -791,45 +774,31 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<TxResponse>, Error> {
+        use itertools::Itertools;
         debug!(
-            "in substrate: [send_messages_and_wait_check_tx], proto_msgs={:?}",
-            proto_msgs.tracking_id
+            "in substrate: [send_messages_and_wait_check_tx], proto_msgs={:?}, first 10 msg_type_urls={:?}",
+            proto_msgs.tracking_id, proto_msgs.msgs.iter().take(10).map(|i| i.type_url.clone()).format(", ")
         );
 
-        match proto_msgs.tracking_id {
+        let result = match proto_msgs.tracking_id {
             TrackingId::Uuid(_) => {
-                sleep(Duration::from_secs(4));
-                let result = self
-                    .deliever(proto_msgs.messages().to_vec())
-                    .map_err(|e| Error::deliver_error(e))?;
-                debug!(
-                    "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                    result
-                );
+                self.deliever(proto_msgs.messages().to_vec())
             }
             TrackingId::Static(value) => match value {
                 "ft-transfer" => {
-                    let result = self
-                        .raw_transfer(proto_msgs.messages().to_vec())
-                        .map_err(|_| Error::ics20_transfer())?;
-
-                    debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
+                    self.raw_transfer(proto_msgs.messages().to_vec())
                 }
                 _ => {
-                    sleep(Duration::from_secs(4));
-                    let result = self
-                        .deliever(proto_msgs.messages().to_vec())
-                        .map_err(|e| Error::deliver_error(e))?;
-                    debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
+                    self.deliever(proto_msgs.messages().to_vec())
                 }
-            },
+            }
+        };
+
+        if !result.is_ok() {
+            tracing::error!("in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}", result.err());
+            return Ok(vec![]);
         }
+        trace!("in substrate: [send_messages_and_wait_check_tx] >> result: {:?}", result);
 
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
         let tx_re = TxResponse {

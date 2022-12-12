@@ -64,7 +64,7 @@ impl Height {
     }
 
     pub fn decrement(&self) -> Result<Height, Error> {
-        self.sub(1)
+        self.sub(0)
     }
 }
 
