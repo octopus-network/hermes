@@ -355,38 +355,15 @@ name = "beefy-light-client"
 version = "0.1.0"
 source = "git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.18#c625ba01e349fac212da67bbdfd7c837472fefc1"
 dependencies = [
- "beefy-merkle-tree 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18)",
+ "beefy-merkle-tree",
  "blake2-rfc",
  "borsh",
- "ckb-merkle-mountain-range 0.4.0",
+ "ckb-merkle-mountain-range",
  "hex",
  "libsecp256k1",
  "parity-scale-codec",
  "scale-info",
  "serde",
-]
-
-[[package]]
-name = "beefy-light-client"
-version = "0.1.0"
-source = "git+https://github.com/octopus-network/beefy-light-client.git?branch=main#4f4a18b9132ed8fcd99e20717db49e929b6ce812"
-dependencies = [
- "beefy-merkle-tree 4.0.0-dev (git+https://github.com/octopus-network/substrate.git?branch=octopus-v0.9.30)",
- "blake2-rfc",
- "borsh",
- "ckb-merkle-mountain-range 0.3.2",
- "hex",
- "libsecp256k1",
- "parity-scale-codec",
- "scale-info",
-]
-
-[[package]]
-name = "beefy-merkle-tree"
-version = "4.0.0-dev"
-source = "git+https://github.com/octopus-network/substrate.git?branch=octopus-v0.9.30#82f5c9999008cbd599a74b0fe554606d6ffceed6"
-dependencies = [
- "tiny-keccak",
 ]
 
 [[package]]
@@ -701,15 +678,6 @@ name = "chunked_transfer"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fff857943da45f546682664a79488be82e69e43c1a7a2307679ab9afb3a66d2e"
-
-[[package]]
-name = "ckb-merkle-mountain-range"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f061f97d64fd1822664bdfb722f7ae5469a97b77567390f7442be5b5dc82a5b"
-dependencies = [
- "cfg-if 0.1.10",
-]
 
 [[package]]
 name = "ckb-merkle-mountain-range"
@@ -2157,8 +2125,8 @@ dependencies = [
 name = "ibc"
 version = "0.16.0"
 dependencies = [
- "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.18)",
- "beefy-merkle-tree 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18)",
+ "beefy-light-client",
+ "beefy-merkle-tree",
  "blake2-rfc",
  "bytes",
  "derive_more",
@@ -2239,7 +2207,7 @@ dependencies = [
  "anyhow",
  "async-stream",
  "bech32 0.9.1",
- "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=feature/v0.9.18)",
+ "beefy-light-client",
  "bitcoin",
  "bytes",
  "crossbeam-channel 0.5.6",
@@ -3316,11 +3284,11 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/m4v3-hermes1.0#81a83bf895eb36be0b42b6961cbaee5fe6f4f949"
+source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/m4v3-hermes1.0#a29257a495ad8fe1cd18c652c9eaa3fe99ccf16b"
 dependencies = [
  "anyhow",
- "beefy-light-client 0.1.0 (git+https://github.com/octopus-network/beefy-light-client.git?branch=main)",
- "beefy-merkle-tree 4.0.0-dev (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.18)",
+ "beefy-light-client",
+ "beefy-merkle-tree",
  "beefy-primitives",
  "env_logger",
  "futures 0.3.25",
@@ -3340,7 +3308,7 @@ dependencies = [
  "sp-runtime",
  "structopt",
  "subtle-encoding",
- "subxt 0.24.0",
+ "subxt 0.21.0",
  "tendermint",
  "tendermint-proto",
  "tokio",
