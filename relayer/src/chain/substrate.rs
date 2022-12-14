@@ -756,7 +756,7 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         if !result.is_ok() {
-            tracing::error!("in Substrate: [send_messages_and_wait_commit] >> error : {:?}", result.err());
+            error!("in Substrate: [send_messages_and_wait_commit] >> error : {:?}", result.err());
             return Ok(vec![]);
         }
         trace!("in substrate: [send_messages_and_wait_commit] >> result: {:?}", result);
