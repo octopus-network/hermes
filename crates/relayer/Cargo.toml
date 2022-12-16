@@ -77,6 +77,17 @@ ics23 = { version = "0.8.0-1" }
 prost-types = { version = "0.11" }
 libsecp256k1 = { version = "0.7.0", features = ["static-context"] }
 
+# for near chain
+near-account-id = "0.15.0"
+near-crypto = "0.15"
+near-primitives = "0.15"
+near-jsonrpc-client = "0.4.0"
+near-jsonrpc-primitives = "0.15"
+
+base64 = "0.12.3"
+tokio-retry = "0.3.0"
+
+
 [dependencies.num-bigint]
 version = "0.4"
 features = ["serde"]

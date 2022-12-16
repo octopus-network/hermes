@@ -1,3 +1,7 @@
+pub mod rpc;
+pub mod constants;
+pub mod contract;
+
 use super::client::ClientSettings;
 use crate::config::ChainConfig;
 use crate::error::Error;
@@ -85,23 +89,43 @@ use sp_core::sr25519;
 use sp_core::{hexdisplay::HexDisplay, Pair, H256};
 use sp_runtime::{traits::IdentifyAccount, MultiSigner};
 use std::thread;
-use subxt::{self, rpc::BlockNumber, rpc::NumberOrHex, OnlineClient};
-use subxt::rpc::RpcClient;
+use near_account_id::AccountId;
+use near_crypto::{InMemorySigner, KeyType};
+use near_primitives::types::Gas;
+use near_primitives::views::FinalExecutionOutcomeView;
+use serde_json::json;
 use tendermint::abci::transaction;
 use tendermint::abci::{Code, Log};
 use tendermint::time::Time;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
+use crate::chain::near::contract::{NearIbcContract, NearIbcContractInteractor};
+use crate::chain::near::rpc::client::NearRpcClient;
 
 pub const REVISION_NUMBER: u64 = 0;
 
 /// A struct used to start a Near chain instance in relayer
 #[derive(Debug)]
 pub struct NearChain {
-    client: RpcClient, //todo!()//Bob,
+    client: NearRpcClient,
     config: ChainConfig,
     keybase: KeyRing,
+    near_ibc_contract: AccountId,
     rt: Arc<TokioRuntime>,
+}
+
+impl NearIbcContract for NearChain {
+    fn get_contract_id(&self) -> AccountId {
+        self.near_ibc_contract.clone()
+    }
+
+    fn get_client(&self) -> &NearRpcClient {
+        &self.client
+    }
+
+    fn get_rt(&self) -> &Arc<TokioRuntime> {
+        &self.rt
+    }
 }
 
 impl NearChain {
@@ -115,41 +139,22 @@ impl NearChain {
     }
 
     /// Subscribe Events
-    fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>, subxt::error::Error> {
+    /// todo near don't have events subscription
+    fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>> {
         tracing::trace!("in near: [subscribe_ibc_events]");
         todo!()//Bob
     }
 
     /// get latest block height
-    fn get_latest_height(&self) -> Result<Height, subxt::error::Error> {
+    fn get_latest_height(&self) -> Result<Height> {
         tracing::trace!("in near: [get_latest_height]");
 
-        // let height_number = self.block_on(rpc::get_latest_height(self.client.clone()))?;
-        // Ok(Height::new(0, height_number).expect("never failed"))
-        todo!()//Bob
-    }
+        // let x = self.client.view_block(Option::None);
 
-    /// get connectionEnd by connection_identifier
-    fn query_connection_end(
-        &self,
-        connection_identifier: &ConnectionId,
-    ) -> Result<ConnectionEnd, subxt::error::Error> {
-        tracing::trace!("in near: [query_connection_end]");
-        // self.block_on(rpc::query_connection_end(
-        //     connection_identifier,
-        //     self.client.clone(),
-        // ))
-        todo!()//Bob
-    }
+        let height_number = self.block_on(self.client.view_block(None)).unwrap().header.height;
 
-    /// query channelEnd  by port_identifier, and channel_identifier
-    fn query_channel_end(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-    ) -> Result<ChannelEnd, subxt::error::Error> {
-        tracing::trace!("in near: [query_channel_end]");
-        todo!()//Bob
+        // todo confirm revision_number is 0?
+        Ok(Height::new(0, height_number).unwrap())
     }
 
     /// get packet receipt by port_id, channel_id and sequence
@@ -158,114 +163,58 @@ impl NearChain {
         port_id: &PortId,
         channel_id: &ChannelId,
         seq: &Sequence,
-    ) -> Result<Receipt, subxt::error::Error> {
+    ) -> Result<Receipt> {
         tracing::trace!("in near: [get_packet_receipt]");
-        todo!()//Bob
+
+        let port_id = serde_json::to_string(port_id).unwrap();
+        let channel_id = serde_json::to_string(channel_id).unwrap();
+        let seq = serde_json::to_string(seq).unwrap();
+
+        // self.block_on(self.client.view(
+        //     self.near_ibc_contract.clone(),
+        //     "get_packet_receipt".to_string(),
+        //     json!({"port_id": port_id, "channel_id": channel_id, "seq": seq}).to_string().into_bytes()
+        // )).expect("Failed to get_packet_receipt.").json()
+
+        todo!()  // todo the receipt can't deserialize
     }
 
-    // TODO(davirain) need add query height
-    /// get client_state by client_id
-    fn query_client_state(
-        &self,
-        client_id: &ClientId,
-    ) -> Result<AnyClientState, subxt::error::Error> {
-        tracing::trace!("in near: [query_client_state]");
-        todo!()//Bob
-    }
-
-    // TODO(davirain) need add query height
-    /// Performs a query to retrieve the consensus state for a specified height
-    /// `consensus_height` that the specified light client stores.
-    fn query_client_consensus(
-        &self,
-        client_id: &ClientId,
-        consensus_height: &ICSHeight,
-    ) -> Result<AnyConsensusState, subxt::error::Error> {
-        tracing::trace!("in near: [query_client_consensus]");
-        todo!()//Bob
-    }
-
-    fn get_consensus_state_with_height(
-        &self,
-        client_id: &ClientId,
-    ) -> Result<Vec<(Height, AnyConsensusState)>, subxt::error::Error> {
-        tracing::trace!("in near: [get_consensus_state_with_height]");
-        todo!()//Bob
-    }
-
-    fn get_unreceipt_packet(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        sequences: &[Sequence],
-    ) -> Result<Vec<u64>, subxt::error::Error> {
-        tracing::trace!("in near: [get_unreceipt_packet]");
-        todo!()//Bob
-    }
-
-    fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>, subxt::error::Error> {
-        tracing::trace!("in near: [get_clients]");
-        todo!()//Bob
-    }
-
-    fn get_connections(&self) -> Result<Vec<IdentifiedConnectionEnd>, subxt::error::Error> {
-        tracing::trace!("in near: [get_connections]");
-        todo!()//Bob
-    }
-
-    fn get_channels(&self) -> Result<Vec<IdentifiedChannelEnd>, subxt::error::Error> {
-        tracing::trace!("in near: [get_channels]");
-        todo!()//Bob
-    }
-
-    fn get_commitment_packet_state(&self) -> Result<Vec<PacketState>, subxt::error::Error> {
-        tracing::trace!("in near: [get_commitment_packet_state]");
-        todo!()//Bob
-    }
-
-    /// get packet commitment by port_id, channel_id and sequence
-    fn get_packet_commitment(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        sequence: &Sequence,
-    ) -> Result<Vec<u8>, subxt::error::Error> {
-        tracing::trace!("in near: [get_packet_commitment]");
-        todo!()//Bob
-    }
-
-    fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>, subxt::error::Error> {
-        tracing::trace!("in near: [get_acknowledge_packet_state]");
-        todo!()//Bob
-    }
-
-    /// get connection_identifier vector by client_identifier
-    fn get_client_connections(
-        &self,
-        client_id: &ClientId,
-    ) -> Result<Vec<ConnectionId>, subxt::error::Error> {
-        tracing::trace!("in near: [get_client_connections]");
-        todo!()//Bob
-    }
-
-    fn get_connection_channels(
-        &self,
-        connection_id: &ConnectionId,
-    ) -> Result<Vec<IdentifiedChannelEnd>, subxt::error::Error> {
-        tracing::trace!("in near: [get_connection_channels]");
-        todo!()//Bob
-    }
+    // fn get_clients(&self) -> Result<Vec<IdentifiedAnyClientState>> {
+    //
+    //     tracing::trace!("in near: [get_clients]");
+    //     self.block_on(self.client.view(
+    //         self.near_ibc_contract.clone(),
+    //         "get_clients".to_string(),
+    //         json!({}).to_string().into_bytes()
+    //     )).expect("Failed to get_clients.").json()
+    // }
 
     /// The function to submit IBC request to a Near chain
     /// This function handles most of the IBC reqeusts to Near, except the MMR root update
-    fn deliever(&self, msgs: Vec<Any>) -> Result<H256, subxt::error::Error> {
+    fn deliever(&self, msgs: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
         info!("in near: [deliever]");
-        todo!()//Bob
+        let msg = serde_json::to_string(&msgs).unwrap();
+
+        let signer = InMemorySigner::from_random("bob.testnet".parse().unwrap(), KeyType::ED25519);
+        self.block_on(self.client.call(
+            &signer,
+            &self.near_ibc_contract,
+            "deliever".to_string(),
+            json!({"messages": msg}).to_string().into_bytes(), 300000000000000,1
+        ))
     }
 
-    fn raw_transfer(&self, msgs: Vec<Any>) -> Result<H256, subxt::error::Error> {
+    fn raw_transfer(&self, msgs: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
         tracing::trace!("in near: [raw_transfer]");
-        todo!()//Bob
+        let msg = serde_json::to_string(&msgs).unwrap();
+
+        let signer = InMemorySigner::from_random("bob.testnet".parse().unwrap(), KeyType::ED25519);
+        self.block_on(self.client.call(
+            &signer,
+            &self.near_ibc_contract,
+            "deliever".to_string(),
+            json!({"messages": msg}).to_string().into_bytes(), 300000000000000,1
+        ))
     }
 
     /// Retrieve the storage proof according to storage keys
@@ -276,42 +225,7 @@ impl NearChain {
         height: &Height,
         _storage_name: &str,
     ) -> Result<MerkleProof, Error> {
-        todo!()//Bob
-    }
-
-    fn query_packet_commitment(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        sequence: &Sequence,
-    ) -> Result<Vec<u8>, subxt::error::Error> {
-        todo!()//Bob
-    }
-
-    fn query_packet_receipt(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        sequence: &Sequence,
-    ) -> Result<Vec<u8>, subxt::error::Error> {
-        todo!()//Bob
-    }
-
-    fn query_next_sequence_receive(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-    ) -> Result<Sequence, subxt::error::Error> {
-        todo!()//Bob
-    }
-
-    fn query_packet_acknowledgement(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        sequence: &Sequence,
-    ) -> Result<Vec<u8>, subxt::error::Error> {
-        todo!()//Bob
+        todo!()//Bob, need to research
     }
 }
 
@@ -329,6 +243,7 @@ impl ChainEndpoint for NearChain {
         self.config().clone()
     }
 
+    // todo init NearChain
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
         tracing::info!("in near: [bootstrap function]");
         todo!()//Bob
@@ -421,7 +336,7 @@ impl ChainEndpoint for NearChain {
 
     // versioning
     fn ibc_version(&self) -> Result<Option<Version>, Error> {
-        // todo(davirian)
+        // todo(bob)
         Ok(None)
     }
 
@@ -590,11 +505,18 @@ impl ChainEndpoint for NearChain {
     }
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
-        tracing::trace!("in near: [query_commitment_prefix]");
+        tracing::trace!("in near: [get_commitment_prefix]");
+        self.get_commitment_prefix().map_err(|e|Error::report_error("invalid_commitment_prefix".to_string()))
+
+        // self.block_on(self.client.view(
+        //     self.near_ibc_contract.clone(),
+        //     "get_commitment_prefix".to_string(),
+        //     json!({}).to_string().into_bytes()
+        // )).and_then(|e| e.json())
 
         // TODO - do a real chain query
-        CommitmentPrefix::try_from(self.config().store_prefix.as_bytes().to_vec())
-            .map_err(|_| Error::report_error("invalid_commitment_prefix".to_string()))
+        // CommitmentPrefix::try_from(self.config().store_prefix.as_bytes().to_vec())
+        //     .map_err(|_| Error::report_error("invalid_commitment_prefix".to_string()))
     }
 
     fn query_application_status(&self) -> Result<ChainStatus, Error> {
@@ -617,7 +539,7 @@ impl ChainEndpoint for NearChain {
         tracing::trace!("in near: [query_clients]");
 
         let result = self
-            .get_clients()
+            .get_clients(_request)
             .map_err(|_| Error::report_error("get_clients".to_string()))?;
 
         Ok(result)
@@ -643,7 +565,7 @@ impl ChainEndpoint for NearChain {
         };
 
         let result = self
-            .query_client_state(&client_id)
+            .get_client_state(&client_id)
             .map_err(|_| Error::report_error("query_client_state".to_string()))?;
 
         let client_state_path = ClientStatePath(client_id.clone()).to_string();
@@ -676,7 +598,7 @@ impl ChainEndpoint for NearChain {
         } = request;
 
         let result = self
-            .query_client_consensus(&client_id, &consensus_height)
+            .get_client_consensus(&client_id, &consensus_height)
             .map_err(|_| Error::report_error("query_client_consensus".to_string()))?;
 
         // search key
@@ -759,7 +681,7 @@ impl ChainEndpoint for NearChain {
         tracing::trace!("in near: [query_connections]");
 
         let result = self
-            .get_connections()
+            .get_connections(_request)
             .map_err(|_| Error::report_error("get_connections".to_string()))?;
 
         Ok(result)
@@ -786,7 +708,7 @@ impl ChainEndpoint for NearChain {
         } = request;
 
         let connection_end = self
-            .query_connection_end(&connection_id)
+            .get_connection_end(&connection_id)
             .map_err(|_| Error::report_error("query_connection_end".to_string()))?;
 
         // update ConnectionsPath key
@@ -838,7 +760,7 @@ impl ChainEndpoint for NearChain {
         tracing::trace!("in near: [query_channels]");
 
         let result = self
-            .get_channels()
+            .get_channels(_request)
             .map_err(|_| Error::report_error("get_channels".to_string()))?;
 
         Ok(result)
@@ -858,7 +780,7 @@ impl ChainEndpoint for NearChain {
         } = request;
 
         let channel_end = self
-            .query_channel_end(&port_id, &channel_id)
+            .get_channel_end(&port_id, &channel_id)
             .map_err(|_| Error::report_error("query_channel_end".to_string()))?;
 
         // use channel_end path as key
@@ -912,7 +834,7 @@ impl ChainEndpoint for NearChain {
         } = request;
 
         let packet_commit = self
-            .query_packet_commitment(&port_id, &channel_id, &sequence)
+            .get_packet_commitment(&port_id, &channel_id, &sequence)
             .map_err(|_| Error::report_error("query_packet_commitment".to_string()))?;
 
         let packet_commits_path = CommitmentsPath {
@@ -953,7 +875,7 @@ impl ChainEndpoint for NearChain {
         tracing::trace!("in near: [query_packet_commitments]");
 
         let packet_commitments = self
-            .get_commitment_packet_state()
+            .get_commitment_packet_state(_request)
             .map_err(|_| Error::report_error("get_commitment_packet_state".to_string()))?
             .into_iter()
             .map(|value| Sequence::from(value.sequence))
@@ -979,7 +901,7 @@ impl ChainEndpoint for NearChain {
         } = request;
 
         let packet_receipt = self
-            .query_packet_receipt(&port_id, &channel_id, &sequence)
+            .get_packet_receipt(&port_id, &channel_id, &sequence)
             .map_err(|_| Error::report_error("query_packet_receipt".to_string()))?;
 
         let packet_receipt_path = ReceiptsPath {
@@ -1052,7 +974,7 @@ impl ChainEndpoint for NearChain {
         } = request;
 
         let packet_acknowledgement = self
-            .query_packet_acknowledgement(&port_id, &channel_id, &sequence)
+            .get_packet_acknowledgement(&port_id, &channel_id, &sequence)
             .map_err(|_| Error::report_error("query_packet_acknowledgement".to_string()))?;
 
         let packet_acknowledgement_path = AcksPath {
@@ -1151,7 +1073,7 @@ impl ChainEndpoint for NearChain {
         } = request;
 
         let next_sequence_receive = self
-            .query_next_sequence_receive(&port_id, &channel_id)
+            .get_next_sequence_receive(&port_id, &channel_id)
             .map_err(|_| Error::report_error("query_next_sequence_receive".to_string()))?;
 
         let next_sequence_receive_path = SeqRecvsPath(port_id.clone(), channel_id.clone())
@@ -1338,6 +1260,7 @@ pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
     let mproofs: Vec<ics23::CommitmentProof> = vec![parsed];
     MerkleProof { proofs: mproofs }
 }
+
 pub fn get_dummy_merkle_proof() -> MerkleProof {
     let parsed = ics23::CommitmentProof { proof: None };
     let mproofs: Vec<ics23::CommitmentProof> = vec![parsed];
