@@ -740,49 +740,32 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEvent>, Error> {
+        use itertools::Itertools;
         info!(
-            "in substrate: [send_messages_and_wait_commit], proto_msgs={:?}",
-            proto_msgs.tracking_id
+            "in substrate: [send_messages_and_wait_commit], proto_msgs={:?}, first 10 msg_type_urls={:?}",
+            proto_msgs.tracking_id, proto_msgs.msgs.iter().take(10).map(|i| i.type_url.clone()).format(", ")
         );
         use ibc::applications::transfer::msgs::transfer::TYPE_URL as TRANSFER_TYPE_URL;
 
-        match proto_msgs.tracking_id {
-            TrackingId::Uuid(_) => {
-                sleep(Duration::from_secs(4));
-                let result = self
-                    .deliever(proto_msgs.messages().to_vec())
-                    .map_err(|e| Error::deliver_error(e))?;
-                debug!(
-                    "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                    result
-                );
-            }
+        let result = match proto_msgs.tracking_id {
+            TrackingId::Uuid(_) => self.deliever(proto_msgs.messages().to_vec()),
             TrackingId::Static(value) => match value {
-                "ft-transfer" => {
-                    let result = self
-                        .raw_transfer(proto_msgs.messages().to_vec())
-                        .map_err(|_| Error::ics20_transfer())?;
-                    debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
-                }
-                _ => {
-                    sleep(Duration::from_secs(4));
-                    let result = self
-                        .deliever(proto_msgs.messages().to_vec())
-                        .map_err(|e| Error::deliver_error(e))?;
-                    debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
-                }
-            },
-        }
+                "ft-transfer" => self.raw_transfer(proto_msgs.messages().to_vec()),
+                _ => self.deliever(proto_msgs.messages().to_vec()),
+            }
+        };
 
+        if !result.is_ok() {
+            error!("in Substrate: [send_messages_and_wait_commit] >> error : {:?}", result.err());
+            return Ok(vec![]);
+        }
+        trace!("in substrate: [send_messages_and_wait_commit] >> result: {:?}", result);
+
+        sleep(Duration::from_secs(2));  // Todo: Query the event via the hash in result
         let ibc_event = self
             .subscribe_ibc_events()
             .map_err(|_| Error::subscribe_ibc_events())?;
+        trace!("in substrate: [send_messages_and_wait_commit] >> ibc_event received: {:?}", ibc_event);
 
         Ok(ibc_event)
     }
@@ -791,45 +774,31 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<TxResponse>, Error> {
+        use itertools::Itertools;
         debug!(
-            "in substrate: [send_messages_and_wait_check_tx], proto_msgs={:?}",
-            proto_msgs.tracking_id
+            "in substrate: [send_messages_and_wait_check_tx], proto_msgs={:?}, first 10 msg_type_urls={:?}",
+            proto_msgs.tracking_id, proto_msgs.msgs.iter().take(10).map(|i| i.type_url.clone()).format(", ")
         );
 
-        match proto_msgs.tracking_id {
+        let result = match proto_msgs.tracking_id {
             TrackingId::Uuid(_) => {
-                sleep(Duration::from_secs(4));
-                let result = self
-                    .deliever(proto_msgs.messages().to_vec())
-                    .map_err(|e| Error::deliver_error(e))?;
-                debug!(
-                    "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                    result
-                );
+                self.deliever(proto_msgs.messages().to_vec())
             }
             TrackingId::Static(value) => match value {
                 "ft-transfer" => {
-                    let result = self
-                        .raw_transfer(proto_msgs.messages().to_vec())
-                        .map_err(|_| Error::ics20_transfer())?;
-
-                    debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
+                    self.raw_transfer(proto_msgs.messages().to_vec())
                 }
                 _ => {
-                    sleep(Duration::from_secs(4));
-                    let result = self
-                        .deliever(proto_msgs.messages().to_vec())
-                        .map_err(|e| Error::deliver_error(e))?;
-                    debug!(
-                        "in substrate: [send_messages_and_wait_commit] >> extrics_hash  : {:?}",
-                        result
-                    );
+                    self.deliever(proto_msgs.messages().to_vec())
                 }
-            },
+            }
+        };
+
+        if !result.is_ok() {
+            error!("in Substrate: [send_messages_and_wait_check_tx] >> result : {:?}", result.err());
+            return Ok(vec![]);
         }
+        trace!("in substrate: [send_messages_and_wait_check_tx] >> result: {:?}", result);
 
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
         let tx_re = TxResponse {
@@ -1031,12 +1000,22 @@ impl ChainEndpoint for SubstrateChain {
 
         let storage_entry = storage::ConsensusStates(&client_consensus_state_path);
 
+        let query_height = match query_height {
+            QueryHeight::Latest => {
+                let height = self
+                    .get_latest_height()
+                    .map_err(|_| Error::query_latest_height())?;
+                Height::new(REVISION_NUMBER, height).expect(&REVISION_NUMBER.to_string())
+            }
+            QueryHeight::Specific(value) => value,
+        };
+
         match include_proof {
             IncludeProof::Yes => Ok((
                 result,
                 Some(self.generate_storage_proof(
                     &storage_entry,
-                    &consensus_height,
+                    &query_height,
                     "ConsensusStates",
                 )?),
             )),

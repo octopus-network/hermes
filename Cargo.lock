@@ -2074,7 +2074,7 @@ dependencies = [
  "sp-std 4.0.0",
  "sp-trie",
  "subtle-encoding",
- "subxt",
+ "subxt 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=old-subxt)",
  "tendermint",
  "tendermint-light-client-verifier",
  "tendermint-proto",
@@ -2168,7 +2168,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "subtle-encoding",
- "subxt",
+ "subxt 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
  "tendermint",
  "tendermint-light-client",
  "tendermint-light-client-verifier",
@@ -3087,7 +3087,6 @@ dependencies = [
 [[package]]
 name = "octopusxt"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/octopusxt.git?branch=feature/m4v2-hermes1.0#c9997d55e050b83de250fea2a8a2aa2530d500a9"
 dependencies = [
  "anyhow",
  "beefy-light-client",
@@ -3111,7 +3110,7 @@ dependencies = [
  "sp-runtime",
  "structopt",
  "subtle-encoding",
- "subxt",
+ "subxt 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
  "tendermint",
  "tendermint-proto",
  "tokio",
@@ -5139,8 +5138,32 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
- "subxt-macro",
- "subxt-metadata",
+ "subxt-macro 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
+ "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "subxt"
+version = "0.21.0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=old-subxt#445742ed5c37ebc9b4ec6158dcd51340a1837749"
+dependencies = [
+ "bitvec",
+ "derivative",
+ "frame-metadata",
+ "futures 0.3.23",
+ "hex",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "parking_lot 0.12.1",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+ "subxt-macro 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=old-subxt)",
+ "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=old-subxt)",
  "thiserror",
  "tracing",
 ]
@@ -5158,7 +5181,24 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scale-info",
- "subxt-metadata",
+ "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
+ "syn",
+]
+
+[[package]]
+name = "subxt-codegen"
+version = "0.21.0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=old-subxt#445742ed5c37ebc9b4ec6158dcd51340a1837749"
+dependencies = [
+ "darling",
+ "frame-metadata",
+ "heck 0.4.0",
+ "parity-scale-codec",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "scale-info",
+ "subxt-metadata 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=old-subxt)",
  "syn",
 ]
 
@@ -5169,7 +5209,18 @@ source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=mast
 dependencies = [
  "darling",
  "proc-macro-error",
- "subxt-codegen",
+ "subxt-codegen 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=master)",
+ "syn",
+]
+
+[[package]]
+name = "subxt-macro"
+version = "0.21.0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=old-subxt#445742ed5c37ebc9b4ec6158dcd51340a1837749"
+dependencies = [
+ "darling",
+ "proc-macro-error",
+ "subxt-codegen 0.21.0 (git+https://github.com/octopus-network/substrate-subxt.git?branch=old-subxt)",
  "syn",
 ]
 
@@ -5177,6 +5228,17 @@ dependencies = [
 name = "subxt-metadata"
 version = "0.21.0"
 source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=master#445742ed5c37ebc9b4ec6158dcd51340a1837749"
+dependencies = [
+ "frame-metadata",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+]
+
+[[package]]
+name = "subxt-metadata"
+version = "0.21.0"
+source = "git+https://github.com/octopus-network/substrate-subxt.git?branch=old-subxt#445742ed5c37ebc9b4ec6158dcd51340a1837749"
 dependencies = [
  "frame-metadata",
  "parity-scale-codec",

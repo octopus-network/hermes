@@ -127,12 +127,9 @@ codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive
 hex-literal = "0.3.1"
 
 tokio = { version = "1.0", features = ["rt-multi-thread", "time", "sync"] }
-subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'master' }
+subxt = { git = "https://github.com/octopus-network/substrate-subxt.git", branch = 'old-subxt' }
 tendermint-rpc = { version = "=0.23.7", features = ["http-client", "websocket-client"] }
 tendermint-testgen = { version = "=0.23.7" } # Needed for generating (synthetic) light blocks.
-
-#octopusxt = { git = "https://github.com/octopus-network/octopusxt.git", branch = "feature/m4v2-hermes1.0" }
-# octopusxt = { path = "../../octopusxt/module" }
 
 [[test]]
 name = "mbt"
