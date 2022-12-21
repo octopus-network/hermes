@@ -3,7 +3,7 @@
 
 # Specify the verbosity for the relayer logging output. Default: 'info'
 # Valid options are 'error', 'warn', 'info', 'debug', 'trace'.
-log_level = 'trace'
+log_level = 'info'
 
 
 # Specify the mode to be used by the relayer. [Required]
@@ -61,14 +61,14 @@ clear_on_start = true
 # queued up for re-submission.
 # Experimental feature. Affects telemetry if set to false.
 # [Default: true]
-tx_confirmation = true
+tx_confirmation = false
 
 # The REST section defines parameters for Hermes' built-in RESTful API.
 # https://hermes.informal.systems/rest.html
 [rest]
 
 # Whether or not to enable the REST service. Default: false
-enabled = true
+enabled = false
 
 # Specify the IPv4/6 host over which the built-in HTTP server will serve the RESTful
 # API requests. Default: 127.0.0.1

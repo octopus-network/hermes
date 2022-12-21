@@ -122,7 +122,7 @@ use tendermint_proto::Protobuf;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
 
-const MAX_QUERY_TIMES: u64 = 100;
+const MAX_QUERY_TIMES: u64 = 800;
 pub const REVISION_NUMBER: u64 = 8888;
 
 /// A struct used to start a Substrate chain instance in relayer
