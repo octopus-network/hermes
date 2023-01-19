@@ -7,7 +7,6 @@ use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, ClientId, Conne
 use crate::chain::near::rpc::client::NearRpcClient;
 use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
 use crate::consensus_state::AnyConsensusState;
-use anyhow::Result;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::channel::v1::PacketState;
 use near_crypto::{InMemorySigner, KeyType};
@@ -19,27 +18,47 @@ use crate::chain::requests::{QueryClientStatesRequest, QueryConnectionsRequest, 
 use alloc::sync::Arc;
 use tokio::runtime::Runtime as TokioRuntime;
 use crate::chain::requests::QueryChannelsRequest;
+use serde::{Deserialize,Serialize};
 
-
+#[derive(Deserialize,Serialize,Clone)]
+struct JsonHeight {
+    pub revision_number: String,
+    pub revision_height: String
+}
 
 pub trait NearIbcContract {
     fn get_contract_id(&self) -> AccountId;
     fn get_client(&self) -> &NearRpcClient;
     fn get_rt(&self) -> &Arc<TokioRuntime>;
 
+    fn get_latest_height(&self)->anyhow::Result<Height> {
+        tracing::trace!("in near: [get_latest_height]");
+
+        let height: JsonHeight  = self.get_rt().block_on(self.get_client().view(
+            self.get_contract_id().clone(),
+            "get_latest_height".to_string(),
+            json!({}).to_string().into_bytes()
+        )).expect("Failed to get latest height").json()?;
+
+        Ok(Height::new(height.revision_number.parse()?,
+                       height.revision_height.parse()?)?)
+
+
+    }
+
     fn get_connection_end(
         &self,
         connection_identifier: &ConnectionId,
-    ) -> Result<ConnectionEnd> {
-        tracing::trace!("in near: [query_connection_end]");
+    ) -> anyhow::Result<ConnectionEnd> {
+        tracing::trace!("in near: [get_connection_end]");
 
         let connection_id = serde_json::to_string(connection_identifier).unwrap();
 
         self.get_rt().block_on(self.get_client().view(
             self.get_contract_id().clone(),
-            "query_connection_end".to_string(),
+            "get_connection_end".to_string(),
             json!({"connection_id": connection_id}).to_string().into_bytes()
-        )).expect("Failed to query_connection_end").json()
+        )).expect("Failed to get_connection_end").json()
 
         // self.get_client().view(
         //     self.get_contract_id().clone(),
@@ -53,7 +72,7 @@ pub trait NearIbcContract {
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
-    ) -> Result<ChannelEnd> {
+    ) -> anyhow::Result<ChannelEnd> {
         tracing::trace!("in near: [query_channel_end]");
 
         let port_id = serde_json::to_string(port_id).unwrap();
@@ -71,14 +90,14 @@ pub trait NearIbcContract {
     fn get_client_state(
         &self,
         client_id: &ClientId,
-    ) -> Result<AnyClientState> {
-        tracing::trace!("in near: [query_client_state]");
-        let client_id = serde_json::to_string(client_id).unwrap();
+    ) -> anyhow::Result<Vec<u8>> {
+        tracing::trace!("in near: [get_client_state]");
+        // let client_id = client_id.to_string();
 
         self.get_rt().block_on(self.get_client().view(
             self.get_contract_id().clone(),
-            "query_client_state".to_string(),
-            json!({"client_id": client_id}).to_string().into_bytes()
+            "get_client_state".to_string(),
+            json!({"client_id": client_id.clone()}).to_string().into_bytes()
         )).expect("Failed to query_client_state.").json()
     }
 
@@ -88,22 +107,25 @@ pub trait NearIbcContract {
         &self,
         client_id: &ClientId,
         consensus_height: &Height,
-    ) -> Result<AnyConsensusState> {
-        tracing::trace!("in near: [query_client_consensus]");
-        let client_id = serde_json::to_string(client_id).unwrap();
-        let consensus_height = serde_json::to_string(consensus_height).unwrap();
+    ) -> anyhow::Result<Vec<u8>> {
+        tracing::trace!("in near: [get_client_consensus]");
+        // let client_id = serde_json::to_string(client_id).unwrap();
+        let height = JsonHeight {
+            revision_number: consensus_height.revision_number().to_string(),
+            revision_height: consensus_height.revision_height().to_string()
+        };
 
         self.get_rt().block_on(self.get_client().view(
             self.get_contract_id().clone(),
-            "query_client_consensus".to_string(),
-            json!({"client_id": client_id, "consensus_height": consensus_height}).to_string().into_bytes()
-        )).expect("Failed to query_client_consensus.").json()
+            "get_client_consensus".to_string(),
+            json!({"client_id": client_id.clone(), "consensus_height": height }).to_string().into_bytes()
+        )).expect("Failed to get_client_consensus.").json()
     }
 
     fn get_consensus_state_with_height(
         &self,
         client_id: &ClientId,
-    ) -> Result<Vec<(Height, AnyConsensusState)>> {
+    ) -> anyhow::Result<Vec<(Height, AnyConsensusState)>> {
         tracing::trace!("in near: [get_consensus_state_with_height]");
         let client_id = serde_json::to_string(client_id).unwrap();
 
@@ -119,7 +141,7 @@ pub trait NearIbcContract {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequences: &[Sequence],
-    ) -> Result<Vec<u64>> {
+    ) -> anyhow::Result<Vec<u64>> {
         tracing::trace!("in near: [get_unreceipt_packet]");
         let port_id = serde_json::to_string(port_id).unwrap();
         let channel_id = serde_json::to_string(channel_id).unwrap();
@@ -136,7 +158,7 @@ pub trait NearIbcContract {
         )).expect("Failed to get_unreceipt_packet.").json()
     }
 
-    fn get_clients(&self, request: QueryClientStatesRequest) -> Result<Vec<IdentifiedAnyClientState>> {
+    fn get_clients(&self, request: QueryClientStatesRequest) -> anyhow::Result<Vec<IdentifiedAnyClientState>> {
         tracing::trace!("in near: [get_clients]");
 
         let request = serde_json::to_string(&request).unwrap();
@@ -148,7 +170,7 @@ pub trait NearIbcContract {
         )).expect("Failed to get_clients.").json()
     }
 
-    fn get_connections(&self, request: QueryConnectionsRequest) -> Result<Vec<IdentifiedConnectionEnd>> {
+    fn get_connections(&self, request: QueryConnectionsRequest) -> anyhow::Result<Vec<IdentifiedConnectionEnd>> {
         tracing::trace!("in near: [get_connections]");
 
         let request = serde_json::to_string(&request).unwrap();
@@ -160,7 +182,7 @@ pub trait NearIbcContract {
         )).expect("Failed to get_connections.").json()
     }
 
-    fn get_channels(&self, request: QueryChannelsRequest) -> Result<Vec<IdentifiedChannelEnd>> {
+    fn get_channels(&self, request: QueryChannelsRequest) -> anyhow::Result<Vec<IdentifiedChannelEnd>> {
         tracing::trace!("in near: [get_channels]");
 
         let request = serde_json::to_string(&request).unwrap();
@@ -172,7 +194,7 @@ pub trait NearIbcContract {
         )).expect("Failed to get_channels.").json()
     }
 
-    fn get_commitment_packet_state(&self, request: QueryPacketCommitmentsRequest) -> Result<Vec<PacketState>> {
+    fn get_commitment_packet_state(&self, request: QueryPacketCommitmentsRequest) -> anyhow::Result<Vec<PacketState>> {
         tracing::trace!("in near: [get_commitment_packet_state]");
         self.get_rt().block_on(self.get_client().view(
             self.get_contract_id().clone(),
@@ -181,7 +203,7 @@ pub trait NearIbcContract {
         )).expect("Failed to get_commitment_packet_state.").json()
     }
 
-    fn get_acknowledge_packet_state(&self) -> Result<Vec<PacketState>> {
+    fn get_acknowledge_packet_state(&self) -> anyhow::Result<Vec<PacketState>> {
         tracing::trace!("in near: [get_acknowledge_packet_state]");
         self.get_rt().block_on(self.get_client().view(
             self.get_contract_id().clone(),
@@ -194,7 +216,7 @@ pub trait NearIbcContract {
     fn get_client_connections(
         &self,
         client_id: &ClientId,
-    ) -> Result<Vec<ConnectionId>> {
+    ) -> anyhow::Result<Vec<ConnectionId>> {
         tracing::trace!("in near: [get_client_connections]");
         let client_id = serde_json::to_string(client_id).unwrap();
         self.get_rt().block_on(self.get_client().view(
@@ -209,7 +231,7 @@ pub trait NearIbcContract {
     fn get_connection_channels(
         &self,
         connection_id: &ConnectionId,
-    ) -> Result<Vec<IdentifiedChannelEnd>> {
+    ) -> anyhow::Result<Vec<IdentifiedChannelEnd>> {
         tracing::trace!("in near: [get_connection_channels]");
         let connection_id = serde_json::to_string(connection_id).unwrap();
         self.get_rt().block_on(self.get_client().view(
@@ -223,20 +245,20 @@ pub trait NearIbcContract {
 
     /// The function to submit IBC request to a Near chain
     /// This function handles most of the IBC reqeusts to Near, except the MMR root update
-    fn deliever(&self, msgs: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
-        tracing::trace!("in near: [deliever]");
-        let msg = serde_json::to_string(&msgs).unwrap();
+    fn deliver(&self, messages: Vec<Any>) -> anyhow::Result<FinalExecutionOutcomeView> {
+        tracing::trace!("in near: [deliver]");
+        let msg = serde_json::to_string(&messages).unwrap();
 
         let signer = InMemorySigner::from_random("bob.testnet".parse().unwrap(), KeyType::ED25519);
         self.get_rt().block_on(self.get_client().call(
             &signer,
             &self.get_contract_id(),
-            "deliever".to_string(),
-            json!({"messages": msg}).to_string().into_bytes(), 300000000000000, 1
+            "deliver".to_string(),
+            json!({"messages": messages}).to_string().into_bytes(), 300000000000000, 0
         ))
     }
 
-    fn raw_transfer(&self, msgs: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
+    fn raw_transfer(&self, msgs: Vec<Any>) -> anyhow::Result<FinalExecutionOutcomeView> {
         tracing::trace!("in near: [raw_transfer]");
         let msg = serde_json::to_string(&msgs).unwrap();
 
@@ -254,7 +276,7 @@ pub trait NearIbcContract {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> Result<Vec<u8> > {
+    ) -> anyhow::Result<Vec<u8> > {
         tracing::trace!("in near: [get_packet_commitment]");
         let port_id = serde_json::to_string(port_id).unwrap();
         let channel_id = serde_json::to_string(channel_id).unwrap();
@@ -270,7 +292,7 @@ pub trait NearIbcContract {
         )).expect("Failed to get_packet_commitment.").json()
     }
 
-    fn get_commitment_prefix(&self) -> Result<CommitmentPrefix> {
+    fn get_commitment_prefix(&self) -> anyhow::Result<CommitmentPrefix> {
         tracing::trace!("in near: [get_commitment_prefix]");
         self.get_rt().block_on(self.get_client().view(
             self.get_contract_id().clone(),
@@ -284,7 +306,7 @@ pub trait NearIbcContract {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> Result<Vec<u8> > {
+    ) -> anyhow::Result<Vec<u8> > {
         info!("in near: [query_packet_receipt]");
         let port_id = serde_json::to_string(port_id).unwrap();
         let channel_id = serde_json::to_string(channel_id).unwrap();
@@ -304,7 +326,7 @@ pub trait NearIbcContract {
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
-    ) -> Result<Sequence > {
+    ) -> anyhow::Result<Sequence > {
         info!("in near: [get_next_sequence_receive]");
         let port_id = serde_json::to_string(port_id).unwrap();
         let channel_id = serde_json::to_string(channel_id).unwrap();
@@ -323,7 +345,7 @@ pub trait NearIbcContract {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> Result<Vec<u8> > {
+    ) -> anyhow::Result<Vec<u8> > {
         info!("in near: [get_packet_acknowledgement]");
         let port_id = serde_json::to_string(port_id).unwrap();
         let channel_id = serde_json::to_string(channel_id).unwrap();
@@ -352,7 +374,7 @@ impl<'s> NearIbcContractInteractor<'s>  {
     pub async fn query_connection_end(
         &self,
         connection_id: ConnectionId
-    )->Result<ConnectionEnd>{
+    )->anyhow::Result<ConnectionEnd>{
         let connection_id =  serde_json::to_string(&connection_id).unwrap();
         self.client.view(
             self.account_id.clone(),
@@ -362,7 +384,7 @@ impl<'s> NearIbcContractInteractor<'s>  {
     }
 
 
-    pub async fn query_channel_end(&self, port_id: PortId, channel_id: ChannelId)-> Result<ChannelEnd>{
+    pub async fn query_channel_end(&self, port_id: PortId, channel_id: ChannelId)-> anyhow::Result<ChannelEnd>{
         let port_id = serde_json::to_string(&port_id).unwrap();
         let channel_id = serde_json::to_string(&channel_id).unwrap();
         self.client.view(
@@ -372,7 +394,7 @@ impl<'s> NearIbcContractInteractor<'s>  {
         ).await.and_then(|e|e.json())
     }
 
-    pub async fn query_client_state(&self, client_id: ClientId)-> Result<AnyClientState>{
+    pub async fn query_client_state(&self, client_id: ClientId)-> anyhow::Result<AnyClientState>{
         let client_id = serde_json::to_string(&client_id).unwrap();
         self.client.view(
             self.account_id.clone(),
@@ -381,7 +403,7 @@ impl<'s> NearIbcContractInteractor<'s>  {
         ).await.and_then(|e|e.json())
     }
 
-    pub async fn query_client_consensus(&self, client_id: ClientId, consensus_height: Height)->Result<AnyConsensusState>{
+    pub async fn query_client_consensus(&self, client_id: ClientId, consensus_height: Height)->anyhow::Result<AnyConsensusState>{
         let client_id = serde_json::to_string(&client_id).unwrap();
         self.client.view(
             self.account_id.clone(),

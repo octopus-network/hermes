@@ -33,6 +33,7 @@ impl<'de> Deserialize<'de> for ChainType {
 
         match s.as_str() {
             "cosmossdk" => Ok(Self::CosmosSdk),
+            "near" => Ok(Self::Near),
 
             // NOTE(new): Add a case here
             _ => Err(D::Error::unknown_variant(&original, &["cosmos-sdk"])), // NOTE(new): mention the new variant here
