@@ -21,7 +21,7 @@ profiling = []
 telemetry = ["ibc-telemetry"]
 
 [dependencies]
-ibc-proto         = { version = "0.24.1" }
+ibc-proto         = { git = "https://github.com/octopus-network/ibc-proto-rs", features = ["parity-scale-codec"], branch = "julian-dev" }
 ibc-telemetry     = { version = "0.21.0", path = "../telemetry", optional = true }
 ibc-relayer-types = { version = "0.21.0", path = "../relayer-types", features = ["mocks"] }
 
@@ -68,6 +68,14 @@ ed25519-dalek-bip32 = "0.2.0"
 generic-array = "0.14.6"
 secp256k1 = { version = "0.24.2", features = ["rand-std"] }
 strum = { version = "0.24.1", features = ["derive"] }
+
+subxt = "0.25.0"
+parity-scale-codec = "3.0.0"
+hex-literal = "0.3.4"
+sp-keyring = "7.0.0"
+pallet-ibc = { git = "https://github.com/octopus-network/substrate-ibc.git", branch = "julian-dev" }
+sp-core = "11.0.0"
+
 
 [dependencies.num-bigint]
 version = "0.4"

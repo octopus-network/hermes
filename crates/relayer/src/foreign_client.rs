@@ -701,6 +701,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     )
                 })?
         };
+        println!("client_state: {:?}", client_state);
 
         if client_state.is_frozen() {
             return Err(ForeignClientError::expired_or_frozen(
