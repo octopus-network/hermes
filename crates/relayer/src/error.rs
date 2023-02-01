@@ -591,6 +591,12 @@ define_error! {
             { address: String }
             [ TendermintRpcError ]
             |e| { format!("invalid archive node address {}", e.address) },
+        ReportError
+            { error: String }
+            |e| {
+                format_args!("Report Error: ({})", e.error)
+            },
+
     }
 }
 

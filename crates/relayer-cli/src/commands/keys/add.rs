@@ -217,6 +217,7 @@ pub fn add_key(
             key_pair.into()
         }
         ChainType::Substrate => todo!(),
+        ChainType::Near => todo!(),
     };
 
     Ok(key_pair)
@@ -254,6 +255,7 @@ pub fn restore_key(
             key_pair.into()
         }
         ChainType::Substrate => todo!(),
+        ChainType::Near => todo!(),
     };
 
     Ok(key_pair)
