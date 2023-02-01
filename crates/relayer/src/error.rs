@@ -564,7 +564,13 @@ define_error! {
             { key_type: KeyType }
             |e| {
                 format!("Invalid key type {} for the current chain", e.key_type)
-            }
+            },
+        ReportError
+            { error: String }
+            |e| {
+                format_args!("Report Error: ({})", e.error)
+            },
+
     }
 }
 
