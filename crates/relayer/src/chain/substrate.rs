@@ -107,6 +107,13 @@ use sp_keyring::AccountKeyring;
 use std::time::{Duration, SystemTime};
 use subxt::{tx::PairSigner, OnlineClient, SubstrateConfig};
 use tracing::info;
+use ibc_relayer_types::clients::ics06_solomachine::{Header as SmHeader, SignBytes, HeaderData};
+use ibc_relayer_types::clients::ics06_solomachine::HeaderData as SmHeaderData;
+use hdpath::StandardHDPath;
+use crate::config::AddressType;
+
+
+
 
 // pub mod batch;
 // pub mod client;
@@ -161,7 +168,7 @@ pub struct SubstrateChain {
 
 impl ChainEndpoint for SubstrateChain {
     type LightBlock = SubLightBlock;
-    type Header = TmHeader;
+    type Header = SmHeader;
     type ConsensusState = SmConsensusState;
     type ClientState = SmClientState;
     type SigningKeyPair = Secp256k1KeyPair;
@@ -346,8 +353,8 @@ impl ChainEndpoint for SubstrateChain {
         // let a = parity_scale_codec::Decode::decode::<substrate::timestamp::calls::Set>(&mut block.unwrap().block.extrinsics[0]);
 
         Ok(ChainStatus {
-            height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number)).unwrap(),
-            timestamp: Timestamp::default(),
+           height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number)).unwrap(),
+           timestamp: Timestamp::default(),
         })
     }
 
@@ -563,7 +570,7 @@ impl ChainEndpoint for SubstrateChain {
         settings: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
         // Build the client state.
-        let pk = PublicKey(tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!("0436265a7b8a43dddfa6f5d25d857c495f5c9bb61d3acbbf3abe7e2afb5f3b77289093c51554385822b4804a578620af585ababb4641a64126d6613ea6839d1f60")).unwrap());
+        let pk = PublicKey(tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!("02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c")).unwrap());
         let duration_since_epoch = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
@@ -575,7 +582,7 @@ impl ChainEndpoint for SubstrateChain {
                 public_key: pk,
                 diversifier: "oct".to_string(),
                 // timestamp: timestamp_nanos as u64,
-                timestamp: 1674639352302067128,
+                timestamp: 9999,
                 root: CommitmentRoot::from_bytes(&pk.to_bytes()),
             },
             allow_update_after_proposal: false,
@@ -586,7 +593,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
-        let pk = PublicKey(tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!("0436265a7b8a43dddfa6f5d25d857c495f5c9bb61d3acbbf3abe7e2afb5f3b77289093c51554385822b4804a578620af585ababb4641a64126d6613ea6839d1f60")).unwrap());
+        let pk = PublicKey(tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!("02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c")).unwrap());
         let duration_since_epoch = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
@@ -596,7 +603,7 @@ impl ChainEndpoint for SubstrateChain {
             public_key: pk,
             diversifier: "oct".to_string(),
             // timestamp: timestamp_nanos as u64,
-            timestamp: 1674639352302067128,
+            timestamp: 9999,
             root: CommitmentRoot::from_bytes(&pk.to_bytes()),
         })
     }
@@ -607,7 +614,49 @@ impl ChainEndpoint for SubstrateChain {
         target_height: ICSHeight,
         client_state: &AnyClientState,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
-        unimplemented!();
+        println!("trusted_height: {:?}, target_height: {:?}, client_state: {:?}", trusted_height, target_height, client_state);
+        let pk = PublicKey(tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!("02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c")).unwrap());
+        let duration_since_epoch = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap();
+        let timestamp_nanos = duration_since_epoch.checked_sub(Duration::from_secs(5)).unwrap().as_nanos() as u64; // u128
+        let data = HeaderData{
+            new_pub_key: Some(pk),
+            new_diversifier: "oct".to_string(),
+        };
+
+        let bytes = SignBytes{
+            sequence: client_state.latest_height().revision_height(),
+            timestamp: timestamp_nanos,
+            diversifier: "oct".to_string(),
+            data_type: 9,
+            // data: Protobuf::<SmHeaderData>::encode_vec(&data).expect("encoding to `Any` from `HeaderData`"),
+            data: data.encode_vec().unwrap(),
+        };
+
+        let encoded_bytes = bytes.encode_vec().unwrap();
+        let standard = StandardHDPath::from_str("m/44'/60'/0'/0/0").unwrap();
+
+
+        // m/44'/60'/0'/0/0
+        // 0xd73E35f53b8180b241E70C0e9040173dd8D0e2A0
+        // 0x02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c
+        // 0x281afd44d50ffd0bab6502cbb9bc58a7f9b53813c862db01836d46a27b51168c
+
+
+        let key_pair = Secp256k1KeyPair::from_mnemonic("captain walk infant web eye return ahead once face sunny usage devote cotton car old check symbol antique derive wire kid solve forest fish", &standard, &AddressType::Cosmos, "oct").unwrap();
+        let signature = key_pair.sign(&encoded_bytes).unwrap();
+
+
+        let header = SmHeader{
+            sequence: client_state.latest_height().revision_height(),
+            timestamp: timestamp_nanos,
+            signature,
+            new_public_key: Some(pk),
+            new_diversifier: "oct".to_string(),
+        };
+
+        Ok((header, vec![]))
     }
 
     fn maybe_register_counterparty_payee(
