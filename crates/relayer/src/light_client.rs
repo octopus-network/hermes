@@ -20,11 +20,10 @@ use crate::chain::endpoint::ChainEndpoint;
 use crate::client_state::AnyClientState;
 use crate::error;
 use crate::misbehaviour::MisbehaviourEvidence;
+use ibc_proto::ibc::lightclients::solomachine::v1::Header as RawSmHeader;
 use ibc_relayer_types::clients::ics06_solomachine::{
     decode_header as sm_decode_header, Header as SolomachineHeader, SOLOMACHINE_HEADER_TYPE_URL,
 };
-use ibc_proto::ibc::lightclients::solomachine::v1::Header as RawSmHeader;
-
 
 /// Defines a light block from the point of view of the relayer.
 pub trait LightBlock<C: ChainEndpoint>: Send + Sync {
