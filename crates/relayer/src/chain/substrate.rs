@@ -274,7 +274,17 @@ impl ChainEndpoint for SubstrateChain {
         let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
         let result = runtime.block_on(deliver);
         println!("send_messages_and_wait_commit result: {:?}", result);
-        Ok(vec![IbcEventWithHeight::new(IbcEvent::ChainError("".to_string()), ICSHeight::new(10, 10).unwrap())])
+        let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
+
+        let ibc_events = events.unwrap().find_first::<substrate::ibc::events::IbcEvents>().unwrap().unwrap();
+        let es: Vec<IbcEventWithHeight> = ibc_events.events.iter().map(|e|{
+            match e {
+                _ => IbcEventWithHeight { event: IbcEvent::ChainError("".to_string()), height: ICSHeight::new(0, 10).unwrap() }
+            }
+        }).collect();
+
+
+        Ok(es)
     }
 
     fn send_messages_and_wait_check_tx(
@@ -616,6 +626,7 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         println!("trusted_height: {:?}, target_height: {:?}, client_state: {:?}", trusted_height, target_height, client_state);
         let pk = PublicKey(tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!("02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c")).unwrap());
+        println!("pk: {:?}", pk);
         let duration_since_epoch = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
@@ -635,7 +646,10 @@ impl ChainEndpoint for SubstrateChain {
         };
 
         let encoded_bytes = bytes.encode_vec().unwrap();
+        println!("encoded_bytes: {:?}", encoded_bytes);
         let standard = StandardHDPath::from_str("m/44'/60'/0'/0/0").unwrap();
+        println!("standard: {:?}", standard);
+
 
 
         // m/44'/60'/0'/0/0
@@ -645,7 +659,9 @@ impl ChainEndpoint for SubstrateChain {
 
 
         let key_pair = Secp256k1KeyPair::from_mnemonic("captain walk infant web eye return ahead once face sunny usage devote cotton car old check symbol antique derive wire kid solve forest fish", &standard, &AddressType::Cosmos, "oct").unwrap();
+        println!("key_pair: {:?}", key_pair.public_key.to_string());
         let signature = key_pair.sign(&encoded_bytes).unwrap();
+        println!("signature: {:?}", signature);
 
 
         let header = SmHeader{

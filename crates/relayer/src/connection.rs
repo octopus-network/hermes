@@ -904,6 +904,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .dst_chain()
             .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.dst_chain().id(), e))?;
+        println!("events: {:?}", events);
 
         // Find the relevant event for connection init
         let result = events
@@ -915,6 +916,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .ok_or_else(ConnectionError::missing_connection_init_event)?;
 
         // TODO - make chainError an actual error
+        println!("result: {:?}", result);
         match &result.event {
             IbcEvent::OpenInitConnection(_) => {
                 info!("🥂 {} => {}", self.dst_chain().id(), result);
