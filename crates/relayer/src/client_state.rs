@@ -27,9 +27,10 @@ use ibc_relayer_types::mock::client_state::MockClientState;
 use ibc_relayer_types::mock::client_state::MOCK_CLIENT_STATE_TYPE_URL;
 use ibc_relayer_types::Height;
 
-use ibc_relayer_types::clients::ics06_solomachine::{ClientState as SmClientState, SOLOMACHINE_CLIENT_STATE_TYPE_URL};
 use ibc_proto::ibc::lightclients::solomachine::v1::ClientState as SmRawClientState;
-
+use ibc_relayer_types::clients::ics06_solomachine::{
+    ClientState as SmClientState, SOLOMACHINE_CLIENT_STATE_TYPE_URL,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -138,7 +139,7 @@ impl TryFrom<Any> for AnyClientState {
                     .map_err(Error::decode_raw_client_state)?,
             )),
             SOLOMACHINE_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Solomachine(
-                    Protobuf::<SmRawClientState>::decode_vec(&raw.value)
+                Protobuf::<SmRawClientState>::decode_vec(&raw.value)
                     .map_err(Error::decode_raw_client_state)?,
             )),
 

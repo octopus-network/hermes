@@ -1,18 +1,18 @@
-use crate::prelude::*;
-use serde::{Deserialize, Serialize};
-use core::time::Duration;
 use crate::core::ics02_client::client_state::{
     ClientState as Ics2ClientState, UpgradeOptions as CoreUpgradeOptions,
 };
-use crate::Height;
-use crate::core::ics24_host::identifier::ChainId;
 use crate::core::ics02_client::client_type::ClientType;
+use crate::core::ics02_client::error::Error as Ics02Error;
+use crate::core::ics24_host::identifier::ChainId;
+use crate::prelude::*;
+use crate::Height;
+use core::time::Duration;
+use flex_error::{define_error, TraceError};
+use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::lightclients::solomachine::v1::ClientState as RawSmClientState;
 use ibc_proto::ibc::lightclients::solomachine::v1::ConsensusState as RawSmConsesusState;
 use ibc_proto::protobuf::Protobuf;
-use ibc_proto::google::protobuf::Any;
-use flex_error::{define_error, TraceError};
-use crate::core::ics02_client::error::Error as Ics02Error;
+use serde::{Deserialize, Serialize};
 // use prost::Message;
 use crate::core::ics23_commitment::commitment::CommitmentRoot;
 use crate::timestamp::Timestamp;
@@ -20,25 +20,20 @@ use ibc_proto::ibc::lightclients::solomachine::v1::ConsensusState as RawConsensu
 use ibc_proto::ibc::lightclients::solomachine::v1::HeaderData as RawHeaderData;
 use ibc_proto::ibc::lightclients::solomachine::v1::SignBytes as RawSignBytes;
 
-
 // use secp256k1::{PublicKey, Secp256k1, SecretKey};
-use eyre::Result;
-use cosmos_sdk_proto::{
-        self,
-        traits::{Message, MessageExt},
-    };
-use ibc_proto::ibc::lightclients::solomachine::v1::Header as RawHeader;
 use bytes::Buf;
 use core::fmt::{Display, Error as FmtError, Formatter};
-
-
+use cosmos_sdk_proto::{
+    self,
+    traits::{Message, MessageExt},
+};
+use eyre::Result;
+use ibc_proto::ibc::lightclients::solomachine::v1::Header as RawHeader;
 
 pub const SOLOMACHINE_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.solomachine.v1.ClientState";
 pub const SOLOMACHINE_CONSENSUS_STATE_TYPE_URL: &str =
     "/ibc.lightclients.solomachine.v1.ConsensusState";
 pub const SOLOMACHINE_HEADER_TYPE_URL: &str = "/ibc.lightclients.solomachine.v1.Header";
-
-
 
 define_error! {
     #[derive(Debug, PartialEq, Eq)]
@@ -84,11 +79,11 @@ impl Ics2ClientState for ClientState {
     }
 
     fn upgrade(
-            &mut self,
-            upgrade_height: Height,
-            upgrade_options: &dyn CoreUpgradeOptions,
-            chain_id: ChainId,
-            ) {
+        &mut self,
+        upgrade_height: Height,
+        upgrade_options: &dyn CoreUpgradeOptions,
+        chain_id: ChainId,
+    ) {
     }
 
     fn expired(&self, elapsed: Duration) -> bool {
@@ -107,7 +102,12 @@ impl TryFrom<RawSmClientState> for ClientState {
         Ok(Self {
             sequence: raw.sequence,
             frozen_sequence: raw.frozen_sequence,
-            consensus_state: ConsensusState { public_key: pk, diversifier: cs.diversifier, timestamp: cs.timestamp, root: CommitmentRoot::from_bytes(&pk.to_bytes()) },
+            consensus_state: ConsensusState {
+                public_key: pk,
+                diversifier: cs.diversifier,
+                timestamp: cs.timestamp,
+                root: CommitmentRoot::from_bytes(&pk.to_bytes()),
+            },
             allow_update_after_proposal: raw.allow_update_after_proposal,
         })
     }
@@ -118,7 +118,7 @@ impl From<ClientState> for RawSmClientState {
         Self {
             sequence: value.sequence,
             frozen_sequence: value.frozen_sequence,
-            consensus_state: Some(RawSmConsesusState{
+            consensus_state: Some(RawSmConsesusState {
                 public_key: Some(value.consensus_state.public_key.into()),
                 diversifier: value.consensus_state.diversifier,
                 timestamp: value.consensus_state.timestamp,
@@ -185,14 +185,18 @@ impl PublicKey {
     /// Convert this [`PublicKey`] to a Protobuf [`Any`] type.
     pub fn to_any(&self) -> Result<Any> {
         let value = match self.0 {
-            tendermint::PublicKey::Ed25519(_) => cosmos_sdk_proto::cosmos::crypto::secp256k1::PubKey {
-                key: self.to_bytes(),
+            tendermint::PublicKey::Ed25519(_) => {
+                cosmos_sdk_proto::cosmos::crypto::secp256k1::PubKey {
+                    key: self.to_bytes(),
+                }
+                .to_bytes()?
             }
-            .to_bytes()?,
-            tendermint::PublicKey::Secp256k1(_) => cosmos_sdk_proto::cosmos::crypto::secp256k1::PubKey {
-                key: self.to_bytes(),
+            tendermint::PublicKey::Secp256k1(_) => {
+                cosmos_sdk_proto::cosmos::crypto::secp256k1::PubKey {
+                    key: self.to_bytes(),
+                }
+                .to_bytes()?
             }
-            .to_bytes()?,
             _ => return Err(Error::solomachine().into()),
         };
 
@@ -235,7 +239,9 @@ impl TryFrom<&Any> for PublicKey {
 impl TryFrom<cosmos_sdk_proto::cosmos::crypto::ed25519::PubKey> for PublicKey {
     type Error = eyre::Report;
 
-    fn try_from(public_key: cosmos_sdk_proto::cosmos::crypto::ed25519::PubKey) -> Result<PublicKey> {
+    fn try_from(
+        public_key: cosmos_sdk_proto::cosmos::crypto::ed25519::PubKey,
+    ) -> Result<PublicKey> {
         tendermint::public_key::PublicKey::from_raw_ed25519(&public_key.key)
             .map(Into::into)
             .ok_or_else(|| Error::solomachine().into())
@@ -245,7 +251,9 @@ impl TryFrom<cosmos_sdk_proto::cosmos::crypto::ed25519::PubKey> for PublicKey {
 impl TryFrom<cosmos_sdk_proto::cosmos::crypto::secp256k1::PubKey> for PublicKey {
     type Error = eyre::Report;
 
-    fn try_from(public_key: cosmos_sdk_proto::cosmos::crypto::secp256k1::PubKey) -> Result<PublicKey> {
+    fn try_from(
+        public_key: cosmos_sdk_proto::cosmos::crypto::secp256k1::PubKey,
+    ) -> Result<PublicKey> {
         tendermint::public_key::PublicKey::from_raw_secp256k1(&public_key.key)
             .map(Into::into)
             .ok_or_else(|| Error::solomachine().into())
@@ -272,7 +280,6 @@ impl From<PublicKey> for tendermint::PublicKey {
     }
 }
 
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConsensusState {
     pub public_key: PublicKey,
@@ -283,7 +290,6 @@ pub struct ConsensusState {
 
 impl ConsensusState {
     pub fn new(public_key: PublicKey, diversifier: String, timestamp: u64) -> Self {
-
         Self {
             public_key,
             diversifier,
@@ -318,14 +324,13 @@ impl TryFrom<RawConsensusState> for ConsensusState {
             public_key: pk,
             diversifier: raw.diversifier,
             timestamp: raw.timestamp,
-            root: CommitmentRoot::from_bytes(&pk.to_bytes())
+            root: CommitmentRoot::from_bytes(&pk.to_bytes()),
         })
     }
 }
 
 impl From<ConsensusState> for RawConsensusState {
     fn from(value: ConsensusState) -> Self {
-
         RawConsensusState {
             public_key: Some(value.public_key.into()),
             diversifier: value.diversifier,
@@ -500,7 +505,6 @@ impl From<SignBytes> for RawSignBytes {
         }
     }
 }
-
 
 /// HeaderData returns the SignBytes data for update verification.
 #[derive(Default, Clone, PartialEq, Eq, Deserialize, Serialize)]
