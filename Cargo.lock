@@ -1650,7 +1650,7 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
 dependencies = [
- "ahash",
+ "ahash 0.7.6",
 ]
 
 [[package]]
@@ -2005,6 +2005,7 @@ dependencies = [
  "base64 0.12.3",
  "bech32",
  "bitcoin",
+ "borsh 0.9.3",
  "bs58",
  "byte-unit",
  "bytes",
@@ -2172,7 +2173,7 @@ source = "git+https://github.com/octopus-network/substrate-ibc.git?branch=master
 dependencies = [
  "frame-benchmarking",
  "frame-support",
- "ibc 0.26.0",
+ "ibc",
  "ibc-proto",
  "parity-scale-codec",
  "scale-info",
@@ -3112,7 +3113,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "ibc 0.26.0",
+ "ibc",
  "ibc-proto",
  "ibc-support",
  "log",
