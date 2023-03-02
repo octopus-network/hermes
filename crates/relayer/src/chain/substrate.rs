@@ -112,6 +112,7 @@ use std::time::{Duration, SystemTime};
 use subxt::{tx::PairSigner, OnlineClient, SubstrateConfig};
 use tracing::info;
 
+
 // pub mod batch;
 // pub mod client;
 // pub mod compatibility;
@@ -831,7 +832,7 @@ impl ChainEndpoint for SubstrateChain {
         let runtime = self.rt.clone();
         let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
         let result = runtime.block_on(deliver);
-        println!("send_messages_and_wait_commit result: {:?}", result);
+        // println!("send_messages_and_wait_commit result: {:?}", result);
         let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
 
         let ibc_events = events
@@ -1014,7 +1015,20 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryConnectionRequest,
         include_proof: IncludeProof,
     ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
-        unimplemented!();
+        let connection_id = substrate::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
+                request.connection_id.to_string(),
+        );
+        let storage = substrate::storage().ibc().connections(connection_id);
+        let connection = self
+            .rt
+            .block_on(self.rpc_client.storage().fetch(&storage, None))
+            .unwrap();
+
+        let connection = connection.unwrap();
+        let conn = ConnectionEnd::try_from(connection).unwrap();
+
+        println!("connection: {:?}", conn);
+        Ok((conn, None))
     }
 
     fn query_connection_channels(

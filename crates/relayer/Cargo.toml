@@ -21,7 +21,7 @@ profiling = []
 telemetry = ["ibc-telemetry"]
 
 [dependencies]
-ibc-proto         = { git = "https://github.com/octopus-network/ibc-proto-rs", features = ["parity-scale-codec"], branch = "julian-dev" }
+ibc-proto         = { version = "0.25.0", features = ["parity-scale-codec"] }
 ibc-telemetry     = { version = "0.21.0", path = "../telemetry", optional = true }
 ibc-relayer-types = { version = "0.21.0", path = "../relayer-types", features = ["mocks"] }
 
@@ -73,7 +73,7 @@ subxt = "0.25.0"
 parity-scale-codec = "3.0.0"
 hex-literal = "0.3.4"
 sp-keyring = "7.0.0"
-pallet-ibc = { git = "https://github.com/octopus-network/substrate-ibc.git", branch = "julian-dev" }
+pallet-ibc = { git = "https://github.com/octopus-network/substrate-ibc.git", branch = "master" }
 sp-core = "11.0.0"
 
 
