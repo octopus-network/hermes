@@ -151,8 +151,14 @@ pub struct SubLightBlock {}
 pub mod substrate {}
 
 pub mod subxt_ibc_event {
+    use core::time::Duration;
+
     use super::substrate::runtime_types::ibc::core::ics02_client::client_type::ClientType as SubxtClientType;
     use super::substrate::runtime_types::ibc::core::ics02_client::height::Height as SubxtHeight;
+    use super::substrate::runtime_types::ibc::core::ics03_connection::connection::sealed::ConnectionEnd as SubxtConnectionEnd;
+    use super::substrate::runtime_types::ibc::core::ics03_connection::connection::State as SubxtConnectionState;
+    use super::substrate::runtime_types::ibc::core::ics03_connection::connection::Counterparty as SubxtConnectionCounterparty;
+    use super::substrate::runtime_types::ibc::core::ics03_connection::version::Version as SubxtConnectionVersion;
     use super::substrate::runtime_types::ibc::core::ics04_channel::packet::Sequence as SubxtSequence;
     use super::substrate::runtime_types::ibc::core::ics04_channel::timeout::TimeoutHeight as SubxtTimeoutHeight;
     use super::substrate::runtime_types::ibc::core::ics24_host::identifier::ChannelId as SubxtChannelId;
@@ -191,6 +197,10 @@ pub mod subxt_ibc_event {
     use ibc_relayer_types::core::ics02_client::client_type::ClientType;
     use ibc_relayer_types::core::ics02_client::events::Attributes as ClientAttributes;
     use ibc_relayer_types::core::ics03_connection::events::Attributes as ConnectionAttributes;
+    use ibc_relayer_types::core::ics03_connection::connection::ConnectionEnd;
+    use ibc_relayer_types::core::ics03_connection::connection::State as ConnectionState;
+    use ibc_relayer_types::core::ics03_connection::connection::Counterparty as ConnectionCounterparty;
+    use ibc_relayer_types::core::ics03_connection::version::Version as ConnectionVersion;
     use ibc_relayer_types::core::ics04_channel::packet::Packet;
     use ibc_relayer_types::core::ics04_channel::packet::Sequence;
     use ibc_relayer_types::core::ics04_channel::timeout::TimeoutHeight;
@@ -230,6 +240,49 @@ pub mod subxt_ibc_event {
                 key: value.key,
                 value: value.value,
             }
+        }
+    }
+
+
+    impl From<SubxtConnectionState> for ConnectionState {
+        fn from(value: SubxtConnectionState) -> Self {
+            match value {
+                SubxtConnectionState::Uninitialized => Self::Uninitialized,
+                SubxtConnectionState::Init => Self::Init,
+                SubxtConnectionState::TryOpen => Self::TryOpen,
+                SubxtConnectionState::Open => Self::Open,
+            }
+        }
+    }
+
+    impl From<SubxtConnectionCounterparty> for ConnectionCounterparty {
+        fn from(value: SubxtConnectionCounterparty) -> Self {
+            Self::new(
+                value.client_id.into(),
+                value.connection_id.map(|v| v.into()),
+                value.prefix.bytes.try_into().expect("never failed convert prefix from vec<u8>"),
+            )
+        }
+    }
+
+    impl From<SubxtConnectionVersion> for ConnectionVersion {
+        fn from(value: SubxtConnectionVersion) -> Self {
+            Self {
+                identifier: value.identifier,
+                features: value.features,
+            }
+        }
+    }
+
+    impl From<SubxtConnectionEnd> for ConnectionEnd {
+        fn from(value: SubxtConnectionEnd) -> Self {
+            Self::new(
+                value.state.into(),
+                value.client_id.into(),
+                value.counterparty.into(),
+                value.versions.into_iter().map(|v| v.into() ).collect(),
+                Duration::new(value.delay_period_secs, value.delay_period_nanos),
+            )
         }
     }
 
@@ -1024,11 +1077,10 @@ impl ChainEndpoint for SubstrateChain {
             .block_on(self.rpc_client.storage().fetch(&storage, None))
             .unwrap();
 
-        let connection = connection.unwrap();
-        let conn = ConnectionEnd::try_from(connection).unwrap();
-
+        let conn = connection.unwrap();
+    
         println!("connection: {:?}", conn);
-        Ok((conn, None))
+        Ok((conn.into(), None))
     }
 
     fn query_connection_channels(
