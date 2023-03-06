@@ -112,7 +112,6 @@ use std::time::{Duration, SystemTime};
 use subxt::{tx::PairSigner, OnlineClient, SubstrateConfig};
 use tracing::info;
 
-
 // pub mod batch;
 // pub mod client;
 // pub mod compatibility;
@@ -155,16 +154,30 @@ pub mod subxt_ibc_event {
 
     use super::substrate::runtime_types::ibc::core::ics02_client::client_type::ClientType as SubxtClientType;
     use super::substrate::runtime_types::ibc::core::ics02_client::height::Height as SubxtHeight;
-    use super::substrate::runtime_types::ibc::core::ics03_connection::connection::sealed::ConnectionEnd as SubxtConnectionEnd;
-    use super::substrate::runtime_types::ibc::core::ics03_connection::connection::State as SubxtConnectionState;
-    use super::substrate::runtime_types::ibc::core::ics03_connection::connection::Counterparty as SubxtConnectionCounterparty;
+    use super::substrate::runtime_types::ibc::core::ics03_connection::connection::{
+        sealed::ConnectionEnd as SubxtConnectionEnd, Counterparty as SubxtConnectionCounterparty,
+        State as SubxtConnectionState,
+    };
     use super::substrate::runtime_types::ibc::core::ics03_connection::version::Version as SubxtConnectionVersion;
-    use super::substrate::runtime_types::ibc::core::ics04_channel::packet::Sequence as SubxtSequence;
+    use super::substrate::runtime_types::ibc::core::ics04_channel::channel::{
+        ChannelEnd as SubxtChannelEnd, Counterparty as SubxtChannelCounterparty,
+        Order as SubxtChannelOrder, State as SubxtChannelState,
+    };
+    use super::substrate::runtime_types::ibc::core::ics04_channel::commitment::{
+        AcknowledgementCommitment as SubxtAcknowledgementCommitment,
+        PacketCommitment as SubxtPacketCommitment,
+    };
+    use super::substrate::runtime_types::ibc::core::ics04_channel::msgs::acknowledgement::Acknowledgement as SubxtAcknowledgement;
+    use super::substrate::runtime_types::ibc::core::ics04_channel::packet::{
+        Receipt as SubxtReceipt, Sequence as SubxtSequence,
+    };
     use super::substrate::runtime_types::ibc::core::ics04_channel::timeout::TimeoutHeight as SubxtTimeoutHeight;
-    use super::substrate::runtime_types::ibc::core::ics24_host::identifier::ChannelId as SubxtChannelId;
-    use super::substrate::runtime_types::ibc::core::ics24_host::identifier::ClientId as SubxtClientId;
-    use super::substrate::runtime_types::ibc::core::ics24_host::identifier::ConnectionId as SubxtConnectionId;
-    use super::substrate::runtime_types::ibc::core::ics24_host::identifier::PortId as SubxtPortId;
+    use super::substrate::runtime_types::ibc::core::ics04_channel::version::Version as SubxtChannelVersion;
+    use super::substrate::runtime_types::ibc::core::ics23_commitment::commitment::CommitmentPrefix as SubxtCommitmentPrefix;
+    use super::substrate::runtime_types::ibc::core::ics24_host::identifier::{
+        ChannelId as SubxtChannelId, ClientId as SubxtClientId, ConnectionId as SubxtConnectionId,
+        PortId as SubxtPortId,
+    };
     use super::substrate::runtime_types::ibc::core::ics26_routing::context::ModuleId as SubxtModuleId;
     use super::substrate::runtime_types::ibc::core::{
         ics02_client::events::{
@@ -190,24 +203,33 @@ pub mod subxt_ibc_event {
             WriteAcknowledgement as SubxtWriteAcknowledgement,
         },
     };
-    use super::substrate::runtime_types::ibc::events::ModuleEvent as SubxtModuleEvent;
-    use super::substrate::runtime_types::ibc::events::ModuleEventAttribute as SubxtModuleEventAttribute;
+    use super::substrate::runtime_types::ibc::events::{
+        ModuleEvent as SubxtModuleEvent, ModuleEventAttribute as SubxtModuleEventAttribute,
+    };
     use super::substrate::runtime_types::ibc::timestamp::Timestamp as SubxtTimestamp;
     use super::substrate::runtime_types::{self, ibc::events::IbcEvent as SubxtIbcEvent};
     use ibc_relayer_types::core::ics02_client::client_type::ClientType;
     use ibc_relayer_types::core::ics02_client::events::Attributes as ClientAttributes;
+    use ibc_relayer_types::core::ics03_connection::connection::{
+        ConnectionEnd, Counterparty as ConnectionCounterparty, State as ConnectionState,
+    };
     use ibc_relayer_types::core::ics03_connection::events::Attributes as ConnectionAttributes;
-    use ibc_relayer_types::core::ics03_connection::connection::ConnectionEnd;
-    use ibc_relayer_types::core::ics03_connection::connection::State as ConnectionState;
-    use ibc_relayer_types::core::ics03_connection::connection::Counterparty as ConnectionCounterparty;
     use ibc_relayer_types::core::ics03_connection::version::Version as ConnectionVersion;
-    use ibc_relayer_types::core::ics04_channel::packet::Packet;
-    use ibc_relayer_types::core::ics04_channel::packet::Sequence;
+    use ibc_relayer_types::core::ics04_channel::channel::{
+        ChannelEnd, Counterparty as ChannelCounterparty, Order as ChannelOrder,
+        State as ChannelState,
+    };
+    use ibc_relayer_types::core::ics04_channel::commitment::{
+        AcknowledgementCommitment, PacketCommitment,
+    };
+    use ibc_relayer_types::core::ics04_channel::msgs::acknowledgement::Acknowledgement;
+    use ibc_relayer_types::core::ics04_channel::packet::{Packet, Receipt, Sequence};
     use ibc_relayer_types::core::ics04_channel::timeout::TimeoutHeight;
-    use ibc_relayer_types::core::ics24_host::identifier::ChannelId;
-    use ibc_relayer_types::core::ics24_host::identifier::ClientId;
-    use ibc_relayer_types::core::ics24_host::identifier::ConnectionId;
-    use ibc_relayer_types::core::ics24_host::identifier::PortId;
+    use ibc_relayer_types::core::ics04_channel::version::Version as ChannelVersion;
+    use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentPrefix;
+    use ibc_relayer_types::core::ics24_host::identifier::{
+        ChannelId, ClientId, ConnectionId, PortId,
+    };
     use ibc_relayer_types::core::{
         ics02_client::events::{ClientMisbehaviour, CreateClient, UpdateClient, UpgradeClient},
         ics03_connection::events::{
@@ -221,25 +243,23 @@ pub mod subxt_ibc_event {
             TimeoutPacket, WriteAcknowledgement,
         },
     };
-    use ibc_relayer_types::events::ModuleEventAttribute;
-    use ibc_relayer_types::events::ModuleId;
-    use ibc_relayer_types::events::{self, IbcEvent};
+    use ibc_relayer_types::events::{self, IbcEvent, ModuleEventAttribute, ModuleId};
     use ibc_relayer_types::timestamp::Timestamp;
     use ibc_relayer_types::Height;
     use std::str::FromStr;
 
     // -------ics 02 client
+    // client type
     impl From<SubxtClientType> for ClientType {
         fn from(value: SubxtClientType) -> Self {
             match value.0.as_ref() {
                 "07-tendermint" => ClientType::Tendermint,
                 "06-solomachine" => ClientType::Solomachine,
-                _ => todo!(),
+                _ => panic!("Unknown client type: {:?}", value),
             }
         }
     }
-
-
+    // CreateClient
     impl From<SubxtCreateClient> for CreateClient {
         fn from(value: SubxtCreateClient) -> Self {
             let client_id = value.client_id.client_id;
@@ -253,6 +273,7 @@ pub mod subxt_ibc_event {
         }
     }
 
+    // UpdateClient
     impl From<SubxtUpdateClient> for UpdateClient {
         fn from(value: SubxtUpdateClient) -> Self {
             let client_id = value.client_id.client_id;
@@ -271,6 +292,7 @@ pub mod subxt_ibc_event {
         }
     }
 
+    // UpgradeClient
     impl From<SubxtUpgradeClient> for UpgradeClient {
         fn from(value: SubxtUpgradeClient) -> Self {
             let client_id = value.client_id.client_id;
@@ -298,6 +320,7 @@ pub mod subxt_ibc_event {
         }
     }
 
+    // Height
     impl From<SubxtHeight> for Height {
         fn from(height: SubxtHeight) -> Self {
             Self::new(height.revision_number, height.revision_height)
@@ -306,30 +329,35 @@ pub mod subxt_ibc_event {
     }
 
     // ------------ ics03 connection
-
+    // ConnectionEnd
     impl From<SubxtConnectionEnd> for ConnectionEnd {
         fn from(value: SubxtConnectionEnd) -> Self {
             Self::new(
                 value.state.into(),
                 value.client_id.into(),
                 value.counterparty.into(),
-                value.versions.into_iter().map(|v| v.into() ).collect(),
+                value.versions.into_iter().map(|v| v.into()).collect(),
                 Duration::new(value.delay_period_secs, value.delay_period_nanos),
             )
         }
     }
 
-
+    // Counterparty
     impl From<SubxtConnectionCounterparty> for ConnectionCounterparty {
         fn from(value: SubxtConnectionCounterparty) -> Self {
             Self::new(
                 value.client_id.into(),
                 value.connection_id.map(|v| v.into()),
-                value.prefix.bytes.try_into().expect("never failed convert prefix from vec<u8>"),
+                value
+                    .prefix
+                    .bytes
+                    .try_into()
+                    .expect("never failed convert prefix from vec<u8>"),
             )
         }
     }
 
+    // State
     impl From<SubxtConnectionState> for ConnectionState {
         fn from(value: SubxtConnectionState) -> Self {
             match value {
@@ -341,6 +369,7 @@ pub mod subxt_ibc_event {
         }
     }
 
+    // OpenAck
     impl From<SubxtConnectionOpenAck> for ConnectionOpenAck {
         fn from(value: SubxtConnectionOpenAck) -> Self {
             let connection_id = value.0.connection_id;
@@ -356,6 +385,7 @@ pub mod subxt_ibc_event {
         }
     }
 
+    // OpenConfirm
     impl From<SubxtConnectionOpenConfirm> for ConnectionOpenConfirm {
         fn from(value: SubxtConnectionOpenConfirm) -> Self {
             let connection_id = value.0.connection_id;
@@ -371,6 +401,7 @@ pub mod subxt_ibc_event {
         }
     }
 
+    // OpenInit
     impl From<SubxtConnectionOpenInit> for ConnectionOpenInit {
         fn from(value: SubxtConnectionOpenInit) -> Self {
             let connection_id = value.0.connection_id;
@@ -386,7 +417,7 @@ pub mod subxt_ibc_event {
         }
     }
 
-
+    // OpenTry
     impl From<SubxtConnectionOpenTry> for ConnectionOpenTry {
         fn from(value: SubxtConnectionOpenTry) -> Self {
             let connection_id = value.0.connection_id;
@@ -402,7 +433,7 @@ pub mod subxt_ibc_event {
         }
     }
 
-
+    // Version
     impl From<SubxtConnectionVersion> for ConnectionVersion {
         fn from(value: SubxtConnectionVersion) -> Self {
             Self {
@@ -412,14 +443,66 @@ pub mod subxt_ibc_event {
         }
     }
 
-
     // ------------ ibc04 channel
-    // channelEnd todos
-    // Counterparty todo
-    // Order todo
-    // state todo
-    // AcknowledgementCommitment todo
+    // channelEnd
+    impl From<SubxtChannelEnd> for ChannelEnd {
+        fn from(value: SubxtChannelEnd) -> Self {
+            Self {
+                state: value.state.into(),
+                ordering: value.ordering.into(),
+                remote: value.remote.into(),
+                connection_hops: value
+                    .connection_hops
+                    .into_iter()
+                    .map(|v| v.into())
+                    .collect(),
+                version: value.version.into(),
+            }
+        }
+    }
+    // Counterparty
+    impl From<SubxtChannelCounterparty> for ChannelCounterparty {
+        fn from(value: SubxtChannelCounterparty) -> Self {
+            Self {
+                port_id: value.port_id.into(),
+                channel_id: value.channel_id.map(|v| v.into()),
+            }
+        }
+    }
+    // Order
+    impl From<SubxtChannelOrder> for ChannelOrder {
+        fn from(value: SubxtChannelOrder) -> Self {
+            match value {
+                SubxtChannelOrder::None => Self::None,
+                SubxtChannelOrder::Unordered => Self::Unordered,
+                SubxtChannelOrder::Ordered => Self::Ordered,
+            }
+        }
+    }
+    // state
+    impl From<SubxtChannelState> for ChannelState {
+        fn from(value: SubxtChannelState) -> Self {
+            match value {
+                SubxtChannelState::Uninitialized => Self::Uninitialized,
+                SubxtChannelState::Init => Self::Init,
+                SubxtChannelState::TryOpen => Self::TryOpen,
+                SubxtChannelState::Open => Self::Open,
+                SubxtChannelState::Closed => Self::Closed,
+            }
+        }
+    }
+    // AcknowledgementCommitment
+    impl From<SubxtAcknowledgementCommitment> for AcknowledgementCommitment {
+        fn from(value: SubxtAcknowledgementCommitment) -> Self {
+            Self::from(value.0)
+        }
+    }
     // packetCommitment todo
+    impl From<SubxtPacketCommitment> for PacketCommitment {
+        fn from(value: SubxtPacketCommitment) -> Self {
+            Self::from(value.0)
+        }
+    }
     // AcknowledgePacket
     impl From<SubxtAcknowledgePacket> for AcknowledgePacket {
         fn from(value: SubxtAcknowledgePacket) -> Self {
@@ -446,7 +529,7 @@ pub mod subxt_ibc_event {
             }
         }
     }
-    // ChannelClosed todo
+    // ChannelClosed (todo in ibc-rs have this data struct but in ibc-relayer-type have not this)
     // CloseConfirm
     impl From<SubxtChannelCloseConfirm> for ChannelCloseConfirm {
         fn from(value: SubxtChannelCloseConfirm) -> Self {
@@ -658,7 +741,19 @@ pub mod subxt_ibc_event {
         }
     }
     // Acknowledgement todo
+    impl From<SubxtAcknowledgement> for Acknowledgement {
+        fn from(ack: SubxtAcknowledgement) -> Self {
+            Self::from(ack.0)
+        }
+    }
     // Receipt todo
+    impl From<SubxtReceipt> for Receipt {
+        fn from(receipt: SubxtReceipt) -> Self {
+            match receipt {
+                SubxtReceipt::Ok => Self::Ok,
+            }
+        }
+    }
     // Sequence
     impl From<SubxtSequence> for Sequence {
         fn from(value: SubxtSequence) -> Self {
@@ -675,10 +770,21 @@ pub mod subxt_ibc_event {
         }
     }
     // Version  todo
+    impl From<SubxtChannelVersion> for ChannelVersion {
+        fn from(value: SubxtChannelVersion) -> Self {
+            Self(value.0)
+        }
+    }
 
     // ------- ics23 commitment
     // CommitmentPrefix todo
-    
+    impl From<SubxtCommitmentPrefix> for CommitmentPrefix {
+        fn from(value: SubxtCommitmentPrefix) -> Self {
+            CommitmentPrefix::try_from(value.bytes)
+                .expect("converty failed because subxt commitment Prefix is empty")
+        }
+    }
+
     // -------ics24 host
     // ChannelId
     impl From<SubxtChannelId> for ChannelId {
@@ -705,8 +811,6 @@ pub mod subxt_ibc_event {
         }
     }
 
-    
-
     // -------- ics26 routing
     // ModuleId
     impl From<SubxtModuleId> for ModuleId {
@@ -714,8 +818,8 @@ pub mod subxt_ibc_event {
             ModuleId::from_str(value.0.as_ref()).expect("conver moudleid: never failed ")
         }
     }
-    
-    // --- events 
+
+    // --- events
     impl From<SubxtIbcEvent> for IbcEvent {
         fn from(value: SubxtIbcEvent) -> Self {
             match value {
@@ -784,7 +888,7 @@ pub mod subxt_ibc_event {
         }
     }
 
-    // ------------------- timestamp    
+    // ------------------- timestamp
     impl From<SubxtTimestamp> for Timestamp {
         fn from(value: SubxtTimestamp) -> Self {
             if let Some(v) = value.time {
@@ -794,10 +898,7 @@ pub mod subxt_ibc_event {
                 Timestamp::none()
             }
         }
-    }   
-
-    
-  
+    }
 }
 
 pub struct SubstrateChain {
@@ -1104,9 +1205,10 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryConnectionRequest,
         include_proof: IncludeProof,
     ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
-        let connection_id = substrate::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
+        let connection_id =
+            substrate::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
                 request.connection_id.to_string(),
-        );
+            );
         let storage = substrate::storage().ibc().connections(connection_id);
         let connection = self
             .rt
@@ -1114,7 +1216,7 @@ impl ChainEndpoint for SubstrateChain {
             .unwrap();
 
         let conn = connection.unwrap();
-    
+
         println!("connection: {:?}", conn);
         Ok((conn.into(), None))
     }
