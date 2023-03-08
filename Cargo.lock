@@ -2381,7 +2381,7 @@ dependencies = [
  "displaydoc",
  "dyn-clone",
  "erased-serde",
- "ibc-proto 0.25.0",
+ "ibc-proto",
  "ics23",
  "num-traits",
  "parity-scale-codec",
@@ -2410,7 +2410,7 @@ dependencies = [
  "flex-error",
  "futures",
  "http",
- "ibc-proto 0.24.1",
+ "ibc-proto",
  "ibc-relayer-types",
  "reqwest",
  "serde",
@@ -2439,22 +2439,6 @@ dependencies = [
 
 [[package]]
 name = "ibc-proto"
-version = "0.24.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30b46bcc4540116870cfb184f338b45174a7560ad46dd74e4cb4e81e005e2056"
-dependencies = [
- "base64",
- "bytes",
- "flex-error",
- "prost",
- "serde",
- "subtle-encoding",
- "tendermint-proto 0.28.0",
- "tonic",
-]
-
-[[package]]
-name = "ibc-proto"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a057472da7f2107be20b1996063db3616cf356167b03f50118fc3f3a8c4c704"
@@ -2469,6 +2453,7 @@ dependencies = [
  "serde",
  "subtle-encoding",
  "tendermint-proto 0.28.0",
+ "tonic",
 ]
 
 [[package]]
@@ -2497,7 +2482,7 @@ dependencies = [
  "http",
  "humantime",
  "humantime-serde",
- "ibc-proto 0.24.1",
+ "ibc-proto",
  "ibc-relayer-types",
  "ibc-telemetry",
  "itertools",
@@ -2607,7 +2592,7 @@ dependencies = [
  "erased-serde",
  "eyre",
  "flex-error",
- "ibc-proto 0.24.1",
+ "ibc-proto",
  "ics23",
  "itertools",
  "modelator",
@@ -2640,7 +2625,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "ibc",
- "ibc-proto 0.25.0",
+ "ibc-proto",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 7.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.38)",
@@ -2675,7 +2660,7 @@ dependencies = [
  "hdpath",
  "hex",
  "http",
- "ibc-proto 0.24.1",
+ "ibc-proto",
  "ibc-relayer",
  "ibc-relayer-cli",
  "ibc-relayer-types",
@@ -3800,7 +3785,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "ibc",
- "ibc-proto 0.25.0",
+ "ibc-proto",
  "ibc-support",
  "log",
  "parity-scale-codec",
