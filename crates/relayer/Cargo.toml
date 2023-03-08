@@ -22,6 +22,7 @@ telemetry = ["ibc-telemetry"]
 
 [dependencies]
 ibc-proto         = { version = "0.24.0" }
+# ibc-proto         = { version = "0.24.0",  path = "../../../ibc-proto-rs"}
 ibc-telemetry     = { version = "0.21.0", path = "../telemetry", optional = true }
 ibc-relayer-types = { version = "0.21.0", path = "../relayer-types", features = ["mocks"] }
 

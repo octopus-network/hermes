@@ -13,6 +13,8 @@ description  = """
 
 [dependencies]
 ibc-proto         = { version = "0.24.0" }
+# ibc-proto         = { version = "0.24.0",  path = "../../../ibc-proto-rs"}
+
 ibc-relayer-types = { version = "0.21.0", path = "../relayer-types", features = ["std"] }
 tendermint-rpc    = { version = "0.28.0", features = ["http-client", "websocket-client"] }
 
