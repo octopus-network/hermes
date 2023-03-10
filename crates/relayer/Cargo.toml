@@ -75,6 +75,14 @@ version = "4.0.19"
 default-features = false
 features = ["serde"]
 
+subxt = "0.25.0"
+parity-scale-codec = "3.2.2"
+hex-literal = "0.3.4"
+sp-keyring = "7.0.0"
+pallet-ibc = { git = "https://github.com/octopus-network/substrate-ibc.git", branch = "master" }
+sp-core = "7.0.0"
+
+
 [dependencies.num-bigint]
 version = "0.4"
 features = ["serde"]
