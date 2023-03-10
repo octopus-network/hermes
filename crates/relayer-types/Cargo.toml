@@ -27,7 +27,7 @@ mocks = ["tendermint-testgen", "clock", "std"]
 
 [dependencies]
 # Proto definitions for all IBC-related interfaces, e.g., connections or channels.
-ibc-proto = { version = "0.24.1", default-features = false }
+ibc-proto = { version = "0.25.0", default-features = false, features = ["parity-scale-codec", "borsh"] }
 ics23 = { version = "=0.9.0", default-features = false, features = ["host-functions"] }
 time = { version = ">=0.3.0, <0.3.18", default-features = false }
 serde_derive = { version = "1.0.104", default-features = false }
@@ -45,6 +45,9 @@ itertools = { version = "0.10.3", default-features = false, features = ["use_all
 primitive-types = { version = "0.12.1", default-features = false, features = ["serde_no_std"] }
 dyn-clone = "1.0.8"
 num-rational = "0.4.1"
+secp256k1 = { version = "0.24.2", features = ["rand-std"] }
+eyre = "0.6"
+cosmos-sdk-proto = { version = "0.16", default-features = false }
 
 [dependencies.tendermint]
 version = "0.28.0"
