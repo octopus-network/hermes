@@ -2443,7 +2443,7 @@ dependencies = [
 [[package]]
 name = "ibc-proto"
 version = "0.25.0"
-source = "git+https://github.com/octopus-network/ibc-proto-rs?branch=ibc#5b608248f8d67efafc4a996eed02e760d381588f"
+source = "git+https://github.com/octopus-network/ibc-proto-rs?branch=julian-dev#c6243f84ad717ff8a4b3c58bb7f9c50816262496"
 dependencies = [
  "base64",
  "borsh",
@@ -7129,7 +7129,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if 0.1.10",
  "digest 0.10.6",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
