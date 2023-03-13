@@ -2484,6 +2484,7 @@ dependencies = [
  "http",
  "humantime",
  "humantime-serde",
+ "ibc",
  "ibc-proto",
  "ibc-relayer-types",
  "ibc-telemetry",

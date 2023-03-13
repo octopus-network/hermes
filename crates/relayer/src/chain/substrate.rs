@@ -100,6 +100,7 @@ use core::str::FromStr;
 // use ibc_proto::google::protobuf::Any;
 use crate::config::AddressType;
 use hdpath::StandardHDPath;
+use ibc::core::ics24_host::path::ConnectionsPath;
 use ibc_relayer_types::clients::ics06_solomachine::ClientState as SmClientState;
 use ibc_relayer_types::clients::ics06_solomachine::ConsensusState as SmConsensusState;
 use ibc_relayer_types::clients::ics06_solomachine::HeaderData as SmHeaderData;
@@ -1306,8 +1307,34 @@ impl ChainEndpoint for SubstrateChain {
 
         let conn = connection.unwrap();
 
-        println!("connection: {:?}", conn);
-        Ok((conn.into(), None))
+        println!("connection: {:?}", conn); // update ConnectionsPath key
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let query_height = match request.height {
+                    QueryHeight::Latest => {
+                        let finalized_head = self
+                            .rt
+                            .block_on(self.rpc_client.rpc().finalized_head())
+                            .unwrap();
+                        let height = self
+                            .rt
+                            .block_on(self.rpc_client.rpc().header(Some(finalized_head)))
+                            .unwrap()
+                            .unwrap()
+                            .number;
+                        height as u64
+                    }
+                    QueryHeight::Specific(value) => value.revision_height(),
+                };
+
+                Ok((
+                    conn.into(),
+                    Some(self.generate_storage_proof(&storage.to_root_bytes(), query_height)?),
+                ))
+            }
+            IncludeProof::No => Ok((conn.into(), None)),
+        }
     }
 
     fn query_connection_channels(
