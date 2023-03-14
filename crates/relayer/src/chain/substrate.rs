@@ -100,6 +100,7 @@ use core::str::FromStr;
 // use ibc_proto::google::protobuf::Any;
 use crate::config::AddressType;
 use hdpath::StandardHDPath;
+use ibc::core::ics24_host::path::ConnectionsPath;
 use ibc_relayer_types::clients::ics06_solomachine::ClientState as SmClientState;
 use ibc_relayer_types::clients::ics06_solomachine::ConsensusState as SmConsensusState;
 use ibc_relayer_types::clients::ics06_solomachine::HeaderData as SmHeaderData;
@@ -107,8 +108,16 @@ use ibc_relayer_types::clients::ics06_solomachine::PublicKey;
 use ibc_relayer_types::clients::ics06_solomachine::{Header as SmHeader, HeaderData, SignBytes};
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
 use ibc_relayer_types::timestamp::Timestamp;
+use jsonrpsee::rpc_params;
+use serde::{Deserialize, Serialize};
+use sp_core::{Bytes, H256};
 use sp_keyring::AccountKeyring;
 use std::time::{Duration, SystemTime};
+use subxt::{
+    self,
+    rpc::{BlockNumber, NumberOrHex},
+    storage::StorageKey,
+};
 use subxt::{tx::PairSigner, OnlineClient, SubstrateConfig};
 use tracing::info;
 
@@ -915,6 +924,66 @@ pub struct SubstrateChain {
     // tx_monitor_cmd: Option<TxMonitorCmd>,
 }
 
+impl SubstrateChain {
+    /// Retrieve the storage proof according to storage keys
+    /// And convert the proof to IBC compatible type
+    fn generate_storage_proof(&self, key_addr: &[u8], height: u64) -> Result<MerkleProof, Error> {
+        let block_hash: H256 = self
+            .rt
+            .block_on(
+                self.rpc_client
+                    .rpc()
+                    .block_hash(Some(BlockNumber::from(height))),
+            )
+            .unwrap()
+            .unwrap();
+        // Fetch at most 10 keys from below the prefix XcmPallet' VersionNotifiers.
+        let keys = self
+            .rt
+            .block_on(
+                self.rpc_client
+                    .storage()
+                    .fetch_keys(key_addr, 1, None, None),
+            )
+            .unwrap();
+        let keys: Vec<&[u8]> = keys.iter().map(|key| key.as_ref()).collect();
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        pub struct ReadProofU8 {
+            pub at: String,
+            pub proof: Vec<Vec<u8>>,
+        }
+
+        let storage_proof = self
+            .rt
+            .block_on(self.rpc_client.rpc().read_proof(keys, Some(block_hash)))
+            .unwrap();
+
+        let storage_proof_ = ReadProofU8 {
+            at: storage_proof.at.to_string(),
+            proof: storage_proof
+                .proof
+                .iter()
+                .map(|val| val.clone().0)
+                .collect::<Vec<Vec<u8>>>(),
+        };
+        tracing::trace!(
+            "in substrate: [generate_storage_proof] >> storage_proof_ : {:?}",
+            storage_proof_
+        );
+
+        let storage_proof_str = serde_json::to_string(&storage_proof_).unwrap();
+        tracing::trace!(
+            "in substrate: [generate_storage_proof] >> storage_proof_str: {:?}",
+            storage_proof_str
+        );
+
+        let proof = compose_ibc_merkle_proof(storage_proof_str);
+        Ok(proof)
+    }
+}
+
 impl ChainEndpoint for SubstrateChain {
     type LightBlock = SubLightBlock;
     type Header = SmHeader;
@@ -1238,8 +1307,34 @@ impl ChainEndpoint for SubstrateChain {
 
         let conn = connection.unwrap();
 
-        println!("connection: {:?}", conn);
-        Ok((conn.into(), None))
+        println!("connection: {:?}", conn); // update ConnectionsPath key
+
+        match include_proof {
+            IncludeProof::Yes => {
+                let query_height = match request.height {
+                    QueryHeight::Latest => {
+                        let finalized_head = self
+                            .rt
+                            .block_on(self.rpc_client.rpc().finalized_head())
+                            .unwrap();
+                        let height = self
+                            .rt
+                            .block_on(self.rpc_client.rpc().header(Some(finalized_head)))
+                            .unwrap()
+                            .unwrap()
+                            .number;
+                        height as u64
+                    }
+                    QueryHeight::Specific(value) => value.revision_height(),
+                };
+
+                Ok((
+                    conn.into(),
+                    Some(self.generate_storage_proof(&storage.to_root_bytes(), query_height)?),
+                ))
+            }
+            IncludeProof::No => Ok((conn.into(), None)),
+        }
     }
 
     fn query_connection_channels(
@@ -1498,6 +1593,30 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<CrossChainQueryResponse>, Error> {
         unimplemented!();
     }
+}
+
+// Todo: to create a new type in `commitment_proof::Proof`
+/// Compose merkle proof according to ibc proto
+pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
+    use ics23::{commitment_proof, ExistenceProof, InnerOp};
+    tracing::trace!("in substrate: [compose_ibc_merkle_proof]");
+
+    let _inner_op = InnerOp {
+        hash: 0,
+        prefix: vec![0],
+        suffix: vec![0],
+    };
+
+    let proof = commitment_proof::Proof::Exist(ExistenceProof {
+        key: vec![0],
+        value: proof.as_bytes().to_vec(),
+        leaf: None,
+        path: vec![_inner_op],
+    });
+
+    let parsed = ics23::CommitmentProof { proof: Some(proof) };
+    let mproofs: Vec<ics23::CommitmentProof> = vec![parsed];
+    MerkleProof { proofs: mproofs }
 }
 
 #[cfg(test)]
