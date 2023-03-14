@@ -1967,10 +1967,13 @@ dependencies = [
  "http",
  "humantime",
  "humantime-serde",
+ "ibc",
  "ibc-proto",
  "ibc-relayer-types",
  "ibc-telemetry",
+ "ics23",
  "itertools",
+ "jsonrpsee 0.14.0",
  "moka",
  "num-bigint",
  "num-rational",
@@ -2337,14 +2340,49 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11e017217fcd18da0a25296d3693153dd19c8a6aadab330b3595285d075385d1"
+dependencies = [
+ "jsonrpsee-core 0.14.0",
+ "jsonrpsee-http-client 0.14.0",
+ "jsonrpsee-proc-macros",
+ "jsonrpsee-types 0.14.0",
+ "jsonrpsee-ws-client",
+ "tracing",
+]
+
+[[package]]
+name = "jsonrpsee"
 version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d291e3a5818a2384645fd9756362e6d89cf0541b0b916fa7702ea4a9833608e"
 dependencies = [
- "jsonrpsee-client-transport",
- "jsonrpsee-core",
- "jsonrpsee-http-client",
- "jsonrpsee-types",
+ "jsonrpsee-client-transport 0.16.2",
+ "jsonrpsee-core 0.16.2",
+ "jsonrpsee-http-client 0.16.2",
+ "jsonrpsee-types 0.16.2",
+]
+
+[[package]]
+name = "jsonrpsee-client-transport"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce395539a14d3ad4ec1256fde105abd36a2da25d578a291cabe98f45adfdb111"
+dependencies = [
+ "futures-util",
+ "http",
+ "jsonrpsee-core 0.14.0",
+ "jsonrpsee-types 0.14.0",
+ "pin-project",
+ "rustls-native-certs 0.6.2",
+ "soketto",
+ "thiserror",
+ "tokio",
+ "tokio-rustls 0.23.4",
+ "tokio-util",
+ "tracing",
+ "webpki-roots 0.22.6",
 ]
 
 [[package]]
@@ -2355,8 +2393,8 @@ checksum = "965de52763f2004bc91ac5bcec504192440f0b568a5d621c59d9dbd6f886c3fb"
 dependencies = [
  "futures-util",
  "http",
- "jsonrpsee-core",
- "jsonrpsee-types",
+ "jsonrpsee-core 0.16.2",
+ "jsonrpsee-types 0.16.2",
  "pin-project",
  "rustls-native-certs 0.6.2",
  "soketto",
@@ -2370,9 +2408,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-core"
-version = "0.16.2"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4e70b4439a751a5de7dd5ed55eacff78ebf4ffe0fc009cb1ebb11417f5b536b"
+checksum = "16efcd4477de857d4a2195a45769b2fe9ebb54f3ef5a4221d3b014a4fe33ec0b"
 dependencies = [
  "anyhow",
  "async-lock",
@@ -2392,12 +2430,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonrpsee-http-client"
+name = "jsonrpsee-core"
 version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc345b0a43c6bc49b947ebeb936e886a419ee3d894421790c969cc56040542ad"
+checksum = "a4e70b4439a751a5de7dd5ed55eacff78ebf4ffe0fc009cb1ebb11417f5b536b"
 dependencies = [
+ "anyhow",
+ "async-lock",
  "async-trait",
+ "beef",
+ "futures-channel",
+ "futures-timer",
+ "futures-util",
  "hyper",
  "hyper-rustls 0.23.2",
  "jsonrpsee-core",
@@ -2411,16 +2455,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonrpsee-types"
-version = "0.16.2"
+name = "jsonrpsee-http-client"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bd522fe1ce3702fd94812965d7bb7a3364b1c9aba743944c5a00529aae80f8c"
+checksum = "5fc1d8c0e4f455c47df21f8a29f4bbbcb75eb71bfee919b92e92502b48358392"
 dependencies = [
- "anyhow",
- "beef",
+ "async-trait",
+ "hyper",
+ "hyper-rustls 0.23.2",
+ "jsonrpsee-core 0.14.0",
+ "jsonrpsee-types 0.14.0",
+ "rustc-hash",
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
  "tracing",
 ]
 
@@ -2430,10 +2479,17 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cadb76004ed8e97623117f3df85b17aaa6626ab0b0831e6573f104df16cd1bcc"
 dependencies = [
- "cfg-if 1.0.0",
- "ecdsa",
- "elliptic-curve",
- "sha2 0.10.6",
+ "async-trait",
+ "hyper",
+ "hyper-rustls 0.23.2",
+ "jsonrpsee-core 0.16.2",
+ "jsonrpsee-types 0.16.2",
+ "rustc-hash",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -2442,7 +2498,10 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f6d5ed8676d904364de097082f4e7d240b571b67989ced0240f08b7f966f940"
 dependencies = [
- "cpufeatures",
+ "proc-macro-crate 1.3.1",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
