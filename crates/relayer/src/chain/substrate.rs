@@ -1222,7 +1222,32 @@ impl ChainEndpoint for SubstrateChain {
         let client_state = AnyClientState::decode_vec(&states.unwrap()).map_err(Error::decode)?;
 
         println!("states: {:?}", client_state);
-        Ok((client_state, None))
+        match include_proof {
+            IncludeProof::Yes => {
+                let query_height = match request.height {
+                    QueryHeight::Latest => {
+                        let finalized_head = self
+                            .rt
+                            .block_on(self.rpc_client.rpc().finalized_head())
+                            .unwrap();
+                        let height = self
+                            .rt
+                            .block_on(self.rpc_client.rpc().header(Some(finalized_head)))
+                            .unwrap()
+                            .unwrap()
+                            .number;
+                        height as u64
+                    }
+                    QueryHeight::Specific(value) => value.revision_height(),
+                };
+
+                Ok((
+                    client_state,
+                    Some(self.generate_storage_proof(&storage.to_root_bytes(), query_height)?),
+                ))
+            }
+            IncludeProof::No => Ok((client_state, None)),
+        }
     }
 
     fn query_upgraded_client_state(
@@ -1265,7 +1290,32 @@ impl ChainEndpoint for SubstrateChain {
             AnyConsensusState::decode_vec(&consensus_states.unwrap()).map_err(Error::decode)?;
 
         println!("consensus_state: {:?}", consensus_state);
-        Ok((consensus_state, None))
+        match include_proof {
+            IncludeProof::Yes => {
+                let query_height = match request.query_height {
+                    QueryHeight::Latest => {
+                        let finalized_head = self
+                            .rt
+                            .block_on(self.rpc_client.rpc().finalized_head())
+                            .unwrap();
+                        let height = self
+                            .rt
+                            .block_on(self.rpc_client.rpc().header(Some(finalized_head)))
+                            .unwrap()
+                            .unwrap()
+                            .number;
+                        height as u64
+                    }
+                    QueryHeight::Specific(value) => value.revision_height(),
+                };
+
+                Ok((
+                    consensus_state,
+                    Some(self.generate_storage_proof(&storage.to_root_bytes(), query_height)?),
+                ))
+            }
+            IncludeProof::No => Ok((consensus_state, None)),
+        }
     }
 
     /// Query the heights of every consensus state for a given client.
