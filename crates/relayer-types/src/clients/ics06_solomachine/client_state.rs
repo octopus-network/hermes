@@ -17,15 +17,15 @@ use cosmos_sdk_proto::{
 };
 use eyre::Result;
 use ibc_proto::google::protobuf::Any;
-use ibc_proto::ibc::lightclients::solomachine::v1::ClientState as RawSmClientState;
-use ibc_proto::ibc::lightclients::solomachine::v1::ConsensusState as RawSmConsesusState;
+use ibc_proto::ibc::lightclients::solomachine::v2::ClientState as RawSmClientState;
+use ibc_proto::ibc::lightclients::solomachine::v2::ConsensusState as RawSmConsesusState;
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState {
     pub sequence: u64,
-    pub frozen_sequence: u64,
+    pub is_frozen: bool,
     pub consensus_state: ConsensusState,
     pub allow_update_after_proposal: bool,
 }
@@ -44,7 +44,11 @@ impl Ics2ClientState for ClientState {
     }
 
     fn frozen_height(&self) -> Option<Height> {
-        Some(Height::new(0, self.frozen_sequence).unwrap())
+        if self.is_frozen {
+            Some(Height::new(0, self.sequence).unwrap())
+        } else {
+            None
+        }
     }
 
     fn upgrade(
@@ -70,7 +74,7 @@ impl TryFrom<RawSmClientState> for ClientState {
         let pk = cs.public_key.unwrap().try_into().unwrap();
         Ok(Self {
             sequence: raw.sequence,
-            frozen_sequence: raw.frozen_sequence,
+            is_frozen: raw.is_frozen,
             consensus_state: ConsensusState {
                 public_key: pk,
                 diversifier: cs.diversifier,
@@ -86,7 +90,7 @@ impl From<ClientState> for RawSmClientState {
     fn from(value: ClientState) -> Self {
         Self {
             sequence: value.sequence,
-            frozen_sequence: value.frozen_sequence,
+            is_frozen: value.is_frozen,
             consensus_state: Some(RawSmConsesusState {
                 public_key: Some(value.consensus_state.public_key.into()),
                 diversifier: value.consensus_state.diversifier,

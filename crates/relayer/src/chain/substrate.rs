@@ -1431,7 +1431,7 @@ impl ChainEndpoint for SubstrateChain {
         let timestamp_nanos = duration_since_epoch.as_nanos(); // u128
         Ok(SmClientState {
             sequence: height.revision_height(),
-            frozen_sequence: u64::max_value(),
+            is_frozen: false,
             consensus_state: SmConsensusState {
                 public_key: pk,
                 diversifier: "oct".to_string(),
