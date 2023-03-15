@@ -5,9 +5,8 @@ use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as RawConsensus
 #[cfg(test)]
 use ibc_proto::ibc::mock::ConsensusState as RawMockConsensusState;
 use ibc_proto::protobuf::Protobuf;
-use ibc_relayer_types::clients::ics06_solomachine::{
-    ConsensusState as SmConsensusState, SOLOMACHINE_CONSENSUS_STATE_TYPE_URL,
-};
+use ibc_relayer_types::clients::ics06_solomachine::consensus_state::ConsensusState as SmConsensusState;
+use ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CONSENSUS_STATE_TYPE_URL;
 use ibc_relayer_types::clients::ics07_tendermint::consensus_state::{
     ConsensusState as TmConsensusState, TENDERMINT_CONSENSUS_STATE_TYPE_URL,
 };
