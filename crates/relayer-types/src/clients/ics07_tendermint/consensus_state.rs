@@ -39,8 +39,8 @@ impl crate::core::ics02_client::consensus_state::ConsensusState for ConsensusSta
         ClientType::Tendermint
     }
 
-    fn root(&self) -> &CommitmentRoot {
-        &self.root
+    fn root(&self) -> Option<&CommitmentRoot> {
+        Some(&self.root)
     }
 
     fn timestamp(&self) -> Timestamp {

@@ -132,23 +132,18 @@ impl From<PublicKey> for tendermint::PublicKey {
     }
 }
 
+/// ConsensusState defines a solo machine consensus state. The sequence of a
+/// consensus state is contained in the "height" key used in storing the
+/// consensus state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConsensusState {
-    pub public_key: PublicKey,
+    /// public key of the solo machine
+    pub public_key: Option<Any>,
+    /// diversifier allows the same public key to be re-used across different solo
+    /// machine clients (potentially on different chains) without being considered
+    /// misbehaviour.
     pub diversifier: String,
     pub timestamp: u64,
-    pub root: CommitmentRoot,
-}
-
-impl ConsensusState {
-    pub fn new(public_key: PublicKey, diversifier: String, timestamp: u64) -> Self {
-        Self {
-            public_key,
-            diversifier,
-            timestamp,
-            root: CommitmentRoot::from_bytes(&public_key.to_bytes()),
-        }
-    }
 }
 
 impl crate::core::ics02_client::consensus_state::ConsensusState for ConsensusState {
@@ -156,8 +151,8 @@ impl crate::core::ics02_client::consensus_state::ConsensusState for ConsensusSta
         ClientType::Solomachine
     }
 
-    fn root(&self) -> &CommitmentRoot {
-        &self.root
+    fn root(&self) -> Option<&CommitmentRoot> {
+        None
     }
 
     fn timestamp(&self) -> Timestamp {
@@ -176,7 +171,6 @@ impl TryFrom<RawConsensusState> for ConsensusState {
             public_key: pk,
             diversifier: raw.diversifier,
             timestamp: raw.timestamp,
-            root: CommitmentRoot::from_bytes(&pk.to_bytes()),
         })
     }
 }
@@ -184,7 +178,7 @@ impl TryFrom<RawConsensusState> for ConsensusState {
 impl From<ConsensusState> for RawConsensusState {
     fn from(value: ConsensusState) -> Self {
         RawConsensusState {
-            public_key: Some(value.public_key.into()),
+            public_key: value.public_key,
             diversifier: value.diversifier,
             timestamp: value.timestamp,
         }

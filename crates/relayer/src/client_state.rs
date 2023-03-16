@@ -86,7 +86,7 @@ impl AnyClientState {
     pub fn trust_threshold(&self) -> Option<TrustThreshold> {
         match self {
             AnyClientState::Tendermint(state) => Some(state.trust_threshold),
-            AnyClientState::Solomachine(state) => None,
+            AnyClientState::Solomachine(_state) => None,
 
             #[cfg(test)]
             AnyClientState::Mock(_) => None,
@@ -96,7 +96,7 @@ impl AnyClientState {
     pub fn max_clock_drift(&self) -> Duration {
         match self {
             AnyClientState::Tendermint(state) => state.max_clock_drift,
-            AnyClientState::Solomachine(state) => Duration::new(0, 0),
+            AnyClientState::Solomachine(_state) => Duration::new(0, 0),
 
             #[cfg(test)]
             AnyClientState::Mock(_) => Duration::new(0, 0),
@@ -116,7 +116,7 @@ impl AnyClientState {
     pub fn refresh_period(&self) -> Option<Duration> {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.refresh_time(),
-            AnyClientState::Solomachine(tm_state) => None,
+            AnyClientState::Solomachine(_solo_state) => None,
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.refresh_time(),
@@ -215,7 +215,7 @@ impl ClientState for AnyClientState {
                 upgrade_options.as_tm_upgrade_options().unwrap(),
                 chain_id,
             ),
-            AnyClientState::Solomachine(sm_state) => (),
+            AnyClientState::Solomachine(_solo_state) => (),
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => {
@@ -227,7 +227,7 @@ impl ClientState for AnyClientState {
     fn expired(&self, elapsed_since_latest: Duration) -> bool {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.expired(elapsed_since_latest),
-            AnyClientState::Solomachine(sm_state) => false,
+            AnyClientState::Solomachine(_solo_state) => false,
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.expired(elapsed_since_latest),

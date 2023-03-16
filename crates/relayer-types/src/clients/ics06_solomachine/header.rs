@@ -1,4 +1,3 @@
-use super::consensus_state::PublicKey;
 use super::error::Error;
 use super::SOLOMACHINE_HEADER_TYPE_URL;
 use crate::core::ics02_client::client_type::ClientType;
@@ -17,12 +16,14 @@ use ibc_proto::ibc::lightclients::solomachine::v2::SignBytes as RawSignBytes;
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, PartialEq, Eq, Deserialize, Serialize)]
+/// Header defines a solo machine consensus header
+#[derive(Clone, PartialEq, Eq, Deserialize, Serialize, Debug)]
 pub struct Header {
+    /// sequence to update solo machine public key at
     pub sequence: u64,
     pub timestamp: u64,
     pub signature: Vec<u8>,
-    pub new_public_key: Option<PublicKey>,
+    pub new_public_key: Option<Any>,
     pub new_diversifier: String,
 }
 
@@ -40,7 +41,7 @@ impl crate::core::ics02_client::header::Header for Header {
     }
 }
 
-impl core::fmt::Debug for Header {
+impl core::fmt::Display for Header {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), FmtError> {
         write!(f, " Header {{...}}")
     }
@@ -52,12 +53,11 @@ impl TryFrom<RawHeader> for Header {
     type Error = Error;
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
-        let pk: PublicKey = raw.new_public_key.unwrap().try_into().unwrap();
         let header = Self {
             sequence: raw.sequence,
             timestamp: raw.timestamp,
             signature: raw.signature,
-            new_public_key: Some(pk),
+            new_public_key: raw.new_public_key,
             new_diversifier: raw.new_diversifier,
         };
 
@@ -104,12 +104,13 @@ impl From<Header> for RawHeader {
             sequence: value.sequence,
             timestamp: value.timestamp,
             signature: value.signature,
-            new_public_key: Some(value.new_public_key.unwrap().to_any().unwrap()),
+            new_public_key: value.new_public_key,
             new_diversifier: value.new_diversifier,
         }
     }
 }
 
+/// SignBytes defines the signed bytes used for signature verification.
 #[derive(Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct SignBytes {
     pub sequence: u64,
@@ -153,7 +154,7 @@ impl From<SignBytes> for RawSignBytes {
 #[derive(Default, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct HeaderData {
     /// header public key
-    pub new_pub_key: Option<PublicKey>,
+    pub new_pub_key: Option<Any>,
     /// header diversifier
     pub new_diversifier: String,
 }
@@ -164,10 +165,8 @@ impl TryFrom<RawHeaderData> for HeaderData {
     type Error = Error;
 
     fn try_from(raw: RawHeaderData) -> Result<Self, Self::Error> {
-        let pk: PublicKey = raw.new_pub_key.unwrap().try_into().unwrap();
-
         Ok(Self {
-            new_pub_key: Some(pk),
+            new_pub_key: raw.new_pub_key,
             new_diversifier: raw.new_diversifier,
         })
     }
@@ -176,7 +175,7 @@ impl TryFrom<RawHeaderData> for HeaderData {
 impl From<HeaderData> for RawHeaderData {
     fn from(value: HeaderData) -> Self {
         RawHeaderData {
-            new_pub_key: Some(value.new_pub_key.unwrap().to_any().unwrap()),
+            new_pub_key: value.new_pub_key,
             new_diversifier: value.new_diversifier,
         }
     }

@@ -184,7 +184,7 @@ impl ConsensusState for AnyConsensusState {
         self.client_type()
     }
 
-    fn root(&self) -> &CommitmentRoot {
+    fn root(&self) -> Option<&CommitmentRoot> {
         match self {
             Self::Tendermint(cs_state) => cs_state.root(),
             Self::Solomachine(cs_state) => cs_state.root(),

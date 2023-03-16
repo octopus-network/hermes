@@ -37,6 +37,10 @@ use crate::misbehaviour::MisbehaviourEvidence;
 use crate::config::AddressType;
 use core::str::FromStr;
 use hdpath::StandardHDPath;
+use ibc_proto::cosmos::tx::signing::v1beta1::{
+    signature_descriptor::{self, data},
+    SignatureDescriptor,
+};
 use ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState as SmClientState;
 use ibc_relayer_types::clients::ics06_solomachine::consensus_state::ConsensusState as SmConsensusState;
 use ibc_relayer_types::clients::ics06_solomachine::consensus_state::PublicKey;
@@ -47,6 +51,7 @@ use ibc_relayer_types::clients::ics06_solomachine::header::{
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
 use ibc_relayer_types::timestamp::Timestamp;
 use jsonrpsee::rpc_params;
+use prost::Message;
 use serde::{Deserialize, Serialize};
 use sp_core::{Bytes, H256};
 use sp_keyring::AccountKeyring;
@@ -1314,7 +1319,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_channel_client_state(
         &self,
-        request: QueryChannelClientStateRequest,
+        _request: QueryChannelClientStateRequest,
     ) -> Result<Option<IdentifiedAnyClientState>, Error> {
         unimplemented!();
     }
@@ -1432,13 +1437,12 @@ impl ChainEndpoint for SubstrateChain {
         Ok(SmClientState {
             sequence: height.revision_height(),
             is_frozen: false,
-            consensus_state: SmConsensusState {
-                public_key: pk,
+            consensus_state: Some(SmConsensusState {
+                public_key: Some(pk.to_any().unwrap()),
                 diversifier: "oct".to_string(),
                 // timestamp: timestamp_nanos as u64,
                 timestamp: 9999,
-                root: CommitmentRoot::from_bytes(&pk.to_bytes()),
-            },
+            }),
             allow_update_after_proposal: false,
         })
     }
@@ -1459,11 +1463,10 @@ impl ChainEndpoint for SubstrateChain {
         let timestamp_nanos = duration_since_epoch.as_nanos(); // u128
 
         Ok(SmConsensusState {
-            public_key: pk,
+            public_key: Some(pk.to_any().unwrap()),
             diversifier: "oct".to_string(),
             // timestamp: timestamp_nanos as u64,
             timestamp: 9999,
-            root: CommitmentRoot::from_bytes(&pk.to_bytes()),
         })
     }
 
@@ -1492,7 +1495,7 @@ impl ChainEndpoint for SubstrateChain {
             .unwrap()
             .as_nanos() as u64; // u128
         let data = HeaderData {
-            new_pub_key: Some(pk),
+            new_pub_key: Some(pk.to_any().unwrap()),
             new_diversifier: "oct".to_string(),
         };
 
@@ -1501,7 +1504,6 @@ impl ChainEndpoint for SubstrateChain {
             timestamp: timestamp_nanos,
             diversifier: "oct".to_string(),
             data_type: 9,
-            // data: Protobuf::<SmHeaderData>::encode_vec(&data).expect("encoding to `Any` from `HeaderData`"),
             data: data.encode_vec().unwrap(),
         };
 
@@ -1518,15 +1520,33 @@ impl ChainEndpoint for SubstrateChain {
         let key_pair = Secp256k1KeyPair::from_mnemonic("captain walk infant web eye return ahead once face sunny usage devote cotton car old check symbol antique derive wire kid solve forest fish", &standard, &AddressType::Cosmos, "oct").unwrap();
         println!("key_pair: {:?}", key_pair.public_key.to_string());
         let signature = key_pair.sign(&encoded_bytes).unwrap();
+
         println!("signature: {:?}", signature);
+
+        // let signature_data = signature_descriptor::Data {
+        //     sum: Some(data::Sum::Single(data::Single { mode: 9, signature })),
+        // };
+
+        let signature_data = signature_descriptor::Data { sum: None };
+
+        let signature_descriptor = SignatureDescriptor {
+            public_key: Some(pk.to_any().unwrap()),
+            data: Some(signature_data),
+            sequence: client_state.latest_height().revision_height(),
+        };
+
+        let mut encode_signature_descriptor = Vec::new();
+
+        prost::Message::encode(&signature_descriptor, &mut encode_signature_descriptor).unwrap();
 
         let header = SmHeader {
             sequence: client_state.latest_height().revision_height(),
             timestamp: timestamp_nanos,
-            signature,
-            new_public_key: Some(pk),
+            signature: encode_signature_descriptor,
+            new_public_key: Some(pk.to_any().unwrap()),
             new_diversifier: "oct".to_string(),
         };
+        println!("solo machine header: {:?}", header);
 
         Ok((header, vec![]))
     }

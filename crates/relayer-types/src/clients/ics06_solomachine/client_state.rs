@@ -6,7 +6,6 @@ use crate::core::ics02_client::client_state::{
 };
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::error::Error as Ics02Error;
-use crate::core::ics23_commitment::commitment::CommitmentRoot;
 use crate::core::ics24_host::identifier::ChainId;
 use crate::prelude::*;
 use crate::Height;
@@ -22,11 +21,17 @@ use ibc_proto::ibc::lightclients::solomachine::v2::ConsensusState as RawSmConses
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
 
+/// ClientState defines a solo machine client that tracks the current consensus
+/// state and if the client is frozen.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState {
+    // latest sequence of the client state
     pub sequence: u64,
+    /// frozen sequence of the solo machine
     pub is_frozen: bool,
-    pub consensus_state: ConsensusState,
+    pub consensus_state: Option<ConsensusState>,
+    /// when set to true, will allow governance to update a solo machine client.
+    /// The client will be unfrozen if it is frozen.
     pub allow_update_after_proposal: bool,
 }
 
@@ -70,17 +75,10 @@ impl TryFrom<RawSmClientState> for ClientState {
     type Error = Error;
 
     fn try_from(raw: RawSmClientState) -> Result<Self, Self::Error> {
-        let cs = raw.consensus_state.unwrap();
-        let pk = cs.public_key.unwrap().try_into().unwrap();
         Ok(Self {
             sequence: raw.sequence,
             is_frozen: raw.is_frozen,
-            consensus_state: ConsensusState {
-                public_key: pk,
-                diversifier: cs.diversifier,
-                timestamp: cs.timestamp,
-                root: CommitmentRoot::from_bytes(&pk.to_bytes()),
-            },
+            consensus_state: raw.consensus_state.map(|v| v.try_into()).transpose()?,
             allow_update_after_proposal: raw.allow_update_after_proposal,
         })
     }
@@ -91,11 +89,7 @@ impl From<ClientState> for RawSmClientState {
         Self {
             sequence: value.sequence,
             is_frozen: value.is_frozen,
-            consensus_state: Some(RawSmConsesusState {
-                public_key: Some(value.consensus_state.public_key.into()),
-                diversifier: value.consensus_state.diversifier,
-                timestamp: value.consensus_state.timestamp,
-            }),
+            consensus_state: value.consensus_state.map(|v| v.into()),
             allow_update_after_proposal: value.allow_update_after_proposal,
         }
     }

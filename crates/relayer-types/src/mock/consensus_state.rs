@@ -99,8 +99,8 @@ impl ConsensusState for MockConsensusState {
         ClientType::Mock
     }
 
-    fn root(&self) -> &CommitmentRoot {
-        &self.root
+    fn root(&self) -> Option<&CommitmentRoot> {
+        Some(&self.root)
     }
 
     fn timestamp(&self) -> Timestamp {
