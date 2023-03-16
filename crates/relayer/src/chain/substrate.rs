@@ -1,29 +1,6 @@
 use alloc::sync::Arc;
-// use bytes::{Buf, Bytes};
-// use core::{
-//     convert::{TryFrom, TryInto},
-//     future::Future,
-//     str::FromStr,
-//     time::Duration,
-// };
-// use futures::future::join_all;
-// use num_bigint::BigInt;
-// use std::{cmp::Ordering, thread};
-
-use tokio::runtime::Runtime as TokioRuntime;
-use tonic::codegen::http::Uri;
-// use tracing::{error, instrument, trace, warn};
-
-// use ibc_proto::cosmos::base::node::v1beta1::ConfigResponse;
-// use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
 use ibc_proto::protobuf::Protobuf;
 use ibc_relayer_types::applications::ics31_icq::response::CrossChainQueryResponse;
-use ibc_relayer_types::clients::ics07_tendermint::client_state::{
-    AllowUpdate, ClientState as TmClientState,
-};
-use ibc_relayer_types::clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
-use ibc_relayer_types::clients::ics07_tendermint::header::Header as TmHeader;
-// use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
 use ibc_relayer_types::core::ics03_connection::connection::{
@@ -34,46 +11,13 @@ use ibc_relayer_types::core::ics04_channel::packet::Sequence;
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentPrefix;
 use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ChannelId, ConnectionId, PortId};
-// use ibc_relayer_types::core::ics24_host::path::{
-//     AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
-//     ConnectionsPath, ReceiptsPath, SeqRecvsPath,
-// };
-// use ibc_relayer_types::core::ics24_host::{
-//     ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH,
-// };
 use ibc_relayer_types::signer::Signer;
 use ibc_relayer_types::Height as ICSHeight;
-
-// use tendermint::block::Height as TmHeight;
-// use tendermint::node::info::TxIndexStatus;
-use tendermint_light_client_verifier::types::LightBlock as TmLightBlock;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
-// use tendermint_rpc::endpoint::status;
-use tendermint_rpc::HttpClient;
+use tokio::runtime::Runtime as TokioRuntime;
 
 use crate::account::Balance;
 use crate::chain::client::ClientSettings;
-// use crate::chain::cosmos::batch::{
-//     send_batched_messages_and_wait_check_tx, send_batched_messages_and_wait_commit,
-//     sequential_send_batched_messages_and_wait_commit,
-// };
-// use crate::chain::cosmos::encode::key_pair_to_signer;
-// use crate::chain::cosmos::fee::maybe_register_counterparty_payee;
-// use crate::chain::cosmos::gas::{calculate_fee, mul_ceil};
-// use crate::chain::cosmos::query::account::get_or_fetch_account;
-// use crate::chain::cosmos::query::balance::{query_all_balances, query_balance};
-// use crate::chain::cosmos::query::custom::cross_chain_query_via_rpc;
-// use crate::chain::cosmos::query::denom_trace::query_denom_trace;
-// use crate::chain::cosmos::query::status::query_status;
-// use crate::chain::cosmos::query::tx::{
-//     filter_matching_event, query_packets_from_block, query_packets_from_txs, query_txs,
-// };
-// use crate::chain::cosmos::query::{abci_query, fetch_version_specs, packet_query, QueryResponse};
-use crate::chain::cosmos::types::account::Account;
-use crate::chain::cosmos::types::config::TxConfig;
-// use crate::chain::cosmos::types::gas::{
-//     default_gas_from_config, gas_multiplier_from_config, max_gas_from_config,
-// };
 use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
 use crate::chain::handle::Subscription;
 use crate::chain::requests::*;
@@ -88,24 +32,18 @@ use crate::event::IbcEventWithHeight;
 use ibc_relayer_types::events::IbcEvent;
 
 use crate::keyring::{KeyRing, Secp256k1KeyPair, SigningKeyPair};
-use crate::light_client::tendermint::LightClient as TmLightClient;
-// use crate::light_client::{LightClient, Verified};
 use crate::misbehaviour::MisbehaviourEvidence;
-// use crate::util::pretty::{
-//     PrettyConsensusStateWithHeight, PrettyIdentifiedChannel, PrettyIdentifiedClientState,
-//     PrettyIdentifiedConnection,
-// };
 
-use core::str::FromStr;
-// use ibc_proto::google::protobuf::Any;
 use crate::config::AddressType;
+use core::str::FromStr;
 use hdpath::StandardHDPath;
-use ibc::core::ics24_host::path::ConnectionsPath;
-use ibc_relayer_types::clients::ics06_solomachine::ClientState as SmClientState;
-use ibc_relayer_types::clients::ics06_solomachine::ConsensusState as SmConsensusState;
-use ibc_relayer_types::clients::ics06_solomachine::HeaderData as SmHeaderData;
-use ibc_relayer_types::clients::ics06_solomachine::PublicKey;
-use ibc_relayer_types::clients::ics06_solomachine::{Header as SmHeader, HeaderData, SignBytes};
+use ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState as SmClientState;
+use ibc_relayer_types::clients::ics06_solomachine::consensus_state::ConsensusState as SmConsensusState;
+use ibc_relayer_types::clients::ics06_solomachine::consensus_state::PublicKey;
+use ibc_relayer_types::clients::ics06_solomachine::header::HeaderData as SmHeaderData;
+use ibc_relayer_types::clients::ics06_solomachine::header::{
+    Header as SmHeader, HeaderData, SignBytes,
+};
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
 use ibc_relayer_types::timestamp::Timestamp;
 use jsonrpsee::rpc_params;
@@ -120,37 +58,6 @@ use subxt::{
 };
 use subxt::{tx::PairSigner, OnlineClient, SubstrateConfig};
 use tracing::info;
-
-// pub mod batch;
-// pub mod client;
-// pub mod compatibility;
-// pub mod encode;
-// pub mod estimate;
-// pub mod fee;
-// pub mod gas;
-// pub mod query;
-// pub mod retry;
-// pub mod simulate;
-// pub mod tx;
-// pub mod types;
-// pub mod version;
-// pub mod wait;
-
-/// Defines an upper limit on how large any transaction can be.
-/// This upper limit is defined as a fraction relative to the block's
-/// maximum bytes. For example, if the fraction is `0.9`, then
-/// `max_tx_size` will not be allowed to exceed 0.9 of the
-/// maximum block size of any Cosmos SDK network.
-///
-/// The default fraction we use is `0.9`; anything larger than that
-/// would be risky, as transactions might be rejected; a smaller value
-/// might be un-necessarily restrictive on the relayer side.
-/// The [default max. block size in Tendermint 0.37 is 21MB](tm-37-max).
-/// With a fraction of `0.9`, then Hermes will never permit the configuration
-/// of `max_tx_size` to exceed ~18.9MB.
-///
-/// [tm-37-max]: https://github.com/tendermint/tendermint/blob/v0.37.0-rc1/types/params.go#L79
-// pub const BLOCK_MAX_BYTES_MAX_FRACTION: f64 = 0.9;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SubLightBlock {}
@@ -199,7 +106,7 @@ pub mod subxt_ibc_event {
         },
         ics04_channel::events::{
             AcknowledgePacket as SubxtAcknowledgePacket,
-            ChannelClosed as SubxtChannelClosed, // todo channelClose
+            // ChannelClosed as SubxtChannelClosed, // todo channelClose
             CloseConfirm as SubxtChannelCloseConfirm,
             CloseInit as SubxtChannelCloseInit,
             OpenAck as SubxtChannelOpenAck,
@@ -912,16 +819,8 @@ pub mod subxt_ibc_event {
 
 pub struct SubstrateChain {
     config: ChainConfig,
-    // tx_config: TxConfig,
     rpc_client: OnlineClient<SubstrateConfig>,
-    // grpc_addr: Uri,
-    // light_client: TmLightClient,
     rt: Arc<TokioRuntime>,
-    // keybase: KeyRing<Secp256k1KeyPair>,
-
-    // account: Option<Account>,
-
-    // tx_monitor_cmd: Option<TxMonitorCmd>,
 }
 
 impl SubstrateChain {
@@ -1035,13 +934,13 @@ impl ChainEndpoint for SubstrateChain {
     /// Fetch a header from the chain at the given height and verify it.
     fn verify_header(
         &mut self,
-        trusted: ICSHeight,
-        target: ICSHeight,
-        client_state: &AnyClientState,
+        _trusted: ICSHeight,
+        _target: ICSHeight,
+        _client_state: &AnyClientState,
     ) -> Result<Self::LightBlock, Error> {
         println!(
             "trusted: {:?}, target: {:?}, client_state: {:?}",
-            trusted, target, client_state
+            _trusted, _target, _client_state
         );
         Ok(SubLightBlock {})
     }
@@ -1050,8 +949,8 @@ impl ChainEndpoint for SubstrateChain {
     /// look for misbehaviour by fetching a header at same or latest height.
     fn check_misbehaviour(
         &mut self,
-        update: &UpdateClient,
-        client_state: &AnyClientState,
+        _update: &UpdateClient,
+        _client_state: &AnyClientState,
     ) -> Result<Option<MisbehaviourEvidence>, Error> {
         unimplemented!();
     }
@@ -1115,7 +1014,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn send_messages_and_wait_check_tx(
         &mut self,
-        tracked_msgs: TrackedMsgs,
+        _tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<Response>, Error> {
         unimplemented!();
     }
@@ -1145,15 +1044,19 @@ impl ChainEndpoint for SubstrateChain {
         unimplemented!();
     }
 
-    fn query_balance(&self, key_name: Option<&str>, denom: Option<&str>) -> Result<Balance, Error> {
+    fn query_balance(
+        &self,
+        _key_name: Option<&str>,
+        _denom: Option<&str>,
+    ) -> Result<Balance, Error> {
         unimplemented!();
     }
 
-    fn query_all_balances(&self, key_name: Option<&str>) -> Result<Vec<Balance>, Error> {
+    fn query_all_balances(&self, _key_name: Option<&str>) -> Result<Vec<Balance>, Error> {
         unimplemented!();
     }
 
-    fn query_denom_trace(&self, hash: String) -> Result<DenomTrace, Error> {
+    fn query_denom_trace(&self, _hash: String) -> Result<DenomTrace, Error> {
         unimplemented!();
     }
 
@@ -1196,7 +1099,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_clients(
         &self,
-        request: QueryClientStatesRequest,
+        _request: QueryClientStatesRequest,
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
         unimplemented!();
     }
@@ -1252,14 +1155,14 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_upgraded_client_state(
         &self,
-        request: QueryUpgradedClientStateRequest,
+        _request: QueryUpgradedClientStateRequest,
     ) -> Result<(AnyClientState, MerkleProof), Error> {
         unimplemented!();
     }
 
     fn query_upgraded_consensus_state(
         &self,
-        request: QueryUpgradedConsensusStateRequest,
+        _request: QueryUpgradedConsensusStateRequest,
     ) -> Result<(AnyConsensusState, MerkleProof), Error> {
         unimplemented!();
     }
@@ -1321,21 +1224,21 @@ impl ChainEndpoint for SubstrateChain {
     /// Query the heights of every consensus state for a given client.
     fn query_consensus_state_heights(
         &self,
-        request: QueryConsensusStateHeightsRequest,
+        _request: QueryConsensusStateHeightsRequest,
     ) -> Result<Vec<ICSHeight>, Error> {
         unimplemented!();
     }
 
     fn query_client_connections(
         &self,
-        request: QueryClientConnectionsRequest,
+        _request: QueryClientConnectionsRequest,
     ) -> Result<Vec<ConnectionId>, Error> {
         unimplemented!();
     }
 
     fn query_connections(
         &self,
-        request: QueryConnectionsRequest,
+        _request: QueryConnectionsRequest,
     ) -> Result<Vec<IdentifiedConnectionEnd>, Error> {
         unimplemented!();
     }
@@ -1389,22 +1292,22 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_connection_channels(
         &self,
-        request: QueryConnectionChannelsRequest,
+        _request: QueryConnectionChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         unimplemented!();
     }
 
     fn query_channels(
         &self,
-        request: QueryChannelsRequest,
+        _request: QueryChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         unimplemented!();
     }
 
     fn query_channel(
         &self,
-        request: QueryChannelRequest,
-        include_proof: IncludeProof,
+        _request: QueryChannelRequest,
+        _include_proof: IncludeProof,
     ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
         unimplemented!();
     }
@@ -1418,8 +1321,8 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_packet_commitment(
         &self,
-        request: QueryPacketCommitmentRequest,
-        include_proof: IncludeProof,
+        _request: QueryPacketCommitmentRequest,
+        _include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
         unimplemented!();
     }
@@ -1427,15 +1330,15 @@ impl ChainEndpoint for SubstrateChain {
     /// Queries the packet commitment hashes associated with a channel.
     fn query_packet_commitments(
         &self,
-        request: QueryPacketCommitmentsRequest,
+        _request: QueryPacketCommitmentsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
         unimplemented!();
     }
 
     fn query_packet_receipt(
         &self,
-        request: QueryPacketReceiptRequest,
-        include_proof: IncludeProof,
+        _request: QueryPacketReceiptRequest,
+        _include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
         unimplemented!();
     }
@@ -1443,15 +1346,15 @@ impl ChainEndpoint for SubstrateChain {
     /// Queries the unreceived packet sequences associated with a channel.
     fn query_unreceived_packets(
         &self,
-        request: QueryUnreceivedPacketsRequest,
+        _request: QueryUnreceivedPacketsRequest,
     ) -> Result<Vec<Sequence>, Error> {
         unimplemented!();
     }
 
     fn query_packet_acknowledgement(
         &self,
-        request: QueryPacketAcknowledgementRequest,
-        include_proof: IncludeProof,
+        _request: QueryPacketAcknowledgementRequest,
+        _include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
         unimplemented!();
     }
@@ -1459,7 +1362,7 @@ impl ChainEndpoint for SubstrateChain {
     /// Queries the packet acknowledgment hashes associated with a channel.
     fn query_packet_acknowledgements(
         &self,
-        request: QueryPacketAcknowledgementsRequest,
+        _request: QueryPacketAcknowledgementsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
         unimplemented!();
     }
@@ -1467,15 +1370,15 @@ impl ChainEndpoint for SubstrateChain {
     /// Queries the unreceived acknowledgements sequences associated with a channel.
     fn query_unreceived_acknowledgements(
         &self,
-        request: QueryUnreceivedAcksRequest,
+        _request: QueryUnreceivedAcksRequest,
     ) -> Result<Vec<Sequence>, Error> {
         unimplemented!();
     }
 
     fn query_next_sequence_receive(
         &self,
-        request: QueryNextSequenceReceiveRequest,
-        include_proof: IncludeProof,
+        _request: QueryNextSequenceReceiveRequest,
+        _include_proof: IncludeProof,
     ) -> Result<(Sequence, Option<MerkleProof>), Error> {
         unimplemented!();
     }
@@ -1483,7 +1386,7 @@ impl ChainEndpoint for SubstrateChain {
     /// This function queries transactions for events matching certain criteria.
     /// 1. Client Update request - returns a vector with at most one update client event
     /// 2. Transaction event request - returns all IBC events resulted from a Tx execution
-    fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
+    fn query_txs(&self, _request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
         unimplemented!();
     }
 
@@ -1498,14 +1401,14 @@ impl ChainEndpoint for SubstrateChain {
     ///    packets ever sent.
     fn query_packet_events(
         &self,
-        mut request: QueryPacketEventDataRequest,
+        mut _request: QueryPacketEventDataRequest,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
         unimplemented!();
     }
 
     fn query_host_consensus_state(
         &self,
-        request: QueryHostConsensusStateRequest,
+        _request: QueryHostConsensusStateRequest,
     ) -> Result<Self::ConsensusState, Error> {
         unimplemented!();
     }
@@ -1513,7 +1416,7 @@ impl ChainEndpoint for SubstrateChain {
     fn build_client_state(
         &self,
         height: ICSHeight,
-        settings: ClientSettings,
+        _settings: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
         // Build the client state.
         let pk = PublicKey(
@@ -1528,7 +1431,7 @@ impl ChainEndpoint for SubstrateChain {
         let timestamp_nanos = duration_since_epoch.as_nanos(); // u128
         Ok(SmClientState {
             sequence: height.revision_height(),
-            frozen_sequence: u64::max_value(),
+            is_frozen: false,
             consensus_state: SmConsensusState {
                 public_key: pk,
                 diversifier: "oct".to_string(),
@@ -1542,7 +1445,7 @@ impl ChainEndpoint for SubstrateChain {
 
     fn build_consensus_state(
         &self,
-        light_block: Self::LightBlock,
+        _light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
         let pk = PublicKey(
             tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!(
@@ -1630,16 +1533,16 @@ impl ChainEndpoint for SubstrateChain {
 
     fn maybe_register_counterparty_payee(
         &mut self,
-        channel_id: &ChannelId,
-        port_id: &PortId,
-        counterparty_payee: &Signer,
+        _channel_id: &ChannelId,
+        _port_id: &PortId,
+        _counterparty_payee: &Signer,
     ) -> Result<(), Error> {
         unimplemented!();
     }
 
     fn cross_chain_query(
         &self,
-        requests: Vec<CrossChainQueryRequest>,
+        _requests: Vec<CrossChainQueryRequest>,
     ) -> Result<Vec<CrossChainQueryResponse>, Error> {
         unimplemented!();
     }

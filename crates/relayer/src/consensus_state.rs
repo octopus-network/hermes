@@ -1,13 +1,12 @@
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::client::v1::ConsensusStateWithHeight;
-use ibc_proto::ibc::lightclients::solomachine::v1::ConsensusState as RawSmConsensusState;
+use ibc_proto::ibc::lightclients::solomachine::v2::ConsensusState as RawSmConsensusState;
 use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as RawConsensusState;
 #[cfg(test)]
 use ibc_proto::ibc::mock::ConsensusState as RawMockConsensusState;
 use ibc_proto::protobuf::Protobuf;
-use ibc_relayer_types::clients::ics06_solomachine::{
-    ConsensusState as SmConsensusState, SOLOMACHINE_CONSENSUS_STATE_TYPE_URL,
-};
+use ibc_relayer_types::clients::ics06_solomachine::consensus_state::ConsensusState as SmConsensusState;
+use ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CONSENSUS_STATE_TYPE_URL;
 use ibc_relayer_types::clients::ics07_tendermint::consensus_state::{
     ConsensusState as TmConsensusState, TENDERMINT_CONSENSUS_STATE_TYPE_URL,
 };
