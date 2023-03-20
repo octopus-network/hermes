@@ -44,6 +44,10 @@ use ibc_relayer_types::clients::ics06_solomachine::header::HeaderData as SmHeade
 use ibc_relayer_types::clients::ics06_solomachine::header::{
     Header as SmHeader, HeaderData, SignBytes,
 };
+use ibc_relayer_types::clients::ics06_solomachine::signing::{
+    data::{Single, Sum},
+    Data,
+};
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
 use ibc_relayer_types::timestamp::Timestamp;
 use jsonrpsee::rpc_params;
@@ -847,38 +851,17 @@ impl SubstrateChain {
             .unwrap();
         let keys: Vec<&[u8]> = keys.iter().map(|key| key.as_ref()).collect();
 
-        #[derive(Debug, PartialEq, Serialize, Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        pub struct ReadProofU8 {
-            pub at: String,
-            pub proof: Vec<Vec<u8>>,
-        }
-
         let storage_proof = self
             .rt
             .block_on(self.rpc_client.rpc().read_proof(keys, Some(block_hash)))
             .unwrap();
 
-        let storage_proof_ = ReadProofU8 {
-            at: storage_proof.at.to_string(),
-            proof: storage_proof
-                .proof
-                .iter()
-                .map(|val| val.clone().0)
-                .collect::<Vec<Vec<u8>>>(),
-        };
-        tracing::trace!(
+        println!(
             "in substrate: [generate_storage_proof] >> storage_proof_ : {:?}",
-            storage_proof_
+            storage_proof
         );
 
-        let storage_proof_str = serde_json::to_string(&storage_proof_).unwrap();
-        tracing::trace!(
-            "in substrate: [generate_storage_proof] >> storage_proof_str: {:?}",
-            storage_proof_str
-        );
-
-        let proof = compose_ibc_merkle_proof(storage_proof_str);
+        let proof = compose_ibc_merkle_proof(storage_proof);
         Ok(proof)
     }
 }
@@ -1519,11 +1502,16 @@ impl ChainEndpoint for SubstrateChain {
         println!("key_pair: {:?}", key_pair.public_key.to_string());
         let signature = key_pair.sign(&encoded_bytes).unwrap();
         println!("signature: {:?}", signature);
+        let sig = Data {
+            sum: Some(Sum::Single(Single { mode: 1, signature })),
+        };
+        let sig_data = sig.encode_vec().unwrap();
+        println!("ys-debug: sig_data: {:?}", sig_data);
 
         let header = SmHeader {
             sequence: client_state.latest_height().revision_height(),
             timestamp: timestamp_nanos,
-            signature,
+            signature: sig_data,
             new_public_key: Some(pk),
             new_diversifier: "oct".to_string(),
         };
@@ -1550,26 +1538,28 @@ impl ChainEndpoint for SubstrateChain {
 
 // Todo: to create a new type in `commitment_proof::Proof`
 /// Compose merkle proof according to ibc proto
-pub fn compose_ibc_merkle_proof(proof: String) -> MerkleProof {
+pub fn compose_ibc_merkle_proof(proof: subxt::rpc::ReadProof<H256>) -> MerkleProof {
     use ics23::{commitment_proof, ExistenceProof, InnerOp};
     tracing::trace!("in substrate: [compose_ibc_merkle_proof]");
 
-    let _inner_op = InnerOp {
-        hash: 0,
-        prefix: vec![0],
-        suffix: vec![0],
-    };
+    let proofs = proof
+        .proof
+        .iter()
+        .map(|p| ics23::CommitmentProof {
+            proof: Some(commitment_proof::Proof::Exist(ExistenceProof {
+                key: vec![0],
+                value: p.to_vec(),
+                leaf: None,
+                path: vec![InnerOp {
+                    hash: 0,
+                    prefix: vec![0],
+                    suffix: vec![0],
+                }],
+            })),
+        })
+        .collect::<Vec<ics23::CommitmentProof>>();
 
-    let proof = commitment_proof::Proof::Exist(ExistenceProof {
-        key: vec![0],
-        value: proof.as_bytes().to_vec(),
-        leaf: None,
-        path: vec![_inner_op],
-    });
-
-    let parsed = ics23::CommitmentProof { proof: Some(proof) };
-    let mproofs: Vec<ics23::CommitmentProof> = vec![parsed];
-    MerkleProof { proofs: mproofs }
+    MerkleProof { proofs }
 }
 
 #[cfg(test)]
