@@ -9,7 +9,7 @@ use ibc_relayer_types::core::ics03_connection::connection::{
 use ibc_relayer_types::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
 use ibc_relayer_types::core::ics04_channel::packet::Sequence;
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentPrefix;
-use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
+use ibc_relayer_types::core::ics23_commitment::merkle::{apply_prefix, MerkleProof};
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ChannelId, ConnectionId, PortId};
 use ibc_relayer_types::signer::Signer;
 use ibc_relayer_types::Height as ICSHeight;
@@ -35,6 +35,7 @@ use crate::keyring::{KeyRing, Secp256k1KeyPair, SigningKeyPair};
 use crate::misbehaviour::MisbehaviourEvidence;
 
 use crate::config::AddressType;
+use crate::connection::ConnectionMsgType;
 use core::str::FromStr;
 use hdpath::StandardHDPath;
 use ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState as SmClientState;
@@ -48,9 +49,19 @@ use ibc_relayer_types::clients::ics06_solomachine::signing::{
     data::{Single, Sum},
     Data,
 };
+use ibc_relayer_types::core::ics03_connection::connection::State;
+use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentProofBytes;
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
+use ibc_relayer_types::core::ics24_host::identifier::ClientId;
+use ibc_relayer_types::core::ics24_host::path::{ChannelEndsPath, ConnectionsPath, Path};
+
+use ibc_proto::ibc::lightclients::solomachine::v2::{
+    ConnectionStateData, DataType, TimestampedSignatureData,
+};
+use ibc_relayer_types::proofs::{ConsensusProof, Proofs};
 use ibc_relayer_types::timestamp::Timestamp;
 use jsonrpsee::rpc_params;
+use prost::Message;
 use serde::{Deserialize, Serialize};
 use sp_core::{Bytes, H256};
 use sp_keyring::AccountKeyring;
@@ -1108,32 +1119,7 @@ impl ChainEndpoint for SubstrateChain {
         let client_state = AnyClientState::decode_vec(&states.unwrap()).map_err(Error::decode)?;
 
         println!("states: {:?}", client_state);
-        match include_proof {
-            IncludeProof::Yes => {
-                let query_height = match request.height {
-                    QueryHeight::Latest => {
-                        let finalized_head = self
-                            .rt
-                            .block_on(self.rpc_client.rpc().finalized_head())
-                            .unwrap();
-                        let height = self
-                            .rt
-                            .block_on(self.rpc_client.rpc().header(Some(finalized_head)))
-                            .unwrap()
-                            .unwrap()
-                            .number;
-                        height as u64
-                    }
-                    QueryHeight::Specific(value) => value.revision_height(),
-                };
-
-                Ok((
-                    client_state,
-                    Some(self.generate_storage_proof(&storage.to_root_bytes(), query_height)?),
-                ))
-            }
-            IncludeProof::No => Ok((client_state, None)),
-        }
+        Ok((client_state, None))
     }
 
     fn query_upgraded_client_state(
@@ -1244,33 +1230,7 @@ impl ChainEndpoint for SubstrateChain {
         let conn = connection.unwrap();
 
         println!("connection: {:?}", conn); // update ConnectionsPath key
-
-        match include_proof {
-            IncludeProof::Yes => {
-                let query_height = match request.height {
-                    QueryHeight::Latest => {
-                        let finalized_head = self
-                            .rt
-                            .block_on(self.rpc_client.rpc().finalized_head())
-                            .unwrap();
-                        let height = self
-                            .rt
-                            .block_on(self.rpc_client.rpc().header(Some(finalized_head)))
-                            .unwrap()
-                            .unwrap()
-                            .number;
-                        height as u64
-                    }
-                    QueryHeight::Specific(value) => value.revision_height(),
-                };
-
-                Ok((
-                    conn.into(),
-                    Some(self.generate_storage_proof(&storage.to_root_bytes(), query_height)?),
-                ))
-            }
-            IncludeProof::No => Ok((conn.into(), None)),
-        }
+        Ok((conn.into(), None))
     }
 
     fn query_connection_channels(
@@ -1401,6 +1361,8 @@ impl ChainEndpoint for SubstrateChain {
         height: ICSHeight,
         _settings: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
+        println!("ys-debug: in build_client_state");
+
         // Build the client state.
         let pk = PublicKey(
             tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!(
@@ -1430,6 +1392,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
+        println!("ys-debug: in build_consensus_state");
         let pk = PublicKey(
             tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!(
                 "02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c"
@@ -1457,35 +1420,152 @@ impl ChainEndpoint for SubstrateChain {
         client_state: &AnyClientState,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         println!(
-            "trusted_height: {:?}, target_height: {:?}, client_state: {:?}",
+                "ys-debug: in build_header, trusted_height: {:?}, target_height: {:?}, client_state: {:?}",
             trusted_height, target_height, client_state
         );
-        let pk = PublicKey(
-            tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!(
-                "02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c"
-            ))
-            .unwrap(),
-        );
-        println!("pk: {:?}", pk);
+        if trusted_height.revision_height() >= target_height.revision_height() {
+            return Err(Error::ics02(ClientError::invalid_height()));
+        }
+        let cs = if let AnyClientState::Solomachine(cs) = client_state {
+            cs
+        } else {
+            todo!()
+        };
+        let mut timestamp = cs.consensus_state.timestamp;
+        let mut h: Self::Header = SmHeader {
+            sequence: 0,
+            timestamp: 0,
+            signature: vec![],
+            new_public_key: None,
+            new_diversifier: "oct".to_string(),
+        };
+        let mut hs: Vec<Self::Header> = Vec::new();
+        for seq in trusted_height.revision_height()..target_height.revision_height() {
+            let pk = PublicKey(
+                tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!(
+                    "02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c"
+                ))
+                .unwrap(),
+            );
+            println!("pk: {:?}", pk);
+            let duration_since_epoch = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap();
+            let timestamp_nanos = duration_since_epoch
+                // .checked_sub(Duration::from_secs(5))
+                // .unwrap()
+                .as_nanos() as u64; // u128
+            let data = HeaderData {
+                new_pub_key: Some(pk),
+                new_diversifier: "oct".to_string(),
+            };
+            timestamp = timestamp + 1;
+            let bytes = SignBytes {
+                sequence: seq,
+                timestamp,
+                diversifier: "oct".to_string(),
+                data_type: DataType::Header.into(),
+                data: data.encode_vec().unwrap(),
+            };
+            println!(
+                "ys-debug: SignBytes: {:?} {:?}",
+                bytes.sequence, bytes.timestamp
+            );
+
+            let encoded_bytes = bytes.encode_vec().unwrap();
+            println!("encoded_bytes: {:?}", encoded_bytes);
+            let standard = StandardHDPath::from_str("m/44'/60'/0'/0/0").unwrap();
+            println!("standard: {:?}", standard);
+
+            // m/44'/60'/0'/0/0
+            // 0xd73E35f53b8180b241E70C0e9040173dd8D0e2A0
+            // 0x02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c
+            // 0x281afd44d50ffd0bab6502cbb9bc58a7f9b53813c862db01836d46a27b51168c
+
+            let key_pair = Secp256k1KeyPair::from_mnemonic("captain walk infant web eye return ahead once face sunny usage devote cotton car old check symbol antique derive wire kid solve forest fish", &standard, &AddressType::Cosmos, "oct").unwrap();
+            println!("key_pair: {:?}", key_pair.public_key.to_string());
+            let signature = key_pair.sign(&encoded_bytes).unwrap();
+            println!("signature: {:?}", signature);
+            let sig = Data {
+                sum: Some(Sum::Single(Single { mode: 1, signature })),
+            };
+            let sig_data = sig.encode_vec().unwrap();
+            println!("ys-debug: sig_data: {:?}", sig_data);
+
+            let header = SmHeader {
+                sequence: seq,
+                timestamp,
+                signature: sig_data,
+                new_public_key: Some(pk),
+                new_diversifier: "oct".to_string(),
+            };
+
+            if seq == target_height.revision_height() - 1 {
+                h = header;
+            } else {
+                hs.push(header);
+            }
+        }
+
+        Ok((h, hs))
+    }
+
+    fn maybe_register_counterparty_payee(
+        &mut self,
+        _channel_id: &ChannelId,
+        _port_id: &PortId,
+        _counterparty_payee: &Signer,
+    ) -> Result<(), Error> {
+        unimplemented!();
+    }
+
+    fn cross_chain_query(
+        &self,
+        _requests: Vec<CrossChainQueryRequest>,
+    ) -> Result<Vec<CrossChainQueryResponse>, Error> {
+        unimplemented!();
+    }
+
+    /// Builds the required proofs and the client state for connection handshake messages.
+    /// The proofs and client state must be obtained from queries at same height.
+    fn build_connection_proofs_and_client_state(
+        &self,
+        message_type: ConnectionMsgType,
+        connection_id: &ConnectionId,
+        client_id: &ClientId,
+        height: ICSHeight,
+    ) -> Result<(Option<AnyClientState>, Proofs), Error> {
+        let (connection_end, maybe_connection_proof) = self.query_connection(
+            QueryConnectionRequest {
+                connection_id: connection_id.clone(),
+                height: QueryHeight::Specific(height),
+            },
+            IncludeProof::No,
+        )?;
+
+        // let prefix = CommitmentPrefix::from("ibc");
+        // let path = apply_prefix(&prefix, vec!["connections".to_string(), connection_id.to_string()]);
+
+        let mut buf = Vec::new();
+        // Message::encode(&path, &mut buf).unwrap();
+        let data = ConnectionStateData {
+            path: ("ibc/connections/".to_string() + connection_id.as_str()).into(),
+            connection: Some(connection_end.clone().into()),
+        };
+        println!("ys-debug: ConnectionStateData: {:?}", data);
+        Message::encode(&data, &mut buf).unwrap();
+
         let duration_since_epoch = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
-        let timestamp_nanos = duration_since_epoch
-            .checked_sub(Duration::from_secs(5))
-            .unwrap()
-            .as_nanos() as u64; // u128
-        let data = HeaderData {
-            new_pub_key: Some(pk),
-            new_diversifier: "oct".to_string(),
-        };
+        let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
 
         let bytes = SignBytes {
-            sequence: client_state.latest_height().revision_height(),
+            sequence: height.revision_height(),
             timestamp: timestamp_nanos,
             diversifier: "oct".to_string(),
-            data_type: 9,
-            // data: Protobuf::<SmHeaderData>::encode_vec(&data).expect("encoding to `Any` from `HeaderData`"),
-            data: data.encode_vec().unwrap(),
+            data_type: DataType::ConnectionState.into(),
+            data: buf.to_vec(),
         };
 
         let encoded_bytes = bytes.encode_vec().unwrap();
@@ -1508,31 +1588,93 @@ impl ChainEndpoint for SubstrateChain {
         let sig_data = sig.encode_vec().unwrap();
         println!("ys-debug: sig_data: {:?}", sig_data);
 
-        let header = SmHeader {
-            sequence: client_state.latest_height().revision_height(),
+        let timestamped = TimestampedSignatureData {
+            signature_data: sig_data,
             timestamp: timestamp_nanos,
-            signature: sig_data,
-            new_public_key: Some(pk),
-            new_diversifier: "oct".to_string(),
         };
+        buf = Vec::new();
+        Message::encode(&timestamped, &mut buf).unwrap();
 
-        Ok((header, vec![]))
-    }
+        // Check that the connection state is compatible with the message
+        match message_type {
+            ConnectionMsgType::OpenTry => {
+                if !connection_end.state_matches(&State::Init)
+                    && !connection_end.state_matches(&State::TryOpen)
+                {
+                    return Err(Error::bad_connection_state());
+                }
+            }
+            ConnectionMsgType::OpenAck => {
+                if !connection_end.state_matches(&State::TryOpen)
+                    && !connection_end.state_matches(&State::Open)
+                {
+                    return Err(Error::bad_connection_state());
+                }
+            }
+            ConnectionMsgType::OpenConfirm => {
+                if !connection_end.state_matches(&State::Open) {
+                    return Err(Error::bad_connection_state());
+                }
+            }
+        }
 
-    fn maybe_register_counterparty_payee(
-        &mut self,
-        _channel_id: &ChannelId,
-        _port_id: &PortId,
-        _counterparty_payee: &Signer,
-    ) -> Result<(), Error> {
-        unimplemented!();
-    }
+        let mut client_state = None;
+        let mut client_proof = None;
+        let mut consensus_proof = None;
 
-    fn cross_chain_query(
-        &self,
-        _requests: Vec<CrossChainQueryRequest>,
-    ) -> Result<Vec<CrossChainQueryResponse>, Error> {
-        unimplemented!();
+        match message_type {
+            ConnectionMsgType::OpenTry | ConnectionMsgType::OpenAck => {
+                let (client_state_value, maybe_client_state_proof) = self.query_client_state(
+                    QueryClientStateRequest {
+                        client_id: client_id.clone(),
+                        height: QueryHeight::Specific(height),
+                    },
+                    IncludeProof::No,
+                )?;
+
+                client_proof = Some(
+                    CommitmentProofBytes::try_from(vec![3, 3, 3])
+                        .map_err(Error::malformed_proof)?,
+                );
+
+                let consensus_state_proof = {
+                    let (_, maybe_consensus_state_proof) = self.query_consensus_state(
+                        QueryConsensusStateRequest {
+                            client_id: client_id.clone(),
+                            consensus_height: client_state_value.latest_height(),
+                            query_height: QueryHeight::Specific(height),
+                        },
+                        IncludeProof::No,
+                    )?;
+
+                    vec![4, 4, 4]
+                };
+
+                consensus_proof = Option::from(
+                    ConsensusProof::new(
+                        CommitmentProofBytes::try_from(consensus_state_proof)
+                            .map_err(Error::malformed_proof)?,
+                        client_state_value.latest_height(),
+                    )
+                    .map_err(Error::consensus_proof)?,
+                );
+
+                client_state = Some(client_state_value);
+            }
+            _ => {}
+        }
+
+        Ok((
+            client_state,
+            Proofs::new(
+                CommitmentProofBytes::try_from(buf.to_vec()).map_err(Error::malformed_proof)?, // TimestampedSignatureData
+                client_proof,
+                consensus_proof,
+                None,
+                height.increment(),
+            )
+            .map_err(Error::malformed_proof)?,
+        ))
     }
 }
 
