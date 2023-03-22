@@ -110,45 +110,6 @@ impl From<Header> for RawHeader {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Deserialize, Serialize)]
-pub struct SignBytes {
-    pub sequence: u64,
-    pub timestamp: u64,
-    pub diversifier: String,
-    /// type of the data used
-    pub data_type: i32,
-    /// marshaled data
-    pub data: Vec<u8>,
-}
-
-impl Protobuf<RawSignBytes> for SignBytes {}
-
-impl TryFrom<RawSignBytes> for SignBytes {
-    type Error = Error;
-
-    fn try_from(raw: RawSignBytes) -> Result<Self, Self::Error> {
-        Ok(Self {
-            sequence: raw.sequence,
-            timestamp: raw.timestamp,
-            diversifier: raw.diversifier,
-            data_type: raw.data_type,
-            data: raw.data,
-        })
-    }
-}
-
-impl From<SignBytes> for RawSignBytes {
-    fn from(value: SignBytes) -> Self {
-        RawSignBytes {
-            sequence: value.sequence,
-            timestamp: value.timestamp,
-            diversifier: value.diversifier,
-            data_type: value.data_type,
-            data: value.data,
-        }
-    }
-}
-
 /// HeaderData returns the SignBytes data for update verification.
 #[derive(Default, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct HeaderData {

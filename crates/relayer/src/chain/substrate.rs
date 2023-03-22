@@ -42,13 +42,8 @@ use ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState as 
 use ibc_relayer_types::clients::ics06_solomachine::consensus_state::ConsensusState as SmConsensusState;
 use ibc_relayer_types::clients::ics06_solomachine::consensus_state::PublicKey;
 use ibc_relayer_types::clients::ics06_solomachine::header::HeaderData as SmHeaderData;
-use ibc_relayer_types::clients::ics06_solomachine::header::{
-    Header as SmHeader, HeaderData, SignBytes,
-};
-use ibc_relayer_types::clients::ics06_solomachine::signing::{
-    data::{Single, Sum},
-    Data,
-};
+use ibc_relayer_types::clients::ics06_solomachine::header::{Header as SmHeader, HeaderData};
+
 use ibc_relayer_types::core::ics03_connection::connection::State;
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentProofBytes;
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
@@ -1162,32 +1157,7 @@ impl ChainEndpoint for SubstrateChain {
             AnyConsensusState::decode_vec(&consensus_states.unwrap()).map_err(Error::decode)?;
 
         println!("consensus_state: {:?}", consensus_state);
-        match include_proof {
-            IncludeProof::Yes => {
-                let query_height = match request.query_height {
-                    QueryHeight::Latest => {
-                        let finalized_head = self
-                            .rt
-                            .block_on(self.rpc_client.rpc().finalized_head())
-                            .unwrap();
-                        let height = self
-                            .rt
-                            .block_on(self.rpc_client.rpc().header(Some(finalized_head)))
-                            .unwrap()
-                            .unwrap()
-                            .number;
-                        height as u64
-                    }
-                    QueryHeight::Specific(value) => value.revision_height(),
-                };
-
-                Ok((
-                    consensus_state,
-                    Some(self.generate_storage_proof(&storage.to_root_bytes(), query_height)?),
-                ))
-            }
-            IncludeProof::No => Ok((consensus_state, None)),
-        }
+        Ok((consensus_state, None))
     }
 
     /// Query the heights of every consensus state for a given client.
@@ -1460,37 +1430,13 @@ impl ChainEndpoint for SubstrateChain {
                 new_diversifier: "oct".to_string(),
             };
             timestamp = timestamp + 1;
-            let bytes = SignBytes {
-                sequence: seq,
+
+            let sig_data = alice_sign_sign_bytes(
+                seq,
                 timestamp,
-                diversifier: "oct".to_string(),
-                data_type: DataType::Header.into(),
-                data: data.encode_vec().unwrap(),
-            };
-            println!(
-                "ys-debug: SignBytes: {:?} {:?}",
-                bytes.sequence, bytes.timestamp
+                DataType::Header.into(),
+                data.encode_vec().unwrap(),
             );
-
-            let encoded_bytes = bytes.encode_vec().unwrap();
-            println!("encoded_bytes: {:?}", encoded_bytes);
-            let standard = StandardHDPath::from_str("m/44'/60'/0'/0/0").unwrap();
-            println!("standard: {:?}", standard);
-
-            // m/44'/60'/0'/0/0
-            // 0xd73E35f53b8180b241E70C0e9040173dd8D0e2A0
-            // 0x02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c
-            // 0x281afd44d50ffd0bab6502cbb9bc58a7f9b53813c862db01836d46a27b51168c
-
-            let key_pair = Secp256k1KeyPair::from_mnemonic("captain walk infant web eye return ahead once face sunny usage devote cotton car old check symbol antique derive wire kid solve forest fish", &standard, &AddressType::Cosmos, "oct").unwrap();
-            println!("key_pair: {:?}", key_pair.public_key.to_string());
-            let signature = key_pair.sign(&encoded_bytes).unwrap();
-            println!("signature: {:?}", signature);
-            let sig = Data {
-                sum: Some(Sum::Single(Single { mode: 1, signature })),
-            };
-            let sig_data = sig.encode_vec().unwrap();
-            println!("ys-debug: sig_data: {:?}", sig_data);
 
             let header = SmHeader {
                 sequence: seq,
@@ -1560,37 +1506,12 @@ impl ChainEndpoint for SubstrateChain {
             .unwrap();
         let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
 
-        let bytes = SignBytes {
-            sequence: height.revision_height() + 1,
-            timestamp: timestamp_nanos,
-            diversifier: "oct".to_string(),
-            data_type: DataType::ConnectionState.into(),
-            data: buf.to_vec(),
-        };
-        println!(
-            "ys-debug: sequence {:?}, timestamp: {:?}, data: {:?}",
-            bytes.sequence, bytes.timestamp, bytes.data
+        let sig_data = alice_sign_sign_bytes(
+            height.revision_height() + 1,
+            timestamp_nanos,
+            DataType::ConnectionState.into(),
+            buf.to_vec(),
         );
-
-        let encoded_bytes = bytes.encode_vec().unwrap();
-        println!("encoded_bytes: {:?}", encoded_bytes);
-        let standard = StandardHDPath::from_str("m/44'/60'/0'/0/0").unwrap();
-        println!("standard: {:?}", standard);
-
-        // m/44'/60'/0'/0/0
-        // 0xd73E35f53b8180b241E70C0e9040173dd8D0e2A0
-        // 0x02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c
-        // 0x281afd44d50ffd0bab6502cbb9bc58a7f9b53813c862db01836d46a27b51168c
-
-        let key_pair = Secp256k1KeyPair::from_mnemonic("captain walk infant web eye return ahead once face sunny usage devote cotton car old check symbol antique derive wire kid solve forest fish", &standard, &AddressType::Cosmos, "oct").unwrap();
-        println!("key_pair: {:?}", key_pair.public_key.to_string());
-        let signature = key_pair.sign(&encoded_bytes).unwrap();
-        println!("signature: {:?}", signature);
-        let sig = Data {
-            sum: Some(Sum::Single(Single { mode: 1, signature })),
-        };
-        let sig_data = sig.encode_vec().unwrap();
-        println!("ys-debug: sig_data: {:?}", sig_data);
 
         let timestamped = TimestampedSignatureData {
             signature_data: sig_data,
@@ -1706,6 +1627,47 @@ pub fn compose_ibc_merkle_proof(proof: subxt::rpc::ReadProof<H256>) -> MerklePro
         .collect::<Vec<ics23::CommitmentProof>>();
 
     MerkleProof { proofs }
+}
+
+fn alice_sign_sign_bytes(sequence: u64, timestamp: u64, data_type: i32, data: Vec<u8>) -> Vec<u8> {
+    use ibc_proto::cosmos::tx::signing::v1beta1::signature_descriptor::{
+        data::{Single, Sum},
+        Data,
+    };
+    use ibc_proto::ibc::lightclients::solomachine::v2::SignBytes;
+
+    println!(
+        "ys-debug: sequence {:?}, timestamp: {:?}, data_type: {:?}, data: {:?}",
+        sequence, timestamp, data_type, data
+    );
+    let bytes = SignBytes {
+        sequence,
+        timestamp,
+        diversifier: "oct".to_string(),
+        data_type,
+        data,
+    };
+    let mut buf = Vec::new();
+    Message::encode(&bytes, &mut buf).unwrap();
+    println!("encoded_bytes: {:?}", buf);
+    let standard = StandardHDPath::from_str("m/44'/60'/0'/0/0").unwrap();
+
+    // m/44'/60'/0'/0/0
+    // 0xd73E35f53b8180b241E70C0e9040173dd8D0e2A0
+    // 0x02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c
+    // 0x281afd44d50ffd0bab6502cbb9bc58a7f9b53813c862db01836d46a27b51168c
+
+    let key_pair = Secp256k1KeyPair::from_mnemonic("captain walk infant web eye return ahead once face sunny usage devote cotton car old check symbol antique derive wire kid solve forest fish", &standard, &AddressType::Cosmos, "oct").unwrap();
+    let signature = key_pair.sign(&buf).unwrap();
+    println!("signature: {:?}", signature);
+    let sig = Data {
+        sum: Some(Sum::Single(Single { mode: 1, signature })),
+    };
+    buf = Vec::new();
+    Message::encode(&sig, &mut buf).unwrap();
+
+    println!("ys-debug: sig_data: {:?}", buf);
+    buf
 }
 
 #[cfg(test)]

@@ -2,8 +2,6 @@ pub mod client_state;
 pub mod consensus_state;
 pub mod error;
 pub mod header;
-pub mod signing;
-pub mod timestamped;
 
 pub const SOLOMACHINE_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.solomachine.v2.ClientState";
 pub const SOLOMACHINE_CONSENSUS_STATE_TYPE_URL: &str =
