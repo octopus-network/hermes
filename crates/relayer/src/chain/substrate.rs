@@ -51,7 +51,7 @@ use ibc_relayer_types::core::ics24_host::identifier::ClientId;
 use ibc_relayer_types::core::ics24_host::path::{ChannelEndsPath, ConnectionsPath, Path};
 
 use ibc_proto::ibc::lightclients::solomachine::v2::{
-    ConnectionStateData, DataType, TimestampedSignatureData,
+    ClientStateData, ConnectionStateData, ConsensusStateData, DataType, TimestampedSignatureData,
 };
 use ibc_relayer_types::proofs::{ConsensusProof, Proofs};
 use ibc_relayer_types::timestamp::Timestamp;
@@ -1493,7 +1493,6 @@ impl ChainEndpoint for SubstrateChain {
         // let path = apply_prefix(&prefix, vec!["connections".to_string(), connection_id.to_string()]);
 
         let mut buf = Vec::new();
-        // Message::encode(&path, &mut buf).unwrap();
         let data = ConnectionStateData {
             path: ("/ibc/connections%2F".to_string() + connection_id.as_str()).into(),
             connection: Some(connection_end.clone().into()),
@@ -1517,8 +1516,8 @@ impl ChainEndpoint for SubstrateChain {
             signature_data: sig_data,
             timestamp: timestamp_nanos,
         };
-        buf = Vec::new();
-        Message::encode(&timestamped, &mut buf).unwrap();
+        let mut proof_init = Vec::new();
+        Message::encode(&timestamped, &mut proof_init).unwrap();
 
         // Check that the connection state is compatible with the message
         match message_type {
@@ -1557,13 +1556,42 @@ impl ChainEndpoint for SubstrateChain {
                     IncludeProof::No,
                 )?;
 
-                client_proof = Some(
-                    CommitmentProofBytes::try_from(vec![3, 3, 3])
-                        .map_err(Error::malformed_proof)?,
+                let mut buf = Vec::new();
+                let data = ClientStateData {
+                    path: ("/ibc/clients%2F".to_string()
+                        + client_id.as_str()
+                        + &"%2FclientState".to_string())
+                        .into(),
+                    client_state: Some(client_state_value.clone().into()),
+                };
+                println!("ys-debug: ClientStateData: {:?}", data);
+                Message::encode(&data, &mut buf).unwrap();
+
+                let duration_since_epoch = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap();
+                let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
+
+                let sig_data = alice_sign_sign_bytes(
+                    height.revision_height() + 2,
+                    timestamp_nanos,
+                    DataType::ClientState.into(),
+                    buf.to_vec(),
                 );
 
-                let consensus_state_proof = {
-                    let (_, maybe_consensus_state_proof) = self.query_consensus_state(
+                let timestamped = TimestampedSignatureData {
+                    signature_data: sig_data,
+                    timestamp: timestamp_nanos,
+                };
+                let mut proof_client = Vec::new();
+                Message::encode(&timestamped, &mut proof_client).unwrap();
+
+                client_proof = Some(
+                    CommitmentProofBytes::try_from(proof_client).map_err(Error::malformed_proof)?,
+                );
+
+                let (consensus_state_value, maybe_consensus_state_proof) = self
+                    .query_consensus_state(
                         QueryConsensusStateRequest {
                             client_id: client_id.clone(),
                             consensus_height: client_state_value.latest_height(),
@@ -1572,8 +1600,39 @@ impl ChainEndpoint for SubstrateChain {
                         IncludeProof::No,
                     )?;
 
-                    vec![4, 4, 4]
+                let mut buf = Vec::new();
+                let data = ConsensusStateData {
+                    path: ("/ibc/clients%2F".to_string()
+                        + client_id.as_str()
+                        + &"%2FconsensusStates%2F0-".to_string()
+                        + &client_state_value
+                            .latest_height()
+                            .revision_height()
+                            .to_string())
+                        .into(),
+                    consensus_state: Some(consensus_state_value.clone().into()),
                 };
+                println!("ys-debug: ConsensusStateData: {:?}", data);
+                Message::encode(&data, &mut buf).unwrap();
+
+                let duration_since_epoch = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap();
+                let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
+
+                let sig_data = alice_sign_sign_bytes(
+                    height.revision_height() + 3,
+                    timestamp_nanos,
+                    DataType::ConsensusState.into(),
+                    buf.to_vec(),
+                );
+
+                let timestamped = TimestampedSignatureData {
+                    signature_data: sig_data,
+                    timestamp: timestamp_nanos,
+                };
+                let mut consensus_state_proof = Vec::new();
+                Message::encode(&timestamped, &mut consensus_state_proof).unwrap();
 
                 consensus_proof = Option::from(
                     ConsensusProof::new(
@@ -1592,7 +1651,8 @@ impl ChainEndpoint for SubstrateChain {
         Ok((
             client_state,
             Proofs::new(
-                CommitmentProofBytes::try_from(buf.to_vec()).map_err(Error::malformed_proof)?, // TimestampedSignatureData
+                CommitmentProofBytes::try_from(proof_init.to_vec())
+                    .map_err(Error::malformed_proof)?,
                 client_proof,
                 consensus_proof,
                 None,
