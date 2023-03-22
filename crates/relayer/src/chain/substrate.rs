@@ -1549,7 +1549,7 @@ impl ChainEndpoint for SubstrateChain {
         let mut buf = Vec::new();
         // Message::encode(&path, &mut buf).unwrap();
         let data = ConnectionStateData {
-            path: ("ibc/connections/".to_string() + connection_id.as_str()).into(),
+            path: ("/ibc/connections%2F".to_string() + connection_id.as_str()).into(),
             connection: Some(connection_end.clone().into()),
         };
         println!("ys-debug: ConnectionStateData: {:?}", data);
@@ -1561,12 +1561,16 @@ impl ChainEndpoint for SubstrateChain {
         let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
 
         let bytes = SignBytes {
-            sequence: height.revision_height(),
+            sequence: height.revision_height() + 1,
             timestamp: timestamp_nanos,
             diversifier: "oct".to_string(),
             data_type: DataType::ConnectionState.into(),
             data: buf.to_vec(),
         };
+        println!(
+            "ys-debug: sequence {:?}, timestamp: {:?}, data: {:?}",
+            bytes.sequence, bytes.timestamp, bytes.data
+        );
 
         let encoded_bytes = bytes.encode_vec().unwrap();
         println!("encoded_bytes: {:?}", encoded_bytes);
