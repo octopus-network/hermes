@@ -1410,7 +1410,18 @@ impl ChainEndpoint for SubstrateChain {
             new_diversifier: "oct".to_string(),
         };
         let mut hs: Vec<Self::Header> = Vec::new();
-        for seq in trusted_height.revision_height()..target_height.revision_height() {
+        let start = if trusted_height.revision_height() > cs.sequence {
+            trusted_height.revision_height()
+        } else {
+            cs.sequence
+        };
+        let end = if target_height.revision_height() > cs.sequence {
+            target_height.revision_height()
+        } else {
+            cs.sequence + 1
+        };
+
+        for seq in start..end {
             let pk = PublicKey(
                 tendermint::PublicKey::from_raw_secp256k1(&hex_literal::hex!(
                     "02c88aca653727db28e0ade87497c1f03b551143dedfd4db8de71689ad5e38421c"
@@ -1446,7 +1457,7 @@ impl ChainEndpoint for SubstrateChain {
                 new_diversifier: "oct".to_string(),
             };
 
-            if seq == target_height.revision_height() - 1 {
+            if seq == end - 1 {
                 h = header;
             } else {
                 hs.push(header);
