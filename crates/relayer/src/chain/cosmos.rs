@@ -23,7 +23,7 @@ use ibc_relayer_types::clients::ics07_tendermint::client_state::{
 };
 use ibc_relayer_types::clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
 use ibc_relayer_types::clients::ics07_tendermint::header::Header as TmHeader;
-
+use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
 use ibc_relayer_types::core::ics03_connection::connection::{
@@ -1095,7 +1095,7 @@ impl ChainEndpoint for CosmosSdkChain {
         crate::time!("query_consensus_state");
         crate::telemetry!(query, self.id(), "query_consensus_state");
 
-        let res = self.query(
+        let mut res = self.query(
             ClientConsensusStatePath {
                 client_id: request.client_id.clone(),
                 epoch: request.consensus_height.revision_number(),
@@ -1105,13 +1105,30 @@ impl ChainEndpoint for CosmosSdkChain {
             matches!(include_proof, IncludeProof::Yes),
         )?;
 
-        let consensus_state = AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
-        println!("consensus_state: {:?}", consensus_state);
+        let mut height = request.consensus_height.revision_height();
 
-        /*
-        if !matches!(consensus_state, AnyConsensusState::Tendermint(_)) {
+        for i in 0..50 {
+            if !res.value.is_empty() {
+                break;
+            }
+            height = height - 1;
+            println!("ys-debug: try query_consensus_state on {:?}", height);
+            res = self.query(
+                ClientConsensusStatePath {
+                    client_id: request.client_id.clone(),
+                    epoch: request.consensus_height.revision_number(),
+                    height,
+                },
+                request.query_height,
+                matches!(include_proof, IncludeProof::Yes),
+            )?;
+        }
+
+        let consensus_state = AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
+
+        if !matches!(consensus_state, AnyConsensusState::Solomachine(_)) {
             return Err(Error::consensus_state_type_mismatch(
-                ClientType::Tendermint,
+                ClientType::Solomachine,
                 consensus_state.client_type(),
             ));
         }
@@ -1123,8 +1140,6 @@ impl ChainEndpoint for CosmosSdkChain {
             }
             IncludeProof::No => Ok((consensus_state, None)),
         }
-        */
-        Ok((consensus_state, None))
     }
 
     fn query_client_connections(
