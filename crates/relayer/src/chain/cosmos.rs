@@ -2167,6 +2167,8 @@ impl ChainEndpoint for CosmosSdkChain {
             client_state,
             now,
         )?;
+        tracing::info!("🎈 target header: {target}");
+        tracing::info!("🎈 supporting header: {supporting:?}");
 
         Ok((target, supporting))
     }
