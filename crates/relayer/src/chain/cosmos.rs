@@ -1321,8 +1321,7 @@ impl ChainEndpoint for CosmosSdkChain {
             }
             IncludeProof::No => Ok((consensus_state, None)),
         }
-        */
-        Ok((consensus_state, None))
+
     }
 
     fn query_client_connections(
