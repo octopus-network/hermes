@@ -1009,7 +1009,7 @@ impl ChainEndpoint for SubstrateChain {
                             match value.header.type_url.as_str() {
                                 ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_HEADER_TYPE_URL => {
                                     let v = ibc_relayer_types::clients::ics06_solomachine::header::Header::try_from(value.header.clone()).unwrap();
-                                    println!("ics06 header : {}", v);
+                                    println!("ics06 header : {:?}", v);
                                 }
                                 ibc_relayer_types::clients::ics07_tendermint::header::TENDERMINT_HEADER_TYPE_URL => {
                                     let v = ibc_relayer_types::clients::ics07_tendermint::header::Header::try_from(value.header.clone()).unwrap();
