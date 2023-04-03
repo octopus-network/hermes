@@ -1910,7 +1910,7 @@ dependencies = [
 [[package]]
 name = "ibc-proto"
 version = "0.25.0"
-source = "git+https://github.com/octopus-network/ibc-proto-rs?branch=ibc#6ff1b9a9413e2e62920690c655814275848e5f0c"
+source = "git+https://github.com/octopus-network/ibc-proto-rs?branch=ibc#847651e17c87d9c6840c9244e79579ba97babf21"
 dependencies = [
  "base64 0.13.1",
  "borsh",
@@ -3119,9 +3119,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.55"
+version = "1.0.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d0dd4be24fcdcfeaa12a432d588dc59bbad6cad3510c67e74a2b6b2fc950564"
+checksum = "2b63bdb0cd06f1f4dedf69b254734f9b45af66e4a031e42a7480257d9898b435"
 dependencies = [
  "unicode-ident",
 ]

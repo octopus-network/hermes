@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Message {
     /// solochain headers and their proofs
-    SolochainHeaderMap(SubchainHeaderMap),
+    SubchainHeaderMap(SubchainHeaderMap),
     /// parachain headers and their proofs
     ParachainHeaderMap(ParachainHeaderMap),
 }
@@ -44,7 +44,7 @@ pub struct SubchainHeaderMap {
     /// map<blocknumber,scale-encoded blockheader>
     ///
     /// map<uint32,Timestamp> timestamp_map=2;
-    pub solochain_header_map: BTreeMap<u32, SubchainHeader>,
+    pub subchain_header_map: BTreeMap<u32, SubchainHeader>,
 }
 
 impl Protobuf<RawSubchainHeaderMap> for SubchainHeaderMap {}
@@ -53,13 +53,27 @@ impl TryFrom<RawSubchainHeaderMap> for SubchainHeaderMap {
     type Error = Error;
 
     fn try_from(raw: RawSubchainHeaderMap) -> Result<Self, Self::Error> {
-        todo!()
+        let subchain_header_map_result: Result<BTreeMap<u32, SubchainHeader>, Self::Error> = raw
+            .subchain_header_map
+            .into_iter()
+            .map(|(k, v)| SubchainHeader::try_from(v).map(|header| (k, header)))
+            .collect();
+
+        Ok(Self {
+            subchain_header_map: subchain_header_map_result?,
+        })
     }
 }
 
 impl From<SubchainHeaderMap> for RawSubchainHeaderMap {
     fn from(value: SubchainHeaderMap) -> Self {
-        todo!()
+        Self {
+            subchain_header_map: value
+                .subchain_header_map
+                .into_iter()
+                .map(|(k, v)| (k, RawSubchainHeader::from(v)))
+                .collect::<BTreeMap<u32, RawSubchainHeader>>(),
+        }
     }
 }
 /// solochain header
@@ -111,13 +125,27 @@ impl TryFrom<RawParachainHeaderMap> for ParachainHeaderMap {
     type Error = Error;
 
     fn try_from(raw: RawParachainHeaderMap) -> Result<Self, Self::Error> {
-        todo!()
+        let parachain_header_map_result: Result<BTreeMap<u32, ParachainHeader>, Self::Error> = raw
+            .parachain_header_map
+            .into_iter()
+            .map(|(k, v)| ParachainHeader::try_from(v).map(|header| (k, header)))
+            .collect();
+
+        Ok(Self {
+            parachain_header_map: parachain_header_map_result?,
+        })
     }
 }
 
 impl From<ParachainHeaderMap> for RawParachainHeaderMap {
     fn from(value: ParachainHeaderMap) -> Self {
-        todo!()
+        Self {
+            parachain_header_map: value
+                .parachain_header_map
+                .into_iter()
+                .map(|(k, v)| (k, RawParachainHeader::from(v)))
+                .collect::<BTreeMap<u32, RawParachainHeader>>(),
+        }
     }
 }
 /// data needed to prove parachain header inclusion in mmr

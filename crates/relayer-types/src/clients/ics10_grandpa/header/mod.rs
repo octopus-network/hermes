@@ -1,10 +1,18 @@
+use crate::clients::ics10_grandpa::error::Error;
+use crate::core::ics02_client::client_type::ClientType;
+use crate::core::ics02_client::error::Error as Ics02Error;
 use crate::prelude::*;
+use crate::timestamp::Timestamp;
+use crate::Height;
+use bytes::Buf;
+use ibc_proto::google::protobuf::Any;
+use ibc_proto::ibc::lightclients::grandpa::v1::header::Message as RawMessage;
 use ibc_proto::ibc::lightclients::grandpa::v1::Header as RawHeader;
+use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
+
 pub mod beefy_mmr;
 pub mod message;
-use crate::clients::ics10_grandpa::error::Error;
-use ibc_proto::protobuf::Protobuf;
 
 pub const GRANDPA_HEADER_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Header";
 
@@ -23,12 +31,81 @@ impl TryFrom<RawHeader> for Header {
     type Error = Error;
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            beefy_mmr: raw
+                .beefy_mmr
+                .map(TryInto::try_into)
+                .map_or(Ok(None), |r| r.map(Some))?,
+            message: raw.message.map_or(Ok(None), |msg| {
+                let result_message: Result<message::Message, Self::Error> = match msg {
+                    RawMessage::ParachainHeaderMap(v) => {
+                        v.try_into().map(message::Message::ParachainHeaderMap)
+                    }
+                    RawMessage::SubchainHeaderMap(v) => {
+                        v.try_into().map(message::Message::SubchainHeaderMap)
+                    }
+                };
+                result_message.map(Some)
+            })?,
+        })
     }
 }
 
 impl From<Header> for RawHeader {
     fn from(value: Header) -> Self {
+        Self {
+            beefy_mmr: value.beefy_mmr.map(Into::into),
+            message: value.message.map(|msg| match msg {
+                message::Message::ParachainHeaderMap(v) => RawMessage::ParachainHeaderMap(v.into()),
+                message::Message::SubchainHeaderMap(v) => RawMessage::SubchainHeaderMap(v.into()),
+            }),
+        }
+    }
+}
+
+impl crate::core::ics02_client::header::Header for Header {
+    fn client_type(&self) -> ClientType {
+        ClientType::Grandpa
+    }
+
+    fn height(&self) -> Height {
+        self.height()
+    }
+
+    fn timestamp(&self) -> Timestamp {
         todo!()
     }
+}
+
+impl Protobuf<Any> for Header {}
+
+impl TryFrom<Any> for Header {
+    type Error = Ics02Error;
+
+    fn try_from(raw: Any) -> Result<Self, Ics02Error> {
+        use core::ops::Deref;
+
+        fn decode_header<B: Buf>(buf: B) -> Result<Header, Error> {
+            RawHeader::decode(buf).map_err(Error::decode)?.try_into()
+        }
+
+        match raw.type_url.as_str() {
+            GRANDPA_HEADER_TYPE_URL => decode_header(raw.value.deref()).map_err(Into::into),
+            _ => Err(Ics02Error::unknown_header_type(raw.type_url)),
+        }
+    }
+}
+
+impl From<Header> for Any {
+    fn from(header: Header) -> Self {
+        Any {
+            type_url: GRANDPA_HEADER_TYPE_URL.to_string(),
+            value: Protobuf::<RawHeader>::encode_vec(&header)
+                .expect("encoding to `Any` from `GpHeader`"),
+        }
+    }
+}
+
+pub fn decode_header<B: Buf>(buf: B) -> Result<Header, Error> {
+    RawHeader::decode(buf).map_err(Error::decode)?.try_into()
 }
