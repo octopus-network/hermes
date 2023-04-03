@@ -6,15 +6,14 @@ use serde::{Deserialize, Serialize};
 
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::client::v1::Height as RawHeight;
-// use ibc_proto::ibc::lightclients::tendermint::v1::ClientState as RawTmClientState;
 use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawGpClientState;
 use ibc_proto::protobuf::Protobuf;
 
 use tendermint_light_client_verifier::options::Options;
 use tendermint_light_client_verifier::ProdVerifier;
 
-use crate::clients::ics07_tendermint::error::Error;
-use crate::clients::ics07_tendermint::header::Header as TmHeader;
+use super::beefy_authority_set::BeefyAuthoritySet;
+use crate::clients::ics10_grandpa::error::Error;
 use crate::core::ics02_client::client_state::{
     ClientState as Ics2ClientState, UpgradeOptions as CoreUpgradeOptions,
 };
@@ -30,7 +29,36 @@ use crate::Height;
 pub const GRANDPA_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.ClientState";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClientState {}
+pub enum ChaninType {
+    Solochain = 0,
+    Parachian = 1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClientState {
+    /// 0: solochain
+    /// 1: parachain
+    pub chain_type: ChaninType,
+    /// chain_id string type, eg: ibc-1
+    pub chain_id: String,
+    /// parachain id is uint type
+    pub parachain_id: u32,
+    /// block number that the beefy protocol was activated on the relay chain.
+    /// This should be the first block in the merkle-mountain-range tree.
+    pub beefy_activation_block: u32,
+    /// the latest mmr_root_hash height
+    pub latest_beefy_height: u32,
+    /// Latest mmr root hash
+    pub mmr_root_hash: Vec<u8>,
+    /// latest solochain or parachain height
+    pub latest_chain_height: u32,
+    /// Block height when the client was frozen due to a misbehaviour
+    pub frozen_height: u32,
+    /// authorities for the current round
+    pub authority_set: Option<BeefyAuthoritySet>,
+    /// authorities for the next round
+    pub next_authority_set: Option<BeefyAuthoritySet>,
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AllowUpdate {
@@ -45,10 +73,6 @@ impl ClientState {
     }
 
     pub fn latest_height(&self) -> Height {
-        todo!()
-    }
-
-    pub fn with_header(self, h: TmHeader) -> Result<Self, Error> {
         todo!()
     }
 
