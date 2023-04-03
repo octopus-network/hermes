@@ -20,23 +20,6 @@ pub enum Message {
     ParachainHeaderMap(ParachainHeaderMap),
 }
 
-// todo fix ibc-proto-rs RawMessage
-// impl Protobuf<RawMessage> for Message {}
-
-// impl TryFrom<RawMessage> for Message {
-//     type Error = Error;
-
-//     fn try_from(raw: RawMessage) -> Result<Self, Self::Error> {
-//         todo!()
-//     }
-// }
-
-// impl From<Message> for RawMessage {
-//     fn from(value: Message) -> Self {
-//         todo!()
-//     }
-// }
-
 /// substrate chain header map
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubchainHeaderMap {
@@ -93,10 +76,7 @@ impl TryFrom<RawSubchainHeader> for SubchainHeader {
     fn try_from(raw: RawSubchainHeader) -> Result<Self, Self::Error> {
         Ok(Self {
             block_header: raw.block_header,
-            timestamp: raw
-                .timestamp
-                .map(TryInto::try_into)
-                .map_or(Ok(None), |r| r.map(Some))?,
+            timestamp: raw.timestamp.map(TryInto::try_into).transpose()?,
         })
     }
 }
@@ -177,10 +157,7 @@ impl TryFrom<RawParachainHeader> for ParachainHeader {
             proofs: raw.proofs,
             header_index: raw.header_index,
             header_count: raw.header_count,
-            timestamp: raw
-                .timestamp
-                .map(TryInto::try_into)
-                .map_or(Ok(None), |r| r.map(Some))?,
+            timestamp: raw.timestamp.map(TryInto::try_into).transpose()?,
         })
     }
 }

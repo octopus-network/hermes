@@ -30,10 +30,7 @@ impl TryFrom<RawMmrLeavesAndBatchProof> for MmrLeavesAndBatchProof {
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<_>, Self::Error>>()?,
-            mmr_batch_proof: raw
-                .mmr_batch_proof
-                .map(TryInto::try_into)
-                .map_or(Ok(None), |r| r.map(Some))?,
+            mmr_batch_proof: raw.mmr_batch_proof.map(TryInto::try_into).transpose()?,
         })
     }
 }
@@ -104,11 +101,11 @@ impl TryFrom<RawMmrLeaf> for MmrLeaf {
             parent_number_and_hash: raw
                 .parent_number_and_hash
                 .map(TryInto::try_into)
-                .map_or(Ok(None), |r| r.map(Some))?,
+                .transpose()?,
             beefy_next_authority_set: raw
                 .beefy_next_authority_set
                 .map(TryInto::try_into)
-                .map_or(Ok(None), |r| r.map(Some))?,
+                .transpose()?,
             parachain_heads: raw.parachain_heads,
         })
     }

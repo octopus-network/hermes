@@ -23,10 +23,7 @@ impl TryFrom<RawSignedCommitment> for SignedCommitment {
 
     fn try_from(raw: RawSignedCommitment) -> Result<Self, Self::Error> {
         Ok(Self {
-            commitment: raw
-                .commitment
-                .map(TryInto::try_into)
-                .map_or(Ok(None), |r| r.map(Some))?,
+            commitment: raw.commitment.map(TryInto::try_into).transpose()?,
             signatures: raw
                 .signatures
                 .into_iter()

@@ -32,15 +32,12 @@ impl TryFrom<RawBeefyMmr> for BeefyMmr {
 
     fn try_from(raw: RawBeefyMmr) -> Result<Self, Self::Error> {
         Ok(Self {
-            signed_commitment: raw
-                .signed_commitment
-                .map(TryInto::try_into)
-                .map_or(Ok(None), |r| r.map(Some))?,
+            signed_commitment: raw.signed_commitment.map(TryInto::try_into).transpose()?,
             signature_proofs: raw.signature_proofs,
             mmr_leaves_and_batch_proof: raw
                 .mmr_leaves_and_batch_proof
                 .map(TryInto::try_into)
-                .map_or(Ok(None), |r| r.map(Some))?,
+                .transpose()?,
             mmr_size: raw.mmr_size,
         })
     }

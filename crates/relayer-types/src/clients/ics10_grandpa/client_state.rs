@@ -156,14 +156,8 @@ impl TryFrom<RawGpClientState> for ClientState {
             mmr_root_hash: raw.mmr_root_hash,
             latest_chain_height: raw.latest_chain_height,
             frozen_height: raw.frozen_height,
-            authority_set: raw
-                .authority_set
-                .map(TryInto::try_into)
-                .map_or(Ok(None), |r| r.map(Some))?,
-            next_authority_set: raw
-                .next_authority_set
-                .map(TryInto::try_into)
-                .map_or(Ok(None), |r| r.map(Some))?,
+            authority_set: raw.authority_set.map(TryInto::try_into).transpose()?,
+            next_authority_set: raw.next_authority_set.map(TryInto::try_into).transpose()?,
         })
     }
 }

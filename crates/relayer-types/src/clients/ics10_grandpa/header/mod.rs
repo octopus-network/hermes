@@ -9,6 +9,7 @@ use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::lightclients::grandpa::v1::header::Message as RawMessage;
 use ibc_proto::ibc::lightclients::grandpa::v1::Header as RawHeader;
 use ibc_proto::protobuf::Protobuf;
+use prost::Message;
 use serde::{Deserialize, Serialize};
 
 pub mod beefy_mmr;
@@ -32,10 +33,7 @@ impl TryFrom<RawHeader> for Header {
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
         Ok(Self {
-            beefy_mmr: raw
-                .beefy_mmr
-                .map(TryInto::try_into)
-                .map_or(Ok(None), |r| r.map(Some))?,
+            beefy_mmr: raw.beefy_mmr.map(TryInto::try_into).transpose()?,
             message: raw.message.map_or(Ok(None), |msg| {
                 let result_message: Result<message::Message, Self::Error> = match msg {
                     RawMessage::ParachainHeaderMap(v) => {
@@ -69,7 +67,7 @@ impl crate::core::ics02_client::header::Header for Header {
     }
 
     fn height(&self) -> Height {
-        self.height()
+        todo!()
     }
 
     fn timestamp(&self) -> Timestamp {
