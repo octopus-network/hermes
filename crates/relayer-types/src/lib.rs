@@ -4,6 +4,9 @@
 
 #![no_std]
 #![allow(clippy::large_enum_variant)]
+// Octopus Add
+#![allow(unused_imports)]
+#![allow(unused_variables)]
 #![deny(
     // warnings,
     trivial_casts,
