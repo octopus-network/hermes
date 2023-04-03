@@ -24,13 +24,26 @@ impl TryFrom<RawMmrLeavesAndBatchProof> for MmrLeavesAndBatchProof {
     type Error = Error;
 
     fn try_from(raw: RawMmrLeavesAndBatchProof) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            leaves: raw
+                .leaves
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, Self::Error>>()?,
+            mmr_batch_proof: raw
+                .mmr_batch_proof
+                .map(TryInto::try_into)
+                .map_or(Ok(None), |r| r.map(Some))?,
+        })
     }
 }
 
 impl From<MmrLeavesAndBatchProof> for RawMmrLeavesAndBatchProof {
     fn from(value: MmrLeavesAndBatchProof) -> Self {
-        todo!()
+        Self {
+            leaves: value.leaves.into_iter().map(Into::into).collect(),
+            mmr_batch_proof: value.mmr_batch_proof.map(Into::into),
+        }
     }
 }
 
@@ -50,13 +63,21 @@ impl TryFrom<RawMmrBatchProof> for MmrBatchProof {
     type Error = Error;
 
     fn try_from(raw: RawMmrBatchProof) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            leaf_indexes: raw.leaf_indexes,
+            leaf_count: raw.leaf_count,
+            items: raw.items,
+        })
     }
 }
 
 impl From<MmrBatchProof> for RawMmrBatchProof {
     fn from(value: MmrBatchProof) -> Self {
-        todo!()
+        Self {
+            leaf_indexes: value.leaf_indexes,
+            leaf_count: value.leaf_count,
+            items: value.items,
+        }
     }
 }
 /// MmrLeaf leaf data
@@ -78,13 +99,29 @@ impl TryFrom<RawMmrLeaf> for MmrLeaf {
     type Error = Error;
 
     fn try_from(raw: RawMmrLeaf) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            version: raw.version,
+            parent_number_and_hash: raw
+                .parent_number_and_hash
+                .map(TryInto::try_into)
+                .map_or(Ok(None), |r| r.map(Some))?,
+            beefy_next_authority_set: raw
+                .beefy_next_authority_set
+                .map(TryInto::try_into)
+                .map_or(Ok(None), |r| r.map(Some))?,
+            parachain_heads: raw.parachain_heads,
+        })
     }
 }
 
 impl From<MmrLeaf> for RawMmrLeaf {
     fn from(value: MmrLeaf) -> Self {
-        todo!()
+        Self {
+            version: value.version,
+            parent_number_and_hash: value.parent_number_and_hash.map(Into::into),
+            beefy_next_authority_set: value.beefy_next_authority_set.map(Into::into),
+            parachain_heads: value.parachain_heads,
+        }
     }
 }
 
@@ -103,12 +140,18 @@ impl TryFrom<RawParentNumberAndHash> for ParentNumberAndHash {
     type Error = Error;
 
     fn try_from(raw: RawParentNumberAndHash) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            parent_number: raw.parent_number,
+            parent_hash: raw.parent_hash,
+        })
     }
 }
 
 impl From<ParentNumberAndHash> for RawParentNumberAndHash {
     fn from(value: ParentNumberAndHash) -> Self {
-        todo!()
+        Self {
+            parent_number: value.parent_number,
+            parent_hash: value.parent_hash,
+        }
     }
 }

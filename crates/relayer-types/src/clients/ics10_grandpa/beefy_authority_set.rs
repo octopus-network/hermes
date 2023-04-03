@@ -21,12 +21,20 @@ impl TryFrom<RawBeefyAuthoritySet> for BeefyAuthoritySet {
     type Error = Error;
 
     fn try_from(raw: RawBeefyAuthoritySet) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            id: raw.id,
+            len: raw.len,
+            root: raw.root,
+        })
     }
 }
 
 impl From<BeefyAuthoritySet> for RawBeefyAuthoritySet {
     fn from(value: BeefyAuthoritySet) -> Self {
-        todo!()
+        Self {
+            id: value.id,
+            len: value.len,
+            root: value.root,
+        }
     }
 }

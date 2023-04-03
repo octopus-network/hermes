@@ -31,12 +31,28 @@ impl TryFrom<RawBeefyMmr> for BeefyMmr {
     type Error = Error;
 
     fn try_from(raw: RawBeefyMmr) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            signed_commitment: raw
+                .signed_commitment
+                .map(TryInto::try_into)
+                .map_or(Ok(None), |r| r.map(Some))?,
+            signature_proofs: raw.signature_proofs,
+            mmr_leaves_and_batch_proof: raw
+                .mmr_leaves_and_batch_proof
+                .map(TryInto::try_into)
+                .map_or(Ok(None), |r| r.map(Some))?,
+            mmr_size: raw.mmr_size,
+        })
     }
 }
 
 impl From<BeefyMmr> for RawBeefyMmr {
     fn from(value: BeefyMmr) -> Self {
-        todo!()
+        Self {
+            signed_commitment: value.signed_commitment.map(Into::into),
+            signature_proofs: value.signature_proofs,
+            mmr_leaves_and_batch_proof: value.mmr_leaves_and_batch_proof.map(Into::into),
+            mmr_size: value.mmr_size,
+        }
     }
 }

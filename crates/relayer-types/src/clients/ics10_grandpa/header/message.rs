@@ -77,13 +77,22 @@ impl TryFrom<RawSubchainHeader> for SubchainHeader {
     type Error = Error;
 
     fn try_from(raw: RawSubchainHeader) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            block_header: raw.block_header,
+            timestamp: raw
+                .timestamp
+                .map(TryInto::try_into)
+                .map_or(Ok(None), |r| r.map(Some))?,
+        })
     }
 }
 
 impl From<SubchainHeader> for RawSubchainHeader {
     fn from(value: SubchainHeader) -> Self {
-        todo!()
+        Self {
+            block_header: value.block_header,
+            timestamp: value.timestamp.map(Into::into),
+        }
     }
 }
 
@@ -134,13 +143,30 @@ impl TryFrom<RawParachainHeader> for ParachainHeader {
     type Error = Error;
 
     fn try_from(raw: RawParachainHeader) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            parachain_id: raw.parachain_id,
+            block_header: raw.block_header,
+            proofs: raw.proofs,
+            header_index: raw.header_index,
+            header_count: raw.header_count,
+            timestamp: raw
+                .timestamp
+                .map(TryInto::try_into)
+                .map_or(Ok(None), |r| r.map(Some))?,
+        })
     }
 }
 
 impl From<ParachainHeader> for RawParachainHeader {
     fn from(value: ParachainHeader) -> Self {
-        todo!()
+        Self {
+            parachain_id: value.parachain_id,
+            block_header: value.block_header,
+            proofs: value.proofs,
+            header_index: value.header_index,
+            header_count: value.header_count,
+            timestamp: value.timestamp.map(Into::into),
+        }
     }
 }
 
@@ -161,12 +187,20 @@ impl TryFrom<RawStateProof> for StateProof {
     type Error = Error;
 
     fn try_from(raw: RawStateProof) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            key: raw.key,
+            value: raw.value,
+            proofs: raw.proofs,
+        })
     }
 }
 
 impl From<StateProof> for RawStateProof {
     fn from(value: StateProof) -> Self {
-        todo!()
+        Self {
+            key: value.key,
+            value: value.value,
+            proofs: value.proofs,
+        }
     }
 }

@@ -40,7 +40,7 @@ pub struct ClientState {
     /// 1: parachain
     pub chain_type: ChaninType,
     /// chain_id string type, eg: ibc-1
-    pub chain_id: String,
+    pub chain_id: ChainId,
     /// parachain id is uint type
     pub parachain_id: u32,
     /// block number that the beefy protocol was activated on the relay chain.
@@ -106,19 +106,20 @@ impl CoreUpgradeOptions for UpgradeOptions {}
 
 impl Ics2ClientState for ClientState {
     fn chain_id(&self) -> ChainId {
-        todo!()
+        self.chain_id.clone()
     }
 
     fn client_type(&self) -> ClientType {
-        todo!()
+        ClientType::Grandpa
     }
 
     fn latest_height(&self) -> Height {
         todo!()
     }
 
+    // todo
     fn frozen_height(&self) -> Option<Height> {
-        todo!()
+        None
     }
 
     fn upgrade(
@@ -130,8 +131,9 @@ impl Ics2ClientState for ClientState {
         todo!()
     }
 
+    // todo
     fn expired(&self, elapsed: Duration) -> bool {
-        todo!()
+        false
     }
 }
 
@@ -141,13 +143,45 @@ impl TryFrom<RawGpClientState> for ClientState {
     type Error = Error;
 
     fn try_from(raw: RawGpClientState) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            chain_type: match raw.chain_type {
+                0 => ChaninType::Solochain,
+                1 => ChaninType::Parachian,
+                _ => panic!("unknow chain type"),
+            },
+            chain_id: ChainId::from_string(raw.chain_id.as_str()),
+            parachain_id: raw.parachain_id,
+            beefy_activation_block: raw.beefy_activation_block,
+            latest_beefy_height: raw.latest_beefy_height,
+            mmr_root_hash: raw.mmr_root_hash,
+            latest_chain_height: raw.latest_chain_height,
+            frozen_height: raw.frozen_height,
+            authority_set: raw
+                .authority_set
+                .map(TryInto::try_into)
+                .map_or(Ok(None), |r| r.map(Some))?,
+            next_authority_set: raw
+                .next_authority_set
+                .map(TryInto::try_into)
+                .map_or(Ok(None), |r| r.map(Some))?,
+        })
     }
 }
 
 impl From<ClientState> for RawGpClientState {
     fn from(value: ClientState) -> Self {
-        todo!()
+        Self {
+            chain_type: value.chain_type as u32,
+            chain_id: value.chain_id.to_string(),
+            parachain_id: value.parachain_id,
+            beefy_activation_block: value.beefy_activation_block,
+            latest_beefy_height: value.latest_beefy_height,
+            mmr_root_hash: value.mmr_root_hash,
+            latest_chain_height: value.latest_chain_height,
+            frozen_height: value.frozen_height,
+            authority_set: value.authority_set.map(Into::into),
+            next_authority_set: value.next_authority_set.map(Into::into),
+        }
     }
 }
 

@@ -22,13 +22,26 @@ impl TryFrom<RawSignedCommitment> for SignedCommitment {
     type Error = Error;
 
     fn try_from(raw: RawSignedCommitment) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            commitment: raw
+                .commitment
+                .map(TryInto::try_into)
+                .map_or(Ok(None), |r| r.map(Some))?,
+            signatures: raw
+                .signatures
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, Self::Error>>()?,
+        })
     }
 }
 
 impl From<SignedCommitment> for RawSignedCommitment {
     fn from(value: SignedCommitment) -> Self {
-        todo!()
+        Self {
+            commitment: value.commitment.map(Into::into),
+            signatures: value.signatures.into_iter().map(Into::into).collect(),
+        }
     }
 }
 
@@ -47,13 +60,19 @@ impl TryFrom<RawSignature> for Signature {
     type Error = Error;
 
     fn try_from(raw: RawSignature) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            index: raw.index,
+            signature: raw.signature,
+        })
     }
 }
 
 impl From<Signature> for RawSignature {
     fn from(value: Signature) -> Self {
-        todo!()
+        Self {
+            index: value.index,
+            signature: value.signature,
+        }
     }
 }
 
@@ -74,13 +93,25 @@ impl TryFrom<RawCommitment> for Commitment {
     type Error = Error;
 
     fn try_from(raw: RawCommitment) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            payloads: raw
+                .payloads
+                .into_iter()
+                .map(|payload_item| payload_item.try_into())
+                .collect::<Result<Vec<_>, Self::Error>>()?,
+            block_number: raw.block_number,
+            validator_set_id: raw.validator_set_id,
+        })
     }
 }
 
 impl From<Commitment> for RawCommitment {
     fn from(value: Commitment) -> Self {
-        todo!()
+        Self {
+            payloads: value.payloads.into_iter().map(Into::into).collect(),
+            block_number: value.block_number,
+            validator_set_id: value.validator_set_id,
+        }
     }
 }
 
@@ -99,12 +130,18 @@ impl TryFrom<RawPayloadItem> for PayloadItem {
     type Error = Error;
 
     fn try_from(raw: RawPayloadItem) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            id: raw.id,
+            data: raw.data,
+        })
     }
 }
 
 impl From<PayloadItem> for RawPayloadItem {
     fn from(value: PayloadItem) -> Self {
-        todo!()
+        Self {
+            id: value.id,
+            data: value.data,
+        }
     }
 }

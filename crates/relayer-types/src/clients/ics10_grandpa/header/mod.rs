@@ -6,6 +6,8 @@ pub mod message;
 use crate::clients::ics10_grandpa::error::Error;
 use ibc_proto::protobuf::Protobuf;
 
+pub const GRANDPA_HEADER_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Header";
+
 /// header wrapper
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Header {
