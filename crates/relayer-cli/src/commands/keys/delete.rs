@@ -119,6 +119,7 @@ pub fn delete_key(config: &ChainConfig, key_name: &str) -> eyre::Result<()> {
                 KeyRing::new_secp256k1(Store::Test, &config.account_prefix, &config.id)?;
             keyring.remove_key(key_name)?;
         }
+        ChainType::Substrate => todo!(),
     }
     Ok(())
 }
@@ -133,6 +134,7 @@ pub fn delete_all_keys(config: &ChainConfig) -> eyre::Result<()> {
                 keyring.remove_key(&key_name)?;
             }
         }
+        ChainType::Substrate => todo!(),
     }
     Ok(())
 }

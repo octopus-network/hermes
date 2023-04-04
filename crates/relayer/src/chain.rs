@@ -19,6 +19,8 @@ use serde::{de::Error, Deserialize, Serialize};
 pub enum ChainType {
     /// Chains based on the Cosmos SDK
     CosmosSdk,
+    /// Chains based on the substrate SDK
+    Substrate,
 }
 
 impl<'de> Deserialize<'de> for ChainType {
@@ -31,6 +33,7 @@ impl<'de> Deserialize<'de> for ChainType {
 
         match s.as_str() {
             "cosmossdk" => Ok(Self::CosmosSdk),
+            "substrate" => Ok(Self::Substrate),
 
             // NOTE(new): Add a case here
             _ => Err(D::Error::unknown_variant(&original, &["cosmos-sdk"])), // NOTE(new): mention the new variant here
