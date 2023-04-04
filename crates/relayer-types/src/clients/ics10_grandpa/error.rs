@@ -269,6 +269,15 @@ define_error! {
             | e | {
                 format_args!("the client is frozen: frozen_height={0} target_height={1}", e.frozen_height, e.target_height)
             },
+
+        EmptyBeefyMmr
+            | _ | format!("empty beefy mmr"),
+
+        EmptyMessage
+            | _ | format!("empty message!"),
+
+        InvalidBeefyMmr
+            |_ | format!("invalid beefy mmr")
     }
 }
 

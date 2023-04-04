@@ -20,18 +20,12 @@ pub struct MmrLeavesAndBatchProof {
 
 impl Protobuf<RawMmrLeavesAndBatchProof> for MmrLeavesAndBatchProof {}
 
-impl TryFrom<RawMmrLeavesAndBatchProof> for MmrLeavesAndBatchProof {
-    type Error = Error;
-
-    fn try_from(raw: RawMmrLeavesAndBatchProof) -> Result<Self, Self::Error> {
-        Ok(Self {
-            leaves: raw
-                .leaves
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, Self::Error>>()?,
-            mmr_batch_proof: raw.mmr_batch_proof.map(TryInto::try_into).transpose()?,
-        })
+impl From<RawMmrLeavesAndBatchProof> for MmrLeavesAndBatchProof {
+    fn from(raw: RawMmrLeavesAndBatchProof) -> Self {
+        Self {
+            leaves: raw.leaves.into_iter().map(Into::into).collect::<Vec<_>>(),
+            mmr_batch_proof: raw.mmr_batch_proof.map(Into::into),
+        }
     }
 }
 
@@ -56,15 +50,13 @@ pub struct MmrBatchProof {
 }
 impl Protobuf<RawMmrBatchProof> for MmrBatchProof {}
 
-impl TryFrom<RawMmrBatchProof> for MmrBatchProof {
-    type Error = Error;
-
-    fn try_from(raw: RawMmrBatchProof) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<RawMmrBatchProof> for MmrBatchProof {
+    fn from(raw: RawMmrBatchProof) -> Self {
+        Self {
             leaf_indexes: raw.leaf_indexes,
             leaf_count: raw.leaf_count,
             items: raw.items,
-        })
+        }
     }
 }
 
@@ -92,22 +84,14 @@ pub struct MmrLeaf {
 
 impl Protobuf<RawMmrLeaf> for MmrLeaf {}
 
-impl TryFrom<RawMmrLeaf> for MmrLeaf {
-    type Error = Error;
-
-    fn try_from(raw: RawMmrLeaf) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<RawMmrLeaf> for MmrLeaf {
+    fn from(raw: RawMmrLeaf) -> Self {
+        Self {
             version: raw.version,
-            parent_number_and_hash: raw
-                .parent_number_and_hash
-                .map(TryInto::try_into)
-                .transpose()?,
-            beefy_next_authority_set: raw
-                .beefy_next_authority_set
-                .map(TryInto::try_into)
-                .transpose()?,
+            parent_number_and_hash: raw.parent_number_and_hash.map(Into::into),
+            beefy_next_authority_set: raw.beefy_next_authority_set.map(Into::into),
             parachain_heads: raw.parachain_heads,
-        })
+        }
     }
 }
 
@@ -133,14 +117,12 @@ pub struct ParentNumberAndHash {
 
 impl Protobuf<RawParentNumberAndHash> for ParentNumberAndHash {}
 
-impl TryFrom<RawParentNumberAndHash> for ParentNumberAndHash {
-    type Error = Error;
-
-    fn try_from(raw: RawParentNumberAndHash) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<RawParentNumberAndHash> for ParentNumberAndHash {
+    fn from(raw: RawParentNumberAndHash) -> Self {
+        Self {
             parent_number: raw.parent_number,
             parent_hash: raw.parent_hash,
-        })
+        }
     }
 }
 

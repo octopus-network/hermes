@@ -32,19 +32,15 @@ pub struct SubchainHeaderMap {
 
 impl Protobuf<RawSubchainHeaderMap> for SubchainHeaderMap {}
 
-impl TryFrom<RawSubchainHeaderMap> for SubchainHeaderMap {
-    type Error = Error;
-
-    fn try_from(raw: RawSubchainHeaderMap) -> Result<Self, Self::Error> {
-        let subchain_header_map_result: Result<BTreeMap<u32, SubchainHeader>, Self::Error> = raw
-            .subchain_header_map
-            .into_iter()
-            .map(|(k, v)| SubchainHeader::try_from(v).map(|header| (k, header)))
-            .collect();
-
-        Ok(Self {
-            subchain_header_map: subchain_header_map_result?,
-        })
+impl From<RawSubchainHeaderMap> for SubchainHeaderMap {
+    fn from(raw: RawSubchainHeaderMap) -> Self {
+        Self {
+            subchain_header_map: raw
+                .subchain_header_map
+                .into_iter()
+                .map(|(k, v)| (k, SubchainHeader::from(v)))
+                .collect(),
+        }
     }
 }
 
@@ -70,14 +66,12 @@ pub struct SubchainHeader {
 
 impl Protobuf<RawSubchainHeader> for SubchainHeader {}
 
-impl TryFrom<RawSubchainHeader> for SubchainHeader {
-    type Error = Error;
-
-    fn try_from(raw: RawSubchainHeader) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<RawSubchainHeader> for SubchainHeader {
+    fn from(raw: RawSubchainHeader) -> Self {
+        Self {
             block_header: raw.block_header,
-            timestamp: raw.timestamp.map(TryInto::try_into).transpose()?,
-        })
+            timestamp: raw.timestamp.map(Into::into),
+        }
     }
 }
 
@@ -101,19 +95,15 @@ pub struct ParachainHeaderMap {
 
 impl Protobuf<RawParachainHeaderMap> for ParachainHeaderMap {}
 
-impl TryFrom<RawParachainHeaderMap> for ParachainHeaderMap {
-    type Error = Error;
-
-    fn try_from(raw: RawParachainHeaderMap) -> Result<Self, Self::Error> {
-        let parachain_header_map_result: Result<BTreeMap<u32, ParachainHeader>, Self::Error> = raw
-            .parachain_header_map
-            .into_iter()
-            .map(|(k, v)| ParachainHeader::try_from(v).map(|header| (k, header)))
-            .collect();
-
-        Ok(Self {
-            parachain_header_map: parachain_header_map_result?,
-        })
+impl From<RawParachainHeaderMap> for ParachainHeaderMap {
+    fn from(raw: RawParachainHeaderMap) -> Self {
+        Self {
+            parachain_header_map: raw
+                .parachain_header_map
+                .into_iter()
+                .map(|(k, v)| (k, ParachainHeader::from(v)))
+                .collect(),
+        }
     }
 }
 
@@ -147,18 +137,16 @@ pub struct ParachainHeader {
 
 impl Protobuf<RawParachainHeader> for ParachainHeader {}
 
-impl TryFrom<RawParachainHeader> for ParachainHeader {
-    type Error = Error;
-
-    fn try_from(raw: RawParachainHeader) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<RawParachainHeader> for ParachainHeader {
+    fn from(raw: RawParachainHeader) -> Self {
+        Self {
             parachain_id: raw.parachain_id,
             block_header: raw.block_header,
             proofs: raw.proofs,
             header_index: raw.header_index,
             header_count: raw.header_count,
-            timestamp: raw.timestamp.map(TryInto::try_into).transpose()?,
-        })
+            timestamp: raw.timestamp.map(Into::into),
+        }
     }
 }
 
@@ -188,15 +176,13 @@ pub struct StateProof {
 
 impl Protobuf<RawStateProof> for StateProof {}
 
-impl TryFrom<RawStateProof> for StateProof {
-    type Error = Error;
-
-    fn try_from(raw: RawStateProof) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<RawStateProof> for StateProof {
+    fn from(raw: RawStateProof) -> Self {
+        Self {
             key: raw.key,
             value: raw.value,
             proofs: raw.proofs,
-        })
+        }
     }
 }
 

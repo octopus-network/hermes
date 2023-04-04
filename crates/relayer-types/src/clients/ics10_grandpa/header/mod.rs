@@ -21,9 +21,16 @@ pub const GRANDPA_HEADER_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Header";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Header {
     /// the latest mmr data
-    pub beefy_mmr: Option<beefy_mmr::BeefyMmr>,
+    pub beefy_mmr: beefy_mmr::BeefyMmr,
     /// only one header
-    pub message: Option<message::Message>,
+    pub message: message::Message,
+}
+
+impl Header {
+    pub fn height(&self) -> Height {
+        // match self.message {}
+        todo!()
+    }
 }
 
 impl Protobuf<RawHeader> for Header {}
@@ -33,18 +40,11 @@ impl TryFrom<RawHeader> for Header {
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
         Ok(Self {
-            beefy_mmr: raw.beefy_mmr.map(TryInto::try_into).transpose()?,
-            message: raw.message.map_or(Ok(None), |msg| {
-                let result_message: Result<message::Message, Self::Error> = match msg {
-                    RawMessage::ParachainHeaderMap(v) => {
-                        v.try_into().map(message::Message::ParachainHeaderMap)
-                    }
-                    RawMessage::SubchainHeaderMap(v) => {
-                        v.try_into().map(message::Message::SubchainHeaderMap)
-                    }
-                };
-                result_message.map(Some)
-            })?,
+            beefy_mmr: raw.beefy_mmr.ok_or_else(Error::empty_beefy_mmr)?.into(),
+            message: match raw.message.ok_or_else(Error::empty_beefy_mmr)? {
+                RawMessage::ParachainHeaderMap(v) => message::Message::ParachainHeaderMap(v.into()),
+                RawMessage::SubchainHeaderMap(v) => message::Message::SubchainHeaderMap(v.into()),
+            },
         })
     }
 }
@@ -52,8 +52,8 @@ impl TryFrom<RawHeader> for Header {
 impl From<Header> for RawHeader {
     fn from(value: Header) -> Self {
         Self {
-            beefy_mmr: value.beefy_mmr.map(Into::into),
-            message: value.message.map(|msg| match msg {
+            beefy_mmr: Some(value.beefy_mmr.into()),
+            message: Some(match value.message {
                 message::Message::ParachainHeaderMap(v) => RawMessage::ParachainHeaderMap(v.into()),
                 message::Message::SubchainHeaderMap(v) => RawMessage::SubchainHeaderMap(v.into()),
             }),
@@ -67,7 +67,7 @@ impl crate::core::ics02_client::header::Header for Header {
     }
 
     fn height(&self) -> Height {
-        todo!()
+        self.height()
     }
 
     fn timestamp(&self) -> Timestamp {

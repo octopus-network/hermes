@@ -30,13 +30,13 @@ pub const GRANDPA_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Cl
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ChaninType {
-    Solochain = 0,
+    Subchain = 0,
     Parachian = 1,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState {
-    /// 0: solochain
+    /// 0: subchain
     /// 1: parachain
     pub chain_type: ChaninType,
     /// chain_id string type, eg: ibc-1
@@ -50,7 +50,7 @@ pub struct ClientState {
     pub latest_beefy_height: u32,
     /// Latest mmr root hash
     pub mmr_root_hash: Vec<u8>,
-    /// latest solochain or parachain height
+    /// latest subchain or parachain height
     pub latest_chain_height: u32,
     /// Block height when the client was frozen due to a misbehaviour
     pub frozen_height: u32,
@@ -73,27 +73,8 @@ impl ClientState {
     }
 
     pub fn latest_height(&self) -> Height {
-        todo!()
-    }
-
-    pub fn with_frozen_height(self, h: Height) -> Result<Self, Error> {
-        todo!()
-    }
-
-    /// Get the refresh time to ensure the state does not expire
-    pub fn refresh_time(&self) -> Option<Duration> {
-        todo!()
-    }
-
-    /// Helper method to produce a [`Options`] struct for use in
-    /// Tendermint-specific light client verification.
-    pub fn as_light_client_options(&self) -> Result<Options, Error> {
-        todo!()
-    }
-
-    /// Verify that the client is at a sufficient height and unfrozen at the given height
-    pub fn verify_height(&self, height: Height) -> Result<(), Error> {
-        todo!()
+        Height::new(0, self.latest_chain_height as u64)
+            .expect("never faild for convert height from u32 to Height")
     }
 }
 
@@ -114,7 +95,7 @@ impl Ics2ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        todo!()
+        self.latest_height()
     }
 
     // todo
@@ -145,7 +126,7 @@ impl TryFrom<RawGpClientState> for ClientState {
     fn try_from(raw: RawGpClientState) -> Result<Self, Self::Error> {
         Ok(Self {
             chain_type: match raw.chain_type {
-                0 => ChaninType::Solochain,
+                0 => ChaninType::Subchain,
                 1 => ChaninType::Parachian,
                 _ => panic!("unknow chain type"),
             },
@@ -156,8 +137,8 @@ impl TryFrom<RawGpClientState> for ClientState {
             mmr_root_hash: raw.mmr_root_hash,
             latest_chain_height: raw.latest_chain_height,
             frozen_height: raw.frozen_height,
-            authority_set: raw.authority_set.map(TryInto::try_into).transpose()?,
-            next_authority_set: raw.next_authority_set.map(TryInto::try_into).transpose()?,
+            authority_set: raw.authority_set.map(Into::into),
+            next_authority_set: raw.next_authority_set.map(Into::into),
         })
     }
 }

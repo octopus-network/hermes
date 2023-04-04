@@ -1,5 +1,5 @@
-use super::header::Header;
 use crate::clients::ics10_grandpa::error::Error;
+use crate::clients::ics10_grandpa::header::Header;
 use crate::core::ics24_host::identifier::ClientId;
 use crate::prelude::*;
 use crate::Height;
@@ -14,8 +14,8 @@ pub const GRANDPA_MISBEHAVIOR_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Mis
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Misbehaviour {
     pub client_id: ClientId,
-    pub header_1: Option<Header>,
-    pub header_2: Option<Header>,
+    pub header_1: Header,
+    pub header_2: Header,
 }
 
 impl crate::core::ics02_client::misbehaviour::Misbehaviour for Misbehaviour {
@@ -24,7 +24,7 @@ impl crate::core::ics02_client::misbehaviour::Misbehaviour for Misbehaviour {
     }
 
     fn height(&self) -> Height {
-        todo!()
+        self.header_1.height()
     }
 }
 
@@ -34,18 +34,38 @@ impl TryFrom<RawMisbehaviour> for Misbehaviour {
     type Error = Error;
 
     fn try_from(raw: RawMisbehaviour) -> Result<Self, Self::Error> {
-        todo!()
+        Ok(Self {
+            client_id: Default::default(),
+            header_1: raw
+                .header_1
+                .ok_or_else(|| Error::invalid_raw_misbehaviour("missing header1".into()))?
+                .try_into()?,
+            header_2: raw
+                .header_2
+                .ok_or_else(|| Error::invalid_raw_misbehaviour("missing header2".into()))?
+                .try_into()?,
+        })
     }
 }
 
 impl From<Misbehaviour> for RawMisbehaviour {
     fn from(value: Misbehaviour) -> Self {
-        todo!()
+        RawMisbehaviour {
+            client_id: value.client_id.to_string(),
+            header_1: Some(value.header_1.into()),
+            header_2: Some(value.header_2.into()),
+        }
     }
 }
 
 impl core::fmt::Display for Misbehaviour {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-        todo!()
+        write!(
+            f,
+            "{} h1: {} h2: {}",
+            self.client_id,
+            self.header_1.height(),
+            self.header_2.height(),
+        )
     }
 }

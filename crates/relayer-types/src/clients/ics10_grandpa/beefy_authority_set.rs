@@ -17,15 +17,13 @@ pub struct BeefyAuthoritySet {
 
 impl Protobuf<RawBeefyAuthoritySet> for BeefyAuthoritySet {}
 
-impl TryFrom<RawBeefyAuthoritySet> for BeefyAuthoritySet {
-    type Error = Error;
-
-    fn try_from(raw: RawBeefyAuthoritySet) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<RawBeefyAuthoritySet> for BeefyAuthoritySet {
+    fn from(raw: RawBeefyAuthoritySet) -> Self {
+        Self {
             id: raw.id,
             len: raw.len,
             root: raw.root,
-        })
+        }
     }
 }
 

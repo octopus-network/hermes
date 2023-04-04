@@ -18,18 +18,16 @@ pub struct SignedCommitment {
 
 impl Protobuf<RawSignedCommitment> for SignedCommitment {}
 
-impl TryFrom<RawSignedCommitment> for SignedCommitment {
-    type Error = Error;
-
-    fn try_from(raw: RawSignedCommitment) -> Result<Self, Self::Error> {
-        Ok(Self {
-            commitment: raw.commitment.map(TryInto::try_into).transpose()?,
+impl From<RawSignedCommitment> for SignedCommitment {
+    fn from(raw: RawSignedCommitment) -> Self {
+        Self {
+            commitment: raw.commitment.map(Into::into),
             signatures: raw
                 .signatures
                 .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, Self::Error>>()?,
-        })
+                .map(Into::into)
+                .collect::<Vec<_>>(),
+        }
     }
 }
 
@@ -53,14 +51,12 @@ pub struct Signature {
 
 impl Protobuf<RawSignature> for Signature {}
 
-impl TryFrom<RawSignature> for Signature {
-    type Error = Error;
-
-    fn try_from(raw: RawSignature) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<RawSignature> for Signature {
+    fn from(raw: RawSignature) -> Self {
+        Self {
             index: raw.index,
             signature: raw.signature,
-        })
+        }
     }
 }
 
@@ -86,19 +82,17 @@ pub struct Commitment {
 
 impl Protobuf<RawCommitment> for Commitment {}
 
-impl TryFrom<RawCommitment> for Commitment {
-    type Error = Error;
-
-    fn try_from(raw: RawCommitment) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<RawCommitment> for Commitment {
+    fn from(raw: RawCommitment) -> Self {
+        Self {
             payloads: raw
                 .payloads
                 .into_iter()
-                .map(|payload_item| payload_item.try_into())
-                .collect::<Result<Vec<_>, Self::Error>>()?,
+                .map(|payload_item| payload_item.into())
+                .collect::<Vec<_>>(),
             block_number: raw.block_number,
             validator_set_id: raw.validator_set_id,
-        })
+        }
     }
 }
 
@@ -123,14 +117,12 @@ pub struct PayloadItem {
 
 impl Protobuf<RawPayloadItem> for PayloadItem {}
 
-impl TryFrom<RawPayloadItem> for PayloadItem {
-    type Error = Error;
-
-    fn try_from(raw: RawPayloadItem) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<RawPayloadItem> for PayloadItem {
+    fn from(raw: RawPayloadItem) -> Self {
+        Self {
             id: raw.id,
             data: raw.data,
-        })
+        }
     }
 }
 
