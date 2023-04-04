@@ -1,0 +1,727 @@
+use alloc::sync::Arc;
+use bytes::{Buf, Bytes};
+use core::{
+    convert::{TryFrom, TryInto},
+    future::Future,
+    str::FromStr,
+    time::Duration,
+};
+use futures::future::join_all;
+use num_bigint::BigInt;
+use std::{cmp::Ordering, thread};
+
+use tokio::runtime::Runtime as TokioRuntime;
+use tonic::{codegen::http::Uri, metadata::AsciiMetadataValue};
+use tracing::{error, instrument, trace, warn};
+
+use ibc_proto::cosmos::base::node::v1beta1::ConfigResponse;
+use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
+use ibc_proto::protobuf::Protobuf;
+use ibc_relayer_types::applications::ics31_icq::response::CrossChainQueryResponse;
+use ibc_relayer_types::clients::ics07_tendermint::client_state::{
+    AllowUpdate, ClientState as TmClientState,
+};
+use ibc_relayer_types::clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
+use ibc_relayer_types::clients::ics07_tendermint::header::Header as TmHeader;
+use ibc_relayer_types::core::ics02_client::client_type::ClientType;
+use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
+use ibc_relayer_types::core::ics02_client::events::UpdateClient;
+use ibc_relayer_types::core::ics03_connection::connection::{
+    ConnectionEnd, IdentifiedConnectionEnd,
+};
+use ibc_relayer_types::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
+use ibc_relayer_types::core::ics04_channel::packet::Sequence;
+use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentPrefix;
+use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
+use ibc_relayer_types::core::ics24_host::identifier::{
+    ChainId, ChannelId, ClientId, ConnectionId, PortId,
+};
+use ibc_relayer_types::core::ics24_host::path::{
+    AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
+    ConnectionsPath, ReceiptsPath, SeqRecvsPath,
+};
+use ibc_relayer_types::core::ics24_host::{
+    ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH,
+};
+use ibc_relayer_types::signer::Signer;
+use ibc_relayer_types::Height as ICSHeight;
+
+use tendermint::block::Height as TmHeight;
+use tendermint::node::info::TxIndexStatus;
+use tendermint_light_client_verifier::types::LightBlock as TmLightBlock;
+use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
+use tendermint_rpc::endpoint::status;
+use tendermint_rpc::{Client, HttpClient, Order};
+
+use crate::account::Balance;
+use crate::chain::client::ClientSettings;
+use crate::chain::cosmos::batch::{
+    send_batched_messages_and_wait_check_tx, send_batched_messages_and_wait_commit,
+    sequential_send_batched_messages_and_wait_commit,
+};
+// use crate::chain::cosmos::encode::key_pair_to_signer;
+// use crate::chain::cosmos::fee::maybe_register_counterparty_payee;
+// use crate::chain::cosmos::gas::{calculate_fee, mul_ceil};
+// use crate::chain::cosmos::query::account::get_or_fetch_account;
+// use crate::chain::cosmos::query::balance::{query_all_balances, query_balance};
+// use crate::chain::cosmos::query::consensus_state::query_consensus_state_heights;
+// use crate::chain::cosmos::query::custom::cross_chain_query_via_rpc;
+// use crate::chain::cosmos::query::denom_trace::query_denom_trace;
+// use crate::chain::cosmos::query::status::query_status;
+// use crate::chain::cosmos::query::tx::{
+//     filter_matching_event, query_packets_from_block, query_packets_from_txs, query_txs,
+// };
+// use crate::chain::cosmos::query::{abci_query, fetch_version_specs, packet_query, QueryResponse};
+// use crate::chain::cosmos::types::account::Account;
+// use crate::chain::cosmos::types::config::TxConfig;
+// use crate::chain::cosmos::types::gas::{
+//     default_gas_from_config, gas_multiplier_from_config, max_gas_from_config,
+// };
+use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
+use crate::chain::handle::Subscription;
+use crate::chain::requests::*;
+use crate::chain::tracking::TrackedMsgs;
+use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
+use crate::config::{parse_gas_prices, ChainConfig, GasPrice};
+use crate::consensus_state::AnyConsensusState;
+use crate::denom::DenomTrace;
+use crate::error::Error;
+use crate::event::monitor::{EventMonitor, TxMonitorCmd};
+use crate::event::IbcEventWithHeight;
+use crate::keyring::{KeyRing, Secp256k1KeyPair, SigningKeyPair};
+use crate::light_client::tendermint::LightClient as TmLightClient;
+use crate::light_client::{LightClient, Verified};
+use crate::misbehaviour::MisbehaviourEvidence;
+use crate::util::pretty::{
+    PrettyIdentifiedChannel, PrettyIdentifiedClientState, PrettyIdentifiedConnection,
+};
+
+/// Defines an upper limit on how large any transaction can be.
+/// This upper limit is defined as a fraction relative to the block's
+/// maximum bytes. For example, if the fraction is `0.9`, then
+/// `max_tx_size` will not be allowed to exceed 0.9 of the
+/// maximum block size of any Cosmos SDK network.
+///
+/// The default fraction we use is `0.9`; anything larger than that
+/// would be risky, as transactions might be rejected; a smaller value
+/// might be un-necessarily restrictive on the relayer side.
+/// The [default max. block size in Tendermint 0.37 is 21MB](tm-37-max).
+/// With a fraction of `0.9`, then Hermes will never permit the configuration
+/// of `max_tx_size` to exceed ~18.9MB.
+///
+/// [tm-37-max]: https://github.com/tendermint/tendermint/blob/v0.37.0-rc1/types/params.go#L79
+pub const BLOCK_MAX_BYTES_MAX_FRACTION: f64 = 0.9;
+pub struct SubstrateChain {
+    config: ChainConfig,
+    // tx_config: TxConfig,
+    // rpc_client: HttpClient,
+    // grpc_addr: Uri,
+    // light_client: TmLightClient,
+    rt: Arc<TokioRuntime>,
+    keybase: KeyRing<Secp256k1KeyPair>,
+    // /// A cached copy of the account information
+    // account: Option<Account>,
+
+    // tx_monitor_cmd: Option<TxMonitorCmd>,
+}
+
+impl SubstrateChain {
+    /// Get a reference to the configuration for this chain.
+    pub fn config(&self) -> &ChainConfig {
+        &self.config
+    }
+
+    /// The maximum size of any transaction sent by the relayer to this chain
+    fn max_tx_size(&self) -> usize {
+        todo!()
+    }
+
+    fn key(&self) -> Result<Secp256k1KeyPair, Error> {
+        todo!()
+    }
+
+    /// Fetches the trusting period as a `Duration` from the chain config.
+    /// If no trusting period exists in the config, the trusting period is calculated
+    /// as two-thirds of the `unbonding_period`.
+    fn trusting_period(&self, unbonding_period: Duration) -> Duration {
+        todo!()
+    }
+
+    /// Performs validation of the relayer's configuration
+    /// for a specific chain against the parameters of that chain.
+    ///
+    /// Currently, validates the following:
+    ///     - the configured `max_tx_size` is appropriate
+    ///     - the trusting period is greater than zero
+    ///     - the trusting period is smaller than the unbonding period
+    ///     - the default gas is smaller than the max gas
+    ///
+    /// Emits a log warning in case any error is encountered and
+    /// exits early without doing subsequent validations.
+    pub fn validate_params(&self) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn init_event_monitor(&mut self) -> Result<TxMonitorCmd, Error> {
+        crate::time!("init_event_monitor");
+
+        todo!()
+    }
+
+    /// Query the chain staking parameters
+    pub fn query_staking_params(&self) -> Result<StakingParams, Error> {
+        crate::time!("query_staking_params");
+        crate::telemetry!(query, self.id(), "query_staking_params");
+        todo!()
+    }
+
+    /// Query the node for its configuration parameters.
+    ///
+    /// ### Note: This query endpoint was introduced in SDK v0.46.3/v0.45.10. Not available before that.
+    ///
+    /// Returns:
+    ///     - `Ok(Some(..))` if the query was successful.
+    ///     - `Ok(None) in case the query endpoint is not available.
+    ///     - `Err` for any other error.
+    pub fn query_config_params(&self) -> Result<Option<ConfigResponse>, Error> {
+        crate::time!("query_config_params");
+        crate::telemetry!(query, self.id(), "query_config_params");
+        todo!()
+    }
+
+    /// The minimum gas price that this node accepts
+    pub fn min_gas_price(&self) -> Result<Vec<GasPrice>, Error> {
+        crate::time!("min_gas_price");
+
+        todo!()
+    }
+
+    /// The unbonding period of this chain
+    pub fn unbonding_period(&self) -> Result<Duration, Error> {
+        crate::time!("unbonding_period");
+
+        todo!()
+    }
+
+    /// The number of historical entries kept by this chain
+    pub fn historical_entries(&self) -> Result<u32, Error> {
+        crate::time!("historical_entries");
+
+        todo!()
+    }
+
+    /// Run a future to completion on the Tokio runtime.
+    fn block_on<F: Future>(&self, f: F) -> F::Output {
+        crate::time!("block_on");
+        self.rt.block_on(f)
+    }
+
+    /// Perform an ABCI query against the client upgrade sub-store.
+    ///
+    /// The data is returned in its raw format `Vec<u8>`, and is either the
+    /// client state (if the target path is [`UpgradedClientState`]), or the
+    /// client consensus state ([`UpgradedClientConsensusState`]).
+    ///
+    /// Note: This is a special query in that it will only succeed if the chain
+    /// is halted after reaching the height proposed in a successful governance
+    /// proposal to upgrade the chain. In this scenario, let P be the height at
+    /// which the chain is planned to upgrade. We assume that the chain is
+    /// halted at height P. Tendermint will be at height P (as reported by the
+    /// /status RPC query), but the application will be at height P-1 (as
+    /// reported by the /abci_info RPC query).
+    ///
+    /// Therefore, `query_height` needs to be P-1. However, the path specified
+    /// in `query_data` needs to be constructed with height `P`, as this is how
+    /// the chain will have stored it in its upgrade sub-store.
+    fn query_client_upgrade_state(
+        &self,
+        query_data: ClientUpgradePath,
+        query_height: ICSHeight,
+    ) -> Result<(Vec<u8>, MerkleProof), Error> {
+        todo!()
+    }
+
+    /// Query the chain status via an RPC query.
+    ///
+    /// Returns an error if the node is still syncing and has not caught up,
+    /// ie. if `sync_info.catching_up` is `true`.
+    fn chain_status(&self) -> Result<status::Response, Error> {
+        crate::time!("chain_status");
+        crate::telemetry!(query, self.id(), "status");
+
+        todo!()
+    }
+
+    /// Query the chain's latest height
+    pub fn query_chain_latest_height(&self) -> Result<ICSHeight, Error> {
+        crate::time!("query_latest_height");
+        crate::telemetry!(query, self.id(), "query_latest_height");
+
+        todo!()
+    }
+
+    #[instrument(
+        name = "send_messages_and_wait_commit",
+        level = "error",
+        skip_all,
+        fields(
+            chain = %self.id(),
+            tracking_id = %tracked_msgs.tracking_id()
+        ),
+    )]
+    async fn do_send_messages_and_wait_commit(
+        &mut self,
+        tracked_msgs: TrackedMsgs,
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
+        crate::time!("send_messages_and_wait_commit");
+
+        todo!()
+    }
+
+    #[instrument(
+        name = "send_messages_and_wait_check_tx",
+        level = "error",
+        skip_all,
+        fields(
+            chain = %self.id(),
+            tracking_id = %tracked_msgs.tracking_id()
+        ),
+    )]
+    async fn do_send_messages_and_wait_check_tx(
+        &mut self,
+        tracked_msgs: TrackedMsgs,
+    ) -> Result<Vec<Response>, Error> {
+        crate::time!("send_messages_and_wait_check_tx");
+        todo!()
+    }
+
+    fn query_packet_from_block(
+        &self,
+        request: &QueryPacketEventDataRequest,
+        seqs: &[Sequence],
+        block_height: &ICSHeight,
+    ) -> Result<(Vec<IbcEventWithHeight>, Vec<IbcEventWithHeight>), Error> {
+        crate::time!("query_block: query block packet events");
+        crate::telemetry!(query, self.id(), "query_block");
+
+        todo!()
+    }
+
+    fn query_packets_from_blocks(
+        &self,
+        request: &QueryPacketEventDataRequest,
+    ) -> Result<(Vec<IbcEventWithHeight>, Vec<IbcEventWithHeight>), Error> {
+        crate::time!("query_blocks: query block packet events");
+        crate::telemetry!(query, self.id(), "query_blocks");
+        todo!()
+    }
+}
+
+impl ChainEndpoint for SubstrateChain {
+    type LightBlock = TmLightBlock;
+    type Header = TmHeader;
+    type ConsensusState = TMConsensusState;
+    type ClientState = TmClientState;
+    type SigningKeyPair = Secp256k1KeyPair;
+
+    fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
+        todo!()
+    }
+
+    fn shutdown(self) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn keybase(&self) -> &KeyRing<Self::SigningKeyPair> {
+        &self.keybase
+    }
+
+    fn keybase_mut(&mut self) -> &mut KeyRing<Self::SigningKeyPair> {
+        &mut self.keybase
+    }
+
+    fn subscribe(&mut self) -> Result<Subscription, Error> {
+        todo!()
+    }
+
+    /// Does multiple RPC calls to the full node, to check for
+    /// reachability and some basic APIs are available.
+    ///
+    /// Currently this checks that:
+    ///     - the node responds OK to `/health` RPC call;
+    ///     - the node has transaction indexing enabled;
+    ///     - the SDK & IBC versions are supported;
+    ///
+    /// Emits a log warning in case anything is amiss.
+    /// Exits early if any health check fails, without doing any
+    /// further checks.
+    fn health_check(&self) -> Result<HealthCheck, Error> {
+        todo!()
+    }
+
+    /// Fetch a header from the chain at the given height and verify it.
+    fn verify_header(
+        &mut self,
+        trusted: ICSHeight,
+        target: ICSHeight,
+        client_state: &AnyClientState,
+    ) -> Result<Self::LightBlock, Error> {
+        todo!()
+    }
+
+    /// Given a client update event that includes the header used in a client update,
+    /// look for misbehaviour by fetching a header at same or latest height.
+    fn check_misbehaviour(
+        &mut self,
+        update: &UpdateClient,
+        client_state: &AnyClientState,
+    ) -> Result<Option<MisbehaviourEvidence>, Error> {
+        todo!()
+    }
+
+    // Queries
+
+    /// Send one or more transactions that include all the specified messages.
+    /// The `proto_msgs` are split in transactions such they don't exceed the configured maximum
+    /// number of messages per transaction and the maximum transaction size.
+    /// Then `send_tx()` is called with each Tx. `send_tx()` determines the fee based on the
+    /// on-chain simulation and if this exceeds the maximum gas specified in the configuration file
+    /// then it returns error.
+    /// TODO - more work is required here for a smarter split maybe iteratively accumulating/ evaluating
+    /// msgs in a Tx until any of the max size, max num msgs, max fee are exceeded.
+    fn send_messages_and_wait_commit(
+        &mut self,
+        tracked_msgs: TrackedMsgs,
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
+        todo!()
+    }
+
+    fn send_messages_and_wait_check_tx(
+        &mut self,
+        tracked_msgs: TrackedMsgs,
+    ) -> Result<Vec<Response>, Error> {
+        todo!()
+    }
+
+    /// Get the account for the signer
+    fn get_signer(&self) -> Result<Signer, Error> {
+        crate::time!("get_signer");
+
+        todo!()
+    }
+
+    /// Get the chain configuration
+    fn config(&self) -> &ChainConfig {
+        &self.config
+    }
+
+    fn ibc_version(&self) -> Result<Option<semver::Version>, Error> {
+        todo!()
+    }
+
+    fn query_balance(&self, key_name: Option<&str>, denom: Option<&str>) -> Result<Balance, Error> {
+        todo!()
+    }
+
+    fn query_all_balances(&self, key_name: Option<&str>) -> Result<Vec<Balance>, Error> {
+        todo!()
+    }
+
+    fn query_denom_trace(&self, hash: String) -> Result<DenomTrace, Error> {
+        todo!()
+    }
+
+    fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
+        crate::time!("query_commitment_prefix");
+        crate::telemetry!(query, self.id(), "query_commitment_prefix");
+
+        todo!()
+    }
+
+    /// Query the application status
+    fn query_application_status(&self) -> Result<ChainStatus, Error> {
+        crate::time!("query_application_status");
+        crate::telemetry!(query, self.id(), "query_application_status");
+
+        todo!()
+    }
+
+    fn query_clients(
+        &self,
+        request: QueryClientStatesRequest,
+    ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
+        crate::time!("query_clients");
+        crate::telemetry!(query, self.id(), "query_clients");
+
+        todo!()
+    }
+
+    fn query_client_state(
+        &self,
+        request: QueryClientStateRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
+        crate::time!("query_client_state");
+        crate::telemetry!(query, self.id(), "query_client_state");
+
+        todo!()
+    }
+
+    fn query_upgraded_client_state(
+        &self,
+        request: QueryUpgradedClientStateRequest,
+    ) -> Result<(AnyClientState, MerkleProof), Error> {
+        crate::time!("query_upgraded_client_state");
+        crate::telemetry!(query, self.id(), "query_upgraded_client_state");
+        todo!()
+    }
+
+    fn query_upgraded_consensus_state(
+        &self,
+        request: QueryUpgradedConsensusStateRequest,
+    ) -> Result<(AnyConsensusState, MerkleProof), Error> {
+        crate::time!("query_upgraded_consensus_state");
+        crate::telemetry!(query, self.id(), "query_upgraded_consensus_state");
+        todo!()
+    }
+
+    fn query_consensus_state_heights(
+        &self,
+        request: QueryConsensusStateHeightsRequest,
+    ) -> Result<Vec<ICSHeight>, Error> {
+        todo!()
+    }
+
+    fn query_consensus_state(
+        &self,
+        request: QueryConsensusStateRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
+        crate::time!("query_consensus_state");
+        crate::telemetry!(query, self.id(), "query_consensus_state");
+
+        todo!()
+    }
+
+    fn query_client_connections(
+        &self,
+        request: QueryClientConnectionsRequest,
+    ) -> Result<Vec<ConnectionId>, Error> {
+        crate::time!("query_client_connections");
+        crate::telemetry!(query, self.id(), "query_client_connections");
+
+        todo!()
+    }
+
+    fn query_connections(
+        &self,
+        request: QueryConnectionsRequest,
+    ) -> Result<Vec<IdentifiedConnectionEnd>, Error> {
+        crate::time!("query_connections");
+        crate::telemetry!(query, self.id(), "query_connections");
+        todo!()
+    }
+
+    fn query_connection(
+        &self,
+        request: QueryConnectionRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
+        crate::time!("query_connection");
+        crate::telemetry!(query, self.id(), "query_connection");
+
+        todo!()
+    }
+
+    fn query_connection_channels(
+        &self,
+        request: QueryConnectionChannelsRequest,
+    ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
+        crate::time!("query_connection_channels");
+        crate::telemetry!(query, self.id(), "query_connection_channels");
+        todo!()
+    }
+
+    fn query_channels(
+        &self,
+        request: QueryChannelsRequest,
+    ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
+        crate::time!("query_channels");
+        crate::telemetry!(query, self.id(), "query_channels");
+
+        todo!()
+    }
+
+    fn query_channel(
+        &self,
+        request: QueryChannelRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
+        crate::time!("query_channel");
+        crate::telemetry!(query, self.id(), "query_channel");
+        todo!()
+    }
+
+    fn query_channel_client_state(
+        &self,
+        request: QueryChannelClientStateRequest,
+    ) -> Result<Option<IdentifiedAnyClientState>, Error> {
+        crate::time!("query_channel_client_state");
+        crate::telemetry!(query, self.id(), "query_channel_client_state");
+
+        todo!()
+    }
+
+    fn query_packet_commitment(
+        &self,
+        request: QueryPacketCommitmentRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        todo!()
+    }
+
+    /// Queries the packet commitment hashes associated with a channel.
+    fn query_packet_commitments(
+        &self,
+        request: QueryPacketCommitmentsRequest,
+    ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
+        crate::time!("query_packet_commitments");
+        crate::telemetry!(query, self.id(), "query_packet_commitments");
+        todo!()
+    }
+
+    fn query_packet_receipt(
+        &self,
+        request: QueryPacketReceiptRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        todo!()
+    }
+
+    /// Queries the unreceived packet sequences associated with a channel.
+    fn query_unreceived_packets(
+        &self,
+        request: QueryUnreceivedPacketsRequest,
+    ) -> Result<Vec<Sequence>, Error> {
+        crate::time!("query_unreceived_packets");
+        crate::telemetry!(query, self.id(), "query_unreceived_packets");
+
+        todo!()
+    }
+
+    fn query_next_sequence_receive(
+        &self,
+        request: QueryNextSequenceReceiveRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Sequence, Option<MerkleProof>), Error> {
+        todo!()
+    }
+
+    fn query_packet_acknowledgement(
+        &self,
+        request: QueryPacketAcknowledgementRequest,
+        include_proof: IncludeProof,
+    ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        todo!()
+    }
+
+    /// Queries the packet acknowledgment hashes associated with a channel.
+    fn query_packet_acknowledgements(
+        &self,
+        request: QueryPacketAcknowledgementsRequest,
+    ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
+        crate::time!("query_packet_acknowledgements");
+        crate::telemetry!(query, self.id(), "query_packet_acknowledgements");
+
+        todo!()
+    }
+
+    /// Queries the unreceived acknowledgements sequences associated with a channel.
+    fn query_unreceived_acknowledgements(
+        &self,
+        request: QueryUnreceivedAcksRequest,
+    ) -> Result<Vec<Sequence>, Error> {
+        crate::time!("query_unreceived_acknowledgements");
+        crate::telemetry!(query, self.id(), "query_unreceived_acknowledgements");
+        todo!()
+    }
+
+    /// This function queries transactions for events matching certain criteria.
+    /// 1. Client Update request - returns a vector with at most one update client event
+    /// 2. Transaction event request - returns all IBC events resulted from a Tx execution
+    fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
+        crate::time!("query_txs");
+        crate::telemetry!(query, self.id(), "query_txs");
+        todo!()
+    }
+
+    /// This function queries transactions for packet events matching certain criteria.
+    /// It returns at most one packet event for each sequence specified in the request.
+    ///    Note - there is no way to format the packet query such that it asks for Tx-es with either
+    ///    sequence (the query conditions can only be AND-ed).
+    ///    There is a possibility to include "<=" and ">=" conditions but it doesn't work with
+    ///    string attributes (sequence is emmitted as a string).
+    ///    Therefore, for packets we perform one tx_search for each sequence.
+    ///    Alternatively, a single query for all packets could be performed but it would return all
+    ///    packets ever sent.
+    fn query_packet_events(
+        &self,
+        mut request: QueryPacketEventDataRequest,
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
+        crate::time!("query_packet_events");
+        crate::telemetry!(query, self.id(), "query_packet_events");
+
+        todo!()
+    }
+
+    fn query_host_consensus_state(
+        &self,
+        request: QueryHostConsensusStateRequest,
+    ) -> Result<Self::ConsensusState, Error> {
+        todo!()
+    }
+
+    fn build_client_state(
+        &self,
+        height: ICSHeight,
+        settings: ClientSettings,
+    ) -> Result<Self::ClientState, Error> {
+        todo!()
+    }
+
+    fn build_consensus_state(
+        &self,
+        light_block: Self::LightBlock,
+    ) -> Result<Self::ConsensusState, Error> {
+        crate::time!("build_consensus_state");
+
+        todo!()
+    }
+
+    fn build_header(
+        &mut self,
+        trusted_height: ICSHeight,
+        target_height: ICSHeight,
+        client_state: &AnyClientState,
+    ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
+        crate::time!("build_header");
+
+        todo!()
+    }
+
+    fn maybe_register_counterparty_payee(
+        &mut self,
+        channel_id: &ChannelId,
+        port_id: &PortId,
+        counterparty_payee: &Signer,
+    ) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn cross_chain_query(
+        &self,
+        requests: Vec<CrossChainQueryRequest>,
+    ) -> Result<Vec<CrossChainQueryResponse>, Error> {
+        todo!()
+    }
+}

@@ -1,12 +1,16 @@
 #![forbid(unsafe_code)]
 #![deny(
-    warnings,
+    // warnings,
     trivial_casts,
     trivial_numeric_casts,
     unused_import_braces,
     unused_qualifications,
     rust_2018_idioms
 )]
+#![allow(unused_imports)] // todo (davirain) need to remove
+#![allow(unused_variables)]
+#![allow(unused_mut)]
+#![allow(dead_code)]
 #![allow(clippy::too_many_arguments)]
 // TODO: disable unwraps:
 //  https://github.com/informalsystems/hermes/issues/987
