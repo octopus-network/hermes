@@ -97,7 +97,13 @@ use crate::util::pretty::{
 };
 
 // substrate
-use subxt::{tx::PairSigner, OnlineClient, SubstrateConfig};
+use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
+
+// #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
+pub mod parachain_node {}
+
+// #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
+pub mod relaychain_node {}
 
 /// Defines an upper limit on how large any transaction can be.
 /// This upper limit is defined as a fraction relative to the block's
@@ -115,19 +121,13 @@ use subxt::{tx::PairSigner, OnlineClient, SubstrateConfig};
 /// [tm-37-max]: https://github.com/tendermint/tendermint/blob/v0.37.0-rc1/types/params.go#L79
 pub const BLOCK_MAX_BYTES_MAX_FRACTION: f64 = 0.9;
 pub struct SubstrateChain {
-    rpc_client: OnlineClient<SubstrateConfig>,
+    relay_chain_rpc_client: OnlineClient<PolkadotConfig>,
+    para_chain_rpc_client: OnlineClient<SubstrateConfig>,
     config: ChainConfig,
-    // tx_config: TxConfig,
-    // rpc_client: HttpClient,
-    // grpc_addr: Uri,
-    // light_client: TmLightClient,
     rt: Arc<TokioRuntime>,
-    websocket_url: String,
+    relay_chain_addr: String,
+    para_chain_addr: String,
     keybase: KeyRing<Secp256k1KeyPair>,
-    // /// A cached copy of the account information
-    // account: Option<Account>,
-
-    // tx_monitor_cmd: Option<TxMonitorCmd>,
 }
 
 impl SubstrateChain {
@@ -280,6 +280,53 @@ impl SubstrateChain {
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
         crate::time!("send_messages_and_wait_commit");
 
+        // let proto_msgs = tracked_msgs.msgs;
+        // let log_msg = proto_msgs
+        //     .clone()
+        //     .into_iter()
+        //     .map(|msg| {
+        //         ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::try_from(msg).unwrap()
+        //     })
+        //     .collect::<Vec<_>>();
+        // let msg: Vec<substrate::runtime_types::ibc_proto::google::protobuf::Any> = proto_msgs
+        //     .iter()
+        //     .map(
+        //         |m| substrate::runtime_types::ibc_proto::google::protobuf::Any {
+        //             type_url: m.type_url.clone(),
+        //             value: m.value.clone(),
+        //         },
+        //     )
+        //     .collect();
+
+        // let signer: PairSigner<SubstrateConfig, subxt::ext::sp_core::sr25519::Pair> =
+        //     PairSigner::new(AccountKeyring::Alice.pair());
+
+        // let binding = self.rpc_client.tx();
+        // let tx = substrate::tx().ibc().deliver(msg);
+
+        // let runtime = self.rt.clone();
+        // let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
+        // let result = runtime.block_on(deliver);
+        // // println!("send_messages_and_wait_commit result: {:?}", result);
+        // let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
+
+        // let ibc_events = events
+        //     .unwrap()
+        //     .find_first::<substrate::ibc::events::IbcEvents>()
+        //     .unwrap()
+        //     .unwrap();
+        // let es: Vec<IbcEventWithHeight> = ibc_events
+        //     .events
+        //     .into_iter()
+        //     .map(|e| match e {
+        //         _ => IbcEventWithHeight {
+        //             event: IbcEvent::from(e),
+        //             height: ICSHeight::new(0, 10).unwrap(),
+        //         },
+        //     })
+        //     .collect();
+
+        // Ok(es)
         todo!()
     }
 
@@ -333,20 +380,39 @@ impl ChainEndpoint for SubstrateChain {
     type SigningKeyPair = Secp256k1KeyPair;
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
-        let websocket_url = format!("{}", config.websocket_addr);
+        // let websocket_url = format!("{}", config);
+        let relay_chain_addr = config
+            .relay_chain_addr
+            .clone()
+            .map(|v| v.to_string())
+            .unwrap_or("ws://127.0.0.1:9944".to_string());
+
+        let para_chain_addr = config
+            .para_chain_addr
+            .clone()
+            .map(|v| v.to_string())
+            .unwrap_or("ws://127.0.0.1:9945".to_string());
 
         // Initialize key store and load key
         let keybase = KeyRing::new(config.key_store_type, &config.account_prefix, &config.id)
             .map_err(Error::key_base)?;
 
-        let rpc_client = rt.block_on(OnlineClient::<SubstrateConfig>::new()).unwrap();
+        let para_chain_rpc_client = rt
+            .block_on(OnlineClient::<SubstrateConfig>::from_url(&para_chain_addr))
+            .unwrap(); // todo(davirain) need remove unwrap()
+
+        let relay_chain_rpc_client = rt
+            .block_on(OnlineClient::<PolkadotConfig>::from_url(&relay_chain_addr))
+            .unwrap(); // todo(davirain) need remove unwrap()
 
         Ok(Self {
             config,
-            rpc_client,
+            para_chain_rpc_client,
+            relay_chain_rpc_client,
             rt,
             keybase,
-            websocket_url,
+            relay_chain_addr,
+            para_chain_addr,
         })
     }
 
