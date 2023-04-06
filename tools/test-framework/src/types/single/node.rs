@@ -128,6 +128,8 @@ impl FullNode {
             r#type: ChainType::CosmosSdk,
             rpc_addr: Url::from_str(&self.chain_driver.rpc_address())?,
             websocket_addr: Url::from_str(&self.chain_driver.websocket_address())?,
+            relay_chain_addr: None,
+            para_chain_addr: None,
             grpc_addr: Url::from_str(&self.chain_driver.grpc_address())?,
             rpc_timeout: Duration::from_secs(10),
             account_prefix: self.chain_driver.account_prefix.clone(),

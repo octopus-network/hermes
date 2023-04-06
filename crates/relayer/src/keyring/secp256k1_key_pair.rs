@@ -65,6 +65,7 @@ fn standard_path_to_derivation_path(path: &StandardHDPath) -> DerivationPath {
 pub enum Secp256k1AddressType {
     Cosmos,
     Ethermint,
+    Substrate,
 }
 
 impl Secp256k1AddressType {
@@ -91,6 +92,7 @@ impl TryFrom<&AddressType> for Secp256k1AddressType {
                 Ok(Self::Ethermint)
             }
             AddressType::Cosmos | AddressType::Ethermint { pk_type: _ } => Ok(Self::Cosmos),
+            AddressType::Substrate { pk_type: _ } => Ok(Self::Substrate),
         }
     }
 }
@@ -98,7 +100,7 @@ impl TryFrom<&AddressType> for Secp256k1AddressType {
 /// Return an address from a Public Key
 pub fn get_address(public_key: &PublicKey, address_type: Secp256k1AddressType) -> [u8; 20] {
     match address_type {
-        Secp256k1AddressType::Ethermint => {
+        Secp256k1AddressType::Ethermint | Secp256k1AddressType::Substrate => {
             let public_key = public_key.serialize_uncompressed();
             // 0x04 is `SECP256K1_TAG_PUBKEY_UNCOMPRESSED`:
             // https://github.com/bitcoin-core/secp256k1/blob/d7ec49a6893751f068275cc8ddf4993ef7f31756/include/secp256k1.h#L196
@@ -298,7 +300,9 @@ impl SigningKeyPair for Secp256k1KeyPair {
     // - informalsystems/hermes#2863.
     fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Error> {
         let hashed_message: GenericArray<u8, U32> = match self.address_type {
-            Secp256k1AddressType::Ethermint => keccak256_hash(message).into(),
+            Secp256k1AddressType::Ethermint | Secp256k1AddressType::Substrate => {
+                keccak256_hash(message).into()
+            }
             Secp256k1AddressType::Cosmos => Sha256::digest(message),
         };
 

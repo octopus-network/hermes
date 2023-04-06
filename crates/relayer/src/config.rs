@@ -177,6 +177,14 @@ pub mod default {
     pub fn auto_register_counterparty_payee() -> bool {
         false
     }
+
+    pub fn relay_chain_addr() -> Option<tendermint_rpc::Url> {
+        Some(tendermint_rpc::Url::from_str("ws://127.0.0.1:9944").expect("never failed"))
+    }
+
+    pub fn para_chain_addr() -> Option<tendermint_rpc::Url> {
+        Some(tendermint_rpc::Url::from_str("ws://127.0.0.1:9945").expect("never failed"))
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -406,6 +414,9 @@ pub enum AddressType {
     Ethermint {
         pk_type: String,
     },
+    Substrate {
+        pk_type: String,
+    },
 }
 
 impl Display for AddressType {
@@ -413,6 +424,7 @@ impl Display for AddressType {
         match self {
             AddressType::Cosmos => write!(f, "cosmos"),
             AddressType::Ethermint { .. } => write!(f, "ethermint"),
+            AddressType::Substrate { .. } => write!(f, "substrate"),
         }
     }
 }
@@ -426,6 +438,10 @@ pub struct ChainConfig {
     pub rpc_addr: tendermint_rpc::Url,
     pub websocket_addr: tendermint_rpc::Url,
     pub grpc_addr: tendermint_rpc::Url,
+    #[serde(default = "default::relay_chain_addr")]
+    pub relay_chain_addr: Option<tendermint_rpc::Url>,
+    #[serde(default = "default::para_chain_addr")]
+    pub para_chain_addr: Option<tendermint_rpc::Url>,
     #[serde(default = "default::rpc_timeout", with = "humantime_serde")]
     pub rpc_timeout: Duration,
     pub account_prefix: String,
