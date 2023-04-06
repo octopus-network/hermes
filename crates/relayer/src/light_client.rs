@@ -3,10 +3,14 @@ pub mod tendermint;
 use core::ops::Deref;
 
 use ibc_proto::google::protobuf::Any;
+use ibc_proto::ibc::lightclients::grandpa::v1::Header as RawGpHeader;
 use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawTmHeader;
 use ibc_proto::protobuf::Protobuf as ErasedProtobuf;
 use ibc_relayer_types::clients::ics07_tendermint::header::{
     decode_header as tm_decode_header, Header as TendermintHeader, TENDERMINT_HEADER_TYPE_URL,
+};
+use ibc_relayer_types::clients::ics10_grandpa::header::{
+    decode_header as gp_decode_header, Header as GrandpaHeader, GRANDPA_HEADER_TYPE_URL,
 };
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error;
@@ -79,24 +83,28 @@ pub fn decode_header(header_bytes: &[u8]) -> Result<Box<dyn Header>, Error> {
 #[allow(clippy::large_enum_variant)]
 pub enum AnyHeader {
     Tendermint(TendermintHeader),
+    Grandpa(GrandpaHeader),
 }
 
 impl Header for AnyHeader {
     fn client_type(&self) -> ClientType {
         match self {
             Self::Tendermint(header) => header.client_type(),
+            Self::Grandpa(header) => header.client_type(),
         }
     }
 
     fn height(&self) -> Height {
         match self {
             Self::Tendermint(header) => header.height(),
+            Self::Grandpa(header) => header.height(),
         }
     }
 
     fn timestamp(&self) -> Timestamp {
         match self {
             Self::Tendermint(header) => header.timestamp(),
+            Self::Grandpa(header) => header.timestamp(),
         }
     }
 }
@@ -113,6 +121,11 @@ impl TryFrom<Any> for AnyHeader {
 
                 Ok(AnyHeader::Tendermint(val))
             }
+            GRANDPA_HEADER_TYPE_URL => {
+                let val = gp_decode_header(raw.value.deref())?;
+
+                Ok(AnyHeader::Grandpa(val))
+            }
 
             _ => Err(Error::unknown_header_type(raw.type_url)),
         }
@@ -127,6 +140,11 @@ impl From<AnyHeader> for Any {
                 value: ErasedProtobuf::<RawTmHeader>::encode_vec(&header)
                     .expect("encoding to `Any` from `AnyHeader::Tendermint`"),
             },
+            AnyHeader::Grandpa(header) => Any {
+                type_url: GRANDPA_HEADER_TYPE_URL.to_string(),
+                value: ErasedProtobuf::<RawGpHeader>::encode_vec(&header)
+                    .expect("encoding to `Any` from `AnyHeader::Grandpa`"),
+            },
         }
     }
 }
@@ -134,5 +152,11 @@ impl From<AnyHeader> for Any {
 impl From<TendermintHeader> for AnyHeader {
     fn from(header: TendermintHeader) -> Self {
         Self::Tendermint(header)
+    }
+}
+
+impl From<GrandpaHeader> for AnyHeader {
+    fn from(header: GrandpaHeader) -> Self {
+        Self::Grandpa(header)
     }
 }

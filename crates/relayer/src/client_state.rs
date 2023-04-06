@@ -1,7 +1,9 @@
 use core::time::Duration;
 
 use ibc_proto::ibc::core::client::v1::IdentifiedClientState;
+use ibc_proto::ibc::lightclients::grandpa::v1::ClientState as RawGpClientState;
 use ibc_proto::ibc::lightclients::tendermint::v1::ClientState as RawClientState;
+
 #[cfg(test)]
 use ibc_proto::ibc::mock::ClientState as RawMockClientState;
 use ibc_proto::protobuf::Protobuf;
@@ -11,6 +13,9 @@ use ibc_proto::google::protobuf::Any;
 use ibc_relayer_types::clients::ics07_tendermint::client_state::{
     ClientState as TmClientState, UpgradeOptions as TmUpgradeOptions,
     TENDERMINT_CLIENT_STATE_TYPE_URL,
+};
+use ibc_relayer_types::clients::ics10_grandpa::client_state::{
+    ClientState as GpClientState, UpgradeOptions as GpUpgradeOptions, GRANDPA_CLIENT_STATE_TYPE_URL,
 };
 use ibc_relayer_types::core::ics02_client::client_state::{
     downcast_client_state, ClientState, UpgradeOptions,
@@ -31,6 +36,7 @@ use ibc_relayer_types::Height;
 #[serde(tag = "type")]
 pub enum AnyUpgradeOptions {
     Tendermint(TmUpgradeOptions),
+    Grandpa(GpUpgradeOptions),
 
     #[cfg(test)]
     Mock(()),
@@ -40,6 +46,8 @@ impl AnyUpgradeOptions {
     fn as_tm_upgrade_options(&self) -> Option<&TmUpgradeOptions> {
         match self {
             AnyUpgradeOptions::Tendermint(tm) => Some(tm),
+            AnyUpgradeOptions::Grandpa(_) => None,
+
             #[cfg(test)]
             AnyUpgradeOptions::Mock(_) => None,
         }
@@ -52,6 +60,7 @@ impl UpgradeOptions for AnyUpgradeOptions {}
 #[serde(tag = "type")]
 pub enum AnyClientState {
     Tendermint(TmClientState),
+    Grandpa(GpClientState),
 
     #[cfg(test)]
     Mock(MockClientState),
@@ -61,6 +70,7 @@ impl AnyClientState {
     pub fn latest_height(&self) -> Height {
         match self {
             Self::Tendermint(tm_state) => tm_state.latest_height(),
+            Self::Grandpa(gp_state) => gp_state.latest_height(),
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.latest_height(),
@@ -70,6 +80,7 @@ impl AnyClientState {
     pub fn frozen_height(&self) -> Option<Height> {
         match self {
             Self::Tendermint(tm_state) => tm_state.frozen_height(),
+            Self::Grandpa(gp_state) => gp_state.frozen_height(),
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.frozen_height(),
@@ -79,6 +90,7 @@ impl AnyClientState {
     pub fn trust_threshold(&self) -> Option<TrustThreshold> {
         match self {
             AnyClientState::Tendermint(state) => Some(state.trust_threshold),
+            AnyClientState::Grandpa(state) => None, // todo(davirain) use default value none
 
             #[cfg(test)]
             AnyClientState::Mock(_) => None,
@@ -88,6 +100,7 @@ impl AnyClientState {
     pub fn max_clock_drift(&self) -> Duration {
         match self {
             AnyClientState::Tendermint(state) => state.max_clock_drift,
+            AnyClientState::Grandpa(state) => Duration::new(0, 0), // todo(davirian) use default value Duration::new(0, 0) same to Mock ClientState
 
             #[cfg(test)]
             AnyClientState::Mock(_) => Duration::new(0, 0),
@@ -97,6 +110,7 @@ impl AnyClientState {
     pub fn client_type(&self) -> ClientType {
         match self {
             Self::Tendermint(state) => state.client_type(),
+            Self::Grandpa(state) => state.client_type(),
 
             #[cfg(test)]
             Self::Mock(state) => state.client_type(),
@@ -106,6 +120,7 @@ impl AnyClientState {
     pub fn refresh_period(&self) -> Option<Duration> {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.refresh_time(),
+            AnyClientState::Grandpa(gp_state) => gp_state.refresh_time(), // todo(davirain) use temp function will return None,
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.refresh_time(),
@@ -127,6 +142,10 @@ impl TryFrom<Any> for AnyClientState {
                     .map_err(Error::decode_raw_client_state)?,
             )),
 
+            GRANDPA_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Grandpa(
+                Protobuf::<RawGpClientState>::decode_vec(&raw.value)
+                    .map_err(Error::decode_raw_client_state)?,
+            )),
             #[cfg(test)]
             MOCK_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Mock(
                 Protobuf::<RawMockClientState>::decode_vec(&raw.value)
@@ -146,6 +165,11 @@ impl From<AnyClientState> for Any {
                 value: Protobuf::<RawClientState>::encode_vec(&value)
                     .expect("encoding to `Any` from `AnyClientState::Tendermint`"),
             },
+            AnyClientState::Grandpa(value) => Any {
+                type_url: GRANDPA_CLIENT_STATE_TYPE_URL.to_string(),
+                value: Protobuf::<RawGpClientState>::encode_vec(&value)
+                    .expect("encoding to `Any` from `AnyClientState::Grandpa`"),
+            },
             #[cfg(test)]
             AnyClientState::Mock(value) => Any {
                 type_url: MOCK_CLIENT_STATE_TYPE_URL.to_string(),
@@ -160,6 +184,7 @@ impl ClientState for AnyClientState {
     fn chain_id(&self) -> ChainId {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.chain_id(),
+            AnyClientState::Grandpa(gp_state) => gp_state.chain_id(),
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.chain_id(),
@@ -194,6 +219,9 @@ impl ClientState for AnyClientState {
                 upgrade_options.as_tm_upgrade_options().unwrap(),
                 chain_id,
             ),
+            AnyClientState::Grandpa(gp_state) => {
+                gp_state.upgrade(upgrade_height, upgrade_options, chain_id)
+            }
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => {
@@ -205,6 +233,7 @@ impl ClientState for AnyClientState {
     fn expired(&self, elapsed_since_latest: Duration) -> bool {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.expired(elapsed_since_latest),
+            AnyClientState::Grandpa(gp_state) => gp_state.expired(elapsed_since_latest),
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.expired(elapsed_since_latest),
@@ -215,6 +244,12 @@ impl ClientState for AnyClientState {
 impl From<TmClientState> for AnyClientState {
     fn from(cs: TmClientState) -> Self {
         Self::Tendermint(cs)
+    }
+}
+
+impl From<GpClientState> for AnyClientState {
+    fn from(cs: GpClientState) -> Self {
+        Self::Grandpa(cs)
     }
 }
 
@@ -233,6 +268,8 @@ impl From<&dyn ClientState> for AnyClientState {
         }
 
         if let Some(cs) = downcast_client_state::<TmClientState>(client_state) {
+            AnyClientState::from(cs.clone())
+        } else if let Some(cs) = downcast_client_state::<GpClientState>(client_state) {
             AnyClientState::from(cs.clone())
         } else {
             unreachable!()

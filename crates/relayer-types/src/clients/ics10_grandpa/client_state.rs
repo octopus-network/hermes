@@ -76,6 +76,10 @@ impl ClientState {
         Height::new(0, self.latest_chain_height as u64)
             .expect("never faild for convert height from u32 to Height")
     }
+
+    pub fn refresh_time(&self) -> Option<Duration> {
+        None
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

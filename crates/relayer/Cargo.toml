@@ -69,6 +69,9 @@ generic-array = "0.14.6"
 secp256k1 = { version = "0.24.2", features = ["rand-std"] }
 strum = { version = "0.24.1", features = ["derive"] }
 
+# for substrate chain
+subxt = { version = "0.27" }
+
 [dependencies.num-bigint]
 version = "0.4"
 features = ["serde"]

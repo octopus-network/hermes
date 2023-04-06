@@ -18,11 +18,11 @@ use ibc_proto::cosmos::base::node::v1beta1::ConfigResponse;
 use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
 use ibc_proto::protobuf::Protobuf;
 use ibc_relayer_types::applications::ics31_icq::response::CrossChainQueryResponse;
-use ibc_relayer_types::clients::ics07_tendermint::client_state::{
-    AllowUpdate, ClientState as TmClientState,
+use ibc_relayer_types::clients::ics10_grandpa::client_state::{
+    AllowUpdate, ClientState as GpClientState,
 };
-use ibc_relayer_types::clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
-use ibc_relayer_types::clients::ics07_tendermint::header::Header as TmHeader;
+use ibc_relayer_types::clients::ics10_grandpa::consensus_state::ConsensusState as GpConsensusState;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GpHeader;
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
@@ -48,7 +48,7 @@ use ibc_relayer_types::Height as ICSHeight;
 
 use tendermint::block::Height as TmHeight;
 use tendermint::node::info::TxIndexStatus;
-use tendermint_light_client_verifier::types::LightBlock as TmLightBlock;
+// use tendermint_light_client_verifier::types::LightBlock as TmLightBlock;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
 use tendermint_rpc::endpoint::status;
 use tendermint_rpc::{Client, HttpClient, Order};
@@ -96,6 +96,9 @@ use crate::util::pretty::{
     PrettyIdentifiedChannel, PrettyIdentifiedClientState, PrettyIdentifiedConnection,
 };
 
+// substrate
+use subxt::{tx::PairSigner, OnlineClient, SubstrateConfig};
+
 /// Defines an upper limit on how large any transaction can be.
 /// This upper limit is defined as a fraction relative to the block's
 /// maximum bytes. For example, if the fraction is `0.9`, then
@@ -112,12 +115,14 @@ use crate::util::pretty::{
 /// [tm-37-max]: https://github.com/tendermint/tendermint/blob/v0.37.0-rc1/types/params.go#L79
 pub const BLOCK_MAX_BYTES_MAX_FRACTION: f64 = 0.9;
 pub struct SubstrateChain {
+    rpc_client: OnlineClient<SubstrateConfig>,
     config: ChainConfig,
     // tx_config: TxConfig,
     // rpc_client: HttpClient,
     // grpc_addr: Uri,
     // light_client: TmLightClient,
     rt: Arc<TokioRuntime>,
+    websocket_url: String,
     keybase: KeyRing<Secp256k1KeyPair>,
     // /// A cached copy of the account information
     // account: Option<Account>,
@@ -317,15 +322,32 @@ impl SubstrateChain {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SubLightBlock {}
+
 impl ChainEndpoint for SubstrateChain {
-    type LightBlock = TmLightBlock;
-    type Header = TmHeader;
-    type ConsensusState = TMConsensusState;
-    type ClientState = TmClientState;
+    type LightBlock = SubLightBlock;
+    type Header = GpHeader;
+    type ConsensusState = GpConsensusState;
+    type ClientState = GpClientState;
     type SigningKeyPair = Secp256k1KeyPair;
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
-        todo!()
+        let websocket_url = format!("{}", config.websocket_addr);
+
+        // Initialize key store and load key
+        let keybase = KeyRing::new(config.key_store_type, &config.account_prefix, &config.id)
+            .map_err(Error::key_base)?;
+
+        let rpc_client = rt.block_on(OnlineClient::<SubstrateConfig>::new()).unwrap();
+
+        Ok(Self {
+            config,
+            rpc_client,
+            rt,
+            keybase,
+            websocket_url,
+        })
     }
 
     fn shutdown(self) -> Result<(), Error> {
