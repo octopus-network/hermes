@@ -286,7 +286,7 @@ impl SubstrateChain {
             tracking_id = %tracked_msgs.tracking_id()
         ),
     )]
-    async fn do_send_messages_and_wait_commit(
+    fn do_send_messages_and_wait_commit(
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
@@ -509,7 +509,7 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
-        todo!()
+        self.do_send_messages_and_wait_commit(tracked_msgs)
     }
 
     fn send_messages_and_wait_check_tx(
