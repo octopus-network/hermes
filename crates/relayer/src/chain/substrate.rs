@@ -123,13 +123,22 @@ pub mod relaychain_node {}
 /// [tm-37-max]: https://github.com/tendermint/tendermint/blob/v0.37.0-rc1/types/params.go#L79
 pub const BLOCK_MAX_BYTES_MAX_FRACTION: f64 = 0.9;
 pub struct SubstrateChain {
-    relay_or_solo_chain_rpc_client: OnlineClient<PolkadotConfig>,
-    para_chain_rpc_client: Option<OnlineClient<SubstrateConfig>>,
+    rpc_client: RpcClient,
     config: ChainConfig,
     rt: Arc<TokioRuntime>,
     relay_chain_addr: String,
     para_chain_addr: String,
     keybase: KeyRing<Secp256k1KeyPair>,
+}
+
+pub enum RpcClient {
+    ParachainRpc {
+        relay_rpc: OnlineClient<PolkadotConfig>,
+        para_rpc: OnlineClient<SubstrateConfig>,
+    },
+    SubChainRpc {
+        rpc: OnlineClient<PolkadotConfig>,
+    },
 }
 
 impl SubstrateChain {
@@ -401,18 +410,30 @@ impl ChainEndpoint for SubstrateChain {
         let keybase = KeyRing::new(config.key_store_type, &config.account_prefix, &config.id)
             .map_err(Error::key_base)?;
 
-        let para_chain_rpc_client = rt
+        // judge by para_chain rpc client can init define SubChainRpc or ParachianRpc
+        let rpc_client = if rt
             .block_on(OnlineClient::<SubstrateConfig>::from_url(&para_chain_addr))
-            .ok();
-
-        let relay_or_solo_chain_rpc_client = rt
-            .block_on(OnlineClient::<PolkadotConfig>::from_url(&relay_chain_addr))
-            .unwrap(); // todo(davirain) need remove unwrap()
+            .is_err()
+        {
+            RpcClient::SubChainRpc {
+                rpc: rt
+                    .block_on(OnlineClient::<PolkadotConfig>::from_url(&relay_chain_addr))
+                    .unwrap(),
+            }
+        } else {
+            RpcClient::ParachainRpc {
+                relay_rpc: rt
+                    .block_on(OnlineClient::<PolkadotConfig>::from_url(&relay_chain_addr))
+                    .unwrap(),
+                para_rpc: rt
+                    .block_on(OnlineClient::<SubstrateConfig>::from_url(&para_chain_addr))
+                    .unwrap(),
+            }
+        };
 
         Ok(Self {
             config,
-            para_chain_rpc_client,
-            relay_or_solo_chain_rpc_client,
+            rpc_client,
             rt,
             keybase,
             relay_chain_addr,
@@ -542,37 +563,38 @@ impl ChainEndpoint for SubstrateChain {
         crate::telemetry!(query, self.id(), "query_application_status");
 
         // judge para chain rpc client is init, if it is `None`, represent to we use relay chain rpc to query info or else
-        if let Some(ref rpc_client) = self.para_chain_rpc_client {
-            let finalized_head = self.rt.block_on(rpc_client.rpc().finalized_head()).unwrap();
+        match &self.rpc_client {
+            RpcClient::SubChainRpc { rpc } => {
+                let finalized_head = self.rt.block_on(rpc.rpc().finalized_head()).unwrap();
 
-            let block = self
-                .rt
-                .block_on(rpc_client.rpc().block(Some(finalized_head)))
-                .unwrap();
+                let block = self
+                    .rt
+                    .block_on(rpc.rpc().block(Some(finalized_head)))
+                    .unwrap();
 
-            Ok(ChainStatus {
-                height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number)).unwrap(),
-                timestamp: Timestamp::default(),
-            })
-        } else {
-            let finalized_head = self
-                .rt
-                .block_on(self.relay_or_solo_chain_rpc_client.rpc().finalized_head())
-                .unwrap();
+                Ok(ChainStatus {
+                    height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number))
+                        .unwrap(),
+                    timestamp: Timestamp::default(),
+                })
+            }
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => {
+                let finalized_head = self.rt.block_on(para_rpc.rpc().finalized_head()).unwrap();
 
-            let block = self
-                .rt
-                .block_on(
-                    self.relay_or_solo_chain_rpc_client
-                        .rpc()
-                        .block(Some(finalized_head)),
-                )
-                .unwrap();
+                let block = self
+                    .rt
+                    .block_on(para_rpc.rpc().block(Some(finalized_head)))
+                    .unwrap();
 
-            Ok(ChainStatus {
-                height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number)).unwrap(),
-                timestamp: Timestamp::default(),
-            })
+                Ok(ChainStatus {
+                    height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number))
+                        .unwrap(),
+                    timestamp: Timestamp::default(),
+                })
+            }
         }
     }
 
@@ -818,54 +840,60 @@ impl ChainEndpoint for SubstrateChain {
         settings: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
         crate::time!("build_client_state");
-        if let Some(ref rpc_client) = self.para_chain_rpc_client {
-            use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
-            use ibc_relayer_types::Height;
-            let chain_id = ChainId::default(); // todo(davirian) need use correct chain id
-            let parachain_id = 2000; // todo(davirian) need use correct parahcain id
-            let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
-            let latest_beefy_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest beefy height
-            let mmr_root_hash = vec![]; // todo(davirian) need use correct mmr root hash
-            let latest_chain_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest chain height
-            let authority_set = None; // todo(davirian) need use correct authority set
-            let next_authority_set = None; // todo(davirian) need use correct next authority set
-            let client_state = GpClientState {
-                chain_type: ChaninType::Parachian,
-                chain_id,
-                parachain_id,
-                beefy_activation_height,
-                latest_beefy_height,
-                mmr_root_hash,
-                latest_chain_height,
-                frozen_height: None,
-                authority_set,
-                next_authority_set,
-            };
-            Ok(client_state)
-        } else {
-            use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
-            use ibc_relayer_types::Height;
-            let chain_id = ChainId::default(); // todo(davirian) need use correct chain id
-            let parachain_id = 2000; // todo(davirian) need use correct parahcain id
-            let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
-            let latest_beefy_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest beefy height
-            let mmr_root_hash = vec![]; // todo(davirian) need use correct mmr root hash
-            let latest_chain_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest chain height
-            let authority_set = None; // todo(davirian) need use correct authority set
-            let next_authority_set = None; // todo(davirian) need use correct next authority set
-            let client_state = GpClientState {
-                chain_type: ChaninType::Subchain,
-                chain_id,
-                parachain_id,
-                beefy_activation_height,
-                latest_beefy_height,
-                mmr_root_hash,
-                latest_chain_height,
-                frozen_height: None,
-                authority_set,
-                next_authority_set,
-            };
-            Ok(client_state)
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => {
+                use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
+                use ibc_relayer_types::Height;
+                let chain_id = ChainId::default(); // todo(davirian) need use correct chain id
+                let parachain_id = 2000; // todo(davirian) need use correct parahcain id
+                let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
+                let latest_beefy_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest beefy height
+                let mmr_root_hash = vec![]; // todo(davirian) need use correct mmr root hash
+                let latest_chain_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest chain height
+                let authority_set = None; // todo(davirian) need use correct authority set
+                let next_authority_set = None; // todo(davirian) need use correct next authority set
+                let client_state = GpClientState {
+                    chain_type: ChaninType::Parachian,
+                    chain_id,
+                    parachain_id,
+                    beefy_activation_height,
+                    latest_beefy_height,
+                    mmr_root_hash,
+                    latest_chain_height,
+                    frozen_height: None,
+                    authority_set,
+                    next_authority_set,
+                };
+                Ok(client_state)
+            }
+            RpcClient::SubChainRpc { rpc } => {
+                use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
+                use ibc_relayer_types::Height;
+                let chain_id = ChainId::default(); // todo(davirian) need use correct chain id
+                let parachain_id = 2000; // todo(davirian) need use correct parahcain id
+                let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
+                let latest_beefy_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest beefy height
+                let mmr_root_hash = vec![]; // todo(davirian) need use correct mmr root hash
+                let latest_chain_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest chain height
+                let authority_set = None; // todo(davirian) need use correct authority set
+                let next_authority_set = None; // todo(davirian) need use correct next authority set
+                let client_state = GpClientState {
+                    chain_type: ChaninType::Subchain,
+                    chain_id,
+                    parachain_id,
+                    beefy_activation_height,
+                    latest_beefy_height,
+                    mmr_root_hash,
+                    latest_chain_height,
+                    frozen_height: None,
+                    authority_set,
+                    next_authority_set,
+                };
+                Ok(client_state)
+            }
         }
     }
 
@@ -875,15 +903,21 @@ impl ChainEndpoint for SubstrateChain {
         light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
         crate::time!("build_consensus_state");
-        if let Some(ref rpc_client) = self.para_chain_rpc_client {
-            todo!()
-        } else {
-            use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
-            use tendermint::time::Time;
-            let root = CommitmentRoot::from(vec![1, 2, 3]); // todo(davirian) need use corrent commitment root
-            let timestamp = Time::now(); // todo(davirain) need use corrent timestap
-            let consensus_state = GpConsensusState::new(root, timestamp);
-            Ok(consensus_state)
+        match &self.rpc_client {
+            RpcClient::SubChainRpc { rpc } => {
+                use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
+                use tendermint::time::Time;
+                let root = CommitmentRoot::from(vec![1, 2, 3]); // todo(davirian) need use corrent commitment root
+                let timestamp = Time::now(); // todo(davirain) need use corrent timestap
+                let consensus_state = GpConsensusState::new(root, timestamp);
+                Ok(consensus_state)
+            }
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => {
+                todo!()
+            }
         }
     }
 
