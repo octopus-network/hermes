@@ -277,7 +277,16 @@ define_error! {
             | _ | format!("empty message!"),
 
         InvalidBeefyMmr
-            |_ | format!("invalid beefy mmr")
+            |_ | format!("invalid beefy mmr"),
+
+        MissingLatestBeefyHeight
+            | _ | format!("missing latest beefy height"),
+
+        MissingLatestChainHeight
+            | _ | format!("missing latest chain height"),
+
+        MissingFrozenHeight
+            | _ | format!("missing frozen height"),
     }
 }
 

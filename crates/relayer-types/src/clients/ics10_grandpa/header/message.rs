@@ -1,5 +1,6 @@
 // Nested message and enum types in `Header`.
 use crate::clients::ics10_grandpa::error::Error;
+use crate::core::ics24_host::identifier::ChainId;
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
 use ibc_proto::ibc::lightclients::grandpa::v1::header::Message as RawMessage;
@@ -58,6 +59,7 @@ impl From<SubchainHeaderMap> for RawSubchainHeaderMap {
 /// solochain header
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubchainHeader {
+    pub chain_id: ChainId,
     /// scale-encoded solochain header bytes
     pub block_header: Vec<u8>,
     /// timestamp and proof
@@ -69,6 +71,7 @@ impl Protobuf<RawSubchainHeader> for SubchainHeader {}
 impl From<RawSubchainHeader> for SubchainHeader {
     fn from(raw: RawSubchainHeader) -> Self {
         Self {
+            chain_id: ChainId::from_string(raw.chain_id.as_str()),
             block_header: raw.block_header,
             timestamp: raw.timestamp.map(Into::into),
         }
@@ -78,6 +81,7 @@ impl From<RawSubchainHeader> for SubchainHeader {
 impl From<SubchainHeader> for RawSubchainHeader {
     fn from(value: SubchainHeader) -> Self {
         Self {
+            chain_id: value.chain_id.to_string(),
             block_header: value.block_header,
             timestamp: value.timestamp.map(Into::into),
         }
@@ -121,6 +125,7 @@ impl From<ParachainHeaderMap> for RawParachainHeaderMap {
 /// data needed to prove parachain header inclusion in mmr
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParachainHeader {
+    pub chain_id: ChainId,
     /// para id
     pub parachain_id: u32,
     /// scale-encoded parachain header bytes
@@ -140,6 +145,7 @@ impl Protobuf<RawParachainHeader> for ParachainHeader {}
 impl From<RawParachainHeader> for ParachainHeader {
     fn from(raw: RawParachainHeader) -> Self {
         Self {
+            chain_id: ChainId::from_string(raw.chain_id.as_str()),
             parachain_id: raw.parachain_id,
             block_header: raw.block_header,
             proofs: raw.proofs,
@@ -153,6 +159,7 @@ impl From<RawParachainHeader> for ParachainHeader {
 impl From<ParachainHeader> for RawParachainHeader {
     fn from(value: ParachainHeader) -> Self {
         Self {
+            chain_id: value.chain_id.to_string(),
             parachain_id: value.parachain_id,
             block_header: value.block_header,
             proofs: value.proofs,
