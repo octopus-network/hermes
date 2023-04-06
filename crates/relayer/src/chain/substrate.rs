@@ -538,7 +538,9 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_commitment_prefix");
         crate::telemetry!(query, self.id(), "query_commitment_prefix");
 
-        todo!()
+        // TODO - do a real chain query
+        CommitmentPrefix::try_from(self.config.store_prefix.as_bytes().to_vec())
+            .map_err(|_| Error::ics02(ClientError::empty_prefix()))
     }
 
     /// Query the application status
@@ -600,7 +602,32 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_client_state");
         crate::telemetry!(query, self.id(), "query_client_state");
 
-        todo!()
+        println!("query_client_state: request: {:?}", request);
+        println!("query_client_state: include_proof: {:?}", include_proof);
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => {
+                todo!()
+            }
+            RpcClient::SubChainRpc { rpc } => {
+                let client_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                        request.client_id.to_string(),
+                    );
+                let storage = relaychain_node::storage().ibc().client_states(client_id);
+
+                let closure = async { rpc.storage().at(None).await.unwrap().fetch(&storage).await };
+                let states = self.rt.block_on(closure).unwrap();
+
+                let client_state =
+                    AnyClientState::decode_vec(&states.unwrap()).map_err(Error::decode)?;
+
+                println!("states: {:?}", client_state);
+                Ok((client_state, None))
+            }
+        }
     }
 
     fn query_upgraded_client_state(
@@ -636,7 +663,38 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_consensus_state");
         crate::telemetry!(query, self.id(), "query_consensus_state");
 
-        todo!()
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => {
+                todo!()
+            }
+            RpcClient::SubChainRpc { rpc } => {
+                let client_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                        request.client_id.to_string(),
+                    );
+
+                let height =
+                    relaychain_node::runtime_types::ibc::core::ics02_client::height::Height {
+                        revision_number: request.consensus_height.revision_number(),
+                        revision_height: request.consensus_height.revision_height(),
+                    };
+                let storage = relaychain_node::storage()
+                    .ibc()
+                    .consensus_states(client_id, height);
+
+                let closure = async { rpc.storage().at(None).await.unwrap().fetch(&storage).await };
+                let consensus_states = self.rt.block_on(closure).unwrap();
+
+                let consensus_state = AnyConsensusState::decode_vec(&consensus_states.unwrap())
+                    .map_err(Error::decode)?;
+
+                println!("consensus_state: {:?}", consensus_state);
+                Ok((consensus_state, None))
+            }
+        }
     }
 
     fn query_client_connections(
@@ -665,8 +723,27 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
         crate::time!("query_connection");
         crate::telemetry!(query, self.id(), "query_connection");
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => todo!(),
+            RpcClient::SubChainRpc { rpc } => {
+                let connection_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
+                        request.connection_id.to_string(),
+                    );
+                let storage = relaychain_node::storage().ibc().connections(connection_id);
 
-        todo!()
+                let closure = async { rpc.storage().at(None).await.unwrap().fetch(&storage).await };
+                let connection = self.rt.block_on(closure).unwrap();
+
+                let conn = connection.unwrap();
+
+                println!("connection: {:?}", conn); // update ConnectionsPath key
+                Ok((conn.into(), None))
+            }
+        }
     }
 
     fn query_connection_channels(
