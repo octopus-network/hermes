@@ -34,6 +34,16 @@ pub enum ChaninType {
     Parachian = 1,
 }
 
+impl From<u8> for ChaninType {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => ChaninType::Subchain,
+            1 => ChaninType::Parachian,
+            _ => panic!("not support chain type"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState {
     /// 0: subchain
@@ -53,7 +63,7 @@ pub struct ClientState {
     /// latest subchain or parachain height
     pub latest_chain_height: Height,
     /// Block height when the client was frozen due to a misbehaviour
-    pub frozen_height: Height,
+    pub frozen_height: Option<Height>,
     /// authorities for the current round
     pub authority_set: Option<BeefyAuthoritySet>,
     /// authorities for the next round
@@ -127,6 +137,13 @@ impl TryFrom<RawGpClientState> for ClientState {
     type Error = Error;
 
     fn try_from(raw: RawGpClientState) -> Result<Self, Self::Error> {
+        // In `RawClientState`, a `frozen_height` of `0` means "not frozen".
+        // See:
+        // https://github.com/cosmos/ibc-go/blob/8422d0c4c35ef970539466c5bdec1cd27369bab3/modules/light-clients/07-tendermint/types/client_state.go#L74
+        let frozen_height = raw
+            .frozen_height
+            .and_then(|raw_height| raw_height.try_into().ok());
+
         Ok(Self {
             chain_type: match raw.chain_type {
                 0 => ChaninType::Subchain,
@@ -147,11 +164,7 @@ impl TryFrom<RawGpClientState> for ClientState {
                 .ok_or_else(Error::missing_latest_chain_height)?
                 .try_into()
                 .map_err(|_| Error::missing_latest_chain_height())?,
-            frozen_height: raw
-                .frozen_height
-                .ok_or_else(Error::missing_frozen_height)?
-                .try_into()
-                .map_err(|_| Error::missing_frozen_height())?,
+            frozen_height,
             authority_set: raw.authority_set.map(Into::into),
             next_authority_set: raw.next_authority_set.map(Into::into),
         })
@@ -168,7 +181,12 @@ impl From<ClientState> for RawGpClientState {
             latest_beefy_height: Some(value.latest_beefy_height.into()),
             mmr_root_hash: value.mmr_root_hash,
             latest_chain_height: Some(value.latest_chain_height.into()),
-            frozen_height: Some(value.frozen_height.into()),
+            frozen_height: Some(value.frozen_height.map(|height| height.into()).unwrap_or(
+                RawHeight {
+                    revision_number: 0,
+                    revision_height: 0,
+                },
+            )),
             authority_set: value.authority_set.map(Into::into),
             next_authority_set: value.next_authority_set.map(Into::into),
         }

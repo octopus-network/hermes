@@ -2378,6 +2378,7 @@ dependencies = [
  "moka",
  "num-bigint",
  "num-rational",
+ "parity-scale-codec",
  "prost",
  "regex",
  "retry",

@@ -568,6 +568,10 @@ define_error! {
 
         QueriedProofNotFound
             |_| { "Requested proof with query but no proof was returned." },
+
+        MissingMatchClientSetting
+            |_| { "missing match client setting" },
+
     }
 }
 
