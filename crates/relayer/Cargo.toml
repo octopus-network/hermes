@@ -72,6 +72,8 @@ strum = { version = "0.24.1", features = ["derive"] }
 # for substrate chain
 subxt = { version = "0.27" }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "full", "bit-vec"] }
+sp-core = "18.0.0"
+sp-keyring = "18.0.0"
 
 [dependencies.num-bigint]
 version = "0.4"

@@ -101,11 +101,10 @@ use ibc_relayer_types::timestamp::Timestamp;
 use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
 
 // #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
-pub mod parachain_node {}
+pub mod parachain;
 
-#[subxt::subxt(runtime_metadata_path = "./polkadot.scale")]
-// #[subxt::subxt(runtime_metadata_url = "ws://127.0.0.1:9944")]
-pub mod relaychain_node {}
+pub mod relaychain;
+use relaychain::relaychain_node;
 
 /// Defines an upper limit on how large any transaction can be.
 /// This upper limit is defined as a fraction relative to the block's
@@ -292,55 +291,59 @@ impl SubstrateChain {
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
         crate::time!("send_messages_and_wait_commit");
+        use ibc_relayer_types::events::IbcEvent;
+        use sp_keyring::AccountKeyring;
 
-        // let proto_msgs = tracked_msgs.msgs;
-        // let log_msg = proto_msgs
-        //     .clone()
-        //     .into_iter()
-        //     .map(|msg| {
-        //         ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::try_from(msg).unwrap()
-        //     })
-        //     .collect::<Vec<_>>();
-        // let msg: Vec<substrate::runtime_types::ibc_proto::google::protobuf::Any> = proto_msgs
-        //     .iter()
-        //     .map(
-        //         |m| substrate::runtime_types::ibc_proto::google::protobuf::Any {
-        //             type_url: m.type_url.clone(),
-        //             value: m.value.clone(),
-        //         },
-        //     )
-        //     .collect();
+        let proto_msgs = tracked_msgs.msgs;
 
-        // let signer: PairSigner<SubstrateConfig, subxt::ext::sp_core::sr25519::Pair> =
-        //     PairSigner::new(AccountKeyring::Alice.pair());
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => todo!(),
+            RpcClient::SubChainRpc { rpc } => {
+                let msg: Vec<relaychain_node::runtime_types::ibc_proto::google::protobuf::Any> =
+                    proto_msgs
+                        .iter()
+                        .map(
+                            |m| relaychain_node::runtime_types::ibc_proto::google::protobuf::Any {
+                                type_url: m.type_url.clone(),
+                                value: m.value.clone(),
+                            },
+                        )
+                        .collect();
 
-        // let binding = self.rpc_client.tx();
-        // let tx = substrate::tx().ibc().deliver(msg);
+                // use default signer
+                let signer = PairSigner::new(AccountKeyring::Alice.pair());
 
-        // let runtime = self.rt.clone();
-        // let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
-        // let result = runtime.block_on(deliver);
-        // // println!("send_messages_and_wait_commit result: {:?}", result);
-        // let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
+                let binding = rpc.tx();
+                let tx = relaychain_node::tx().ibc().deliver(msg);
 
-        // let ibc_events = events
-        //     .unwrap()
-        //     .find_first::<substrate::ibc::events::IbcEvents>()
-        //     .unwrap()
-        //     .unwrap();
-        // let es: Vec<IbcEventWithHeight> = ibc_events
-        //     .events
-        //     .into_iter()
-        //     .map(|e| match e {
-        //         _ => IbcEventWithHeight {
-        //             event: IbcEvent::from(e),
-        //             height: ICSHeight::new(0, 10).unwrap(),
-        //         },
-        //     })
-        //     .collect();
+                let runtime = self.rt.clone();
+                let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
+                let result = runtime.block_on(deliver);
+                // println!("send_messages_and_wait_commit result: {:?}", result);
+                let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
 
-        // Ok(es)
-        todo!()
+                let ibc_events = events
+                    .unwrap()
+                    .find_first::<relaychain_node::ibc::events::IbcEvents>()
+                    .unwrap()
+                    .unwrap();
+                let es: Vec<IbcEventWithHeight> = ibc_events
+                    .events
+                    .into_iter()
+                    .map(|e| match e {
+                        _ => IbcEventWithHeight {
+                            event: IbcEvent::from(e),
+                            height: ICSHeight::new(0, 10).unwrap(),
+                        },
+                    })
+                    .collect();
+
+                Ok(es)
+            }
+        }
     }
 
     #[instrument(
