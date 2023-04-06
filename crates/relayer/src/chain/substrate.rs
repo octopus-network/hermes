@@ -48,7 +48,6 @@ use ibc_relayer_types::Height as ICSHeight;
 
 use tendermint::block::Height as TmHeight;
 use tendermint::node::info::TxIndexStatus;
-// use tendermint_light_client_verifier::types::LightBlock as TmLightBlock;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
 use tendermint_rpc::endpoint::status;
 use tendermint_rpc::{Client, HttpClient, Order};
@@ -59,24 +58,6 @@ use crate::chain::cosmos::batch::{
     send_batched_messages_and_wait_check_tx, send_batched_messages_and_wait_commit,
     sequential_send_batched_messages_and_wait_commit,
 };
-// use crate::chain::cosmos::encode::key_pair_to_signer;
-// use crate::chain::cosmos::fee::maybe_register_counterparty_payee;
-// use crate::chain::cosmos::gas::{calculate_fee, mul_ceil};
-// use crate::chain::cosmos::query::account::get_or_fetch_account;
-// use crate::chain::cosmos::query::balance::{query_all_balances, query_balance};
-// use crate::chain::cosmos::query::consensus_state::query_consensus_state_heights;
-// use crate::chain::cosmos::query::custom::cross_chain_query_via_rpc;
-// use crate::chain::cosmos::query::denom_trace::query_denom_trace;
-// use crate::chain::cosmos::query::status::query_status;
-// use crate::chain::cosmos::query::tx::{
-//     filter_matching_event, query_packets_from_block, query_packets_from_txs, query_txs,
-// };
-// use crate::chain::cosmos::query::{abci_query, fetch_version_specs, packet_query, QueryResponse};
-// use crate::chain::cosmos::types::account::Account;
-// use crate::chain::cosmos::types::config::TxConfig;
-// use crate::chain::cosmos::types::gas::{
-//     default_gas_from_config, gas_multiplier_from_config, max_gas_from_config,
-// };
 use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
 use crate::chain::handle::Subscription;
 use crate::chain::requests::*;
@@ -322,7 +303,7 @@ impl SubstrateChain {
                 let runtime = self.rt.clone();
                 let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
                 let result = runtime.block_on(deliver);
-                // println!("send_messages_and_wait_commit result: {:?}", result);
+
                 let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
 
                 let ibc_events = events
