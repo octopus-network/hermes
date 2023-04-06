@@ -107,6 +107,8 @@ where
         rpc_addr: rpc_data.rpc_address,
         websocket_addr: rpc_data.websocket,
         grpc_addr: grpc_address,
+        para_chain_addr: None,
+        relay_chain_addr: None,
         rpc_timeout: default::rpc_timeout(),
         account_prefix: chain_data.bech32_prefix,
         key_name: String::new(),
