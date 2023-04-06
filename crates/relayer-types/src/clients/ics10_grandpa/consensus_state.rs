@@ -26,6 +26,12 @@ pub struct ConsensusState {
     pub root: CommitmentRoot,
 }
 
+impl ConsensusState {
+    pub fn new(root: CommitmentRoot, timestamp: Time) -> Self {
+        Self { timestamp, root }
+    }
+}
+
 impl crate::core::ics02_client::consensus_state::ConsensusState for ConsensusState {
     fn client_type(&self) -> ClientType {
         ClientType::Grandpa

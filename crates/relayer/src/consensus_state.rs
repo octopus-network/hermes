@@ -95,7 +95,7 @@ impl From<AnyConsensusState> for Any {
                 value: Protobuf::<RawConsensusState>::encode_vec(&value)
                     .expect("encoding to `Any` from `AnyConsensusState::Tendermint`"),
             },
-            AnyConsensusState::Grandpa(vlaue) => Any {
+            AnyConsensusState::Grandpa(value) => Any {
                 type_url: GRANDPA_CONSENSUS_STATE_TYPE_URL.to_string(),
                 value: Protobuf::<RawGpConsensusState>::encode_vec(&value)
                     .expect("encoding to `Any` from `AnyConsensusState::Grandpa`"),
