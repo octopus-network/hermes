@@ -548,39 +548,33 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_application_status");
         crate::telemetry!(query, self.id(), "query_application_status");
 
+        fn query_application_state(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+        ) -> Result<ChainStatus, Error> {
+            use subxt::config::Header;
+            let finalized_head = rt
+                .block_on(relay_rpc_client.rpc().finalized_head())
+                .unwrap();
+
+            let block = rt
+                .block_on(relay_rpc_client.rpc().block(Some(finalized_head)))
+                .unwrap();
+
+            Ok(ChainStatus {
+                height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap(),
+                timestamp: Timestamp::default(),
+            })
+        }
+
         // judge para chain rpc client is init, if it is `None`, represent to we use relay chain rpc to query info or else
         match &self.rpc_client {
-            RpcClient::SubChainRpc { rpc } => {
-                let finalized_head = self.rt.block_on(rpc.rpc().finalized_head()).unwrap();
-
-                let block = self
-                    .rt
-                    .block_on(rpc.rpc().block(Some(finalized_head)))
-                    .unwrap();
-
-                Ok(ChainStatus {
-                    height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number))
-                        .unwrap(),
-                    timestamp: Timestamp::default(),
-                })
-            }
+            RpcClient::SubChainRpc { rpc } => query_application_state(self.rt.clone(), rpc, None),
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => {
-                let finalized_head = self.rt.block_on(para_rpc.rpc().finalized_head()).unwrap();
-
-                let block = self
-                    .rt
-                    .block_on(para_rpc.rpc().block(Some(finalized_head)))
-                    .unwrap();
-
-                Ok(ChainStatus {
-                    height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number))
-                        .unwrap(),
-                    timestamp: Timestamp::default(),
-                })
-            }
+            } => query_application_state(self.rt.clone(), relay_rpc, Some(para_rpc)),
         }
     }
 
@@ -604,28 +598,50 @@ impl ChainEndpoint for SubstrateChain {
 
         println!("query_client_state: request: {:?}", request);
         println!("query_client_state: include_proof: {:?}", include_proof);
+
+        fn query_client_state(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryClientStateRequest,
+            include_proof: IncludeProof,
+        ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
+            let client_id =
+                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                    request.client_id.to_string(),
+                );
+            let storage = relaychain_node::storage().ibc().client_states(client_id);
+
+            let closure = async {
+                relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+            };
+            let states = rt.block_on(closure).unwrap();
+
+            let client_state =
+                AnyClientState::decode_vec(&states.unwrap()).map_err(Error::decode)?;
+
+            println!("states: {:?}", client_state);
+            Ok((client_state, None))
+        }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => {
-                todo!()
-            }
+            } => query_client_state(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                request,
+                include_proof,
+            ),
             RpcClient::SubChainRpc { rpc } => {
-                let client_id =
-                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
-                        request.client_id.to_string(),
-                    );
-                let storage = relaychain_node::storage().ibc().client_states(client_id);
-
-                let closure = async { rpc.storage().at(None).await.unwrap().fetch(&storage).await };
-                let states = self.rt.block_on(closure).unwrap();
-
-                let client_state =
-                    AnyClientState::decode_vec(&states.unwrap()).map_err(Error::decode)?;
-
-                println!("states: {:?}", client_state);
-                Ok((client_state, None))
+                query_client_state(self.rt.clone(), rpc, None, request, include_proof)
             }
         }
     }
@@ -663,36 +679,56 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_consensus_state");
         crate::telemetry!(query, self.id(), "query_consensus_state");
 
+        fn query_consensus_state(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryConsensusStateRequest,
+            include_proof: IncludeProof,
+        ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
+            let client_id =
+                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                    request.client_id.to_string(),
+                );
+
+            let height = relaychain_node::runtime_types::ibc::core::ics02_client::height::Height {
+                revision_number: request.consensus_height.revision_number(),
+                revision_height: request.consensus_height.revision_height(),
+            };
+            let storage = relaychain_node::storage()
+                .ibc()
+                .consensus_states(client_id, height);
+
+            let closure = async {
+                relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+            };
+            let consensus_states = rt.block_on(closure).unwrap();
+
+            let consensus_state =
+                AnyConsensusState::decode_vec(&consensus_states.unwrap()).map_err(Error::decode)?;
+
+            println!("consensus_state: {:?}", consensus_state);
+            Ok((consensus_state, None))
+        }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => {
-                todo!()
-            }
+            } => query_consensus_state(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                request,
+                include_proof,
+            ),
             RpcClient::SubChainRpc { rpc } => {
-                let client_id =
-                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
-                        request.client_id.to_string(),
-                    );
-
-                let height =
-                    relaychain_node::runtime_types::ibc::core::ics02_client::height::Height {
-                        revision_number: request.consensus_height.revision_number(),
-                        revision_height: request.consensus_height.revision_height(),
-                    };
-                let storage = relaychain_node::storage()
-                    .ibc()
-                    .consensus_states(client_id, height);
-
-                let closure = async { rpc.storage().at(None).await.unwrap().fetch(&storage).await };
-                let consensus_states = self.rt.block_on(closure).unwrap();
-
-                let consensus_state = AnyConsensusState::decode_vec(&consensus_states.unwrap())
-                    .map_err(Error::decode)?;
-
-                println!("consensus_state: {:?}", consensus_state);
-                Ok((consensus_state, None))
+                query_consensus_state(self.rt.clone(), rpc, None, request, include_proof)
             }
         }
     }
@@ -723,25 +759,42 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
         crate::time!("query_connection");
         crate::telemetry!(query, self.id(), "query_connection");
+
+        fn query_connection<T: subxt::Config>(
+            rt: Arc<TokioRuntime>,
+            rpc_client: &OnlineClient<T>,
+            request: QueryConnectionRequest,
+            include_proof: IncludeProof,
+        ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
+            let connection_id =
+                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
+                    request.connection_id.to_string(),
+                );
+            let storage = relaychain_node::storage().ibc().connections(connection_id);
+
+            let closure = async {
+                rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+            };
+            let connection = rt.block_on(closure).unwrap();
+
+            let conn = connection.unwrap();
+
+            println!("connection: {:?}", conn); // update ConnectionsPath key
+            Ok((conn.into(), None))
+        }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => todo!(),
+            } => query_connection(self.rt.clone(), para_rpc, request, include_proof),
             RpcClient::SubChainRpc { rpc } => {
-                let connection_id =
-                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
-                        request.connection_id.to_string(),
-                    );
-                let storage = relaychain_node::storage().ibc().connections(connection_id);
-
-                let closure = async { rpc.storage().at(None).await.unwrap().fetch(&storage).await };
-                let connection = self.rt.block_on(closure).unwrap();
-
-                let conn = connection.unwrap();
-
-                println!("connection: {:?}", conn); // update ConnectionsPath key
-                Ok((conn.into(), None))
+                query_connection(self.rt.clone(), rpc, request, include_proof)
             }
         }
     }
