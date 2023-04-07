@@ -377,7 +377,6 @@ impl ChainEndpoint for SubstrateChain {
     type SigningKeyPair = Secp256k1KeyPair;
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
-        // let websocket_url = format!("{}", config);
         let relay_chain_addr = config
             .relay_chain_addr
             .clone()
@@ -426,7 +425,21 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn shutdown(self) -> Result<(), Error> {
-        todo!()
+        fn shutdown(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+        ) -> Result<(), Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => shutdown(self.rt.clone(), relay_rpc, Some(para_rpc)),
+            RpcClient::SubChainRpc { rpc } => shutdown(self.rt.clone(), rpc, None),
+        }
     }
 
     fn keybase(&self) -> &KeyRing<Self::SigningKeyPair> {
@@ -438,7 +451,21 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn subscribe(&mut self) -> Result<Subscription, Error> {
-        todo!()
+        fn subscribe(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+        ) -> Result<Subscription, Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => subscribe(self.rt.clone(), relay_rpc, Some(para_rpc)),
+            RpcClient::SubChainRpc { rpc } => subscribe(self.rt.clone(), rpc, None),
+        }
     }
 
     /// Does multiple RPC calls to the full node, to check for
@@ -453,7 +480,21 @@ impl ChainEndpoint for SubstrateChain {
     /// Exits early if any health check fails, without doing any
     /// further checks.
     fn health_check(&self) -> Result<HealthCheck, Error> {
-        todo!()
+        fn health_check(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+        ) -> Result<HealthCheck, Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => health_check(self.rt.clone(), relay_rpc, Some(para_rpc)),
+            RpcClient::SubChainRpc { rpc } => health_check(self.rt.clone(), rpc, None),
+        }
     }
 
     /// Fetch a header from the chain at the given height and verify it.
@@ -463,7 +504,33 @@ impl ChainEndpoint for SubstrateChain {
         target: ICSHeight,
         client_state: &AnyClientState,
     ) -> Result<Self::LightBlock, Error> {
-        todo!()
+        fn verify_header(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            trusted: ICSHeight,
+            target: ICSHeight,
+            client_state: &AnyClientState,
+        ) -> Result<SubLightBlock, Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => verify_header(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                trusted,
+                target,
+                client_state,
+            ),
+            RpcClient::SubChainRpc { rpc } => {
+                verify_header(self.rt.clone(), rpc, None, trusted, target, client_state)
+            }
+        }
     }
 
     /// Given a client update event that includes the header used in a client update,
@@ -473,7 +540,31 @@ impl ChainEndpoint for SubstrateChain {
         update: &UpdateClient,
         client_state: &AnyClientState,
     ) -> Result<Option<MisbehaviourEvidence>, Error> {
-        todo!()
+        fn check_misbehaviour(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            update: &UpdateClient,
+            client_state: &AnyClientState,
+        ) -> Result<Option<MisbehaviourEvidence>, Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => check_misbehaviour(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                update,
+                client_state,
+            ),
+            RpcClient::SubChainRpc { rpc } => {
+                check_misbehaviour(self.rt.clone(), rpc, None, update, client_state)
+            }
+        }
     }
 
     // Queries
@@ -519,19 +610,79 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn ibc_version(&self) -> Result<Option<semver::Version>, Error> {
-        todo!()
+        fn ibc_version(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+        ) -> Result<Option<semver::Version>, Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => ibc_version(self.rt.clone(), relay_rpc, Some(para_rpc)),
+            RpcClient::SubChainRpc { rpc } => ibc_version(self.rt.clone(), rpc, None),
+        }
     }
 
     fn query_balance(&self, key_name: Option<&str>, denom: Option<&str>) -> Result<Balance, Error> {
-        todo!()
+        fn query_balance(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            key_name: Option<&str>,
+            denom: Option<&str>,
+        ) -> Result<Balance, Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_balance(self.rt.clone(), relay_rpc, Some(para_rpc), key_name, denom),
+            RpcClient::SubChainRpc { rpc } => {
+                query_balance(self.rt.clone(), rpc, None, key_name, denom)
+            }
+        }
     }
 
     fn query_all_balances(&self, key_name: Option<&str>) -> Result<Vec<Balance>, Error> {
-        todo!()
+        fn query_all_balances(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            key_name: Option<&str>,
+        ) -> Result<Vec<Balance>, Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_all_balances(self.rt.clone(), relay_rpc, Some(para_rpc), key_name),
+            RpcClient::SubChainRpc { rpc } => {
+                query_all_balances(self.rt.clone(), rpc, None, key_name)
+            }
+        }
     }
 
     fn query_denom_trace(&self, hash: String) -> Result<DenomTrace, Error> {
-        todo!()
+        fn query_denom_trace(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            hash: String,
+        ) -> Result<DenomTrace, Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_denom_trace(self.rt.clone(), relay_rpc, Some(para_rpc), hash),
+            RpcClient::SubChainRpc { rpc } => query_denom_trace(self.rt.clone(), rpc, None, hash),
+        }
     }
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
@@ -568,7 +719,6 @@ impl ChainEndpoint for SubstrateChain {
             })
         }
 
-        // judge para chain rpc client is init, if it is `None`, represent to we use relay chain rpc to query info or else
         match &self.rpc_client {
             RpcClient::SubChainRpc { rpc } => query_application_state(self.rt.clone(), rpc, None),
             RpcClient::ParachainRpc {
@@ -585,7 +735,21 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_clients");
         crate::telemetry!(query, self.id(), "query_clients");
 
-        todo!()
+        fn query_clients(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryClientStatesRequest,
+        ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_clients(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => query_clients(self.rt.clone(), rpc, None, request),
+        }
     }
 
     fn query_client_state(
@@ -652,7 +816,23 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(AnyClientState, MerkleProof), Error> {
         crate::time!("query_upgraded_client_state");
         crate::telemetry!(query, self.id(), "query_upgraded_client_state");
-        todo!()
+        fn query_upgraded_client_state(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryUpgradedClientStateRequest,
+        ) -> Result<(AnyClientState, MerkleProof), Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_upgraded_client_state(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => {
+                query_upgraded_client_state(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     fn query_upgraded_consensus_state(
@@ -661,14 +841,48 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(AnyConsensusState, MerkleProof), Error> {
         crate::time!("query_upgraded_consensus_state");
         crate::telemetry!(query, self.id(), "query_upgraded_consensus_state");
-        todo!()
+        fn query_upgraded_consensus_state(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryUpgradedConsensusStateRequest,
+        ) -> Result<(AnyConsensusState, MerkleProof), Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => {
+                query_upgraded_consensus_state(self.rt.clone(), relay_rpc, Some(para_rpc), request)
+            }
+            RpcClient::SubChainRpc { rpc } => {
+                query_upgraded_consensus_state(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     fn query_consensus_state_heights(
         &self,
         request: QueryConsensusStateHeightsRequest,
     ) -> Result<Vec<ICSHeight>, Error> {
-        todo!()
+        fn query_consensus_state_heights(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryConsensusStateHeightsRequest,
+        ) -> Result<Vec<ICSHeight>, Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_consensus_state_heights(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => {
+                query_consensus_state_heights(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     fn query_consensus_state(
@@ -740,7 +954,23 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_client_connections");
         crate::telemetry!(query, self.id(), "query_client_connections");
 
-        todo!()
+        fn query_client_connections(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryClientConnectionsRequest,
+        ) -> Result<Vec<ConnectionId>, Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_client_connections(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => {
+                query_client_connections(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     fn query_connections(
@@ -749,7 +979,24 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<IdentifiedConnectionEnd>, Error> {
         crate::time!("query_connections");
         crate::telemetry!(query, self.id(), "query_connections");
-        todo!()
+
+        fn query_connections(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryConnectionsRequest,
+        ) -> Result<Vec<IdentifiedConnectionEnd>, Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_connections(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => {
+                query_connections(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     fn query_connection(
@@ -760,9 +1007,10 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_connection");
         crate::telemetry!(query, self.id(), "query_connection");
 
-        fn query_connection<T: subxt::Config>(
+        fn query_connection(
             rt: Arc<TokioRuntime>,
-            rpc_client: &OnlineClient<T>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryConnectionRequest,
             include_proof: IncludeProof,
         ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
@@ -773,7 +1021,7 @@ impl ChainEndpoint for SubstrateChain {
             let storage = relaychain_node::storage().ibc().connections(connection_id);
 
             let closure = async {
-                rpc_client
+                relay_rpc_client
                     .storage()
                     .at(None)
                     .await
@@ -792,9 +1040,15 @@ impl ChainEndpoint for SubstrateChain {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => query_connection(self.rt.clone(), para_rpc, request, include_proof),
+            } => query_connection(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                request,
+                include_proof,
+            ),
             RpcClient::SubChainRpc { rpc } => {
-                query_connection(self.rt.clone(), rpc, request, include_proof)
+                query_connection(self.rt.clone(), rpc, None, request, include_proof)
             }
         }
     }
@@ -805,7 +1059,24 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         crate::time!("query_connection_channels");
         crate::telemetry!(query, self.id(), "query_connection_channels");
-        todo!()
+
+        fn query_connection_channels(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryConnectionChannelsRequest,
+        ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_connection_channels(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => {
+                query_connection_channels(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     fn query_channels(
@@ -815,7 +1086,21 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_channels");
         crate::telemetry!(query, self.id(), "query_channels");
 
-        todo!()
+        fn query_channels(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryChannelsRequest,
+        ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_channels(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => query_channels(self.rt.clone(), rpc, None, request),
+        }
     }
 
     fn query_channel(
@@ -825,7 +1110,31 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
         crate::time!("query_channel");
         crate::telemetry!(query, self.id(), "query_channel");
-        todo!()
+
+        fn query_channel(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryChannelRequest,
+            include_proof: IncludeProof,
+        ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
+            todo!()
+        }
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_channel(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                request,
+                include_proof,
+            ),
+            RpcClient::SubChainRpc { rpc } => {
+                query_channel(self.rt.clone(), rpc, None, request, include_proof)
+            }
+        }
     }
 
     fn query_channel_client_state(
@@ -835,7 +1144,24 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_channel_client_state");
         crate::telemetry!(query, self.id(), "query_channel_client_state");
 
-        todo!()
+        fn query_channel_client_state(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryChannelClientStateRequest,
+        ) -> Result<Option<IdentifiedAnyClientState>, Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_channel_client_state(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => {
+                query_channel_client_state(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     fn query_packet_commitment(
@@ -843,7 +1169,31 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryPacketCommitmentRequest,
         include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
-        todo!()
+        fn query_packet_commitment(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryPacketCommitmentRequest,
+            include_proof: IncludeProof,
+        ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_packet_commitment(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                request,
+                include_proof,
+            ),
+            RpcClient::SubChainRpc { rpc } => {
+                query_packet_commitment(self.rt.clone(), rpc, None, request, include_proof)
+            }
+        }
     }
 
     /// Queries the packet commitment hashes associated with a channel.
@@ -853,7 +1203,25 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
         crate::time!("query_packet_commitments");
         crate::telemetry!(query, self.id(), "query_packet_commitments");
-        todo!()
+
+        fn query_packet_commitments(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryPacketCommitmentsRequest,
+        ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_packet_commitments(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => {
+                query_packet_commitments(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     fn query_packet_receipt(
@@ -861,7 +1229,31 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryPacketReceiptRequest,
         include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
-        todo!()
+        fn query_packet_receipt(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryPacketReceiptRequest,
+            include_proof: IncludeProof,
+        ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_packet_receipt(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                request,
+                include_proof,
+            ),
+            RpcClient::SubChainRpc { rpc } => {
+                query_packet_receipt(self.rt.clone(), rpc, None, request, include_proof)
+            }
+        }
     }
 
     /// Queries the unreceived packet sequences associated with a channel.
@@ -872,7 +1264,24 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_unreceived_packets");
         crate::telemetry!(query, self.id(), "query_unreceived_packets");
 
-        todo!()
+        fn query_packet_receipt(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryUnreceivedPacketsRequest,
+        ) -> Result<Vec<Sequence>, Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_packet_receipt(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => {
+                query_packet_receipt(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     fn query_next_sequence_receive(
@@ -880,7 +1289,31 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryNextSequenceReceiveRequest,
         include_proof: IncludeProof,
     ) -> Result<(Sequence, Option<MerkleProof>), Error> {
-        todo!()
+        fn query_next_sequence_receive(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryNextSequenceReceiveRequest,
+            include_proof: IncludeProof,
+        ) -> Result<(Sequence, Option<MerkleProof>), Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_next_sequence_receive(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                request,
+                include_proof,
+            ),
+            RpcClient::SubChainRpc { rpc } => {
+                query_next_sequence_receive(self.rt.clone(), rpc, None, request, include_proof)
+            }
+        }
     }
 
     fn query_packet_acknowledgement(
@@ -888,7 +1321,31 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryPacketAcknowledgementRequest,
         include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
-        todo!()
+        fn query_packet_acknowledgement(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryPacketAcknowledgementRequest,
+            include_proof: IncludeProof,
+        ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_packet_acknowledgement(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                request,
+                include_proof,
+            ),
+            RpcClient::SubChainRpc { rpc } => {
+                query_packet_acknowledgement(self.rt.clone(), rpc, None, request, include_proof)
+            }
+        }
     }
 
     /// Queries the packet acknowledgment hashes associated with a channel.
@@ -899,7 +1356,24 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_packet_acknowledgements");
         crate::telemetry!(query, self.id(), "query_packet_acknowledgements");
 
-        todo!()
+        fn query_packet_acknowledgements(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryPacketAcknowledgementsRequest,
+        ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_packet_acknowledgements(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => {
+                query_packet_acknowledgements(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     /// Queries the unreceived acknowledgements sequences associated with a channel.
@@ -909,7 +1383,30 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<Sequence>, Error> {
         crate::time!("query_unreceived_acknowledgements");
         crate::telemetry!(query, self.id(), "query_unreceived_acknowledgements");
-        todo!()
+
+        fn query_unreceived_acknowledgements(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryUnreceivedAcksRequest,
+        ) -> Result<Vec<Sequence>, Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_unreceived_acknowledgements(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                request,
+            ),
+            RpcClient::SubChainRpc { rpc } => {
+                query_unreceived_acknowledgements(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     /// This function queries transactions for events matching certain criteria.
@@ -918,7 +1415,22 @@ impl ChainEndpoint for SubstrateChain {
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
         crate::time!("query_txs");
         crate::telemetry!(query, self.id(), "query_txs");
-        todo!()
+        fn query_txs(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryTxRequest,
+        ) -> Result<Vec<IbcEventWithHeight>, Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_txs(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => query_txs(self.rt.clone(), rpc, None, request),
+        }
     }
 
     /// This function queries transactions for packet events matching certain criteria.
@@ -937,14 +1449,48 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_packet_events");
         crate::telemetry!(query, self.id(), "query_packet_events");
 
-        todo!()
+        fn query_packet_events(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            mut request: QueryPacketEventDataRequest,
+        ) -> Result<Vec<IbcEventWithHeight>, Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_packet_events(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => {
+                query_packet_events(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     fn query_host_consensus_state(
         &self,
         request: QueryHostConsensusStateRequest,
     ) -> Result<Self::ConsensusState, Error> {
-        todo!()
+        fn query_host_consensus_state(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            request: QueryHostConsensusStateRequest,
+        ) -> Result<GpConsensusState, Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => query_host_consensus_state(self.rt.clone(), relay_rpc, Some(para_rpc), request),
+            RpcClient::SubChainRpc { rpc } => {
+                query_host_consensus_state(self.rt.clone(), rpc, None, request)
+            }
+        }
     }
 
     // need to do
@@ -954,59 +1500,52 @@ impl ChainEndpoint for SubstrateChain {
         settings: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
         crate::time!("build_client_state");
+        fn build_consensus_state(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            height: ICSHeight,
+            settings: ClientSettings,
+        ) -> Result<GpClientState, Error> {
+            use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
+            use ibc_relayer_types::Height;
+            let chain_id = ChainId::default(); // todo(davirian) need use correct chain id
+            let parachain_id = 2000; // todo(davirian) need use correct parahcain id
+            let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
+            let latest_beefy_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest beefy height
+            let mmr_root_hash = vec![]; // todo(davirian) need use correct mmr root hash
+            let latest_chain_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest chain height
+            let authority_set = None; // todo(davirian) need use correct authority set
+            let next_authority_set = None; // todo(davirian) need use correct next authority set
+            let chain_type = if para_rpc_client.is_none() {
+                ChaninType::Subchain
+            } else {
+                ChaninType::Parachian
+            };
+            let client_state = GpClientState {
+                chain_type,
+                chain_id,
+                parachain_id,
+                beefy_activation_height,
+                latest_beefy_height,
+                mmr_root_hash,
+                latest_chain_height,
+                frozen_height: None,
+                authority_set,
+                next_authority_set,
+            };
+            Ok(client_state)
+        }
+
         match &self.rpc_client {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
             } => {
-                use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
-                use ibc_relayer_types::Height;
-                let chain_id = ChainId::default(); // todo(davirian) need use correct chain id
-                let parachain_id = 2000; // todo(davirian) need use correct parahcain id
-                let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
-                let latest_beefy_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest beefy height
-                let mmr_root_hash = vec![]; // todo(davirian) need use correct mmr root hash
-                let latest_chain_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest chain height
-                let authority_set = None; // todo(davirian) need use correct authority set
-                let next_authority_set = None; // todo(davirian) need use correct next authority set
-                let client_state = GpClientState {
-                    chain_type: ChaninType::Parachian,
-                    chain_id,
-                    parachain_id,
-                    beefy_activation_height,
-                    latest_beefy_height,
-                    mmr_root_hash,
-                    latest_chain_height,
-                    frozen_height: None,
-                    authority_set,
-                    next_authority_set,
-                };
-                Ok(client_state)
+                build_consensus_state(self.rt.clone(), relay_rpc, Some(para_rpc), height, settings)
             }
             RpcClient::SubChainRpc { rpc } => {
-                use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
-                use ibc_relayer_types::Height;
-                let chain_id = ChainId::default(); // todo(davirian) need use correct chain id
-                let parachain_id = 2000; // todo(davirian) need use correct parahcain id
-                let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
-                let latest_beefy_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest beefy height
-                let mmr_root_hash = vec![]; // todo(davirian) need use correct mmr root hash
-                let latest_chain_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest chain height
-                let authority_set = None; // todo(davirian) need use correct authority set
-                let next_authority_set = None; // todo(davirian) need use correct next authority set
-                let client_state = GpClientState {
-                    chain_type: ChaninType::Subchain,
-                    chain_id,
-                    parachain_id,
-                    beefy_activation_height,
-                    latest_beefy_height,
-                    mmr_root_hash,
-                    latest_chain_height,
-                    frozen_height: None,
-                    authority_set,
-                    next_authority_set,
-                };
-                Ok(client_state)
+                build_consensus_state(self.rt.clone(), rpc, None, height, settings)
             }
         }
     }
@@ -1017,20 +1556,27 @@ impl ChainEndpoint for SubstrateChain {
         light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
         crate::time!("build_consensus_state");
+        fn build_consensus_state(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            light_block: SubLightBlock,
+        ) -> Result<GpConsensusState, Error> {
+            use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
+            use tendermint::time::Time;
+            let root = CommitmentRoot::from(vec![1, 2, 3]); // todo(davirian) need use corrent commitment root
+            let timestamp = Time::now(); // todo(davirain) need use corrent timestap
+            let consensus_state = GpConsensusState::new(root, timestamp);
+            Ok(consensus_state)
+        }
+
         match &self.rpc_client {
-            RpcClient::SubChainRpc { rpc } => {
-                use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
-                use tendermint::time::Time;
-                let root = CommitmentRoot::from(vec![1, 2, 3]); // todo(davirian) need use corrent commitment root
-                let timestamp = Time::now(); // todo(davirain) need use corrent timestap
-                let consensus_state = GpConsensusState::new(root, timestamp);
-                Ok(consensus_state)
-            }
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => {
-                todo!()
+            } => build_consensus_state(self.rt.clone(), relay_rpc, Some(para_rpc), light_block),
+            RpcClient::SubChainRpc { rpc } => {
+                build_consensus_state(self.rt.clone(), rpc, None, light_block)
             }
         }
     }
@@ -1043,7 +1589,38 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         crate::time!("build_header");
 
-        todo!()
+        fn build_header(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            trusted_height: ICSHeight,
+            target_height: ICSHeight,
+            client_state: &AnyClientState,
+        ) -> Result<(GpHeader, Vec<GpHeader>), Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => build_header(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                trusted_height,
+                target_height,
+                client_state,
+            ),
+            RpcClient::SubChainRpc { rpc } => build_header(
+                self.rt.clone(),
+                rpc,
+                None,
+                trusted_height,
+                target_height,
+                client_state,
+            ),
+        }
     }
 
     fn maybe_register_counterparty_payee(
@@ -1052,13 +1629,61 @@ impl ChainEndpoint for SubstrateChain {
         port_id: &PortId,
         counterparty_payee: &Signer,
     ) -> Result<(), Error> {
-        todo!()
+        fn maybe_register_counterparty_payee(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            channel_id: &ChannelId,
+            port_id: &PortId,
+            counterparty_payee: &Signer,
+        ) -> Result<(), Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => maybe_register_counterparty_payee(
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                channel_id,
+                port_id,
+                counterparty_payee,
+            ),
+            RpcClient::SubChainRpc { rpc } => maybe_register_counterparty_payee(
+                self.rt.clone(),
+                rpc,
+                None,
+                channel_id,
+                port_id,
+                counterparty_payee,
+            ),
+        }
     }
 
     fn cross_chain_query(
         &self,
         requests: Vec<CrossChainQueryRequest>,
     ) -> Result<Vec<CrossChainQueryResponse>, Error> {
-        todo!()
+        fn cross_chain_query(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+            requests: Vec<CrossChainQueryRequest>,
+        ) -> Result<Vec<CrossChainQueryResponse>, Error> {
+            todo!()
+        }
+
+        match &self.rpc_client {
+            RpcClient::ParachainRpc {
+                relay_rpc,
+                para_rpc,
+            } => cross_chain_query(self.rt.clone(), relay_rpc, Some(para_rpc), requests),
+            RpcClient::SubChainRpc { rpc } => {
+                cross_chain_query(self.rt.clone(), rpc, None, requests)
+            }
+        }
     }
 }
