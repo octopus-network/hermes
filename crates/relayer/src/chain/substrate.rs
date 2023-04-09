@@ -51,7 +51,8 @@ use ibc_relayer_types::core::ics24_host::identifier::ClientId;
 use ibc_relayer_types::core::ics24_host::path::{ChannelEndsPath, ConnectionsPath, Path};
 
 use ibc_proto::ibc::lightclients::solomachine::v2::{
-    ClientStateData, ConnectionStateData, ConsensusStateData, DataType, TimestampedSignatureData,
+    ChannelStateData, ClientStateData, ConnectionStateData, ConsensusStateData, DataType,
+    TimestampedSignatureData,
 };
 use ibc_relayer_types::proofs::{ConsensusProof, Proofs};
 use ibc_relayer_types::timestamp::Timestamp;
@@ -1133,6 +1134,7 @@ impl ChainEndpoint for SubstrateChain {
             PairSigner::new(AccountKeyring::Alice.pair());
 
         let binding = self.rpc_client.tx();
+        // println!("msg: {:?}", msg);
         let tx = substrate::tx().ibc().deliver(msg);
 
         let runtime = self.rt.clone();
@@ -1378,10 +1380,25 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_channel(
         &self,
-        _request: QueryChannelRequest,
+        request: QueryChannelRequest,
         _include_proof: IncludeProof,
     ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
-        unimplemented!();
+        let port_id = substrate::runtime_types::ibc::core::ics24_host::identifier::PortId(
+            request.port_id.to_string(),
+        );
+        let channel_id = substrate::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+            request.channel_id.to_string(),
+        );
+        let storage = substrate::storage().ibc().channels(port_id, channel_id);
+        let channel = self
+            .rt
+            .block_on(self.rpc_client.storage().fetch(&storage, None))
+            .unwrap();
+
+        let chan = channel.unwrap();
+
+        println!("channel: {:?}", chan);
+        Ok((chan.into(), None))
     }
 
     fn query_channel_client_state(
@@ -1549,7 +1566,7 @@ impl ChainEndpoint for SubstrateChain {
         client_state: &AnyClientState,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         println!(
-                "ys-debug: in build_header, trusted_height: {:?}, target_height: {:?}, client_state: {:?}",
+            "ys-debug: in build_header, trusted_height: {:?}, target_height: {:?}, client_state: {:?}",
             trusted_height, target_height, client_state
         );
         if trusted_height.revision_height() >= target_height.revision_height() {
@@ -1830,6 +1847,61 @@ impl ChainEndpoint for SubstrateChain {
             )
             .map_err(Error::malformed_proof)?,
         ))
+    }
+
+    /// Builds the proof for channel handshake messages.
+    fn build_channel_proofs(
+        &self,
+        port_id: &PortId,
+        channel_id: &ChannelId,
+        height: ICSHeight,
+    ) -> Result<Proofs, Error> {
+        // Collect all proofs as required
+        let (channel, maybe_channel_proof) = self.query_channel(
+            QueryChannelRequest {
+                port_id: port_id.clone(),
+                channel_id: channel_id.clone(),
+                height: QueryHeight::Specific(height),
+            },
+            IncludeProof::No,
+        )?;
+
+        let mut buf = Vec::new();
+        let data = ChannelStateData {
+            path: ("/ibc/channelEnds%2Fports%2F".to_string()
+                + port_id.as_str()
+                + &"%2Fchannels%2F".to_string()
+                + channel_id.as_str())
+            .into(),
+            channel: Some(channel.clone().into()),
+        };
+        println!("ys-debug: ChannelStateData: {:?}", data);
+        Message::encode(&data, &mut buf).unwrap();
+
+        let duration_since_epoch = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap();
+        let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
+
+        let sig_data = alice_sign_sign_bytes(
+            height.revision_height() + 1,
+            timestamp_nanos,
+            DataType::ChannelState.into(),
+            buf.to_vec(),
+        );
+
+        let timestamped = TimestampedSignatureData {
+            signature_data: sig_data,
+            timestamp: timestamp_nanos,
+        };
+        let mut channel_proof = Vec::new();
+        Message::encode(&timestamped, &mut channel_proof).unwrap();
+
+        let channel_proof_bytes =
+            CommitmentProofBytes::try_from(channel_proof).map_err(Error::malformed_proof)?;
+
+        Proofs::new(channel_proof_bytes, None, None, None, height.increment())
+            .map_err(Error::malformed_proof)
     }
 }
 
