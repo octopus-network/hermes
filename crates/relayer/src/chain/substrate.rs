@@ -79,6 +79,10 @@ use crate::util::pretty::{
 use ibc_relayer_types::timestamp::Timestamp;
 
 // substrate
+use serde::{Deserialize, Serialize};
+use subxt::rpc::RpcClient as SubxtRpcClient;
+use subxt::rpc::Subscription as SubxtSubscription;
+use subxt::rpc_params;
 use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
 
 // #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
@@ -86,6 +90,26 @@ pub mod parachain;
 
 pub mod relaychain;
 use relaychain::relaychain_node;
+
+/// An encoded signed commitment proving that the given header has been finalized.
+/// The given bytes should be the SCALE-encoded representation of a
+/// `beefy_primitives::SignedCommitment`.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct SignedCommitment(pub sp_core::Bytes);
+
+/// Subscribe to beefy justifications.
+pub async fn subscribe_beefy_justifications(
+    client: &SubxtRpcClient,
+) -> Result<SubxtSubscription<SignedCommitment>, subxt::Error> {
+    let subscription = client
+        .subscribe(
+            "beefy_subscribeJustifications",
+            rpc_params![],
+            "beefy_unsubscribeJustifications",
+        )
+        .await?;
+    Ok(subscription)
+}
 
 /// Defines an upper limit on how large any transaction can be.
 /// This upper limit is defined as a fraction relative to the block's
@@ -1500,27 +1524,102 @@ impl ChainEndpoint for SubstrateChain {
         settings: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
         crate::time!("build_client_state");
-        fn build_consensus_state(
+
+        fn build_client_state(
+            config: ChainConfig,
             rt: Arc<TokioRuntime>,
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             height: ICSHeight,
             settings: ClientSettings,
         ) -> Result<GpClientState, Error> {
+            use codec::Decode;
+            use ibc_relayer_types::clients::ics10_grandpa::beefy_authority_set::BeefyAuthoritySet;
             use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
             use ibc_relayer_types::Height;
-            let chain_id = ChainId::default(); // todo(davirian) need use correct chain id
-            let parachain_id = 2000; // todo(davirian) need use correct parahcain id
+
+            let chain_id = config.id.clone();
             let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
-            let latest_beefy_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest beefy height
-            let mmr_root_hash = vec![]; // todo(davirian) need use correct mmr root hash
-            let latest_chain_height = Height::new(0, 1).unwrap(); // todo(davirian) need use correct latest chain height
-            let authority_set = None; // todo(davirian) need use correct authority set
-            let next_authority_set = None; // todo(davirian) need use correct next authority set
-            let chain_type = if para_rpc_client.is_none() {
-                ChaninType::Subchain
+
+            let result = async {
+                let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc().clone())
+                    .await
+                    .unwrap();
+
+                sub.next().await.unwrap().unwrap().0
+            };
+            let raw_signed_commitment = rt.block_on(result);
+
+            // decode signed commitment
+            let signed_commitment = beefy_light_client::commitment::SignedCommitment::decode(
+                &mut &raw_signed_commitment.clone()[..],
+            )
+            .unwrap();
+
+            // get commitment
+            let beefy_light_client::commitment::Commitment {
+                payload,
+                block_number,
+                validator_set_id,
+            } = signed_commitment.clone().commitment;
+
+            let mmr_root_hash = payload
+                .get_raw(&beefy_light_client::commitment::known_payload_ids::MMR_ROOT_ID)
+                .unwrap();
+            let reversion_number = config.id.version();
+            let latest_beefy_height = Height::new(reversion_number, block_number as u64).unwrap();
+            let mmr_root_hash = mmr_root_hash.clone();
+            // get authorith set
+            let storage = relaychain_node::storage().mmr_leaf().beefy_authorities();
+
+            let closure = async {
+                relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+            };
+            let authority_set = rt.block_on(closure).unwrap().map(|v| BeefyAuthoritySet {
+                id: v.id,
+                len: v.len,
+                root: v.root.as_bytes().to_vec(),
+            });
+
+            // get next authorith set
+            let storage = relaychain_node::storage()
+                .mmr_leaf()
+                .beefy_next_authorities();
+
+            let closure = async {
+                relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+            };
+            let next_authority_set = rt.block_on(closure).unwrap().map(|v| BeefyAuthoritySet {
+                id: v.id,
+                len: v.len,
+                root: v.root.as_bytes().to_vec(),
+            });
+
+            let (chain_type, parachain_id, latest_chain_height) = if para_rpc_client.is_none() {
+                (
+                    ChaninType::Subchain,
+                    0,
+                    Height::new(reversion_number, block_number as u64).unwrap(),
+                )
             } else {
-                ChaninType::Parachian
+                (
+                    ChaninType::Parachian,
+                    2000,
+                    // todo(davirian)need query parachain height, maybey revision number neet to change
+                    Height::new(reversion_number, block_number as u64).unwrap(),
+                )
             };
             let client_state = GpClientState {
                 chain_type,
@@ -1541,12 +1640,22 @@ impl ChainEndpoint for SubstrateChain {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => {
-                build_consensus_state(self.rt.clone(), relay_rpc, Some(para_rpc), height, settings)
-            }
-            RpcClient::SubChainRpc { rpc } => {
-                build_consensus_state(self.rt.clone(), rpc, None, height, settings)
-            }
+            } => build_client_state(
+                self.config.clone(),
+                self.rt.clone(),
+                relay_rpc,
+                Some(para_rpc),
+                height,
+                settings,
+            ),
+            RpcClient::SubChainRpc { rpc } => build_client_state(
+                self.config.clone(),
+                self.rt.clone(),
+                rpc,
+                None,
+                height,
+                settings,
+            ),
         }
     }
 
@@ -1562,10 +1671,33 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             light_block: SubLightBlock,
         ) -> Result<GpConsensusState, Error> {
+            use core::time::Duration;
             use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
             use tendermint::time::Time;
-            let root = CommitmentRoot::from(vec![1, 2, 3]); // todo(davirian) need use corrent commitment root
-            let timestamp = Time::now(); // todo(davirain) need use corrent timestap
+
+            let timestamp = Time::now(); // todo(davirian) need to use correct time stamp
+            let root = if let Some(rpc_client) = para_rpc_client {
+                let last_finalized_head_hash =
+                    rt.block_on(rpc_client.rpc().finalized_head()).unwrap();
+                let finalized_head = rt
+                    .block_on(rpc_client.rpc().header(Some(last_finalized_head_hash)))
+                    .unwrap()
+                    .unwrap();
+                CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec())
+            } else {
+                let last_finalized_head_hash = rt
+                    .block_on(relay_rpc_client.rpc().finalized_head())
+                    .unwrap();
+                let finalized_head = rt
+                    .block_on(
+                        relay_rpc_client
+                            .rpc()
+                            .header(Some(last_finalized_head_hash)),
+                    )
+                    .unwrap()
+                    .unwrap();
+                CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec())
+            };
             let consensus_state = GpConsensusState::new(root, timestamp);
             Ok(consensus_state)
         }
