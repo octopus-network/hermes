@@ -832,6 +832,7 @@ pub struct SubstrateChain {
     config: ChainConfig,
     rpc_client: OnlineClient<SubstrateConfig>,
     rt: Arc<TokioRuntime>,
+    keybase: KeyRing<Secp256k1KeyPair>,
 }
 
 impl SubstrateChain {
@@ -882,11 +883,14 @@ impl ChainEndpoint for SubstrateChain {
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
         let rpc_client = rt.block_on(OnlineClient::<SubstrateConfig>::new()).unwrap();
-
+        let keybase =
+            KeyRing::new_secp256k1(config.key_store_type, &config.account_prefix, &config.id)
+                .map_err(Error::key_base)?;
         Ok(Self {
             config,
             rpc_client,
             rt,
+            keybase,
         })
     }
 
@@ -895,7 +899,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn keybase(&self) -> &KeyRing<Self::SigningKeyPair> {
-        unimplemented!();
+        &self.keybase
     }
 
     fn keybase_mut(&mut self) -> &mut KeyRing<Self::SigningKeyPair> {
@@ -918,7 +922,7 @@ impl ChainEndpoint for SubstrateChain {
     /// Exits early if any health check fails, without doing any
     /// further checks.
     fn health_check(&self) -> Result<HealthCheck, Error> {
-        unimplemented!();
+        Ok(HealthCheck::Healthy)
     }
 
     /// Fetch a header from the chain at the given height and verify it.
@@ -1199,7 +1203,10 @@ impl ChainEndpoint for SubstrateChain {
         _key_name: Option<&str>,
         _denom: Option<&str>,
     ) -> Result<Balance, Error> {
-        unimplemented!();
+        Ok(Balance {
+            amount: String::default(),
+            denom: String::default(),
+        })
     }
 
     fn query_all_balances(&self, _key_name: Option<&str>) -> Result<Vec<Balance>, Error> {
@@ -1251,7 +1258,29 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryClientStatesRequest,
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
-        unimplemented!();
+        let storage = substrate::storage().ibc().client_counter();
+
+        let n = self
+            .rt
+            .block_on(self.rpc_client.storage().fetch(&storage, None))
+            .unwrap()
+            .unwrap();
+
+        let address = substrate::storage().ibc().client_states_root();
+        let mut iter = self
+            .rt
+            .block_on(self.rpc_client.storage().iter(address, n as u32, None))
+            .unwrap();
+        let mut clients = vec![];
+        while let Some((key, client)) = self.rt.block_on(iter.next()).unwrap() {
+            let client_state = AnyClientState::decode_vec(&client).map_err(Error::decode)?;
+            // TODO: fix client_id
+            clients.push(IdentifiedAnyClientState::new(
+                ClientId::from_str("07-tendermint-0").unwrap(),
+                client_state,
+            ));
+        }
+        Ok(clients)
     }
 
     fn query_client_state(
@@ -1333,7 +1362,25 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryClientConnectionsRequest,
     ) -> Result<Vec<ConnectionId>, Error> {
-        unimplemented!();
+        let storage = substrate::storage().ibc().client_counter();
+
+        let n = self
+            .rt
+            .block_on(self.rpc_client.storage().fetch(&storage, None))
+            .unwrap()
+            .unwrap();
+
+        let address = substrate::storage().ibc().connection_client_root();
+        let mut iter = self
+            .rt
+            .block_on(self.rpc_client.storage().iter(address, n as u32, None))
+            .unwrap();
+        let mut ids = vec![];
+        while let Some((key, conn_id)) = self.rt.block_on(iter.next()).unwrap() {
+            let connection_id = ConnectionId::from_str(&conn_id.0).unwrap();
+            ids.push(connection_id);
+        }
+        Ok(ids)
     }
 
     fn query_connections(
