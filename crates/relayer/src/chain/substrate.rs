@@ -1551,10 +1551,12 @@ impl ChainEndpoint for SubstrateChain {
             let raw_signed_commitment = rt.block_on(result);
 
             // decode signed commitment
-            let signed_commitment = beefy_light_client::commitment::SignedCommitment::decode(
-                &mut &raw_signed_commitment.clone()[..],
-            )
-            .unwrap();
+
+            let beefy_light_client::commitment::VersionedFinalityProof::V1(signed_commitment) =
+                beefy_light_client::commitment::VersionedFinalityProof::decode(
+                    &mut &raw_signed_commitment[..],
+                )
+                .unwrap();
 
             // get commitment
             let beefy_light_client::commitment::Commitment {
