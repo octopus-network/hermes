@@ -536,7 +536,7 @@ impl ChainEndpoint for SubstrateChain {
             target: ICSHeight,
             client_state: &AnyClientState,
         ) -> Result<SubLightBlock, Error> {
-            todo!()
+            Ok(SubLightBlock {})
         }
 
         match &self.rpc_client {
