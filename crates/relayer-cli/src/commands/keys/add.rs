@@ -212,7 +212,19 @@ pub fn add_key(
             keyring.add_key(key_name, key_pair.clone())?;
             key_pair.into()
         }
-        ChainType::Substrate => todo!(),
+        ChainType::Substrate =>  {
+            let mut keyring =
+                KeyRing::new_secp256k1(Store::Test, &config.account_prefix, &config.id)?;
+
+            check_key_exists(&keyring, key_name, overwrite);
+
+            let key_contents =
+                fs::read_to_string(file).map_err(|_| eyre!("error reading the key file"))?;
+            let key_pair = Secp256k1KeyPair::from_seed_file(&key_contents, hd_path)?;
+
+            keyring.add_key(key_name, key_pair.clone())?;
+            key_pair.into()
+        },
     };
 
     Ok(key_pair)
