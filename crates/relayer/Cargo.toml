@@ -75,6 +75,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive
 sp-core = "18.0.0"
 sp-keyring = "18.0.0"
 beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "main" }
+binary-merkle-tree = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40"  }
 
 [dependencies.num-bigint]
 version = "0.4"

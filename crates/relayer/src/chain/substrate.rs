@@ -6,6 +6,7 @@ use core::{
     str::FromStr,
     time::Duration,
 };
+use digest::typenum::U264;
 use futures::future::join_all;
 use num_bigint::BigInt;
 use std::{cmp::Ordering, thread};
@@ -1542,7 +1543,7 @@ impl ChainEndpoint for SubstrateChain {
             let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
 
             let result = async {
-                let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc().clone())
+                let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
                     .await
                     .unwrap();
 
@@ -1563,7 +1564,7 @@ impl ChainEndpoint for SubstrateChain {
                 payload,
                 block_number,
                 validator_set_id,
-            } = signed_commitment.clone().commitment;
+            } = signed_commitment.commitment;
 
             let mmr_root_hash = payload
                 .get_raw(&beefy_light_client::commitment::known_payload_ids::MMR_ROOT_ID)
@@ -1723,6 +1724,81 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         crate::time!("build_header");
 
+        /// build merkle proof for validator
+        pub async fn build_validator_proof(
+            rt: Arc<TokioRuntime>,
+            relay_rpc_client: &OnlineClient<PolkadotConfig>,
+            block_number: u32,
+        ) -> Result<Vec<beefy_light_client::ValidatorMerkleProof>, Error> {
+            use sp_core::{hexdisplay::HexDisplay, ByteArray, H256};
+            use subxt::rpc::types::BlockNumber;
+
+            // get block hash
+            let block_hash = relay_rpc_client
+                .rpc()
+                .block_hash(Some(BlockNumber::from(block_number)))
+                .await
+                .unwrap();
+
+            let storage = relaychain_node::storage().beefy().authorities();
+
+            let closure = async {
+                relay_rpc_client
+                    .storage()
+                    .at(block_hash)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+            };
+            let authorities = rt.block_on(closure).unwrap();
+
+            // covert authorities to strings
+            let authority_strs: Vec<String> = authorities
+                .0
+                .into_iter()
+                .map(|authority| format!("{}", HexDisplay::from(&authority.0 .0.as_ref())))
+                .collect();
+
+            // Convert BEEFY secp256k1 public keys into Ethereum addresses
+            let validators: Vec<Vec<u8>> = authority_strs
+                .into_iter()
+                .map(|authority| {
+                    hex::decode(&authority)
+                        .map(|compressed_key| {
+                            beefy_light_client::beefy_ecdsa_to_ethereum(&compressed_key)
+                        })
+                        .unwrap_or_default()
+                })
+                .collect();
+
+            let mut validator_merkle_proofs: Vec<beefy_light_client::ValidatorMerkleProof> =
+                Vec::new();
+            for l in 0..validators.len() {
+                // when
+                let proof = binary_merkle_tree::merkle_proof::<
+                    beefy_light_client::keccak256::Keccak256,
+                    _,
+                    _,
+                >(validators.clone(), l);
+
+                println!("get validator proof root = {}", hex::encode(&proof.root));
+
+                let validator_merkle_proof = beefy_light_client::ValidatorMerkleProof {
+                    root: proof.root,
+                    proof: proof.proof,
+                    number_of_leaves: proof.number_of_leaves as u64,
+                    leaf_index: proof.leaf_index as u64,
+                    leaf: proof.leaf,
+                };
+
+                validator_merkle_proofs.push(validator_merkle_proof);
+            }
+
+            Ok(validator_merkle_proofs)
+        }
+
         fn build_header(
             rt: Arc<TokioRuntime>,
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
@@ -1731,6 +1807,178 @@ impl ChainEndpoint for SubstrateChain {
             target_height: ICSHeight,
             client_state: &AnyClientState,
         ) -> Result<(GpHeader, Vec<GpHeader>), Error> {
+            use codec::Decode;
+            use ibc_relayer_types::clients::ics10_grandpa::beefy_authority_set::BeefyAuthoritySet;
+            use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
+            use ibc_relayer_types::Height;
+            if let Some(para_rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                assert!(trusted_height.revision_height() < target_height.revision_height());
+
+                let grandpa_client_state = match client_state {
+                    AnyClientState::Grandpa(state) => state,
+                    _ => unimplemented!(),
+                };
+
+                // assert trust_height <= grandpa_client_state height
+                if trusted_height > grandpa_client_state.latest_chain_height {
+                    panic!("trust height miss match client state height");
+                }
+
+                let mmr_root_height = grandpa_client_state.latest_height();
+
+                // build target height header
+                let future = async {
+                    let client = relay_rpc_client.clone();
+
+                    //build mmr root
+                    // let mmr_root = if target_height > mmr_root_height {
+                    // subscribe beefy justification and get signed commitment
+                    let result = async {
+                        let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
+                            .await
+                            .unwrap();
+
+                        sub.next().await.unwrap().unwrap().0
+                    };
+                    let raw_signed_commitment = rt.block_on(result);
+
+                    // decode signed commitment
+
+                    let beefy_light_client::commitment::VersionedFinalityProof::V1(
+                        signed_commitment,
+                    ) = beefy_light_client::commitment::VersionedFinalityProof::decode(
+                        &mut &raw_signed_commitment[..],
+                    )
+                    .unwrap();
+
+                    // get commitment
+                    let beefy_light_client::commitment::Commitment {
+                        payload,
+                        block_number,
+                        validator_set_id,
+                    } = signed_commitment.commitment.clone();
+
+                    // build validator proof
+                    // let validator_merkle_proofs: Vec<ValidatorMerkleProof> =
+                    //     octopusxt::update_client_state::build_validator_proof(
+                    //         client.clone(),
+                    //         block_number,
+                    //     )
+                    //     .await
+                    //     .map_err(|_| Error::get_validator_merkle_proof())?;
+
+                    // build mmr proof
+                    // let api =
+                    //     client.clone().to_runtime_api::<RuntimeApi<
+                    //         MyConfig,
+                    //         SubstrateNodeTemplateExtrinsicParams<MyConfig>,
+                    //     >>();
+                    // get block hash
+                    // let block_hash: Option<H256> = api
+                    //     .client
+                    //     .rpc()
+                    //     .block_hash(Some(BlockNumber::from(block_number)))
+                    //     .await
+                    //     .map_err(|_| Error::get_block_hash_error())?;
+                    // create proof
+                    // let mmr_leaf_and_mmr_leaf_proof =
+                    //     octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
+                    //         Some(BlockNumber::from(target_height - 1)),
+                    //         block_hash,
+                    //         client.clone(),
+                    //     )
+                    //     .await
+                    //     .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
+
+                    // build new mmr root
+                    // MmrRoot {
+                    //     signed_commitment: signed_commmitment.into(),
+                    //     validator_merkle_proofs: validator_merkle_proofs,
+                    //     mmr_leaf: mmr_leaf_and_mmr_leaf_proof.1,
+                    //     mmr_leaf_proof: mmr_leaf_and_mmr_leaf_proof.2,
+                    // }
+                    // } else {
+                    // let api =
+                    //     client.clone().to_runtime_api::<RuntimeApi<
+                    //         MyConfig,
+                    //         SubstrateNodeTemplateExtrinsicParams<MyConfig>,
+                    //     >>();
+                    // // get block hash
+                    // let block_hash: Option<H256> = api
+                    //     .client
+                    //     .rpc()
+                    //     .block_hash(Some(BlockNumber::from(mmr_root_height)))
+                    //     .await
+                    //     .map_err(|_| Error::get_block_hash_error())?;
+
+                    // tracing::trace!(
+                    //     "in substrate [build_header] >> block_hash = {:?}",
+                    //     block_hash
+                    // );
+                    // // build mmr proof
+                    // let (block_hash, mmr_leaf, mmr_leaf_proof) =
+                    //     octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
+                    //         Some(BlockNumber::from(target_height - 1)),
+                    //         block_hash,
+                    //         client.clone(),
+                    //     )
+                    //     .await
+                    //     .map_err(|_| Error::get_mmr_leaf_and_mmr_proof_error())?;
+                    // tracing::trace!(
+                    //     "in substrate [build_header] >> block_hash = {:?}",
+                    //     block_hash
+                    // );
+
+                    // // build signed_commitment
+                    // let signed_commitment = SignedCommitment {
+                    //     commitment: Some(grandpa_client_state.latest_commitment.clone()),
+                    //     signatures: vec![],
+                    // };
+                    // tracing::trace!("in substrate [build_header] build signed_commitment by grandpa_client_state.latest_commitment: {:?}",signed_commitment);
+                    // MmrRoot {
+                    //     signed_commitment: signed_commitment,
+                    //     validator_merkle_proofs: vec![ValidatorMerkleProof::default()],
+                    //     mmr_leaf: mmr_leaf,
+                    //     mmr_leaf_proof: mmr_leaf_proof,
+                    // }
+                };
+
+                // get block header
+                // let block_header = octopusxt::ibc_rpc::get_header_by_block_number(
+                //     Some(BlockNumber::from(target_height)),
+                //     client.clone(),
+                // )
+                // .await
+                // .map_err(|_| Error::get_header_by_block_number_error())?;
+                // let block_header = block_header.unwrap();
+
+                //build timestamp
+                //     let timestamp = Time::from_unix_timestamp(0, 0).unwrap();
+                //     tracing::trace!(
+                //         "in substrate: [build_header] >> timestamp = {:?}",
+                //         timestamp
+                //     );
+
+                //     // build header
+                //     let grandpa_header = GPHeader {
+                //         mmr_root: mmr_root,
+                //         block_header: block_header,
+                //         timestamp: timestamp,
+                //     };
+
+                //     tracing::trace!(
+                //         "in substrate: [build_header] >> grandpa_header = {:?}",
+                //         grandpa_header
+                //     );
+                //     Ok(grandpa_header)
+                // };
+
+                // let header = self.block_on(future)?;
+                // Ok((header, vec![]))
+                // }
+            };
             todo!()
         }
 
