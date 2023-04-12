@@ -21,9 +21,9 @@ pub const GRANDPA_HEADER_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Header";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Header {
     /// the latest mmr data
-    pub beefy_mmr: beefy_mmr::BeefyMmr,
+    pub beefy_mmr: Option<beefy_mmr::BeefyMmr>,
     /// only one header
-    pub message: message::Message,
+    pub message: Option<message::Message>,
 }
 
 impl Header {
@@ -40,11 +40,11 @@ impl TryFrom<RawHeader> for Header {
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
         Ok(Self {
-            beefy_mmr: raw.beefy_mmr.ok_or_else(Error::empty_beefy_mmr)?.into(),
-            message: match raw.message.ok_or_else(Error::empty_beefy_mmr)? {
+            beefy_mmr: raw.beefy_mmr.map(Into::into),
+            message: raw.message.map(|msg| match msg {
                 RawMessage::ParachainHeaderMap(v) => message::Message::ParachainHeaderMap(v.into()),
                 RawMessage::SubchainHeaderMap(v) => message::Message::SubchainHeaderMap(v.into()),
-            },
+            }),
         })
     }
 }
@@ -52,8 +52,8 @@ impl TryFrom<RawHeader> for Header {
 impl From<Header> for RawHeader {
     fn from(value: Header) -> Self {
         Self {
-            beefy_mmr: Some(value.beefy_mmr.into()),
-            message: Some(match value.message {
+            beefy_mmr: value.beefy_mmr.map(Into::into),
+            message: value.message.map(|msg| match msg {
                 message::Message::ParachainHeaderMap(v) => RawMessage::ParachainHeaderMap(v.into()),
                 message::Message::SubchainHeaderMap(v) => RawMessage::SubchainHeaderMap(v.into()),
             }),
