@@ -339,11 +339,9 @@ impl SubstrateChain {
                 let es: Vec<IbcEventWithHeight> = ibc_events
                     .events
                     .into_iter()
-                    .map(|e| match e {
-                        _ => IbcEventWithHeight {
-                            event: IbcEvent::from(e),
-                            height: ICSHeight::new(0, 10).unwrap(),
-                        },
+                    .map(|e| IbcEventWithHeight {
+                        event: IbcEvent::from(e),
+                        height: ICSHeight::new(0, 10).unwrap(),
                     })
                     .collect();
 
