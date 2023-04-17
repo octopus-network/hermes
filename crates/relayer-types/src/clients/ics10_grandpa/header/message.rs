@@ -31,6 +31,14 @@ pub struct SubchainHeaderMap {
     pub subchain_header_map: BTreeMap<u32, SubchainHeader>,
 }
 
+impl SubchainHeaderMap {
+    pub fn new() -> Self {
+        Self {
+            subchain_header_map: BTreeMap::new(),
+        }
+    }
+}
+
 impl Protobuf<RawSubchainHeaderMap> for SubchainHeaderMap {}
 
 impl From<RawSubchainHeaderMap> for SubchainHeaderMap {
