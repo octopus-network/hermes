@@ -16,6 +16,7 @@ pub async fn build_subchain_header_map(
     rt: Arc<TokioRuntime>,
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
     leaf_indexes: Vec<u64>,
+    chain_id: String,
 ) -> Result<SubchainHeaderMap, String> {
     let mut subchain_header_map = SubchainHeaderMap::new();
     for block_number in leaf_indexes {
@@ -36,7 +37,7 @@ pub async fn build_subchain_header_map(
         subchain_header_map.subchain_header_map.insert(
             block_number as u32,
             SubchainHeader {
-                chain_id: ChainId::new("default".to_string(), 0),
+                chain_id: ChainId::from(chain_id),
                 block_header: encode_header,
                 timestamp: Some(timestamp),
             },
