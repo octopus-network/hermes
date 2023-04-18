@@ -171,3 +171,55 @@ pub fn get_time_stamp_proof(
     let result = rt.block_on(call_closure);
     Ok(result)
 }
+
+// get mmr proofs for the given indexes without blockhash
+pub fn build_mmr_proofs(
+    rt: Arc<TokioRuntime>,
+    relay_rpc_client: &OnlineClient<PolkadotConfig>,
+    block_numbers: Vec<u32>,
+    best_known_block_number: Option<u32>,
+    at: Option<H256>,
+) -> Result<mmr_rpc::LeavesProof<H256>, Error> {
+    if let Some(best_know_block_number) = best_known_block_number {
+        let call_closure = async {
+            let mut block_number = block_numbers.clone();
+            block_number.sort();
+            let block_number: Vec<BlockNumber> =
+                block_number.into_iter().map(|v| v.into()).collect();
+            // best_known_block_number must ET all the blockNumbers
+            if best_know_block_number
+                < u32::try_from(block_numbers[block_numbers.len() - 1]).unwrap()
+            {
+                panic!("best_known_block_number must > all the blockNumbers")
+            }
+            let best_known_block_number: Option<BlockNumber> =
+                Some(BlockNumber::from(best_know_block_number));
+
+            let params = subxt::rpc_params![block_number, best_known_block_number, at];
+            let leaves_proof_result: mmr_rpc::LeavesProof<H256> = relay_rpc_client
+                .rpc()
+                .request("mmr_generateProof", params)
+                .await
+                .unwrap();
+            leaves_proof_result
+        };
+        let result = rt.block_on(call_closure);
+        Ok(result)
+    } else {
+        let call_closure = async {
+            let block_numner: Vec<BlockNumber> =
+                block_numbers.into_iter().map(|v| v.into()).collect();
+            let best_known_block_number: Option<BlockNumber> = None;
+
+            let params = subxt::rpc_params![block_numner, best_known_block_number, at];
+            let leaves_proof_result: mmr_rpc::LeavesProof<H256> = relay_rpc_client
+                .rpc()
+                .request("mmr_generateProof", params)
+                .await
+                .unwrap();
+            leaves_proof_result
+        };
+        let result = rt.block_on(call_closure);
+        Ok(result)
+    }
+}
