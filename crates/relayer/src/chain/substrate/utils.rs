@@ -225,6 +225,58 @@ pub fn build_mmr_proofs(
     }
 }
 
+pub fn convert_mmrproof(proofs: mmr_rpc::LeavesProof<H256>) -> Result<ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::mmr_leaves_and_batch_proof::MmrLeavesAndBatchProof, Error>{
+    let mmr_leavfs = proofs.leaves.0;
+    let mmr_proofs = proofs.proof.0;
+
+    let leaves = beefy_light_client::mmr::decode_mmr_leaves(mmr_leavfs).unwrap().into_iter().map(|v| {
+        let version = v.version.0 as u32;
+        let parent_number_and_hash = ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::mmr_leaves_and_batch_proof::ParentNumberAndHash {
+            // parent block for this leaf
+            parent_number: v.parent_number_and_hash.0,
+            // parent hash for this leaf
+            parent_hash: v.parent_number_and_hash.1.to_vec(),
+        };
+
+        let beefy_next_authority_set =  ibc_relayer_types::clients::ics10_grandpa::beefy_authority_set::BeefyAuthoritySet {
+            // Id of the authority set, it should be strictly increasing
+            id: v.beefy_next_authority_set.id,
+            // Number of validators in the set.
+            len: v.beefy_next_authority_set.len,
+            // Merkle Root Hash build from BEEFY uncompressed AuthorityIds.
+            root: v.beefy_next_authority_set.root.to_vec(),
+        };
+        let parachain_heads = v.leaf_extra;
+
+
+        ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::mmr_leaves_and_batch_proof::MmrLeaf {
+            // leaf version
+            version,
+            // parent number and hash
+            parent_number_and_hash,
+            // beefy next authority set.
+            beefy_next_authority_set ,
+            // merkle root hash of parachain heads included in the leaf.
+            parachain_heads,
+    }}).collect::<Vec<_>>();
+
+    let mmr_leaves_proof = beefy_light_client::mmr::MmrLeavesProof::try_from(mmr_proofs).unwrap();
+
+    let mmr_batch_proof = ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::mmr_leaves_and_batch_proof::MmrBatchProof {
+        // The index of the leaf the proof is for.
+        leaf_indexes: mmr_leaves_proof.leaf_indices,
+        // Number of leaves in MMR, when the proof was generated.
+        leaf_count: mmr_leaves_proof.leaf_count,
+        // Proof elements (hashes of siblings of inner nodes on the path to the leaf).
+        items: mmr_leaves_proof.items.into_iter().map(|v| v.to_vec()).collect(),
+    };
+
+    Ok(ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::mmr_leaves_and_batch_proof::MmrLeavesAndBatchProof {
+        leaves,
+        mmr_batch_proof: Some(mmr_batch_proof)
+    })
+}
+
 pub fn to_pb_beefy_mmr(
     bsc: beefy_light_client::commitment::SignedCommitment,
     mmr_batch_proof: mmr_rpc::LeavesProof<H256>,
