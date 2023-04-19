@@ -32,6 +32,7 @@ where
 
     // Construct the request, which is simply an enum variant
     let req = f(reply_sender);
+    println!("ys-debug=> req: {:?}", req);
 
     // Send the request
     request_sender

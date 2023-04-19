@@ -150,7 +150,6 @@ where
 
                             break;
                         },
-
                         ChainRequest::HealthCheck { reply_to } => {
                             self.health_check(reply_to)?
                         },
@@ -421,7 +420,9 @@ where
     }
 
     fn get_key(&mut self, reply_to: ReplyTo<AnySigningKeyPair>) -> Result<(), Error> {
+        println!("ys-debug=>get_key");
         let result = self.chain.get_key().map(Into::into);
+        println!("ys-debug=>get_key result: {:?}", result);
         reply_to.send(result).map_err(Error::send)
     }
 

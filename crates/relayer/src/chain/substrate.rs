@@ -13,6 +13,7 @@ use ibc_relayer_types::core::ics23_commitment::merkle::{apply_prefix, MerkleProo
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ChannelId, ConnectionId, PortId};
 use ibc_relayer_types::signer::Signer;
 use ibc_relayer_types::Height as ICSHeight;
+use std::{cmp::Ordering, thread};
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
 use tokio::runtime::Runtime as TokioRuntime;
 
@@ -833,6 +834,7 @@ pub struct SubstrateChain {
     rpc_client: OnlineClient<SubstrateConfig>,
     rt: Arc<TokioRuntime>,
     keybase: KeyRing<Secp256k1KeyPair>,
+    tx_monitor_cmd: Option<TxMonitorCmd>,
 }
 
 impl SubstrateChain {
@@ -891,6 +893,7 @@ impl ChainEndpoint for SubstrateChain {
             rpc_client,
             rt,
             keybase,
+            tx_monitor_cmd: None,
         })
     }
 
@@ -907,7 +910,17 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn subscribe(&mut self) -> Result<Subscription, Error> {
-        unimplemented!();
+        let tx_monitor_cmd = match &self.tx_monitor_cmd {
+            Some(tx_monitor_cmd) => tx_monitor_cmd,
+            None => {
+                let tx_monitor_cmd = self.init_event_monitor()?;
+                self.tx_monitor_cmd = Some(tx_monitor_cmd);
+                self.tx_monitor_cmd.as_ref().unwrap()
+            }
+        };
+
+        let subscription = tx_monitor_cmd.subscribe().map_err(Error::event_monitor)?;
+        Ok(subscription)
     }
 
     /// Does multiple RPC calls to the full node, to check for
@@ -964,166 +977,168 @@ impl ChainEndpoint for SubstrateChain {
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
         let proto_msgs = tracked_msgs.msgs;
-        let log_msg = proto_msgs
-            .clone()
-            .into_iter()
-            .map(|msg| {
-                ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::try_from(msg).unwrap()
-            })
-            .collect::<Vec<_>>();
-        for msg in log_msg.into_iter() {
-            match msg {
-                ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::Ics2Msg(value) => {
-                    match value {
-                        ibc_relayer_types::core::ics02_client::msgs::ClientMsg::CreateClient(
-                            value,
-                        ) => {
-                            println!("create client msg -------------------------- start");
-                            match value.client_state.type_url.as_str() {
-                                ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CLIENT_STATE_TYPE_URL => {
-                                    let v = ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState::try_from(value.client_state.clone()).unwrap();
-                                    println!("ics06 client state: {:?}", v);
-                                }
-                                ibc_relayer_types::clients::ics07_tendermint::client_state::TENDERMINT_CLIENT_STATE_TYPE_URL => {
-                                    let v = ibc_relayer_types::clients::ics07_tendermint::client_state::ClientState::try_from(value.client_state.clone());
-                                    println!("ics07 client state: {:?}", v);
-                                }
-                                _ => println!("unknown client state"),
-                            }
-                            match value.consensus_state.type_url.as_str() {
-                                ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CONSENSUS_STATE_TYPE_URL => {
-                                    let v = ibc_relayer_types::clients::ics06_solomachine::consensus_state::ConsensusState::try_from(value.consensus_state.clone()).unwrap();
-                                    println!("ics06 client state: {:?}", v);
-                                }
-                                ibc_relayer_types::clients::ics07_tendermint::consensus_state::TENDERMINT_CONSENSUS_STATE_TYPE_URL => {
-                                    let v = ibc_relayer_types::clients::ics07_tendermint::consensus_state::ConsensusState::try_from(value.consensus_state.clone());
-                                    println!("ics07 client state: {:?}", v);
-                                }
-                                _ => println!("unknown consensus state"),
-                            }
-                            println!("signer: {:?}", value.signer);
-                            println!("create client msg -------------------------- start");
-                        }
-                        ibc_relayer_types::core::ics02_client::msgs::ClientMsg::UpdateClient(
-                            value,
-                        ) => {
-                            // pub client_id: ClientId,
-                            println!("update client msg -------------------------- start");
-                            println!("client id: {}", value.client_id);
-                            // pub header: Any,
-                            match value.header.type_url.as_str() {
-                                ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_HEADER_TYPE_URL => {
-                                    let v = ibc_relayer_types::clients::ics06_solomachine::header::Header::try_from(value.header.clone()).unwrap();
-                                    println!("ics06 header : {:?}", v);
-                                }
-                                ibc_relayer_types::clients::ics07_tendermint::header::TENDERMINT_HEADER_TYPE_URL => {
-                                    let v = ibc_relayer_types::clients::ics07_tendermint::header::Header::try_from(value.header.clone()).unwrap();
-                                    println!("ics07 header : {}", v);
-                                }
-                                _ => println!("unknown header "),
-                            }
-                            // pub signer: Signer,
-                            println!("signer: {}", value.signer);
-                            println!("update client msg -------------------------- end");
-                        }
-                        ibc_relayer_types::core::ics02_client::msgs::ClientMsg::Misbehaviour(
-                            value,
-                        ) => {
-                            println!("misbehaviour: {value:?}");
-                        }
-                        ibc_relayer_types::core::ics02_client::msgs::ClientMsg::UpgradeClient(
-                            value,
-                        ) => {
-                            println!("upgrade client: {value:?}");
-                        }
-                    }
-                }
-                ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::Ics3Msg(value) => {
-                    match value {
-                        ibc_relayer_types::core::ics03_connection::msgs::ConnectionMsg::ConnectionOpenInit(
-                            value,
-                        ) => {println!("ConnectionOpenInit: {value:?}");}
-                        ibc_relayer_types::core::ics03_connection::msgs::ConnectionMsg::ConnectionOpenTry(
-                            value,
-                        ) => {
-                            println!("ConnectionOpenTry msg -------------------------- end");
-                            // pub previous_connection_id: Option<ConnectionId>,
-                            println!("previous_connection_id: {:?}", value.previous_connection_id);
-                            // pub client_id: ClientId,
-                            println!("client_id: {:?}", value.client_id);
-                            // pub client_state: Option<Any>,
-                            if let Some(value) = value.client_state {
-                                match value.type_url.as_str() {
-                                    ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CLIENT_STATE_TYPE_URL => {
-                                        let v = ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState::try_from(value.clone()).unwrap();
-                                        println!("ics06 client state: {:?}", v);
-                                    }
-                                    ibc_relayer_types::clients::ics07_tendermint::client_state::TENDERMINT_CLIENT_STATE_TYPE_URL => {
-                                        let v = ibc_relayer_types::clients::ics07_tendermint::client_state::ClientState::try_from(value.clone());
-                                        println!("ics07 client state: {:?}", v);
-                                    }
-                                    _ => println!("unknown client state"),
-                                }
-                            } else {
-                                println!("client state is None");
-                            }
-                            // pub counterparty: Counterparty,
-                            println!("counterparty: {:?}", value.counterparty);
-                            // pub counterparty_versions: Vec<Version>,
-                            println!("counterparty_versions: {:?}", value.counterparty_versions);
-                            // pub proofs: Proofs,
-                            println!("proofs: {:?}", value.proofs);
-                            // pub delay_period: Duration,
-                            println!("delay_period: {:?}", value.delay_period);
-                            // pub signer: Signer,
-                            println!("signer: {:?}", value.signer);
-                            println!("ConnectionOpenTry msg -------------------------- end");
-                        }
-                        ibc_relayer_types::core::ics03_connection::msgs::ConnectionMsg::ConnectionOpenAck(
-                            value,
-                        ) => {
-                            println!("ConnectionOpenAck msg -------------------------- end");
-                            // pub connection_id: ConnectionId,
-                            println!("connection_id: {:?}", value.connection_id);
-                            // pub counterparty_connection_id: ConnectionId,
-                            println!("counterparty_connection_id: {:?}", value.counterparty_connection_id);
-                            // pub client_state: Option<Any>,
-                            if let Some(value) = value.client_state {
-                                match value.type_url.as_str() {
-                                    ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CLIENT_STATE_TYPE_URL => {
-                                        let v = ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState::try_from(value.clone()).unwrap();
-                                        println!("ics06 client state: {:?}", v);
-                                    }
-                                    ibc_relayer_types::clients::ics07_tendermint::client_state::TENDERMINT_CLIENT_STATE_TYPE_URL => {
-                                        let v = ibc_relayer_types::clients::ics07_tendermint::client_state::ClientState::try_from(value.clone());
-                                        println!("ics07 client state: {:?}", v);
-                                    }
-                                    _ => println!("unknown client state"),
-                                }
-                            } else {
-                                println!("client state is None");
-                            }
-                            // pub proofs: Proofs,
-                            println!("proofs: {:?}", value.proofs);
-                            // pub version: Version,
-                            println!("version: {:?}", value.version);
-                            // pub signer: Signer,
-                            println!("signer: {}", value.signer);
-                            println!("ConnectionOpenAck msg -------------------------- end");
-                        }
-                        ibc_relayer_types::core::ics03_connection::msgs::ConnectionMsg::ConnectionOpenConfirm(
-                            value,
-                        ) => {println!("ConnectionOpenConfirm: {value:?}");}
-                    }
-                }
-                ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::Ics4ChannelMsg(
-                    value,
-                ) => println!("ics04 channel msg: {value:?}"),
-                ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::Ics4PacketMsg(
-                    value,
-                ) => println!("ics04 packet msg: {value:?}"),
-            }
-        }
+        // let log_msg = proto_msgs
+        //     .clone()
+        //     .into_iter()
+        //     .map(|msg| {
+        //         ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::try_from(msg).unwrap()
+        //     })
+        //     .collect::<Vec<_>>();
+        // for msg in log_msg.into_iter() {
+        //     match msg {
+        //         ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::Ics2Msg(value) => {
+        //             match value {
+        //                 ibc_relayer_types::core::ics02_client::msgs::ClientMsg::CreateClient(
+        //                     value,
+        //                 ) => {
+        //                     println!("create client msg -------------------------- start");
+        //                     match value.client_state.type_url.as_str() {
+        //                         ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CLIENT_STATE_TYPE_URL => {
+        //                             let v = ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState::try_from(value.client_state.clone()).unwrap();
+        //                             println!("ics06 client state: {:?}", v);
+        //                         }
+        //                         ibc_relayer_types::clients::ics07_tendermint::client_state::TENDERMINT_CLIENT_STATE_TYPE_URL => {
+        //                             let v = ibc_relayer_types::clients::ics07_tendermint::client_state::ClientState::try_from(value.client_state.clone());
+        //                             println!("ics07 client state: {:?}", v);
+        //                         }
+        //                         _ => println!("unknown client state"),
+        //                     }
+        //                     match value.consensus_state.type_url.as_str() {
+        //                         ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CONSENSUS_STATE_TYPE_URL => {
+        //                             let v = ibc_relayer_types::clients::ics06_solomachine::consensus_state::ConsensusState::try_from(value.consensus_state.clone()).unwrap();
+        //                             println!("ics06 client state: {:?}", v);
+        //                         }
+        //                         ibc_relayer_types::clients::ics07_tendermint::consensus_state::TENDERMINT_CONSENSUS_STATE_TYPE_URL => {
+        //                             let v = ibc_relayer_types::clients::ics07_tendermint::consensus_state::ConsensusState::try_from(value.consensus_state.clone());
+        //                             println!("ics07 client state: {:?}", v);
+        //                         }
+        //                         _ => println!("unknown consensus state"),
+        //                     }
+        //                     println!("signer: {:?}", value.signer);
+        //                     println!("create client msg -------------------------- start");
+        //                 }
+        //                 ibc_relayer_types::core::ics02_client::msgs::ClientMsg::UpdateClient(
+        //                     value,
+        //                 ) => {
+        //                     // pub client_id: ClientId,
+        //                     println!("update client msg -------------------------- start");
+        //                     println!("client id: {}", value.client_id);
+        //                     // pub header: Any,
+        //                     match value.header.type_url.as_str() {
+        //                         ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_HEADER_TYPE_URL => {
+        //                             let v = ibc_relayer_types::clients::ics06_solomachine::header::Header::try_from(value.header.clone()).unwrap();
+        //                             println!("ics06 header : {:?}", v);
+        //                         }
+        //                         ibc_relayer_types::clients::ics07_tendermint::header::TENDERMINT_HEADER_TYPE_URL => {
+        //                             let v = ibc_relayer_types::clients::ics07_tendermint::header::Header::try_from(value.header.clone()).unwrap();
+        //                             println!("ics07 header : {}", v);
+        //                         }
+        //                         _ => println!("unknown header "),
+        //                     }
+        //                     // pub signer: Signer,
+        //                     println!("signer: {}", value.signer);
+        //                     println!("update client msg -------------------------- end");
+        //                 }
+        //                 ibc_relayer_types::core::ics02_client::msgs::ClientMsg::Misbehaviour(
+        //                     value,
+        //                 ) => {
+        //                     println!("misbehaviour: {value:?}");
+        //                 }
+        //                 ibc_relayer_types::core::ics02_client::msgs::ClientMsg::UpgradeClient(
+        //                     value,
+        //                 ) => {
+        //                     println!("upgrade client: {value:?}");
+        //                 }
+        //             }
+        //         }
+        //         ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::Ics3Msg(value) => {
+        //             match value {
+        //                 ibc_relayer_types::core::ics03_connection::msgs::ConnectionMsg::ConnectionOpenInit(
+        //                     value,
+        //                 ) => {println!("ConnectionOpenInit: {value:?}");}
+        //                 ibc_relayer_types::core::ics03_connection::msgs::ConnectionMsg::ConnectionOpenTry(
+        //                     value,
+        //                 ) => {
+        //                     println!("ConnectionOpenTry msg -------------------------- end");
+        //                     // pub previous_connection_id: Option<ConnectionId>,
+        //                     println!("previous_connection_id: {:?}", value.previous_connection_id);
+        //                     // pub client_id: ClientId,
+        //                     println!("client_id: {:?}", value.client_id);
+        //                     // pub client_state: Option<Any>,
+        //                     if let Some(value) = value.client_state {
+        //                         match value.type_url.as_str() {
+        //                             ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CLIENT_STATE_TYPE_URL => {
+        //                                 let v = ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState::try_from(value.clone()).unwrap();
+        //                                 println!("ics06 client state: {:?}", v);
+        //                             }
+        //                             ibc_relayer_types::clients::ics07_tendermint::client_state::TENDERMINT_CLIENT_STATE_TYPE_URL => {
+        //                                 let v = ibc_relayer_types::clients::ics07_tendermint::client_state::ClientState::try_from(value.clone());
+        //                                 println!("ics07 client state: {:?}", v);
+        //                             }
+        //                             _ => println!("unknown client state"),
+        //                         }
+        //                     } else {
+        //                         println!("client state is None");
+        //                     }
+        //                     // pub counterparty: Counterparty,
+        //                     println!("counterparty: {:?}", value.counterparty);
+        //                     // pub counterparty_versions: Vec<Version>,
+        //                     println!("counterparty_versions: {:?}", value.counterparty_versions);
+        //                     // pub proofs: Proofs,
+        //                     println!("proofs: {:?}", value.proofs);
+        //                     // pub delay_period: Duration,
+        //                     println!("delay_period: {:?}", value.delay_period);
+        //                     // pub signer: Signer,
+        //                     println!("signer: {:?}", value.signer);
+        //                     println!("ConnectionOpenTry msg -------------------------- end");
+        //                 }
+        //                 ibc_relayer_types::core::ics03_connection::msgs::ConnectionMsg::ConnectionOpenAck(
+        //                     value,
+        //                 ) => {
+        //                     println!("ConnectionOpenAck msg -------------------------- end");
+        //                     // pub connection_id: ConnectionId,
+        //                     println!("connection_id: {:?}", value.connection_id);
+        //                     // pub counterparty_connection_id: ConnectionId,
+        //                     println!("counterparty_connection_id: {:?}", value.counterparty_connection_id);
+        //                     // pub client_state: Option<Any>,
+        //                     if let Some(value) = value.client_state {
+        //                         match value.type_url.as_str() {
+        //                             ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CLIENT_STATE_TYPE_URL => {
+        //                                 let v = ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState::try_from(value.clone()).unwrap();
+        //                                 println!("ics06 client state: {:?}", v);
+        //                             }
+        //                             ibc_relayer_types::clients::ics07_tendermint::client_state::TENDERMINT_CLIENT_STATE_TYPE_URL => {
+        //                                 let v = ibc_relayer_types::clients::ics07_tendermint::client_state::ClientState::try_from(value.clone());
+        //                                 println!("ics07 client state: {:?}", v);
+        //                             }
+        //                             _ => println!("unknown client state"),
+        //                         }
+        //                     } else {
+        //                         println!("client state is None");
+        //                     }
+        //                     // pub proofs: Proofs,
+        //                     println!("proofs: {:?}", value.proofs);
+        //                     // pub version: Version,
+        //                     println!("version: {:?}", value.version);
+        //                     // pub signer: Signer,
+        //                     println!("signer: {}", value.signer);
+        //                     println!("ConnectionOpenAck msg -------------------------- end");
+        //                 }
+        //                 ibc_relayer_types::core::ics03_connection::msgs::ConnectionMsg::ConnectionOpenConfirm(
+        //                     value,
+        //                 ) => {println!("ConnectionOpenConfirm: {value:?}");}
+        //             }
+        //         }
+        //         ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::Ics4ChannelMsg(
+        //             value,
+        //         ) => println!("ics04 channel msg: {value:?}"),
+        //         ibc_relayer_types::core::ics26_routing::msgs::Ics26Envelope::Ics4PacketMsg(
+        //             value,
+        //         ) => println!("ics04 packet msg: {value:?}"),
+        //     }
+        // }
+
+        use ibc::applications::transfer::msgs::transfer::TYPE_URL as TRANSFER_TYPE_URL;
 
         let msg: Vec<substrate::runtime_types::ibc_proto::google::protobuf::Any> = proto_msgs
             .iter()
@@ -1138,12 +1153,19 @@ impl ChainEndpoint for SubstrateChain {
             PairSigner::new(AccountKeyring::Alice.pair());
 
         let binding = self.rpc_client.tx();
-        // println!("msg: {:?}", msg);
-        let tx = substrate::tx().ibc().deliver(msg);
-
         let runtime = self.rt.clone();
+        let  result;
+        if msg.len() > 0 && msg[0].type_url == TRANSFER_TYPE_URL {
+            println!("ys-debug=> msg transfer");
+         let tx = substrate::tx().ics20_transfer().raw_transfer(msg);
         let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
-        let result = runtime.block_on(deliver);
+         result = runtime.block_on(deliver);
+        } else {
+         let tx = substrate::tx().ibc().deliver(msg);
+        let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
+         result = runtime.block_on(deliver);
+
+        }
         // println!("send_messages_and_wait_commit result: {:?}", result);
         let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
 
@@ -1187,6 +1209,19 @@ impl ChainEndpoint for SubstrateChain {
             Signer::from_str("0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a")
                 .unwrap(),
         )
+    }
+
+    fn get_key(&mut self) -> Result<Self::SigningKeyPair, Error> {
+        crate::time!("get_key");
+        println!("ys-debug=> key_pair: {:?}", self.keybase());
+
+        // Get the key from key seed file
+        let key_pair = self
+            .keybase()
+            .get_key(&self.config().key_name)
+            .map_err(|e| Error::key_not_found(self.config().key_name.clone(), e))?;
+
+        Ok(key_pair)
     }
 
     /// Get the chain configuration
@@ -1355,7 +1390,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryConsensusStateHeightsRequest,
     ) -> Result<Vec<ICSHeight>, Error> {
-        unimplemented!();
+        Ok(vec![])
     }
 
     fn query_client_connections(
@@ -1413,9 +1448,38 @@ impl ChainEndpoint for SubstrateChain {
 
     fn query_connection_channels(
         &self,
-        _request: QueryConnectionChannelsRequest,
+        request: QueryConnectionChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-        unimplemented!();
+        let connection_id =
+            substrate::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
+                request.connection_id.to_string(),
+            );
+        let n = request.pagination.map(|p| p.limit).unwrap_or(10);
+        let storage = substrate::storage()
+            .ibc()
+            .channels_connection(connection_id);
+        let pair = self
+            .rt
+            .block_on(self.rpc_client.storage().fetch(&storage, None))
+            .unwrap()
+            .unwrap();
+        let mut channels = vec![];
+        for (port_id, channel_id) in pair.iter() {
+            let storage = substrate::storage()
+                .ibc()
+                .channels(port_id.clone(), channel_id.clone());
+            let channel_end = self
+                .rt
+                .block_on(self.rpc_client.storage().fetch(&storage, None))
+                .unwrap()
+                .unwrap();
+            channels.push(IdentifiedChannelEnd::new(
+                PortId::from_str(&port_id.0).unwrap(),
+                ChannelId::from_str(&channel_id.0).unwrap(),
+                ChannelEnd::from(channel_end),
+            ));
+        }
+        Ok(channels)
     }
 
     fn query_channels(
@@ -1466,9 +1530,30 @@ impl ChainEndpoint for SubstrateChain {
     /// Queries the packet commitment hashes associated with a channel.
     fn query_packet_commitments(
         &self,
-        _request: QueryPacketCommitmentsRequest,
+        request: QueryPacketCommitmentsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
-        unimplemented!();
+             println!("ys-debug in query_packet_commitments {:?}", request);
+        // let storage = substrate::storage().ibc().client_counter();
+
+        // let n = self
+        //     .rt
+        //     .block_on(self.rpc_client.storage().fetch(&storage, None))
+        //     .unwrap()
+        //     .unwrap();
+
+        // let n = request.pagination.map(|p| p.limit).unwrap_or(10);
+        let n = 10;
+        let address = substrate::storage().ibc().packet_commitment_root();
+         let mut iter = self
+             .rt
+             .block_on(self.rpc_client.storage().iter(address, n as u32, None))
+             .unwrap();
+        // // let mut seqs = vec![];
+         while let Some((key, commit)) = self.rt.block_on(iter.next()).unwrap() {
+             println!("ys-debug commitments => {:?}, {:?}", key, commit);
+         }
+        // unimplemented!();
+        Ok((vec![], ICSHeight::new(0, 10).unwrap()))
     }
 
     fn query_packet_receipt(
@@ -1484,7 +1569,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryUnreceivedPacketsRequest,
     ) -> Result<Vec<Sequence>, Error> {
-        unimplemented!();
+        Ok(vec![])
     }
 
     fn query_packet_acknowledgement(
@@ -1500,7 +1585,7 @@ impl ChainEndpoint for SubstrateChain {
         &self,
         _request: QueryPacketAcknowledgementsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
-        unimplemented!();
+        Ok((vec![], ICSHeight::new(0, 10).unwrap()))
     }
 
     /// Queries the unreceived acknowledgements sequences associated with a channel.
@@ -1949,6 +2034,27 @@ impl ChainEndpoint for SubstrateChain {
 
         Proofs::new(channel_proof_bytes, None, None, None, height.increment())
             .map_err(Error::malformed_proof)
+    }
+}
+
+impl SubstrateChain {
+    fn init_event_monitor(&mut self) -> Result<TxMonitorCmd, Error> {
+        crate::time!("init_event_monitor");
+
+        let (mut event_monitor, monitor_tx) = EventMonitor::new(
+            self.config.id.clone(),
+            self.config.websocket_addr.clone(),
+            self.rt.clone(),
+        )
+        .map_err(Error::event_monitor)?;
+
+        event_monitor
+            .init_subscriptions()
+            .map_err(Error::event_monitor)?;
+
+        thread::spawn(move || event_monitor.run());
+
+        Ok(monitor_tx)
     }
 }
 

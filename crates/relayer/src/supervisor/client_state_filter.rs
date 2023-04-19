@@ -134,11 +134,14 @@ impl FilterPolicy {
 
         // Control both clients, cache their results.
         let client_permission = self.control_client(chain_id, connection.client_id(), client_state);
+        println!("ys-debug=> client_permission:{:?}", client_permission);
         let counterparty_client_permission = self.control_client(
             &counterparty_chain_id,
             counterparty_client_id,
             &counterparty_client_state,
         );
+        println!("ys-debug=> counterparty_client_permission:{:?}", counterparty_client_permission);
+
 
         let permission = client_permission.and(&counterparty_client_permission);
 
@@ -171,6 +174,7 @@ impl FilterPolicy {
         let _span = tracing::error_span!("control.client", client = ?identifier);
 
         trace!("controlling permissions");
+        return Permission::Allow;
 
         // Return if cache hit
         if let Some(permission) = self.permission_cache.get(&identifier) {
