@@ -37,7 +37,7 @@ pub async fn build_subchain_header_map(
         subchain_header_map.subchain_header_map.insert(
             block_number as u32,
             SubchainHeader {
-                chain_id: ChainId::from(chain_id),
+                chain_id: ChainId::from(chain_id.clone()),
                 block_header: encode_header,
                 timestamp: Some(timestamp),
             },
@@ -47,21 +47,21 @@ pub async fn build_subchain_header_map(
 }
 
 /// build merkle proof for validator
-pub async fn build_validator_proof(
+pub fn build_validator_proof(
     rt: Arc<TokioRuntime>,
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
     block_number: u32,
 ) -> Result<Vec<beefy_light_client::ValidatorMerkleProof>, Error> {
-    // get block hash
-    let block_hash = relay_rpc_client
-        .rpc()
-        .block_hash(Some(BlockNumber::from(block_number)))
-        .await
-        .unwrap();
-
-    let storage = relaychain_node::storage().beefy().authorities();
-
     let closure = async {
+        // get block hash
+        let block_hash = relay_rpc_client
+            .rpc()
+            .block_hash(Some(BlockNumber::from(block_number)))
+            .await
+            .unwrap();
+
+        let storage = relaychain_node::storage().beefy().authorities();
+
         relay_rpc_client
             .storage()
             .at(block_hash)
@@ -224,3 +224,139 @@ pub fn build_mmr_proofs(
         Ok(result)
     }
 }
+
+pub fn to_pb_beefy_mmr(
+    bsc: beefy_light_client::commitment::SignedCommitment,
+    mmr_batch_proof: mmr_rpc::LeavesProof<H256>,
+    authority_proof: Vec<beefy_light_client::ValidatorMerkleProof>,
+) -> ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::BeefyMmr {
+    let data = bsc
+        .commitment
+        .payload
+        .get_raw(&beefy_light_client::commitment::known_payload_ids::MMR_ROOT_ID)
+        .unwrap();
+
+    let payload_item = ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::signed_commitment::PayloadItem {
+        // 2-byte payload id
+        id: beefy_light_client::commitment::known_payload_ids::MMR_ROOT_ID.to_vec(),
+        // arbitrary length payload data., eg mmr_root_hash
+        data: data.clone(),
+    };
+    let commitment = ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::signed_commitment::Commitment {
+        // array of payload items signed by Beefy validators
+        payloads: vec![payload_item],
+        // block number for this commitment
+        block_number: bsc.commitment.block_number,
+        // validator set that signed this commitment
+        validator_set_id: bsc.commitment.validator_set_id,
+    };
+
+    let mut signatures = vec![];
+    bsc.signatures.iter().enumerate().for_each(|(idx, value)| {
+        if let Some(v) = value {
+            let ret = ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::signed_commitment::Signature {
+                index: idx as u32,
+               signature: v.0.to_vec()
+            };
+            signatures.push(ret);
+        }
+    });
+
+    let pb_commitment = ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::signed_commitment::SignedCommitment {
+        /// commitment data being signed
+        commitment: Some(commitment),
+        /// all the signatures
+        signatures,
+    };
+
+    todo!()
+}
+
+// func ToPBBeefyMMR(bsc beefy.SignedCommitment, mmrBatchProof beefy.MmrProofsResp, authorityProof [][]byte) BeefyMMR {
+
+// 	// bsc := beefy.ConvertCommitment(sc)
+// 	pbPalyloads := make([]PayloadItem, len(bsc.Commitment.Payload))
+// 	for i, v := range bsc.Commitment.Payload {
+// 		pbPalyloads[i] = PayloadItem{
+// 			Id:   v.ID[:],
+// 			Data: v.Data,
+// 		}
+
+// 	}
+
+// 	pbCommitment := Commitment{
+// 		Payloads:       pbPalyloads,
+// 		BlockNumber:    bsc.Commitment.BlockNumber,
+// 		ValidatorSetId: bsc.Commitment.ValidatorSetID,
+// 	}
+
+// 	pb := make([]Signature, len(bsc.Signatures))
+// 	for i, v := range bsc.Signatures {
+// 		pb[i] = Signature(v)
+// 	}
+
+// 	pbsc := SignedCommitment{
+// 		Commitment: pbCommitment,
+// 		Signatures: pb,
+// 	}
+// 	// convert mmrleaf
+// 	var pbMMRLeaves []MMRLeaf
+
+// 	leafNum := len(mmrBatchProof.Leaves)
+// 	for i := 0; i < leafNum; i++ {
+// 		leaf := mmrBatchProof.Leaves[i]
+// 		parentNumAndHash := ParentNumberAndHash{
+// 			ParentNumber: uint32(leaf.ParentNumberAndHash.ParentNumber),
+// 			ParentHash:   []byte(leaf.ParentNumberAndHash.Hash[:]),
+// 		}
+// 		nextAuthoritySet := BeefyAuthoritySet{
+// 			Id:   uint64(leaf.BeefyNextAuthoritySet.ID),
+// 			Len:  uint32(leaf.BeefyNextAuthoritySet.Len),
+// 			Root: []byte(leaf.BeefyNextAuthoritySet.Root[:]),
+// 		}
+// 		parachainHeads := []byte(leaf.ParachainHeads[:])
+// 		gLeaf := MMRLeaf{
+// 			Version:               uint32(leaf.Version),
+// 			ParentNumberAndHash:   parentNumAndHash,
+// 			BeefyNextAuthoritySet: nextAuthoritySet,
+// 			ParachainHeads:        parachainHeads,
+// 		}
+// 		// Logger.Info("gLeaf: ", gLeaf)
+// 		pbMMRLeaves = append(pbMMRLeaves, gLeaf)
+// 	}
+
+// 	// convert mmr batch proof
+// 	pbLeafIndexes := make([]uint64, len(mmrBatchProof.Proof.LeafIndexes))
+// 	for i, v := range mmrBatchProof.Proof.LeafIndexes {
+// 		pbLeafIndexes[i] = uint64(v)
+// 	}
+
+// 	pbProofItems := [][]byte{}
+// 	itemNum := len(mmrBatchProof.Proof.Items)
+// 	for i := 0; i < itemNum; i++ {
+// 		item := mmrBatchProof.Proof.Items[i][:]
+// 		pbProofItems = append(pbProofItems, item)
+
+// 	}
+
+// 	pbBatchProof := MMRBatchProof{
+// 		LeafIndexes: pbLeafIndexes,
+// 		LeafCount:   uint64(mmrBatchProof.Proof.LeafCount),
+// 		Items:       pbProofItems,
+// 	}
+
+// 	pbMmrLevavesAndProof := MMRLeavesAndBatchProof{
+// 		Leaves:        pbMMRLeaves,
+// 		MmrBatchProof: pbBatchProof,
+// 	}
+// 	leafIndex := beefy.ConvertBlockNumberToMmrLeafIndex(uint32(beefy.BEEFY_ACTIVATION_BLOCK), bsc.Commitment.BlockNumber)
+// 	mmrSize := mmr.LeafIndexToMMRSize(uint64(leafIndex))
+// 	// build pbBeefyMMR
+// 	pbBeefyMMR := BeefyMMR{
+// 		SignedCommitment:       pbsc,
+// 		SignatureProofs:        authorityProof,
+// 		MmrLeavesAndBatchProof: pbMmrLevavesAndProof,
+// 		MmrSize:                mmrSize,
+// 	}
+// 	return pbBeefyMMR
+// }

@@ -46,6 +46,9 @@ primitive-types = { version = "0.12.1", default-features = false, features = ["s
 dyn-clone = "1.0.8"
 num-rational = "0.4.1"
 
+# beefy
+beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "main" }
+
 [dependencies.tendermint]
 version = "0.28.0"
 default-features = false

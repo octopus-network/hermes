@@ -40,7 +40,7 @@ impl TryFrom<RawHeader> for Header {
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
         Ok(Self {
-            beefy_mmr: raw.beefy_mmr.map(Into::into),
+            beefy_mmr: raw.beefy_mmr.map(TryInto::try_into).transpose()?,
             message: raw.message.map(|msg| match msg {
                 RawMessage::ParachainHeaderMap(v) => message::Message::ParachainHeaderMap(v.into()),
                 RawMessage::SubchainHeaderMap(v) => message::Message::SubchainHeaderMap(v.into()),

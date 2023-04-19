@@ -1781,6 +1781,20 @@ impl ChainEndpoint for SubstrateChain {
                         block_number,
                         validator_set_id,
                     } = signed_commitment.commitment;
+
+                    let authorityProof =
+                        utils::build_validator_proof(rt.clone(), relay_rpc_client, block_number)
+                            .unwrap();
+
+                    let target_heights = vec![block_number - 1];
+                    let mmrBatchProof = utils::build_mmr_proofs(
+                        rt.clone(),
+                        relay_rpc_client,
+                        target_heights,
+                        Some(block_number),
+                        None,
+                    )
+                    .unwrap();
                 };
             };
             todo!()

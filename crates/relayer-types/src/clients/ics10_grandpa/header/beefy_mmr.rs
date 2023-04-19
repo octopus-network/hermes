@@ -27,14 +27,18 @@ pub struct BeefyMmr {
 
 impl Protobuf<RawBeefyMmr> for BeefyMmr {}
 
-impl From<RawBeefyMmr> for BeefyMmr {
-    fn from(raw: RawBeefyMmr) -> Self {
-        Self {
+impl TryFrom<RawBeefyMmr> for BeefyMmr {
+    type Error = Error;
+    fn try_from(raw: RawBeefyMmr) -> Result<Self, Self::Error> {
+        Ok(Self {
             signed_commitment: raw.signed_commitment.map(Into::into),
             signature_proofs: raw.signature_proofs,
-            mmr_leaves_and_batch_proof: raw.mmr_leaves_and_batch_proof.map(Into::into),
+            mmr_leaves_and_batch_proof: raw
+                .mmr_leaves_and_batch_proof
+                .map(TryInto::try_into)
+                .transpose()?,
             mmr_size: raw.mmr_size,
-        }
+        })
     }
 }
 

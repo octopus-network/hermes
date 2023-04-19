@@ -20,12 +20,17 @@ pub struct MmrLeavesAndBatchProof {
 
 impl Protobuf<RawMmrLeavesAndBatchProof> for MmrLeavesAndBatchProof {}
 
-impl From<RawMmrLeavesAndBatchProof> for MmrLeavesAndBatchProof {
-    fn from(raw: RawMmrLeavesAndBatchProof) -> Self {
-        Self {
-            leaves: raw.leaves.into_iter().map(Into::into).collect::<Vec<_>>(),
+impl TryFrom<RawMmrLeavesAndBatchProof> for MmrLeavesAndBatchProof {
+    type Error = Error;
+    fn try_from(raw: RawMmrLeavesAndBatchProof) -> Result<Self, Self::Error> {
+        Ok(Self {
+            leaves: raw
+                .leaves
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, Error>>()?,
             mmr_batch_proof: raw.mmr_batch_proof.map(Into::into),
-        }
+        })
     }
 }
 
@@ -75,23 +80,30 @@ pub struct MmrLeaf {
     /// leaf version
     pub version: u32,
     /// parent number and hash
-    pub parent_number_and_hash: Option<ParentNumberAndHash>,
+    pub parent_number_and_hash: ParentNumberAndHash,
     /// beefy next authority set.
-    pub beefy_next_authority_set: Option<BeefyAuthoritySet>,
+    pub beefy_next_authority_set: BeefyAuthoritySet,
     /// merkle root hash of parachain heads included in the leaf.
     pub parachain_heads: Vec<u8>,
 }
 
 impl Protobuf<RawMmrLeaf> for MmrLeaf {}
 
-impl From<RawMmrLeaf> for MmrLeaf {
-    fn from(raw: RawMmrLeaf) -> Self {
-        Self {
+impl TryFrom<RawMmrLeaf> for MmrLeaf {
+    type Error = Error;
+    fn try_from(raw: RawMmrLeaf) -> Result<Self, Self::Error> {
+        Ok(Self {
             version: raw.version,
-            parent_number_and_hash: raw.parent_number_and_hash.map(Into::into),
-            beefy_next_authority_set: raw.beefy_next_authority_set.map(Into::into),
+            parent_number_and_hash: raw
+                .parent_number_and_hash
+                .ok_or_else(|| Error::missing_parent_number_and_hash())?
+                .into(),
+            beefy_next_authority_set: raw
+                .beefy_next_authority_set
+                .ok_or_else(|| Error::missing_beefy_next_authority_set())?
+                .into(),
             parachain_heads: raw.parachain_heads,
-        }
+        })
     }
 }
 
@@ -99,8 +111,8 @@ impl From<MmrLeaf> for RawMmrLeaf {
     fn from(value: MmrLeaf) -> Self {
         Self {
             version: value.version,
-            parent_number_and_hash: value.parent_number_and_hash.map(Into::into),
-            beefy_next_authority_set: value.beefy_next_authority_set.map(Into::into),
+            parent_number_and_hash: Some(value.parent_number_and_hash.into()),
+            beefy_next_authority_set: Some(value.beefy_next_authority_set.into()),
             parachain_heads: value.parachain_heads,
         }
     }

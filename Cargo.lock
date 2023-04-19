@@ -2528,6 +2528,7 @@ dependencies = [
  "signature",
  "sp-core 18.0.0",
  "sp-keyring",
+ "sp-mmr-primitives",
  "strum",
  "subtle-encoding",
  "subxt",
@@ -2607,6 +2608,7 @@ dependencies = [
 name = "ibc-relayer-types"
 version = "0.22.0"
 dependencies = [
+ "beefy-light-client",
  "bytes",
  "derive_more",
  "dyn-clone",

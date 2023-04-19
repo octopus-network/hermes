@@ -287,6 +287,12 @@ define_error! {
 
         MissingFrozenHeight
             | _ | format!("missing frozen height"),
+
+        MissingParentNumberAndHash
+            | _ | format!("missing parent number and hash"),
+
+        MissingBeefyNextAuthoritySet
+            | _ | format!("missing beefy next authority set"),
     }
 }
 
