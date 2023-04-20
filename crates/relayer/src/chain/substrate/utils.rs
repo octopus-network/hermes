@@ -204,8 +204,8 @@ pub async fn build_mmr_proofs(
 }
 
 pub fn convert_mmrproof(proofs: mmr_rpc::LeavesProof<H256>) -> Result<ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::mmr_leaves_and_batch_proof::MmrLeavesAndBatchProof, Error>{
-    let mmr_leavfs: Vec<u8> = codec::Decode::decode(&mut &proofs.leaves.0[..]).unwrap();
-    let mmr_proofs: Vec<u8> = codec::Decode::decode(&mut &proofs.proof.0[..]).unwrap();
+    let mmr_leavfs = &proofs.leaves[..].to_vec();
+    let mmr_proofs = &proofs.proof[..].to_vec();
 
     let leaves = beefy_light_client::mmr::decode_mmr_leaves(mmr_leavfs).unwrap().into_iter().map(|v| {
         let version = v.version.0 as u32;
