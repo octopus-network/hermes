@@ -321,9 +321,9 @@ pub fn to_pb_beefy_mmr(
         signatures,
     };
 
-    let leaf_index = convert_block_number_to_mmr_leaf_index(0, bsc.commitment.block_number); // todo
+    let leaf_index = convert_block_number_to_mmr_leaf_index(0, bsc.commitment.block_number); // todo first paramment
 
-    let size = beefy_light_client::mmr::NodesUtils::new(leaf_index).size();
+    let size = beefy_light_client::mmr::NodesUtils::new(leaf_index).size(); // todo need correct function calclute
     ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::BeefyMmr {
         // signed commitment data
         signed_commitment: Some(pb_commitment),

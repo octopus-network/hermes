@@ -1757,17 +1757,13 @@ impl ChainEndpoint for SubstrateChain {
                     let client = relay_rpc_client.clone();
 
                     // subscribe beefy justification and get signed commitment
-                    let result = async {
-                        let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
-                            .await
-                            .unwrap();
+                    let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
+                        .await
+                        .unwrap();
 
-                        sub.next().await.unwrap().unwrap().0
-                    };
-                    let raw_signed_commitment = rt.block_on(result);
+                    let raw_signed_commitment = sub.next().await.unwrap().unwrap().0;
 
                     // decode signed commitment
-
                     let beefy_light_client::commitment::VersionedFinalityProof::V1(
                         signed_commitment,
                     ) = beefy_light_client::commitment::VersionedFinalityProof::decode(
@@ -1780,14 +1776,14 @@ impl ChainEndpoint for SubstrateChain {
                         payload,
                         block_number,
                         validator_set_id,
-                    } = signed_commitment.commitment;
+                    } = signed_commitment.commitment.clone();
 
-                    let authorityProof =
+                    let authority_proof =
                         utils::build_validator_proof(rt.clone(), relay_rpc_client, block_number)
                             .unwrap();
 
                     let target_heights = vec![block_number - 1];
-                    let mmrBatchProof = utils::build_mmr_proofs(
+                    let mmr_batch_proof = utils::build_mmr_proofs(
                         rt.clone(),
                         relay_rpc_client,
                         target_heights,
@@ -1795,9 +1791,33 @@ impl ChainEndpoint for SubstrateChain {
                         None,
                     )
                     .unwrap();
+
+                    let beefy_mmr = utils::to_pb_beefy_mmr(
+                        signed_commitment,
+                        mmr_batch_proof.clone(),
+                        authority_proof,
+                    );
+
+                    let mmr_leaves_proof =
+                        beefy_light_client::mmr::MmrLeavesProof::try_from(mmr_batch_proof.proof.0)
+                            .unwrap();
+
+                    let message = utils::build_subchain_header_map(
+                        rt.clone(),
+                        relay_rpc_client,
+                        mmr_leaves_proof.leaf_indices,
+                        "sub-0".to_string(), // todo
+                    );
+                    GpHeader {
+                        // the latest mmr data
+                        beefy_mmr: Some(beefy_mmr),
+                        // only one header
+                        message: None,
+                    }
                 };
-            };
-            todo!()
+                let result = rt.block_on(future);
+                Ok((result, vec![]))
+            }
         }
 
         match &self.rpc_client {
