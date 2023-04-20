@@ -77,11 +77,6 @@ pub struct AllowUpdate {
 }
 
 impl ClientState {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new() -> Result<ClientState, Error> {
-        todo!()
-    }
-
     pub fn latest_height(&self) -> Height {
         self.latest_chain_height
     }
@@ -111,7 +106,7 @@ impl Ics2ClientState for ClientState {
         self.latest_height()
     }
 
-    // todo
+    // https://github.com/octopus-network/ibc-go/blob/cc25e9b73c3daa2269081f65b23971e7030864d5/modules/light-clients/10-grandpa/types/client_state.go#L80
     fn frozen_height(&self) -> Option<Height> {
         None
     }
@@ -122,10 +117,9 @@ impl Ics2ClientState for ClientState {
         upgrade_options: &dyn CoreUpgradeOptions,
         chain_id: ChainId,
     ) {
-        todo!()
     }
 
-    // todo
+    // https://github.com/octopus-network/ibc-go/blob/cc25e9b73c3daa2269081f65b23971e7030864d5/modules/light-clients/10-grandpa/types/client_state.go#L97
     fn expired(&self, elapsed: Duration) -> bool {
         false
     }

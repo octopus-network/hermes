@@ -20,7 +20,6 @@ pub const GRANDPA_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1
 pub struct ConsensusState {
     /// timestamp that corresponds to the block height in which the ConsensusState
     /// was stored.
-    // toto(davirian), maybe timestamp need replace to anyther time.
     pub timestamp: Time,
     /// parachain header.state_root that used to verify chain storage proof
     pub root: CommitmentRoot,

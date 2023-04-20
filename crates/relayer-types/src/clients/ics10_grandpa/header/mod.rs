@@ -27,9 +27,10 @@ pub struct Header {
 }
 
 impl Header {
+    // https://github.com/octopus-network/ibc-go/blob/cc25e9b73c3daa2269081f65b23971e7030864d5/modules/light-clients/10-grandpa/types/header.go#L41
     pub fn height(&self) -> Height {
         // match self.message {}
-        todo!()
+        todo!() // need todo
     }
 }
 
@@ -70,8 +71,9 @@ impl crate::core::ics02_client::header::Header for Header {
         self.height()
     }
 
+    // https://github.com/octopus-network/ibc-go/blob/cc25e9b73c3daa2269081f65b23971e7030864d5/modules/light-clients/10-grandpa/types/header.go#L62
     fn timestamp(&self) -> Timestamp {
-        todo!()
+        todo!() // need todo
     }
 }
 
