@@ -13,7 +13,6 @@ use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
 use tokio::runtime::Runtime as TokioRuntime;
 
 pub async fn build_subchain_header_map(
-    rt: Arc<TokioRuntime>,
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
     leaf_indexes: Vec<u64>,
     chain_id: String,
@@ -33,7 +32,9 @@ pub async fn build_subchain_header_map(
             .unwrap()
             .unwrap();
         let encode_header = codec::Encode::encode(&block_header);
-        let timestamp = build_time_stamp_proof(rt.clone(), relay_rpc_client, block_hash).unwrap();
+        let timestamp = build_time_stamp_proof(relay_rpc_client, block_hash)
+            .await
+            .unwrap();
         subchain_header_map.subchain_header_map.insert(
             block_number as u32,
             SubchainHeader {
@@ -47,31 +48,28 @@ pub async fn build_subchain_header_map(
 }
 
 /// build merkle proof for validator
-pub fn build_validator_proof(
-    rt: Arc<TokioRuntime>,
+pub async fn build_validator_proof(
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
     block_number: u32,
 ) -> Result<Vec<beefy_light_client::ValidatorMerkleProof>, Error> {
-    let closure = async {
-        // get block hash
-        let block_hash = relay_rpc_client
-            .rpc()
-            .block_hash(Some(BlockNumber::from(block_number)))
-            .await
-            .unwrap();
+    // get block hash
+    let block_hash = relay_rpc_client
+        .rpc()
+        .block_hash(Some(BlockNumber::from(block_number)))
+        .await
+        .unwrap();
 
-        let storage = relaychain_node::storage().beefy().authorities();
+    let storage = relaychain_node::storage().beefy().authorities();
 
-        relay_rpc_client
-            .storage()
-            .at(block_hash)
-            .await
-            .unwrap()
-            .fetch(&storage)
-            .await
-            .unwrap()
-    };
-    let authorities = rt.block_on(closure).unwrap();
+    let authorities = relay_rpc_client
+        .storage()
+        .at(block_hash)
+        .await
+        .unwrap()
+        .fetch(&storage)
+        .await
+        .unwrap()
+        .unwrap();
 
     // covert authorities to strings
     let authority_strs: Vec<String> = authorities
@@ -115,13 +113,12 @@ pub fn build_validator_proof(
     Ok(validator_merkle_proofs)
 }
 
-pub fn build_time_stamp_proof(
-    rt: Arc<TokioRuntime>,
+pub async fn build_time_stamp_proof(
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
     block_hash: H256,
 ) -> Result<StateProof, Error> {
-    let time_stamp_value = get_time_stamp_value(rt.clone(), relay_rpc_client, block_hash)?;
-    let time_stamp_proof = get_time_stamp_proof(rt, relay_rpc_client, block_hash)?;
+    let time_stamp_value = get_time_stamp_value(relay_rpc_client, block_hash).await?;
+    let time_stamp_proof = get_time_stamp_proof(relay_rpc_client, block_hash).await?;
 
     let storage_key = relaychain_node::storage().timestamp().now();
     let time_stamp_proof = StateProof {
@@ -134,94 +131,75 @@ pub fn build_time_stamp_proof(
 }
 
 // ref: https://github.com/octopus-network/beefy-go/blob/2768424da33fecd82f3145f0e683820600b7f944/beefy/timestamp.go#L42
-pub fn get_time_stamp_value(
-    rt: Arc<TokioRuntime>,
+pub async fn get_time_stamp_value(
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
     block_hash: H256,
 ) -> Result<u64, Error> {
     let storage = relaychain_node::storage().timestamp().now();
 
-    let closure = async {
-        relay_rpc_client
-            .storage()
-            .at(Some(block_hash))
-            .await
-            .unwrap()
-            .fetch(&storage)
-            .await
-            .unwrap()
-    };
-    let time_stamp = rt.block_on(closure).unwrap();
+    let time_stamp = relay_rpc_client
+        .storage()
+        .at(Some(block_hash))
+        .await
+        .unwrap()
+        .fetch(&storage)
+        .await
+        .unwrap()
+        .unwrap();
 
     Ok(time_stamp)
 }
 
-pub fn get_time_stamp_proof(
-    rt: Arc<TokioRuntime>,
+pub async fn get_time_stamp_proof(
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
     block_hash: H256,
 ) -> Result<subxt::rpc::types::ReadProof<H256>, Error> {
-    let call_closure = async {
-        let storage_key = relaychain_node::storage().timestamp().now();
-        relay_rpc_client
-            .rpc()
-            .read_proof(vec![storage_key.to_bytes().as_ref()], Some(block_hash))
-            .await
-            .unwrap()
-    };
-    let result = rt.block_on(call_closure);
+    let storage_key = relaychain_node::storage().timestamp().now();
+    let result = relay_rpc_client
+        .rpc()
+        .read_proof(vec![storage_key.to_bytes().as_ref()], Some(block_hash))
+        .await
+        .unwrap();
     Ok(result)
 }
 
 // get mmr proofs for the given indexes without blockhash
-pub fn build_mmr_proofs(
-    rt: Arc<TokioRuntime>,
+pub async fn build_mmr_proofs(
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
     block_numbers: Vec<u32>,
     best_known_block_number: Option<u32>,
     at: Option<H256>,
 ) -> Result<mmr_rpc::LeavesProof<H256>, Error> {
     if let Some(best_know_block_number) = best_known_block_number {
-        let call_closure = async {
-            let mut block_number = block_numbers.clone();
-            block_number.sort();
-            let block_number: Vec<BlockNumber> =
-                block_number.into_iter().map(|v| v.into()).collect();
-            // best_known_block_number must ET all the blockNumbers
-            if best_know_block_number
-                < u32::try_from(block_numbers[block_numbers.len() - 1]).unwrap()
-            {
-                panic!("best_known_block_number must > all the blockNumbers")
-            }
-            let best_known_block_number: Option<BlockNumber> =
-                Some(BlockNumber::from(best_know_block_number));
+        // let call_closure = async {
+        let mut block_number = block_numbers.clone();
+        block_number.sort();
+        let block_number: Vec<BlockNumber> = block_number.into_iter().map(|v| v.into()).collect();
+        // best_known_block_number must ET all the blockNumbers
+        if best_know_block_number < u32::try_from(block_numbers[block_numbers.len() - 1]).unwrap() {
+            panic!("best_known_block_number must > all the blockNumbers")
+        }
+        let best_known_block_number: Option<BlockNumber> =
+            Some(BlockNumber::from(best_know_block_number));
 
-            let params = subxt::rpc_params![block_number, best_known_block_number, at];
-            let leaves_proof_result: mmr_rpc::LeavesProof<H256> = relay_rpc_client
-                .rpc()
-                .request("mmr_generateProof", params)
-                .await
-                .unwrap();
-            leaves_proof_result
-        };
-        let result = rt.block_on(call_closure);
-        Ok(result)
+        let params = subxt::rpc_params![block_number, best_known_block_number, at];
+        let leaves_proof_result: mmr_rpc::LeavesProof<H256> = relay_rpc_client
+            .rpc()
+            .request("mmr_generateProof", params)
+            .await
+            .unwrap();
+        Ok(leaves_proof_result)
     } else {
-        let call_closure = async {
-            let block_numner: Vec<BlockNumber> =
-                block_numbers.into_iter().map(|v| v.into()).collect();
-            let best_known_block_number: Option<BlockNumber> = None;
+        let block_numner: Vec<BlockNumber> = block_numbers.into_iter().map(|v| v.into()).collect();
+        let best_known_block_number: Option<BlockNumber> = None;
 
-            let params = subxt::rpc_params![block_numner, best_known_block_number, at];
-            let leaves_proof_result: mmr_rpc::LeavesProof<H256> = relay_rpc_client
-                .rpc()
-                .request("mmr_generateProof", params)
-                .await
-                .unwrap();
-            leaves_proof_result
-        };
-        let result = rt.block_on(call_closure);
-        Ok(result)
+        let params = subxt::rpc_params![block_numner, best_known_block_number, at];
+        let leaves_proof_result: mmr_rpc::LeavesProof<H256> = relay_rpc_client
+            .rpc()
+            .request("mmr_generateProof", params)
+            .await
+            .unwrap();
+        Ok(leaves_proof_result)
     }
 }
 

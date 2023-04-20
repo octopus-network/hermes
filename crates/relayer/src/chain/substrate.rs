@@ -1723,8 +1723,7 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
         crate::time!("build_header");
 
-        fn build_header(
-            rt: Arc<TokioRuntime>,
+        async fn build_header(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             trusted_height: ICSHeight,
@@ -1753,69 +1752,69 @@ impl ChainEndpoint for SubstrateChain {
                 let mmr_root_height = grandpa_client_state.latest_height();
 
                 // build target height header
-                let future = async {
-                    let client = relay_rpc_client.clone();
 
-                    // subscribe beefy justification and get signed commitment
-                    let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
-                        .await
-                        .unwrap();
+                let client = relay_rpc_client.clone();
 
-                    let raw_signed_commitment = sub.next().await.unwrap().unwrap().0;
+                // subscribe beefy justification and get signed commitment
+                let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
+                    .await
+                    .unwrap();
 
-                    // decode signed commitment
-                    let beefy_light_client::commitment::VersionedFinalityProof::V1(
-                        signed_commitment,
-                    ) = beefy_light_client::commitment::VersionedFinalityProof::decode(
+                let raw_signed_commitment = sub.next().await.unwrap().unwrap().0;
+
+                // decode signed commitment
+                let beefy_light_client::commitment::VersionedFinalityProof::V1(signed_commitment) =
+                    beefy_light_client::commitment::VersionedFinalityProof::decode(
                         &mut &raw_signed_commitment[..],
                     )
                     .unwrap();
 
-                    // get commitment
-                    let beefy_light_client::commitment::Commitment {
-                        payload,
-                        block_number,
-                        validator_set_id,
-                    } = signed_commitment.commitment.clone();
+                // get commitment
+                let beefy_light_client::commitment::Commitment {
+                    payload,
+                    block_number,
+                    validator_set_id,
+                } = signed_commitment.commitment.clone();
 
-                    let authority_proof =
-                        utils::build_validator_proof(rt.clone(), relay_rpc_client, block_number)
-                            .unwrap();
-
-                    let target_heights = vec![block_number - 1];
-                    let mmr_batch_proof = utils::build_mmr_proofs(
-                        rt.clone(),
-                        relay_rpc_client,
-                        target_heights,
-                        Some(block_number),
-                        None,
-                    )
+                let authority_proof = utils::build_validator_proof(relay_rpc_client, block_number)
+                    .await
                     .unwrap();
 
-                    let beefy_mmr = utils::to_pb_beefy_mmr(
-                        signed_commitment,
-                        mmr_batch_proof.clone(),
-                        authority_proof,
-                    );
+                let target_heights = vec![block_number - 1];
+                let mmr_batch_proof = utils::build_mmr_proofs(
+                    relay_rpc_client,
+                    target_heights,
+                    Some(block_number),
+                    None,
+                )
+                .await
+                .unwrap();
 
-                    let mmr_leaves_proof =
-                        beefy_light_client::mmr::MmrLeavesProof::try_from(mmr_batch_proof.proof.0)
-                            .unwrap();
+                let beefy_mmr = utils::to_pb_beefy_mmr(
+                    signed_commitment,
+                    mmr_batch_proof.clone(),
+                    authority_proof,
+                );
 
-                    let message = utils::build_subchain_header_map(
-                        rt.clone(),
-                        relay_rpc_client,
-                        mmr_leaves_proof.leaf_indices,
-                        "sub-0".to_string(), // todo
-                    );
-                    GpHeader {
-                        // the latest mmr data
-                        beefy_mmr: Some(beefy_mmr),
-                        // only one header
-                        message: None,
-                    }
+                let mmr_leaves_proof =
+                    beefy_light_client::mmr::MmrLeavesProof::try_from(mmr_batch_proof.proof.0)
+                        .unwrap();
+
+                let message = utils::build_subchain_header_map(
+                    relay_rpc_client,
+                    mmr_leaves_proof.leaf_indices,
+                    "sub-0".to_string(), // todo
+                )
+                .await
+                .unwrap();
+
+                let result = GpHeader {
+                    // the latest mmr data
+                    beefy_mmr: Some(beefy_mmr),
+                    // only one header
+                    message: None,
                 };
-                let result = rt.block_on(future);
+
                 Ok((result, vec![]))
             }
         }
@@ -1824,22 +1823,20 @@ impl ChainEndpoint for SubstrateChain {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => build_header(
-                self.rt.clone(),
+            } => self.rt.block_on(build_header(
                 relay_rpc,
                 Some(para_rpc),
                 trusted_height,
                 target_height,
                 client_state,
-            ),
-            RpcClient::SubChainRpc { rpc } => build_header(
-                self.rt.clone(),
+            )),
+            RpcClient::SubChainRpc { rpc } => self.rt.block_on(build_header(
                 rpc,
                 None,
                 trusted_height,
                 target_height,
                 client_state,
-            ),
+            )),
         }
     }
 
