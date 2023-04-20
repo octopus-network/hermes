@@ -41,15 +41,19 @@ impl SubchainHeaderMap {
 
 impl Protobuf<RawSubchainHeaderMap> for SubchainHeaderMap {}
 
-impl From<RawSubchainHeaderMap> for SubchainHeaderMap {
-    fn from(raw: RawSubchainHeaderMap) -> Self {
-        Self {
+impl TryFrom<RawSubchainHeaderMap> for SubchainHeaderMap {
+    type Error = Error;
+    fn try_from(raw: RawSubchainHeaderMap) -> Result<Self, Self::Error> {
+        Ok(Self {
             subchain_header_map: raw
                 .subchain_header_map
                 .into_iter()
-                .map(|(k, v)| (k, SubchainHeader::from(v)))
-                .collect(),
-        }
+                .map(|(k, v)| (k, SubchainHeader::try_from(v)))
+                .try_fold(BTreeMap::new(), |mut acc, (key, value)| {
+                    acc.insert(key, value?); // unwrap the Result and insert the value into the new map
+                    Ok(acc) // continue folding with the updated map
+                })?,
+        })
     }
 }
 
@@ -71,18 +75,22 @@ pub struct SubchainHeader {
     /// scale-encoded solochain header bytes
     pub block_header: Vec<u8>,
     /// timestamp and proof
-    pub timestamp: Option<StateProof>,
+    pub timestamp: StateProof,
 }
 
 impl Protobuf<RawSubchainHeader> for SubchainHeader {}
 
-impl From<RawSubchainHeader> for SubchainHeader {
-    fn from(raw: RawSubchainHeader) -> Self {
-        Self {
+impl TryFrom<RawSubchainHeader> for SubchainHeader {
+    type Error = Error;
+    fn try_from(raw: RawSubchainHeader) -> Result<Self, Self::Error> {
+        Ok(Self {
             chain_id: ChainId::from_string(raw.chain_id.as_str()),
             block_header: raw.block_header,
-            timestamp: raw.timestamp.map(Into::into),
-        }
+            timestamp: raw
+                .timestamp
+                .map(Into::into)
+                .ok_or_else(|| Error::missing_timestamp())?,
+        })
     }
 }
 
@@ -91,7 +99,7 @@ impl From<SubchainHeader> for RawSubchainHeader {
         Self {
             chain_id: value.chain_id.to_string(),
             block_header: value.block_header,
-            timestamp: value.timestamp.map(Into::into),
+            timestamp: Some(value.timestamp.into()),
         }
     }
 }
@@ -107,15 +115,19 @@ pub struct ParachainHeaderMap {
 
 impl Protobuf<RawParachainHeaderMap> for ParachainHeaderMap {}
 
-impl From<RawParachainHeaderMap> for ParachainHeaderMap {
-    fn from(raw: RawParachainHeaderMap) -> Self {
-        Self {
+impl TryFrom<RawParachainHeaderMap> for ParachainHeaderMap {
+    type Error = Error;
+    fn try_from(raw: RawParachainHeaderMap) -> Result<Self, Self::Error> {
+        Ok(Self {
             parachain_header_map: raw
                 .parachain_header_map
                 .into_iter()
-                .map(|(k, v)| (k, ParachainHeader::from(v)))
-                .collect(),
-        }
+                .map(|(k, v)| (k, ParachainHeader::try_from(v)))
+                .try_fold(BTreeMap::new(), |mut acc, (key, value)| {
+                    acc.insert(key, value?); // unwrap the Result and insert the value into the new map
+                    Ok(acc) // continue folding with the updated map
+                })?,
+        })
     }
 }
 
@@ -145,22 +157,27 @@ pub struct ParachainHeader {
     /// total number of para heads in parachain_heads_root
     pub header_count: u32,
     /// timestamp and proof
-    pub timestamp: Option<StateProof>,
+    pub timestamp: StateProof,
 }
 
 impl Protobuf<RawParachainHeader> for ParachainHeader {}
 
-impl From<RawParachainHeader> for ParachainHeader {
-    fn from(raw: RawParachainHeader) -> Self {
-        Self {
+impl TryFrom<RawParachainHeader> for ParachainHeader {
+    type Error = Error;
+
+    fn try_from(raw: RawParachainHeader) -> Result<Self, Self::Error> {
+        Ok(Self {
             chain_id: ChainId::from_string(raw.chain_id.as_str()),
             parachain_id: raw.parachain_id,
             block_header: raw.block_header,
             proofs: raw.proofs,
             header_index: raw.header_index,
             header_count: raw.header_count,
-            timestamp: raw.timestamp.map(Into::into),
-        }
+            timestamp: raw
+                .timestamp
+                .map(Into::into)
+                .ok_or_else(|| Error::missing_timestamp())?,
+        })
     }
 }
 
@@ -173,7 +190,7 @@ impl From<ParachainHeader> for RawParachainHeader {
             proofs: value.proofs,
             header_index: value.header_index,
             header_count: value.header_count,
-            timestamp: value.timestamp.map(Into::into),
+            timestamp: Some(value.timestamp.into()),
         }
     }
 }

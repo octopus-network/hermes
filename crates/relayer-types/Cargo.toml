@@ -48,6 +48,7 @@ num-rational = "0.4.1"
 
 # beefy
 beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "main" }
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive", "full", "bit-vec"] }
 
 [dependencies.tendermint]
 version = "0.28.0"

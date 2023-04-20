@@ -2620,6 +2620,7 @@ dependencies = [
  "itertools",
  "modelator",
  "num-rational",
+ "parity-scale-codec",
  "primitive-types",
  "prost",
  "safe-regex",

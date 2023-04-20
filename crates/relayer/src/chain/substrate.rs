@@ -1810,9 +1810,9 @@ impl ChainEndpoint for SubstrateChain {
 
                 let result = GpHeader {
                     // the latest mmr data
-                    beefy_mmr: Some(beefy_mmr),
+                    beefy_mmr,
                     // only one header
-                    message: None,
+                    message: ibc_relayer_types::clients::ics10_grandpa::header::message::Message::SubchainHeaderMap(message),
                 };
 
                 Ok((result, vec![]))

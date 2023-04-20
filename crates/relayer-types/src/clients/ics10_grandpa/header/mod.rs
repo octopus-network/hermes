@@ -21,16 +21,16 @@ pub const GRANDPA_HEADER_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Header";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Header {
     /// the latest mmr data
-    pub beefy_mmr: Option<beefy_mmr::BeefyMmr>,
+    pub beefy_mmr: beefy_mmr::BeefyMmr,
     /// only one header
-    pub message: Option<message::Message>,
+    pub message: message::Message,
 }
 
 impl Header {
     // https://github.com/octopus-network/ibc-go/blob/cc25e9b73c3daa2269081f65b23971e7030864d5/modules/light-clients/10-grandpa/types/header.go#L41
     pub fn height(&self) -> Height {
-        // match self.message {}
-        todo!() // need todo
+        let (height, _) = get_lastest_block_header(self.clone()).unwrap();
+        Height::new(0, height).unwrap()
     }
 }
 
@@ -40,12 +40,29 @@ impl TryFrom<RawHeader> for Header {
     type Error = Error;
 
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
+        let message = raw
+            .message
+            .and_then(|msg| match msg {
+                RawMessage::ParachainHeaderMap(v) => Some(
+                    v.try_into()
+                        .map(message::Message::ParachainHeaderMap)
+                        .map_err(|_| Error::missing_header_message()),
+                ),
+                RawMessage::SubchainHeaderMap(v) => Some(
+                    v.try_into()
+                        .map(message::Message::SubchainHeaderMap)
+                        .map_err(|_| Error::missing_header_message()),
+                ),
+            })
+            .ok_or_else(Error::missing_header_message)??;
+
         Ok(Self {
-            beefy_mmr: raw.beefy_mmr.map(TryInto::try_into).transpose()?,
-            message: raw.message.map(|msg| match msg {
-                RawMessage::ParachainHeaderMap(v) => message::Message::ParachainHeaderMap(v.into()),
-                RawMessage::SubchainHeaderMap(v) => message::Message::SubchainHeaderMap(v.into()),
-            }),
+            beefy_mmr: raw
+                .beefy_mmr
+                .map(TryInto::try_into)
+                .transpose()?
+                .ok_or_else(|| Error::missing_beefy_mmr())?,
+            message,
         })
     }
 }
@@ -53,11 +70,15 @@ impl TryFrom<RawHeader> for Header {
 impl From<Header> for RawHeader {
     fn from(value: Header) -> Self {
         Self {
-            beefy_mmr: value.beefy_mmr.map(Into::into),
-            message: value.message.map(|msg| match msg {
-                message::Message::ParachainHeaderMap(v) => RawMessage::ParachainHeaderMap(v.into()),
-                message::Message::SubchainHeaderMap(v) => RawMessage::SubchainHeaderMap(v.into()),
-            }),
+            beefy_mmr: Some(value.beefy_mmr.into()),
+            message: match value.message {
+                message::Message::ParachainHeaderMap(v) => {
+                    Some(RawMessage::ParachainHeaderMap(v.into()))
+                }
+                message::Message::SubchainHeaderMap(v) => {
+                    Some(RawMessage::SubchainHeaderMap(v.into()))
+                }
+            },
         }
     }
 }
@@ -73,7 +94,8 @@ impl crate::core::ics02_client::header::Header for Header {
 
     // https://github.com/octopus-network/ibc-go/blob/cc25e9b73c3daa2269081f65b23971e7030864d5/modules/light-clients/10-grandpa/types/header.go#L62
     fn timestamp(&self) -> Timestamp {
-        todo!() // need todo
+        let (_, time) = get_lastest_block_header(self.clone()).unwrap();
+        Timestamp::from_nanoseconds(time).unwrap()
     }
 }
 
@@ -108,4 +130,33 @@ impl From<Header> for Any {
 
 pub fn decode_header<B: Buf>(buf: B) -> Result<Header, Error> {
     RawHeader::decode(buf).map_err(Error::decode)?.try_into()
+}
+
+pub fn get_lastest_block_header(h: Header) -> Result<(u64, u64), Error> {
+    let mut latest_height = 0;
+    match h.message {
+        message::Message::SubchainHeaderMap(v) => {
+            for (&idx, v) in v.subchain_header_map.iter() {
+                if latest_height < idx {
+                    latest_height = idx;
+                }
+            }
+
+            let subchain_header = v.subchain_header_map.get(&latest_height).unwrap();
+            let timestamp: u64 =
+                codec::Decode::decode(&mut &subchain_header.timestamp.value[..]).unwrap();
+            Ok((latest_height as u64, timestamp))
+        }
+        message::Message::ParachainHeaderMap(v) => {
+            for (&idx, v) in v.parachain_header_map.iter() {
+                if latest_height < idx {
+                    latest_height = idx;
+                }
+            }
+            let parachain_header = v.parachain_header_map.get(&latest_height).unwrap();
+            let timestamp: u64 =
+                codec::Decode::decode(&mut &parachain_header.timestamp.value[..]).unwrap();
+            Ok((latest_height as u64, timestamp))
+        }
+    }
 }

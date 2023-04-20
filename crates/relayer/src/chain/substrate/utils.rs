@@ -40,7 +40,7 @@ pub async fn build_subchain_header_map(
             SubchainHeader {
                 chain_id: ChainId::from(chain_id.clone()),
                 block_header: encode_header,
-                timestamp: Some(timestamp),
+                timestamp,
             },
         );
     }

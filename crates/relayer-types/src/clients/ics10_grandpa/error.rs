@@ -293,6 +293,15 @@ define_error! {
 
         MissingBeefyNextAuthoritySet
             | _ | format!("missing beefy next authority set"),
+
+        MissingBeefyMmr
+            | _ | format!("mssing beefy mmr"),
+
+        MissingHeaderMessage
+            | _ | format!("mssing header message"),
+
+        MissingTimestamp
+            | _ | format!("mssing time stamp"),
     }
 }
 
