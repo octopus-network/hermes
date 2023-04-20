@@ -321,94 +321,31 @@ pub fn to_pb_beefy_mmr(
         signatures,
     };
 
-    todo!()
+    let leaf_index = convert_block_number_to_mmr_leaf_index(0, bsc.commitment.block_number); // todo
+
+    let size = beefy_light_client::mmr::NodesUtils::new(leaf_index).size();
+    ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::BeefyMmr {
+        // signed commitment data
+        signed_commitment: Some(pb_commitment),
+        // build merkle tree based on all the signature in signed commitment
+        // and generate the signature proof
+        signature_proofs: authority_proof.into_iter().map(|v| v.encode()).collect(),
+        // mmr proof
+        mmr_leaves_and_batch_proof: Some(convert_mmrproof(mmr_batch_proof).unwrap()),
+        // size of the mmr for the given proof
+        mmr_size: leaf_index, // todo
+    }
 }
 
-// func ToPBBeefyMMR(bsc beefy.SignedCommitment, mmrBatchProof beefy.MmrProofsResp, authorityProof [][]byte) BeefyMMR {
-
-// 	// bsc := beefy.ConvertCommitment(sc)
-// 	pbPalyloads := make([]PayloadItem, len(bsc.Commitment.Payload))
-// 	for i, v := range bsc.Commitment.Payload {
-// 		pbPalyloads[i] = PayloadItem{
-// 			Id:   v.ID[:],
-// 			Data: v.Data,
-// 		}
-
-// 	}
-
-// 	pbCommitment := Commitment{
-// 		Payloads:       pbPalyloads,
-// 		BlockNumber:    bsc.Commitment.BlockNumber,
-// 		ValidatorSetId: bsc.Commitment.ValidatorSetID,
-// 	}
-
-// 	pb := make([]Signature, len(bsc.Signatures))
-// 	for i, v := range bsc.Signatures {
-// 		pb[i] = Signature(v)
-// 	}
-
-// 	pbsc := SignedCommitment{
-// 		Commitment: pbCommitment,
-// 		Signatures: pb,
-// 	}
-// 	// convert mmrleaf
-// 	var pbMMRLeaves []MMRLeaf
-
-// 	leafNum := len(mmrBatchProof.Leaves)
-// 	for i := 0; i < leafNum; i++ {
-// 		leaf := mmrBatchProof.Leaves[i]
-// 		parentNumAndHash := ParentNumberAndHash{
-// 			ParentNumber: uint32(leaf.ParentNumberAndHash.ParentNumber),
-// 			ParentHash:   []byte(leaf.ParentNumberAndHash.Hash[:]),
-// 		}
-// 		nextAuthoritySet := BeefyAuthoritySet{
-// 			Id:   uint64(leaf.BeefyNextAuthoritySet.ID),
-// 			Len:  uint32(leaf.BeefyNextAuthoritySet.Len),
-// 			Root: []byte(leaf.BeefyNextAuthoritySet.Root[:]),
-// 		}
-// 		parachainHeads := []byte(leaf.ParachainHeads[:])
-// 		gLeaf := MMRLeaf{
-// 			Version:               uint32(leaf.Version),
-// 			ParentNumberAndHash:   parentNumAndHash,
-// 			BeefyNextAuthoritySet: nextAuthoritySet,
-// 			ParachainHeads:        parachainHeads,
-// 		}
-// 		// Logger.Info("gLeaf: ", gLeaf)
-// 		pbMMRLeaves = append(pbMMRLeaves, gLeaf)
-// 	}
-
-// 	// convert mmr batch proof
-// 	pbLeafIndexes := make([]uint64, len(mmrBatchProof.Proof.LeafIndexes))
-// 	for i, v := range mmrBatchProof.Proof.LeafIndexes {
-// 		pbLeafIndexes[i] = uint64(v)
-// 	}
-
-// 	pbProofItems := [][]byte{}
-// 	itemNum := len(mmrBatchProof.Proof.Items)
-// 	for i := 0; i < itemNum; i++ {
-// 		item := mmrBatchProof.Proof.Items[i][:]
-// 		pbProofItems = append(pbProofItems, item)
-
-// 	}
-
-// 	pbBatchProof := MMRBatchProof{
-// 		LeafIndexes: pbLeafIndexes,
-// 		LeafCount:   uint64(mmrBatchProof.Proof.LeafCount),
-// 		Items:       pbProofItems,
-// 	}
-
-// 	pbMmrLevavesAndProof := MMRLeavesAndBatchProof{
-// 		Leaves:        pbMMRLeaves,
-// 		MmrBatchProof: pbBatchProof,
-// 	}
-// 	leafIndex := beefy.ConvertBlockNumberToMmrLeafIndex(uint32(beefy.BEEFY_ACTIVATION_BLOCK), bsc.Commitment.BlockNumber)
-// 	mmrSize := mmr.LeafIndexToMMRSize(uint64(leafIndex))
-// 	// build pbBeefyMMR
-// 	pbBeefyMMR := BeefyMMR{
-// 		SignedCommitment:       pbsc,
-// 		SignatureProofs:        authorityProof,
-// 		MmrLeavesAndBatchProof: pbMmrLevavesAndProof,
-// 		MmrSize:                mmrSize,
-// 	}
-// 	return pbBeefyMMR
-// }
+pub fn convert_block_number_to_mmr_leaf_index(
+    beefy_activation_block: u32,
+    block_number: u32,
+) -> u64 {
+    let mut leaf_index: u32 = 0;
+    if beefy_activation_block == 0 {
+        leaf_index = block_number - 1;
+    } else {
+        leaf_index = (block_number + 1) - beefy_activation_block
+    }
+    leaf_index as u64
+}
