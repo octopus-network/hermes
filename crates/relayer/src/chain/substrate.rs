@@ -449,21 +449,9 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn shutdown(self) -> Result<(), Error> {
-        fn shutdown(
-            rt: Arc<TokioRuntime>,
-            relay_rpc_client: &OnlineClient<PolkadotConfig>,
-            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
-        ) -> Result<(), Error> {
-            todo!()
-        }
+        info!("in substrate: [shutdown]");
 
-        match &self.rpc_client {
-            RpcClient::ParachainRpc {
-                relay_rpc,
-                para_rpc,
-            } => shutdown(self.rt.clone(), relay_rpc, Some(para_rpc)),
-            RpcClient::SubChainRpc { rpc } => shutdown(self.rt.clone(), rpc, None),
-        }
+        Ok(())
     }
 
     fn keybase(&self) -> &KeyRing<Self::SigningKeyPair> {
@@ -504,21 +492,7 @@ impl ChainEndpoint for SubstrateChain {
     /// Exits early if any health check fails, without doing any
     /// further checks.
     fn health_check(&self) -> Result<HealthCheck, Error> {
-        fn health_check(
-            rt: Arc<TokioRuntime>,
-            relay_rpc_client: &OnlineClient<PolkadotConfig>,
-            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
-        ) -> Result<HealthCheck, Error> {
-            todo!()
-        }
-
-        match &self.rpc_client {
-            RpcClient::ParachainRpc {
-                relay_rpc,
-                para_rpc,
-            } => health_check(self.rt.clone(), relay_rpc, Some(para_rpc)),
-            RpcClient::SubChainRpc { rpc } => health_check(self.rt.clone(), rpc, None),
-        }
+        Ok(HealthCheck::Healthy)
     }
 
     /// Fetch a header from the chain at the given height and verify it.
@@ -571,7 +545,7 @@ impl ChainEndpoint for SubstrateChain {
             update: &UpdateClient,
             client_state: &AnyClientState,
         ) -> Result<Option<MisbehaviourEvidence>, Error> {
-            todo!()
+            Ok(None)
         }
 
         match &self.rpc_client {
@@ -612,7 +586,19 @@ impl ChainEndpoint for SubstrateChain {
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<Response>, Error> {
-        todo!()
+        use tendermint::abci::Code;
+        use tendermint::Hash;
+        let ret = self.do_send_messages_and_wait_commit(tracked_msgs)?;
+
+        let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
+        let tx_re = Response {
+            code: Code::default(),
+            data: serde_json::from_str(json).map_err(Error::invalid_serde_json_error)?,
+            log: String::from("test_test"),
+            hash: Hash::Sha256([0u8; 32]),
+        };
+
+        Ok(vec![tx_re])
     }
 
     /// Get the account for the signer
@@ -639,7 +625,7 @@ impl ChainEndpoint for SubstrateChain {
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
         ) -> Result<Option<semver::Version>, Error> {
-            todo!()
+            Ok(None)
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
@@ -658,7 +644,10 @@ impl ChainEndpoint for SubstrateChain {
             key_name: Option<&str>,
             denom: Option<&str>,
         ) -> Result<Balance, Error> {
-            todo!()
+            Ok(Balance {
+                amount: String::default(),
+                denom: String::default(),
+            })
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
@@ -678,7 +667,7 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             key_name: Option<&str>,
         ) -> Result<Vec<Balance>, Error> {
-            todo!()
+            Ok(vec![])
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
@@ -698,7 +687,12 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             hash: String,
         ) -> Result<DenomTrace, Error> {
-            todo!()
+            Ok(DenomTrace {
+                /// The chain of port/channel identifiers used for tracing the source of the coin.
+                path: String::default(),
+                /// The base denomination for that coin
+                base_denom: String::default(),
+            })
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
