@@ -86,12 +86,12 @@ use subxt::rpc::Subscription as SubxtSubscription;
 use subxt::rpc_params;
 use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
 
-// #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
 pub mod parachain;
-
 pub mod relaychain;
-use relaychain::relaychain_node;
 pub mod utils;
+
+use parachain::parachain_node;
+use relaychain::relaychain_node;
 
 /// An encoded signed commitment proving that the given header has been finalized.
 /// The given bytes should be the SCALE-encoded representation of a
