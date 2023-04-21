@@ -449,8 +449,6 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn shutdown(self) -> Result<(), Error> {
-        info!("in substrate: [shutdown]");
-
         Ok(())
     }
 
@@ -593,7 +591,7 @@ impl ChainEndpoint for SubstrateChain {
         let json = "\"ChYKFGNvbm5lY3Rpb25fb3Blbl9pbml0\"";
         let tx_re = Response {
             code: Code::default(),
-            data: serde_json::from_str(json).map_err(Error::invalid_serde_json_error)?,
+            data: serde_json::from_str(json).unwrap(),
             log: String::from("test_test"),
             hash: Hash::Sha256([0u8; 32]),
         };
@@ -840,7 +838,7 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryUpgradedClientStateRequest,
         ) -> Result<(AnyClientState, MerkleProof), Error> {
-            todo!()
+            todo!() // can todo
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
@@ -865,7 +863,7 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryUpgradedConsensusStateRequest,
         ) -> Result<(AnyConsensusState, MerkleProof), Error> {
-            todo!()
+            todo!() // can todo
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
