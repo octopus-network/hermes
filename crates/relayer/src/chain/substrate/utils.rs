@@ -203,11 +203,29 @@ pub async fn build_mmr_proofs(
     }
 }
 
+use beefy_light_client::Hash;
+type MmrLeaf = beefy_light_client::mmr::MmrLeafGeneic<u32, Hash, Hash, H256>;
+
+pub fn decode_mmr_leaves(encode_mmr_leaves: Vec<u8>) -> Result<Vec<MmrLeaf>, String> {
+    let encode_leaves: Vec<beefy_light_client::mmr::EncodableOpaqueLeaf> =
+        Decode::decode(&mut &encode_mmr_leaves[..])
+            .map_err(|_| String::from("decode EncodableOpaqueLeaf error"))?;
+
+    encode_leaves
+        .into_iter()
+        .map(|item| {
+            MmrLeaf::decode(&mut &item.0[..])
+                .map_err(|_| String::from("decode EncodableOpaqueLeaf to MmrLeaf failed"))
+        })
+        .collect::<Result<Vec<MmrLeaf>, String>>()
+}
+
+
 pub fn convert_mmrproof(proofs: mmr_rpc::LeavesProof<H256>) -> Result<ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::mmr_leaves_and_batch_proof::MmrLeavesAndBatchProof, Error>{
     let mmr_leavfs = proofs.leaves[..].to_vec();
     let mmr_proofs = proofs.proof[..].to_vec();
 
-    let leaves = beefy_light_client::mmr::decode_mmr_leaves(mmr_leavfs).unwrap().into_iter().map(|v| {
+    let leaves = decode_mmr_leaves(mmr_leavfs).unwrap().into_iter().map(|v| {
         let version = v.version.0 as u32;
         let parent_number_and_hash = ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::mmr_leaves_and_batch_proof::ParentNumberAndHash {
             // parent block for this leaf
@@ -224,7 +242,7 @@ pub fn convert_mmrproof(proofs: mmr_rpc::LeavesProof<H256>) -> Result<ibc_relaye
             // Merkle Root Hash build from BEEFY uncompressed AuthorityIds.
             root: v.beefy_next_authority_set.root.to_vec(),
         };
-        let parachain_heads = v.leaf_extra;
+        let parachain_heads = v.leaf_extra.as_bytes().to_vec();
 
 
         ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::mmr_leaves_and_batch_proof::MmrLeaf {
