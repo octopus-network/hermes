@@ -1846,7 +1846,7 @@ impl ChainEndpoint for SubstrateChain {
             port_id: &PortId,
             counterparty_payee: &Signer,
         ) -> Result<(), Error> {
-            todo!()
+            Ok(())
         }
 
         match &self.rpc_client {
@@ -1882,7 +1882,7 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             requests: Vec<CrossChainQueryRequest>,
         ) -> Result<Vec<CrossChainQueryResponse>, Error> {
-            todo!()
+            Ok(vec![])
         }
 
         match &self.rpc_client {
