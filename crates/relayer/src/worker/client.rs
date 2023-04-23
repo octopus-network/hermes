@@ -116,7 +116,7 @@ pub fn detect_misbehavior_task<ChainA: ChainHandle, ChainB: ChainHandle>(
                         for event_with_height in batch.events {
                             if let IbcEvent::UpdateClient(ref update) = event_with_height.event {
                                 debug!("checking misbehavior for updated client");
-                                let misbehavior_result =
+                                let misbehavior_result: MisbehaviourResults =
                                     client.detect_misbehaviour_and_submit_evidence(Some(update));
                                 trace!("detect misbehavior result: {:?}", misbehavior_result);
 
@@ -139,6 +139,59 @@ pub fn detect_misbehavior_task<ChainA: ChainHandle, ChainB: ChainHandle>(
                         }
                     }
 
+                    WorkerCmd::NewBlock { .. } => {}
+                    WorkerCmd::ClearPendingPackets => {}
+                    WorkerCmd::Beefy { .. } => {}
+                }
+            }
+
+            Ok(Next::Continue)
+        },
+    );
+
+    Some(handle)
+}
+
+pub fn spawn_update_mmr_root<ChainA: ChainHandle, ChainB: ChainHandle>(
+    receiver: Receiver<WorkerCmd>,
+    client: ForeignClient<ChainB, ChainA>,
+) -> Option<TaskHandle> {
+    trace!(
+        "in worker/client: [spawn_update_mmr_root], client ={:?} ",
+        client
+    );
+
+    if client.is_expired_or_frozen() {
+        warn!(
+            client = %client.id(),
+            "skipping detect misbehavior task on frozen client",
+        );
+        return None;
+    }
+
+    let handle = spawn_background_task(
+        span!(
+            tracing::Level::ERROR,
+            "UpdateMmrRootWorker",
+            client = %client.id,
+            src_chain = %client.src_chain.id(),
+            dst_chain = %client.dst_chain.id(),
+        ),
+        // Some(Duration::from_millis(600)),
+        Some(Duration::from_secs(6)),
+        move || -> Result<Next, TaskError<Infallible>> {
+            if let Ok(cmd) = receiver.try_recv() {
+                trace!(
+                    "in worker/client: [spawn_update_mmr_root], recv work cmd ={:?} ",
+                    cmd
+                );
+
+                match cmd {
+                    WorkerCmd::Beefy { header } => {
+                        let _ = client.update_mmr_root(header);
+                    }
+
+                    WorkerCmd::IbcEvents { .. } => {}
                     WorkerCmd::NewBlock { .. } => {}
                     WorkerCmd::ClearPendingPackets => {}
                 }

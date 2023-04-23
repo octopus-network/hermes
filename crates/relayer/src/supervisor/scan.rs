@@ -94,6 +94,20 @@ pub struct ChainsScan {
     pub chains: Vec<Result<ChainScan, Error>>,
 }
 
+impl ChainsScan {
+    pub fn get_chains(&self) -> Vec<ChainScan> {
+        let mut chains = vec![];
+        for chain in &self.chains {
+            if let Ok(chain) = chain {
+                chains.push(chain.clone())
+            }
+        }
+
+        chains
+    }
+}
+
+
 impl Display for ChainsScan {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), FmtError> {
         for scan in self.chains.iter().flatten() {

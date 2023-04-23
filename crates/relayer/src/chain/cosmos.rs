@@ -23,6 +23,7 @@ use ibc_relayer_types::clients::ics07_tendermint::client_state::{
 };
 use ibc_relayer_types::clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
 use ibc_relayer_types::clients::ics07_tendermint::header::Header as TmHeader;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
@@ -1845,6 +1846,14 @@ impl ChainEndpoint for CosmosSdkChain {
         )?;
 
         Ok((target, supporting))
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        Ok(self.config.websocket_addr.clone().to_string())
+    }
+
+    fn update_mmr_root(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+        todo!()
     }
 
     fn maybe_register_counterparty_payee(

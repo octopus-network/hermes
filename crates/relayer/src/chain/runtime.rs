@@ -24,7 +24,7 @@ use ibc_relayer_types::{
     signer::Signer,
     Height,
 };
-
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 use crate::{
     account::Balance,
     chain::requests::QueryPacketEventDataRequest,
@@ -43,7 +43,7 @@ use crate::{
 use super::{
     client::ClientSettings,
     endpoint::{ChainEndpoint, ChainStatus, HealthCheck},
-    handle::{ChainHandle, ChainRequest, ReplyTo, Subscription},
+    handle::{ChainHandle, ChainRequest, ReplyTo, Subscription,BeefySubscription},
     requests::*,
     tracking::TrackedMsgs,
 };
@@ -158,7 +158,9 @@ where
                         ChainRequest::Subscribe { reply_to } => {
                             self.subscribe(reply_to)?
                         },
-
+                        ChainRequest::SubscribeBeefy { reply_to } => {
+                            self.subscribe_beefy(reply_to)?
+                        },
                         ChainRequest::SendMessagesAndWaitCommit { tracked_msgs, reply_to } => {
                             self.send_messages_and_wait_commit(tracked_msgs, reply_to)?
                         },
@@ -335,6 +337,19 @@ where
                             self.query_host_consensus_state(request, reply_to)?
                         },
 
+                        ChainRequest::UpdateMmrRoot { client_id,header, reply_to } => {
+                            tracing::trace!(
+                                "in runtime: [run], ChainRequest::UpdateMmrRoot, client_id = {:?},mmr_root ={:?} ",
+                                client_id,
+                                header
+                            );
+                            self.update_mmr_root(client_id,header,reply_to,)?
+                        },
+
+                        ChainRequest::WebSocketUrl{ reply_to} => {
+                            self.websocket_url(reply_to)?
+                        },
+
                         ChainRequest::MaybeRegisterCounterpartyPayee { channel_id, port_id, counterparty_payee, reply_to } => {
                             self.maybe_register_counterparty_payee(&channel_id, &port_id, &counterparty_payee, reply_to)?
                         }
@@ -358,6 +373,26 @@ where
     fn subscribe(&mut self, reply_to: ReplyTo<Subscription>) -> Result<(), Error> {
         let subscription = self.chain.subscribe();
         reply_to.send(subscription).map_err(Error::send)
+    }
+
+    /// only for sustrate app chain
+    fn subscribe_beefy(&mut self, reply_to: ReplyTo<BeefySubscription>) -> Result<(), Error> {
+        if !self.beefy_monitor_ctrl.is_live() {
+            self.enable_beefy_monitor()?;
+        }
+
+        let subscription = self.beefy_bus.subscribe();
+        reply_to.send(Ok(subscription)).map_err(Error::send)
+    }
+
+    fn enable_beefy_monitor(&mut self) -> Result<(), Error> {
+        tracing::trace!("In runtime: [enable_beefy_monitor]");
+        let (beefy_receiver, tx_monitor_cmd) = self.chain.init_beefy_monitor(self.rt.clone())?;
+
+        self.beefy_monitor_ctrl
+            .enable(beefy_receiver, tx_monitor_cmd);
+
+        Ok(())
     }
 
     fn send_messages_and_wait_commit(
@@ -804,6 +839,21 @@ where
         reply_to.send(result).map_err(Error::send)?;
 
         Ok(())
+    }
+
+    fn websocket_url(&self, reply_to: ReplyTo<String>) -> Result<(), Error> {
+        let result = self.chain.websocket_url();
+        reply_to.send(result).map_err(Error::send)
+    }
+
+    fn update_mmr_root(
+        &mut self,
+        client_id: ClientId,
+        header: GPheader,
+        reply_to: ReplyTo<()>,
+    ) -> Result<(), Error> {
+        let result = self.chain.update_mmr_root(client_id, header);
+        reply_to.send(result).map_err(Error::send)
     }
 
     fn maybe_register_counterparty_payee(

@@ -19,11 +19,13 @@ use ibc_relayer_types::proofs::Proofs;
 use ibc_relayer_types::signer::Signer;
 use ibc_relayer_types::Height;
 
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
+
 use crate::account::Balance;
 use crate::cache::{Cache, CacheStatus};
 use crate::chain::client::ClientSettings;
 use crate::chain::endpoint::{ChainStatus, HealthCheck};
-use crate::chain::handle::{ChainHandle, ChainRequest, Subscription};
+use crate::chain::handle::{ChainHandle, ChainRequest, Subscription,BeefySubscription};
 use crate::chain::requests::*;
 use crate::chain::tracking::TrackedMsgs;
 use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
@@ -90,6 +92,18 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
         self.inner().subscribe()
     }
 
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
+        self.inner().subscribe_beefy()
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        self.inner().websocket_url()
+    }
+
+    fn update_mmr_root(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+        self.inner().update_mmr_root(client_id, header)
+    }
+    
     fn send_messages_and_wait_commit(
         &self,
         tracked_msgs: TrackedMsgs,

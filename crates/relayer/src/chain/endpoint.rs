@@ -4,6 +4,7 @@ use core::convert::TryFrom;
 use tokio::runtime::Runtime as TokioRuntime;
 
 use ibc_relayer_types::applications::ics31_icq::response::CrossChainQueryResponse;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics02_client::consensus_state::ConsensusState;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
@@ -383,6 +384,12 @@ pub trait ChainEndpoint: Sized {
         target_height: ICSHeight,
         client_state: &AnyClientState,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error>;
+
+    /// add new api websocket_url
+    fn websocket_url(&self) -> Result<String, Error>;
+
+    /// add new api update_mmr_root
+    fn update_mmr_root(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error>;
 
     /// Builds the required proofs and the client state for connection handshake messages.
     /// The proofs and client state must be obtained from queries at same height.

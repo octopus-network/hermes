@@ -28,6 +28,7 @@ use ibc_relayer_types::events::{IbcEvent, IbcEventType, WithBlockDataType};
 use ibc_relayer_types::timestamp::{Timestamp, TimestampOverflowError};
 use ibc_relayer_types::tx_msg::Msg;
 use ibc_relayer_types::Height;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 
 use crate::chain::client::ClientSettings;
 use crate::chain::handle::ChainHandle;
@@ -282,6 +283,14 @@ define_error! {
                 format_args!("failed to update client on destination {} because of error event: {}",
                     e.chain_id, e.event)
             },
+
+        WebsocketUrlError
+            [ RelayerError]
+            | _|  {"websocket_url error"},
+
+        UpdateMmrError
+            [ RelayerError]
+            | _|  {"update mmr root error"},
     }
 }
 
@@ -847,6 +856,32 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 }
             }
         }
+    }
+
+    /// Attempts to update a mmr root using header from the latest height of its source chain.
+    pub fn update_mmr_root(&self, header: GPheader) -> Result<(), ForeignClientError> {
+        tracing::trace!(
+            "in foreign_client: [update_mmr_root], mmr_root ={:?} ",
+            header
+        );
+
+        // let res = self.build_latest_update_client_and_send()?;
+
+        // debug!("[{}] client updated with return message {:?}\n", self, res);
+        // let events = self
+        //     .dst_chain()
+        //     .send_messages_and_wait_commit(tm)
+        //     .map_err(|e| {
+        //         ForeignClientError::client_update(
+        //             self.dst_chain.id(),
+        //             "failed sending message to dst chain".to_string(),
+        //             e,
+        //         )
+        //     })?;
+        // Ok(events)
+        let _ = self.dst_chain().update_mmr_root(self.id.clone(), header);
+
+        Ok(())
     }
 
     /// Wrapper for build_update_client_with_trusted.

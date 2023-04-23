@@ -13,7 +13,7 @@ use std::{cmp::Ordering, thread};
 
 use tokio::runtime::Runtime as TokioRuntime;
 use tonic::{codegen::http::Uri, metadata::AsciiMetadataValue};
-use tracing::{error, instrument, trace, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 use ibc_proto::cosmos::base::node::v1beta1::ConfigResponse;
 use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
@@ -27,6 +27,7 @@ use ibc_relayer_types::clients::ics10_grandpa::header::Header as GpHeader;
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
+use ibc_relayer_types::core::ics02_client::msgs::update_client::MsgUpdateClient;
 use ibc_relayer_types::core::ics03_connection::connection::{
     ConnectionEnd, IdentifiedConnectionEnd,
 };
@@ -46,7 +47,6 @@ use ibc_relayer_types::core::ics24_host::{
 };
 use ibc_relayer_types::signer::Signer;
 use ibc_relayer_types::Height as ICSHeight;
-
 use tendermint::block::Height as TmHeight;
 use tendermint::node::info::TxIndexStatus;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
@@ -68,6 +68,7 @@ use crate::config::{parse_gas_prices, ChainConfig, GasPrice};
 use crate::consensus_state::AnyConsensusState;
 use crate::denom::DenomTrace;
 use crate::error::Error;
+use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver};
 use crate::event::monitor::{EventMonitor, TxMonitorCmd};
 use crate::event::IbcEventWithHeight;
 use crate::keyring::{KeyRing, Secp256k1KeyPair, SigningKeyPair};
@@ -78,7 +79,6 @@ use crate::util::pretty::{
     PrettyIdentifiedChannel, PrettyIdentifiedClientState, PrettyIdentifiedConnection,
 };
 use ibc_relayer_types::timestamp::Timestamp;
-
 // substrate
 use serde::{Deserialize, Serialize};
 use subxt::rpc::RpcClient as SubxtRpcClient;
@@ -92,6 +92,9 @@ pub mod parachain;
 pub mod relaychain;
 use relaychain::relaychain_node;
 pub mod utils;
+
+const MAX_QUERY_TIMES: u64 = 800;
+pub const REVISION_NUMBER: u64 = 0;
 
 /// An encoded signed commitment proving that the given header has been finalized.
 /// The given bytes should be the SCALE-encoded representation of a
@@ -186,10 +189,55 @@ impl SubstrateChain {
         todo!()
     }
 
+
+
     fn init_event_monitor(&mut self) -> Result<TxMonitorCmd, Error> {
         crate::time!("init_event_monitor");
 
-        todo!()
+        tracing::debug!(
+            "in substrate: [init_event_mointor] >> websocket addr: {:?}",
+            self.config.websocket_addr.clone()
+        );
+
+        let (mut event_monitor, event_receiver, monitor_tx) = EventMonitor::new(
+            self.config.id.clone(),
+            self.config.websocket_addr.clone(),
+            self.rt,
+        )
+        .map_err(Error::event_monitor)?;
+
+        event_monitor.subscribe().map_err(Error::event_monitor)?;
+
+        thread::spawn(move || event_monitor.run());
+
+        Ok((event_receiver, monitor_tx))
+    }
+
+    fn init_beefy_monitor(
+        &self,
+        rt: Arc<TokioRuntime>,
+    ) -> Result<(BeefyReceiver, TxMonitorCmd), Error> {
+        crate::time!("init_beefy_monitor");
+
+        tracing::debug!(
+            "in substrate: [init_beefy_mointor] >> websocket addr: {:?}",
+            self.config.websocket_addr.clone()
+        );
+
+        let (mut beefy_monitor, beefy_receiver, monitor_tx) = BeefyMonitor::new(
+            self.config.id.clone(),
+            self.client.clone(),
+            self.config.websocket_addr.clone(),
+            rt,
+        )
+        .map_err(Error::event_monitor)?;
+
+        beefy_monitor.subscribe().map_err(Error::event_monitor)?;
+
+        thread::spawn(move || beefy_monitor.run());
+        debug!("in substrate: [init_beefy_mointor] >> beefy monitor is running ...");
+
+        Ok((beefy_receiver, monitor_tx))
     }
 
     /// Query the chain staking parameters
@@ -1807,6 +1855,73 @@ impl ChainEndpoint for SubstrateChain {
                 client_state,
             ),
         }
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        Ok(self.config.websocket_addr.clone().to_string())
+    }
+
+    /// add new api update_mmr_root
+    fn update_mmr_root(&mut self, client_id: ClientId, header: GpHeader) -> Result<(), Error> {
+        tracing::trace!("[update_mmr_root] client_id = {:?} ", client_id,);
+
+        let MmrRoot {
+            signed_commitment,
+            validator_merkle_proofs,
+            mmr_leaf,
+            mmr_leaf_proof,
+        } = header.mmr_root.clone();
+
+        let new_mmr_root_height = signed_commitment.clone().commitment.unwrap().block_number;
+        tracing::trace!(
+            "[update_mmr_root] mmr root height = {:?}",
+            new_mmr_root_height
+        );
+        let client_state = self.query_client_state(&client_id).unwrap();
+        let gp_client_state = match client_state {
+            AnyClientState::Grandpa(value) => value,
+            _ => unimplemented!(),
+        };
+
+        let beefy_light_client::commitment::Commitment {
+            payload,
+            block_number,
+            validator_set_id,
+        } = gp_client_state.latest_commitment.clone().into();
+
+        tracing::trace!(
+            "[update_mmr_root] mmr root height in client state is: ({:?}) and  new mmr root height is ({:?})!",
+            block_number,new_mmr_root_height
+        );
+
+        if block_number >= new_mmr_root_height {
+            tracing::trace!(
+                "[update_mmr_root]mmr root height in client state ({:?}) >= new mmr root height({:?}), Don't need to update!",
+                block_number,new_mmr_root_height
+            );
+            return Err(Error::update_client_state_error());
+        }
+
+        let mut msgs = vec![];
+
+        let signer = self.get_signer().unwrap();
+        use ibc::core::ics02_client::header::AnyHeader;
+        msgs.push(
+            MsgUpdateClient {
+                header: AnyHeader::Grandpa(header),
+                signer: signer,
+                client_id: client_id,
+            }
+            .to_any(),
+        );
+
+        let tm = TrackedMsgs::new_static(msgs, "update client");
+        tracing::trace!("in substrate: [update_mmr_root] >> msgs = {:?}", tm);
+
+        let events = self.send_messages_and_wait_commit(tm);
+        tracing::trace!("in substrate: [update_mmr_root] >> events = {:?}", events);
+
+        Ok(())
     }
 
     fn maybe_register_counterparty_payee(
