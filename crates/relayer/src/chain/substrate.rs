@@ -53,7 +53,6 @@ use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
 use tendermint_rpc::endpoint::status;
 use tendermint_rpc::{Client, HttpClient, Order};
 
-use crate::account::Balance;
 use crate::chain::client::ClientSettings;
 use crate::chain::cosmos::batch::{
     send_batched_messages_and_wait_check_tx, send_batched_messages_and_wait_commit,
@@ -77,6 +76,8 @@ use crate::misbehaviour::MisbehaviourEvidence;
 use crate::util::pretty::{
     PrettyIdentifiedChannel, PrettyIdentifiedClientState, PrettyIdentifiedConnection,
 };
+use crate::{account::Balance, config::default::para_chain_addr};
+use codec::Decode;
 use ibc_relayer_types::timestamp::Timestamp;
 
 // substrate
@@ -183,7 +184,7 @@ impl SubstrateChain {
     /// Emits a log warning in case any error is encountered and
     /// exits early without doing subsequent validations.
     pub fn validate_params(&self) -> Result<(), Error> {
-        todo!()
+        Ok(())
     }
 
     fn init_event_monitor(&mut self) -> Result<TxMonitorCmd, Error> {
@@ -996,22 +997,65 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_connections");
         crate::telemetry!(query, self.id(), "query_connections");
 
-        fn query_connections(
-            rt: Arc<TokioRuntime>,
+        async fn query_connections(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryConnectionsRequest,
         ) -> Result<Vec<IdentifiedConnectionEnd>, Error> {
-            todo!()
+            if let Some(parac_rpc) = para_rpc_client {
+                let key_addr = parachain_node::storage().ibc().connections_root();
+
+                let mut iter = parac_rpc
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let connection_id = ConnectionId::from(parachain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId::decode(&mut &*raw_key).unwrap());
+                    let connection_end = ConnectionEnd::from(value);
+                    result.push(IdentifiedConnectionEnd {
+                        connection_id,
+                        connection_end,
+                    });
+                }
+                Ok(result)
+            } else {
+                let key_addr = relaychain_node::storage().ibc().connections_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let connection_id = ConnectionId::from(relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId::decode(&mut &*raw_key).unwrap());
+                    let connection_end = ConnectionEnd::from(value);
+                    result.push(IdentifiedConnectionEnd {
+                        connection_id,
+                        connection_end,
+                    });
+                }
+                Ok(result)
+            }
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => query_connections(self.rt.clone(), relay_rpc, Some(para_rpc), request),
-            RpcClient::SubChainRpc { rpc } => {
-                query_connections(self.rt.clone(), rpc, None, request)
-            }
+            } => self.block_on(query_connections(relay_rpc, Some(para_rpc), request)),
+            RpcClient::SubChainRpc { rpc } => self.block_on(query_connections(rpc, None, request)),
         }
     }
 
