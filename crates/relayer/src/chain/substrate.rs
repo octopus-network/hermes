@@ -1283,6 +1283,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // need todo
     fn query_connection_channels(
         &self,
         request: QueryConnectionChannelsRequest,
@@ -1295,7 +1296,11 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryConnectionChannelsRequest,
         ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                todo!()
+            }
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
@@ -1312,6 +1317,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // need todo
     fn query_channels(
         &self,
         request: QueryChannelsRequest,
@@ -1324,7 +1330,11 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryChannelsRequest,
         ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                todo!()
+            }
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
@@ -1415,6 +1425,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // todo
     fn query_channel_client_state(
         &self,
         request: QueryChannelClientStateRequest,
@@ -1427,7 +1438,11 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryChannelClientStateRequest,
         ) -> Result<Option<IdentifiedAnyClientState>, Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                todo!()
+            }
         }
 
         match &self.rpc_client {
@@ -1529,6 +1544,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // todo
     /// Queries the packet commitment hashes associated with a channel.
     fn query_packet_commitments(
         &self,
@@ -1542,7 +1558,11 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryPacketCommitmentsRequest,
         ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                todo!()
+            }
         }
 
         match &self.rpc_client {
@@ -1644,6 +1664,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // todo
     /// Queries the unreceived packet sequences associated with a channel.
     fn query_unreceived_packets(
         &self,
@@ -1657,7 +1678,11 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryUnreceivedPacketsRequest,
         ) -> Result<Vec<Sequence>, Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                todo!()
+            }
         }
 
         match &self.rpc_client {
@@ -1842,6 +1867,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // todo
     /// Queries the packet acknowledgment hashes associated with a channel.
     fn query_packet_acknowledgements(
         &self,
@@ -1855,7 +1881,11 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryPacketAcknowledgementsRequest,
         ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                todo!()
+            }
         }
 
         match &self.rpc_client {
@@ -1873,6 +1903,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // todo
     /// Queries the unreceived acknowledgements sequences associated with a channel.
     fn query_unreceived_acknowledgements(
         &self,
@@ -1886,7 +1917,11 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryUnreceivedAcksRequest,
         ) -> Result<Vec<Sequence>, Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                todo!()
+            }
         }
 
         match &self.rpc_client {
@@ -1915,6 +1950,7 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryTxRequest,
         ) -> Result<Vec<IbcEventWithHeight>, Error> {
+            // todo
             todo!()
         }
 
@@ -1948,7 +1984,11 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             mut request: QueryPacketEventDataRequest,
         ) -> Result<Vec<IbcEventWithHeight>, Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                todo!()
+            }
         }
 
         match &self.rpc_client {
@@ -1971,7 +2011,11 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryHostConsensusStateRequest,
         ) -> Result<GpConsensusState, Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                todo!()
+            }
         }
 
         match &self.rpc_client {
@@ -2005,109 +2049,114 @@ impl ChainEndpoint for SubstrateChain {
             height: ICSHeight,
             settings: ClientSettings,
         ) -> Result<GpClientState, Error> {
-            use codec::Decode;
-            use ibc_relayer_types::clients::ics10_grandpa::beefy_authority_set::BeefyAuthoritySet;
-            use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
-            use ibc_relayer_types::Height;
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                use codec::Decode;
+                use ibc_relayer_types::clients::ics10_grandpa::beefy_authority_set::BeefyAuthoritySet;
+                use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
+                use ibc_relayer_types::Height;
 
-            let chain_id = config.id.clone();
-            let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
+                let chain_id = config.id.clone();
+                let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
 
-            let result = async {
-                let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
-                    .await
+                let result = async {
+                    let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
+                        .await
+                        .unwrap();
+
+                    sub.next().await.unwrap().unwrap().0
+                };
+                let raw_signed_commitment = rt.block_on(result);
+
+                // decode signed commitment
+
+                let beefy_light_client::commitment::VersionedFinalityProof::V1(signed_commitment) =
+                    beefy_light_client::commitment::VersionedFinalityProof::decode(
+                        &mut &raw_signed_commitment[..],
+                    )
                     .unwrap();
 
-                sub.next().await.unwrap().unwrap().0
-            };
-            let raw_signed_commitment = rt.block_on(result);
+                // get commitment
+                let beefy_light_client::commitment::Commitment {
+                    payload,
+                    block_number,
+                    validator_set_id,
+                } = signed_commitment.commitment;
 
-            // decode signed commitment
+                let mmr_root_hash = payload
+                    .get_raw(&beefy_light_client::commitment::known_payload_ids::MMR_ROOT_ID)
+                    .unwrap();
+                let reversion_number = config.id.version();
+                let latest_beefy_height =
+                    Height::new(reversion_number, block_number as u64).unwrap();
+                let mmr_root_hash = mmr_root_hash.clone();
+                // get authorith set
+                let storage = relaychain_node::storage().mmr_leaf().beefy_authorities();
 
-            let beefy_light_client::commitment::VersionedFinalityProof::V1(signed_commitment) =
-                beefy_light_client::commitment::VersionedFinalityProof::decode(
-                    &mut &raw_signed_commitment[..],
-                )
-                .unwrap();
+                let closure = async {
+                    relay_rpc_client
+                        .storage()
+                        .at(None)
+                        .await
+                        .unwrap()
+                        .fetch(&storage)
+                        .await
+                };
+                let authority_set = rt.block_on(closure).unwrap().map(|v| BeefyAuthoritySet {
+                    id: v.id,
+                    len: v.len,
+                    root: v.root.as_bytes().to_vec(),
+                });
 
-            // get commitment
-            let beefy_light_client::commitment::Commitment {
-                payload,
-                block_number,
-                validator_set_id,
-            } = signed_commitment.commitment;
+                // get next authorith set
+                let storage = relaychain_node::storage()
+                    .mmr_leaf()
+                    .beefy_next_authorities();
 
-            let mmr_root_hash = payload
-                .get_raw(&beefy_light_client::commitment::known_payload_ids::MMR_ROOT_ID)
-                .unwrap();
-            let reversion_number = config.id.version();
-            let latest_beefy_height = Height::new(reversion_number, block_number as u64).unwrap();
-            let mmr_root_hash = mmr_root_hash.clone();
-            // get authorith set
-            let storage = relaychain_node::storage().mmr_leaf().beefy_authorities();
+                let closure = async {
+                    relay_rpc_client
+                        .storage()
+                        .at(None)
+                        .await
+                        .unwrap()
+                        .fetch(&storage)
+                        .await
+                };
+                let next_authority_set = rt.block_on(closure).unwrap().map(|v| BeefyAuthoritySet {
+                    id: v.id,
+                    len: v.len,
+                    root: v.root.as_bytes().to_vec(),
+                });
 
-            let closure = async {
-                relay_rpc_client
-                    .storage()
-                    .at(None)
-                    .await
-                    .unwrap()
-                    .fetch(&storage)
-                    .await
-            };
-            let authority_set = rt.block_on(closure).unwrap().map(|v| BeefyAuthoritySet {
-                id: v.id,
-                len: v.len,
-                root: v.root.as_bytes().to_vec(),
-            });
-
-            // get next authorith set
-            let storage = relaychain_node::storage()
-                .mmr_leaf()
-                .beefy_next_authorities();
-
-            let closure = async {
-                relay_rpc_client
-                    .storage()
-                    .at(None)
-                    .await
-                    .unwrap()
-                    .fetch(&storage)
-                    .await
-            };
-            let next_authority_set = rt.block_on(closure).unwrap().map(|v| BeefyAuthoritySet {
-                id: v.id,
-                len: v.len,
-                root: v.root.as_bytes().to_vec(),
-            });
-
-            let (chain_type, parachain_id, latest_chain_height) = if para_rpc_client.is_none() {
-                (
-                    ChaninType::Subchain,
-                    0,
-                    Height::new(reversion_number, block_number as u64).unwrap(),
-                )
-            } else {
-                (
-                    ChaninType::Parachian,
-                    2000,
-                    // todo(davirian)need query parachain height, maybey revision number neet to change
-                    Height::new(reversion_number, block_number as u64).unwrap(),
-                )
-            };
-            let client_state = GpClientState {
-                chain_type,
-                chain_id,
-                parachain_id,
-                beefy_activation_height,
-                latest_beefy_height,
-                mmr_root_hash,
-                latest_chain_height,
-                frozen_height: None,
-                authority_set,
-                next_authority_set,
-            };
-            Ok(client_state)
+                let (chain_type, parachain_id, latest_chain_height) = if para_rpc_client.is_none() {
+                    (
+                        ChaninType::Subchain,
+                        0,
+                        Height::new(reversion_number, block_number as u64).unwrap(),
+                    )
+                } else {
+                    (
+                        ChaninType::Parachian,
+                        2000,
+                        // todo(davirian)need query parachain height, maybey revision number neet to change
+                        Height::new(reversion_number, block_number as u64).unwrap(),
+                    )
+                };
+                let client_state = GpClientState {
+                    chain_type,
+                    chain_id,
+                    parachain_id,
+                    beefy_activation_height,
+                    latest_beefy_height,
+                    mmr_root_hash,
+                    latest_chain_height,
+                    frozen_height: None,
+                    authority_set,
+                    next_authority_set,
+                };
+                Ok(client_state)
+            }
         }
 
         match &self.rpc_client {
@@ -2145,35 +2194,39 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             light_block: SubLightBlock,
         ) -> Result<GpConsensusState, Error> {
-            use core::time::Duration;
-            use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
-            use tendermint::time::Time;
-
-            let timestamp = Time::now(); // todo(davirian) need to use correct time stamp
-            let root = if let Some(rpc_client) = para_rpc_client {
-                let last_finalized_head_hash =
-                    rt.block_on(rpc_client.rpc().finalized_head()).unwrap();
-                let finalized_head = rt
-                    .block_on(rpc_client.rpc().header(Some(last_finalized_head_hash)))
-                    .unwrap()
-                    .unwrap();
-                CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec())
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
             } else {
-                let last_finalized_head_hash = rt
-                    .block_on(relay_rpc_client.rpc().finalized_head())
-                    .unwrap();
-                let finalized_head = rt
-                    .block_on(
-                        relay_rpc_client
-                            .rpc()
-                            .header(Some(last_finalized_head_hash)),
-                    )
-                    .unwrap()
-                    .unwrap();
-                CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec())
-            };
-            let consensus_state = GpConsensusState::new(root, timestamp);
-            Ok(consensus_state)
+                use core::time::Duration;
+                use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
+                use tendermint::time::Time;
+
+                let timestamp = Time::now(); // todo(davirian) need to use correct time stamp
+                let root = if let Some(rpc_client) = para_rpc_client {
+                    let last_finalized_head_hash =
+                        rt.block_on(rpc_client.rpc().finalized_head()).unwrap();
+                    let finalized_head = rt
+                        .block_on(rpc_client.rpc().header(Some(last_finalized_head_hash)))
+                        .unwrap()
+                        .unwrap();
+                    CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec())
+                } else {
+                    let last_finalized_head_hash = rt
+                        .block_on(relay_rpc_client.rpc().finalized_head())
+                        .unwrap();
+                    let finalized_head = rt
+                        .block_on(
+                            relay_rpc_client
+                                .rpc()
+                                .header(Some(last_finalized_head_hash)),
+                        )
+                        .unwrap()
+                        .unwrap();
+                    CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec())
+                };
+                let consensus_state = GpConsensusState::new(root, timestamp);
+                Ok(consensus_state)
+            }
         }
 
         match &self.rpc_client {
