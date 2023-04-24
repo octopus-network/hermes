@@ -766,7 +766,11 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryClientStatesRequest,
         ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                todo!()
+            }
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
@@ -794,26 +798,49 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryClientStateRequest,
             include_proof: IncludeProof,
         ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
-            let client_id =
-                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
-                    request.client_id.to_string(),
-                );
-            let storage = relaychain_node::storage().ibc().client_states(client_id);
+            if let Some(rpc_client) = para_rpc_client {
+                let client_id =
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                        request.client_id.to_string(),
+                    );
+                let storage = parachain_node::storage().ibc().client_states(client_id);
 
-            let client_state = relay_rpc_client
-                .storage()
-                .at(None)
-                .await
-                .unwrap()
-                .fetch(&storage)
-                .await
-                .unwrap();
+                let client_state = rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap();
 
-            let client_state =
-                AnyClientState::decode_vec(&client_state.unwrap()).map_err(Error::decode)?;
+                let client_state =
+                    AnyClientState::decode_vec(&client_state.unwrap()).map_err(Error::decode)?;
 
-            println!("states: {:?}", client_state);
-            Ok((client_state, None))
+                println!("states: {:?}", client_state);
+                Ok((client_state, None))
+            } else {
+                let client_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                        request.client_id.to_string(),
+                    );
+                let storage = relaychain_node::storage().ibc().client_states(client_id);
+
+                let client_state = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap();
+
+                let client_state =
+                    AnyClientState::decode_vec(&client_state.unwrap()).map_err(Error::decode)?;
+
+                println!("states: {:?}", client_state);
+                Ok((client_state, None))
+            }
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
@@ -927,33 +954,65 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryConsensusStateRequest,
             include_proof: IncludeProof,
         ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
-            let client_id =
-                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
-                    request.client_id.to_string(),
-                );
+            if let Some(rpc_client) = para_rpc_client {
+                let client_id =
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                        request.client_id.to_string(),
+                    );
 
-            let height = relaychain_node::runtime_types::ibc::core::ics02_client::height::Height {
-                revision_number: request.consensus_height.revision_number(),
-                revision_height: request.consensus_height.revision_height(),
-            };
-            let storage = relaychain_node::storage()
-                .ibc()
-                .consensus_states(client_id, height);
+                let height =
+                    parachain_node::runtime_types::ibc::core::ics02_client::height::Height {
+                        revision_number: request.consensus_height.revision_number(),
+                        revision_height: request.consensus_height.revision_height(),
+                    };
+                let storage = parachain_node::storage()
+                    .ibc()
+                    .consensus_states(client_id, height);
 
-            let consensus_states = relay_rpc_client
-                .storage()
-                .at(None)
-                .await
-                .unwrap()
-                .fetch(&storage)
-                .await
-                .unwrap();
+                let consensus_states = rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap();
 
-            let consensus_state =
-                AnyConsensusState::decode_vec(&consensus_states.unwrap()).map_err(Error::decode)?;
+                let consensus_state = AnyConsensusState::decode_vec(&consensus_states.unwrap())
+                    .map_err(Error::decode)?;
 
-            println!("consensus_state: {:?}", consensus_state);
-            Ok((consensus_state, None))
+                println!("consensus_state: {:?}", consensus_state);
+                Ok((consensus_state, None))
+            } else {
+                let client_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                        request.client_id.to_string(),
+                    );
+
+                let height =
+                    relaychain_node::runtime_types::ibc::core::ics02_client::height::Height {
+                        revision_number: request.consensus_height.revision_number(),
+                        revision_height: request.consensus_height.revision_height(),
+                    };
+                let storage = relaychain_node::storage()
+                    .ibc()
+                    .consensus_states(client_id, height);
+
+                let consensus_states = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap();
+
+                let consensus_state = AnyConsensusState::decode_vec(&consensus_states.unwrap())
+                    .map_err(Error::decode)?;
+
+                println!("consensus_state: {:?}", consensus_state);
+                Ok((consensus_state, None))
+            }
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
