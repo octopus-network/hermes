@@ -960,6 +960,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // todo
     fn query_consensus_state_heights(
         &self,
         request: QueryConsensusStateHeightsRequest,
@@ -969,7 +970,11 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryConsensusStateHeightsRequest,
         ) -> Result<Vec<ICSHeight>, Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                todo!()
+            }
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
@@ -1088,7 +1093,47 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryClientConnectionsRequest,
         ) -> Result<Vec<ConnectionId>, Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                let client_id =
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                        request.client_id.to_string(),
+                    );
+
+                let storage = parachain_node::storage().ibc().connection_client(client_id);
+
+                let connection_id = rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                Ok(vec![ConnectionId::from(connection_id)])
+            } else {
+                let client_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                        request.client_id.to_string(),
+                    );
+
+                let storage = relaychain_node::storage()
+                    .ibc()
+                    .connection_client(client_id);
+
+                let connection_id = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                Ok(vec![ConnectionId::from(connection_id)])
+            }
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
