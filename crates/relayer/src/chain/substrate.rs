@@ -1349,7 +1349,55 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryChannelRequest,
             include_proof: IncludeProof,
         ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                let port_id =
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                        request.port_id.to_string(),
+                    );
+                let channel_id =
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                        request.channel_id.to_string(),
+                    );
+                let storage = parachain_node::storage()
+                    .ibc()
+                    .channels(port_id, channel_id);
+
+                let result = rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                Ok((result.into(), None))
+            } else {
+                let port_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                        request.port_id.to_string(),
+                    );
+                let channel_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                        request.channel_id.to_string(),
+                    );
+                let storage = relaychain_node::storage()
+                    .ibc()
+                    .channels(port_id, channel_id);
+
+                let result = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                Ok((result.into(), None))
+            }
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
