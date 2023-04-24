@@ -1567,7 +1567,65 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryPacketReceiptRequest,
             include_proof: IncludeProof,
         ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                let port_id =
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                        request.port_id.to_string(),
+                    );
+                let channel_id =
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                        request.channel_id.to_string(),
+                    );
+                let sequence =
+                    parachain_node::runtime_types::ibc::core::ics04_channel::packet::Sequence(
+                        u64::from(request.sequence),
+                    );
+                let storage = parachain_node::storage()
+                    .ibc()
+                    .packet_receipt(port_id, channel_id, sequence);
+
+                let result = rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                match result {
+                    parachain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => Ok((b"ok".to_vec(), None)),
+                }
+            } else {
+                let port_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                        request.port_id.to_string(),
+                    );
+                let channel_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                        request.channel_id.to_string(),
+                    );
+                let sequence =
+                    relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Sequence(
+                        u64::from(request.sequence),
+                    );
+                let storage = relaychain_node::storage()
+                    .ibc()
+                    .packet_receipt(port_id, channel_id, sequence);
+
+                let result = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                match result {
+                    relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => Ok((b"ok".to_vec(), None)),
+                }
+            }
         }
 
         match &self.rpc_client {
@@ -1624,7 +1682,56 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryNextSequenceReceiveRequest,
             include_proof: IncludeProof,
         ) -> Result<(Sequence, Option<MerkleProof>), Error> {
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                let port_id =
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                        request.port_id.to_string(),
+                    );
+                let channel_id =
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                        request.channel_id.to_string(),
+                    );
+
+                let storage = parachain_node::storage()
+                    .ibc()
+                    .next_sequence_recv(port_id, channel_id);
+
+                let result = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                Ok(result.into(), None)
+            } else {
+                let port_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                        request.port_id.to_string(),
+                    );
+                let channel_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                        request.channel_id.to_string(),
+                    );
+
+                let storage = relaychain_node::storage()
+                    .ibc()
+                    .next_sequence_recv(port_id, channel_id);
+
+                let result = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                Ok(result.into(), None)
+            }
         }
 
         match &self.rpc_client {
