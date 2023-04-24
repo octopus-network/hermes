@@ -1138,23 +1138,43 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryConnectionRequest,
             include_proof: IncludeProof,
         ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
-            let connection_id =
-                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
-                    request.connection_id.to_string(),
-                );
-            let storage = relaychain_node::storage().ibc().connections(connection_id);
+            if let Some(rpc_client) = para_rpc_client {
+                let connection_id =
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
+                        request.connection_id.to_string(),
+                    );
+                let storage = parachain_node::storage().ibc().connections(connection_id);
 
-            let connection = relay_rpc_client
-                .storage()
-                .at(None)
-                .await
-                .unwrap()
-                .fetch(&storage)
-                .await
-                .unwrap()
-                .unwrap();
+                let connection = rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
 
-            Ok((connection.into(), None))
+                Ok((connection.into(), None))
+            } else {
+                let connection_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
+                        request.connection_id.to_string(),
+                    );
+                let storage = relaychain_node::storage().ibc().connections(connection_id);
+
+                let connection = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                Ok((connection.into(), None))
+            }
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
