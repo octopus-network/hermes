@@ -712,19 +712,37 @@ impl ChainEndpoint for SubstrateChain {
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
         ) -> Result<ChainStatus, Error> {
-            use subxt::config::Header;
-            let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+            if let Some(rpc_client) = para_rpc_client {
+                use subxt::config::Header;
+                let finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
 
-            let block = relay_rpc_client
-                .rpc()
-                .block(Some(finalized_head_hash))
-                .await
-                .unwrap();
+                let block = rpc_client
+                    .rpc()
+                    .block(Some(finalized_head_hash))
+                    .await
+                    .unwrap();
 
-            Ok(ChainStatus {
-                height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap(),
-                timestamp: Timestamp::default(),
-            })
+                Ok(ChainStatus {
+                    height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
+                        .unwrap(),
+                    timestamp: Timestamp::default(),
+                })
+            } else {
+                use subxt::config::Header;
+                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+
+                let block = relay_rpc_client
+                    .rpc()
+                    .block(Some(finalized_head_hash))
+                    .await
+                    .unwrap();
+
+                Ok(ChainStatus {
+                    height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
+                        .unwrap(),
+                    timestamp: Timestamp::default(),
+                })
+            }
         }
 
         match &self.rpc_client {
