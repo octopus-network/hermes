@@ -767,9 +767,55 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryClientStatesRequest,
         ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
             if let Some(rpc_client) = para_rpc_client {
-                todo!()
+                let key_addr = parachain_node::storage().ibc().client_states_root();
+
+                let mut iter = rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let client_id = ClientId::from(parachain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId::decode(&mut &*raw_key).unwrap());
+                    // todo (davirian) maybe this have error
+                    let client_state = AnyClientState::decode_vec(&value).map_err(Error::decode)?;
+
+                    result.push(IdentifiedAnyClientState {
+                        client_id,
+                        client_state,
+                    });
+                }
+                Ok(result)
             } else {
-                todo!()
+                let key_addr = relaychain_node::storage().ibc().client_states_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let client_id = ClientId::from(relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId::decode(&mut &*raw_key).unwrap());
+                    // todo (davirian) maybe this have error
+                    let client_state = AnyClientState::decode_vec(&value).map_err(Error::decode)?;
+
+                    result.push(IdentifiedAnyClientState {
+                        client_id,
+                        client_state,
+                    });
+                }
+                Ok(result)
             }
         }
         match &self.rpc_client {
