@@ -31,7 +31,7 @@ use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 
 use crate::account::Balance;
 use crate::chain::client::ClientSettings;
-use crate::chain::handle::Subscription;
+use crate::chain::handle::{Subscription,BeefySubscription};
 use crate::chain::requests::*;
 use crate::chain::tracking::TrackedMsgs;
 use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
@@ -97,6 +97,9 @@ pub trait ChainEndpoint: Sized {
 
     // Events
     fn subscribe(&mut self) -> Result<Subscription, Error>;
+
+    // Events
+    fn subscribe_beefy(&mut self) -> Result<BeefySubscription, Error>;
 
     // Keyring
 

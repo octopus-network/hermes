@@ -454,7 +454,7 @@ fn collect_events(
     chain_id: &ChainId,
     event: RpcEvent,
 ) -> impl Stream<Item = Result<IbcEventWithHeight>> {
-    let events = crate::event::rpc::get_all_events(chain_id, event).unwrap_or_default();
+    let events: Vec<IbcEventWithHeight> = crate::event::rpc::get_all_events(chain_id, event).unwrap_or_default();
     stream::iter(events).map(Ok)
 }
 

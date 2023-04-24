@@ -44,6 +44,7 @@ use crate::config::Error as ConfigError;
 use crate::event::monitor;
 use crate::keyring::{errors::Error as KeyringError, KeyType};
 use crate::sdk_error::SdkError;
+use subxt::Error as SubxtError;
 
 define_error! {
     Error {
@@ -90,6 +91,10 @@ define_error! {
         EventMonitor
             [ monitor::Error ]
             |_| { "event monitor error" },
+
+        // SubEventMonitor
+        //     { reason: String }
+        //     |e| { format!("ub event monitor error: {0}", e.reason) },
 
         Grpc
             |_| { "gRPC error" },

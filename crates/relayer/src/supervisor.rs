@@ -58,8 +58,8 @@ type ArcBatch = Arc<monitor::Result<EventBatch>>;
 type Subscription = Receiver<ArcBatch>;
 
 // use subxt::SignedCommitment;
-use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 use ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::BeefyMmr;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 type ArcBeefy = Arc<beefy_monitor::BeefyResult<GPheader>>;
 type BeefySubscription = Receiver<ArcBeefy>;
 
@@ -184,7 +184,7 @@ pub fn spawn_supervisor_tasks<Chain: ChainHandle>(
     let batch_tasks = spawn_batch_workers(
         &config,
         registry.clone(),
-        client_state_filter,
+        client_state_filter.clone(),
         workers.clone(),
         subscriptions,
     );

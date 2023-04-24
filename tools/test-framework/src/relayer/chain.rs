@@ -420,4 +420,15 @@ where
     ) -> Result<Vec<CrossChainQueryResponse>, Error> {
         self.value().cross_chain_query(request)
     }
+    fn websocket_url(&self) -> Result<String, Error> {
+        todo!()
+    }
+
+    fn subscribe_beefy(&self) -> Result<ibc_relayer::chain::handle::BeefySubscription, Error> {
+        todo!()
+    }
+
+    fn update_mmr_root(&self, _client_id: ClientId, _header: ibc_relayer_types::clients::ics10_grandpa::header::Header) -> Result<(), Error> {
+        todo!()
+    }
 }

@@ -5,8 +5,8 @@ log_level = 'debug'
 
 [mode.clients]
 enabled = true
-refresh = true
-misbehaviour = true
+refresh = false
+misbehaviour = false
 
 [mode.connections]
 enabled = true

@@ -5,6 +5,21 @@ use crossbeam_channel as channel;
 use tokio::runtime::Runtime as TokioRuntime;
 use tracing::{error, Span};
 
+use crate::{
+    account::Balance,
+    chain::requests::QueryPacketEventDataRequest,
+    client_state::{AnyClientState, IdentifiedAnyClientState},
+    config::ChainConfig,
+    connection::ConnectionMsgType,
+    consensus_state::AnyConsensusState,
+    denom::DenomTrace,
+    error::Error,
+    event::IbcEventWithHeight,
+    keyring::AnySigningKeyPair,
+    light_client::AnyHeader,
+    misbehaviour::MisbehaviourEvidence,
+};
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 use ibc_relayer_types::{
     applications::ics31_icq::response::CrossChainQueryResponse,
     core::{
@@ -24,26 +39,11 @@ use ibc_relayer_types::{
     signer::Signer,
     Height,
 };
-use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
-use crate::{
-    account::Balance,
-    chain::requests::QueryPacketEventDataRequest,
-    client_state::{AnyClientState, IdentifiedAnyClientState},
-    config::ChainConfig,
-    connection::ConnectionMsgType,
-    consensus_state::AnyConsensusState,
-    denom::DenomTrace,
-    error::Error,
-    event::IbcEventWithHeight,
-    keyring::AnySigningKeyPair,
-    light_client::AnyHeader,
-    misbehaviour::MisbehaviourEvidence,
-};
 
 use super::{
     client::ClientSettings,
     endpoint::{ChainEndpoint, ChainStatus, HealthCheck},
-    handle::{ChainHandle, ChainRequest, ReplyTo, Subscription,BeefySubscription},
+    handle::{BeefySubscription, ChainHandle, ChainRequest, ReplyTo, Subscription},
     requests::*,
     tracking::TrackedMsgs,
 };
@@ -377,22 +377,8 @@ where
 
     /// only for sustrate app chain
     fn subscribe_beefy(&mut self, reply_to: ReplyTo<BeefySubscription>) -> Result<(), Error> {
-        if !self.beefy_monitor_ctrl.is_live() {
-            self.enable_beefy_monitor()?;
-        }
-
-        let subscription = self.beefy_bus.subscribe();
-        reply_to.send(Ok(subscription)).map_err(Error::send)
-    }
-
-    fn enable_beefy_monitor(&mut self) -> Result<(), Error> {
-        tracing::trace!("In runtime: [enable_beefy_monitor]");
-        let (beefy_receiver, tx_monitor_cmd) = self.chain.init_beefy_monitor(self.rt.clone())?;
-
-        self.beefy_monitor_ctrl
-            .enable(beefy_receiver, tx_monitor_cmd);
-
-        Ok(())
+        let beefy_subscription = self.chain.subscribe_beefy();
+        reply_to.send(beefy_subscription).map_err(Error::send)
     }
 
     fn send_messages_and_wait_commit(

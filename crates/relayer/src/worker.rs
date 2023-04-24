@@ -113,7 +113,7 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
 
             let mut update_mmr_root = false;
             let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded();
-            //TODO: spawn update mmr root task
+            // spawn update mmr root task
             let update_mmr_root_task = client::spawn_update_mmr_root(cmd_rx, client.clone());
             if let Some(update_mmr_root_task) = update_mmr_root_task {
                 task_handles.push(update_mmr_root_task);

@@ -1,8 +1,8 @@
 use flex_error::{define_error, TraceError};
 
-use tendermint_rpc::{Error as RpcError, Url};
-
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use subxt::Error as SubxtError;
+use tendermint_rpc::{Error as RpcError, Url};
 
 define_error! {
     #[derive(Debug, Clone)]
@@ -48,6 +48,10 @@ define_error! {
         Rpc
             [ TraceError<RpcError> ]
             |_| { "RPC error" },
+
+        SubxtError
+            [ TraceError<SubxtError> ]
+            |_| { "subxt error "},
     }
 }
 

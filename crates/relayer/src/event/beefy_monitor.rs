@@ -21,23 +21,38 @@ use tracing::{debug, error, info, trace};
 // };
 use tendermint_rpc::{event::Event as RpcEvent, Url};
 
-use crate::error::Error as RelayError;
 use crate::util::{
-    retry::{ retry_with_index, RetryResult},
+    retry::{retry_with_index, RetryResult},
     stream::try_group_while,
 };
+use crate::{error::Error as RelayError, telemetry};
 use beefy_light_client::commitment;
 use codec::{Decode, Encode};
-// use ibc::clients::ics10_grandpa::help::{self, MmrRoot};
-// use ibc::clients::ics10_grandpa::{header::Header, help::ValidatorMerkleProof};
-// use ibc::core::ics02_client::height::Height;
-// use ibc::core::ics24_host::identifier::ChainId;
+use ibc_relayer_types::clients::ics10_grandpa::consensus_state::ConsensusState as GpConsensusState;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GpHeader;
+use ibc_relayer_types::core::ics02_client::height::Height;
+use ibc_relayer_types::core::ics24_host::identifier::{
+    ChainId, ChannelId, ClientId, ConnectionId, PortId,
+};
 // use ibc::events::IbcEvent;
 use sp_core::{hexdisplay::HexDisplay, H256};
 
 use std::future::Future;
 use tokio::runtime::Runtime;
 
+use super::{bus::EventBus, IbcEventWithHeight};
+use crate::chain::handle::BeefySubscription;
+use crate::error::Error;
+use serde::{Deserialize, Serialize};
+use subxt::blocks::Block;
+use subxt::blocks::BlocksClient;
+use subxt::error::RpcError as SubxtRpcError;
+use subxt::rpc::types::BlockNumber;
+use subxt::rpc::RpcClient as SubxtRpcClient;
+use subxt::rpc::Subscription as SubxtSubscription;
+use subxt::rpc_params;
+use subxt::Error as SubxtError;
+use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
 mod retry_strategy {
     use crate::util::retry::clamp_total;
     use core::time::Duration;
@@ -53,68 +68,42 @@ mod retry_strategy {
     }
 }
 
-pub use super::monitor::Error;
-pub type BeefyResult<T> = Result<T, Error>;
-pub type BeefySender = channel::Sender<BeefyResult<Header>>;
-pub type BeefyReceiver = channel::Receiver<BeefyResult<Header>>;
+pub use super::monitor::error::Error as MonitorError;
+pub use super::monitor::error::*;
+pub type BeefyResult<T> = Result<T, MonitorError>;
+pub type BeefySender = channel::Sender<BeefyResult<GpHeader>>;
+pub type BeefyReceiver = channel::Receiver<BeefyResult<GpHeader>>;
 
-pub use super::monitor::MonitorCmd;
-pub use super::monitor::TxMonitorCmd;
+// pub type Result<T> = core::result::Result<T, Error>;
+// pub use super::monitor::MonitorCmd;
+// pub use super::monitor::TxMonitorCmd;
 
-#[derive(Debug)]
-pub enum BeefyMonitorCtrl {
-    None {
-        /// Empty channel for when the None case
-        never: BeefyReceiver,
-    },
-    Live {
-        beefy_receiver: BeefyReceiver,
-        /// Sender channel to terminate the event monitor
-        tx_monitor_cmd: TxMonitorCmd,
-    },
+#[derive(Clone, Debug)]
+pub struct TxMonitorCmd(pub channel::Sender<MonitorCmd>);
+
+impl TxMonitorCmd {
+    pub fn shutdown(&self) -> BeefyResult<()> {
+        self.0
+            .send(MonitorCmd::Shutdown)
+            .map_err(|_| MonitorError::channel_send_failed())
+    }
+
+    pub fn subscribe(&self) -> BeefyResult<BeefySubscription> {
+        let (tx, rx) = crossbeam_channel::bounded(1);
+
+        self.0
+            .send(MonitorCmd::Subscribe(tx))
+            .map_err(|_| MonitorError::channel_send_failed())?;
+
+        let subscription = rx.recv().map_err(|_| MonitorError::channel_recv_failed())?;
+        Ok(subscription)
+    }
 }
 
-impl BeefyMonitorCtrl {
-    pub fn none() -> Self {
-        Self::None {
-            never: channel::never(),
-        }
-    }
-
-    pub fn live(beefy_receiver: BeefyReceiver, tx_monitor_cmd: TxMonitorCmd) -> Self {
-        Self::Live {
-            beefy_receiver,
-            tx_monitor_cmd,
-        }
-    }
-
-    pub fn enable(&mut self, beefy_receiver: BeefyReceiver, tx_monitor_cmd: TxMonitorCmd) {
-        *self = Self::live(beefy_receiver, tx_monitor_cmd);
-    }
-
-    pub fn recv(&self) -> &BeefyReceiver {
-        match self {
-            Self::None { ref never } => never,
-            Self::Live {
-                ref beefy_receiver, ..
-            } => beefy_receiver,
-        }
-    }
-
-    pub fn shutdown(&self) -> Result<(), RelayError> {
-        match self {
-            Self::None { .. } => Ok(()),
-            Self::Live {
-                ref tx_monitor_cmd, ..
-            } => tx_monitor_cmd
-                .send(MonitorCmd::Shutdown)
-                .map_err(RelayError::send),
-        }
-    }
-
-    pub fn is_live(&self) -> bool {
-        matches!(self, Self::Live { .. })
-    }
+#[derive(Debug)]
+pub enum MonitorCmd {
+    Shutdown,
+    Subscribe(channel::Sender<BeefySubscription>),
 }
 
 /// Connect to a substrate node, subscribe to beefy info,
@@ -122,19 +111,20 @@ impl BeefyMonitorCtrl {
 pub struct BeefyMonitor {
     chain_id: ChainId,
     /// WebSocket to collect events from
-    client: Client<MyConfig>,
-    /// Channel to handler where the monitor for this chain sends the events
-    tx_beefy: channel::Sender<BeefyResult<Header>>,
+    beefy_node_addr: Url,
+    /// connect to beefy client
+    beefy_rpc_client: OnlineClient<PolkadotConfig>,
+    /// Event bus for broadcasting events
+    event_bus: EventBus<Arc<BeefyResult<GpHeader>>>,
     /// Channel where to receive client driver errors
-    rx_err: mpsc::UnboundedReceiver<tendermint_rpc::Error>,
+    rx_err: mpsc::UnboundedReceiver<SubxtError>,
     /// Channel where to send client driver errors
-    tx_err: mpsc::UnboundedSender<tendermint_rpc::Error>,
+    tx_err: mpsc::UnboundedSender<SubxtError>,
     /// Channel where to receive commands
     rx_cmd: channel::Receiver<MonitorCmd>,
-    /// Node Address
-    node_addr: Url,
-    /// beefy subscription
-    subscription: Option<SignedCommitment>,
+
+    /// beefy stream subscription
+    beefy_sub: SubxtSubscription<SignedCommitment>,
     /// Tokio runtime
     rt: Arc<TokioRuntime>,
 }
@@ -143,74 +133,65 @@ impl BeefyMonitor {
     /// Create an event monitor, and connect to a node
     pub fn new(
         chain_id: ChainId,
-        client: Client<MyConfig>,
-        node_addr: Url,
+        beefy_node_addr: Url,
         rt: Arc<TokioRuntime>,
-    ) -> BeefyResult<(Self, BeefyReceiver, TxMonitorCmd)> {
-        let (tx_beefy, rx_beefy) = channel::unbounded();
+    ) -> BeefyResult<(Self, TxMonitorCmd)> {
+        let event_bus = EventBus::new();
         let (tx_cmd, rx_cmd) = channel::unbounded();
         let (tx_err, rx_err) = mpsc::unbounded_channel();
+
+        let beefy_rpc_client = rt
+            .block_on(OnlineClient::<PolkadotConfig>::from_url(
+                beefy_node_addr.to_string(),
+            ))
+            .unwrap();
+        let beefy_sub = rt
+            .block_on(subscribe_beefy_message(beefy_rpc_client.rpc()))
+            .unwrap();
 
         let monitor = Self {
             rt,
             chain_id,
-            client,
-            tx_beefy,
+            beefy_node_addr,
+            beefy_rpc_client,
+            event_bus,
             rx_err,
             tx_err,
             rx_cmd,
-            node_addr,
-            subscription: None,
+            beefy_sub,
         };
 
-        Ok((monitor, rx_beefy, tx_cmd))
+        Ok((monitor, TxMonitorCmd(tx_cmd)))
     }
 
     ///subscribe beefy
-    pub fn subscribe(&mut self) -> BeefyResult<()> {
+    pub fn init_subscriptions(&mut self) -> BeefyResult<()> {
         info!("in beefy_mointor: [subscribe] ");
-        let sub = self.rt.block_on(self.subscribe_beefy()).unwrap();
-
-        self.subscription = Some(sub);
+        // subcribe beefy msg
+        self.beefy_sub = self
+            .rt
+            .block_on(subscribe_beefy_message(self.beefy_rpc_client.rpc()))
+            .unwrap();
 
         Ok(())
     }
 
     fn try_reconnect(&mut self) -> BeefyResult<()> {
-        info!(
+        trace!(
             "[{}] trying to reconnect to WebSocket endpoint {}",
-            self.chain_id, self.node_addr
+            self.chain_id,
+            self.beefy_node_addr
         );
 
-        // Try to reconnect
-        let mut client = self
+        let mut beefy_rpc_client = self
             .rt
-            .block_on(
-                ClientBuilder::new()
-                    .set_url(format!("{}", &self.node_addr.clone()))
-                    .build::<MyConfig>(),
-            )
-            .map_err(|_| {
-                Error::client_creation_failed(self.chain_id.clone(), self.node_addr.clone())
-            })?;
-
+            .block_on(OnlineClient::<PolkadotConfig>::from_url(
+                self.beefy_node_addr.to_string(),
+            ))
+            .unwrap();
         // Swap the new client with the previous one which failed,
         // so that we can shut the latter down gracefully.
-        core::mem::swap(&mut self.client, &mut client);
-
-        trace!(
-            "[{}] reconnected to WebSocket endpoint {}",
-            self.chain_id,
-            self.node_addr
-        );
-
-        // Shut down previous client
-        trace!(
-            "[{}] gracefully shutting down previous client",
-            self.chain_id
-        );
-
-        trace!("[{}] previous client successfully shutdown", self.chain_id);
+        core::mem::swap(&mut self.beefy_rpc_client, &mut beefy_rpc_client);
 
         Ok(())
     }
@@ -218,7 +199,7 @@ impl BeefyMonitor {
     /// Try to resubscribe to events
     fn try_resubscribe(&mut self) -> BeefyResult<()> {
         info!("[{}] trying to resubscribe to beefy", self.chain_id);
-        self.subscribe()
+        self.init_subscriptions()
     }
 
     /// Attempt to reconnect the WebSocket client using the given retry strategy.
@@ -245,61 +226,96 @@ impl BeefyMonitor {
         match result {
             Ok(()) => info!(
                 "[{}] successfully reconnected to WebSocket endpoint {}",
-                self.chain_id, self.node_addr
+                self.chain_id, self.beefy_node_addr
             ),
             Err(retries) => error!(
-                "[{}] failed to reconnect to {} after {} retries",
-                self.chain_id,
-                self.node_addr,
-                retry_count(&retries)
+                "failed to reconnect to {} after {} retries",
+                self.chain_id, self.beefy_node_addr,
             ),
         }
     }
 
     /// beefy monitor loop
     #[allow(clippy::while_let_loop)]
-    pub fn run(self) {
+    pub fn run(mut self) {
         debug!("[{}] starting beefy monitor", self.chain_id);
         trace!(
             "in beefy_monitor: [run], [{}] starting beefy monitor ",
             self.chain_id
         );
 
-        let api = self
-            .client
-            .clone()
-            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
-            );
-
-        let sub = self
-            .rt
-            .block_on(api.client.rpc().subscribe_beefy_justifications())
-            .unwrap();
-
-        let mut beefy_sub = sub;
-
-        trace!("in beefy_monitor: [run], beefy subscript success ! ");
-
-        // let mut beefy_sub = self.rt.block_on(self.subscribe_beefy());
-        // Work around double borrow
-        let rt = self.rt.clone();
-
-        // msg loop for handle the beefy SignedCommitment
         loop {
-            let raw_sc = self.rt.block_on(beefy_sub.next()).unwrap().unwrap();
-            trace!(
-                "in beefy_monitor: [run], from {:?} received beefy signed commitment : {:?} ",
-                self.chain_id.as_str(),
-                raw_sc
-            );
-
-            let _ = self.process_beefy_msg(raw_sc);
+            match self.run_loop() {
+                Next::Continue => continue,
+                Next::Abort => break,
+            }
         }
+
+        // close connection
+        let _ = self.beefy_rpc_client;
+
+        trace!("[{}] beefy monitor is shutting down", self.chain_id);
     }
 
     fn run_loop(&mut self) -> Next {
         info!("in beefy_mointor: [run_loop]");
-        Next::Continue
+
+        // Work around double borrow
+        let rt = self.rt.clone();
+
+        // get beefy_sub ownership
+        let mut beefy_sub = rt
+            .block_on(subscribe_beefy_message(self.beefy_rpc_client.rpc()))
+            .unwrap();
+
+        loop {
+            if let Ok(cmd) = self.rx_cmd.try_recv() {
+                match cmd {
+                    MonitorCmd::Shutdown => return Next::Abort,
+                    MonitorCmd::Subscribe(tx) => {
+                        if let Err(e) = tx.send(self.event_bus.subscribe()) {
+                            error!("failed to send back subscription: {e}");
+                        }
+                    }
+                }
+            }
+            let beefy_result = rt.block_on(async {
+                tokio::select! {
+
+                    //select beefy subcription
+                    Some(beefy_msg) = beefy_sub.next() => {
+                        let msg = beefy_msg.unwrap();
+                         trace!(" received beefy msg {:?}", msg);
+
+                          Ok(msg)
+
+                    },
+                    Some(e) = self.rx_err.recv() => Err(MonitorError::subxt_error(e)),
+                }
+            });
+
+            match beefy_result {
+                Ok(msg) => {
+                    trace!(" need to build header based on beefy msg {:?}", msg);
+                    self.process_beefy_msg(msg)
+                }
+                Err(e) => {
+                    error!("subscription dropped, need to reconnect !");
+
+                    self.propagate_error(e);
+                    telemetry!(ws_reconnect, &self.chain_id);
+
+                    // Reconnect to the WebSocket endpoint, and subscribe again to the queries.
+                    self.reconnect();
+
+                    // Abort this event loop, the `run` method will start a new one.
+                    // We can't just write `return self.run()` here because Rust
+                    // does not perform tail call optimization, and we would
+                    // thus potentially blow up the stack after many restarts.
+                    return Next::Continue;
+                }
+            }
+        }
     }
 
     /// Propagate error to subscribers.
@@ -309,20 +325,15 @@ impl BeefyMonitor {
     /// and to trigger a clearing of packets, as this typically means that we have
     /// missed a bunch of events which were emitted after the subscrption was closed.
     /// In that case, this error will be handled in [`Supervisor::handle_batch`].
-    fn propagate_error(&self, error: Error) -> BeefyResult<()> {
-        info!("in beefy_mointor: [propagate_error]");
-        self.tx_beefy
-            .send(Err(error))
-            .map_err(|_| Error::channel_send_failed())?;
-
-        Ok(())
+    fn propagate_error(&mut self, error: MonitorError) {
+        self.event_bus.broadcast(Arc::new(Err(error)));
     }
 
     /// Collect the IBC events from the subscriptions
-    fn process_beefy_msg(&self, raw_sc: SignedCommitment) -> BeefyResult<()> {
+    fn process_beefy_msg(&mut self, sc: SignedCommitment) {
         trace!("in beefy_mointor: [process_beefy_msg]");
 
-        let header = self.rt.block_on(self.build_header(raw_sc));
+        let header = self.rt.block_on(self.build_header(sc));
         trace!(
             "in beefy_monitor: [process_beefy_msg], build header: {:?} ",
             header
@@ -331,184 +342,49 @@ impl BeefyMonitor {
         if let Ok(h) = header {
             // send to msg queue
             trace!(
-                "in beefy_monitor: [process_beefy_msg], send mmr root : {:?} ",
+                "in beefy_monitor: [process_beefy_msg], send beefy header : {:?} ",
                 h
             );
 
-            self.tx_beefy
-                .send(Ok(h))
-                .map_err(|_| Error::channel_send_failed())?;
+            self.event_bus.broadcast(Arc::new(Ok(h)));
         }
-
-        Ok(())
-    }
-    /// Subscribe beefy msg
-    pub async fn subscribe_beefy(&self) -> Result<SignedCommitment, Box<dyn std::error::Error>> {
-        info!("in beefy monitor: [subscribe_beefy]");
-        let api = self
-            .client
-            .clone()
-            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
-            );
-
-        let mut sub = api.client.rpc().subscribe_beefy_justifications().await?;
-
-        let raw = sub.next().await.unwrap().unwrap();
-
-        Ok(raw)
     }
 
-    pub async fn build_header(&self, raw_sc: SignedCommitment) -> Result<Header, RelayError> {
+    pub async fn build_header(&self, raw_sc: SignedCommitment) -> Result<GpHeader, RelayError> {
         trace!("in beefy monitor: [build_header]");
-
         // decode signed commitment
-        let signed_commmitment: commitment::SignedCommitment =
-            Decode::decode(&mut &raw_sc.0[..]).unwrap();
+        let beefy_light_client::commitment::VersionedFinalityProof::V1(signed_commitment) =
+            beefy_light_client::commitment::VersionedFinalityProof::decode(&mut &raw_sc.0[..])
+                .unwrap();
         trace!(
-            "in beefy monitor: [build_header] decode signed commitment : {:?},",
-            signed_commmitment
+            "in beefy_monitor: [build_header], decode signed_commitment : {:?} ",
+            signed_commitment
         );
-        // get commitment
-        let commitment::Commitment {
-            payload,
-            block_number,
-            validator_set_id,
-        } = signed_commmitment.commitment.clone();
-        trace!(
-            "in beefy monitor: [build_header] new mmr root block_number : {:?},",
-            block_number
-        );
-        // build validator proof
-        let validator_merkle_proofs: Vec<ValidatorMerkleProof> =
-            octopusxt::update_client_state::build_validator_proof(
-                self.client.clone(),
-                block_number,
-            )
-            .await
-            .map_err(|_| RelayError::get_validator_merkle_proof())?;
-
-        // build mmr proof
-        let api = self
-            .client
-            .clone()
-            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
-            );
-
-        // get block hash
-        let block_hash: Option<H256> = api
-            .client
-            .rpc()
-            .block_hash(Some(BlockNumber::from(block_number)))
-            .await
-            .map_err(|_| RelayError::get_block_hash_error())?;
-
-        trace!(
-            "in beefy monitor: [build_header] block_number:{:?} >> block_hash{:?}",
-            block_number,
-            block_hash
-        );
-
-        // create proof
-        let mmr_leaf_and_mmr_leaf_proof = octopusxt::ibc_rpc::get_mmr_leaf_and_mmr_proof(
-            Some(BlockNumber::from(block_number - 1)),
-            block_hash,
-            self.client.clone(),
-        )
-        .await
-        .map_err(|_| RelayError::get_mmr_leaf_and_mmr_proof_error())?;
-        trace!(
-            "in beefy monitor: [build_header] get_mmr_leaf_and_mmr_proof block_hash{:?}",
-            mmr_leaf_and_mmr_leaf_proof.0
-        );
-
-        // build new mmr root
-        let mmr_root = MmrRoot {
-            signed_commitment: signed_commmitment.into(),
-            validator_merkle_proofs: validator_merkle_proofs,
-            mmr_leaf: mmr_leaf_and_mmr_leaf_proof.1,
-            mmr_leaf_proof: mmr_leaf_and_mmr_leaf_proof.2,
-        };
-
-        let api = self
-            .client
-            .clone()
-            .to_runtime_api::<RuntimeApi<MyConfig, SubstrateNodeTemplateExtrinsicParams<MyConfig>>>(
-            );
-
-        // get block header
-        let block_header = octopusxt::ibc_rpc::get_header_by_block_number(
-            Some(BlockNumber::from(block_number)),
-            self.client.clone(),
-        )
-        .await
-        .map_err(|_| RelayError::get_header_by_block_number_error())?;
-
-        trace!(
-            "in beefy monitor: [build_header] >> block_header = {:?}",
-            block_header
-        );
-
-        //build timestamp
-        let timestamp = Time::from_unix_timestamp(0, 0).unwrap();
-
-        trace!(
-            "in beefy monitor: [build_header] >> timestamp = {:?}",
-            timestamp
-        );
-
-        // //TODO: test verify mmr root and verify header
-        // trace!("in beefy monitor: [build_header] ---------------------test[begin]-----------------------");
-
-        // // decode mmr leaf
-        // let mmr_leaf: Vec<u8> = Decode::decode(&mut &mmr_root.mmr_leaf.clone()[..]).unwrap();
-        // trace!("in beefy monitor: [build_header] mmr_leaf decode to Vec<u8>: {:?}",mmr_leaf);
-        // let mmr_leaf: beefy_light_client::mmr::MmrLeaf = Decode::decode(&mut &*mmr_leaf).unwrap();
-        // trace!("in beefy monitor: [build_header] mmr_leaf to data struct: {:?}",mmr_leaf);
-
-        // // decode mmr leaf proof
-        // let mmr_leaf_proof = beefy_light_client::mmr::MmrLeafProof::decode(
-        //     &mut &mmr_root.mmr_leaf_proof.clone()[..],
-        // )
-        // .unwrap();
-        // trace!("in beefy monitor: [build_header] block_header.block_number:{:?},mmr root heigh:{:?},mmr_leaf.parent_number:{:?},mmr_leaf_proof.leaf_index{:?},mmr_leaf_proof.leaf_count: {:?}",block_header.block_number,block_number,mmr_leaf.parent_number_and_hash.0,mmr_leaf_proof.leaf_index, mmr_leaf_proof.leaf_count);
-
-        // // log mmr leaf
-        // trace!("in beefy monitor: [build_header] block_header.parent_hash: {:?}",block_header.parent_hash);
-        // trace!("in beefy monitor: [build_header] mmr_leaf.parent_number_and_hash.1.to_vec(): {:?}",mmr_leaf.parent_number_and_hash.1.to_vec());
-
-        // // verfiy block header
-        // if block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec() {
-        //     trace!("in beefy monitor: [build_header] header.block_header.parent_hash != mmr_leaf.parent_number_and_hash.1.to_vec()");
-        // } else {
-        //     trace!("in beefy monitor: [build_header] header.block_header.parent_hash == mmr_leaf.parent_number_and_hash.1.to_vec()");
-        // }
-
-        // let beefy_header =
-        //     beefy_light_client::header::Header::try_from(block_header.clone()).unwrap();
-        // let header_hash = beefy_header.hash();
-        // trace!("in beefy monitor: [build_header] header_hash: {:?}",header_hash);
-        // trace!("in beefy monitor: [build_header] mmr_leaf.parent_number_and_hash.1: {:?}",mmr_leaf.parent_number_and_hash.1);
-        // if header_hash != mmr_leaf.parent_number_and_hash.1 {
-        //     trace!("in beefy monitor: [build_header] header_hash != mmr_leaf.parent_number_and_hash.1");
-        // } else {
-        //     trace!("in beefy monitor: [build_header] header_hash == mmr_leaf.parent_number_and_hash.1");
-        // }
-
-        // trace!("in beefy monitor: [build_header] ---------------------test[end]-----------------------");
-
-        // build header
-        let grandpa_header = Header {
-            mmr_root: mmr_root,
-            block_header: block_header,
-            timestamp: timestamp,
-        };
-
-        trace!(
-            "in beefy monitor: [build_header] >> grandpa_header = {:?}",
-            grandpa_header
-        );
-        Ok(grandpa_header)
+        todo!()
     }
+}
+
+#[derive(codec::Encode, codec::Decode, PartialEq, Eq)]
+pub struct EncodableOpaqueLeaf(pub Vec<u8>);
+
+/// An encoded signed commitment proving that the given header has been finalized.
+/// The given bytes should be the SCALE-encoded representation of a
+/// `beefy_primitives::SignedCommitment`.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct SignedCommitment(pub sp_core::Bytes);
+
+/// Subscribe to beefy justifications.
+pub async fn subscribe_beefy_message(
+    client: &SubxtRpcClient,
+) -> Result<SubxtSubscription<SignedCommitment>, subxt::Error> {
+    let subscription = client
+        .subscribe(
+            "beefy_subscribeJustifications",
+            rpc_params![],
+            "beefy_unsubscribeJustifications",
+        )
+        .await?;
+    Ok(subscription)
 }
 
 pub enum Next {
@@ -520,33 +396,41 @@ pub enum Next {
 mod tests {
     use std::str::FromStr;
 
-    use crate::error::Error;
+    use beefy_light_client::Hash;
+    use codec::{Decode, Encode};
+    // use mmr_rpc::LeavesProof;
     use alloc::sync::Arc;
-    use ibc::core::ics24_host::identifier::ChainId;
-    use octopusxt::ibc_node::{self, RuntimeApi};
-    use octopusxt::MyConfig;
-    use subxt::{Client, ClientBuilder, Error as SubstrateError, PairSigner, SignedCommitment};
+    use ibc_relayer_types::core::ics24_host::identifier::{
+        ChainId, ChannelId, ClientId, ConnectionId, PortId,
+    };
+    use serde::{Deserialize, Serialize};
+    use sp_core::H256;
+    use subxt::rpc::types::BlockNumber;
+    use subxt::rpc::RpcClient;
+    use subxt::rpc::Subscription;
+    use subxt::{rpc_params, OnlineClient, PolkadotConfig};
     use tendermint_rpc::Url;
-    use tokio::runtime::Runtime as TokioRuntime;
+    use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
+    // #[subxt::subxt(runtime_metadata_path = "metadata/metadata.scale")]
+    // #[subxt::subxt(runtime_metadata_url = "wss://rococo-rpc.polkadot.io:443")]
+    #[subxt::subxt(runtime_metadata_url = "ws://127.0.0.1:9944")]
+    pub mod polkadot {}
 
     use super::BeefyMonitor;
 
     #[test]
     fn test_beefy_monitor_run() {
         let chain_id = ChainId::from_string("ibc-0");
-        let websocket_url = Url::from_str("ws://127.0.0.1:9944/websocket").unwrap();
+        let beefy_node_addr = Url::from_str("ws://127.0.0.1:9944").unwrap();
         let rt = Arc::new(TokioRuntime::new().unwrap());
 
-        let mut client = rt
-            .block_on(
-                ClientBuilder::new()
-                    .set_url(format!("{}", websocket_url))
-                    .build::<MyConfig>(),
-            )
+        let mut beefy_rpc_client = rt
+            .block_on(OnlineClient::<PolkadotConfig>::from_url(
+                beefy_node_addr.to_string(),
+            ))
             .unwrap();
 
-        let (beefy_monitor, receiver, tx_cmd) =
-            BeefyMonitor::new(chain_id, client, websocket_url, rt).unwrap();
+        let (beefy_monitor, tx_cmd) = BeefyMonitor::new(chain_id, beefy_node_addr, rt).unwrap();
         beefy_monitor.run()
     }
 }

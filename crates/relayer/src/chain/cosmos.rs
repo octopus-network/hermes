@@ -1895,6 +1895,11 @@ impl ChainEndpoint for CosmosSdkChain {
 
         Ok(responses)
     }
+
+    // only for substrate chain
+    fn subscribe_beefy(&mut self) -> Result<super::handle::BeefySubscription, Error> {
+        todo!()
+    }
 }
 
 fn sort_events_by_sequence(events: &mut [IbcEventWithHeight]) {
