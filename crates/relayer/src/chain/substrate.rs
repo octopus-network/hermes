@@ -2018,10 +2018,34 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryHostConsensusStateRequest,
         ) -> Result<GpConsensusState, Error> {
+            use core::time::Duration;
+            use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
+            use tendermint::time::Time;
+            let timestamp = Time::now(); // todo(davirian) need to use correct time stamp
             if let Some(rpc_client) = para_rpc_client {
-                todo!()
+                let last_finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
+                let finalized_head = rpc_client
+                    .rpc()
+                    .header(Some(last_finalized_head_hash))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
+                let consensus_state = GpConsensusState::new(root, timestamp);
+                Ok(consensus_state)
             } else {
-                todo!()
+                let last_finalized_head_hash =
+                    relay_rpc_client.rpc().finalized_head().await.unwrap();
+
+                let finalized_head = relay_rpc_client
+                    .rpc()
+                    .header(Some(last_finalized_head_hash))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
+                let consensus_state = GpConsensusState::new(root, timestamp);
+                Ok(consensus_state)
             }
         }
 
@@ -2195,42 +2219,37 @@ impl ChainEndpoint for SubstrateChain {
         light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
         crate::time!("build_consensus_state");
-        fn build_consensus_state(
-            rt: Arc<TokioRuntime>,
+        async fn build_consensus_state(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             light_block: SubLightBlock,
         ) -> Result<GpConsensusState, Error> {
+            use core::time::Duration;
+            use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
+            use tendermint::time::Time;
+            let timestamp = Time::now(); // todo(davirian) need to use correct time stamp
             if let Some(rpc_client) = para_rpc_client {
-                todo!()
+                let last_finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
+                let finalized_head = rpc_client
+                    .rpc()
+                    .header(Some(last_finalized_head_hash))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
+                let consensus_state = GpConsensusState::new(root, timestamp);
+                Ok(consensus_state)
             } else {
-                use core::time::Duration;
-                use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
-                use tendermint::time::Time;
+                let last_finalized_head_hash =
+                    relay_rpc_client.rpc().finalized_head().await.unwrap();
 
-                let timestamp = Time::now(); // todo(davirian) need to use correct time stamp
-                let root = if let Some(rpc_client) = para_rpc_client {
-                    let last_finalized_head_hash =
-                        rt.block_on(rpc_client.rpc().finalized_head()).unwrap();
-                    let finalized_head = rt
-                        .block_on(rpc_client.rpc().header(Some(last_finalized_head_hash)))
-                        .unwrap()
-                        .unwrap();
-                    CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec())
-                } else {
-                    let last_finalized_head_hash = rt
-                        .block_on(relay_rpc_client.rpc().finalized_head())
-                        .unwrap();
-                    let finalized_head = rt
-                        .block_on(
-                            relay_rpc_client
-                                .rpc()
-                                .header(Some(last_finalized_head_hash)),
-                        )
-                        .unwrap()
-                        .unwrap();
-                    CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec())
-                };
+                let finalized_head = relay_rpc_client
+                    .rpc()
+                    .header(Some(last_finalized_head_hash))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
                 let consensus_state = GpConsensusState::new(root, timestamp);
                 Ok(consensus_state)
             }
@@ -2240,9 +2259,13 @@ impl ChainEndpoint for SubstrateChain {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => build_consensus_state(self.rt.clone(), relay_rpc, Some(para_rpc), light_block),
+            } => self.block_on(build_consensus_state(
+                relay_rpc,
+                Some(para_rpc),
+                light_block,
+            )),
             RpcClient::SubChainRpc { rpc } => {
-                build_consensus_state(self.rt.clone(), rpc, None, light_block)
+                self.block_on(build_consensus_state(rpc, None, light_block))
             }
         }
     }
