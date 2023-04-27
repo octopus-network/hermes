@@ -87,6 +87,7 @@ use subxt::rpc::Subscription as SubxtSubscription;
 use subxt::rpc_params;
 use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
 
+pub mod beefy;
 pub mod parachain;
 pub mod relaychain;
 pub mod utils;
@@ -94,16 +95,22 @@ pub mod utils;
 use parachain::parachain_node;
 use relaychain::relaychain_node;
 
+use beefy_primitives::{
+    known_payloads::MMR_ROOT_ID,
+    mmr::{BeefyNextAuthoritySet, MmrLeaf},
+    Payload, VersionedFinalityProof,
+};
+
 /// An encoded signed commitment proving that the given header has been finalized.
 /// The given bytes should be the SCALE-encoded representation of a
 /// `beefy_primitives::SignedCommitment`.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct SignedCommitment(pub sp_core::Bytes);
+pub struct EncodedVersionedFinalityProof(pub sp_core::Bytes);
 
 /// Subscribe to beefy justifications.
 pub async fn subscribe_beefy_justifications(
     client: &SubxtRpcClient,
-) -> Result<SubxtSubscription<SignedCommitment>, subxt::Error> {
+) -> Result<SubxtSubscription<EncodedVersionedFinalityProof>, subxt::Error> {
     let subscription = client
         .subscribe(
             "beefy_subscribeJustifications",
@@ -2287,6 +2294,14 @@ impl ChainEndpoint for SubstrateChain {
 
                 let raw_signed_commitment = sub.next().await.unwrap().unwrap().0;
 
+                //     let beefy_version_finality_proof: VersionedFinalityProof<
+                //     u32,
+                //     beefy_primitives::crypto::Signature,
+                // > = codec::Decode::decode(&mut &*raw_signed_commitment.0 .0).unwrap();
+                // let signed_commitment = match beefy_version_finality_proof {
+                //     VersionedFinalityProof::V1(commitment) => commitment,
+                // };
+
                 // decode signed commitment
                 let beefy_light_client::commitment::VersionedFinalityProof::V1(signed_commitment) =
                     beefy_light_client::commitment::VersionedFinalityProof::decode(
@@ -2301,9 +2316,13 @@ impl ChainEndpoint for SubstrateChain {
                     validator_set_id,
                 } = signed_commitment.commitment.clone();
 
-                let authority_proof = utils::build_validator_proof(relay_rpc_client, block_number)
-                    .await
-                    .unwrap();
+                let authority_proof = utils::build_validator_proof(
+                    relay_rpc_client,
+                    signed_commitment.clone(),
+                    block_number,
+                )
+                .await
+                .unwrap();
 
                 let target_heights = vec![block_number - 1];
                 let mmr_batch_proof = utils::build_mmr_proofs(
@@ -2318,14 +2337,14 @@ impl ChainEndpoint for SubstrateChain {
                 let beefy_mmr = utils::to_pb_beefy_mmr(
                     signed_commitment,
                     mmr_batch_proof.clone(),
-                    authority_proof,
+                    authority_proof.to_vec(),
                 );
 
                 let mmr_leaves_proof =
                     beefy_light_client::mmr::MmrLeavesProof::try_from(mmr_batch_proof.proof.0)
                         .unwrap();
 
-                let message = utils::build_subchain_header_map(
+                let message = utils::build_subchain_headers(
                     relay_rpc_client,
                     mmr_leaves_proof.leaf_indices,
                     "sub-0".to_string(), // todo
@@ -2337,7 +2356,7 @@ impl ChainEndpoint for SubstrateChain {
                     // the latest mmr data
                     beefy_mmr,
                     // only one header
-                    message: ibc_relayer_types::clients::ics10_grandpa::header::message::Message::SubchainHeaderMap(message),
+                    message: ibc_relayer_types::clients::ics10_grandpa::header::message::Message::SubchainHeaders(message),
                 };
 
                 Ok((result, vec![]))

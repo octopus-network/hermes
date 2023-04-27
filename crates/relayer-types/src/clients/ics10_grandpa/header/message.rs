@@ -5,9 +5,9 @@ use crate::prelude::*;
 use alloc::collections::BTreeMap;
 use ibc_proto::ibc::lightclients::grandpa::v1::header::Message as RawMessage;
 use ibc_proto::ibc::lightclients::grandpa::v1::{
-    ParachainHeader as RawParachainHeader, ParachainHeaderMap as RawParachainHeaderMap,
+    ParachainHeader as RawParachainHeader, ParachainHeaders as RawParachainHeaders,
     StateProof as RawStateProof, SubchainHeader as RawSubchainHeader,
-    SubchainHeaderMap as RawSubchainHeaderMap,
+    SubchainHeaders as RawSubchainHeaders,
 };
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
@@ -16,55 +16,48 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Message {
     /// solochain headers and their proofs
-    SubchainHeaderMap(SubchainHeaderMap),
+    SubchainHeaders(SubchainHeaders),
     /// parachain headers and their proofs
-    ParachainHeaderMap(ParachainHeaderMap),
+    ParachainHeaders(ParachainHeaders),
 }
 
 /// substrate chain header map
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SubchainHeaderMap {
-    /// LatestMMR latest_mmr = 1;
-    /// map<blocknumber,scale-encoded blockheader>
-    ///
-    /// map<uint32,Timestamp> timestamp_map=2;
-    pub subchain_header_map: BTreeMap<u32, SubchainHeader>,
+pub struct SubchainHeaders {
+    pub subchain_headers: Vec<SubchainHeader>,
 }
 
-impl SubchainHeaderMap {
+impl SubchainHeaders {
     pub fn new() -> Self {
         Self {
-            subchain_header_map: BTreeMap::new(),
+            subchain_headers: Vec::new(),
         }
     }
 }
 
-impl Protobuf<RawSubchainHeaderMap> for SubchainHeaderMap {}
+impl Protobuf<RawSubchainHeaders> for SubchainHeaders {}
 
-impl TryFrom<RawSubchainHeaderMap> for SubchainHeaderMap {
+impl TryFrom<RawSubchainHeaders> for SubchainHeaders {
     type Error = Error;
-    fn try_from(raw: RawSubchainHeaderMap) -> Result<Self, Self::Error> {
+    fn try_from(raw: RawSubchainHeaders) -> Result<Self, Self::Error> {
         Ok(Self {
-            subchain_header_map: raw
-                .subchain_header_map
+            subchain_headers: raw
+                .subchain_headers
                 .into_iter()
-                .map(|(k, v)| (k, SubchainHeader::try_from(v)))
-                .try_fold(BTreeMap::new(), |mut acc, (key, value)| {
-                    acc.insert(key, value?); // unwrap the Result and insert the value into the new map
-                    Ok(acc) // continue folding with the updated map
-                })?,
+                .map(|h| SubchainHeader::try_from(h).unwrap())
+                .collect::<Vec<_>>(),
         })
     }
 }
 
-impl From<SubchainHeaderMap> for RawSubchainHeaderMap {
-    fn from(value: SubchainHeaderMap) -> Self {
+impl From<SubchainHeaders> for RawSubchainHeaders {
+    fn from(value: SubchainHeaders) -> Self {
         Self {
-            subchain_header_map: value
-                .subchain_header_map
+            subchain_headers: value
+                .subchain_headers
                 .into_iter()
-                .map(|(k, v)| (k, RawSubchainHeader::from(v)))
-                .collect::<BTreeMap<u32, RawSubchainHeader>>(),
+                .map(|h| RawSubchainHeader::from(h))
+                .collect(),
         }
     }
 }
@@ -72,6 +65,7 @@ impl From<SubchainHeaderMap> for RawSubchainHeaderMap {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubchainHeader {
     pub chain_id: ChainId,
+    pub block_number: u32,
     /// scale-encoded solochain header bytes
     pub block_header: Vec<u8>,
     /// timestamp and proof
@@ -85,6 +79,7 @@ impl TryFrom<RawSubchainHeader> for SubchainHeader {
     fn try_from(raw: RawSubchainHeader) -> Result<Self, Self::Error> {
         Ok(Self {
             chain_id: ChainId::from_string(raw.chain_id.as_str()),
+            block_number: raw.block_number,
             block_header: raw.block_header,
             timestamp: raw
                 .timestamp
@@ -98,6 +93,7 @@ impl From<SubchainHeader> for RawSubchainHeader {
     fn from(value: SubchainHeader) -> Self {
         Self {
             chain_id: value.chain_id.to_string(),
+            block_number: value.block_number,
             block_header: value.block_header,
             timestamp: Some(value.timestamp.into()),
         }
@@ -106,39 +102,36 @@ impl From<SubchainHeader> for RawSubchainHeader {
 
 /// / Parachain headers and their merkle proofs.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ParachainHeaderMap {
+pub struct ParachainHeaders {
     /// map<blocknumber,ParachainHeader>
     ///
     ///   map<uint32,Timestamp> timestamp_map=2;
-    pub parachain_header_map: BTreeMap<u32, ParachainHeader>,
+    pub parachain_headers: Vec<ParachainHeader>,
 }
 
-impl Protobuf<RawParachainHeaderMap> for ParachainHeaderMap {}
+impl Protobuf<RawParachainHeaders> for ParachainHeaders {}
 
-impl TryFrom<RawParachainHeaderMap> for ParachainHeaderMap {
+impl TryFrom<RawParachainHeaders> for ParachainHeaders {
     type Error = Error;
-    fn try_from(raw: RawParachainHeaderMap) -> Result<Self, Self::Error> {
+    fn try_from(raw: RawParachainHeaders) -> Result<Self, Self::Error> {
         Ok(Self {
-            parachain_header_map: raw
-                .parachain_header_map
+            parachain_headers: raw
+                .parachain_headers
                 .into_iter()
-                .map(|(k, v)| (k, ParachainHeader::try_from(v)))
-                .try_fold(BTreeMap::new(), |mut acc, (key, value)| {
-                    acc.insert(key, value?); // unwrap the Result and insert the value into the new map
-                    Ok(acc) // continue folding with the updated map
-                })?,
+                .map(|h| ParachainHeader::try_from(h).unwrap())
+                .collect::<Vec<_>>(),
         })
     }
 }
 
-impl From<ParachainHeaderMap> for RawParachainHeaderMap {
-    fn from(value: ParachainHeaderMap) -> Self {
+impl From<ParachainHeaders> for RawParachainHeaders {
+    fn from(value: ParachainHeaders) -> Self {
         Self {
-            parachain_header_map: value
-                .parachain_header_map
+            parachain_headers: value
+                .parachain_headers
                 .into_iter()
-                .map(|(k, v)| (k, RawParachainHeader::from(v)))
-                .collect::<BTreeMap<u32, RawParachainHeader>>(),
+                .map(|h| RawParachainHeader::from(h))
+                .collect(),
         }
     }
 }
@@ -148,6 +141,8 @@ pub struct ParachainHeader {
     pub chain_id: ChainId,
     /// para id
     pub parachain_id: u32,
+    /// This block number is relayer chain blocknumber that parachain header packed into relayer block
+    pub relayer_chain_number: u32,
     /// scale-encoded parachain header bytes
     pub block_header: Vec<u8>,
     /// proofs for parachain header in the mmr_leaf.parachain_heads
@@ -169,6 +164,7 @@ impl TryFrom<RawParachainHeader> for ParachainHeader {
         Ok(Self {
             chain_id: ChainId::from_string(raw.chain_id.as_str()),
             parachain_id: raw.parachain_id,
+            relayer_chain_number: raw.relayer_chain_number,
             block_header: raw.block_header,
             proofs: raw.proofs,
             header_index: raw.header_index,
@@ -186,6 +182,7 @@ impl From<ParachainHeader> for RawParachainHeader {
         Self {
             chain_id: value.chain_id.to_string(),
             parachain_id: value.parachain_id,
+            relayer_chain_number: value.relayer_chain_number,
             block_header: value.block_header,
             proofs: value.proofs,
             header_index: value.header_index,

@@ -2,22 +2,26 @@ use super::relaychain_node;
 use crate::error::Error;
 use alloc::sync::Arc;
 use codec::{Decode, Encode};
+use frame_support::sp_runtime::traits::Convert;
+use ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::signed_commitment::Signature;
 use ibc_relayer_types::clients::ics10_grandpa::header::message::StateProof;
-use ibc_relayer_types::clients::ics10_grandpa::header::message::{
-    SubchainHeader, SubchainHeaderMap,
-};
+use ibc_relayer_types::clients::ics10_grandpa::header::message::{SubchainHeader, SubchainHeaders};
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use pallet_beefy_mmr::BeefyEcdsaToEthereum;
+
+use crate::chain::substrate::beefy::{Crypto, MerkleHasher};
+use sp_core::keccak_256;
 use sp_core::{hexdisplay::HexDisplay, ByteArray, H256};
 use subxt::rpc::types::BlockNumber;
 use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
 use tokio::runtime::Runtime as TokioRuntime;
 
-pub async fn build_subchain_header_map(
+pub async fn build_subchain_headers(
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
     leaf_indexes: Vec<u64>,
     chain_id: String,
-) -> Result<SubchainHeaderMap, String> {
-    let mut subchain_header_map = SubchainHeaderMap::new();
+) -> Result<SubchainHeaders, String> {
+    let mut subchain_headers = SubchainHeaders::new();
     for block_number in leaf_indexes {
         let block_hash = relay_rpc_client
             .rpc()
@@ -35,23 +39,22 @@ pub async fn build_subchain_header_map(
         let timestamp = build_time_stamp_proof(relay_rpc_client, block_hash)
             .await
             .unwrap();
-        subchain_header_map.subchain_header_map.insert(
-            block_number as u32,
-            SubchainHeader {
-                chain_id: ChainId::from(chain_id.clone()),
-                block_header: encode_header,
-                timestamp,
-            },
-        );
+        subchain_headers.subchain_headers.push(SubchainHeader {
+            chain_id: ChainId::from(chain_id.clone()),
+            block_number: block_header.number,
+            block_header: encode_header,
+            timestamp,
+        });
     }
-    Ok(subchain_header_map)
+    Ok(subchain_headers)
 }
 
 /// build merkle proof for validator
 pub async fn build_validator_proof(
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
+    bsc: beefy_light_client::commitment::SignedCommitment,
     block_number: u32,
-) -> Result<Vec<beefy_light_client::ValidatorMerkleProof>, Error> {
+) -> Result<Vec<[u8; 32]>, Error> {
     // get block hash
     let block_hash = relay_rpc_client
         .rpc()
@@ -71,46 +74,62 @@ pub async fn build_validator_proof(
         .unwrap()
         .unwrap();
 
-    // covert authorities to strings
-    let authority_strs: Vec<String> = authorities
+    let encoded_public_keys: Vec<_> = authorities
         .0
         .into_iter()
-        .map(|authority| format!("{}", HexDisplay::from(&authority.0 .0.as_ref())))
+        .map(|x: relaychain_node::runtime_types::sp_beefy::crypto::Public| x.encode())
         .collect();
 
-    // Convert BEEFY secp256k1 public keys into Ethereum addresses
-    let validators: Vec<Vec<u8>> = authority_strs
+    let authority_address_hashes = encoded_public_keys
         .into_iter()
-        .map(|authority| {
-            hex::decode(&authority)
-                .map(|compressed_key| beefy_light_client::beefy_ecdsa_to_ethereum(&compressed_key))
-                .unwrap_or_default()
+        .map(|x| {
+            beefy_primitives::crypto::AuthorityId::decode(&mut &*x)
+                .map(|id| keccak_256(&BeefyEcdsaToEthereum::convert(id)))
         })
-        .collect();
+        .collect::<Result<Vec<_>, codec::Error>>()
+        .unwrap();
 
-    let mut validator_merkle_proofs: Vec<beefy_light_client::ValidatorMerkleProof> = Vec::new();
-    for l in 0..validators.len() {
-        // when
-        let proof = binary_merkle_tree::merkle_proof::<
-            beefy_light_client::keccak256::Keccak256,
-            _,
-            _,
-        >(validators.clone(), l);
+    prove_authority_set(&bsc, authority_address_hashes)
+}
 
-        println!("get validator proof root = {}", hex::encode(&proof.root));
+pub fn prove_authority_set(
+    signed_commitment: &beefy_light_client::commitment::SignedCommitment,
+    authority_address_hashes: Vec<[u8; 32]>,
+) -> Result<Vec<[u8; 32]>, Error> {
+    let signatures = signed_commitment
+        .signatures
+        .iter()
+        .enumerate()
+        .map(|(index, x)| {
+            if let Some(sig) = x {
+                let mut temp = [0u8; 65];
+                if sig.0.len() == 65 {
+                    temp.copy_from_slice(&*sig.encode());
+                    Some(Signature {
+                        index: index as u32,
+                        signature: temp.into(),
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .filter_map(|x| x)
+        .collect::<Vec<_>>();
 
-        let validator_merkle_proof = beefy_light_client::ValidatorMerkleProof {
-            root: proof.root,
-            proof: proof.proof,
-            number_of_leaves: proof.number_of_leaves as u64,
-            leaf_index: proof.leaf_index as u64,
-            leaf: proof.leaf,
-        };
+    let signature_indices = signatures
+        .iter()
+        .map(|x| x.index as usize)
+        .collect::<Vec<_>>();
 
-        validator_merkle_proofs.push(validator_merkle_proof);
-    }
+    let tree =
+        rs_merkle::MerkleTree::<MerkleHasher<Crypto>>::from_leaves(&authority_address_hashes);
 
-    Ok(validator_merkle_proofs)
+    let authority_proof = tree.proof(&signature_indices);
+    let proofs = authority_proof.proof_hashes().to_vec();
+    Ok(proofs)
 }
 
 pub async fn build_time_stamp_proof(
@@ -276,7 +295,7 @@ pub fn convert_mmrproof(proofs: mmr_rpc::LeavesProof<H256>) -> Result<ibc_relaye
 pub fn to_pb_beefy_mmr(
     bsc: beefy_light_client::commitment::SignedCommitment,
     mmr_batch_proof: mmr_rpc::LeavesProof<H256>,
-    authority_proof: Vec<beefy_light_client::ValidatorMerkleProof>,
+    authority_proof: Vec<[u8; 32]>,
 ) -> ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::BeefyMmr {
     let data = bsc
         .commitment
@@ -302,9 +321,9 @@ pub fn to_pb_beefy_mmr(
     let mut signatures = vec![];
     bsc.signatures.iter().enumerate().for_each(|(idx, value)| {
         if let Some(v) = value {
-            let ret = ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::signed_commitment::Signature {
+            let ret = Signature {
                 index: idx as u32,
-               signature: v.0.to_vec()
+                signature: v.0.to_vec(),
             };
             signatures.push(ret);
         }
@@ -320,16 +339,18 @@ pub fn to_pb_beefy_mmr(
     let leaf_index = convert_block_number_to_mmr_leaf_index(0, bsc.commitment.block_number); // todo first paramment
 
     let size = beefy_light_client::mmr::NodesUtils::new(leaf_index).size(); // todo need correct function calclute
+                                                                            // let mmr_size = NodesUtils::new(mmr_update.mmr_proof.leaf_count).size();
+
     ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::BeefyMmr {
         // signed commitment data
         signed_commitment: Some(pb_commitment),
         // build merkle tree based on all the signature in signed commitment
         // and generate the signature proof
-        signature_proofs: authority_proof.into_iter().map(|v| v.encode()).collect(),
+        signature_proofs: authority_proof.into_iter().map(|p| p.to_vec()).collect(),
         // mmr proof
         mmr_leaves_and_batch_proof: Some(convert_mmrproof(mmr_batch_proof).unwrap()),
         // size of the mmr for the given proof
-        mmr_size: leaf_index, // todo
+        mmr_size: size, // todo
     }
 }
 

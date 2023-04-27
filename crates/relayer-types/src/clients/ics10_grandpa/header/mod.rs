@@ -4,7 +4,9 @@ use crate::core::ics02_client::error::Error as Ics02Error;
 use crate::prelude::*;
 use crate::timestamp::Timestamp;
 use crate::Height;
+use alloc::collections::BTreeMap;
 use bytes::Buf;
+use codec::Decode;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::lightclients::grandpa::v1::header::Message as RawMessage;
 use ibc_proto::ibc::lightclients::grandpa::v1::Header as RawHeader;
@@ -43,14 +45,14 @@ impl TryFrom<RawHeader> for Header {
         let message = raw
             .message
             .and_then(|msg| match msg {
-                RawMessage::ParachainHeaderMap(v) => Some(
+                RawMessage::ParachainHeaders(v) => Some(
                     v.try_into()
-                        .map(message::Message::ParachainHeaderMap)
+                        .map(message::Message::ParachainHeaders)
                         .map_err(|_| Error::missing_header_message()),
                 ),
-                RawMessage::SubchainHeaderMap(v) => Some(
+                RawMessage::SubchainHeaders(v) => Some(
                     v.try_into()
-                        .map(message::Message::SubchainHeaderMap)
+                        .map(message::Message::SubchainHeaders)
                         .map_err(|_| Error::missing_header_message()),
                 ),
             })
@@ -72,12 +74,10 @@ impl From<Header> for RawHeader {
         Self {
             beefy_mmr: Some(value.beefy_mmr.into()),
             message: match value.message {
-                message::Message::ParachainHeaderMap(v) => {
-                    Some(RawMessage::ParachainHeaderMap(v.into()))
+                message::Message::ParachainHeaders(v) => {
+                    Some(RawMessage::ParachainHeaders(v.into()))
                 }
-                message::Message::SubchainHeaderMap(v) => {
-                    Some(RawMessage::SubchainHeaderMap(v.into()))
-                }
+                message::Message::SubchainHeaders(v) => Some(RawMessage::SubchainHeaders(v.into())),
             },
         }
     }
@@ -133,29 +133,30 @@ pub fn decode_header<B: Buf>(buf: B) -> Result<Header, Error> {
 }
 
 pub fn get_lastest_block_header(h: Header) -> Result<(u64, u64), Error> {
-    let mut latest_height = 0;
-    match h.message {
-        message::Message::SubchainHeaderMap(v) => {
-            for (&idx, v) in v.subchain_header_map.iter() {
-                if latest_height < idx {
-                    latest_height = idx;
-                }
-            }
+    // let mut latest_height = 0;
 
-            let subchain_header = v.subchain_header_map.get(&latest_height).unwrap();
-            let timestamp: u64 =
-                codec::Decode::decode(&mut &subchain_header.timestamp.value[..]).unwrap();
+    match h.message {
+        message::Message::SubchainHeaders(mut v) => {
+            v.subchain_headers
+                .sort_by(|h1, h2| h2.block_number.cmp(&h1.block_number));
+            let latest_header = v.subchain_headers.first().unwrap();
+            let latest_height = latest_header.block_number;
+            let timestamp_value = &latest_header.timestamp.value;
+            let timestamp: u64 = codec::Decode::decode(&mut &timestamp_value[..]).unwrap();
             Ok((latest_height as u64, timestamp))
         }
-        message::Message::ParachainHeaderMap(v) => {
-            for (&idx, v) in v.parachain_header_map.iter() {
-                if latest_height < idx {
-                    latest_height = idx;
-                }
-            }
-            let parachain_header = v.parachain_header_map.get(&latest_height).unwrap();
-            let timestamp: u64 =
-                codec::Decode::decode(&mut &parachain_header.timestamp.value[..]).unwrap();
+        message::Message::ParachainHeaders(mut v) => {
+            v.parachain_headers
+                .sort_by(|h1, h2| h2.relayer_chain_number.cmp(&h1.relayer_chain_number));
+
+            let latest_header = v.parachain_headers.first().unwrap();
+            let decoded_header =
+                beefy_light_client::header::Header::decode(&mut &latest_header.block_header[..])
+                    .unwrap();
+
+            let latest_height = decoded_header.number;
+            let timestamp_value = &latest_header.timestamp.value;
+            let timestamp: u64 = codec::Decode::decode(&mut &timestamp_value[..]).unwrap();
             Ok((latest_height as u64, timestamp))
         }
     }

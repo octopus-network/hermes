@@ -1069,7 +1069,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
     #[instrument(
         name = "foreign_client.build_update_client_with_trusted",
-        level = "error",
+        level = "debug",
         skip_all,
         fields(client = %self, %target_height)
     )]
@@ -1133,6 +1133,14 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })?;
 
+        println!("msg_update_client into  header type_url {:?} ", header,);
+        
+        let any_header: Any = header.clone().into();
+        println!(
+            "msg_update_client into Any header type_url {} ",
+            any_header.type_url,
+        );
+
         let signer = self.dst_chain().get_signer().map_err(|e| {
             ForeignClientError::client_update(
                 self.dst_chain.id(),
@@ -1150,10 +1158,9 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 "building a MsgUpdateAnyClient for intermediate height {}",
                 header.height(),
             );
-
             msgs.push(
                 MsgUpdateClient {
-                    header: header.into(),
+                    header: any_header.clone(),
                     client_id: self.id.clone(),
                     signer: signer.clone(),
                 }
@@ -1167,14 +1174,18 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             header.height(),
         );
 
-        msgs.push(
-            MsgUpdateClient {
-                header: header.into(),
-                signer,
-                client_id: self.id.clone(),
-            }
-            .to_any(),
+        let msg_update_client = MsgUpdateClient {
+            header: any_header,
+            signer,
+            client_id: self.id.clone(),
+        }
+        .to_any();
+        println!(
+            "msg_update_client into Any update client type_url {} ",
+            msg_update_client.type_url,
         );
+
+        msgs.push(msg_update_client);
 
         telemetry!(
             client_updates_submitted,

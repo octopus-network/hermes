@@ -68,6 +68,9 @@ ed25519-dalek-bip32 = "0.2.0"
 generic-array = "0.14.6"
 secp256k1 = { version = "0.24.2", features = ["rand-std"] }
 strum = { version = "0.24.1", features = ["derive"] }
+hash-db = { version = "0.15.2", default-features = false }
+rs_merkle = { version = "1.2.0", default-features = false }
+mmr-lib= { package = "ckb-merkle-mountain-range", version = "0.3.2", default-features = false }
 
 # for substrate chain
 subxt = { version = "0.27" }
@@ -78,6 +81,12 @@ beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-cli
 binary-merkle-tree = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40"  }
 mmr-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
 sp-mmr-primitives = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
+pallet-beefy-mmr = { package = "pallet-beefy-mmr", git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
+beefy-primitives = { package = "sp-consensus-beefy", git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40"}
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
 
 [dependencies.num-bigint]
 version = "0.4"
