@@ -3575,7 +3575,7 @@ pub mod api {
             )]
             pub struct ReportEquivocation {
                 pub equivocation_proof: ::std::boxed::Box<
-                    runtime_types::sp_finality_grandpa::EquivocationProof<
+                    runtime_types::sp_consensus_grandpa::EquivocationProof<
                         ::subxt::utils::H256,
                         ::core::primitive::u32,
                     >,
@@ -3587,7 +3587,7 @@ pub mod api {
             )]
             pub struct ReportEquivocationUnsigned {
                 pub equivocation_proof: ::std::boxed::Box<
-                    runtime_types::sp_finality_grandpa::EquivocationProof<
+                    runtime_types::sp_consensus_grandpa::EquivocationProof<
                         ::subxt::utils::H256,
                         ::core::primitive::u32,
                     >,
@@ -3609,7 +3609,7 @@ pub mod api {
                 #[doc = "will be reported."]
                 pub fn report_equivocation(
                     &self,
-                    equivocation_proof: runtime_types::sp_finality_grandpa::EquivocationProof<
+                    equivocation_proof: runtime_types::sp_consensus_grandpa::EquivocationProof<
                         ::subxt::utils::H256,
                         ::core::primitive::u32,
                     >,
@@ -3640,7 +3640,7 @@ pub mod api {
                 #[doc = "reporter."]
                 pub fn report_equivocation_unsigned(
                     &self,
-                    equivocation_proof: runtime_types::sp_finality_grandpa::EquivocationProof<
+                    equivocation_proof: runtime_types::sp_consensus_grandpa::EquivocationProof<
                         ::subxt::utils::H256,
                         ::core::primitive::u32,
                     >,
@@ -3705,7 +3705,7 @@ pub mod api {
             #[doc = "New authority set has been applied."]
             pub struct NewAuthorities {
                 pub authority_set: ::std::vec::Vec<(
-                    runtime_types::sp_finality_grandpa::app::Public,
+                    runtime_types::sp_consensus_grandpa::app::Public,
                     ::core::primitive::u64,
                 )>,
             }
@@ -22967,9 +22967,10 @@ pub mod api {
                             ::subxt::storage::address::StorageHasher::Identity,
                         )],
                         [
-                            152u8, 224u8, 16u8, 198u8, 190u8, 204u8, 253u8, 131u8, 39u8, 115u8,
-                            17u8, 234u8, 53u8, 127u8, 17u8, 50u8, 172u8, 135u8, 183u8, 38u8, 129u8,
-                            7u8, 255u8, 243u8, 73u8, 225u8, 122u8, 51u8, 51u8, 242u8, 190u8, 175u8,
+                            197u8, 78u8, 207u8, 108u8, 96u8, 137u8, 109u8, 148u8, 221u8, 187u8,
+                            149u8, 109u8, 122u8, 131u8, 214u8, 221u8, 219u8, 125u8, 78u8, 248u8,
+                            239u8, 209u8, 55u8, 56u8, 123u8, 81u8, 217u8, 27u8, 85u8, 6u8, 5u8,
+                            68u8,
                         ],
                     )
                 }
@@ -22979,9 +22980,10 @@ pub mod api {
                         "SessionExecutorParams",
                         Vec::new(),
                         [
-                            152u8, 224u8, 16u8, 198u8, 190u8, 204u8, 253u8, 131u8, 39u8, 115u8,
-                            17u8, 234u8, 53u8, 127u8, 17u8, 50u8, 172u8, 135u8, 183u8, 38u8, 129u8,
-                            7u8, 255u8, 243u8, 73u8, 225u8, 122u8, 51u8, 51u8, 242u8, 190u8, 175u8,
+                            197u8, 78u8, 207u8, 108u8, 96u8, 137u8, 109u8, 148u8, 221u8, 187u8,
+                            149u8, 109u8, 122u8, 131u8, 214u8, 221u8, 219u8, 125u8, 78u8, 248u8,
+                            239u8, 209u8, 55u8, 56u8, 123u8, 81u8, 217u8, 27u8, 85u8, 6u8, 5u8,
+                            68u8,
                         ],
                     )
                 }
@@ -26540,10 +26542,10 @@ pub mod api {
             )]
             pub struct ReportEquivocation {
                 pub equivocation_proof: ::std::boxed::Box<
-                    runtime_types::sp_beefy::EquivocationProof<
+                    runtime_types::sp_consensus_beefy::EquivocationProof<
                         ::core::primitive::u32,
-                        runtime_types::sp_beefy::crypto::Public,
-                        runtime_types::sp_beefy::crypto::Signature,
+                        runtime_types::sp_consensus_beefy::crypto::Public,
+                        runtime_types::sp_consensus_beefy::crypto::Signature,
                     >,
                 >,
                 pub key_owner_proof: runtime_types::sp_session::MembershipProof,
@@ -26553,10 +26555,10 @@ pub mod api {
             )]
             pub struct ReportEquivocationUnsigned {
                 pub equivocation_proof: ::std::boxed::Box<
-                    runtime_types::sp_beefy::EquivocationProof<
+                    runtime_types::sp_consensus_beefy::EquivocationProof<
                         ::core::primitive::u32,
-                        runtime_types::sp_beefy::crypto::Public,
-                        runtime_types::sp_beefy::crypto::Signature,
+                        runtime_types::sp_consensus_beefy::crypto::Public,
+                        runtime_types::sp_consensus_beefy::crypto::Signature,
                     >,
                 >,
                 pub key_owner_proof: runtime_types::sp_session::MembershipProof,
@@ -26569,10 +26571,10 @@ pub mod api {
                 #[doc = "will be reported."]
                 pub fn report_equivocation(
                     &self,
-                    equivocation_proof: runtime_types::sp_beefy::EquivocationProof<
+                    equivocation_proof: runtime_types::sp_consensus_beefy::EquivocationProof<
                         ::core::primitive::u32,
-                        runtime_types::sp_beefy::crypto::Public,
-                        runtime_types::sp_beefy::crypto::Signature,
+                        runtime_types::sp_consensus_beefy::crypto::Public,
+                        runtime_types::sp_consensus_beefy::crypto::Signature,
                     >,
                     key_owner_proof: runtime_types::sp_session::MembershipProof,
                 ) -> ::subxt::tx::StaticTxPayload<ReportEquivocation> {
@@ -26601,10 +26603,10 @@ pub mod api {
                 #[doc = "reporter."]
                 pub fn report_equivocation_unsigned(
                     &self,
-                    equivocation_proof: runtime_types::sp_beefy::EquivocationProof<
+                    equivocation_proof: runtime_types::sp_consensus_beefy::EquivocationProof<
                         ::core::primitive::u32,
-                        runtime_types::sp_beefy::crypto::Public,
-                        runtime_types::sp_beefy::crypto::Signature,
+                        runtime_types::sp_consensus_beefy::crypto::Public,
+                        runtime_types::sp_consensus_beefy::crypto::Signature,
                     >,
                     key_owner_proof: runtime_types::sp_session::MembershipProof,
                 ) -> ::subxt::tx::StaticTxPayload<ReportEquivocationUnsigned> {
@@ -26635,7 +26637,7 @@ pub mod api {
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<
                         runtime_types::bounded_collections::bounded_vec::BoundedVec<
-                            runtime_types::sp_beefy::crypto::Public,
+                            runtime_types::sp_consensus_beefy::crypto::Public,
                         >,
                     >,
                     ::subxt::storage::address::Yes,
@@ -26679,7 +26681,7 @@ pub mod api {
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<
                         runtime_types::bounded_collections::bounded_vec::BoundedVec<
-                            runtime_types::sp_beefy::crypto::Public,
+                            runtime_types::sp_consensus_beefy::crypto::Public,
                         >,
                     >,
                     ::subxt::storage::address::Yes,
@@ -26845,7 +26847,9 @@ pub mod api {
                     &self,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<
-                        runtime_types::sp_beefy::mmr::BeefyAuthoritySet<::subxt::utils::H256>,
+                        runtime_types::sp_consensus_beefy::mmr::BeefyAuthoritySet<
+                            ::subxt::utils::H256,
+                        >,
                     >,
                     ::subxt::storage::address::Yes,
                     ::subxt::storage::address::Yes,
@@ -26869,7 +26873,9 @@ pub mod api {
                     &self,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<
-                        runtime_types::sp_beefy::mmr::BeefyAuthoritySet<::subxt::utils::H256>,
+                        runtime_types::sp_consensus_beefy::mmr::BeefyAuthoritySet<
+                            ::subxt::utils::H256,
+                        >,
                     >,
                     ::subxt::storage::address::Yes,
                     ::subxt::storage::address::Yes,
@@ -30664,10 +30670,10 @@ pub mod api {
                     #[doc = "will be reported."]
                     report_equivocation {
                         equivocation_proof: ::std::boxed::Box<
-                            runtime_types::sp_beefy::EquivocationProof<
+                            runtime_types::sp_consensus_beefy::EquivocationProof<
                                 ::core::primitive::u32,
-                                runtime_types::sp_beefy::crypto::Public,
-                                runtime_types::sp_beefy::crypto::Signature,
+                                runtime_types::sp_consensus_beefy::crypto::Public,
+                                runtime_types::sp_consensus_beefy::crypto::Signature,
                             >,
                         >,
                         key_owner_proof: runtime_types::sp_session::MembershipProof,
@@ -30684,10 +30690,10 @@ pub mod api {
                     #[doc = "reporter."]
                     report_equivocation_unsigned {
                         equivocation_proof: ::std::boxed::Box<
-                            runtime_types::sp_beefy::EquivocationProof<
+                            runtime_types::sp_consensus_beefy::EquivocationProof<
                                 ::core::primitive::u32,
-                                runtime_types::sp_beefy::crypto::Public,
-                                runtime_types::sp_beefy::crypto::Signature,
+                                runtime_types::sp_consensus_beefy::crypto::Public,
+                                runtime_types::sp_consensus_beefy::crypto::Signature,
                             >,
                         >,
                         key_owner_proof: runtime_types::sp_session::MembershipProof,
@@ -32427,7 +32433,7 @@ pub mod api {
                     #[doc = "will be reported."]
                     report_equivocation {
                         equivocation_proof: ::std::boxed::Box<
-                            runtime_types::sp_finality_grandpa::EquivocationProof<
+                            runtime_types::sp_consensus_grandpa::EquivocationProof<
                                 ::subxt::utils::H256,
                                 ::core::primitive::u32,
                             >,
@@ -32446,7 +32452,7 @@ pub mod api {
                     #[doc = "reporter."]
                     report_equivocation_unsigned {
                         equivocation_proof: ::std::boxed::Box<
-                            runtime_types::sp_finality_grandpa::EquivocationProof<
+                            runtime_types::sp_consensus_grandpa::EquivocationProof<
                                 ::subxt::utils::H256,
                                 ::core::primitive::u32,
                             >,
@@ -32509,7 +32515,7 @@ pub mod api {
                     #[doc = "New authority set has been applied."]
                     NewAuthorities {
                         authority_set: ::std::vec::Vec<(
-                            runtime_types::sp_finality_grandpa::app::Public,
+                            runtime_types::sp_consensus_grandpa::app::Public,
                             ::core::primitive::u64,
                         )>,
                     },
@@ -32529,7 +32535,7 @@ pub mod api {
                 pub delay: _0,
                 pub next_authorities:
                     runtime_types::bounded_collections::weak_bounded_vec::WeakBoundedVec<(
-                        runtime_types::sp_finality_grandpa::app::Public,
+                        runtime_types::sp_consensus_grandpa::app::Public,
                         ::core::primitive::u64,
                     )>,
                 pub forced: ::core::option::Option<_0>,
@@ -37187,6 +37193,24 @@ pub mod api {
                 #[derive(
                     :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
                 )]
+                pub enum PvfExecTimeoutKind {
+                    #[codec(index = 0)]
+                    Backing,
+                    #[codec(index = 1)]
+                    Approval,
+                }
+                #[derive(
+                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                )]
+                pub enum PvfPrepTimeoutKind {
+                    #[codec(index = 0)]
+                    Precheck,
+                    #[codec(index = 1)]
+                    Lenient,
+                }
+                #[derive(
+                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                )]
                 pub struct ScrapedOnChainVotes<_0> {
                     pub session: ::core::primitive::u32,
                     pub backing_validators_per_candidate: ::std::vec::Vec<(
@@ -37284,14 +37308,24 @@ pub mod api {
                         Debug,
                     )]
                     pub enum ExecutorParam {
-                        #[codec(index = 0)]
-                        MaxMemoryPages(::core::primitive::u32),
                         #[codec(index = 1)]
-                        StackLogicalMax(::core::primitive::u32),
+                        MaxMemoryPages(::core::primitive::u32),
                         #[codec(index = 2)]
-                        StackNativeMax(::core::primitive::u32),
+                        StackLogicalMax(::core::primitive::u32),
                         #[codec(index = 3)]
+                        StackNativeMax(::core::primitive::u32),
+                        #[codec(index = 4)]
                         PrecheckingMaxMemory(::core::primitive::u64),
+                        #[codec(index = 5)]
+                        PvfPrepTimeout(
+                            runtime_types::polkadot_primitives::v2::PvfPrepTimeoutKind,
+                            ::core::primitive::u64,
+                        ),
+                        #[codec(index = 6)]
+                        PvfExecTimeout(
+                            runtime_types::polkadot_primitives::v2::PvfExecTimeoutKind,
+                            ::core::primitive::u64,
+                        ),
                     }
                     #[derive(
                         :: subxt :: ext :: codec :: Decode,
@@ -40030,13 +40064,13 @@ pub mod api {
                 :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
             )]
             pub struct SessionKeys {
-                pub grandpa: runtime_types::sp_finality_grandpa::app::Public,
+                pub grandpa: runtime_types::sp_consensus_grandpa::app::Public,
                 pub babe: runtime_types::sp_consensus_babe::app::Public,
                 pub im_online: runtime_types::pallet_im_online::sr25519::app_sr25519::Public,
                 pub para_validator: runtime_types::polkadot_primitives::v2::validator_app::Public,
                 pub para_assignment: runtime_types::polkadot_primitives::v2::assignment_app::Public,
                 pub authority_discovery: runtime_types::sp_authority_discovery::app::Public,
-                pub beefy: runtime_types::sp_beefy::crypto::Public,
+                pub beefy: runtime_types::sp_consensus_beefy::crypto::Public,
             }
         }
         pub mod sp_arithmetic {
@@ -40095,69 +40129,6 @@ pub mod api {
                     :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
                 )]
                 pub struct Public(pub runtime_types::sp_core::sr25519::Public);
-            }
-        }
-        pub mod sp_beefy {
-            use super::runtime_types;
-            pub mod commitment {
-                use super::runtime_types;
-                #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
-                )]
-                pub struct Commitment<_0> {
-                    pub payload: runtime_types::sp_beefy::payload::Payload,
-                    pub block_number: _0,
-                    pub validator_set_id: ::core::primitive::u64,
-                }
-            }
-            pub mod crypto {
-                use super::runtime_types;
-                #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
-                )]
-                pub struct Public(pub runtime_types::sp_core::ecdsa::Public);
-                #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
-                )]
-                pub struct Signature(pub runtime_types::sp_core::ecdsa::Signature);
-            }
-            pub mod mmr {
-                use super::runtime_types;
-                #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
-                )]
-                pub struct BeefyAuthoritySet<_0> {
-                    pub id: ::core::primitive::u64,
-                    pub len: ::core::primitive::u32,
-                    pub root: _0,
-                }
-            }
-            pub mod payload {
-                use super::runtime_types;
-                #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
-                )]
-                pub struct Payload(
-                    pub  ::std::vec::Vec<(
-                        [::core::primitive::u8; 2usize],
-                        ::std::vec::Vec<::core::primitive::u8>,
-                    )>,
-                );
-            }
-            #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
-            )]
-            pub struct EquivocationProof<_0, _1, _2> {
-                pub first: runtime_types::sp_beefy::VoteMessage<_0, _1, _2>,
-                pub second: runtime_types::sp_beefy::VoteMessage<_0, _1, _2>,
-            }
-            #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
-            )]
-            pub struct VoteMessage<_0, _1, _2> {
-                pub commitment: runtime_types::sp_beefy::commitment::Commitment<_0>,
-                pub id: _1,
-                pub signature: _2,
             }
         }
         pub mod sp_consensus_babe {
@@ -40237,6 +40208,111 @@ pub mod api {
             pub struct BabeEpochConfiguration {
                 pub c: (::core::primitive::u64, ::core::primitive::u64),
                 pub allowed_slots: runtime_types::sp_consensus_babe::AllowedSlots,
+            }
+        }
+        pub mod sp_consensus_beefy {
+            use super::runtime_types;
+            pub mod commitment {
+                use super::runtime_types;
+                #[derive(
+                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                )]
+                pub struct Commitment<_0> {
+                    pub payload: runtime_types::sp_consensus_beefy::payload::Payload,
+                    pub block_number: _0,
+                    pub validator_set_id: ::core::primitive::u64,
+                }
+            }
+            pub mod crypto {
+                use super::runtime_types;
+                #[derive(
+                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                )]
+                pub struct Public(pub runtime_types::sp_core::ecdsa::Public);
+                #[derive(
+                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                )]
+                pub struct Signature(pub runtime_types::sp_core::ecdsa::Signature);
+            }
+            pub mod mmr {
+                use super::runtime_types;
+                #[derive(
+                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                )]
+                pub struct BeefyAuthoritySet<_0> {
+                    pub id: ::core::primitive::u64,
+                    pub len: ::core::primitive::u32,
+                    pub root: _0,
+                }
+            }
+            pub mod payload {
+                use super::runtime_types;
+                #[derive(
+                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                )]
+                pub struct Payload(
+                    pub  ::std::vec::Vec<(
+                        [::core::primitive::u8; 2usize],
+                        ::std::vec::Vec<::core::primitive::u8>,
+                    )>,
+                );
+            }
+            #[derive(
+                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+            )]
+            pub struct EquivocationProof<_0, _1, _2> {
+                pub first: runtime_types::sp_consensus_beefy::VoteMessage<_0, _1, _2>,
+                pub second: runtime_types::sp_consensus_beefy::VoteMessage<_0, _1, _2>,
+            }
+            #[derive(
+                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+            )]
+            pub struct VoteMessage<_0, _1, _2> {
+                pub commitment: runtime_types::sp_consensus_beefy::commitment::Commitment<_0>,
+                pub id: _1,
+                pub signature: _2,
+            }
+        }
+        pub mod sp_consensus_grandpa {
+            use super::runtime_types;
+            pub mod app {
+                use super::runtime_types;
+                #[derive(
+                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                )]
+                pub struct Public(pub runtime_types::sp_core::ed25519::Public);
+                #[derive(
+                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                )]
+                pub struct Signature(pub runtime_types::sp_core::ed25519::Signature);
+            }
+            #[derive(
+                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+            )]
+            pub enum Equivocation<_0, _1> {
+                #[codec(index = 0)]
+                Prevote(
+                    runtime_types::finality_grandpa::Equivocation<
+                        runtime_types::sp_consensus_grandpa::app::Public,
+                        runtime_types::finality_grandpa::Prevote<_0, _1>,
+                        runtime_types::sp_consensus_grandpa::app::Signature,
+                    >,
+                ),
+                #[codec(index = 1)]
+                Precommit(
+                    runtime_types::finality_grandpa::Equivocation<
+                        runtime_types::sp_consensus_grandpa::app::Public,
+                        runtime_types::finality_grandpa::Precommit<_0, _1>,
+                        runtime_types::sp_consensus_grandpa::app::Signature,
+                    >,
+                ),
+            }
+            #[derive(
+                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+            )]
+            pub struct EquivocationProof<_0, _1> {
+                pub set_id: ::core::primitive::u64,
+                pub equivocation: runtime_types::sp_consensus_grandpa::Equivocation<_0, _1>,
             }
         }
         pub mod sp_consensus_slots {
@@ -40323,48 +40399,6 @@ pub mod api {
                 :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
             )]
             pub enum Void {}
-        }
-        pub mod sp_finality_grandpa {
-            use super::runtime_types;
-            pub mod app {
-                use super::runtime_types;
-                #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
-                )]
-                pub struct Public(pub runtime_types::sp_core::ed25519::Public);
-                #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
-                )]
-                pub struct Signature(pub runtime_types::sp_core::ed25519::Signature);
-            }
-            #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
-            )]
-            pub enum Equivocation<_0, _1> {
-                #[codec(index = 0)]
-                Prevote(
-                    runtime_types::finality_grandpa::Equivocation<
-                        runtime_types::sp_finality_grandpa::app::Public,
-                        runtime_types::finality_grandpa::Prevote<_0, _1>,
-                        runtime_types::sp_finality_grandpa::app::Signature,
-                    >,
-                ),
-                #[codec(index = 1)]
-                Precommit(
-                    runtime_types::finality_grandpa::Equivocation<
-                        runtime_types::sp_finality_grandpa::app::Public,
-                        runtime_types::finality_grandpa::Precommit<_0, _1>,
-                        runtime_types::sp_finality_grandpa::app::Signature,
-                    >,
-                ),
-            }
-            #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
-            )]
-            pub struct EquivocationProof<_0, _1> {
-                pub set_id: ::core::primitive::u64,
-                pub equivocation: runtime_types::sp_finality_grandpa::Equivocation<_0, _1>,
-            }
         }
         pub mod sp_runtime {
             use super::runtime_types;
@@ -42932,9 +42966,9 @@ pub mod api {
         let runtime_metadata_hash = client.metadata().metadata_hash(&PALLETS);
         if runtime_metadata_hash
             != [
-                70u8, 46u8, 72u8, 111u8, 38u8, 43u8, 113u8, 57u8, 71u8, 176u8, 246u8, 147u8, 77u8,
-                159u8, 88u8, 75u8, 98u8, 123u8, 58u8, 44u8, 139u8, 215u8, 196u8, 33u8, 54u8, 35u8,
-                46u8, 189u8, 88u8, 149u8, 10u8, 81u8,
+                133u8, 157u8, 44u8, 90u8, 86u8, 214u8, 99u8, 67u8, 139u8, 180u8, 142u8, 73u8, 23u8,
+                16u8, 31u8, 101u8, 245u8, 245u8, 149u8, 220u8, 68u8, 15u8, 206u8, 35u8, 123u8,
+                130u8, 238u8, 80u8, 251u8, 49u8, 164u8, 40u8,
             ]
         {
             Err(::subxt::error::MetadataError::IncompatibleMetadata)
