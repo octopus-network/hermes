@@ -62,12 +62,24 @@ impl Display for SupervisorState {
             writeln!(f, "* {tpe:?} workers:")?;
             for desc in objects {
                 writeln!(f, "  - {} (id: {})", desc.object.short_name(), desc.id)?;
-                if let Some(WorkerData::Client {
-                    misbehaviour,
-                    refresh,
-                }) = desc.data
-                {
-                    writeln!(f, "    | misbehaviour: {misbehaviour}, refresh: {refresh}")?;
+                // if let Some(WorkerData::Client {
+                //     misbehaviour,
+                //     refresh,
+                // }) = desc.data
+                // {
+                //     writeln!(f, "    | misbehaviour: {misbehaviour}, refresh: {refresh}")?;
+                // }
+                match desc.data {
+                    Some(WorkerData::Client {
+                        misbehaviour,
+                        refresh,
+                    }) => {
+                        writeln!(f, "    | misbehaviour: {misbehaviour}, refresh: {refresh}")?;
+                    }
+                    Some(WorkerData::Beefy { update_beefy }) => {
+                        writeln!(f, "    | update_beefy: {update_beefy}")?;
+                    }
+                    None => todo!(),
                 }
             }
         }

@@ -3,6 +3,7 @@ use core::fmt::{Debug, Display, Error as FmtError, Formatter};
 use crossbeam_channel as channel;
 use tracing::Span;
 
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 use ibc_relayer_types::{
     applications::ics31_icq::response::CrossChainQueryResponse,
     core::{
@@ -36,7 +37,9 @@ use crate::{
     misbehaviour::MisbehaviourEvidence,
 };
 
-use super::{reply_channel, ChainHandle, ChainRequest, HealthCheck, ReplyTo, Subscription};
+use super::{
+    reply_channel, BeefySubscription, ChainHandle, ChainRequest, HealthCheck, ReplyTo, Subscription,
+};
 
 /// A basic chain handle implementation.
 /// For use in interactive CLIs, e.g., `query`, `tx`, etc.
@@ -100,6 +103,11 @@ impl ChainHandle for BaseChainHandle {
 
     fn subscribe(&self) -> Result<Subscription, Error> {
         self.send(|reply_to| ChainRequest::Subscribe { reply_to })
+    }
+
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
+        tracing::debug!("base::subscribe_beefy -> send subcribe beefy request to substrate app chain !");
+        self.send(|reply_to| ChainRequest::SubscribeBeefy { reply_to })
     }
 
     fn send_messages_and_wait_commit(
@@ -483,6 +491,23 @@ impl ChainHandle for BaseChainHandle {
         request: QueryHostConsensusStateRequest,
     ) -> Result<AnyConsensusState, Error> {
         self.send(|reply_to| ChainRequest::QueryHostConsensusState { request, reply_to })
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        self.send(|reply_to| ChainRequest::WebSocketUrl { reply_to })
+    }
+    fn update_beefy(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+        tracing::trace!(
+            "base::update_beefy -> chain_id = {:?},client_id = {:?},beefy ={:?} ",
+            self.id(),
+            client_id,
+            header
+        );
+        self.send(|reply_to| ChainRequest::UpdateBeefy {
+            client_id,
+            header,
+            reply_to,
+        })
     }
 
     fn maybe_register_counterparty_payee(

@@ -22,10 +22,12 @@ use ibc_relayer_types::proofs::Proofs;
 use ibc_relayer_types::signer::Signer;
 use ibc_relayer_types::Height;
 
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
+
 use crate::account::Balance;
 use crate::chain::client::ClientSettings;
 use crate::chain::endpoint::{ChainStatus, HealthCheck};
-use crate::chain::handle::{ChainHandle, ChainRequest, Subscription};
+use crate::chain::handle::{BeefySubscription, ChainHandle, ChainRequest, Subscription};
 use crate::chain::requests::*;
 use crate::chain::tracking::TrackedMsgs;
 use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
@@ -109,6 +111,18 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
     fn subscribe(&self) -> Result<Subscription, Error> {
         self.inc_metric("subscribe");
         self.inner().subscribe()
+    }
+
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
+        self.inner().subscribe_beefy()
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        self.inner().websocket_url()
+    }
+
+    fn update_beefy(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+        self.inner().update_beefy(client_id, header)
     }
 
     fn send_messages_and_wait_commit(

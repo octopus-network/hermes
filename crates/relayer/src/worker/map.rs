@@ -238,5 +238,6 @@ fn metric_type(o: &Object) -> ibc_telemetry::state::WorkerType {
         Object::Packet(_) => WorkerType::Packet,
         Object::Wallet(_) => WorkerType::Wallet,
         Object::CrossChainQuery(_) => WorkerType::CrossChainQuery,
+        Object::Beefy(_) => WorkerType::Beefy,
     }
 }

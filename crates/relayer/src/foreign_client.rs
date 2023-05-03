@@ -13,6 +13,7 @@ use itertools::Itertools;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use flex_error::define_error;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
@@ -282,6 +283,14 @@ define_error! {
                 format_args!("failed to update client on destination {} because of error event: {}",
                     e.chain_id, e.event)
             },
+
+        WebsocketUrlError
+            [ RelayerError]
+            | _|  {"websocket_url error"},
+
+        UpdateBeefyError
+            [ RelayerError]
+            | _|  {"update mmr root error"},
     }
 }
 
@@ -847,6 +856,85 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 }
             }
         }
+    }
+
+    #[instrument(
+        name = "foreign_client.update_beefy",
+        level = "error",
+        skip_all,
+        fields(client = %self)
+    )]
+    /// Attempts to update a  beefy  using header from the latest height of its source chain.
+    pub fn update_beefy(&self, header: GPheader) -> Result<(), ForeignClientError> {
+        tracing::debug!(
+            "foreign_client::update_beefy -> beefy header ={:?} ",
+            header
+        );
+
+        // let res = self.build_latest_update_client_and_send()?;
+
+        // debug!("[{}] client updated with return message {:?}\n", self, res);
+        // let events = self
+        //     .dst_chain()
+        //     .send_messages_and_wait_commit(tm)
+        //     .map_err(|e| {
+        //         ForeignClientError::client_update(
+        //             self.dst_chain.id(),
+        //             "failed sending message to dst chain".to_string(),
+        //             e,
+        //         )
+        //     })?;
+        // Ok(events)
+        // let _ = self.dst_chain().update_beefy(self.id.clone(), header);
+        let any_header: Any = header.clone().into();
+
+        debug!(
+            "foreign_client::update_beefy -> Any header type_url: {} \nAny header: {:?} ",
+            any_header.type_url, any_header
+        );
+
+        let signer = self.dst_chain().get_signer().map_err(|e| {
+            ForeignClientError::client_update(
+                self.dst_chain.id(),
+                "failed getting signer for dst chain".to_string(),
+                e,
+            )
+        })?;
+
+        let mut msgs = vec![];
+
+        let msg_update_client = MsgUpdateClient {
+            header: any_header,
+            signer,
+            client_id: self.id.clone(),
+        }
+        .to_any();
+
+        msgs.push(msg_update_client);
+
+        telemetry!(
+            client_updates_submitted,
+            &self.src_chain.id(),
+            &self.dst_chain.id(),
+            &self.id,
+            msgs.len() as u64
+        );
+        let tm = TrackedMsgs::new_static(msgs, "update beefy");
+
+        let events = self
+            .dst_chain()
+            .send_messages_and_wait_commit(tm)
+            .map_err(|e| {
+                ForeignClientError::client_update(
+                    self.dst_chain.id(),
+                    "failed sending message to dst chain".to_string(),
+                    e,
+                )
+            })?;
+            
+        debug!(?events, "foreign_client::update_beefy -> beefy updated");
+
+        Ok(())
     }
 
     /// Wrapper for build_update_client_with_trusted.

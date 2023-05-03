@@ -1,8 +1,8 @@
 use core::fmt::{Display, Error as FmtError, Formatter};
 
-use ibc_relayer_types::{core::ics02_client::events::NewBlock, Height};
-
 use crate::event::monitor::EventBatch;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
+use ibc_relayer_types::{core::ics02_client::events::NewBlock, Height};
 
 /// A command for a [`WorkerHandle`](crate::worker::WorkerHandle).
 #[derive(Debug, Clone)]
@@ -15,6 +15,9 @@ pub enum WorkerCmd {
 
     /// Trigger a pending packets clear
     ClearPendingPackets,
+
+    /// A beefy msg has been receive
+    Beefy { header: GPheader },
 }
 
 impl Display for WorkerCmd {
@@ -31,6 +34,9 @@ impl Display for WorkerCmd {
                 write!(f, "NewBlock({height}, {new_block})")
             }
             WorkerCmd::ClearPendingPackets => write!(f, "CleaPendingPackets"),
+            WorkerCmd::Beefy { header } => {
+                write!(f, "beefy: {:?}", header)
+            }
         }
     }
 }

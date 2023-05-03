@@ -5,6 +5,21 @@ use crossbeam_channel as channel;
 use tokio::runtime::Runtime as TokioRuntime;
 use tracing::{error, Span};
 
+use crate::{
+    account::Balance,
+    chain::requests::QueryPacketEventDataRequest,
+    client_state::{AnyClientState, IdentifiedAnyClientState},
+    config::ChainConfig,
+    connection::ConnectionMsgType,
+    consensus_state::AnyConsensusState,
+    denom::DenomTrace,
+    error::Error,
+    event::IbcEventWithHeight,
+    keyring::AnySigningKeyPair,
+    light_client::AnyHeader,
+    misbehaviour::MisbehaviourEvidence,
+};
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 use ibc_relayer_types::{
     applications::ics31_icq::response::CrossChainQueryResponse,
     core::{
@@ -25,25 +40,10 @@ use ibc_relayer_types::{
     Height,
 };
 
-use crate::{
-    account::Balance,
-    chain::requests::QueryPacketEventDataRequest,
-    client_state::{AnyClientState, IdentifiedAnyClientState},
-    config::ChainConfig,
-    connection::ConnectionMsgType,
-    consensus_state::AnyConsensusState,
-    denom::DenomTrace,
-    error::Error,
-    event::IbcEventWithHeight,
-    keyring::AnySigningKeyPair,
-    light_client::AnyHeader,
-    misbehaviour::MisbehaviourEvidence,
-};
-
 use super::{
     client::ClientSettings,
     endpoint::{ChainEndpoint, ChainStatus, HealthCheck},
-    handle::{ChainHandle, ChainRequest, ReplyTo, Subscription},
+    handle::{BeefySubscription, ChainHandle, ChainRequest, ReplyTo, Subscription},
     requests::*,
     tracking::TrackedMsgs,
 };
@@ -335,6 +335,26 @@ where
                             self.query_host_consensus_state(request, reply_to)?
                         },
 
+                        ChainRequest::SubscribeBeefy { reply_to } => {
+                            tracing::debug!(
+                                "runtime::run -> ChainRequest::SubscribeBeefy "
+                            );
+                            self.subscribe_beefy(reply_to)?
+                        },
+
+                        ChainRequest::UpdateBeefy { client_id,header, reply_to } => {
+                            tracing::debug!(
+                                "runtime::run -> ChainRequest::UpdateBeefy, client_id = {:?},beefy ={:?} ",
+                                client_id,
+                                header
+                            );
+                            self.update_beefy(client_id,header,reply_to,)?
+                        },
+
+                        ChainRequest::WebSocketUrl{ reply_to} => {
+                            self.websocket_url(reply_to)?
+                        },
+
                         ChainRequest::MaybeRegisterCounterpartyPayee { channel_id, port_id, counterparty_payee, reply_to } => {
                             self.maybe_register_counterparty_payee(&channel_id, &port_id, &counterparty_payee, reply_to)?
                         }
@@ -358,6 +378,12 @@ where
     fn subscribe(&mut self, reply_to: ReplyTo<Subscription>) -> Result<(), Error> {
         let subscription = self.chain.subscribe();
         reply_to.send(subscription).map_err(Error::send)
+    }
+
+    /// only for sustrate app chain
+    fn subscribe_beefy(&mut self, reply_to: ReplyTo<BeefySubscription>) -> Result<(), Error> {
+        let beefy_subscription = self.chain.subscribe_beefy();
+        reply_to.send(beefy_subscription).map_err(Error::send)
     }
 
     fn send_messages_and_wait_commit(
@@ -804,6 +830,21 @@ where
         reply_to.send(result).map_err(Error::send)?;
 
         Ok(())
+    }
+
+    fn websocket_url(&self, reply_to: ReplyTo<String>) -> Result<(), Error> {
+        let result = self.chain.websocket_url();
+        reply_to.send(result).map_err(Error::send)
+    }
+
+    fn update_beefy(
+        &mut self,
+        client_id: ClientId,
+        header: GPheader,
+        reply_to: ReplyTo<()>,
+    ) -> Result<(), Error> {
+        let result = self.chain.update_beefy(client_id, header);
+        reply_to.send(result).map_err(Error::send)
     }
 
     fn maybe_register_counterparty_payee(

@@ -132,6 +132,7 @@ fn handle_packet_cmd<ChainA: ChainHandle, ChainB: ChainHandle>(
         }
 
         WorkerCmd::ClearPendingPackets => (true, None),
+        WorkerCmd::Beefy { header } => (true, None),
     };
 
     if do_clear {

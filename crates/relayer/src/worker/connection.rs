@@ -78,6 +78,7 @@ pub fn spawn_connection_worker<ChainA: ChainHandle, ChainB: ChainHandle>(
                         .map_err(|e| TaskError::Fatal(RunError::retry(e)))
                     }
 
+                    WorkerCmd::Beefy { header } => Ok(Next::Continue),
                     // nothing to do
                     _ => Ok(Next::Continue),
                 }

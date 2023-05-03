@@ -74,11 +74,7 @@ pub async fn build_validator_proof(
         .unwrap()
         .unwrap();
 
-    let encoded_public_keys: Vec<_> = authorities
-        .0
-        .into_iter()
-        .map(|x: relaychain_node::runtime_types::sp_beefy::crypto::Public| x.encode())
-        .collect();
+    let encoded_public_keys: Vec<_> = authorities.0.into_iter().map(|x| x.encode()).collect();
 
     let authority_address_hashes = encoded_public_keys
         .into_iter()

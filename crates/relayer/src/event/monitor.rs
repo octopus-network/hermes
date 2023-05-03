@@ -29,7 +29,7 @@ use crate::{
     },
 };
 
-mod error;
+pub(crate) mod error;
 pub use error::*;
 
 use super::{bus::EventBus, IbcEventWithHeight};
@@ -67,7 +67,7 @@ pub type EventSender = channel::Sender<Result<EventBatch>>;
 pub type EventReceiver = channel::Receiver<Result<EventBatch>>;
 
 #[derive(Clone, Debug)]
-pub struct TxMonitorCmd(channel::Sender<MonitorCmd>);
+pub struct TxMonitorCmd(pub channel::Sender<MonitorCmd>);
 
 impl TxMonitorCmd {
     pub fn shutdown(&self) -> Result<()> {
@@ -454,7 +454,7 @@ fn collect_events(
     chain_id: &ChainId,
     event: RpcEvent,
 ) -> impl Stream<Item = Result<IbcEventWithHeight>> {
-    let events = crate::event::rpc::get_all_events(chain_id, event).unwrap_or_default();
+    let events: Vec<IbcEventWithHeight> = crate::event::rpc::get_all_events(chain_id, event).unwrap_or_default();
     stream::iter(events).map(Ok)
 }
 

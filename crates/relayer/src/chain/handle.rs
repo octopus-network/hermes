@@ -4,6 +4,24 @@ use core::fmt::{self, Debug, Display};
 use crossbeam_channel as channel;
 use tracing::Span;
 
+use crate::{
+    account::Balance,
+    client_state::{AnyClientState, IdentifiedAnyClientState},
+    config::ChainConfig,
+    connection::ConnectionMsgType,
+    consensus_state::AnyConsensusState,
+    denom::DenomTrace,
+    error::Error,
+    event::{
+        beefy_monitor::BeefyResult,
+        monitor::{EventBatch, Result as MonitorResult},
+        IbcEventWithHeight,
+    },
+    keyring::AnySigningKeyPair,
+    light_client::AnyHeader,
+    misbehaviour::MisbehaviourEvidence,
+};
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 use ibc_relayer_types::{
     applications::ics31_icq::response::CrossChainQueryResponse,
     core::{
@@ -22,23 +40,6 @@ use ibc_relayer_types::{
     proofs::Proofs,
     signer::Signer,
     Height,
-};
-
-use crate::{
-    account::Balance,
-    client_state::{AnyClientState, IdentifiedAnyClientState},
-    config::ChainConfig,
-    connection::ConnectionMsgType,
-    consensus_state::AnyConsensusState,
-    denom::DenomTrace,
-    error::Error,
-    event::{
-        monitor::{EventBatch, Result as MonitorResult},
-        IbcEventWithHeight,
-    },
-    keyring::AnySigningKeyPair,
-    light_client::AnyHeader,
-    misbehaviour::MisbehaviourEvidence,
 };
 
 use super::{
@@ -86,6 +87,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Debug for ChainHandlePair<ChainA,
 }
 
 pub type Subscription = channel::Receiver<Arc<MonitorResult<EventBatch>>>;
+pub type BeefySubscription = channel::Receiver<Arc<BeefyResult<GPheader>>>;
 
 pub type ReplyTo<T> = channel::Sender<Result<T, Error>>;
 pub type Reply<T> = channel::Receiver<Result<T, Error>>;
@@ -108,6 +110,10 @@ pub enum ChainRequest {
 
     Subscribe {
         reply_to: ReplyTo<Subscription>,
+    },
+
+    SubscribeBeefy {
+        reply_to: ReplyTo<BeefySubscription>,
     },
 
     SendMessagesAndWaitCommit {
@@ -338,6 +344,16 @@ pub enum ChainRequest {
         reply_to: ReplyTo<Vec<IbcEventWithHeight>>,
     },
 
+    WebSocketUrl {
+        reply_to: ReplyTo<String>,
+    },
+
+    UpdateBeefy {
+        client_id: ClientId,
+        header: GPheader,
+        reply_to: ReplyTo<()>,
+    },
+
     QueryPacketEventData {
         request: QueryPacketEventDataRequest,
         reply_to: ReplyTo<Vec<IbcEventWithHeight>>,
@@ -375,6 +391,10 @@ pub trait ChainHandle: Clone + Display + Send + Sync + Debug + 'static {
 
     /// Subscribe to the events emitted by the chain.
     fn subscribe(&self) -> Result<Subscription, Error>;
+
+    /// Subscribe to the beefy signed commitment by the chain.
+    /// only substrate app chain need to implement
+    fn subscribe_beefy(&self) -> Result<BeefySubscription, Error>;
 
     /// Send the given `msgs` to the chain, packaged as one or more transactions,
     /// and return the list of events emitted by the chain after the transaction was committed.
@@ -643,6 +663,12 @@ pub trait ChainHandle: Clone + Display + Send + Sync + Debug + 'static {
     ) -> Result<Vec<Sequence>, Error>;
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error>;
+
+    // get host chain websocket_url
+    fn websocket_url(&self) -> Result<String, Error>;
+
+    // only used by ics10-grandpa
+    fn update_beefy(&self, client_id: ClientId, header: GPheader) -> Result<(), Error>;
 
     fn query_packet_events(
         &self,

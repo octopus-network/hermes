@@ -94,7 +94,7 @@ pub fn spawn_channel_worker<ChainA: ChainHandle, ChainB: ChainHandle>(
                         )
                         .map_err(|e| TaskError::Fatal(RunError::retry(e)))
                     }
-
+                    WorkerCmd::Beefy { header } => Ok(Next::Continue),
                     // nothing to do
                     _ => Ok(Next::Continue),
                 }

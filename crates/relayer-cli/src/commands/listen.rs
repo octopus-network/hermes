@@ -13,7 +13,10 @@ use itertools::Itertools;
 use tokio::runtime::Runtime as TokioRuntime;
 use tracing::{error, info, instrument};
 
-use ibc_relayer::{chain::handle::Subscription, config::ChainConfig, event::monitor::EventMonitor};
+use ibc_relayer::{
+    chain::handle::Subscription, chain::ChainType, config::ChainConfig,
+    event::monitor::EventMonitor, event::substrate_mointor::EventMonitor as SubEventMonitor,
+};
 use ibc_relayer_types::{core::ics24_host::identifier::ChainId, events::IbcEvent};
 
 use crate::prelude::*;
@@ -134,24 +137,44 @@ fn event_match(event: &IbcEvent, filters: &[EventFilter]) -> bool {
 }
 
 fn subscribe(chain_config: &ChainConfig, rt: Arc<TokioRuntime>) -> eyre::Result<Subscription> {
-    let (mut event_monitor, tx_cmd) = EventMonitor::new(
-        chain_config.id.clone(),
-        chain_config.websocket_addr.clone(),
-        rt,
-    )
-    .map_err(|e| eyre!("could not initialize event monitor: {}", e))?;
+    match chain_config.r#type {
+        ChainType::CosmosSdk => {
+            let (mut event_monitor, tx_cmd) = EventMonitor::new(
+                chain_config.id.clone(),
+                chain_config.websocket_addr.clone(),
+                rt,
+            )
+            .map_err(|e| eyre!("could not initialize event monitor: {}", e))?;
 
-    event_monitor
-        .init_subscriptions()
-        .map_err(|e| eyre!("could not initialize subscriptions: {}", e))?;
+            event_monitor
+                .init_subscriptions()
+                .map_err(|e| eyre!("could not initialize subscriptions: {}", e))?;
 
-    let queries = event_monitor.queries();
-    info!("listening for queries: {}", queries.iter().format(", "),);
+            let queries = event_monitor.queries();
+            info!("listening for queries: {}", queries.iter().format(", "),);
 
-    thread::spawn(|| event_monitor.run());
+            thread::spawn(|| event_monitor.run());
 
-    let subscription = tx_cmd.subscribe()?;
-    Ok(subscription)
+            let subscription = tx_cmd.subscribe()?;
+            Ok(subscription)
+        }
+        ChainType::Substrate => {
+            let (mut sub_event_monitor, sub_tx_cmd) = SubEventMonitor::new(
+                chain_config.id.clone(),
+                chain_config.websocket_addr.clone(),
+                rt,
+            )
+            .map_err(|e| eyre!("could not initialize event monitor: {}", e))?;
+
+            sub_event_monitor
+                .init_subscriptions()
+                .map_err(|e| eyre!("could not initialize subscriptions: {}", e))?;
+
+            thread::spawn(move || sub_event_monitor.run());
+            let subscription = sub_tx_cmd.subscribe()?;
+            Ok(subscription)
+        }
+    }
 }
 
 #[cfg(test)]

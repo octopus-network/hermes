@@ -27,6 +27,7 @@ use ibc_relayer_types::{
         ics29_fee::error::Error as FeeError, ics31_icq::error::Error as CrossChainQueryError,
     },
     clients::ics07_tendermint::error as tendermint_error,
+    clients::ics10_grandpa::error as grandpa_error,
     core::{
         ics02_client::{client_type::ClientType, error as client_error},
         ics03_connection::error as connection_error,
@@ -43,6 +44,7 @@ use crate::config::Error as ConfigError;
 use crate::event::monitor;
 use crate::keyring::{errors::Error as KeyringError, KeyType};
 use crate::sdk_error::SdkError;
+use subxt::Error as SubxtError;
 
 define_error! {
     Error {
@@ -89,6 +91,10 @@ define_error! {
         EventMonitor
             [ monitor::Error ]
             |_| { "event monitor error" },
+
+        // SubEventMonitor
+        //     { reason: String }
+        //     |e| { format!("ub event monitor error: {0}", e.reason) },
 
         Grpc
             |_| { "gRPC error" },
@@ -275,6 +281,10 @@ define_error! {
         Ics07
             [ tendermint_error::Error ]
             |_| { "ICS 07 error" },
+
+        Ics10
+            [ grandpa_error::Error ]
+            |_ | { "ICS 10 error" },
 
         Ics18
             [ relayer_error::Error ]

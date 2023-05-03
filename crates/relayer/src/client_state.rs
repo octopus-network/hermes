@@ -90,7 +90,7 @@ impl AnyClientState {
     pub fn trust_threshold(&self) -> Option<TrustThreshold> {
         match self {
             AnyClientState::Tendermint(state) => Some(state.trust_threshold),
-            AnyClientState::Grandpa(state) => None, // todo(davirain) use default value none
+            AnyClientState::Grandpa(state) => Some(TrustThreshold::default()), // todo(davirain) use default value none
 
             #[cfg(test)]
             AnyClientState::Mock(_) => None,

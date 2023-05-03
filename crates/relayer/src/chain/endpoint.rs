@@ -4,6 +4,7 @@ use core::convert::TryFrom;
 use tokio::runtime::Runtime as TokioRuntime;
 
 use ibc_relayer_types::applications::ics31_icq::response::CrossChainQueryResponse;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics02_client::consensus_state::ConsensusState;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
@@ -30,7 +31,7 @@ use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 
 use crate::account::Balance;
 use crate::chain::client::ClientSettings;
-use crate::chain::handle::Subscription;
+use crate::chain::handle::{BeefySubscription, Subscription};
 use crate::chain::requests::*;
 use crate::chain::tracking::TrackedMsgs;
 use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
@@ -96,6 +97,9 @@ pub trait ChainEndpoint: Sized {
 
     // Events
     fn subscribe(&mut self) -> Result<Subscription, Error>;
+
+    // Events
+    fn subscribe_beefy(&mut self) -> Result<BeefySubscription, Error>;
 
     // Keyring
 
@@ -383,6 +387,12 @@ pub trait ChainEndpoint: Sized {
         target_height: ICSHeight,
         client_state: &AnyClientState,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error>;
+
+    /// add new api websocket_url
+    fn websocket_url(&self) -> Result<String, Error>;
+
+    /// add new api update_mmr_root
+    fn update_beefy(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error>;
 
     /// Builds the required proofs and the client state for connection handshake messages.
     /// The proofs and client state must be obtained from queries at same height.

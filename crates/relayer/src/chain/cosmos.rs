@@ -12,7 +12,7 @@ use std::{cmp::Ordering, thread};
 
 use tokio::runtime::Runtime as TokioRuntime;
 use tonic::{codegen::http::Uri, metadata::AsciiMetadataValue};
-use tracing::{error, instrument, trace, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 use ibc_proto::cosmos::base::node::v1beta1::ConfigResponse;
 use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
@@ -23,6 +23,7 @@ use ibc_relayer_types::clients::ics07_tendermint::client_state::{
 };
 use ibc_relayer_types::clients::ics07_tendermint::consensus_state::ConsensusState as TMConsensusState;
 use ibc_relayer_types::clients::ics07_tendermint::header::Header as TmHeader;
+use ibc_relayer_types::clients::ics10_grandpa::header::Header as GPheader;
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
@@ -1847,6 +1848,19 @@ impl ChainEndpoint for CosmosSdkChain {
         Ok((target, supporting))
     }
 
+    fn websocket_url(&self) -> Result<String, Error> {
+        Ok(self.config.websocket_addr.clone().to_string())
+    }
+
+    fn update_beefy(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
+        debug!(
+            "cosmos::update_beefy: -> recv client id:{:?}, GpHeader: {:?} ",
+            client_id, header
+        );
+
+        Ok(())
+    }
+
     fn maybe_register_counterparty_payee(
         &mut self,
         channel_id: &ChannelId,
@@ -1885,6 +1899,11 @@ impl ChainEndpoint for CosmosSdkChain {
             .collect::<Vec<CrossChainQueryResponse>>();
 
         Ok(responses)
+    }
+
+    // only for substrate chain
+    fn subscribe_beefy(&mut self) -> Result<super::handle::BeefySubscription, Error> {
+        todo!()
     }
 }
 

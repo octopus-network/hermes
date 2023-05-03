@@ -64,6 +64,7 @@ pub enum WorkerType {
     Packet,
     Wallet,
     CrossChainQuery,
+    Beefy,
 }
 
 impl Display for WorkerType {
@@ -74,6 +75,7 @@ impl Display for WorkerType {
             Self::Channel => write!(f, "channel"),
             Self::Packet => write!(f, "packet"),
             Self::Wallet => write!(f, "wallet"),
+            Self::Beefy => write!(f, "beefy"),
             Self::CrossChainQuery => write!(f, "cross-chain-query"),
         }
     }

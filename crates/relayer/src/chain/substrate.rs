@@ -13,7 +13,7 @@ use std::{cmp::Ordering, thread};
 
 use tokio::runtime::Runtime as TokioRuntime;
 use tonic::{codegen::http::Uri, metadata::AsciiMetadataValue};
-use tracing::{error, instrument, trace, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 use ibc_proto::cosmos::base::node::v1beta1::ConfigResponse;
 use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
@@ -27,6 +27,7 @@ use ibc_relayer_types::clients::ics10_grandpa::header::Header as GpHeader;
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
+use ibc_relayer_types::core::ics02_client::msgs::update_client::MsgUpdateClient;
 use ibc_relayer_types::core::ics03_connection::connection::{
     ConnectionEnd, IdentifiedConnectionEnd,
 };
@@ -46,7 +47,6 @@ use ibc_relayer_types::core::ics24_host::{
 };
 use ibc_relayer_types::signer::Signer;
 use ibc_relayer_types::Height as ICSHeight;
-
 use tendermint::block::Height as TmHeight;
 use tendermint::node::info::TxIndexStatus;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
@@ -67,7 +67,8 @@ use crate::config::{parse_gas_prices, ChainConfig, GasPrice};
 use crate::consensus_state::AnyConsensusState;
 use crate::denom::DenomTrace;
 use crate::error::Error;
-use crate::event::monitor::{EventMonitor, TxMonitorCmd};
+use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver, TxMonitorCmd as BeefyTxMonitorCmd};
+use crate::event::substrate_mointor::{EventMonitor, TxMonitorCmd};
 use crate::event::IbcEventWithHeight;
 use crate::keyring::{KeyRing, Secp256k1KeyPair, SigningKeyPair};
 use crate::light_client::tendermint::LightClient as TmLightClient;
@@ -79,15 +80,16 @@ use crate::util::pretty::{
 use crate::{account::Balance, config::default::para_chain_addr};
 use codec::Decode;
 use ibc_relayer_types::timestamp::Timestamp;
-
 // substrate
 use serde::{Deserialize, Serialize};
 use subxt::rpc::RpcClient as SubxtRpcClient;
 use subxt::rpc::Subscription as SubxtSubscription;
 use subxt::rpc_params;
+use subxt::Error as SubxtError;
 use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
 
 pub mod beefy;
+// #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
 pub mod parachain;
 pub mod relaychain;
 pub mod utils;
@@ -95,18 +97,15 @@ pub mod utils;
 use parachain::parachain_node;
 use relaychain::relaychain_node;
 
-use beefy_primitives::{
-    known_payloads::MMR_ROOT_ID,
-    mmr::{BeefyNextAuthoritySet, MmrLeaf},
-    Payload, VersionedFinalityProof,
-};
+use beefy_primitives::{known_payloads::MMR_ROOT_ID, Payload, VersionedFinalityProof};
 
-/// An encoded signed commitment proving that the given header has been finalized.
-/// The given bytes should be the SCALE-encoded representation of a
+const MAX_QUERY_TIMES: u64 = 800;
+pub const REVISION_NUMBER: u64 = 0;
+pub const BEEFY_ACTIVATION_HEIGHT: u32 = 0;
+
 /// `beefy_primitives::SignedCommitment`.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct EncodedVersionedFinalityProof(pub sp_core::Bytes);
-
 /// Subscribe to beefy justifications.
 pub async fn subscribe_beefy_justifications(
     client: &SubxtRpcClient,
@@ -143,6 +142,8 @@ pub struct SubstrateChain {
     relay_chain_addr: String,
     para_chain_addr: String,
     keybase: KeyRing<Secp256k1KeyPair>,
+    tx_event_monitor_cmd: Option<TxMonitorCmd>,
+    tx_beefy_monitor_cmd: Option<BeefyTxMonitorCmd>,
 }
 
 pub enum RpcClient {
@@ -197,7 +198,50 @@ impl SubstrateChain {
     fn init_event_monitor(&mut self) -> Result<TxMonitorCmd, Error> {
         crate::time!("init_event_monitor");
 
-        todo!()
+        tracing::debug!(
+            "substrate::init_event_mointor -> websocket addr: {:?}",
+            self.config.websocket_addr.clone()
+        );
+
+        let (mut event_monitor, monitor_tx) = EventMonitor::new(
+            self.config.id.clone(),
+            self.config.websocket_addr.clone(),
+            self.rt.clone(),
+        )
+        .map_err(Error::event_monitor)?;
+
+        event_monitor
+            .init_subscriptions()
+            .map_err(Error::event_monitor)?;
+
+        thread::spawn(move || event_monitor.run());
+
+        Ok(monitor_tx)
+    }
+
+    fn init_beefy_monitor(&mut self) -> Result<BeefyTxMonitorCmd, Error> {
+        crate::time!("init_beefy_monitor");
+
+        tracing::debug!(
+            "substrate::init_beefy_mointor -> websocket addr: {:?}",
+            self.config.websocket_addr.clone()
+        );
+
+        let (mut beefy_monitor, monitor_tx) = BeefyMonitor::new(
+            self.config.id.clone(),
+            self.config.websocket_addr.clone(),
+            self.rt.clone(),
+        )
+        .map_err(Error::event_monitor)?;
+
+        beefy_monitor
+            .init_subscriptions()
+            .map_err(Error::event_monitor)?;
+
+        thread::spawn(move || beefy_monitor.run());
+        debug!("substrate::init_beefy_mointor ->  beefy monitor is running ...");
+
+        Ok(monitor_tx)
     }
 
     /// Query the chain staking parameters
@@ -453,10 +497,16 @@ impl ChainEndpoint for SubstrateChain {
             keybase,
             relay_chain_addr,
             para_chain_addr,
+            tx_event_monitor_cmd: None,
+            tx_beefy_monitor_cmd: None,
         })
     }
 
     fn shutdown(self) -> Result<(), Error> {
+        if let Some(monitor_tx) = self.tx_event_monitor_cmd {
+            monitor_tx.shutdown().map_err(Error::event_monitor)?;
+        }
+
         Ok(())
     }
 
@@ -469,22 +519,35 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn subscribe(&mut self) -> Result<Subscription, Error> {
-        async fn subscribe(
-            relay_rpc_client: &OnlineClient<PolkadotConfig>,
-            para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
-        ) -> Result<Subscription, Error> {
-            todo!()
-        }
+        tracing::info!("substrate::subscribe -> requst to subscribe substrate event msg !",);
+        let tx_monitor_cmd = match &self.tx_event_monitor_cmd {
+            Some(tx_monitor_cmd) => tx_monitor_cmd,
+            None => {
+                let tx_monitor_cmd = self.init_event_monitor()?;
+                self.tx_event_monitor_cmd = Some(tx_monitor_cmd);
+                self.tx_event_monitor_cmd.as_ref().unwrap()
+            }
+        };
 
-        match &self.rpc_client {
-            RpcClient::ParachainRpc {
-                relay_rpc,
-                para_rpc,
-            } => self.block_on(subscribe(relay_rpc, Some(para_rpc))),
-            RpcClient::SubChainRpc { rpc } => self.block_on(subscribe(rpc, None)),
-        }
+        let subscription = tx_monitor_cmd.subscribe().map_err(Error::event_monitor)?;
+        Ok(subscription)
     }
+    fn subscribe_beefy(&mut self) -> Result<super::handle::BeefySubscription, Error> {
+        tracing::info!("substrate::subscribe_beefy -> reqeust to subscribe substrate beefy msg !",);
+        let tx_beefy_monitor_cmd = match &self.tx_beefy_monitor_cmd {
+            Some(tx_beefy_monitor_cmd) => tx_beefy_monitor_cmd,
+            None => {
+                let tx_beefy_monitor_cmd = self.init_beefy_monitor()?;
+                self.tx_beefy_monitor_cmd = Some(tx_beefy_monitor_cmd);
+                self.tx_beefy_monitor_cmd.as_ref().unwrap()
+            }
+        };
 
+        let beefy_subscription = tx_beefy_monitor_cmd
+            .subscribe()
+            .map_err(Error::event_monitor)?;
+        Ok(beefy_subscription)
+    }
     /// Does multiple RPC calls to the full node, to check for
     /// reachability and some basic APIs are available.
     ///
@@ -1100,6 +1163,7 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryClientConnectionsRequest,
         ) -> Result<Vec<ConnectionId>, Error> {
+            let mut conn_ids = Vec::<ConnectionId>::new();
             if let Some(rpc_client) = para_rpc_client {
                 let client_id =
                     parachain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
@@ -1115,10 +1179,14 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .fetch(&storage)
                     .await
-                    .unwrap()
                     .unwrap();
 
-                Ok(vec![ConnectionId::from(connection_id)])
+                if let Some(conn) = connection_id {
+                    conn_ids.push(conn.into())
+                }
+
+                // Ok(vec![ConnectionId::from(connection_id)])
+                Ok(conn_ids)
             } else {
                 let client_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
@@ -1136,10 +1204,13 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .fetch(&storage)
                     .await
-                    .unwrap()
                     .unwrap();
 
-                Ok(vec![ConnectionId::from(connection_id)])
+                if let Some(conn) = connection_id {
+                    conn_ids.push(conn.into())
+                }
+                // Ok(vec![ConnectionId::from(connection_id)])
+                Ok(conn_ids)
             }
         }
         match &self.rpc_client {
@@ -2089,7 +2160,6 @@ impl ChainEndpoint for SubstrateChain {
                 use ibc_relayer_types::Height;
 
                 let chain_id = config.id.clone();
-                let beefy_activation_height = 9999; // todo(davirian) need use correct beefy activation height
 
                 let result = async {
                     let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
@@ -2174,6 +2244,7 @@ impl ChainEndpoint for SubstrateChain {
                         Height::new(reversion_number, block_number as u64).unwrap(),
                     )
                 };
+                let beefy_activation_height = BEEFY_ACTIVATION_HEIGHT;
                 let client_state = GpClientState {
                     chain_type,
                     chain_id,
@@ -2304,7 +2375,8 @@ impl ChainEndpoint for SubstrateChain {
                     panic!("trust height miss match client state height");
                 }
 
-                let mmr_root_height = grandpa_client_state.latest_height();
+                // let mmr_root_height = grandpa_client_state.latest_height();
+                let mmr_root_height = grandpa_client_state.latest_beefy_height;
 
                 // build target height header
 
@@ -2316,6 +2388,10 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 let raw_signed_commitment = sub.next().await.unwrap().unwrap().0;
+                tracing::info!(
+                    "substrate::build_header -> recv raw_signed_commitment: {:?}",
+                    raw_signed_commitment
+                );
 
                 //     let beefy_version_finality_proof: VersionedFinalityProof<
                 //     u32,
@@ -2405,6 +2481,73 @@ impl ChainEndpoint for SubstrateChain {
                 client_state,
             )),
         }
+    }
+
+    fn websocket_url(&self) -> Result<String, Error> {
+        Ok(self.config.websocket_addr.clone().to_string())
+    }
+
+    /// add new api update_mmr_root
+    fn update_beefy(&mut self, client_id: ClientId, header: GpHeader) -> Result<(), Error> {
+        tracing::trace!("substrate::update_beefy -> client_id = {:?} ", client_id,);
+
+        //     let MmrRoot {
+        //         signed_commitment,
+        //         validator_merkle_proofs,
+        //         mmr_leaf,
+        //         mmr_leaf_proof,
+        //     } = header.mmr_root.clone();
+
+        //     let new_mmr_root_height = signed_commitment.clone().commitment.unwrap().block_number;
+        //     tracing::trace!(
+        //         "[update_mmr_root] mmr root height = {:?}",
+        //         new_mmr_root_height
+        //     );
+        //     let client_state = self.query_client_state(&client_id).unwrap();
+        //     let gp_client_state = match client_state {
+        //         AnyClientState::Grandpa(value) => value,
+        //         _ => unimplemented!(),
+        //     };
+
+        //     let beefy_light_client::commitment::Commitment {
+        //         payload,
+        //         block_number,
+        //         validator_set_id,
+        //     } = gp_client_state.latest_commitment.clone().into();
+
+        //     tracing::trace!(
+        //     "[update_mmr_root] mmr root height in client state is: ({:?}) and  new mmr root height is ({:?})!",
+        //     block_number,new_mmr_root_height
+        // );
+
+        //     if block_number >= new_mmr_root_height {
+        //         tracing::trace!(
+        //         "[update_mmr_root]mmr root height in client state ({:?}) >= new mmr root height({:?}), Don't need to update!",
+        //         block_number,new_mmr_root_height
+        //     );
+        //         return Err(Error::update_client_state_error());
+        //     }
+
+        //     let mut msgs = vec![];
+
+        //     let signer = self.get_signer().unwrap();
+        //     use ibc::core::ics02_client::header::AnyHeader;
+        //     msgs.push(
+        //         MsgUpdateClient {
+        //             header: AnyHeader::Grandpa(header),
+        //             signer: signer,
+        //             client_id: client_id,
+        //         }
+        //         .to_any(),
+        //     );
+
+        //     let tm = TrackedMsgs::new_static(msgs, "update client");
+        //     tracing::trace!("in substrate: [update_mmr_root] >> msgs = {:?}", tm);
+
+        //     let events = self.send_messages_and_wait_commit(tm);
+        //     tracing::trace!("in substrate: [update_mmr_root] >> events = {:?}", events);
+
+        Ok(())
     }
 
     fn maybe_register_counterparty_payee(
