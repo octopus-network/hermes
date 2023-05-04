@@ -1848,19 +1848,6 @@ impl ChainEndpoint for CosmosSdkChain {
         Ok((target, supporting))
     }
 
-    fn websocket_url(&self) -> Result<String, Error> {
-        Ok(self.config.websocket_addr.clone().to_string())
-    }
-
-    fn update_beefy(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
-        debug!(
-            "cosmos::update_beefy: -> recv client id:{:?}, GpHeader: {:?} ",
-            client_id, header
-        );
-
-        Ok(())
-    }
-
     fn maybe_register_counterparty_payee(
         &mut self,
         channel_id: &ChannelId,

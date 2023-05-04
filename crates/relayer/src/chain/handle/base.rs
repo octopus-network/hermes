@@ -493,23 +493,7 @@ impl ChainHandle for BaseChainHandle {
         self.send(|reply_to| ChainRequest::QueryHostConsensusState { request, reply_to })
     }
 
-    fn websocket_url(&self) -> Result<String, Error> {
-        self.send(|reply_to| ChainRequest::WebSocketUrl { reply_to })
-    }
-    fn update_beefy(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
-        tracing::trace!(
-            "base::update_beefy -> chain_id = {:?},client_id = {:?},beefy ={:?} ",
-            self.id(),
-            client_id,
-            header
-        );
-        self.send(|reply_to| ChainRequest::UpdateBeefy {
-            client_id,
-            header,
-            reply_to,
-        })
-    }
-
+    
     fn maybe_register_counterparty_payee(
         &self,
         channel_id: ChannelId,

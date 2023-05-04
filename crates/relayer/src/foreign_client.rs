@@ -283,14 +283,6 @@ define_error! {
                 format_args!("failed to update client on destination {} because of error event: {}",
                     e.chain_id, e.event)
             },
-
-        WebsocketUrlError
-            [ RelayerError]
-            | _|  {"websocket_url error"},
-
-        UpdateBeefyError
-            [ RelayerError]
-            | _|  {"update mmr root error"},
     }
 }
 
@@ -914,21 +906,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             header
         );
 
-        // let res = self.build_latest_update_client_and_send()?;
-
-        // debug!("[{}] client updated with return message {:?}\n", self, res);
-        // let events = self
-        //     .dst_chain()
-        //     .send_messages_and_wait_commit(tm)
-        //     .map_err(|e| {
-        //         ForeignClientError::client_update(
-        //             self.dst_chain.id(),
-        //             "failed sending message to dst chain".to_string(),
-        //             e,
-        //         )
-        //     })?;
-        // Ok(events)
-        // let _ = self.dst_chain().update_beefy(self.id.clone(), header);
         let any_header: Any = header.clone().into();
 
         debug!(

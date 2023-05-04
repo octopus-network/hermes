@@ -3,6 +3,7 @@ use crate::clients::ics10_grandpa::error::Error;
 use crate::core::ics24_host::identifier::ChainId;
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
+use codec::{Encode, Decode};
 use ibc_proto::ibc::lightclients::grandpa::v1::header::Message as RawMessage;
 use ibc_proto::ibc::lightclients::grandpa::v1::{
     ParachainHeader as RawParachainHeader, ParachainHeaders as RawParachainHeaders,
@@ -208,7 +209,7 @@ impl From<ParachainHeader> for RawParachainHeader {
 }
 
 /// state value and proof
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct StateProof {
     /// state key
     pub key: Vec<u8>,
