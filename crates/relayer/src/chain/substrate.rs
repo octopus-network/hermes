@@ -876,7 +876,8 @@ impl ChainEndpoint for SubstrateChain {
                 let mut result = vec![];
                 while let Some((key, value)) = iter.next().await.unwrap() {
                     let raw_key = key.0[48..].to_vec();
-                    let client_id = ClientId::from(relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId::decode(&mut &*raw_key).unwrap());
+                    let key = relaychain_node::runtime_types::ibc::core::ics24_host::path::ClientStatePath::decode(&mut &*raw_key).unwrap();
+                    let client_id = ClientId::from(key.0);
                     // todo (davirian) maybe this have error
                     let client_state = AnyClientState::decode_vec(&value).map_err(Error::decode)?;
 
@@ -1049,7 +1050,27 @@ impl ChainEndpoint for SubstrateChain {
             if let Some(rpc_client) = para_rpc_client {
                 todo!()
             } else {
-                todo!()
+                let key_addr = relaychain_node::storage().ibc().consensus_states_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let key = relaychain_node::runtime_types::ibc::core::ics24_host::path::ClientConsensusStatePath::decode(&mut &*raw_key).unwrap();
+                    let right_client_id = ClientId::from(key.client_id);
+                    if request.client_id == right_client_id {
+                        result.push(ICSHeight::new(key.epoch, key.height).unwrap());
+                    }
+                }
+                Ok(result)
             }
         }
         match &self.rpc_client {
@@ -1191,7 +1212,6 @@ impl ChainEndpoint for SubstrateChain {
                     conn_ids.push(conn.into())
                 }
 
-                // Ok(vec![ConnectionId::from(connection_id)])
                 Ok(conn_ids)
             } else {
                 let client_id =
@@ -1215,7 +1235,7 @@ impl ChainEndpoint for SubstrateChain {
                 if let Some(conn) = connection_id {
                     conn_ids.push(conn.into())
                 }
-                // Ok(vec![ConnectionId::from(connection_id)])
+
                 Ok(conn_ids)
             }
         }
@@ -1423,7 +1443,32 @@ impl ChainEndpoint for SubstrateChain {
             if let Some(rpc_client) = para_rpc_client {
                 todo!()
             } else {
-                todo!()
+                let key_addr = relaychain_node::storage().ibc().channels_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::ChannelEndsPath::decode(&mut &*raw_key).unwrap();
+                    let port_id = PortId::from(rets.0);
+                    let channel_id = ChannelId::from(rets.1);
+                    let channel_end = ChannelEnd::from(value);
+
+                    result.push(IdentifiedChannelEnd {
+                        port_id,
+                        channel_id,
+                        channel_end,
+                    })
+                }
+                Ok(result)
             }
         }
         match &self.rpc_client {
@@ -1642,7 +1687,6 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // todo
     /// Queries the packet commitment hashes associated with a channel.
     fn query_packet_commitments(
         &self,
@@ -1659,7 +1703,31 @@ impl ChainEndpoint for SubstrateChain {
             if let Some(rpc_client) = para_rpc_client {
                 todo!()
             } else {
-                todo!()
+                let key_addr = relaychain_node::storage().ibc().channels_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::CommitmentsPath::decode(&mut &*raw_key).unwrap();
+                    let port_id = PortId::from(rets.port_id);
+                    let channel_id = ChannelId::from(rets.channel_id);
+                    let sequence = Sequence::from(rets.sequence);
+
+                    if port_id == request.port_id && channel_id == request.channel_id {
+                        result.push(sequence);
+                    }
+                }
+                // todo ics height need to set
+                Ok((result, ICSHeight::new(0, 1).unwrap()))
             }
         }
 
@@ -1786,7 +1854,40 @@ impl ChainEndpoint for SubstrateChain {
             if let Some(rpc_client) = para_rpc_client {
                 todo!()
             } else {
-                todo!()
+                let key_addr = relaychain_node::storage().ibc().channels_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::CommitmentsPath::decode(&mut &*raw_key).unwrap();
+                    let port_id = PortId::from(rets.port_id);
+                    let channel_id = ChannelId::from(rets.channel_id);
+                    let sequence = Sequence::from(rets.sequence);
+
+                    if port_id == request.port_id && channel_id == request.channel_id {
+                        result.push(sequence);
+                    }
+                }
+
+                let mut ret = vec![];
+                for seq in request.packet_commitment_sequences {
+                    for in_seq in result.iter() {
+                        if seq != *in_seq {
+                            ret.push(seq);
+                        }
+                    }
+                }
+
+                Ok(ret)
             }
         }
 
@@ -2000,7 +2101,31 @@ impl ChainEndpoint for SubstrateChain {
             if let Some(rpc_client) = para_rpc_client {
                 todo!()
             } else {
-                todo!()
+                let key_addr = relaychain_node::storage().ibc().acknowledgements_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::AcksPath::decode(&mut &*raw_key).unwrap();
+                    let port_id = PortId::from(rets.port_id);
+                    let channel_id = ChannelId::from(rets.channel_id);
+                    let sequence = Sequence::from(rets.sequence);
+
+                    if port_id == request.port_id && channel_id == request.channel_id {
+                        result.push(sequence);
+                    }
+                }
+                // todo ics height need to set
+                Ok((result, ICSHeight::new(0, 1).unwrap()))
             }
         }
 
@@ -2019,7 +2144,6 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // todo
     /// Queries the unreceived acknowledgements sequences associated with a channel.
     fn query_unreceived_acknowledgements(
         &self,
@@ -2036,7 +2160,39 @@ impl ChainEndpoint for SubstrateChain {
             if let Some(rpc_client) = para_rpc_client {
                 todo!()
             } else {
-                todo!()
+                let key_addr = relaychain_node::storage().ibc().acknowledgements_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::AcksPath::decode(&mut &*raw_key).unwrap();
+                    let port_id = PortId::from(rets.port_id);
+                    let channel_id = ChannelId::from(rets.channel_id);
+                    let sequence = Sequence::from(rets.sequence);
+
+                    if port_id == request.port_id && channel_id == request.channel_id {
+                        result.push(sequence);
+                    }
+                }
+
+                let mut ret = vec![];
+                for seq in request.packet_ack_sequences {
+                    for in_seq in result.iter() {
+                        if seq != *in_seq {
+                            ret.push(seq);
+                        }
+                    }
+                }
+                Ok(ret)
             }
         }
 
