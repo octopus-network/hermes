@@ -2636,6 +2636,7 @@ dependencies = [
 [[package]]
 name = "ibc-proto"
 version = "0.25.0"
+source = "git+https://github.com/octopus-network/ibc-proto-rs?branch=ibc#be899e51b30c9fe68c7076edad0986e2b11fe256"
 dependencies = [
  "base64 0.13.1",
  "borsh",

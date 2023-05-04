@@ -940,7 +940,13 @@ impl ChainEndpoint for SubstrateChain {
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
                         request.client_id.to_string(),
                     );
-                let storage = relaychain_node::storage().ibc().client_states(client_id);
+                let client_state_path =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::path::ClientStatePath(
+                        client_id,
+                    );
+                let storage = relaychain_node::storage()
+                    .ibc()
+                    .client_states(client_state_path);
 
                 let client_state = relay_rpc_client
                     .storage()
@@ -1109,15 +1115,15 @@ impl ChainEndpoint for SubstrateChain {
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
                         request.client_id.to_string(),
                     );
-
-                let height =
-                    relaychain_node::runtime_types::ibc::core::ics02_client::height::Height {
-                        revision_number: request.consensus_height.revision_number(),
-                        revision_height: request.consensus_height.revision_height(),
+                let client_conesnsus_state_path =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::path::ClientConsensusStatePath {
+                        client_id,
+                        epoch: request.consensus_height.revision_number(),
+                        height: request.consensus_height.revision_height()
                     };
                 let storage = relaychain_node::storage()
                     .ibc()
-                    .consensus_states(client_id, height);
+                    .consensus_states(client_conesnsus_state_path);
 
                 let consensus_states = relay_rpc_client
                     .storage()
@@ -1330,7 +1336,13 @@ impl ChainEndpoint for SubstrateChain {
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
                         request.connection_id.to_string(),
                     );
-                let storage = relaychain_node::storage().ibc().connections(connection_id);
+                let connection_path =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::path::ConnectionsPath(
+                        connection_id,
+                    );
+                let storage = relaychain_node::storage()
+                    .ibc()
+                    .connections(connection_path);
 
                 let connection = relay_rpc_client
                     .storage()
@@ -1470,9 +1482,11 @@ impl ChainEndpoint for SubstrateChain {
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
                         request.channel_id.to_string(),
                     );
-                let storage = relaychain_node::storage()
-                    .ibc()
-                    .channels(port_id, channel_id);
+                let channel_ends_path =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::path::ChannelEndsPath(
+                        port_id, channel_id,
+                    );
+                let storage = relaychain_node::storage().ibc().channels(channel_ends_path);
 
                 let result = relay_rpc_client
                     .storage()
@@ -1589,9 +1603,15 @@ impl ChainEndpoint for SubstrateChain {
                     relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Sequence(
                         u64::from(request.sequence),
                     );
+                let packet_commitment_path =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::path::CommitmentsPath {
+                        port_id,
+                        channel_id,
+                        sequence,
+                    };
                 let storage = relaychain_node::storage()
                     .ibc()
-                    .packet_commitment(port_id, channel_id, sequence);
+                    .packet_commitment(packet_commitment_path);
 
                 let result = relay_rpc_client
                     .storage()
@@ -1678,6 +1698,7 @@ impl ChainEndpoint for SubstrateChain {
                     parachain_node::runtime_types::ibc::core::ics04_channel::packet::Sequence(
                         u64::from(request.sequence),
                     );
+
                 let storage = parachain_node::storage()
                     .ibc()
                     .packet_receipt(port_id, channel_id, sequence);
@@ -1707,9 +1728,15 @@ impl ChainEndpoint for SubstrateChain {
                     relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Sequence(
                         u64::from(request.sequence),
                     );
+                let packet_receipt_path =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::path::ReceiptsPath {
+                        port_id,
+                        channel_id,
+                        sequence,
+                    };
                 let storage = relaychain_node::storage()
                     .ibc()
-                    .packet_receipt(port_id, channel_id, sequence);
+                    .packet_receipt(packet_receipt_path);
 
                 let result = relay_rpc_client
                     .storage()
@@ -1820,9 +1847,14 @@ impl ChainEndpoint for SubstrateChain {
                         request.channel_id.to_string(),
                     );
 
+                let next_sequence_recv_path =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::path::SeqRecvsPath(
+                        port_id, channel_id,
+                    );
+
                 let storage = relaychain_node::storage()
                     .ibc()
-                    .next_sequence_recv(port_id, channel_id);
+                    .next_sequence_recv(next_sequence_recv_path);
 
                 let result = relay_rpc_client
                     .storage()
@@ -1909,9 +1941,15 @@ impl ChainEndpoint for SubstrateChain {
                         u64::from(request.sequence),
                     );
 
+                let acknowledgement_path =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::path::AcksPath {
+                        port_id,
+                        channel_id,
+                        sequence,
+                    };
                 let storage = relaychain_node::storage()
                     .ibc()
-                    .acknowledgements(port_id, channel_id, sequence);
+                    .acknowledgements(acknowledgement_path);
 
                 let result = relay_rpc_client
                     .storage()
@@ -2364,7 +2402,10 @@ impl ChainEndpoint for SubstrateChain {
                     _ => unimplemented!(),
                 };
 
-                assert!(target_height.revision_height() < grandpa_client_state.latest_beefy_height.revision_height() );
+                assert!(
+                    target_height.revision_height()
+                        < grandpa_client_state.latest_beefy_height.revision_height()
+                );
                 // assert trust_height <= grandpa_client_state height
                 if trusted_height > grandpa_client_state.latest_chain_height {
                     panic!("trust height miss match client state height");
@@ -2376,7 +2417,7 @@ impl ChainEndpoint for SubstrateChain {
                 // build target height header
 
                 //TODO: build mmr proof for target height
-                let target_heights = vec![target_height.revision_height() as u32 ];
+                let target_heights = vec![target_height.revision_height() as u32];
                 let mmr_batch_proof = utils::build_mmr_proofs(
                     relay_rpc_client,
                     target_heights,
