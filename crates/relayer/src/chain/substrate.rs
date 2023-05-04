@@ -1300,7 +1300,8 @@ impl ChainEndpoint for SubstrateChain {
                 let mut result = vec![];
                 while let Some((key, value)) = iter.next().await.unwrap() {
                     let raw_key = key.0[48..].to_vec();
-                    let connection_id = ConnectionId::from(relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId::decode(&mut &*raw_key).unwrap());
+                    let ret = relaychain_node::runtime_types::ibc::core::ics24_host::path::ConnectionsPath::decode(&mut &*raw_key).unwrap();
+                    let connection_id = ConnectionId::from(ret.0);
                     let connection_end = ConnectionEnd::from(value);
                     result.push(IdentifiedConnectionEnd {
                         connection_id,
@@ -1427,7 +1428,6 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // need todo
     fn query_channels(
         &self,
         request: QueryChannelsRequest,
@@ -1726,8 +1726,18 @@ impl ChainEndpoint for SubstrateChain {
                         result.push(sequence);
                     }
                 }
-                // todo ics height need to set
-                Ok((result, ICSHeight::new(0, 1).unwrap()))
+                use subxt::config::Header;
+                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+
+                let block = relay_rpc_client
+                    .rpc()
+                    .block(Some(finalized_head_hash))
+                    .await
+                    .unwrap();
+                Ok((
+                    result,
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap(),
+                ))
             }
         }
 
@@ -2124,8 +2134,20 @@ impl ChainEndpoint for SubstrateChain {
                         result.push(sequence);
                     }
                 }
+                use subxt::config::Header;
+                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+
+                let block = relay_rpc_client
+                    .rpc()
+                    .block(Some(finalized_head_hash))
+                    .await
+                    .unwrap();
+
                 // todo ics height need to set
-                Ok((result, ICSHeight::new(0, 1).unwrap()))
+                Ok((
+                    result,
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap(),
+                ))
             }
         }
 
