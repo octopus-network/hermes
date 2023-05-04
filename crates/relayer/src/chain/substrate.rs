@@ -1410,7 +1410,65 @@ impl ChainEndpoint for SubstrateChain {
             if let Some(rpc_client) = para_rpc_client {
                 todo!()
             } else {
-                todo!()
+                let key_addr = relaychain_node::storage().ibc().channels_connection_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut port_id_and_channel_id = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId::decode(&mut &*raw_key).unwrap();
+                    let connection_id = ConnectionId::from(rets);
+                    if request.connection_id == connection_id {
+                        port_id_and_channel_id = value;
+                    }
+                }
+                let port_id_and_channel_id = port_id_and_channel_id
+                    .into_iter()
+                    .map(|(p, c)| {
+                        let port_id = PortId::from(p);
+                        let channel_id = ChannelId::from(c);
+                        (port_id, channel_id)
+                    })
+                    .collect::<Vec<_>>();
+
+                let key_addr = relaychain_node::storage().ibc().channels_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::ChannelEndsPath::decode(&mut &*raw_key).unwrap();
+
+                    let port_id = PortId::from(rets.0);
+                    let channel_id = ChannelId::from(rets.1);
+                    let channel_end = ChannelEnd::from(value);
+                    for item in port_id_and_channel_id.iter() {
+                        if &item.0 == &port_id && &item.1 == &channel_id {
+                            result.push(IdentifiedChannelEnd {
+                                port_id: port_id.clone(),
+                                channel_id: channel_id.clone(),
+                                channel_end: channel_end.clone(),
+                            })
+                        }
+                    }
+                }
+                Ok(result)
             }
         }
         match &self.rpc_client {
