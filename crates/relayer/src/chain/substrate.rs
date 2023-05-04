@@ -2191,7 +2191,7 @@ impl ChainEndpoint for SubstrateChain {
                 let reversion_number = config.id.version();
                 let latest_beefy_height =
                     Height::new(reversion_number, block_number as u64).unwrap();
-                let mmr_root_hash = mmr_root_hash.clone();
+                let latest_mmr_root = mmr_root_hash.clone();
                 // get authorith set
                 let storage = relaychain_node::storage().mmr_leaf().beefy_authorities();
 
@@ -2204,11 +2204,12 @@ impl ChainEndpoint for SubstrateChain {
                         .fetch(&storage)
                         .await
                 };
-                let authority_set = rt.block_on(closure).unwrap().map(|v| BeefyAuthoritySet {
-                    id: v.id,
-                    len: v.len,
-                    root: v.root.as_bytes().to_vec(),
-                });
+                let latest_authority_set =
+                    rt.block_on(closure).unwrap().map(|v| BeefyAuthoritySet {
+                        id: v.id,
+                        len: v.len,
+                        root: v.root.as_bytes().to_vec(),
+                    });
 
                 // get next authorith set
                 let storage = relaychain_node::storage()
@@ -2224,11 +2225,6 @@ impl ChainEndpoint for SubstrateChain {
                         .fetch(&storage)
                         .await
                 };
-                let next_authority_set = rt.block_on(closure).unwrap().map(|v| BeefyAuthoritySet {
-                    id: v.id,
-                    len: v.len,
-                    root: v.root.as_bytes().to_vec(),
-                });
 
                 let (chain_type, parachain_id, latest_chain_height) = if para_rpc_client.is_none() {
                     (
@@ -2249,13 +2245,11 @@ impl ChainEndpoint for SubstrateChain {
                     chain_type,
                     chain_id,
                     parachain_id,
-                    beefy_activation_height,
                     latest_beefy_height,
-                    mmr_root_hash,
+                    latest_mmr_root,
                     latest_chain_height,
                     frozen_height: None,
-                    authority_set,
-                    next_authority_set,
+                    latest_authority_set,
                 };
                 Ok(client_state)
             }
@@ -2370,92 +2364,51 @@ impl ChainEndpoint for SubstrateChain {
                     _ => unimplemented!(),
                 };
 
+                assert!(target_height.revision_height() < grandpa_client_state.latest_beefy_height.revision_height() );
                 // assert trust_height <= grandpa_client_state height
                 if trusted_height > grandpa_client_state.latest_chain_height {
                     panic!("trust height miss match client state height");
                 }
 
                 // let mmr_root_height = grandpa_client_state.latest_height();
-                let mmr_root_height = grandpa_client_state.latest_beefy_height;
+                // let mmr_root_height = grandpa_client_state.latest_beefy_height;
 
                 // build target height header
 
-                let client = relay_rpc_client.clone();
-
-                // subscribe beefy justification and get signed commitment
-                let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
-                    .await
-                    .unwrap();
-
-                let raw_signed_commitment = sub.next().await.unwrap().unwrap().0;
-                tracing::info!(
-                    "substrate::build_header -> recv raw_signed_commitment: {:?}",
-                    raw_signed_commitment
-                );
-
-                //     let beefy_version_finality_proof: VersionedFinalityProof<
-                //     u32,
-                //     beefy_primitives::crypto::Signature,
-                // > = codec::Decode::decode(&mut &*raw_signed_commitment.0 .0).unwrap();
-                // let signed_commitment = match beefy_version_finality_proof {
-                //     VersionedFinalityProof::V1(commitment) => commitment,
-                // };
-
-                // decode signed commitment
-                let beefy_light_client::commitment::VersionedFinalityProof::V1(signed_commitment) =
-                    beefy_light_client::commitment::VersionedFinalityProof::decode(
-                        &mut &raw_signed_commitment[..],
-                    )
-                    .unwrap();
-
-                // get commitment
-                let beefy_light_client::commitment::Commitment {
-                    payload,
-                    block_number,
-                    validator_set_id,
-                } = signed_commitment.commitment.clone();
-
-                let authority_proof = utils::build_validator_proof(
-                    relay_rpc_client,
-                    signed_commitment.clone(),
-                    block_number,
-                )
-                .await
-                .unwrap();
-
-                let target_heights = vec![block_number - 1];
+                //TODO: build mmr proof for target height
+                let target_heights = vec![target_height.revision_height() as u32 ];
                 let mmr_batch_proof = utils::build_mmr_proofs(
                     relay_rpc_client,
                     target_heights,
-                    Some(block_number),
+                    Some(grandpa_client_state.latest_beefy_height.revision_height() as u32),
                     None,
                 )
                 .await
                 .unwrap();
 
-                let beefy_mmr = utils::to_pb_beefy_mmr(
-                    signed_commitment,
-                    mmr_batch_proof.clone(),
-                    authority_proof.to_vec(),
-                );
+                let mmr_leaves_proof = beefy_light_client::mmr::MmrLeavesProof::try_from(
+                    mmr_batch_proof.clone().proof.0,
+                )
+                .unwrap();
 
-                let mmr_leaves_proof =
-                    beefy_light_client::mmr::MmrLeavesProof::try_from(mmr_batch_proof.proof.0)
-                        .unwrap();
-
-                let message = utils::build_subchain_headers(
+                let headers = utils::build_subchain_headers(
                     relay_rpc_client,
                     mmr_leaves_proof.leaf_indices,
-                    "sub-0".to_string(), // todo
+                    grandpa_client_state.chain_id.to_string(),
                 )
                 .await
                 .unwrap();
 
+                let proof = Some(utils::convert_mmrproof(mmr_batch_proof).unwrap());
+                let subchain_headers =
+                    ibc_relayer_types::clients::ics10_grandpa::header::message::SubchainHeaders {
+                        subchain_headers: headers,
+                        mmr_leaves_and_batch_proof: proof,
+                    };
                 let result = GpHeader {
-                    // the latest mmr data
-                    beefy_mmr,
-                    // only one header
-                    message: ibc_relayer_types::clients::ics10_grandpa::header::message::Message::SubchainHeaders(message),
+                    // leave beefy mmr None
+                    beefy_mmr:None,
+                    message: ibc_relayer_types::clients::ics10_grandpa::header::message::Message::SubchainHeaders(subchain_headers),
                 };
 
                 Ok((result, vec![]))

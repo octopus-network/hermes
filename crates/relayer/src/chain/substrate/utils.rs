@@ -20,8 +20,8 @@ pub async fn build_subchain_headers(
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
     leaf_indexes: Vec<u64>,
     chain_id: String,
-) -> Result<SubchainHeaders, String> {
-    let mut subchain_headers = SubchainHeaders::new();
+) -> Result<Vec<SubchainHeader>, String> {
+    let mut subchain_headers  = vec![];
     for block_number in leaf_indexes {
         let block_hash = relay_rpc_client
             .rpc()
@@ -39,7 +39,7 @@ pub async fn build_subchain_headers(
         let timestamp = build_time_stamp_proof(relay_rpc_client, block_hash)
             .await
             .unwrap();
-        subchain_headers.subchain_headers.push(SubchainHeader {
+        subchain_headers.push(SubchainHeader {
             chain_id: ChainId::from(chain_id.clone()),
             block_number: block_header.number,
             block_header: encode_header,
@@ -332,11 +332,6 @@ pub fn to_pb_beefy_mmr(
         signatures,
     };
 
-    let leaf_index = convert_block_number_to_mmr_leaf_index(0, bsc.commitment.block_number); // todo first paramment
-
-    let size = beefy_light_client::mmr::NodesUtils::new(leaf_index).size(); // todo need correct function calclute
-                                                                            // let mmr_size = NodesUtils::new(mmr_update.mmr_proof.leaf_count).size();
-
     ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::BeefyMmr {
         // signed commitment data
         signed_commitment: Some(pb_commitment),
@@ -345,8 +340,6 @@ pub fn to_pb_beefy_mmr(
         signature_proofs: authority_proof.into_iter().map(|p| p.to_vec()).collect(),
         // mmr proof
         mmr_leaves_and_batch_proof: Some(convert_mmrproof(mmr_batch_proof).unwrap()),
-        // size of the mmr for the given proof
-        mmr_size: size, // todo
     }
 }
 

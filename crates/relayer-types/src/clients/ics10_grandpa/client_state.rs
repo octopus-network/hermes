@@ -53,21 +53,16 @@ pub struct ClientState {
     pub chain_id: ChainId,
     /// parachain id is uint type
     pub parachain_id: u32,
-    /// block number that the beefy protocol was activated on the relay chain.
-    /// This should be the first block in the merkle-mountain-range tree.
-    pub beefy_activation_height: u32,
     /// the latest mmr_root_hash height
     pub latest_beefy_height: Height,
     /// Latest mmr root hash
-    pub mmr_root_hash: Vec<u8>,
+    pub latest_mmr_root: Vec<u8>,
     /// latest subchain or parachain height
     pub latest_chain_height: Height,
     /// Block height when the client was frozen due to a misbehaviour
     pub frozen_height: Option<Height>,
     /// authorities for the current round
-    pub authority_set: Option<BeefyAuthoritySet>,
-    /// authorities for the next round
-    pub next_authority_set: Option<BeefyAuthoritySet>,
+    pub latest_authority_set: Option<BeefyAuthoritySet>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -146,21 +141,19 @@ impl TryFrom<RawGpClientState> for ClientState {
             },
             chain_id: ChainId::from_string(raw.chain_id.as_str()),
             parachain_id: raw.parachain_id,
-            beefy_activation_height: raw.beefy_activation_height,
             latest_beefy_height: raw
                 .latest_beefy_height
                 .ok_or_else(Error::missing_latest_beefy_height)?
                 .try_into()
                 .map_err(|_| Error::missing_latest_beefy_height())?,
-            mmr_root_hash: raw.mmr_root_hash,
+            latest_mmr_root: raw.latest_mmr_root,
             latest_chain_height: raw
                 .latest_chain_height
                 .ok_or_else(Error::missing_latest_chain_height)?
                 .try_into()
                 .map_err(|_| Error::missing_latest_chain_height())?,
             frozen_height,
-            authority_set: raw.authority_set.map(Into::into),
-            next_authority_set: raw.next_authority_set.map(Into::into),
+            latest_authority_set: raw.latest_authority_set.map(Into::into),
         })
     }
 }
@@ -171,9 +164,8 @@ impl From<ClientState> for RawGpClientState {
             chain_type: value.chain_type as u32,
             chain_id: value.chain_id.to_string(),
             parachain_id: value.parachain_id,
-            beefy_activation_height: value.beefy_activation_height,
             latest_beefy_height: Some(value.latest_beefy_height.into()),
-            mmr_root_hash: value.mmr_root_hash,
+            latest_mmr_root: value.latest_mmr_root,
             latest_chain_height: Some(value.latest_chain_height.into()),
             frozen_height: Some(value.frozen_height.map(|height| height.into()).unwrap_or(
                 RawHeight {
@@ -181,8 +173,7 @@ impl From<ClientState> for RawGpClientState {
                     revision_height: 0,
                 },
             )),
-            authority_set: value.authority_set.map(Into::into),
-            next_authority_set: value.next_authority_set.map(Into::into),
+            latest_authority_set: value.latest_authority_set.map(Into::into),
         }
     }
 }

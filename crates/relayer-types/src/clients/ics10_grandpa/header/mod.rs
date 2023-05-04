@@ -23,7 +23,7 @@ pub const GRANDPA_HEADER_TYPE_URL: &str = "/ibc.lightclients.grandpa.v1.Header";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Header {
     /// the latest mmr data
-    pub beefy_mmr: beefy_mmr::BeefyMmr,
+    pub beefy_mmr: Option<beefy_mmr::BeefyMmr>,
     /// only one header
     pub message: message::Message,
 }
@@ -57,22 +57,15 @@ impl TryFrom<RawHeader> for Header {
                 ),
             })
             .ok_or_else(Error::missing_header_message)??;
-
-        Ok(Self {
-            beefy_mmr: raw
-                .beefy_mmr
-                .map(TryInto::try_into)
-                .transpose()?
-                .ok_or_else(|| Error::missing_beefy_mmr())?,
-            message,
-        })
+        let beefy_mmr = raw.beefy_mmr.map(TryInto::try_into).transpose()?;
+        Ok(Self { beefy_mmr, message })
     }
 }
 
 impl From<Header> for RawHeader {
     fn from(value: Header) -> Self {
         Self {
-            beefy_mmr: Some(value.beefy_mmr.into()),
+            beefy_mmr: value.beefy_mmr.map(Into::into),
             message: match value.message {
                 message::Message::ParachainHeaders(v) => {
                     Some(RawMessage::ParachainHeaders(v.into()))

@@ -10,8 +10,10 @@ use ibc_proto::ibc::lightclients::grandpa::v1::{
     SubchainHeaders as RawSubchainHeaders,
 };
 use ibc_proto::protobuf::Protobuf;
-use serde::{Deserialize, Serialize};
 
+use super::beefy_mmr::mmr_leaves_and_batch_proof;
+use mmr_leaves_and_batch_proof::MmrLeavesAndBatchProof;
+use serde::{Deserialize, Serialize};
 /// only one header
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Message {
@@ -25,12 +27,14 @@ pub enum Message {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubchainHeaders {
     pub subchain_headers: Vec<SubchainHeader>,
+    pub mmr_leaves_and_batch_proof: Option<MmrLeavesAndBatchProof>,
 }
 
 impl SubchainHeaders {
     pub fn new() -> Self {
         Self {
             subchain_headers: Vec::new(),
+            mmr_leaves_and_batch_proof: None,
         }
     }
 }
@@ -46,6 +50,10 @@ impl TryFrom<RawSubchainHeaders> for SubchainHeaders {
                 .into_iter()
                 .map(|h| SubchainHeader::try_from(h).unwrap())
                 .collect::<Vec<_>>(),
+            mmr_leaves_and_batch_proof: raw
+                .mmr_leaves_and_batch_proof
+                .map(TryInto::try_into)
+                .transpose()?,
         })
     }
 }
@@ -58,6 +66,7 @@ impl From<SubchainHeaders> for RawSubchainHeaders {
                 .into_iter()
                 .map(|h| RawSubchainHeader::from(h))
                 .collect(),
+            mmr_leaves_and_batch_proof: value.mmr_leaves_and_batch_proof.map(Into::into),
         }
     }
 }
@@ -107,6 +116,7 @@ pub struct ParachainHeaders {
     ///
     ///   map<uint32,Timestamp> timestamp_map=2;
     pub parachain_headers: Vec<ParachainHeader>,
+    pub mmr_leaves_and_batch_proof: Option<MmrLeavesAndBatchProof>,
 }
 
 impl Protobuf<RawParachainHeaders> for ParachainHeaders {}
@@ -120,6 +130,10 @@ impl TryFrom<RawParachainHeaders> for ParachainHeaders {
                 .into_iter()
                 .map(|h| ParachainHeader::try_from(h).unwrap())
                 .collect::<Vec<_>>(),
+            mmr_leaves_and_batch_proof: raw
+                .mmr_leaves_and_batch_proof
+                .map(TryInto::try_into)
+                .transpose()?,
         })
     }
 }
@@ -132,6 +146,7 @@ impl From<ParachainHeaders> for RawParachainHeaders {
                 .into_iter()
                 .map(|h| RawParachainHeader::from(h))
                 .collect(),
+            mmr_leaves_and_batch_proof: value.mmr_leaves_and_batch_proof.map(Into::into),
         }
     }
 }

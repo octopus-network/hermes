@@ -28228,12 +28228,12 @@ pub mod api {
             use super::runtime_types;
             pub struct StorageApi;
             impl StorageApi {
-                #[doc = " Key: client_id"]
+                #[doc = " Key: ClientStatePath"]
                 #[doc = " value: ClientState"]
                 pub fn client_states(
                     &self,
                     _0: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::ClientId,
+                        runtime_types::ibc::core::ics24_host::path::ClientStatePath,
                     >,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<::std::vec::Vec<::core::primitive::u8>>,
@@ -28249,13 +28249,14 @@ pub mod api {
                             ::subxt::storage::address::StorageHasher::Blake2_128Concat,
                         )],
                         [
-                            253u8, 75u8, 77u8, 169u8, 227u8, 213u8, 140u8, 18u8, 23u8, 13u8, 138u8,
-                            3u8, 74u8, 8u8, 158u8, 220u8, 244u8, 141u8, 104u8, 115u8, 208u8, 219u8,
-                            202u8, 224u8, 185u8, 226u8, 61u8, 254u8, 220u8, 223u8, 134u8, 119u8,
+                            236u8, 16u8, 0u8, 15u8, 69u8, 65u8, 79u8, 71u8, 23u8, 124u8, 128u8,
+                            207u8, 184u8, 134u8, 63u8, 177u8, 154u8, 108u8, 132u8, 147u8, 108u8,
+                            25u8, 179u8, 21u8, 226u8, 19u8, 87u8, 108u8, 125u8, 218u8, 124u8,
+                            236u8,
                         ],
                     )
                 }
-                #[doc = " Key: client_id"]
+                #[doc = " Key: ClientStatePath"]
                 #[doc = " value: ClientState"]
                 pub fn client_states_root(
                     &self,
@@ -28270,9 +28271,10 @@ pub mod api {
                         "ClientStates",
                         Vec::new(),
                         [
-                            253u8, 75u8, 77u8, 169u8, 227u8, 213u8, 140u8, 18u8, 23u8, 13u8, 138u8,
-                            3u8, 74u8, 8u8, 158u8, 220u8, 244u8, 141u8, 104u8, 115u8, 208u8, 219u8,
-                            202u8, 224u8, 185u8, 226u8, 61u8, 254u8, 220u8, 223u8, 134u8, 119u8,
+                            236u8, 16u8, 0u8, 15u8, 69u8, 65u8, 79u8, 71u8, 23u8, 124u8, 128u8,
+                            207u8, 184u8, 134u8, 63u8, 177u8, 154u8, 108u8, 132u8, 147u8, 108u8,
+                            25u8, 179u8, 21u8, 226u8, 19u8, 87u8, 108u8, 125u8, 218u8, 124u8,
+                            236u8,
                         ],
                     )
                 }
@@ -28398,16 +28400,12 @@ pub mod api {
                         ],
                     )
                 }
-                #[doc = " key1: client_id"]
-                #[doc = " key2: height"]
+                #[doc = " key: ClientConsensusStatePath"]
                 #[doc = " value: ConsensusState"]
                 pub fn consensus_states(
                     &self,
                     _0: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::ClientId,
-                    >,
-                    _1: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics02_client::height::Height,
+                        runtime_types::ibc::core::ics24_host::path::ClientConsensusStatePath,
                     >,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<::std::vec::Vec<::core::primitive::u8>>,
@@ -28418,25 +28416,19 @@ pub mod api {
                     ::subxt::storage::address::StaticStorageAddress::new(
                         "Ibc",
                         "ConsensusStates",
-                        vec![
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _0.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _1.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                        ],
+                        vec![::subxt::storage::address::StorageMapKey::new(
+                            _0.borrow(),
+                            ::subxt::storage::address::StorageHasher::Blake2_128Concat,
+                        )],
                         [
-                            127u8, 176u8, 217u8, 86u8, 49u8, 210u8, 105u8, 38u8, 1u8, 149u8, 62u8,
-                            9u8, 241u8, 134u8, 101u8, 5u8, 100u8, 232u8, 211u8, 9u8, 61u8, 220u8,
-                            132u8, 134u8, 22u8, 62u8, 115u8, 126u8, 204u8, 152u8, 136u8, 61u8,
+                            27u8, 236u8, 151u8, 234u8, 224u8, 79u8, 174u8, 109u8, 169u8, 11u8,
+                            107u8, 186u8, 209u8, 122u8, 189u8, 158u8, 155u8, 40u8, 19u8, 19u8,
+                            138u8, 200u8, 57u8, 194u8, 229u8, 161u8, 239u8, 40u8, 209u8, 54u8,
+                            10u8, 175u8,
                         ],
                     )
                 }
-                #[doc = " key1: client_id"]
-                #[doc = " key2: height"]
+                #[doc = " key: ClientConsensusStatePath"]
                 #[doc = " value: ConsensusState"]
                 pub fn consensus_states_root(
                     &self,
@@ -28451,12 +28443,15 @@ pub mod api {
                         "ConsensusStates",
                         Vec::new(),
                         [
-                            127u8, 176u8, 217u8, 86u8, 49u8, 210u8, 105u8, 38u8, 1u8, 149u8, 62u8,
-                            9u8, 241u8, 134u8, 101u8, 5u8, 100u8, 232u8, 211u8, 9u8, 61u8, 220u8,
-                            132u8, 134u8, 22u8, 62u8, 115u8, 126u8, 204u8, 152u8, 136u8, 61u8,
+                            27u8, 236u8, 151u8, 234u8, 224u8, 79u8, 174u8, 109u8, 169u8, 11u8,
+                            107u8, 186u8, 209u8, 122u8, 189u8, 158u8, 155u8, 40u8, 19u8, 19u8,
+                            138u8, 200u8, 57u8, 194u8, 229u8, 161u8, 239u8, 40u8, 209u8, 54u8,
+                            10u8, 175u8,
                         ],
                     )
-                }                pub fn connections (& self , _0 : impl :: std :: borrow :: Borrow < runtime_types :: ibc :: core :: ics24_host :: identifier :: ConnectionId > ,) -> :: subxt :: storage :: address :: StaticStorageAddress :: < :: subxt :: metadata :: DecodeStaticType < runtime_types :: ibc :: core :: ics03_connection :: connection :: sealed :: ConnectionEnd > , :: subxt :: storage :: address :: Yes , () , :: subxt :: storage :: address :: Yes >{
+                }
+                #[doc = " key: ConnectionsPath"]
+                #[doc = " value: ConnectionEnd"]                pub fn connections (& self , _0 : impl :: std :: borrow :: Borrow < runtime_types :: ibc :: core :: ics24_host :: path :: ConnectionsPath > ,) -> :: subxt :: storage :: address :: StaticStorageAddress :: < :: subxt :: metadata :: DecodeStaticType < runtime_types :: ibc :: core :: ics03_connection :: connection :: sealed :: ConnectionEnd > , :: subxt :: storage :: address :: Yes , () , :: subxt :: storage :: address :: Yes >{
                     ::subxt::storage::address::StaticStorageAddress::new(
                         "Ibc",
                         "Connections",
@@ -28465,30 +28460,31 @@ pub mod api {
                             ::subxt::storage::address::StorageHasher::Blake2_128Concat,
                         )],
                         [
-                            157u8, 44u8, 56u8, 115u8, 30u8, 251u8, 221u8, 90u8, 136u8, 139u8,
-                            113u8, 134u8, 200u8, 85u8, 190u8, 213u8, 63u8, 219u8, 49u8, 77u8, 73u8,
-                            237u8, 103u8, 77u8, 117u8, 4u8, 138u8, 5u8, 202u8, 46u8, 63u8, 151u8,
+                            140u8, 119u8, 117u8, 213u8, 184u8, 111u8, 30u8, 15u8, 136u8, 250u8,
+                            123u8, 74u8, 58u8, 219u8, 31u8, 184u8, 81u8, 58u8, 221u8, 173u8, 245u8,
+                            47u8, 30u8, 184u8, 46u8, 245u8, 224u8, 151u8, 107u8, 43u8, 197u8, 12u8,
                         ],
                     )
-                }                pub fn connections_root (& self ,) -> :: subxt :: storage :: address :: StaticStorageAddress :: < :: subxt :: metadata :: DecodeStaticType < runtime_types :: ibc :: core :: ics03_connection :: connection :: sealed :: ConnectionEnd > , () , () , :: subxt :: storage :: address :: Yes >{
+                }
+                #[doc = " key: ConnectionsPath"]
+                #[doc = " value: ConnectionEnd"]                pub fn connections_root (& self ,) -> :: subxt :: storage :: address :: StaticStorageAddress :: < :: subxt :: metadata :: DecodeStaticType < runtime_types :: ibc :: core :: ics03_connection :: connection :: sealed :: ConnectionEnd > , () , () , :: subxt :: storage :: address :: Yes >{
                     ::subxt::storage::address::StaticStorageAddress::new(
                         "Ibc",
                         "Connections",
                         Vec::new(),
                         [
-                            157u8, 44u8, 56u8, 115u8, 30u8, 251u8, 221u8, 90u8, 136u8, 139u8,
-                            113u8, 134u8, 200u8, 85u8, 190u8, 213u8, 63u8, 219u8, 49u8, 77u8, 73u8,
-                            237u8, 103u8, 77u8, 117u8, 4u8, 138u8, 5u8, 202u8, 46u8, 63u8, 151u8,
+                            140u8, 119u8, 117u8, 213u8, 184u8, 111u8, 30u8, 15u8, 136u8, 250u8,
+                            123u8, 74u8, 58u8, 219u8, 31u8, 184u8, 81u8, 58u8, 221u8, 173u8, 245u8,
+                            47u8, 30u8, 184u8, 46u8, 245u8, 224u8, 151u8, 107u8, 43u8, 197u8, 12u8,
                         ],
                     )
                 }
+                #[doc = " key: CHannelEndsPath"]
+                #[doc = " value: ChannelEnd"]
                 pub fn channels(
                     &self,
                     _0: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::PortId,
-                    >,
-                    _1: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::ChannelId,
+                        runtime_types::ibc::core::ics24_host::path::ChannelEndsPath,
                     >,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<
@@ -28501,24 +28497,19 @@ pub mod api {
                     ::subxt::storage::address::StaticStorageAddress::new(
                         "Ibc",
                         "Channels",
-                        vec![
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _0.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _1.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                        ],
+                        vec![::subxt::storage::address::StorageMapKey::new(
+                            _0.borrow(),
+                            ::subxt::storage::address::StorageHasher::Blake2_128Concat,
+                        )],
                         [
-                            146u8, 218u8, 75u8, 46u8, 123u8, 163u8, 39u8, 122u8, 241u8, 84u8,
-                            196u8, 20u8, 88u8, 143u8, 178u8, 165u8, 14u8, 240u8, 112u8, 111u8,
-                            91u8, 166u8, 153u8, 30u8, 180u8, 217u8, 167u8, 234u8, 214u8, 247u8,
-                            39u8, 221u8,
+                            82u8, 244u8, 88u8, 15u8, 27u8, 151u8, 220u8, 28u8, 58u8, 243u8, 205u8,
+                            244u8, 30u8, 44u8, 49u8, 10u8, 240u8, 88u8, 75u8, 180u8, 152u8, 210u8,
+                            199u8, 126u8, 35u8, 209u8, 88u8, 5u8, 109u8, 136u8, 46u8, 165u8,
                         ],
                     )
                 }
+                #[doc = " key: CHannelEndsPath"]
+                #[doc = " value: ChannelEnd"]
                 pub fn channels_root(
                     &self,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
@@ -28534,10 +28525,9 @@ pub mod api {
                         "Channels",
                         Vec::new(),
                         [
-                            146u8, 218u8, 75u8, 46u8, 123u8, 163u8, 39u8, 122u8, 241u8, 84u8,
-                            196u8, 20u8, 88u8, 143u8, 178u8, 165u8, 14u8, 240u8, 112u8, 111u8,
-                            91u8, 166u8, 153u8, 30u8, 180u8, 217u8, 167u8, 234u8, 214u8, 247u8,
-                            39u8, 221u8,
+                            82u8, 244u8, 88u8, 15u8, 27u8, 151u8, 220u8, 28u8, 58u8, 243u8, 205u8,
+                            244u8, 30u8, 44u8, 49u8, 10u8, 240u8, 88u8, 75u8, 180u8, 152u8, 210u8,
+                            199u8, 126u8, 35u8, 209u8, 88u8, 5u8, 109u8, 136u8, 46u8, 165u8,
                         ],
                     )
                 }
@@ -28601,16 +28591,12 @@ pub mod api {
                         ],
                     )
                 }
-                #[doc = " Key1: port_id"]
-                #[doc = " key2: channel_id"]
+                #[doc = " Key: SeqSendsPath"]
                 #[doc = " value: sequence"]
                 pub fn next_sequence_send(
                     &self,
                     _0: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::PortId,
-                    >,
-                    _1: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::ChannelId,
+                        runtime_types::ibc::core::ics24_host::path::SeqSendsPath,
                     >,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<
@@ -28623,26 +28609,18 @@ pub mod api {
                     ::subxt::storage::address::StaticStorageAddress::new(
                         "Ibc",
                         "NextSequenceSend",
-                        vec![
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _0.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _1.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                        ],
+                        vec![::subxt::storage::address::StorageMapKey::new(
+                            _0.borrow(),
+                            ::subxt::storage::address::StorageHasher::Blake2_128Concat,
+                        )],
                         [
-                            110u8, 134u8, 78u8, 92u8, 157u8, 126u8, 158u8, 194u8, 230u8, 195u8,
-                            104u8, 142u8, 82u8, 84u8, 159u8, 249u8, 169u8, 35u8, 112u8, 4u8, 0u8,
-                            238u8, 148u8, 246u8, 200u8, 86u8, 72u8, 121u8, 175u8, 87u8, 178u8,
-                            237u8,
+                            155u8, 185u8, 33u8, 9u8, 193u8, 43u8, 59u8, 40u8, 183u8, 8u8, 146u8,
+                            71u8, 82u8, 82u8, 89u8, 110u8, 177u8, 13u8, 24u8, 210u8, 98u8, 135u8,
+                            139u8, 42u8, 169u8, 70u8, 7u8, 89u8, 227u8, 105u8, 8u8, 147u8,
                         ],
                     )
                 }
-                #[doc = " Key1: port_id"]
-                #[doc = " key2: channel_id"]
+                #[doc = " Key: SeqSendsPath"]
                 #[doc = " value: sequence"]
                 pub fn next_sequence_send_root(
                     &self,
@@ -28659,23 +28637,18 @@ pub mod api {
                         "NextSequenceSend",
                         Vec::new(),
                         [
-                            110u8, 134u8, 78u8, 92u8, 157u8, 126u8, 158u8, 194u8, 230u8, 195u8,
-                            104u8, 142u8, 82u8, 84u8, 159u8, 249u8, 169u8, 35u8, 112u8, 4u8, 0u8,
-                            238u8, 148u8, 246u8, 200u8, 86u8, 72u8, 121u8, 175u8, 87u8, 178u8,
-                            237u8,
+                            155u8, 185u8, 33u8, 9u8, 193u8, 43u8, 59u8, 40u8, 183u8, 8u8, 146u8,
+                            71u8, 82u8, 82u8, 89u8, 110u8, 177u8, 13u8, 24u8, 210u8, 98u8, 135u8,
+                            139u8, 42u8, 169u8, 70u8, 7u8, 89u8, 227u8, 105u8, 8u8, 147u8,
                         ],
                     )
                 }
-                #[doc = " key1: port_id"]
-                #[doc = " key2: channel_id"]
+                #[doc = " key: SeqRecvsPath"]
                 #[doc = " value: sequence"]
                 pub fn next_sequence_recv(
                     &self,
                     _0: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::PortId,
-                    >,
-                    _1: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::ChannelId,
+                        runtime_types::ibc::core::ics24_host::path::SeqRecvsPath,
                     >,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<
@@ -28688,25 +28661,19 @@ pub mod api {
                     ::subxt::storage::address::StaticStorageAddress::new(
                         "Ibc",
                         "NextSequenceRecv",
-                        vec![
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _0.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _1.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                        ],
+                        vec![::subxt::storage::address::StorageMapKey::new(
+                            _0.borrow(),
+                            ::subxt::storage::address::StorageHasher::Blake2_128Concat,
+                        )],
                         [
-                            97u8, 111u8, 246u8, 70u8, 246u8, 41u8, 76u8, 48u8, 75u8, 68u8, 220u8,
-                            117u8, 246u8, 123u8, 39u8, 243u8, 56u8, 216u8, 165u8, 1u8, 52u8, 212u8,
-                            79u8, 32u8, 98u8, 152u8, 55u8, 42u8, 156u8, 149u8, 9u8, 66u8,
+                            43u8, 249u8, 114u8, 173u8, 191u8, 209u8, 226u8, 78u8, 236u8, 130u8,
+                            218u8, 95u8, 232u8, 141u8, 133u8, 186u8, 229u8, 38u8, 255u8, 198u8,
+                            117u8, 138u8, 134u8, 39u8, 64u8, 64u8, 33u8, 240u8, 128u8, 155u8,
+                            102u8, 179u8,
                         ],
                     )
                 }
-                #[doc = " key1: port_id"]
-                #[doc = " key2: channel_id"]
+                #[doc = " key: SeqRecvsPath"]
                 #[doc = " value: sequence"]
                 pub fn next_sequence_recv_root(
                     &self,
@@ -28723,22 +28690,19 @@ pub mod api {
                         "NextSequenceRecv",
                         Vec::new(),
                         [
-                            97u8, 111u8, 246u8, 70u8, 246u8, 41u8, 76u8, 48u8, 75u8, 68u8, 220u8,
-                            117u8, 246u8, 123u8, 39u8, 243u8, 56u8, 216u8, 165u8, 1u8, 52u8, 212u8,
-                            79u8, 32u8, 98u8, 152u8, 55u8, 42u8, 156u8, 149u8, 9u8, 66u8,
+                            43u8, 249u8, 114u8, 173u8, 191u8, 209u8, 226u8, 78u8, 236u8, 130u8,
+                            218u8, 95u8, 232u8, 141u8, 133u8, 186u8, 229u8, 38u8, 255u8, 198u8,
+                            117u8, 138u8, 134u8, 39u8, 64u8, 64u8, 33u8, 240u8, 128u8, 155u8,
+                            102u8, 179u8,
                         ],
                     )
                 }
-                #[doc = " key1: port_id"]
-                #[doc = " key2: channel_id"]
+                #[doc = " key: SeqAcksPath"]
                 #[doc = " value: sequence"]
                 pub fn next_sequence_ack(
                     &self,
                     _0: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::PortId,
-                    >,
-                    _1: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::ChannelId,
+                        runtime_types::ibc::core::ics24_host::path::SeqAcksPath,
                     >,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<
@@ -28751,26 +28715,19 @@ pub mod api {
                     ::subxt::storage::address::StaticStorageAddress::new(
                         "Ibc",
                         "NextSequenceAck",
-                        vec![
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _0.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _1.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                        ],
+                        vec![::subxt::storage::address::StorageMapKey::new(
+                            _0.borrow(),
+                            ::subxt::storage::address::StorageHasher::Blake2_128Concat,
+                        )],
                         [
-                            119u8, 164u8, 158u8, 79u8, 194u8, 199u8, 163u8, 206u8, 230u8, 200u8,
-                            76u8, 104u8, 124u8, 147u8, 158u8, 36u8, 73u8, 116u8, 194u8, 249u8,
-                            225u8, 97u8, 212u8, 109u8, 132u8, 6u8, 103u8, 168u8, 210u8, 170u8,
-                            17u8, 55u8,
+                            216u8, 224u8, 230u8, 20u8, 254u8, 110u8, 68u8, 78u8, 120u8, 248u8,
+                            117u8, 244u8, 173u8, 189u8, 200u8, 214u8, 24u8, 93u8, 96u8, 122u8,
+                            218u8, 4u8, 55u8, 115u8, 137u8, 186u8, 197u8, 191u8, 159u8, 82u8,
+                            159u8, 220u8,
                         ],
                     )
                 }
-                #[doc = " key1: port_id"]
-                #[doc = " key2: channel_id"]
+                #[doc = " key: SeqAcksPath"]
                 #[doc = " value: sequence"]
                 pub fn next_sequence_ack_root(
                     &self,
@@ -28787,64 +28744,50 @@ pub mod api {
                         "NextSequenceAck",
                         Vec::new(),
                         [
-                            119u8, 164u8, 158u8, 79u8, 194u8, 199u8, 163u8, 206u8, 230u8, 200u8,
-                            76u8, 104u8, 124u8, 147u8, 158u8, 36u8, 73u8, 116u8, 194u8, 249u8,
-                            225u8, 97u8, 212u8, 109u8, 132u8, 6u8, 103u8, 168u8, 210u8, 170u8,
-                            17u8, 55u8,
+                            216u8, 224u8, 230u8, 20u8, 254u8, 110u8, 68u8, 78u8, 120u8, 248u8,
+                            117u8, 244u8, 173u8, 189u8, 200u8, 214u8, 24u8, 93u8, 96u8, 122u8,
+                            218u8, 4u8, 55u8, 115u8, 137u8, 186u8, 197u8, 191u8, 159u8, 82u8,
+                            159u8, 220u8,
                         ],
                     )
                 }
-                #[doc = " key1: port_id"]
-                #[doc = " key2: channel_id"]
-                #[doc = " key3: sequence"]
-                #[doc = " value: hash of acknowledgement"]                pub fn acknowledgements (& self , _0 : impl :: std :: borrow :: Borrow < runtime_types :: ibc :: core :: ics24_host :: identifier :: PortId > , _1 : impl :: std :: borrow :: Borrow < runtime_types :: ibc :: core :: ics24_host :: identifier :: ChannelId > , _2 : impl :: std :: borrow :: Borrow < runtime_types :: ibc :: core :: ics04_channel :: packet :: Sequence > ,) -> :: subxt :: storage :: address :: StaticStorageAddress :: < :: subxt :: metadata :: DecodeStaticType < runtime_types :: ibc :: core :: ics04_channel :: commitment :: AcknowledgementCommitment > , :: subxt :: storage :: address :: Yes , () , :: subxt :: storage :: address :: Yes >{
+                #[doc = " key: AcksPath"]
+                #[doc = " value: hash of acknowledgement"]                pub fn acknowledgements (& self , _0 : impl :: std :: borrow :: Borrow < runtime_types :: ibc :: core :: ics24_host :: path :: AcksPath > ,) -> :: subxt :: storage :: address :: StaticStorageAddress :: < :: subxt :: metadata :: DecodeStaticType < runtime_types :: ibc :: core :: ics04_channel :: commitment :: AcknowledgementCommitment > , :: subxt :: storage :: address :: Yes , () , :: subxt :: storage :: address :: Yes >{
                     ::subxt::storage::address::StaticStorageAddress::new(
                         "Ibc",
                         "Acknowledgements",
-                        vec![
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _0.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _1.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _2.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                        ],
+                        vec![::subxt::storage::address::StorageMapKey::new(
+                            _0.borrow(),
+                            ::subxt::storage::address::StorageHasher::Blake2_128Concat,
+                        )],
                         [
-                            143u8, 126u8, 77u8, 150u8, 168u8, 163u8, 157u8, 150u8, 32u8, 20u8,
-                            99u8, 63u8, 54u8, 66u8, 220u8, 109u8, 133u8, 11u8, 77u8, 105u8, 221u8,
-                            28u8, 92u8, 113u8, 142u8, 124u8, 111u8, 183u8, 112u8, 151u8, 150u8,
-                            181u8,
+                            164u8, 97u8, 111u8, 2u8, 116u8, 90u8, 83u8, 170u8, 111u8, 3u8, 228u8,
+                            253u8, 143u8, 92u8, 130u8, 175u8, 229u8, 77u8, 62u8, 10u8, 108u8,
+                            171u8, 164u8, 210u8, 212u8, 129u8, 16u8, 181u8, 86u8, 145u8, 103u8,
+                            185u8,
                         ],
                     )
                 }
-                #[doc = " key1: port_id"]
-                #[doc = " key2: channel_id"]
-                #[doc = " key3: sequence"]
+                #[doc = " key: AcksPath"]
                 #[doc = " value: hash of acknowledgement"]                pub fn acknowledgements_root (& self ,) -> :: subxt :: storage :: address :: StaticStorageAddress :: < :: subxt :: metadata :: DecodeStaticType < runtime_types :: ibc :: core :: ics04_channel :: commitment :: AcknowledgementCommitment > , () , () , :: subxt :: storage :: address :: Yes >{
                     ::subxt::storage::address::StaticStorageAddress::new(
                         "Ibc",
                         "Acknowledgements",
                         Vec::new(),
                         [
-                            143u8, 126u8, 77u8, 150u8, 168u8, 163u8, 157u8, 150u8, 32u8, 20u8,
-                            99u8, 63u8, 54u8, 66u8, 220u8, 109u8, 133u8, 11u8, 77u8, 105u8, 221u8,
-                            28u8, 92u8, 113u8, 142u8, 124u8, 111u8, 183u8, 112u8, 151u8, 150u8,
-                            181u8,
+                            164u8, 97u8, 111u8, 2u8, 116u8, 90u8, 83u8, 170u8, 111u8, 3u8, 228u8,
+                            253u8, 143u8, 92u8, 130u8, 175u8, 229u8, 77u8, 62u8, 10u8, 108u8,
+                            171u8, 164u8, 210u8, 212u8, 129u8, 16u8, 181u8, 86u8, 145u8, 103u8,
+                            185u8,
                         ],
                     )
                 }
-                #[doc = " key: client_id"]
+                #[doc = " key: ClientTypePath"]
                 #[doc = " value: ClientType"]
                 pub fn clients(
                     &self,
                     _0: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::ClientId,
+                        runtime_types::ibc::core::ics24_host::path::ClientTypePath,
                     >,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<
@@ -28862,14 +28805,14 @@ pub mod api {
                             ::subxt::storage::address::StorageHasher::Blake2_128Concat,
                         )],
                         [
-                            212u8, 131u8, 3u8, 30u8, 61u8, 87u8, 44u8, 30u8, 192u8, 176u8, 207u8,
-                            7u8, 128u8, 29u8, 117u8, 183u8, 245u8, 178u8, 219u8, 134u8, 232u8,
-                            129u8, 105u8, 253u8, 212u8, 128u8, 245u8, 240u8, 166u8, 198u8, 152u8,
-                            77u8,
+                            197u8, 216u8, 78u8, 184u8, 155u8, 195u8, 239u8, 75u8, 192u8, 193u8,
+                            197u8, 203u8, 114u8, 147u8, 212u8, 218u8, 155u8, 83u8, 55u8, 102u8,
+                            84u8, 67u8, 16u8, 8u8, 143u8, 113u8, 159u8, 98u8, 7u8, 195u8, 98u8,
+                            214u8,
                         ],
                     )
                 }
-                #[doc = " key: client_id"]
+                #[doc = " key: ClientTypePath"]
                 #[doc = " value: ClientType"]
                 pub fn clients_root(
                     &self,
@@ -28886,10 +28829,10 @@ pub mod api {
                         "Clients",
                         Vec::new(),
                         [
-                            212u8, 131u8, 3u8, 30u8, 61u8, 87u8, 44u8, 30u8, 192u8, 176u8, 207u8,
-                            7u8, 128u8, 29u8, 117u8, 183u8, 245u8, 178u8, 219u8, 134u8, 232u8,
-                            129u8, 105u8, 253u8, 212u8, 128u8, 245u8, 240u8, 166u8, 198u8, 152u8,
-                            77u8,
+                            197u8, 216u8, 78u8, 184u8, 155u8, 195u8, 239u8, 75u8, 192u8, 193u8,
+                            197u8, 203u8, 114u8, 147u8, 212u8, 218u8, 155u8, 83u8, 55u8, 102u8,
+                            84u8, 67u8, 16u8, 8u8, 143u8, 113u8, 159u8, 98u8, 7u8, 195u8, 98u8,
+                            214u8,
                         ],
                     )
                 }
@@ -29005,20 +28948,12 @@ pub mod api {
                         ],
                     )
                 }
-                #[doc = " key1: port_id"]
-                #[doc = " key2: channel_id"]
-                #[doc = " key3: sequence"]
+                #[doc = " key: ReceiptsPath"]
                 #[doc = " value: receipt"]
                 pub fn packet_receipt(
                     &self,
                     _0: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::PortId,
-                    >,
-                    _1: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::ChannelId,
-                    >,
-                    _2: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics04_channel::packet::Sequence,
+                        runtime_types::ibc::core::ics24_host::path::ReceiptsPath,
                     >,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<
@@ -29031,30 +28966,18 @@ pub mod api {
                     ::subxt::storage::address::StaticStorageAddress::new(
                         "Ibc",
                         "PacketReceipt",
-                        vec![
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _0.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _1.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _2.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                        ],
+                        vec![::subxt::storage::address::StorageMapKey::new(
+                            _0.borrow(),
+                            ::subxt::storage::address::StorageHasher::Blake2_128Concat,
+                        )],
                         [
-                            61u8, 7u8, 36u8, 11u8, 38u8, 83u8, 183u8, 43u8, 242u8, 74u8, 221u8,
-                            94u8, 195u8, 89u8, 18u8, 135u8, 251u8, 180u8, 199u8, 58u8, 80u8, 181u8,
-                            111u8, 226u8, 160u8, 181u8, 2u8, 222u8, 160u8, 136u8, 3u8, 170u8,
+                            238u8, 176u8, 23u8, 82u8, 140u8, 8u8, 219u8, 35u8, 13u8, 232u8, 197u8,
+                            7u8, 151u8, 80u8, 92u8, 234u8, 145u8, 228u8, 153u8, 41u8, 235u8, 18u8,
+                            208u8, 31u8, 203u8, 243u8, 165u8, 141u8, 102u8, 104u8, 251u8, 56u8,
                         ],
                     )
                 }
-                #[doc = " key1: port_id"]
-                #[doc = " key2: channel_id"]
-                #[doc = " key3: sequence"]
+                #[doc = " key: ReceiptsPath"]
                 #[doc = " value: receipt"]
                 pub fn packet_receipt_root(
                     &self,
@@ -29071,26 +28994,18 @@ pub mod api {
                         "PacketReceipt",
                         Vec::new(),
                         [
-                            61u8, 7u8, 36u8, 11u8, 38u8, 83u8, 183u8, 43u8, 242u8, 74u8, 221u8,
-                            94u8, 195u8, 89u8, 18u8, 135u8, 251u8, 180u8, 199u8, 58u8, 80u8, 181u8,
-                            111u8, 226u8, 160u8, 181u8, 2u8, 222u8, 160u8, 136u8, 3u8, 170u8,
+                            238u8, 176u8, 23u8, 82u8, 140u8, 8u8, 219u8, 35u8, 13u8, 232u8, 197u8,
+                            7u8, 151u8, 80u8, 92u8, 234u8, 145u8, 228u8, 153u8, 41u8, 235u8, 18u8,
+                            208u8, 31u8, 203u8, 243u8, 165u8, 141u8, 102u8, 104u8, 251u8, 56u8,
                         ],
                     )
                 }
-                #[doc = " key1: port_id"]
-                #[doc = " key2: channel_id"]
-                #[doc = " key3: sequence"]
+                #[doc = " key: CommitmentsPath"]
                 #[doc = " value: hash of (timestamp, height, packet)"]
                 pub fn packet_commitment(
                     &self,
                     _0: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::PortId,
-                    >,
-                    _1: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics24_host::identifier::ChannelId,
-                    >,
-                    _2: impl ::std::borrow::Borrow<
-                        runtime_types::ibc::core::ics04_channel::packet::Sequence,
+                        runtime_types::ibc::core::ics24_host::path::CommitmentsPath,
                     >,
                 ) -> ::subxt::storage::address::StaticStorageAddress<
                     ::subxt::metadata::DecodeStaticType<
@@ -29103,31 +29018,18 @@ pub mod api {
                     ::subxt::storage::address::StaticStorageAddress::new(
                         "Ibc",
                         "PacketCommitment",
-                        vec![
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _0.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _1.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                            ::subxt::storage::address::StorageMapKey::new(
-                                _2.borrow(),
-                                ::subxt::storage::address::StorageHasher::Blake2_128Concat,
-                            ),
-                        ],
+                        vec![::subxt::storage::address::StorageMapKey::new(
+                            _0.borrow(),
+                            ::subxt::storage::address::StorageHasher::Blake2_128Concat,
+                        )],
                         [
-                            19u8, 215u8, 169u8, 31u8, 69u8, 190u8, 59u8, 190u8, 195u8, 182u8,
-                            146u8, 20u8, 167u8, 199u8, 240u8, 168u8, 56u8, 132u8, 77u8, 102u8,
-                            177u8, 38u8, 123u8, 27u8, 167u8, 92u8, 178u8, 22u8, 99u8, 155u8, 86u8,
-                            16u8,
+                            147u8, 22u8, 221u8, 55u8, 193u8, 58u8, 186u8, 196u8, 162u8, 80u8, 75u8,
+                            87u8, 49u8, 97u8, 128u8, 11u8, 49u8, 143u8, 242u8, 119u8, 55u8, 249u8,
+                            162u8, 137u8, 105u8, 179u8, 191u8, 164u8, 62u8, 217u8, 112u8, 202u8,
                         ],
                     )
                 }
-                #[doc = " key1: port_id"]
-                #[doc = " key2: channel_id"]
-                #[doc = " key3: sequence"]
+                #[doc = " key: CommitmentsPath"]
                 #[doc = " value: hash of (timestamp, height, packet)"]
                 pub fn packet_commitment_root(
                     &self,
@@ -29144,10 +29046,9 @@ pub mod api {
                         "PacketCommitment",
                         Vec::new(),
                         [
-                            19u8, 215u8, 169u8, 31u8, 69u8, 190u8, 59u8, 190u8, 195u8, 182u8,
-                            146u8, 20u8, 167u8, 199u8, 240u8, 168u8, 56u8, 132u8, 77u8, 102u8,
-                            177u8, 38u8, 123u8, 27u8, 167u8, 92u8, 178u8, 22u8, 99u8, 155u8, 86u8,
-                            16u8,
+                            147u8, 22u8, 221u8, 55u8, 193u8, 58u8, 186u8, 196u8, 162u8, 80u8, 75u8,
+                            87u8, 49u8, 97u8, 128u8, 11u8, 49u8, 143u8, 242u8, 119u8, 55u8, 249u8,
+                            162u8, 137u8, 105u8, 179u8, 191u8, 164u8, 62u8, 217u8, 112u8, 202u8,
                         ],
                     )
                 }
@@ -30208,6 +30109,113 @@ pub mod api {
                             Debug,
                         )]
                         pub struct PortId(pub ::std::string::String);
+                    }
+                    pub mod path {
+                        use super::runtime_types;
+                        #[derive(
+                            :: subxt :: ext :: codec :: Decode,
+                            :: subxt :: ext :: codec :: Encode,
+                            Debug,
+                        )]
+                        pub struct AcksPath {
+                            pub port_id: runtime_types::ibc::core::ics24_host::identifier::PortId,
+                            pub channel_id:
+                                runtime_types::ibc::core::ics24_host::identifier::ChannelId,
+                            pub sequence: runtime_types::ibc::core::ics04_channel::packet::Sequence,
+                        }
+                        #[derive(
+                            :: subxt :: ext :: codec :: Decode,
+                            :: subxt :: ext :: codec :: Encode,
+                            Debug,
+                        )]
+                        pub struct ChannelEndsPath(
+                            pub runtime_types::ibc::core::ics24_host::identifier::PortId,
+                            pub runtime_types::ibc::core::ics24_host::identifier::ChannelId,
+                        );
+                        #[derive(
+                            :: subxt :: ext :: codec :: Decode,
+                            :: subxt :: ext :: codec :: Encode,
+                            Debug,
+                        )]
+                        pub struct ClientConsensusStatePath {
+                            pub client_id:
+                                runtime_types::ibc::core::ics24_host::identifier::ClientId,
+                            pub epoch: ::core::primitive::u64,
+                            pub height: ::core::primitive::u64,
+                        }
+                        #[derive(
+                            :: subxt :: ext :: codec :: Decode,
+                            :: subxt :: ext :: codec :: Encode,
+                            Debug,
+                        )]
+                        pub struct ClientStatePath(
+                            pub runtime_types::ibc::core::ics24_host::identifier::ClientId,
+                        );
+                        #[derive(
+                            :: subxt :: ext :: codec :: Decode,
+                            :: subxt :: ext :: codec :: Encode,
+                            Debug,
+                        )]
+                        pub struct ClientTypePath(
+                            pub runtime_types::ibc::core::ics24_host::identifier::ClientId,
+                        );
+                        #[derive(
+                            :: subxt :: ext :: codec :: Decode,
+                            :: subxt :: ext :: codec :: Encode,
+                            Debug,
+                        )]
+                        pub struct CommitmentsPath {
+                            pub port_id: runtime_types::ibc::core::ics24_host::identifier::PortId,
+                            pub channel_id:
+                                runtime_types::ibc::core::ics24_host::identifier::ChannelId,
+                            pub sequence: runtime_types::ibc::core::ics04_channel::packet::Sequence,
+                        }
+                        #[derive(
+                            :: subxt :: ext :: codec :: Decode,
+                            :: subxt :: ext :: codec :: Encode,
+                            Debug,
+                        )]
+                        pub struct ConnectionsPath(
+                            pub runtime_types::ibc::core::ics24_host::identifier::ConnectionId,
+                        );
+                        #[derive(
+                            :: subxt :: ext :: codec :: Decode,
+                            :: subxt :: ext :: codec :: Encode,
+                            Debug,
+                        )]
+                        pub struct ReceiptsPath {
+                            pub port_id: runtime_types::ibc::core::ics24_host::identifier::PortId,
+                            pub channel_id:
+                                runtime_types::ibc::core::ics24_host::identifier::ChannelId,
+                            pub sequence: runtime_types::ibc::core::ics04_channel::packet::Sequence,
+                        }
+                        #[derive(
+                            :: subxt :: ext :: codec :: Decode,
+                            :: subxt :: ext :: codec :: Encode,
+                            Debug,
+                        )]
+                        pub struct SeqAcksPath(
+                            pub runtime_types::ibc::core::ics24_host::identifier::PortId,
+                            pub runtime_types::ibc::core::ics24_host::identifier::ChannelId,
+                        );
+                        #[derive(
+                            :: subxt :: ext :: codec :: Decode,
+                            :: subxt :: ext :: codec :: Encode,
+                            Debug,
+                        )]
+                        pub struct SeqRecvsPath(
+                            pub runtime_types::ibc::core::ics24_host::identifier::PortId,
+                            pub runtime_types::ibc::core::ics24_host::identifier::ChannelId,
+                        );
+                        #[derive(
+                            :: subxt :: ext :: codec :: Decode,
+                            :: subxt :: ext :: codec :: Encode,
+                            Debug,
+                        )]
+                        pub struct SeqSendsPath(
+                            pub runtime_types::ibc::core::ics24_host::identifier::PortId,
+                            pub runtime_types::ibc::core::ics24_host::identifier::ChannelId,
+                        );
                     }
                 }
                 pub mod ics26_routing {
@@ -42966,9 +42974,9 @@ pub mod api {
         let runtime_metadata_hash = client.metadata().metadata_hash(&PALLETS);
         if runtime_metadata_hash
             != [
-                133u8, 157u8, 44u8, 90u8, 86u8, 214u8, 99u8, 67u8, 139u8, 180u8, 142u8, 73u8, 23u8,
-                16u8, 31u8, 101u8, 245u8, 245u8, 149u8, 220u8, 68u8, 15u8, 206u8, 35u8, 123u8,
-                130u8, 238u8, 80u8, 251u8, 49u8, 164u8, 40u8,
+                92u8, 235u8, 34u8, 60u8, 53u8, 212u8, 62u8, 117u8, 27u8, 141u8, 173u8, 91u8, 41u8,
+                190u8, 249u8, 163u8, 156u8, 101u8, 101u8, 104u8, 147u8, 251u8, 53u8, 150u8, 34u8,
+                156u8, 128u8, 20u8, 163u8, 97u8, 149u8, 148u8,
             ]
         {
             Err(::subxt::error::MetadataError::IncompatibleMetadata)

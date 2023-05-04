@@ -21,8 +21,8 @@ pub struct BeefyMmr {
     pub signature_proofs: Vec<Vec<u8>>,
     /// mmr proof
     pub mmr_leaves_and_batch_proof: Option<MmrLeavesAndBatchProof>,
-    /// size of the mmr for the given proof
-    pub mmr_size: u64,
+    
+    
 }
 
 impl Protobuf<RawBeefyMmr> for BeefyMmr {}
@@ -37,7 +37,7 @@ impl TryFrom<RawBeefyMmr> for BeefyMmr {
                 .mmr_leaves_and_batch_proof
                 .map(TryInto::try_into)
                 .transpose()?,
-            mmr_size: raw.mmr_size,
+        
         })
     }
 }
@@ -48,7 +48,7 @@ impl From<BeefyMmr> for RawBeefyMmr {
             signed_commitment: value.signed_commitment.map(Into::into),
             signature_proofs: value.signature_proofs,
             mmr_leaves_and_batch_proof: value.mmr_leaves_and_batch_proof.map(Into::into),
-            mmr_size: value.mmr_size,
+        
         }
     }
 }

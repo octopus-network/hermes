@@ -32,6 +32,7 @@ use crate::{error::Error as RelayError, telemetry};
 use beefy_light_client::commitment;
 use codec::{Decode, Encode};
 use ibc_relayer_types::clients::ics10_grandpa::consensus_state::ConsensusState as GpConsensusState;
+use ibc_relayer_types::clients::ics10_grandpa::header::message;
 use ibc_relayer_types::clients::ics10_grandpa::header::Header as GpHeader;
 use ibc_relayer_types::core::ics02_client::height::Height;
 use ibc_relayer_types::core::ics24_host::identifier::{
@@ -303,9 +304,7 @@ impl BeefyMonitor {
             });
 
             match beefy_result {
-                Ok(msg) => {
-                    self.process_beefy_msg(msg)
-                }
+                Ok(msg) => self.process_beefy_msg(msg),
                 Err(e) => {
                     error!("subscription dropped, need to reconnect !");
 
@@ -340,14 +339,8 @@ impl BeefyMonitor {
     fn process_beefy_msg(&mut self, sc: SignedCommitment) {
         debug!("substrate::beefy_monitor: -> process_beefy_msg");
 
-        // let beefy_light_client::commitment::VersionedFinalityProof::V1(signed_commitment) =
-        //     beefy_light_client::commitment::VersionedFinalityProof::decode(&mut &sc.0[..]).unwrap();
-        // debug!(
-        //     "substrate::beefy_monitor: -> build_header: decode signed_commitment : {:?} ",
-        //     signed_commitment
-        // );
         let header = self.rt.block_on(self.build_beefy_header(sc));
-     
+
         if let Ok(h) = header {
             // send to msg queue
 
@@ -383,7 +376,7 @@ impl BeefyMonitor {
         .await
         .unwrap();
 
-        let target_heights = vec![block_number - 1];
+        let target_heights = vec![block_number];
         let mmr_batch_proof = utils::build_mmr_proofs(
             &self.beefy_rpc_client,
             target_heights,
@@ -400,24 +393,27 @@ impl BeefyMonitor {
         );
 
         let mmr_leaves_proof =
-            beefy_light_client::mmr::MmrLeavesProof::try_from(mmr_batch_proof.proof.0).unwrap();
+            beefy_light_client::mmr::MmrLeavesProof::try_from(mmr_batch_proof.clone().proof.0)
+                .unwrap();
 
-        let message = utils::build_subchain_headers(
+        let headers = utils::build_subchain_headers(
             &self.beefy_rpc_client,
             mmr_leaves_proof.leaf_indices,
-            "sub-0".to_string(), // todo
+            self.chain_id.to_string(),
         )
         .await
         .unwrap();
+        let proof = Some(utils::convert_mmrproof(mmr_batch_proof).unwrap());
+        let subchain_headers = message::SubchainHeaders {
+            subchain_headers: headers,
+            mmr_leaves_and_batch_proof: proof,
+        };
 
         let result = GpHeader {
             // the latest mmr data
-            beefy_mmr,
+            beefy_mmr: Some(beefy_mmr),
             // only one header
-            message:
-                ibc_relayer_types::clients::ics10_grandpa::header::message::Message::SubchainHeaders(
-                    message,
-                ),
+            message: message::Message::SubchainHeaders(subchain_headers),
         };
         debug!(
             "substrate::beefy_monitor: -> build_beefy_header: GpHeader: {:?} ",
