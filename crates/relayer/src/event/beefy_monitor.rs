@@ -128,7 +128,7 @@ pub struct BeefyMonitor {
     rx_cmd: channel::Receiver<MonitorCmd>,
 
     /// beefy stream subscription
-    beefy_sub: SubxtSubscription<EncodedVersionedFinalityProof>,
+    beefy_sub: Option<SubxtSubscription<EncodedVersionedFinalityProof>>,
     /// Tokio runtime
     rt: Arc<TokioRuntime>,
 }
@@ -149,9 +149,7 @@ impl BeefyMonitor {
                 beefy_node_addr.to_string(),
             ))
             .unwrap();
-        let beefy_sub = rt
-            .block_on(subscribe_beefy_justifications(beefy_rpc_client.rpc()))
-            .unwrap();
+        let beefy_sub = None;
 
         let monitor = Self {
             rt,
@@ -172,10 +170,11 @@ impl BeefyMonitor {
     pub fn init_subscriptions(&mut self) -> BeefyResult<()> {
         debug!("substrate::beefy_monitor: -> init_subscriptions ");
         // subcribe beefy msg
-        self.beefy_sub = self
+        let sub = self
             .rt
             .block_on(subscribe_beefy_justifications(self.beefy_rpc_client.rpc()))
             .unwrap();
+        self.beefy_sub = Some(sub);
 
         Ok(())
     }
@@ -273,9 +272,9 @@ impl BeefyMonitor {
         let rt = self.rt.clone();
 
         // get beefy_sub ownership
-        let mut beefy_sub = rt
-            .block_on(subscribe_beefy_message(self.beefy_rpc_client.rpc()))
-            .unwrap();
+        let sub = core::mem::replace(&mut self.beefy_sub, None);
+
+        let mut beefy_sub = sub.unwrap();
 
         loop {
             if let Ok(cmd) = self.rx_cmd.try_recv() {
@@ -290,7 +289,6 @@ impl BeefyMonitor {
             }
             let beefy_result = rt.block_on(async {
                 tokio::select! {
-
                     //select beefy subcription
                     Some(beefy_msg) = beefy_sub.next() => {
                         let msg = beefy_msg.unwrap();
@@ -336,10 +334,10 @@ impl BeefyMonitor {
     }
 
     /// Collect the IBC events from the subscriptions
-    fn process_beefy_msg(&mut self, sc: SignedCommitment) {
+    fn process_beefy_msg(&mut self, raw: EncodedVersionedFinalityProof) {
         debug!("substrate::beefy_monitor: -> process_beefy_msg");
 
-        let header = self.rt.block_on(self.build_beefy_header(sc));
+        let header = self.rt.block_on(self.build_beefy_header(raw));
 
         if let Ok(h) = header {
             // send to msg queue
@@ -350,12 +348,12 @@ impl BeefyMonitor {
 
     pub async fn build_beefy_header(
         &self,
-        raw_sc: SignedCommitment,
+        raw: EncodedVersionedFinalityProof,
     ) -> Result<GpHeader, RelayError> {
         debug!("substrate::beefy_monitor: -> build_beefy_header");
         // decode signed commitment
         let beefy_light_client::commitment::VersionedFinalityProof::V1(signed_commitment) =
-            beefy_light_client::commitment::VersionedFinalityProof::decode(&mut &raw_sc.0[..])
+            beefy_light_client::commitment::VersionedFinalityProof::decode(&mut &raw.0[..])
                 .unwrap();
         debug!(
             "substrate::beefy_monitor: -> build_beefy_header: decode signed_commitment : {:?} ",
@@ -424,28 +422,6 @@ impl BeefyMonitor {
     }
 }
 
-#[derive(codec::Encode, codec::Decode, PartialEq, Eq)]
-pub struct EncodableOpaqueLeaf(pub Vec<u8>);
-
-/// An encoded signed commitment proving that the given header has been finalized.
-/// The given bytes should be the SCALE-encoded representation of a
-/// `beefy_primitives::SignedCommitment`.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct SignedCommitment(pub sp_core::Bytes);
-
-/// Subscribe to beefy justifications.
-pub async fn subscribe_beefy_message(
-    client: &SubxtRpcClient,
-) -> Result<SubxtSubscription<SignedCommitment>, subxt::Error> {
-    let subscription = client
-        .subscribe(
-            "beefy_subscribeJustifications",
-            rpc_params![],
-            "beefy_unsubscribeJustifications",
-        )
-        .await?;
-    Ok(subscription)
-}
 
 pub enum Next {
     Abort,

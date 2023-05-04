@@ -344,16 +344,6 @@ pub enum ChainRequest {
         reply_to: ReplyTo<Vec<IbcEventWithHeight>>,
     },
 
-    WebSocketUrl {
-        reply_to: ReplyTo<String>,
-    },
-
-    UpdateBeefy {
-        client_id: ClientId,
-        header: GPheader,
-        reply_to: ReplyTo<()>,
-    },
-
     QueryPacketEventData {
         request: QueryPacketEventDataRequest,
         reply_to: ReplyTo<Vec<IbcEventWithHeight>>,
@@ -663,12 +653,6 @@ pub trait ChainHandle: Clone + Display + Send + Sync + Debug + 'static {
     ) -> Result<Vec<Sequence>, Error>;
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error>;
-
-    // get host chain websocket_url
-    fn websocket_url(&self) -> Result<String, Error>;
-
-    // only used by ics10-grandpa
-    fn update_beefy(&self, client_id: ClientId, header: GPheader) -> Result<(), Error>;
 
     fn query_packet_events(
         &self,

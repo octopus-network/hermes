@@ -388,12 +388,6 @@ pub trait ChainEndpoint: Sized {
         client_state: &AnyClientState,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error>;
 
-    /// add new api websocket_url
-    fn websocket_url(&self) -> Result<String, Error>;
-
-    /// add new api update_mmr_root
-    fn update_beefy(&mut self, client_id: ClientId, header: GPheader) -> Result<(), Error>;
-
     /// Builds the required proofs and the client state for connection handshake messages.
     /// The proofs and client state must be obtained from queries at same height.
     fn build_connection_proofs_and_client_state(

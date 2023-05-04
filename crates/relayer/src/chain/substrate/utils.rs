@@ -7,9 +7,12 @@ use ibc_relayer_types::clients::ics10_grandpa::header::beefy_mmr::signed_commitm
 use ibc_relayer_types::clients::ics10_grandpa::header::message::StateProof;
 use ibc_relayer_types::clients::ics10_grandpa::header::message::{SubchainHeader, SubchainHeaders};
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use ics23::ExistenceProof;
+use ics23::{commitment_proof, InnerOp};
 use pallet_beefy_mmr::BeefyEcdsaToEthereum;
 
 use crate::chain::substrate::beefy::{Crypto, MerkleHasher};
+use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
 use sp_core::keccak_256;
 use sp_core::{hexdisplay::HexDisplay, ByteArray, H256};
 use subxt::rpc::types::BlockNumber;
@@ -21,7 +24,7 @@ pub async fn build_subchain_headers(
     leaf_indexes: Vec<u64>,
     chain_id: String,
 ) -> Result<Vec<SubchainHeader>, String> {
-    let mut subchain_headers  = vec![];
+    let mut subchain_headers = vec![];
     for block_number in leaf_indexes {
         let block_hash = relay_rpc_client
             .rpc()
@@ -343,15 +346,46 @@ pub fn to_pb_beefy_mmr(
     }
 }
 
-pub fn convert_block_number_to_mmr_leaf_index(
-    beefy_activation_block: u32,
-    block_number: u32,
-) -> u64 {
-    let mut leaf_index: u32 = 0;
-    if beefy_activation_block == 0 {
-        leaf_index = block_number - 1;
-    } else {
-        leaf_index = (block_number + 1) - beefy_activation_block
-    }
-    leaf_index as u64
+/// build ics23 merkle proof  based on substrate state proof
+pub fn build_ics23_merkle_proof(state_proof: StateProof) -> MerkleProof {
+    tracing::trace!(
+        "ics10::utils -> build_ics23_merkle_proof::state_proof {:?}",
+        state_proof
+    );
+
+    let _inner_op = InnerOp {
+        hash: 0,
+        prefix: vec![0],
+        suffix: vec![0],
+    };
+
+    let exist_proof = commitment_proof::Proof::Exist(ExistenceProof {
+        key: vec![0],
+        value: state_proof.encode(),
+        leaf: None,
+        path: vec![_inner_op],
+    });
+
+    let cp = ics23::CommitmentProof {
+        proof: Some(exist_proof),
+    };
+    tracing::trace!(
+        "ics10::utils -> build_ics23_merkle_proof::CommitmentProof: {:?}",
+        cp
+    );
+
+    let cps: Vec<ics23::CommitmentProof> = vec![cp];
+    MerkleProof { proofs: cps }
 }
+// pub fn convert_block_number_to_mmr_leaf_index(
+//     beefy_activation_block: u32,
+//     block_number: u32,
+// ) -> u64 {
+//     let mut leaf_index: u32 = 0;
+//     if beefy_activation_block == 0 {
+//         leaf_index = block_number - 1;
+//     } else {
+//         leaf_index = (block_number + 1) - beefy_activation_block
+//     }
+//     leaf_index as u64
+// }

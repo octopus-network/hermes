@@ -2366,16 +2366,12 @@ impl ChainEndpoint for SubstrateChain {
 
                 assert!(target_height.revision_height() < grandpa_client_state.latest_beefy_height.revision_height() );
                 // assert trust_height <= grandpa_client_state height
-                if trusted_height > grandpa_client_state.latest_chain_height {
-                    panic!("trust height miss match client state height");
-                }
+                // if trusted_height > grandpa_client_state.latest_chain_height {
+                //     panic!("trust height miss match client state height");
+                // }
 
-                // let mmr_root_height = grandpa_client_state.latest_height();
-                // let mmr_root_height = grandpa_client_state.latest_beefy_height;
-
-                // build target height header
-
-                //TODO: build mmr proof for target height
+                
+                // build mmr proof for target height
                 let target_heights = vec![target_height.revision_height() as u32 ];
                 let mmr_batch_proof = utils::build_mmr_proofs(
                     relay_rpc_client,
@@ -2388,9 +2384,9 @@ impl ChainEndpoint for SubstrateChain {
 
                 let mmr_leaves_proof = beefy_light_client::mmr::MmrLeavesProof::try_from(
                     mmr_batch_proof.clone().proof.0,
-                )
-                .unwrap();
+                ).unwrap();
 
+                // build target height header
                 let headers = utils::build_subchain_headers(
                     relay_rpc_client,
                     mmr_leaves_proof.leaf_indices,
@@ -2435,73 +2431,7 @@ impl ChainEndpoint for SubstrateChain {
             )),
         }
     }
-
-    fn websocket_url(&self) -> Result<String, Error> {
-        Ok(self.config.websocket_addr.clone().to_string())
-    }
-
-    /// add new api update_mmr_root
-    fn update_beefy(&mut self, client_id: ClientId, header: GpHeader) -> Result<(), Error> {
-        tracing::trace!("substrate::update_beefy -> client_id = {:?} ", client_id,);
-
-        //     let MmrRoot {
-        //         signed_commitment,
-        //         validator_merkle_proofs,
-        //         mmr_leaf,
-        //         mmr_leaf_proof,
-        //     } = header.mmr_root.clone();
-
-        //     let new_mmr_root_height = signed_commitment.clone().commitment.unwrap().block_number;
-        //     tracing::trace!(
-        //         "[update_mmr_root] mmr root height = {:?}",
-        //         new_mmr_root_height
-        //     );
-        //     let client_state = self.query_client_state(&client_id).unwrap();
-        //     let gp_client_state = match client_state {
-        //         AnyClientState::Grandpa(value) => value,
-        //         _ => unimplemented!(),
-        //     };
-
-        //     let beefy_light_client::commitment::Commitment {
-        //         payload,
-        //         block_number,
-        //         validator_set_id,
-        //     } = gp_client_state.latest_commitment.clone().into();
-
-        //     tracing::trace!(
-        //     "[update_mmr_root] mmr root height in client state is: ({:?}) and  new mmr root height is ({:?})!",
-        //     block_number,new_mmr_root_height
-        // );
-
-        //     if block_number >= new_mmr_root_height {
-        //         tracing::trace!(
-        //         "[update_mmr_root]mmr root height in client state ({:?}) >= new mmr root height({:?}), Don't need to update!",
-        //         block_number,new_mmr_root_height
-        //     );
-        //         return Err(Error::update_client_state_error());
-        //     }
-
-        //     let mut msgs = vec![];
-
-        //     let signer = self.get_signer().unwrap();
-        //     use ibc::core::ics02_client::header::AnyHeader;
-        //     msgs.push(
-        //         MsgUpdateClient {
-        //             header: AnyHeader::Grandpa(header),
-        //             signer: signer,
-        //             client_id: client_id,
-        //         }
-        //         .to_any(),
-        //     );
-
-        //     let tm = TrackedMsgs::new_static(msgs, "update client");
-        //     tracing::trace!("in substrate: [update_mmr_root] >> msgs = {:?}", tm);
-
-        //     let events = self.send_messages_and_wait_commit(tm);
-        //     tracing::trace!("in substrate: [update_mmr_root] >> events = {:?}", events);
-
-        Ok(())
-    }
+  
 
     fn maybe_register_counterparty_payee(
         &mut self,

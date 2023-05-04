@@ -117,14 +117,6 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
         self.inner().subscribe_beefy()
     }
 
-    fn websocket_url(&self) -> Result<String, Error> {
-        self.inner().websocket_url()
-    }
-
-    fn update_beefy(&self, client_id: ClientId, header: GPheader) -> Result<(), Error> {
-        self.inner().update_beefy(client_id, header)
-    }
-
     fn send_messages_and_wait_commit(
         &self,
         tracked_msgs: TrackedMsgs,

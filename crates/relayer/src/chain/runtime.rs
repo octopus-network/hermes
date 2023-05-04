@@ -342,19 +342,6 @@ where
                             self.subscribe_beefy(reply_to)?
                         },
 
-                        ChainRequest::UpdateBeefy { client_id,header, reply_to } => {
-                            tracing::debug!(
-                                "runtime::run -> ChainRequest::UpdateBeefy, client_id = {:?},beefy ={:?} ",
-                                client_id,
-                                header
-                            );
-                            self.update_beefy(client_id,header,reply_to,)?
-                        },
-
-                        ChainRequest::WebSocketUrl{ reply_to} => {
-                            self.websocket_url(reply_to)?
-                        },
-
                         ChainRequest::MaybeRegisterCounterpartyPayee { channel_id, port_id, counterparty_payee, reply_to } => {
                             self.maybe_register_counterparty_payee(&channel_id, &port_id, &counterparty_payee, reply_to)?
                         }
@@ -832,20 +819,6 @@ where
         Ok(())
     }
 
-    fn websocket_url(&self, reply_to: ReplyTo<String>) -> Result<(), Error> {
-        let result = self.chain.websocket_url();
-        reply_to.send(result).map_err(Error::send)
-    }
-
-    fn update_beefy(
-        &mut self,
-        client_id: ClientId,
-        header: GPheader,
-        reply_to: ReplyTo<()>,
-    ) -> Result<(), Error> {
-        let result = self.chain.update_beefy(client_id, header);
-        reply_to.send(result).map_err(Error::send)
-    }
 
     fn maybe_register_counterparty_payee(
         &mut self,
