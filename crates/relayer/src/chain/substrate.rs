@@ -2514,7 +2514,7 @@ impl ChainEndpoint for SubstrateChain {
                         Height::new(reversion_number, block_number as u64).unwrap(),
                     )
                 };
-                let beefy_activation_height = BEEFY_ACTIVATION_HEIGHT;
+              
                 let client_state = GpClientState {
                     chain_type,
                     chain_id,

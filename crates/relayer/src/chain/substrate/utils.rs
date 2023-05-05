@@ -16,7 +16,7 @@ use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
 use sp_core::keccak_256;
 use sp_core::{hexdisplay::HexDisplay, ByteArray, H256};
 use subxt::rpc::types::BlockNumber;
-use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
+use subxt::{tx::PairSigner, Config, OnlineClient, PolkadotConfig, SubstrateConfig};
 use tokio::runtime::Runtime as TokioRuntime;
 
 pub async fn build_subchain_headers(
@@ -346,6 +346,26 @@ pub fn to_pb_beefy_mmr(
     }
 }
 
+pub async fn build_state_proof(
+    relay_rpc_client: &OnlineClient<PolkadotConfig>,
+    block_hash: H256,
+    storage_key: Vec<u8>,
+    value: Vec<u8>,
+) -> Result<StateProof, Error> {
+    let proofs = relay_rpc_client
+        .rpc()
+        .read_proof(vec![storage_key.as_ref()], Some(block_hash))
+        .await
+        .unwrap();
+    let state_proof = StateProof {
+        key: storage_key,
+        value,
+        proofs: proofs.proof.into_iter().map(|v| v.0).collect(),
+    };
+
+    Ok(state_proof)
+}
+
 /// build ics23 merkle proof  based on substrate state proof
 pub fn build_ics23_merkle_proof(state_proof: StateProof) -> MerkleProof {
     tracing::trace!(
@@ -377,15 +397,4 @@ pub fn build_ics23_merkle_proof(state_proof: StateProof) -> MerkleProof {
     let cps: Vec<ics23::CommitmentProof> = vec![cp];
     MerkleProof { proofs: cps }
 }
-// pub fn convert_block_number_to_mmr_leaf_index(
-//     beefy_activation_block: u32,
-//     block_number: u32,
-// ) -> u64 {
-//     let mut leaf_index: u32 = 0;
-//     if beefy_activation_block == 0 {
-//         leaf_index = block_number - 1;
-//     } else {
-//         leaf_index = (block_number + 1) - beefy_activation_block
-//     }
-//     leaf_index as u64
-// }
+
