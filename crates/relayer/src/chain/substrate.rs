@@ -1300,7 +1300,8 @@ impl ChainEndpoint for SubstrateChain {
                 let mut result = vec![];
                 while let Some((key, value)) = iter.next().await.unwrap() {
                     let raw_key = key.0[48..].to_vec();
-                    let connection_id = ConnectionId::from(relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId::decode(&mut &*raw_key).unwrap());
+                    let ret = relaychain_node::runtime_types::ibc::core::ics24_host::path::ConnectionsPath::decode(&mut &*raw_key).unwrap();
+                    let connection_id = ConnectionId::from(ret.0);
                     let connection_end = ConnectionEnd::from(value);
                     result.push(IdentifiedConnectionEnd {
                         connection_id,
@@ -1409,7 +1410,65 @@ impl ChainEndpoint for SubstrateChain {
             if let Some(rpc_client) = para_rpc_client {
                 todo!()
             } else {
-                todo!()
+                let key_addr = relaychain_node::storage().ibc().channels_connection_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut port_id_and_channel_id = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId::decode(&mut &*raw_key).unwrap();
+                    let connection_id = ConnectionId::from(rets);
+                    if request.connection_id == connection_id {
+                        port_id_and_channel_id = value;
+                    }
+                }
+                let port_id_and_channel_id = port_id_and_channel_id
+                    .into_iter()
+                    .map(|(p, c)| {
+                        let port_id = PortId::from(p);
+                        let channel_id = ChannelId::from(c);
+                        (port_id, channel_id)
+                    })
+                    .collect::<Vec<_>>();
+
+                let key_addr = relaychain_node::storage().ibc().channels_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result = vec![];
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::ChannelEndsPath::decode(&mut &*raw_key).unwrap();
+
+                    let port_id = PortId::from(rets.0);
+                    let channel_id = ChannelId::from(rets.1);
+                    let channel_end = ChannelEnd::from(value);
+                    for item in port_id_and_channel_id.iter() {
+                        if &item.0 == &port_id && &item.1 == &channel_id {
+                            result.push(IdentifiedChannelEnd {
+                                port_id: port_id.clone(),
+                                channel_id: channel_id.clone(),
+                                channel_end: channel_end.clone(),
+                            })
+                        }
+                    }
+                }
+                Ok(result)
             }
         }
         match &self.rpc_client {
@@ -1427,7 +1486,6 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // need todo
     fn query_channels(
         &self,
         request: QueryChannelsRequest,
@@ -1726,8 +1784,18 @@ impl ChainEndpoint for SubstrateChain {
                         result.push(sequence);
                     }
                 }
-                // todo ics height need to set
-                Ok((result, ICSHeight::new(0, 1).unwrap()))
+                use subxt::config::Header;
+                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+
+                let block = relay_rpc_client
+                    .rpc()
+                    .block(Some(finalized_head_hash))
+                    .await
+                    .unwrap();
+                Ok((
+                    result,
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap(),
+                ))
             }
         }
 
@@ -2124,8 +2192,20 @@ impl ChainEndpoint for SubstrateChain {
                         result.push(sequence);
                     }
                 }
+                use subxt::config::Header;
+                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+
+                let block = relay_rpc_client
+                    .rpc()
+                    .block(Some(finalized_head_hash))
+                    .await
+                    .unwrap();
+
                 // todo ics height need to set
-                Ok((result, ICSHeight::new(0, 1).unwrap()))
+                Ok((
+                    result,
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap(),
+                ))
             }
         }
 
