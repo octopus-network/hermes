@@ -819,7 +819,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
             match client_state {
                 AnyClientState::Grandpa(state) => {
-                    if state.latest_beefy_height.revision_height() < target_height.revision_height()
+                    if state.latest_beefy_height.revision_height() < (target_height.revision_height()+1)
                     {
                         debug!("ics10::foreign_client -> wait_beefy_height latest_beefy_height[{:?}] < target_height[{:?}],waiting ...",
                         state.latest_beefy_height,target_height);

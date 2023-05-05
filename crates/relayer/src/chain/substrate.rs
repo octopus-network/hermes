@@ -2815,7 +2815,7 @@ impl ChainEndpoint for SubstrateChain {
                 // }
 
                 // build mmr proof for target height
-                let target_heights = vec![target_height.revision_height() as u32];
+                let target_heights = vec![(target_height.revision_height() + 1) as u32];
                 let mmr_batch_proof = utils::build_mmr_proofs(
                     relay_rpc_client,
                     target_heights,
