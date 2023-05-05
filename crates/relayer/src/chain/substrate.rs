@@ -922,9 +922,20 @@ impl ChainEndpoint for SubstrateChain {
                     );
                 let storage = parachain_node::storage().ibc().client_states(client_id);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
+
                 let client_state = rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -949,9 +960,19 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .client_states(client_state_path);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => relay_rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => relay_rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
                 let client_state = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -1117,9 +1138,20 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .consensus_states(client_id, height);
 
+                let query_hash = match request.query_height {
+                    QueryHeight::Latest => rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
+
                 let consensus_states = rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -1146,9 +1178,19 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .consensus_states(client_conesnsus_state_path);
 
+                let query_hash = match request.query_height {
+                    QueryHeight::Latest => relay_rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => relay_rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
                 let consensus_states = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -1341,9 +1383,20 @@ impl ChainEndpoint for SubstrateChain {
                     );
                 let storage = parachain_node::storage().ibc().connections(connection_id);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
+
                 let connection = rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -1365,9 +1418,19 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .connections(connection_path);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => relay_rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => relay_rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
                 let connection = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -1565,9 +1628,20 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .channels(port_id, channel_id);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
+
                 let result = rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -1591,9 +1665,19 @@ impl ChainEndpoint for SubstrateChain {
                     );
                 let storage = relaychain_node::storage().ibc().channels(channel_ends_path);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => relay_rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => relay_rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
                 let result = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -1683,9 +1767,19 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .packet_commitment(port_id, channel_id, sequence);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
                 let result = rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -1716,9 +1810,20 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .packet_commitment(packet_commitment_path);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => relay_rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => relay_rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
+
                 let result = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -1839,9 +1944,19 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .packet_receipt(port_id, channel_id, sequence);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
                 let result = rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -1874,9 +1989,19 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .packet_receipt(packet_receipt_path);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => relay_rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => relay_rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
                 let result = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -1995,9 +2120,20 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .next_sequence_recv(port_id, channel_id);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => relay_rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
+
                 let result = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -2025,9 +2161,20 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .next_sequence_recv(next_sequence_recv_path);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => relay_rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => relay_rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
+
                 let result = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -2086,9 +2233,19 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .acknowledgements(port_id, channel_id, sequence);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
                 let result = rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
@@ -2120,9 +2277,19 @@ impl ChainEndpoint for SubstrateChain {
                     .ibc()
                     .acknowledgements(acknowledgement_path);
 
+                let query_hash = match request.height {
+                    QueryHeight::Latest => relay_rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => relay_rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_number(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
                 let result = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(query_hash)
                     .await
                     .unwrap()
                     .fetch(&storage)
