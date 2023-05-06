@@ -1871,9 +1871,157 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryChannelClientStateRequest,
         ) -> Result<Option<IdentifiedAnyClientState>, Error> {
             if let Some(rpc_client) = para_rpc_client {
-                todo!()
+                let key_addr = parachain_node::storage().ibc().channels_connection_root();
+
+                let mut iter = rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result_connection_id = ConnectionId::default();
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = parachain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId::decode(&mut &*raw_key).unwrap();
+                    let connection_id = ConnectionId::from(rets);
+                    for item in value {
+                        if request.port_id == PortId::from(item.0)
+                            && request.channel_id == ChannelId::from(item.1)
+                        {
+                            result_connection_id = connection_id.clone();
+                        }
+                    }
+                }
+
+                let key_addr = parachain_node::storage().ibc().connection_client_root();
+
+                let mut iter = rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result_client_id = ClientId::default();
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = parachain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId::decode(&mut &*raw_key).unwrap();
+                    let client_id = ClientId::from(rets);
+                    if result_connection_id == ConnectionId::from(value) {
+                        result_client_id = client_id;
+                    }
+                }
+
+                let client_id =
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                        result_client_id.to_string(),
+                    );
+                let client_state_path =
+                    parachain_node::runtime_types::ibc::core::ics24_host::path::ClientStatePath(
+                        client_id,
+                    );
+
+                let storage = parachain_node::storage()
+                    .ibc()
+                    .client_states(client_state_path);
+
+                let client_state = rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap();
+
+                let client_state =
+                    AnyClientState::decode_vec(&client_state.unwrap()).map_err(Error::decode)?;
+
+                Ok(Some(IdentifiedAnyClientState {
+                    client_id: result_client_id,
+                    client_state,
+                }))
             } else {
-                todo!()
+                let key_addr = relaychain_node::storage().ibc().channels_connection_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result_connection_id = ConnectionId::default();
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId::decode(&mut &*raw_key).unwrap();
+                    let connection_id = ConnectionId::from(rets);
+                    for item in value {
+                        if request.port_id == PortId::from(item.0)
+                            && request.channel_id == ChannelId::from(item.1)
+                        {
+                            result_connection_id = connection_id.clone();
+                        }
+                    }
+                }
+
+                let key_addr = relaychain_node::storage().ibc().connection_client_root();
+
+                let mut iter = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .iter(key_addr, 10)
+                    .await
+                    .unwrap();
+
+                let mut result_client_id = ClientId::default();
+                while let Some((key, value)) = iter.next().await.unwrap() {
+                    let raw_key = key.0[48..].to_vec();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId::decode(&mut &*raw_key).unwrap();
+                    let client_id = ClientId::from(rets);
+                    if result_connection_id == ConnectionId::from(value) {
+                        result_client_id = client_id;
+                    }
+                }
+
+                let client_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
+                        result_client_id.to_string(),
+                    );
+                let client_state_path =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::path::ClientStatePath(
+                        client_id,
+                    );
+
+                let storage = relaychain_node::storage()
+                    .ibc()
+                    .client_states(client_state_path);
+
+                let client_state = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap();
+
+                let client_state =
+                    AnyClientState::decode_vec(&client_state.unwrap()).map_err(Error::decode)?;
+
+                Ok(Some(IdentifiedAnyClientState {
+                    client_id: result_client_id,
+                    client_state,
+                }))
             }
         }
 
