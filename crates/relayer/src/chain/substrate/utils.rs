@@ -348,13 +348,13 @@ pub fn to_pb_beefy_mmr(
 
 pub async fn build_state_proof(
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
-    block_hash: H256,
+    block_hash: Option<H256>,
     storage_key: Vec<u8>,
     value: Vec<u8>,
 ) -> Result<StateProof, Error> {
     let proofs = relay_rpc_client
         .rpc()
-        .read_proof(vec![storage_key.as_ref()], Some(block_hash))
+        .read_proof(vec![storage_key.as_ref()], block_hash)
         .await
         .unwrap();
     let state_proof = StateProof {
@@ -367,7 +367,7 @@ pub async fn build_state_proof(
 }
 
 /// build ics23 merkle proof  based on substrate state proof
-pub fn build_ics23_merkle_proof(state_proof: StateProof) -> MerkleProof {
+pub fn build_ics23_merkle_proof(state_proof: StateProof) -> Option<MerkleProof> {
     tracing::trace!(
         "ics10::utils -> build_ics23_merkle_proof::state_proof {:?}",
         state_proof
@@ -395,6 +395,5 @@ pub fn build_ics23_merkle_proof(state_proof: StateProof) -> MerkleProof {
     );
 
     let cps: Vec<ics23::CommitmentProof> = vec![cp];
-    MerkleProof { proofs: cps }
+    Some(MerkleProof { proofs: cps })
 }
-

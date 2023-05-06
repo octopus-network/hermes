@@ -986,12 +986,40 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .fetch(&storage)
                     .await
+                    .unwrap()
                     .unwrap();
 
-                let client_state =
-                    AnyClientState::decode_vec(&client_state.unwrap()).map_err(Error::decode)?;
+                // let client_state =
+                //     AnyClientState::decode_vec(&client_state).map_err(Error::decode)?;
 
-                Ok((client_state, None))
+                // Ok((client_state, None))
+                let any_client_state =
+                    AnyClientState::decode_vec(&client_state).map_err(Error::decode)?;
+
+                debug!(
+                    "substrate::query_client_state -> states: {:?}",
+                    any_client_state
+                );
+                match include_proof {
+                    IncludeProof::Yes => {
+                        // scale encode client_state
+                        let value = codec::Encode::encode(&client_state);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!(
+                        //     "substrate::query_client_state -> state_proof: {:?}",
+                        //     state_proof
+                        // );
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((any_client_state, merkle_proof))
+                    }
+                    IncludeProof::No => Ok((any_client_state, None)),
+                }
             } else {
                 let client_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
@@ -1022,12 +1050,40 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .fetch(&storage)
                     .await
+                    .unwrap()
                     .unwrap();
 
-                let client_state =
-                    AnyClientState::decode_vec(&client_state.unwrap()).map_err(Error::decode)?;
+                // let client_state =
+                //     AnyClientState::decode_vec(&client_state.unwrap()).map_err(Error::decode)?;
 
-                Ok((client_state, None))
+                // Ok((client_state, None))
+                let any_client_state =
+                    AnyClientState::decode_vec(&client_state).map_err(Error::decode)?;
+
+                debug!(
+                    "substrate::query_client_state -> states: {:?}",
+                    any_client_state
+                );
+                match include_proof {
+                    IncludeProof::Yes => {
+                        // scale encode client_state
+                        let value = codec::Encode::encode(&client_state);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!(
+                        //     "substrate::query_client_state -> state_proof: {:?}",
+                        //     state_proof
+                        // );
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((any_client_state, merkle_proof))
+                    }
+                    IncludeProof::No => Ok((any_client_state, None)),
+                }
             }
         }
         match &self.rpc_client {
@@ -1221,12 +1277,41 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .fetch(&storage)
                     .await
+                    .unwrap()
                     .unwrap();
 
-                let consensus_state = AnyConsensusState::decode_vec(&consensus_states.unwrap())
-                    .map_err(Error::decode)?;
+                // let consensus_state = AnyConsensusState::decode_vec(&consensus_states.unwrap())
+                //     .map_err(Error::decode)?;
 
-                Ok((consensus_state, None))
+                // Ok((consensus_state, None))
+
+                let any_consensus_state =
+                    AnyConsensusState::decode_vec(&consensus_states).map_err(Error::decode)?;
+
+                debug!(
+                    "substrate::query_consensus_state -> consensus_state: {:?}",
+                    any_consensus_state
+                );
+                match include_proof {
+                    IncludeProof::Yes => {
+                        // scale encode consensus_states
+                        let value = codec::Encode::encode(&consensus_states);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!(
+                        //     "substrate::query_consensus_state -> state_proof: {:?}",
+                        //     state_proof
+                        // );
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((any_consensus_state, merkle_proof))
+                    }
+                    IncludeProof::No => Ok((any_consensus_state, None)),
+                }
             } else {
                 let client_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ClientId(
@@ -1259,12 +1344,36 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .fetch(&storage)
                     .await
+                    .unwrap()
                     .unwrap();
 
-                let consensus_state = AnyConsensusState::decode_vec(&consensus_states.unwrap())
-                    .map_err(Error::decode)?;
+                let any_consensus_state =
+                    AnyConsensusState::decode_vec(&consensus_states).map_err(Error::decode)?;
 
-                Ok((consensus_state, None))
+                debug!(
+                    "substrate::query_consensus_state -> consensus_state: {:?}",
+                    any_consensus_state
+                );
+                match include_proof {
+                    IncludeProof::Yes => {
+                        // scale encode consensus_states
+                        let value = codec::Encode::encode(&consensus_states);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!(
+                        //     "substrate::query_consensus_state -> state_proof: {:?}",
+                        //     state_proof
+                        // );
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((any_consensus_state, merkle_proof))
+                    }
+                    IncludeProof::No => Ok((any_consensus_state, None)),
+                }
             }
         }
         match &self.rpc_client {
@@ -1472,7 +1581,32 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
 
-                Ok((connection.into(), None))
+                // Ok((connection.into(), None))
+        
+                debug!(
+                    "substrate::query_connection -> connection: {:?}",
+                    connection
+                );
+                match include_proof {
+                    IncludeProof::Yes => {
+                        // scale encode consensus_states
+                        let value = codec::Encode::encode(&connection);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!(
+                        //     "substrate::query_connection -> state_proof: {:?}",
+                        //     state_proof
+                        // );
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((connection.into(), merkle_proof))
+                    }
+                    IncludeProof::No => Ok((connection.into(), None)),
+                }
             } else {
                 let connection_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
@@ -1506,7 +1640,31 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
 
-                Ok((connection.into(), None))
+                // Ok((connection.into(), None))
+                debug!(
+                    "substrate::query_connection -> connection: {:?}",
+                    connection
+                );
+                match include_proof {
+                    IncludeProof::Yes => {
+                        // scale encode consensus_states
+                        let value = codec::Encode::encode(&connection);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!(
+                        //     "substrate::query_connection -> state_proof: {:?}",
+                        //     state_proof
+                        // );
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((connection.into(), merkle_proof))
+                    }
+                    IncludeProof::No => Ok((connection.into(), None)),
+                }
             }
         }
         match &self.rpc_client {
@@ -1802,7 +1960,25 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
 
-                Ok((result.into(), None))
+                // Ok((result.into(), None))
+                debug!("substrate::query_channel -> channel_end: {:?}", result);
+                match include_proof {
+                    IncludeProof::Yes => {
+                        // scale encode consensus_states
+                        let value = codec::Encode::encode(&result);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!("substrate::query_channel -> state_proof: {:?}", state_proof);
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((result.into(), merkle_proof))
+                    }
+                    IncludeProof::No => Ok((result.into(), None)),
+                }
             } else {
                 let port_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
@@ -1838,7 +2014,25 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
 
-                Ok((result.into(), None))
+                // Ok((result.into(), None))
+                debug!("substrate::query_channel -> channel_end: {:?}", result);
+                match include_proof {
+                    IncludeProof::Yes => {
+                        // scale encode consensus_states
+                        let value = codec::Encode::encode(&result);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!("substrate::query_channel -> state_proof: {:?}", state_proof);
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((result.into(), merkle_proof))
+                    }
+                    IncludeProof::No => Ok((result.into(), None)),
+                }
             }
         }
         match &self.rpc_client {
@@ -1945,7 +2139,29 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                Ok((result.0, None))
+                // Ok((result.0, None))
+                debug!(
+                    "substrate::query_packet_commitment -> packet commitment: {:?}",
+                    result
+                );
+                match include_proof {
+                    IncludeProof::Yes => {
+                        // scale encode consensus_states
+                        let value = codec::Encode::encode(&result);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((result.0, merkle_proof))
+                    }
+                    IncludeProof::No => Ok((result.0, None)),
+                }
+
             } else {
                 let port_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
@@ -1989,7 +2205,29 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                Ok((result.0, None))
+                // Ok((result.0, None))
+                debug!(
+                    "substrate::query_packet_commitment -> packet commitment: {:?}",
+                    result
+                );
+                match include_proof {
+                    IncludeProof::Yes => {
+                        // scale encode consensus_states
+                        let value = codec::Encode::encode(&result);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((result.0, merkle_proof))
+                    }
+                    IncludeProof::No => Ok((result.0, None)),
+                }
+                
             }
         }
 
@@ -2163,9 +2401,31 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
+                // match result {
+                //     parachain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => Ok((b"ok".to_vec(), None)),
+                // }
+
+                debug!("substrate::query_packet_receipt -> receipt: {:?}", result);
                 match result {
-                    parachain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => Ok((b"ok".to_vec(), None)),
+                    parachain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => {
+                
+                        match include_proof {
+                            IncludeProof::Yes => {
+                                // scale encode consensus_states
+                                let value = codec::Encode::encode(&result);
+                               let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
+                                storage.to_bytes(), value).await;
+                                // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                                let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                                Ok((vec![0], merkle_proof))
+                            },
+                            IncludeProof::No => Ok((vec![0], None)),
+                        }
+                        // Ok((vec![0], None))
+                    }
+
                 }
+
             } else {
                 let port_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
@@ -2208,8 +2468,28 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
+                // match result {
+                //     relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => Ok((b"ok".to_vec(), None)),
+                // }
+                debug!("substrate::query_packet_receipt -> receipt: {:?}", result);
                 match result {
-                    relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => Ok((b"ok".to_vec(), None)),
+                    relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => {
+                
+                        match include_proof {
+                            IncludeProof::Yes => {
+                                // scale encode consensus_states
+                                let value = codec::Encode::encode(&result);
+                               let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
+                                storage.to_bytes(), value).await;
+                                // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                                let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                                Ok((vec![0], merkle_proof))
+                            },
+                            IncludeProof::No => Ok((vec![0], None)),
+                        }
+                        // Ok((vec![0], None))
+                    }
+
                 }
             }
         }
@@ -2379,7 +2659,30 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
 
-                Ok((result.into(), None))
+                // Ok((result.into(), None))
+
+                debug!("substrate::query_next_sequence_receive -> sequence: {:?}", result);
+
+                match include_proof {
+                    IncludeProof::Yes => {
+                         // // Note: We expect the return to be a u64 encoded in big-endian. Refer to ibc-go:
+                        // // https://github.com/cosmos/ibc-go/blob/25767f6bdb5bab2c2a116b41d92d753c93e18121/modules/core/04-channel/client/utils/utils.go#L191
+                        // if res.value.len() != 8 {
+                        //     return Err(Error::query("next_sequence_receive".into()));
+                        // }
+                        // let seq: Sequence = Bytes::from(res.value).get_u64().into();
+        
+                        // scale encode sequence
+                        let value = codec::Encode::encode(&result);
+                        let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
+                         storage.to_bytes(), value).await;
+                         // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                         Ok((result.into(), merkle_proof))
+                    }
+                    IncludeProof::No => Ok((result.into(), None)),
+                }
+
             } else {
                 let port_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
@@ -2419,7 +2722,26 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                Ok((result.into(), None))
+                // Ok((result.into(), None))
+                match include_proof {
+                    IncludeProof::Yes => {
+                         // // Note: We expect the return to be a u64 encoded in big-endian. Refer to ibc-go:
+                        // // https://github.com/cosmos/ibc-go/blob/25767f6bdb5bab2c2a116b41d92d753c93e18121/modules/core/04-channel/client/utils/utils.go#L191
+                        // if res.value.len() != 8 {
+                        //     return Err(Error::query("next_sequence_receive".into()));
+                        // }
+                        // let seq: Sequence = Bytes::from(res.value).get_u64().into();
+        
+                        // scale encode sequence
+                        let value = codec::Encode::encode(&result);
+                        let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
+                         storage.to_bytes(), value).await;
+                         // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                         Ok((result.into(), merkle_proof))
+                    }
+                    IncludeProof::No => Ok((result.into(), None)),
+                }
             }
         }
 
@@ -2496,7 +2818,23 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                Ok((result.0, None))
+                // Ok((result.0, None))
+
+                debug!("substrate::query_packet_acknowledgement -> ack commitment: {:?}", result);
+
+                match include_proof {
+                        IncludeProof::Yes => {
+                            // scale encode ack commitment
+                            let value = codec::Encode::encode(&result);
+                            let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
+                             storage.to_bytes(), value).await;
+                             // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                             let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                             Ok((result.0, merkle_proof))
+                        }
+                        IncludeProof::No => Ok((result.0, None)),
+                    }
+                    
             } else {
                 let port_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
@@ -2540,7 +2878,21 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                Ok((result.0, None))
+                // Ok((result.0, None))
+                debug!("substrate::query_packet_acknowledgement -> ack commitment: {:?}", result);
+
+                match include_proof {
+                        IncludeProof::Yes => {
+                            // scale encode ack commitment
+                            let value = codec::Encode::encode(&result);
+                            let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
+                             storage.to_bytes(), value).await;
+                             // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                             let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                             Ok((result.0, merkle_proof))
+                        }
+                        IncludeProof::No => Ok((result.0, None)),
+                    }
             }
         }
 
