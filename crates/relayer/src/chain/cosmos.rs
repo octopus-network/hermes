@@ -1491,6 +1491,8 @@ impl ChainEndpoint for CosmosSdkChain {
             request.height,
             matches!(include_proof, IncludeProof::Yes),
         )?;
+        // TODO: check res.value
+        debug!("ics10::cosmos -> query_packet_receipt res:{:?}", res);
 
         match include_proof {
             IncludeProof::Yes => {
