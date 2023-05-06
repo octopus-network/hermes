@@ -1582,7 +1582,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 // Ok((connection.into(), None))
-        
+
                 debug!(
                     "substrate::query_connection -> connection: {:?}",
                     connection
@@ -2309,7 +2309,6 @@ impl ChainEndpoint for SubstrateChain {
                     }
                     IncludeProof::No => Ok((result.0, None)),
                 }
-
             } else {
                 let port_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
@@ -2375,7 +2374,6 @@ impl ChainEndpoint for SubstrateChain {
                     }
                     IncludeProof::No => Ok((result.0, None)),
                 }
-                
             }
         }
 
@@ -2556,12 +2554,12 @@ impl ChainEndpoint for SubstrateChain {
                 debug!("substrate::query_packet_receipt -> receipt: {:?}", result);
                 match result {
                     parachain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => {
-                
+
                         match include_proof {
                             IncludeProof::Yes => {
                                 // scale encode consensus_states
                                 let value = codec::Encode::encode(&result);
-                               let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
+                               let state_proof= utils::build_state_proof(relay_rpc_client, query_hash,
                                 storage.to_bytes(), value).await;
                                 // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
                                 let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
@@ -2573,7 +2571,6 @@ impl ChainEndpoint for SubstrateChain {
                     }
 
                 }
-
             } else {
                 let port_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
@@ -2622,12 +2619,12 @@ impl ChainEndpoint for SubstrateChain {
                 debug!("substrate::query_packet_receipt -> receipt: {:?}", result);
                 match result {
                     relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => {
-                
+
                         match include_proof {
                             IncludeProof::Yes => {
                                 // scale encode consensus_states
                                 let value = codec::Encode::encode(&result);
-                               let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
+                               let state_proof= utils::build_state_proof(relay_rpc_client, query_hash,
                                 storage.to_bytes(), value).await;
                                 // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
                                 let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
@@ -2809,28 +2806,35 @@ impl ChainEndpoint for SubstrateChain {
 
                 // Ok((result.into(), None))
 
-                debug!("substrate::query_next_sequence_receive -> sequence: {:?}", result);
+                debug!(
+                    "substrate::query_next_sequence_receive -> sequence: {:?}",
+                    result
+                );
 
                 match include_proof {
                     IncludeProof::Yes => {
-                         // // Note: We expect the return to be a u64 encoded in big-endian. Refer to ibc-go:
+                        // // Note: We expect the return to be a u64 encoded in big-endian. Refer to ibc-go:
                         // // https://github.com/cosmos/ibc-go/blob/25767f6bdb5bab2c2a116b41d92d753c93e18121/modules/core/04-channel/client/utils/utils.go#L191
                         // if res.value.len() != 8 {
                         //     return Err(Error::query("next_sequence_receive".into()));
                         // }
                         // let seq: Sequence = Bytes::from(res.value).get_u64().into();
-        
+
                         // scale encode sequence
                         let value = codec::Encode::encode(&result);
-                        let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
-                         storage.to_bytes(), value).await;
-                         // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
-                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
-                         Ok((result.into(), merkle_proof))
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((result.into(), merkle_proof))
                     }
                     IncludeProof::No => Ok((result.into(), None)),
                 }
-
             } else {
                 let port_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
@@ -2873,20 +2877,25 @@ impl ChainEndpoint for SubstrateChain {
                 // Ok((result.into(), None))
                 match include_proof {
                     IncludeProof::Yes => {
-                         // // Note: We expect the return to be a u64 encoded in big-endian. Refer to ibc-go:
+                        // // Note: We expect the return to be a u64 encoded in big-endian. Refer to ibc-go:
                         // // https://github.com/cosmos/ibc-go/blob/25767f6bdb5bab2c2a116b41d92d753c93e18121/modules/core/04-channel/client/utils/utils.go#L191
                         // if res.value.len() != 8 {
                         //     return Err(Error::query("next_sequence_receive".into()));
                         // }
                         // let seq: Sequence = Bytes::from(res.value).get_u64().into();
-        
+
                         // scale encode sequence
                         let value = codec::Encode::encode(&result);
-                        let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
-                         storage.to_bytes(), value).await;
-                         // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
-                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
-                         Ok((result.into(), merkle_proof))
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((result.into(), merkle_proof))
                     }
                     IncludeProof::No => Ok((result.into(), None)),
                 }
@@ -2968,21 +2977,28 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
                 // Ok((result.0, None))
 
-                debug!("substrate::query_packet_acknowledgement -> ack commitment: {:?}", result);
+                debug!(
+                    "substrate::query_packet_acknowledgement -> ack commitment: {:?}",
+                    result
+                );
 
                 match include_proof {
-                        IncludeProof::Yes => {
-                            // scale encode ack commitment
-                            let value = codec::Encode::encode(&result);
-                            let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
-                             storage.to_bytes(), value).await;
-                             // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
-                             let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
-                             Ok((result.0, merkle_proof))
-                        }
-                        IncludeProof::No => Ok((result.0, None)),
+                    IncludeProof::Yes => {
+                        // scale encode ack commitment
+                        let value = codec::Encode::encode(&result);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((result.0, merkle_proof))
                     }
-                    
+                    IncludeProof::No => Ok((result.0, None)),
+                }
             } else {
                 let port_id =
                     relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
@@ -3027,20 +3043,28 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
                 // Ok((result.0, None))
-                debug!("substrate::query_packet_acknowledgement -> ack commitment: {:?}", result);
+                debug!(
+                    "substrate::query_packet_acknowledgement -> ack commitment: {:?}",
+                    result
+                );
 
                 match include_proof {
-                        IncludeProof::Yes => {
-                            // scale encode ack commitment
-                            let value = codec::Encode::encode(&result);
-                            let state_proof= utils::build_state_proof(relay_rpc_client, query_hash, 
-                             storage.to_bytes(), value).await;
-                             // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
-                             let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
-                             Ok((result.0, merkle_proof))
-                        }
-                        IncludeProof::No => Ok((result.0, None)),
+                    IncludeProof::Yes => {
+                        // scale encode ack commitment
+                        let value = codec::Encode::encode(&result);
+                        let state_proof = utils::build_state_proof(
+                            relay_rpc_client,
+                            query_hash,
+                            storage.to_bytes(),
+                            value,
+                        )
+                        .await;
+                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        Ok((result.0, merkle_proof))
                     }
+                    IncludeProof::No => Ok((result.0, None)),
+                }
             }
         }
 
@@ -3404,7 +3428,81 @@ impl ChainEndpoint for SubstrateChain {
             settings: ClientSettings,
         ) -> Result<GpClientState, Error> {
             if let Some(rpc_client) = para_rpc_client {
-                todo!()
+                use codec::Decode;
+                use ibc_relayer_types::clients::ics10_grandpa::beefy_authority_set::BeefyAuthoritySet;
+                use ibc_relayer_types::clients::ics10_grandpa::client_state::ChaninType;
+                use ibc_relayer_types::Height;
+
+                let chain_id = config.id.clone();
+
+                let result = async {
+                    let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
+                        .await
+                        .unwrap();
+
+                    sub.next().await.unwrap().unwrap().0
+                };
+                let raw_signed_commitment = rt.block_on(result);
+
+                // decode signed commitment
+
+                let beefy_light_client::commitment::VersionedFinalityProof::V1(signed_commitment) =
+                    beefy_light_client::commitment::VersionedFinalityProof::decode(
+                        &mut &raw_signed_commitment[..],
+                    )
+                    .unwrap();
+
+                // get commitment
+                let beefy_light_client::commitment::Commitment {
+                    payload,
+                    block_number,
+                    validator_set_id,
+                } = signed_commitment.commitment;
+
+                let mmr_root_hash = payload
+                    .get_raw(&beefy_light_client::commitment::known_payload_ids::MMR_ROOT_ID)
+                    .unwrap();
+                let reversion_number = config.id.version();
+                let latest_beefy_height =
+                    Height::new(reversion_number, block_number as u64).unwrap();
+                let latest_mmr_root = mmr_root_hash.clone();
+                // get authorith set
+                let storage = relaychain_node::storage().mmr_leaf().beefy_authorities();
+
+                let closure = async {
+                    relay_rpc_client
+                        .storage()
+                        .at(None)
+                        .await
+                        .unwrap()
+                        .fetch(&storage)
+                        .await
+                };
+                let latest_authority_set =
+                    rt.block_on(closure).unwrap().map(|v| BeefyAuthoritySet {
+                        id: v.id,
+                        len: v.len,
+                        root: v.root.as_bytes().to_vec(),
+                    });
+
+                let (chain_type, parachain_id, latest_chain_height) = (
+                    ChaninType::Parachian,
+                    2000,
+                    // todo(davirian)need query parachain height, maybey revision number neet to change
+                    Height::new(reversion_number, block_number as u64).unwrap(),
+                );
+
+                let client_state = GpClientState {
+                    chain_type,
+                    chain_id,
+                    parachain_id,
+                    latest_beefy_height,
+                    latest_mmr_root,
+                    latest_chain_height,
+                    frozen_height: None,
+                    latest_authority_set,
+                };
+                Ok(client_state)
             } else {
                 use codec::Decode;
                 use ibc_relayer_types::clients::ics10_grandpa::beefy_authority_set::BeefyAuthoritySet;
@@ -3463,35 +3561,11 @@ impl ChainEndpoint for SubstrateChain {
                         root: v.root.as_bytes().to_vec(),
                     });
 
-                // get next authorith set
-                let storage = relaychain_node::storage()
-                    .mmr_leaf()
-                    .beefy_next_authorities();
-
-                let closure = async {
-                    relay_rpc_client
-                        .storage()
-                        .at(None)
-                        .await
-                        .unwrap()
-                        .fetch(&storage)
-                        .await
-                };
-
-                let (chain_type, parachain_id, latest_chain_height) = if para_rpc_client.is_none() {
-                    (
-                        ChaninType::Subchain,
-                        0,
-                        Height::new(reversion_number, block_number as u64).unwrap(),
-                    )
-                } else {
-                    (
-                        ChaninType::Parachian,
-                        2000,
-                        // todo(davirian)need query parachain height, maybey revision number neet to change
-                        Height::new(reversion_number, block_number as u64).unwrap(),
-                    )
-                };
+                let (chain_type, parachain_id, latest_chain_height) = (
+                    ChaninType::Subchain,
+                    0,
+                    Height::new(reversion_number, block_number as u64).unwrap(),
+                );
 
                 let client_state = GpClientState {
                     chain_type,
