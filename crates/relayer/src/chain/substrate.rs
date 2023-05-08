@@ -87,7 +87,7 @@ use subxt::rpc::Subscription as SubxtSubscription;
 use subxt::rpc_params;
 use subxt::Error as SubxtError;
 use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
-
+// use subxt::rpc::types::into_block_number;
 pub mod beefy;
 // #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
 pub mod parachain;
@@ -214,7 +214,7 @@ impl SubstrateChain {
             .init_subscriptions()
             .map_err(Error::event_monitor)?;
 
-        thread::spawn(move || event_monitor.run());
+        // thread::spawn(move || event_monitor.run());
 
         Ok(monitor_tx)
     }
@@ -973,7 +973,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -1038,7 +1038,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => relay_rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -1264,7 +1264,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -1332,7 +1332,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => relay_rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -1549,6 +1549,10 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryConnectionRequest,
             include_proof: IncludeProof,
         ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
+            debug!(
+                "substrate::query_connection -> QueryConnectionRequest: {:?}, IncludeProof: {:?}",
+                request,include_proof
+            );
             if let Some(rpc_client) = para_rpc_client {
                 let connection_id =
                     parachain_node::runtime_types::ibc::core::ics24_host::identifier::ConnectionId(
@@ -1565,7 +1569,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -1616,19 +1620,44 @@ impl ChainEndpoint for SubstrateChain {
                     relaychain_node::runtime_types::ibc::core::ics24_host::path::ConnectionsPath(
                         connection_id,
                     );
+                    debug!(
+                        "substrate::query_connection -> connection_id: {:?} connection_path: {:?}",
+                        request.connection_id,connection_path
+                    );
+
                 let storage = relaychain_node::storage()
                     .ibc()
                     .connections(connection_path);
-
+                
+                debug!(
+                    "substrate::query_connection -> storage key: {:?}",
+                    hex::encode(storage.to_bytes())
+                );
+               
                 let query_hash = match request.height {
-                    QueryHeight::Latest => relay_rpc_client.rpc().block_hash(None).await.unwrap(),
-                    QueryHeight::Specific(v) => relay_rpc_client
+                    QueryHeight::Latest => {
+                        let query_hash=relay_rpc_client.rpc().block_hash(None).await.unwrap();
+                        debug!(
+                            "substrate::query_connection -> query_height: latest height, query_hash: {:?}",
+                            query_hash
+                        );
+                        query_hash
+                    },
+                    QueryHeight::Specific(v) => {
+                        
+                        let query_height = subxt::rpc::types::BlockNumber::from(
+                            v.revision_height());
+                        let query_hash = relay_rpc_client
                         .rpc()
-                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
-                        )))
+                        .block_hash(Some(query_height))
                         .await
-                        .unwrap(),
+                        .unwrap();
+                    debug!(
+                        "substrate::query_connection -> query_height: {:?}, query_hash: {:?}",
+                        v, query_hash
+                    );
+                    query_hash
+                    },
                 };
                 let connection = relay_rpc_client
                     .storage()
@@ -1944,7 +1973,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -1999,7 +2028,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => relay_rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -2125,7 +2154,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -2190,7 +2219,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => relay_rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -2387,7 +2416,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -2454,7 +2483,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => relay_rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -2643,7 +2672,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => relay_rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -2707,7 +2736,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => relay_rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -2804,7 +2833,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),
@@ -2864,7 +2893,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Specific(v) => relay_rpc_client
                         .rpc()
                         .block_hash(Some(subxt::rpc::types::BlockNumber::from(
-                            v.revision_number(),
+                            v.revision_height(),
                         )))
                         .await
                         .unwrap(),

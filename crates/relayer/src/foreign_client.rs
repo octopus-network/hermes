@@ -812,17 +812,18 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     })?
             };
 
-            debug!(
-                "ics10::foreign_client -> wait_beefy_height -> client_state:{:?} ",
-                client_state
-            );
+            // debug!(
+            //     "ics10::foreign_client -> wait_beefy_height -> client_state:{:?} ",
+            //     client_state
+            // );
 
             match client_state {
                 AnyClientState::Grandpa(state) => {
-                    if state.latest_beefy_height.revision_height() < (target_height.revision_height()+1)
+                    if state.latest_beefy_height.revision_height()
+                        < (target_height.revision_height() + 1)
                     {
-                        debug!("ics10::foreign_client -> wait_beefy_height latest_beefy_height[{:?}] < target_height[{:?}],waiting ...",
-                        state.latest_beefy_height,target_height);
+                        // debug!("ics10::foreign_client -> wait_beefy_height latest_beefy_height[{:?}] < target_height[{:?}], waiting ...",
+                        // state.latest_beefy_height,target_height);
                         thread::sleep(Duration::from_millis(500));
                         continue;
                     } else {
@@ -908,10 +909,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         let any_header: Any = header.clone().into();
 
-        debug!(
-            "foreign_client::update_beefy -> Any header type_url: {} \nAny header: {:?} ",
-            any_header.type_url, any_header
-        );
+        // debug!(
+        //     "foreign_client::update_beefy -> Any header type_url: {} \nAny header: {:?} ",
+        //     any_header.type_url, any_header
+        // );
 
         let signer = self.dst_chain().get_signer().map_err(|e| {
             ForeignClientError::client_update(
@@ -1184,7 +1185,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         target_height: Height,
         maybe_trusted_height: Option<Height>,
     ) -> Result<Vec<Any>, ForeignClientError> {
-        // TODO: only for ics10,check and wait beefy height enough to verify block header
+        // only for ics10,check and wait beefy height enough to verify block header
         self.wait_beefy_height(&target_height)?;
 
         // Get the latest client state on destination.
@@ -1244,10 +1245,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         let any_header: Any = header.clone().into();
 
-        debug!(
-            "ics10::foreign_client -> build_update_client_with_trusted -> Any header type_url: {} \nAny header: {:?} ",
-            any_header.type_url,any_header
-        );
+        // debug!(
+        //     "ics10::foreign_client -> build_update_client_with_trusted -> Any header type_url: {} \nAny header: {:?} ",
+        //     any_header.type_url,any_header
+        // );
 
         let signer = self.dst_chain().get_signer().map_err(|e| {
             ForeignClientError::client_update(

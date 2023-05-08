@@ -18,6 +18,7 @@ use sp_core::{hexdisplay::HexDisplay, ByteArray, H256};
 use subxt::rpc::types::BlockNumber;
 use subxt::{tx::PairSigner, Config, OnlineClient, PolkadotConfig, SubstrateConfig};
 use tokio::runtime::Runtime as TokioRuntime;
+use tracing::{debug, error, instrument, trace, warn};
 
 pub async fn build_subchain_headers(
     relay_rpc_client: &OnlineClient<PolkadotConfig>,
@@ -352,6 +353,12 @@ pub async fn build_state_proof(
     storage_key: Vec<u8>,
     value: Vec<u8>,
 ) -> Result<StateProof, Error> {
+    debug!(
+        "🐙🐙 ics10::utils -> build_state_proof storage_key:{:?} block_hash:{:?} ",
+        hex::encode(storage_key.clone()),
+        block_hash
+    );
+
     let proofs = relay_rpc_client
         .rpc()
         .read_proof(vec![storage_key.as_ref()], block_hash)
@@ -363,16 +370,16 @@ pub async fn build_state_proof(
         proofs: proofs.proof.into_iter().map(|v| v.0).collect(),
     };
 
+    debug!(
+        "🐙🐙 ics10::utils -> build_state_proof state_proof is {:?}",
+        state_proof
+    );
+
     Ok(state_proof)
 }
 
 /// build ics23 merkle proof  based on substrate state proof
 pub fn build_ics23_merkle_proof(state_proof: StateProof) -> Option<MerkleProof> {
-    tracing::trace!(
-        "ics10::utils -> build_ics23_merkle_proof::state_proof {:?}",
-        state_proof
-    );
-
     let _inner_op = InnerOp {
         hash: 0,
         prefix: vec![0],
@@ -389,8 +396,8 @@ pub fn build_ics23_merkle_proof(state_proof: StateProof) -> Option<MerkleProof> 
     let cp = ics23::CommitmentProof {
         proof: Some(exist_proof),
     };
-    tracing::trace!(
-        "ics10::utils -> build_ics23_merkle_proof::CommitmentProof: {:?}",
+    debug!(
+        "🐙🐙 ics10::utils -> build_ics23_merkle_proof::CommitmentProof: {:?}",
         cp
     );
 

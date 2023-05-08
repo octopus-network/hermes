@@ -969,6 +969,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             )
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
 
+            debug!(
+                "substrate::connection -> build_conn_try src_connection: {:?}",
+                src_connection
+            );
         // TODO - check that the src connection is consistent with the try options
 
         // Cross-check the delay_period
