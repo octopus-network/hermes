@@ -2722,6 +2722,7 @@ dependencies = [
  "tendermint-testgen",
  "test-log",
  "thiserror",
+ "time",
  "tiny-bip39",
  "tiny-keccak",
  "tokio",

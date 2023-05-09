@@ -74,6 +74,7 @@ rs_merkle = { version = "1.2.0", default-features = false }
 mmr-lib= { package = "ckb-merkle-mountain-range", version = "0.3.2", default-features = false }
 
 # for substrate chain
+time = { version = ">=0.3.0, <0.3.21", default-features = false }
 subxt = { version = "0.27" }
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive", "full", "bit-vec"] }
 sp-core = "18.0.0"

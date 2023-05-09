@@ -388,12 +388,23 @@ impl SubstrateChain {
                     .find_first::<parachain_node::ibc::events::IbcEvents>()
                     .unwrap()
                     .unwrap();
+                use subxt::config::Header;
+                let finalized_head_hash =
+                    runtime.block_on(para_rpc.rpc().finalized_head()).unwrap();
+
+                let block = runtime
+                    .block_on(para_rpc.rpc().block(Some(finalized_head_hash)))
+                    .unwrap();
+
+                let height =
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+
                 let es: Vec<IbcEventWithHeight> = ibc_events
                     .events
                     .into_iter()
                     .map(|e| IbcEventWithHeight {
                         event: IbcEvent::from(e),
-                        height: ICSHeight::new(0, 10).unwrap(),
+                        height: height.clone(),
                     })
                     .collect();
 
@@ -428,12 +439,21 @@ impl SubstrateChain {
                     .find_first::<relaychain_node::ibc::events::IbcEvents>()
                     .unwrap()
                     .unwrap();
+                use subxt::config::Header;
+                let finalized_head_hash = runtime.block_on(rpc.rpc().finalized_head()).unwrap();
+
+                let block = runtime
+                    .block_on(rpc.rpc().block(Some(finalized_head_hash)))
+                    .unwrap();
+                let height =
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+
                 let es: Vec<IbcEventWithHeight> = ibc_events
                     .events
                     .into_iter()
                     .map(|e| IbcEventWithHeight {
                         event: IbcEvent::from(e),
-                        height: ICSHeight::new(0, 10).unwrap(),
+                        height: height.clone(),
                     })
                     .collect();
 
@@ -1551,7 +1571,7 @@ impl ChainEndpoint for SubstrateChain {
         ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
             debug!(
                 "substrate::query_connection -> QueryConnectionRequest: {:?}, IncludeProof: {:?}",
-                request,include_proof
+                request, include_proof
             );
             if let Some(rpc_client) = para_rpc_client {
                 let connection_id =
@@ -1620,44 +1640,43 @@ impl ChainEndpoint for SubstrateChain {
                     relaychain_node::runtime_types::ibc::core::ics24_host::path::ConnectionsPath(
                         connection_id,
                     );
-                    debug!(
-                        "substrate::query_connection -> connection_id: {:?} connection_path: {:?}",
-                        request.connection_id,connection_path
-                    );
+                debug!(
+                    "substrate::query_connection -> connection_id: {:?} connection_path: {:?}",
+                    request.connection_id, connection_path
+                );
 
                 let storage = relaychain_node::storage()
                     .ibc()
                     .connections(connection_path);
-                
+
                 debug!(
                     "substrate::query_connection -> storage key: {:?}",
                     hex::encode(storage.to_bytes())
                 );
-               
+
                 let query_hash = match request.height {
                     QueryHeight::Latest => {
-                        let query_hash=relay_rpc_client.rpc().block_hash(None).await.unwrap();
+                        let query_hash = relay_rpc_client.rpc().block_hash(None).await.unwrap();
                         debug!(
                             "substrate::query_connection -> query_height: latest height, query_hash: {:?}",
                             query_hash
                         );
                         query_hash
-                    },
+                    }
                     QueryHeight::Specific(v) => {
-                        
-                        let query_height = subxt::rpc::types::BlockNumber::from(
-                            v.revision_height());
+                        let query_height =
+                            subxt::rpc::types::BlockNumber::from(v.revision_height());
                         let query_hash = relay_rpc_client
-                        .rpc()
-                        .block_hash(Some(query_height))
-                        .await
-                        .unwrap();
-                    debug!(
-                        "substrate::query_connection -> query_height: {:?}, query_hash: {:?}",
-                        v, query_hash
-                    );
-                    query_hash
-                    },
+                            .rpc()
+                            .block_hash(Some(query_height))
+                            .await
+                            .unwrap();
+                        debug!(
+                            "substrate::query_connection -> query_height: {:?}, query_hash: {:?}",
+                            v, query_hash
+                        );
+                        query_hash
+                    }
                 };
                 let connection = relay_rpc_client
                     .storage()
@@ -3397,8 +3416,36 @@ impl ChainEndpoint for SubstrateChain {
             use core::time::Duration;
             use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
             use tendermint::time::Time;
-            let timestamp = Time::now(); // todo(davirian) need to use correct time stamp
             if let Some(rpc_client) = para_rpc_client {
+                let storage = parachain_node::storage().timestamp().now();
+
+                let query_hash = match request.height {
+                    QueryHeight::Latest => rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_height(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
+                let result = rpc_client
+                    .storage()
+                    .at(query_hash)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                // As the `u64` representation can only represent times up to
+                // about year 2554, there is no risk of overflowing `Time`
+                // or `OffsetDateTime`.
+                let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
+
                 let last_finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
                 let finalized_head = rpc_client
                     .rpc()
@@ -3410,6 +3457,34 @@ impl ChainEndpoint for SubstrateChain {
                 let consensus_state = GpConsensusState::new(root, timestamp);
                 Ok(consensus_state)
             } else {
+                let storage = relaychain_node::storage().timestamp().now();
+
+                let query_hash = match request.height {
+                    QueryHeight::Latest => relay_rpc_client.rpc().block_hash(None).await.unwrap(),
+                    QueryHeight::Specific(v) => relay_rpc_client
+                        .rpc()
+                        .block_hash(Some(subxt::rpc::types::BlockNumber::from(
+                            v.revision_height(),
+                        )))
+                        .await
+                        .unwrap(),
+                };
+                let result = relay_rpc_client
+                    .storage()
+                    .at(query_hash)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                // As the `u64` representation can only represent times up to
+                // about year 2554, there is no risk of overflowing `Time`
+                // or `OffsetDateTime`.
+                let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
                 let last_finalized_head_hash =
                     relay_rpc_client.rpc().finalized_head().await.unwrap();
 
@@ -3647,7 +3722,6 @@ impl ChainEndpoint for SubstrateChain {
             use core::time::Duration;
             use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentRoot;
             use tendermint::time::Time;
-            let timestamp = Time::now(); // todo(davirian) need to use correct time stamp
             if let Some(rpc_client) = para_rpc_client {
                 let last_finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
                 let finalized_head = rpc_client
@@ -3655,6 +3729,24 @@ impl ChainEndpoint for SubstrateChain {
                     .header(Some(last_finalized_head_hash))
                     .await
                     .unwrap()
+                    .unwrap();
+                let storage = parachain_node::storage().timestamp().now();
+
+                let result = rpc_client
+                    .storage()
+                    .at(Some(last_finalized_head_hash))
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                // As the `u64` representation can only represent times up to
+                // about year 2554, there is no risk of overflowing `Time`
+                // or `OffsetDateTime`.
+                let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
+                    .unwrap()
+                    .try_into()
                     .unwrap();
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
                 let consensus_state = GpConsensusState::new(root, timestamp);
@@ -3668,6 +3760,24 @@ impl ChainEndpoint for SubstrateChain {
                     .header(Some(last_finalized_head_hash))
                     .await
                     .unwrap()
+                    .unwrap();
+                let storage = relaychain_node::storage().timestamp().now();
+
+                let result = relay_rpc_client
+                    .storage()
+                    .at(Some(last_finalized_head_hash))
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                // As the `u64` representation can only represent times up to
+                // about year 2554, there is no risk of overflowing `Time`
+                // or `OffsetDateTime`.
+                let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
+                    .unwrap()
+                    .try_into()
                     .unwrap();
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
                 let consensus_state = GpConsensusState::new(root, timestamp);
