@@ -969,10 +969,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             )
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
 
-            debug!(
-                "substrate::connection -> build_conn_try src_connection: {:?}",
-                src_connection
-            );
+        debug!(
+            "substrate::connection -> build_conn_try src_connection: {:?}",
+            src_connection
+        );
         // TODO - check that the src connection is consistent with the try options
 
         // Cross-check the delay_period
@@ -998,8 +998,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?;
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
 
-        let tm =
-            TrackedMsgs::new_static(client_msgs, "update client on source for ConnectionOpenTry");
+        let tm = TrackedMsgs::new_static(
+            client_msgs,
+            "update client on source chain for ConnectionOpenTry",
+        );
         self.src_chain()
             .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
@@ -1019,7 +1021,21 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .map_err(ConnectionError::connection_proof)?;
 
         // Build message(s) for updating client on destination
-        let mut msgs = self.build_update_client_on_dst(proofs.height())?;
+        // TODO: if dst chain is substate,should fisrt send_messages_and_wait_commit
+        let dst_client_msg = self.build_update_client_on_dst(proofs.height())?;
+
+        let tm = TrackedMsgs::new_static(
+            dst_client_msg,
+            "update client on dst chain for ConnectionOpenTry",
+        );
+        let events = self
+            .dst_chain()
+            .send_messages_and_wait_commit(tm)
+            .map_err(|e| ConnectionError::submit(self.dst_chain().id(), e))?;
+        debug!(
+            "🐙🐙 ics10::connection -> build_conn_try update dst chain client events: {:?}",
+            events
+        );
 
         let counterparty_versions = if src_connection.versions().is_empty() {
             self.src_chain()
@@ -1063,9 +1079,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             signer,
         };
 
-        msgs.push(new_msg.to_any());
+        // msgs.push(new_msg.to_any());
 
-        Ok((msgs, src_client_target_height))
+        Ok((vec![new_msg.to_any()], src_client_target_height))
     }
 
     pub fn build_conn_try_and_send(&self) -> Result<IbcEvent, ConnectionError> {
@@ -1161,7 +1177,21 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .map_err(ConnectionError::connection_proof)?;
 
         // Build message(s) for updating client on destination
-        let mut msgs = self.build_update_client_on_dst(proofs.height())?;
+        let dst_client_msg = self.build_update_client_on_dst(proofs.height())?;
+        // TODO: if dst chain is substate,should fisrt send_messages_and_wait_commit
+
+        let tm = TrackedMsgs::new_static(
+            dst_client_msg,
+            "update client on dst chain for ConnectionOpenTry",
+        );
+        let events = self
+            .dst_chain()
+            .send_messages_and_wait_commit(tm)
+            .map_err(|e| ConnectionError::submit(self.dst_chain().id(), e))?;
+        debug!(
+            "🐙🐙 ics10::connection -> build_conn_ack update dst chain client events: {:?}",
+            events
+        );
 
         // Get signer
         let signer = self
@@ -1178,9 +1208,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             signer,
         };
 
-        msgs.push(new_msg.to_any());
+        // msgs.push(new_msg.to_any());
 
-        Ok((msgs, src_client_target_height))
+        Ok((vec![new_msg.to_any()], src_client_target_height))
     }
 
     pub fn build_conn_ack_and_send(&self) -> Result<IbcEvent, ConnectionError> {
@@ -1257,7 +1287,22 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .map_err(ConnectionError::connection_proof)?;
 
         // Build message(s) for updating client on destination
-        let mut msgs = self.build_update_client_on_dst(proofs.height())?;
+        // let mut msgs = self.build_update_client_on_dst(proofs.height())?;
+        let dst_client_msg = self.build_update_client_on_dst(proofs.height())?;
+        // TODO: if dst chain is substate,should fisrt send_messages_and_wait_commit
+
+        let tm = TrackedMsgs::new_static(
+            dst_client_msg,
+            "update client on dst chain for ConnectionOpenTry",
+        );
+        let events = self
+            .dst_chain()
+            .send_messages_and_wait_commit(tm)
+            .map_err(|e| ConnectionError::submit(self.dst_chain().id(), e))?;
+        debug!(
+            "🐙🐙 ics10::connection -> build_conn_confirm update dst chain client events: {:?}",
+            events
+        );
 
         // Get signer
         let signer = self
@@ -1271,8 +1316,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             signer,
         };
 
-        msgs.push(new_msg.to_any());
-        Ok(msgs)
+        // msgs.push(new_msg.to_any());
+        Ok(vec![new_msg.to_any()])
     }
 
     pub fn build_conn_confirm_and_send(&self) -> Result<IbcEvent, ConnectionError> {

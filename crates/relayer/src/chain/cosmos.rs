@@ -1492,7 +1492,7 @@ impl ChainEndpoint for CosmosSdkChain {
             matches!(include_proof, IncludeProof::Yes),
         )?;
         // TODO: check res.value
-        debug!("ics10::cosmos -> query_packet_receipt res:{:?}", res);
+        debug!("🐙🐙 ics10::cosmos -> query_packet_receipt res:{:?}", res);
 
         match include_proof {
             IncludeProof::Yes => {

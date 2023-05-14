@@ -337,7 +337,7 @@ impl SubstrateChain {
     }
 
     #[instrument(
-        name = "send_messages_and_wait_commit",
+        name = "do_send_messages_and_wait_commit",
         level = "error",
         skip_all,
         fields(
@@ -349,11 +349,15 @@ impl SubstrateChain {
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
-        crate::time!("send_messages_and_wait_commit");
+        use ibc_relayer_types::applications::transfer::msgs::transfer::TYPE_URL as TRANSFER_TYPE_URL;
         use ibc_relayer_types::events::IbcEvent;
         use sp_keyring::AccountKeyring;
-
+        debug!(
+            "substrate::do_send_messages_and_wait_commit -> tracked_msgs: {:?}",
+            tracked_msgs
+        );
         let proto_msgs = tracked_msgs.msgs;
+        let mut is_transfer_msg = false;
 
         match &self.rpc_client {
             RpcClient::ParachainRpc {
@@ -363,101 +367,199 @@ impl SubstrateChain {
                 let msg: Vec<parachain_node::runtime_types::ibc_proto::google::protobuf::Any> =
                     proto_msgs
                         .iter()
-                        .map(
-                            |m| parachain_node::runtime_types::ibc_proto::google::protobuf::Any {
+                        .map(|m| {
+                            match m.type_url.as_str() {
+                                TRANSFER_TYPE_URL => {
+                                    is_transfer_msg = true;
+                                    debug!(
+                                        "substrate::do_send_messages_and_wait_commit -> transfer msg: {:?}",
+                                        m.clone()
+                                    );
+                                 },
+                                _ => is_transfer_msg = false,
+                            }
+                            parachain_node::runtime_types::ibc_proto::google::protobuf::Any {
                                 type_url: m.type_url.clone(),
                                 value: m.value.clone(),
-                            },
-                        )
+                            }
+                        })
                         .collect();
-
                 // use default signer
                 let signer = PairSigner::new(AccountKeyring::Alice.pair());
 
                 let binding = para_rpc.tx();
-                let tx = parachain_node::tx().ibc().deliver(msg);
-
                 let runtime = self.rt.clone();
-                let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
-                let result = runtime.block_on(deliver);
+                match is_transfer_msg {
+                    true => {
+                        let tx = parachain_node::tx().ics20_transfer().raw_transfer(msg);
 
-                let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
+                        let transfer = binding.sign_and_submit_then_watch_default(&tx, &signer);
+                        let result = runtime.block_on(transfer);
+                        let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
 
-                let ibc_events = events
-                    .unwrap()
-                    .find_first::<parachain_node::ibc::events::IbcEvents>()
-                    .unwrap()
-                    .unwrap();
-                use subxt::config::Header;
-                let finalized_head_hash =
-                    runtime.block_on(para_rpc.rpc().finalized_head()).unwrap();
+                        let ibc_events = events
+                            .unwrap()
+                            .find_first::<parachain_node::ibc::events::IbcEvents>()
+                            .unwrap()
+                            .unwrap();
+                        use subxt::config::Header;
+                        let finalized_head_hash =
+                            runtime.block_on(para_rpc.rpc().finalized_head()).unwrap();
 
-                let block = runtime
-                    .block_on(para_rpc.rpc().block(Some(finalized_head_hash)))
-                    .unwrap();
+                        let block = runtime
+                            .block_on(para_rpc.rpc().block(Some(finalized_head_hash)))
+                            .unwrap();
 
-                let height =
-                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+                        let height =
+                            ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
+                                .unwrap();
 
-                let es: Vec<IbcEventWithHeight> = ibc_events
-                    .events
-                    .into_iter()
-                    .map(|e| IbcEventWithHeight {
-                        event: IbcEvent::from(e),
-                        height: height.clone(),
-                    })
-                    .collect();
+                        let es: Vec<IbcEventWithHeight> = ibc_events
+                            .events
+                            .into_iter()
+                            .map(|e| IbcEventWithHeight {
+                                event: IbcEvent::from(e),
+                                height: height.clone(),
+                            })
+                            .collect();
 
-                Ok(es)
+                        Ok(es)
+                    }
+                    false => {
+                        let tx = parachain_node::tx().ibc().deliver(msg);
+
+                        let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
+                        let result = runtime.block_on(deliver);
+                        let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
+
+                        let ibc_events = events
+                            .unwrap()
+                            .find_first::<parachain_node::ibc::events::IbcEvents>()
+                            .unwrap()
+                            .unwrap();
+                        use subxt::config::Header;
+                        let finalized_head_hash =
+                            runtime.block_on(para_rpc.rpc().finalized_head()).unwrap();
+
+                        let block = runtime
+                            .block_on(para_rpc.rpc().block(Some(finalized_head_hash)))
+                            .unwrap();
+
+                        let height =
+                            ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
+                                .unwrap();
+
+                        let es: Vec<IbcEventWithHeight> = ibc_events
+                            .events
+                            .into_iter()
+                            .map(|e| IbcEventWithHeight {
+                                event: IbcEvent::from(e),
+                                height: height.clone(),
+                            })
+                            .collect();
+
+                        Ok(es)
+                    }
+                }
             }
             RpcClient::SubChainRpc { rpc } => {
                 let msg: Vec<relaychain_node::runtime_types::ibc_proto::google::protobuf::Any> =
                     proto_msgs
                         .iter()
-                        .map(
-                            |m| relaychain_node::runtime_types::ibc_proto::google::protobuf::Any {
+                        .map(|m| {
+                            match m.type_url.as_str() {
+                                TRANSFER_TYPE_URL => {
+                                    is_transfer_msg = true;
+                                    debug!(
+                                        "substrate::do_send_messages_and_wait_commit -> transfer msg: {:?}",
+                                        m.clone()
+                                    );
+                                 },
+
+                                _ => is_transfer_msg = false,
+                            }
+                            relaychain_node::runtime_types::ibc_proto::google::protobuf::Any {
                                 type_url: m.type_url.clone(),
                                 value: m.value.clone(),
-                            },
-                        )
+                            }
+                        })
                         .collect();
-
                 // use default signer
                 let signer = PairSigner::new(AccountKeyring::Alice.pair());
 
                 let binding = rpc.tx();
-                let tx = relaychain_node::tx().ibc().deliver(msg);
 
                 let runtime = self.rt.clone();
-                let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
-                let result = runtime.block_on(deliver);
+                match is_transfer_msg {
+                    true => {
+                        let tx = relaychain_node::tx().ics20_transfer().raw_transfer(msg);
+                        let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
+                        let result = runtime.block_on(deliver);
 
-                let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
+                        let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
 
-                let ibc_events = events
-                    .unwrap()
-                    .find_first::<relaychain_node::ibc::events::IbcEvents>()
-                    .unwrap()
-                    .unwrap();
-                use subxt::config::Header;
-                let finalized_head_hash = runtime.block_on(rpc.rpc().finalized_head()).unwrap();
+                        let ibc_events = events
+                            .unwrap()
+                            .find_first::<relaychain_node::ibc::events::IbcEvents>()
+                            .unwrap()
+                            .unwrap();
+                        use subxt::config::Header;
+                        let finalized_head_hash =
+                            runtime.block_on(rpc.rpc().finalized_head()).unwrap();
 
-                let block = runtime
-                    .block_on(rpc.rpc().block(Some(finalized_head_hash)))
-                    .unwrap();
-                let height =
-                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+                        let block = runtime
+                            .block_on(rpc.rpc().block(Some(finalized_head_hash)))
+                            .unwrap();
+                        let height =
+                            ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
+                                .unwrap();
 
-                let es: Vec<IbcEventWithHeight> = ibc_events
-                    .events
-                    .into_iter()
-                    .map(|e| IbcEventWithHeight {
-                        event: IbcEvent::from(e),
-                        height: height.clone(),
-                    })
-                    .collect();
+                        let es: Vec<IbcEventWithHeight> = ibc_events
+                            .events
+                            .into_iter()
+                            .map(|e| IbcEventWithHeight {
+                                event: IbcEvent::from(e),
+                                height: height.clone(),
+                            })
+                            .collect();
 
-                Ok(es)
+                        Ok(es)
+                    }
+                    false => {
+                        let tx = relaychain_node::tx().ibc().deliver(msg);
+                        let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
+                        let result = runtime.block_on(deliver);
+
+                        let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
+
+                        let ibc_events = events
+                            .unwrap()
+                            .find_first::<relaychain_node::ibc::events::IbcEvents>()
+                            .unwrap()
+                            .unwrap();
+                        use subxt::config::Header;
+                        let finalized_head_hash =
+                            runtime.block_on(rpc.rpc().finalized_head()).unwrap();
+
+                        let block = runtime
+                            .block_on(rpc.rpc().block(Some(finalized_head_hash)))
+                            .unwrap();
+                        let height =
+                            ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
+                                .unwrap();
+
+                        let es: Vec<IbcEventWithHeight> = ibc_events
+                            .events
+                            .into_iter()
+                            .map(|e| IbcEventWithHeight {
+                                event: IbcEvent::from(e),
+                                height: height.clone(),
+                            })
+                            .collect();
+
+                        Ok(es)
+                    }
+                }
             }
         }
     }
@@ -998,7 +1100,7 @@ impl ChainEndpoint for SubstrateChain {
                         .await
                         .unwrap(),
                 };
-
+                // get client_state pb encoded value
                 let client_state = rpc_client
                     .storage()
                     .at(query_hash)
@@ -1023,7 +1125,8 @@ impl ChainEndpoint for SubstrateChain {
                 match include_proof {
                     IncludeProof::Yes => {
                         // scale encode client_state
-                        let value = codec::Encode::encode(&client_state);
+                        // let value = codec::Encode::encode(&client_state);
+                        let value = client_state.clone();
                         let state_proof = utils::build_state_proof(
                             relay_rpc_client,
                             query_hash,
@@ -1087,7 +1190,8 @@ impl ChainEndpoint for SubstrateChain {
                 match include_proof {
                     IncludeProof::Yes => {
                         // scale encode client_state
-                        let value = codec::Encode::encode(&client_state);
+                        // let value = codec::Encode::encode(&client_state);
+                        let value = client_state.clone();
                         let state_proof = utils::build_state_proof(
                             relay_rpc_client,
                             query_hash,
@@ -1315,7 +1419,8 @@ impl ChainEndpoint for SubstrateChain {
                 match include_proof {
                     IncludeProof::Yes => {
                         // scale encode consensus_states
-                        let value = codec::Encode::encode(&consensus_states);
+                        // let value = codec::Encode::encode(&consensus_states);
+                        let value = consensus_states.clone();
                         let state_proof = utils::build_state_proof(
                             relay_rpc_client,
                             query_hash,
@@ -1377,7 +1482,8 @@ impl ChainEndpoint for SubstrateChain {
                 match include_proof {
                     IncludeProof::Yes => {
                         // scale encode consensus_states
-                        let value = codec::Encode::encode(&consensus_states);
+                        // let value = codec::Encode::encode(&consensus_states);
+                        let value = consensus_states.clone();
                         let state_proof = utils::build_state_proof(
                             relay_rpc_client,
                             query_hash,
@@ -2012,7 +2118,7 @@ impl ChainEndpoint for SubstrateChain {
                 debug!("substrate::query_channel -> channel_end: {:?}", result);
                 match include_proof {
                     IncludeProof::Yes => {
-                        // scale encode consensus_states
+                        // scale encode result
                         let value = codec::Encode::encode(&result);
                         let state_proof = utils::build_state_proof(
                             relay_rpc_client,
@@ -2342,7 +2448,7 @@ impl ChainEndpoint for SubstrateChain {
                 );
                 match include_proof {
                     IncludeProof::Yes => {
-                        // scale encode consensus_states
+                        // scale encode result
                         let value = codec::Encode::encode(&result);
                         let state_proof = utils::build_state_proof(
                             relay_rpc_client,
@@ -2407,7 +2513,7 @@ impl ChainEndpoint for SubstrateChain {
                 );
                 match include_proof {
                     IncludeProof::Yes => {
-                        // scale encode consensus_states
+                        // scale encode result
                         let value = codec::Encode::encode(&result);
                         let state_proof = utils::build_state_proof(
                             relay_rpc_client,
@@ -2605,7 +2711,7 @@ impl ChainEndpoint for SubstrateChain {
 
                         match include_proof {
                             IncludeProof::Yes => {
-                                // scale encode consensus_states
+                                // scale encode result
                                 let value = codec::Encode::encode(&result);
                                let state_proof= utils::build_state_proof(relay_rpc_client, query_hash,
                                 storage.to_bytes(), value).await;
@@ -2670,7 +2776,7 @@ impl ChainEndpoint for SubstrateChain {
 
                         match include_proof {
                             IncludeProof::Yes => {
-                                // scale encode consensus_states
+                                // scale encode result
                                 let value = codec::Encode::encode(&result);
                                let state_proof= utils::build_state_proof(relay_rpc_client, query_hash,
                                 storage.to_bytes(), value).await;
