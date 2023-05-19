@@ -150,6 +150,10 @@ pub fn build_transfer_message(
         timeout_height,
         timeout_timestamp,
     };
+    tracing::debug!(
+        "🐙🐙 ics10::transfer -> build_transfer_message msg: {:?}",
+        msg
+    );
 
     msg.to_any()
 }
@@ -165,6 +169,12 @@ pub fn build_transfer_messages<SrcChain: ChainHandle, DstChain: ChainHandle>(
     };
 
     let sender = src_chain.get_signer().map_err(TransferError::key)?;
+
+    tracing::debug!(
+        "🐙🐙 ics10::transfer -> build_transfer_messages sender: {:?} receiver:{:?}",
+        sender,
+        receiver
+    );
 
     let destination_chain_status = dst_chain
         .query_application_status()

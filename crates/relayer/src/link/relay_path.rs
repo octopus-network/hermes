@@ -38,6 +38,7 @@ use crate::chain::requests::QueryUnreceivedPacketsRequest;
 use crate::chain::requests::{IncludeProof, Qualified};
 use crate::chain::tracking::TrackedMsgs;
 use crate::chain::tracking::TrackingId;
+use crate::chain::ChainType;
 use crate::channel::error::ChannelError;
 use crate::channel::Channel;
 use crate::event::monitor::EventBatch;
@@ -813,16 +814,22 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
 
     /// Checks if a sent packet has been received on destination.
     fn send_packet_received_on_dst(&self, packet: &Packet) -> Result<bool, LinkError> {
-        let unreceived_packet = self
-            .dst_chain()
-            .query_unreceived_packets(QueryUnreceivedPacketsRequest {
-                port_id: self.dst_port_id().clone(),
-                channel_id: self.dst_channel_id().clone(),
-                packet_commitment_sequences: vec![packet.sequence],
-            })
-            .map_err(LinkError::relayer)?;
+        //TODO: test and later remove
+        match self.dst_chain().config().unwrap().r#type {
+            ChainType::Substrate => Ok(false),
+            ChainType::CosmosSdk => {
+                let unreceived_packet = self
+                    .dst_chain()
+                    .query_unreceived_packets(QueryUnreceivedPacketsRequest {
+                        port_id: self.dst_port_id().clone(),
+                        channel_id: self.dst_channel_id().clone(),
+                        packet_commitment_sequences: vec![packet.sequence],
+                    })
+                    .map_err(LinkError::relayer)?;
 
-        Ok(unreceived_packet.is_empty())
+                Ok(unreceived_packet.is_empty())
+            }
+        }
     }
 
     /// Checks if a packet commitment has been cleared on source.

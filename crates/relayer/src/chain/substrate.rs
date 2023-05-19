@@ -15,6 +15,32 @@ use tokio::runtime::Runtime as TokioRuntime;
 use tonic::{codegen::http::Uri, metadata::AsciiMetadataValue};
 use tracing::{debug, error, instrument, trace, warn};
 
+use crate::chain::client::ClientSettings;
+use crate::chain::cosmos::batch::{
+    send_batched_messages_and_wait_check_tx, send_batched_messages_and_wait_commit,
+    sequential_send_batched_messages_and_wait_commit,
+};
+use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
+use crate::chain::handle::Subscription;
+use crate::chain::requests::*;
+use crate::chain::tracking::TrackedMsgs;
+use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
+use crate::config::{parse_gas_prices, ChainConfig, GasPrice};
+use crate::consensus_state::AnyConsensusState;
+use crate::denom::DenomTrace;
+use crate::error::Error;
+use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver, TxMonitorCmd as BeefyTxMonitorCmd};
+use crate::event::substrate_mointor::{EventMonitor, TxMonitorCmd};
+use crate::event::IbcEventWithHeight;
+use crate::keyring::{KeyRing, Secp256k1KeyPair, SigningKeyPair};
+use crate::light_client::tendermint::LightClient as TmLightClient;
+use crate::light_client::{LightClient, Verified};
+use crate::misbehaviour::MisbehaviourEvidence;
+use crate::util::pretty::{
+    PrettyIdentifiedChannel, PrettyIdentifiedClientState, PrettyIdentifiedConnection,
+};
+use crate::{account::Balance, config::default::para_chain_addr};
+use codec::Decode;
 use ibc_proto::cosmos::base::node::v1beta1::ConfigResponse;
 use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
 use ibc_proto::protobuf::Protobuf;
@@ -46,40 +72,14 @@ use ibc_relayer_types::core::ics24_host::{
     ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH,
 };
 use ibc_relayer_types::signer::Signer;
+use ibc_relayer_types::timestamp::Timestamp;
 use ibc_relayer_types::Height as ICSHeight;
+
 use tendermint::block::Height as TmHeight;
 use tendermint::node::info::TxIndexStatus;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
 use tendermint_rpc::endpoint::status;
 use tendermint_rpc::{Client, HttpClient, Order};
-
-use crate::chain::client::ClientSettings;
-use crate::chain::cosmos::batch::{
-    send_batched_messages_and_wait_check_tx, send_batched_messages_and_wait_commit,
-    sequential_send_batched_messages_and_wait_commit,
-};
-use crate::chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck};
-use crate::chain::handle::Subscription;
-use crate::chain::requests::*;
-use crate::chain::tracking::TrackedMsgs;
-use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
-use crate::config::{parse_gas_prices, ChainConfig, GasPrice};
-use crate::consensus_state::AnyConsensusState;
-use crate::denom::DenomTrace;
-use crate::error::Error;
-use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver, TxMonitorCmd as BeefyTxMonitorCmd};
-use crate::event::substrate_mointor::{EventMonitor, TxMonitorCmd};
-use crate::event::IbcEventWithHeight;
-use crate::keyring::{KeyRing, Secp256k1KeyPair, SigningKeyPair};
-use crate::light_client::tendermint::LightClient as TmLightClient;
-use crate::light_client::{LightClient, Verified};
-use crate::misbehaviour::MisbehaviourEvidence;
-use crate::util::pretty::{
-    PrettyIdentifiedChannel, PrettyIdentifiedClientState, PrettyIdentifiedConnection,
-};
-use crate::{account::Balance, config::default::para_chain_addr};
-use codec::Decode;
-use ibc_relayer_types::timestamp::Timestamp;
 // substrate
 use serde::{Deserialize, Serialize};
 use subxt::rpc::RpcClient as SubxtRpcClient;
@@ -495,9 +495,15 @@ impl SubstrateChain {
                         let tx = relaychain_node::tx().ics20_transfer().raw_transfer(msg);
                         let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
                         let result = runtime.block_on(deliver);
-
+                        // debug!(
+                        //     "🐙🐙 ics10::substrate -> do_send_messages_and_wait_commit transfer result : {:?}",
+                        //     result
+                        // );
                         let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
-
+                        debug!(
+                            "🐙🐙 ics10::substrate -> do_send_messages_and_wait_commit transfer events : {:?}",
+                            events
+                        );
                         let ibc_events = events
                             .unwrap()
                             .find_first::<relaychain_node::ibc::events::IbcEvents>()
@@ -830,12 +836,20 @@ impl ChainEndpoint for SubstrateChain {
     fn get_signer(&self) -> Result<Signer, Error> {
         crate::time!("get_signer");
         use crate::chain::cosmos::encode::key_pair_to_signer;
+        use sp_core::hexdisplay::HexDisplay;
+        use sp_keyring::AccountKeyring;
+        // // Get the key from key seed file
+        // let key_pair = self.key()?;
 
-        // Get the key from key seed file
-        let key_pair = self.key()?;
+        // let signer = key_pair_to_signer(&key_pair)?;
+        let account_id = AccountKeyring::Alice.to_account_id();
+        let pub_str = format!("0x{}", HexDisplay::from(&account_id.as_ref()));
+        debug!(
+            "🐙🐙 ics10::substrate -> get_signer account_id hex: {:?}",
+            pub_str
+        );
 
-        let signer = key_pair_to_signer(&key_pair)?;
-
+        let signer = Signer::from_str(&pub_str).unwrap();
         Ok(signer)
     }
 
