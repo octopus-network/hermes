@@ -28,7 +28,7 @@ use super::{
     handle::ChainHandle,
     requests::{QueryConnectionChannelsRequest, QueryPacketCommitmentsRequest},
 };
-use crate::chain::requests::QueryHeight;
+use crate::chain::{requests::QueryHeight, ChainType};
 use crate::channel::ChannelError;
 use crate::client_state::IdentifiedAnyClientState;
 use crate::path::PathIdentifiers;
@@ -495,11 +495,30 @@ pub fn unreceived_packets(
         &path.counterparty_port_id,
         &path.counterparty_channel_id,
     )?;
+    tracing::debug!("🐙🐙 ics10::counterparty -> unreceived_packets commit_sequences:{:?} in counterparty_chain:{:?}",commit_sequences,counterparty_chain.id());
 
-    let packet_seq_nrs =
-        unreceived_packets_sequences(chain, &path.port_id, &path.channel_id, commit_sequences)?;
+    //TODO: testing skip substrate chain
+    let chain_type = chain.config().unwrap().r#type;
+    match chain_type {
+        ChainType::Substrate => {
+            //do not query from substrate
+            Ok((commit_sequences, h))
+        }
+        ChainType::CosmosSdk => {
+            let packet_seq_nrs = unreceived_packets_sequences(
+                chain,
+                &path.port_id,
+                &path.channel_id,
+                commit_sequences,
+            )?;
+            Ok((packet_seq_nrs, h))
+        }
+    }
+    // let packet_seq_nrs =
+    //     unreceived_packets_sequences(chain, &path.port_id, &path.channel_id, commit_sequences)?;
 
-    Ok((packet_seq_nrs, h))
+    // Ok((packet_seq_nrs, h))
+    // Ok((commit_sequences, h))
 }
 
 pub fn acknowledgements_on_chain(
