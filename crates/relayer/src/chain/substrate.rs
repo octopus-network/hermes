@@ -1282,7 +1282,6 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // todo
     fn query_consensus_state_heights(
         &self,
         request: QueryConsensusStateHeightsRequest,
@@ -2441,7 +2440,7 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                // Ok((result.0, None))
+
                 debug!(
                     "substrate::query_packet_commitment -> packet commitment: {:?}",
                     result
@@ -2506,7 +2505,7 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                // Ok((result.0, None))
+
                 debug!(
                     "substrate::query_packet_commitment -> packet commitment: {:?}",
                     result
@@ -2818,13 +2817,13 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_unreceived_packets");
         crate::telemetry!(query, self.id(), "query_unreceived_packets");
 
-        async fn query_packet_receipt(
+        async fn query_unreceived_packets(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryUnreceivedPacketsRequest,
         ) -> Result<Vec<Sequence>, Error> {
             if let Some(rpc_client) = para_rpc_client {
-                let key_addr = parachain_node::storage().ibc().channels_root();
+                let key_addr = parachain_node::storage().ibc().packet_receipt_root();
 
                 let mut iter = rpc_client
                     .storage()
@@ -2835,31 +2834,57 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap();
 
+                let pair = request
+                    .packet_commitment_sequences
+                    .into_iter()
+                    .map(|sequence| {
+                        (
+                            request.port_id.clone(),
+                            request.channel_id.clone(),
+                            sequence.clone(),
+                        )
+                    });
+
                 let mut result = vec![];
-                while let Some((key, value)) = iter.next().await.unwrap() {
-                    let raw_key = key.0[48..].to_vec();
-                    let rets = parachain_node::runtime_types::ibc::core::ics24_host::path::CommitmentsPath::decode(&mut &*raw_key).unwrap();
-                    let port_id = PortId::from(rets.port_id);
-                    let channel_id = ChannelId::from(rets.channel_id);
-                    let sequence = Sequence::from(rets.sequence);
+                for (port_id, channel_id, sequence) in pair {
+                    let port_id =
+                        parachain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                            port_id.to_string(),
+                        );
+                    let channel_id =
+                        parachain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                            channel_id.to_string(),
+                        );
+                    let seq =
+                        parachain_node::runtime_types::ibc::core::ics04_channel::packet::Sequence(
+                            u64::from(sequence),
+                        );
+                    let packet_receipt_path =
+                        parachain_node::runtime_types::ibc::core::ics24_host::path::ReceiptsPath {
+                            port_id,
+                            channel_id,
+                            sequence: seq,
+                        };
+                    let storage = parachain_node::storage()
+                        .ibc()
+                        .packet_receipt(&packet_receipt_path);
 
-                    if port_id == request.port_id && channel_id == request.channel_id {
-                        result.push(sequence);
+                    let ret = rpc_client
+                        .storage()
+                        .at(None)
+                        .await
+                        .unwrap()
+                        .fetch(&storage)
+                        .await
+                        .unwrap();
+
+                    if ret.is_none() {
+                        result.push(sequence)
                     }
                 }
-
-                let mut ret = vec![];
-                for seq in request.packet_commitment_sequences {
-                    for in_seq in result.iter() {
-                        if seq != *in_seq {
-                            ret.push(seq);
-                        }
-                    }
-                }
-
-                Ok(ret)
+                Ok(result)
             } else {
-                let key_addr = relaychain_node::storage().ibc().channels_root();
+                let key_addr = relaychain_node::storage().ibc().packet_receipt_root();
 
                 let mut iter = relay_rpc_client
                     .storage()
@@ -2870,29 +2895,55 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap();
 
+                let pair = request
+                    .packet_commitment_sequences
+                    .into_iter()
+                    .map(|sequence| {
+                        (
+                            request.port_id.clone(),
+                            request.channel_id.clone(),
+                            sequence.clone(),
+                        )
+                    });
+
                 let mut result = vec![];
-                while let Some((key, value)) = iter.next().await.unwrap() {
-                    let raw_key = key.0[48..].to_vec();
-                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::CommitmentsPath::decode(&mut &*raw_key).unwrap();
-                    let port_id = PortId::from(rets.port_id);
-                    let channel_id = ChannelId::from(rets.channel_id);
-                    let sequence = Sequence::from(rets.sequence);
+                for (port_id, channel_id, sequence) in pair {
+                    let port_id =
+                        relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                            port_id.to_string(),
+                        );
+                    let channel_id =
+                        relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                            channel_id.to_string(),
+                        );
+                    let seq =
+                        relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Sequence(
+                            u64::from(sequence),
+                        );
+                    let packet_receipt_path =
+                        relaychain_node::runtime_types::ibc::core::ics24_host::path::ReceiptsPath {
+                            port_id,
+                            channel_id,
+                            sequence: seq,
+                        };
+                    let storage = relaychain_node::storage()
+                        .ibc()
+                        .packet_receipt(&packet_receipt_path);
 
-                    if port_id == request.port_id && channel_id == request.channel_id {
-                        result.push(sequence);
+                    let ret = relay_rpc_client
+                        .storage()
+                        .at(None)
+                        .await
+                        .unwrap()
+                        .fetch(&storage)
+                        .await
+                        .unwrap();
+
+                    if ret.is_none() {
+                        result.push(sequence)
                     }
                 }
-
-                let mut ret = vec![];
-                for seq in request.packet_commitment_sequences {
-                    for in_seq in result.iter() {
-                        if seq != *in_seq {
-                            ret.push(seq);
-                        }
-                    }
-                }
-
-                Ok(ret)
+                Ok(result)
             }
         }
 
@@ -2900,9 +2951,9 @@ impl ChainEndpoint for SubstrateChain {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => self.block_on(query_packet_receipt(relay_rpc, Some(para_rpc), request)),
+            } => self.block_on(query_unreceived_packets(relay_rpc, Some(para_rpc), request)),
             RpcClient::SubChainRpc { rpc } => {
-                self.block_on(query_packet_receipt(rpc, None, request))
+                self.block_on(query_unreceived_packets(rpc, None, request))
             }
         }
     }
@@ -2957,8 +3008,6 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-
-                // Ok((result.into(), None))
 
                 debug!(
                     "substrate::query_next_sequence_receive -> sequence: {:?}",
@@ -3028,7 +3077,7 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                // Ok((result.into(), None))
+
                 match include_proof {
                     IncludeProof::Yes => {
                         // // Note: We expect the return to be a u64 encoded in big-endian. Refer to ibc-go:
@@ -3129,7 +3178,6 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                // Ok((result.0, None))
 
                 debug!(
                     "substrate::query_packet_acknowledgement -> ack commitment: {:?}",
@@ -3196,7 +3244,7 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                // Ok((result.0, None))
+
                 debug!(
                     "substrate::query_packet_acknowledgement -> ack commitment: {:?}",
                     result
@@ -3241,7 +3289,6 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // todo
     /// Queries the packet acknowledgment hashes associated with a channel.
     fn query_packet_acknowledgements(
         &self,
@@ -3325,7 +3372,6 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap();
 
-                // todo ics height need to set
                 Ok((
                     result,
                     ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap(),
@@ -3458,8 +3504,105 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryTxRequest,
         ) -> Result<Vec<IbcEventWithHeight>, Error> {
-            // todo
-            todo!()
+            if let Some(rpc_client) = para_rpc_client {
+                match request {
+                    QueryTxRequest::Client(request) => {
+                        use ibc_relayer_types::core::ics02_client::events::Attributes;
+                        use ibc_relayer_types::events::IbcEvent;
+
+                        // Todo: the client event below is mock
+                        // replace it with real client event replied from a Substrate chain
+                        let height = match request.query_height {
+                            QueryHeight::Latest => {
+                                use subxt::config::Header;
+                                let finalized_head_hash =
+                                    rpc_client.rpc().finalized_head().await.unwrap();
+
+                                let block = rpc_client
+                                    .rpc()
+                                    .block(Some(finalized_head_hash))
+                                    .await
+                                    .unwrap();
+
+                                ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
+                                    .unwrap()
+                            }
+                            QueryHeight::Specific(value) => value.clone(),
+                        };
+
+                        let result: Vec<IbcEventWithHeight> = vec![IbcEventWithHeight {
+                            event: IbcEvent::UpdateClient(
+                                ibc_relayer_types::core::ics02_client::events::UpdateClient::from(
+                                    Attributes {
+                                        client_id: request.client_id,
+                                        client_type: ClientType::Grandpa,
+                                        consensus_height: request.consensus_height,
+                                    },
+                                ),
+                            ),
+                            height,
+                        }];
+
+                        Ok(result)
+                    }
+
+                    QueryTxRequest::Transaction(_tx) => {
+                        // tracing::trace!("in substrate: [query_txs]: Transaction: {:?}", tx);
+                        // Todo: https://github.com/octopus-network/ibc-rs/issues/98
+                        let result: Vec<IbcEventWithHeight> = vec![];
+                        Ok(result)
+                    }
+                }
+            } else {
+                match request {
+                    QueryTxRequest::Client(request) => {
+                        use ibc_relayer_types::core::ics02_client::events::Attributes;
+                        use ibc_relayer_types::events::IbcEvent;
+
+                        // Todo: the client event below is mock
+                        // replace it with real client event replied from a Substrate chain
+                        let height = match request.query_height {
+                            QueryHeight::Latest => {
+                                use subxt::config::Header;
+                                let finalized_head_hash =
+                                    relay_rpc_client.rpc().finalized_head().await.unwrap();
+
+                                let block = relay_rpc_client
+                                    .rpc()
+                                    .block(Some(finalized_head_hash))
+                                    .await
+                                    .unwrap();
+
+                                ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
+                                    .unwrap()
+                            }
+                            QueryHeight::Specific(value) => value.clone(),
+                        };
+
+                        let result: Vec<IbcEventWithHeight> = vec![IbcEventWithHeight {
+                            event: IbcEvent::UpdateClient(
+                                ibc_relayer_types::core::ics02_client::events::UpdateClient::from(
+                                    Attributes {
+                                        client_id: request.client_id,
+                                        client_type: ClientType::Grandpa,
+                                        consensus_height: request.consensus_height,
+                                    },
+                                ),
+                            ),
+                            height,
+                        }];
+
+                        Ok(result)
+                    }
+
+                    QueryTxRequest::Transaction(_tx) => {
+                        // tracing::trace!("in substrate: [query_txs]: Transaction: {:?}", tx);
+                        // Todo: https://github.com/octopus-network/ibc-rs/issues/98
+                        let result: Vec<IbcEventWithHeight> = vec![];
+                        Ok(result)
+                    }
+                }
+            }
         }
 
         match &self.rpc_client {
