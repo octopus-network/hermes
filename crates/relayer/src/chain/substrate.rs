@@ -329,11 +329,38 @@ impl SubstrateChain {
     }
 
     /// Query the chain's latest height
-    pub fn query_chain_latest_height(&self) -> Result<ICSHeight, Error> {
+    pub async fn query_chain_latest_height(
+        relay_rpc_client: &OnlineClient<PolkadotConfig>,
+        para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+    ) -> Result<ICSHeight, Error> {
         crate::time!("query_latest_height");
-        crate::telemetry!(query, self.id(), "query_latest_height");
+        if let Some(rpc_client) = para_rpc_client {
+            use subxt::config::Header;
+            let finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
 
-        todo!()
+            let block = rpc_client
+                .rpc()
+                .block(Some(finalized_head_hash))
+                .await
+                .unwrap();
+
+            let height =
+                ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+            Ok(height)
+        } else {
+            use subxt::config::Header;
+            let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+
+            let block = relay_rpc_client
+                .rpc()
+                .block(Some(finalized_head_hash))
+                .await
+                .unwrap();
+
+            let height =
+                ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+            Ok(height)
+        }
     }
 
     #[instrument(
@@ -402,18 +429,10 @@ impl SubstrateChain {
                             .find_first::<parachain_node::ibc::events::IbcEvents>()
                             .unwrap()
                             .unwrap();
-                        use subxt::config::Header;
-                        let finalized_head_hash =
-                            runtime.block_on(para_rpc.rpc().finalized_head()).unwrap();
 
-                        let block = runtime
-                            .block_on(para_rpc.rpc().block(Some(finalized_head_hash)))
+                        let height = self
+                            .block_on(Self::query_chain_latest_height(relay_rpc, Some(para_rpc)))
                             .unwrap();
-
-                        let height =
-                            ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
-                                .unwrap();
-
                         let es: Vec<IbcEventWithHeight> = ibc_events
                             .events
                             .into_iter()
@@ -437,17 +456,9 @@ impl SubstrateChain {
                             .find_first::<parachain_node::ibc::events::IbcEvents>()
                             .unwrap()
                             .unwrap();
-                        use subxt::config::Header;
-                        let finalized_head_hash =
-                            runtime.block_on(para_rpc.rpc().finalized_head()).unwrap();
-
-                        let block = runtime
-                            .block_on(para_rpc.rpc().block(Some(finalized_head_hash)))
+                        let height = self
+                            .block_on(Self::query_chain_latest_height(relay_rpc, Some(para_rpc)))
                             .unwrap();
-
-                        let height =
-                            ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
-                                .unwrap();
 
                         let es: Vec<IbcEventWithHeight> = ibc_events
                             .events
@@ -509,17 +520,9 @@ impl SubstrateChain {
                             .find_first::<relaychain_node::ibc::events::IbcEvents>()
                             .unwrap()
                             .unwrap();
-                        use subxt::config::Header;
-                        let finalized_head_hash =
-                            runtime.block_on(rpc.rpc().finalized_head()).unwrap();
-
-                        let block = runtime
-                            .block_on(rpc.rpc().block(Some(finalized_head_hash)))
+                        let height = self
+                            .block_on(Self::query_chain_latest_height(rpc, None))
                             .unwrap();
-                        let height =
-                            ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
-                                .unwrap();
-
                         let es: Vec<IbcEventWithHeight> = ibc_events
                             .events
                             .into_iter()
@@ -543,17 +546,9 @@ impl SubstrateChain {
                             .find_first::<relaychain_node::ibc::events::IbcEvents>()
                             .unwrap()
                             .unwrap();
-                        use subxt::config::Header;
-                        let finalized_head_hash =
-                            runtime.block_on(rpc.rpc().finalized_head()).unwrap();
-
-                        let block = runtime
-                            .block_on(rpc.rpc().block(Some(finalized_head_hash)))
+                        let height = self
+                            .block_on(Self::query_chain_latest_height(rpc, None))
                             .unwrap();
-                        let height =
-                            ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
-                                .unwrap();
-
                         let es: Vec<IbcEventWithHeight> = ibc_events
                             .events
                             .into_iter()
@@ -981,7 +976,6 @@ impl ChainEndpoint for SubstrateChain {
                     .block(Some(finalized_head_hash))
                     .await
                     .unwrap();
-
                 Ok(ChainStatus {
                     height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
                         .unwrap(),
@@ -2605,10 +2599,11 @@ impl ChainEndpoint for SubstrateChain {
                     .block(Some(finalized_head_hash))
                     .await
                     .unwrap();
-                Ok((
-                    result,
-                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap(),
-                ))
+
+                let height =
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+
+                Ok((result, height))
             } else {
                 let key_addr = relaychain_node::storage().ibc().channels_root();
 
@@ -2641,10 +2636,11 @@ impl ChainEndpoint for SubstrateChain {
                     .block(Some(finalized_head_hash))
                     .await
                     .unwrap();
-                Ok((
-                    result,
-                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap(),
-                ))
+
+                let height =
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+
+                Ok((result, height))
             }
         }
 
@@ -3348,11 +3344,10 @@ impl ChainEndpoint for SubstrateChain {
                     .block(Some(finalized_head_hash))
                     .await
                     .unwrap();
+                let height =
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
 
-                Ok((
-                    result,
-                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap(),
-                ))
+                Ok((result, height))
             } else {
                 let key_addr = relaychain_node::storage().ibc().acknowledgements_root();
 
@@ -3385,11 +3380,10 @@ impl ChainEndpoint for SubstrateChain {
                     .block(Some(finalized_head_hash))
                     .await
                     .unwrap();
+                let height =
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
 
-                Ok((
-                    result,
-                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap(),
-                ))
+                Ok((result, height))
             }
         }
 
