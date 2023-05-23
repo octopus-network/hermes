@@ -726,6 +726,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // todo
     fn query_balance(&self, key_name: Option<&str>, denom: Option<&str>) -> Result<Balance, Error> {
         async fn query_balance(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
@@ -749,6 +750,8 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // todo
+    // native token and cross chain token
     fn query_all_balances(&self, key_name: Option<&str>) -> Result<Vec<Balance>, Error> {
         async fn query_all_balances(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
@@ -768,6 +771,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // todo
     fn query_denom_trace(&self, hash: String) -> Result<DenomTrace, Error> {
         fn query_denom_trace(
             rt: Arc<TokioRuntime>,
@@ -879,7 +883,7 @@ impl ChainEndpoint for SubstrateChain {
                     let raw_key = key.0[48..].to_vec();
                     let key = parachain_node::runtime_types::ibc::core::ics24_host::path::ClientStatePath::decode(&mut &*raw_key).unwrap();
                     let client_id = ClientId::from(key.0);
-                    // todo (davirian) maybe this have error
+
                     let client_state = AnyClientState::decode_vec(&value).map_err(Error::decode)?;
 
                     result.push(IdentifiedAnyClientState {
@@ -905,7 +909,7 @@ impl ChainEndpoint for SubstrateChain {
                     let raw_key = key.0[48..].to_vec();
                     let key = relaychain_node::runtime_types::ibc::core::ics24_host::path::ClientStatePath::decode(&mut &*raw_key).unwrap();
                     let client_id = ClientId::from(key.0);
-                    // todo (davirian) maybe this have error
+
                     let client_state = AnyClientState::decode_vec(&value).map_err(Error::decode)?;
 
                     result.push(IdentifiedAnyClientState {
@@ -1701,7 +1705,6 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // need todo
     fn query_connection_channels(
         &self,
         request: QueryConnectionChannelsRequest,
@@ -2069,7 +2072,6 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // todo
     fn query_channel_client_state(
         &self,
         request: QueryChannelClientStateRequest,
@@ -2675,7 +2677,6 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // todo
     /// Queries the unreceived packet sequences associated with a channel.
     fn query_unreceived_packets(
         &self,
@@ -3495,6 +3496,7 @@ impl ChainEndpoint for SubstrateChain {
         crate::time!("query_packet_events");
         crate::telemetry!(query, self.id(), "query_packet_events");
 
+        // todo need impl
         async fn query_packet_events(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
