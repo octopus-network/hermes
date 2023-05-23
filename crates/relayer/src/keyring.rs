@@ -4,6 +4,7 @@ pub use ed25519_key_pair::Ed25519KeyPair;
 pub use key_type::KeyType;
 pub use secp256k1_key_pair::Secp256k1KeyPair;
 pub use signing_key_pair::{SigningKeyPair, SigningKeyPairSized};
+pub use sr25519_key_pair::Sr25519KeyPair;
 
 mod any_signing_key_pair;
 mod ed25519_key_pair;
@@ -12,6 +13,7 @@ mod key_utils;
 mod pub_key;
 mod secp256k1_key_pair;
 mod signing_key_pair;
+mod sr25519_key_pair;
 
 use alloc::collections::btree_map::BTreeMap as HashMap;
 use std::ffi::OsStr;
@@ -280,6 +282,16 @@ impl KeyRing<Ed25519KeyPair> {
     }
 }
 
+impl KeyRing<Sr25519KeyPair> {
+    pub fn new_sr25519(
+        store: Store,
+        account_prefix: &str,
+        chain_id: &ChainId,
+    ) -> Result<Self, Error> {
+        Self::new(store, account_prefix, chain_id)
+    }
+}
+
 pub fn list_keys(config: &ChainConfig) -> Result<Vec<(String, AnySigningKeyPair)>, Error> {
     let keys = match config.r#type {
         ChainType::CosmosSdk => {
@@ -290,7 +302,14 @@ pub fn list_keys(config: &ChainConfig) -> Result<Vec<(String, AnySigningKeyPair)
                 .map(|(key_name, keys)| (key_name, keys.into()))
                 .collect()
         }
-        ChainType::Substrate => todo!(),
+        ChainType::Substrate => {
+            let keyring = KeyRing::new_sr25519(Store::Test, &config.account_prefix, &config.id)?;
+            keyring
+                .keys()?
+                .into_iter()
+                .map(|(key_name, keys)| (key_name, keys.into()))
+                .collect()
+        }
     };
     Ok(keys)
 }
