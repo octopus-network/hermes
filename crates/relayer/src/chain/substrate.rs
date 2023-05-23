@@ -162,37 +162,10 @@ impl SubstrateChain {
         &self.config
     }
 
-    /// The maximum size of any transaction sent by the relayer to this chain
-    fn max_tx_size(&self) -> usize {
-        todo!()
-    }
-
     fn key(&self) -> Result<Secp256k1KeyPair, Error> {
         self.keybase()
             .get_key(&self.config.key_name)
             .map_err(Error::key_base)
-    }
-
-    /// Fetches the trusting period as a `Duration` from the chain config.
-    /// If no trusting period exists in the config, the trusting period is calculated
-    /// as two-thirds of the `unbonding_period`.
-    fn trusting_period(&self, unbonding_period: Duration) -> Duration {
-        todo!()
-    }
-
-    /// Performs validation of the relayer's configuration
-    /// for a specific chain against the parameters of that chain.
-    ///
-    /// Currently, validates the following:
-    ///     - the configured `max_tx_size` is appropriate
-    ///     - the trusting period is greater than zero
-    ///     - the trusting period is smaller than the unbonding period
-    ///     - the default gas is smaller than the max gas
-    ///
-    /// Emits a log warning in case any error is encountered and
-    /// exits early without doing subsequent validations.
-    pub fn validate_params(&self) -> Result<(), Error> {
-        Ok(())
     }
 
     fn init_event_monitor(&mut self) -> Result<TxMonitorCmd, Error> {
@@ -244,88 +217,10 @@ impl SubstrateChain {
         Ok(monitor_tx)
     }
 
-    /// Query the chain staking parameters
-    pub fn query_staking_params(&self) -> Result<StakingParams, Error> {
-        crate::time!("query_staking_params");
-        crate::telemetry!(query, self.id(), "query_staking_params");
-        todo!()
-    }
-
-    /// Query the node for its configuration parameters.
-    ///
-    /// ### Note: This query endpoint was introduced in SDK v0.46.3/v0.45.10. Not available before that.
-    ///
-    /// Returns:
-    ///     - `Ok(Some(..))` if the query was successful.
-    ///     - `Ok(None) in case the query endpoint is not available.
-    ///     - `Err` for any other error.
-    pub fn query_config_params(&self) -> Result<Option<ConfigResponse>, Error> {
-        crate::time!("query_config_params");
-        crate::telemetry!(query, self.id(), "query_config_params");
-        todo!()
-    }
-
-    /// The minimum gas price that this node accepts
-    pub fn min_gas_price(&self) -> Result<Vec<GasPrice>, Error> {
-        crate::time!("min_gas_price");
-
-        todo!()
-    }
-
-    /// The unbonding period of this chain
-    pub fn unbonding_period(&self) -> Result<Duration, Error> {
-        crate::time!("unbonding_period");
-
-        todo!()
-    }
-
-    /// The number of historical entries kept by this chain
-    pub fn historical_entries(&self) -> Result<u32, Error> {
-        crate::time!("historical_entries");
-
-        todo!()
-    }
-
     /// Run a future to completion on the Tokio runtime.
     fn block_on<F: Future>(&self, f: F) -> F::Output {
         crate::time!("block_on");
         self.rt.block_on(f)
-    }
-
-    /// Perform an ABCI query against the client upgrade sub-store.
-    ///
-    /// The data is returned in its raw format `Vec<u8>`, and is either the
-    /// client state (if the target path is [`UpgradedClientState`]), or the
-    /// client consensus state ([`UpgradedClientConsensusState`]).
-    ///
-    /// Note: This is a special query in that it will only succeed if the chain
-    /// is halted after reaching the height proposed in a successful governance
-    /// proposal to upgrade the chain. In this scenario, let P be the height at
-    /// which the chain is planned to upgrade. We assume that the chain is
-    /// halted at height P. Tendermint will be at height P (as reported by the
-    /// /status RPC query), but the application will be at height P-1 (as
-    /// reported by the /abci_info RPC query).
-    ///
-    /// Therefore, `query_height` needs to be P-1. However, the path specified
-    /// in `query_data` needs to be constructed with height `P`, as this is how
-    /// the chain will have stored it in its upgrade sub-store.
-    fn query_client_upgrade_state(
-        &self,
-        query_data: ClientUpgradePath,
-        query_height: ICSHeight,
-    ) -> Result<(Vec<u8>, MerkleProof), Error> {
-        todo!()
-    }
-
-    /// Query the chain status via an RPC query.
-    ///
-    /// Returns an error if the node is still syncing and has not caught up,
-    /// ie. if `sync_info.catching_up` is `true`.
-    fn chain_status(&self) -> Result<status::Response, Error> {
-        crate::time!("chain_status");
-        crate::telemetry!(query, self.id(), "status");
-
-        todo!()
     }
 
     /// Query the chain's latest height
@@ -563,44 +458,6 @@ impl SubstrateChain {
                 }
             }
         }
-    }
-
-    #[instrument(
-        name = "send_messages_and_wait_check_tx",
-        level = "error",
-        skip_all,
-        fields(
-            chain = %self.id(),
-            tracking_id = %tracked_msgs.tracking_id()
-        ),
-    )]
-    async fn do_send_messages_and_wait_check_tx(
-        &mut self,
-        tracked_msgs: TrackedMsgs,
-    ) -> Result<Vec<Response>, Error> {
-        crate::time!("send_messages_and_wait_check_tx");
-        todo!()
-    }
-
-    fn query_packet_from_block(
-        &self,
-        request: &QueryPacketEventDataRequest,
-        seqs: &[Sequence],
-        block_height: &ICSHeight,
-    ) -> Result<(Vec<IbcEventWithHeight>, Vec<IbcEventWithHeight>), Error> {
-        crate::time!("query_block: query block packet events");
-        crate::telemetry!(query, self.id(), "query_block");
-
-        todo!()
-    }
-
-    fn query_packets_from_blocks(
-        &self,
-        request: &QueryPacketEventDataRequest,
-    ) -> Result<(Vec<IbcEventWithHeight>, Vec<IbcEventWithHeight>), Error> {
-        crate::time!("query_blocks: query block packet events");
-        crate::telemetry!(query, self.id(), "query_blocks");
-        todo!()
     }
 }
 
