@@ -9,6 +9,7 @@ use core::{
 use digest::typenum::U264;
 use futures::future::join_all;
 use num_bigint::BigInt;
+use sp_core::{Pair, H256};
 use std::{cmp::Ordering, thread};
 
 use tokio::runtime::Runtime as TokioRuntime;
@@ -32,7 +33,7 @@ use crate::error::Error;
 use crate::event::beefy_monitor::{BeefyMonitor, BeefyReceiver, TxMonitorCmd as BeefyTxMonitorCmd};
 use crate::event::substrate_mointor::{EventMonitor, TxMonitorCmd};
 use crate::event::IbcEventWithHeight;
-use crate::keyring::{KeyRing, Secp256k1KeyPair, SigningKeyPair};
+use crate::keyring::{KeyRing, SigningKeyPair, Sr25519KeyPair};
 use crate::light_client::tendermint::LightClient as TmLightClient;
 use crate::light_client::{LightClient, Verified};
 use crate::misbehaviour::MisbehaviourEvidence;
@@ -77,6 +78,7 @@ use ibc_relayer_types::Height as ICSHeight;
 
 use tendermint::block::Height as TmHeight;
 use tendermint::node::info::TxIndexStatus;
+use tendermint::Time;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
 use tendermint_rpc::endpoint::status;
 use tendermint_rpc::{Client, HttpClient, Order};
@@ -141,7 +143,7 @@ pub struct SubstrateChain {
     rt: Arc<TokioRuntime>,
     relay_chain_addr: String,
     para_chain_addr: String,
-    keybase: KeyRing<Secp256k1KeyPair>,
+    keybase: KeyRing<Sr25519KeyPair>,
     tx_event_monitor_cmd: Option<TxMonitorCmd>,
     tx_beefy_monitor_cmd: Option<BeefyTxMonitorCmd>,
 }
@@ -162,7 +164,12 @@ impl SubstrateChain {
         &self.config
     }
 
-    fn key(&self) -> Result<Secp256k1KeyPair, Error> {
+    /// The maximum size of any transaction sent by the relayer to this chain
+    fn max_tx_size(&self) -> usize {
+        todo!()
+    }
+
+    fn key(&self) -> Result<Sr25519KeyPair, Error> {
         self.keybase()
             .get_key(&self.config.key_name)
             .map_err(Error::key_base)
@@ -224,34 +231,35 @@ impl SubstrateChain {
     }
 
     /// Query the chain's latest height
-    pub async fn query_chain_latest_height(
+    pub async fn query_chain_height(
         relay_rpc_client: &OnlineClient<PolkadotConfig>,
         para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
+        block_hash: Option<H256>,
     ) -> Result<ICSHeight, Error> {
+        use subxt::config::Header;
         crate::time!("query_latest_height");
         if let Some(rpc_client) = para_rpc_client {
-            use subxt::config::Header;
-            let finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
+            let hash = if let Some(hash) = block_hash {
+                hash
+            } else {
+                let finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
+                finalized_head_hash
+            };
 
-            let block = rpc_client
-                .rpc()
-                .block(Some(finalized_head_hash))
-                .await
-                .unwrap();
+            let block = rpc_client.rpc().block(Some(hash)).await.unwrap();
 
             let height =
                 ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
             Ok(height)
         } else {
-            use subxt::config::Header;
-            let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+            let hash = if let Some(hash) = block_hash {
+                hash
+            } else {
+                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+                finalized_head_hash
+            };
 
-            let block = relay_rpc_client
-                .rpc()
-                .block(Some(finalized_head_hash))
-                .await
-                .unwrap();
-
+            let block = relay_rpc_client.rpc().block(Some(hash)).await.unwrap();
             let height =
                 ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
             Ok(height)
@@ -272,8 +280,12 @@ impl SubstrateChain {
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
         use ibc_relayer_types::applications::transfer::msgs::transfer::TYPE_URL as TRANSFER_TYPE_URL;
+        use ibc_relayer_types::core::ics04_channel::events::SendPacket;
         use ibc_relayer_types::events::IbcEvent;
+        use sp_core::sr25519::{Pair, Public};
+        use sp_core::Pair as PairT;
         use sp_keyring::AccountKeyring;
+
         debug!(
             "substrate::do_send_messages_and_wait_commit -> tracked_msgs: {:?}",
             tracked_msgs
@@ -306,10 +318,12 @@ impl SubstrateChain {
                             }
                         })
                         .collect();
-                // use default signer
-                let signer = PairSigner::new(AccountKeyring::Alice.pair());
 
+                let key_pair: Sr25519KeyPair = self.key()?;
+                let signer = PairSigner::new(key_pair.pair());
+                // let signer = PairSigner::new(AccountKeyring::Alice.pair());
                 let binding = para_rpc.tx();
+
                 let runtime = self.rt.clone();
                 match is_transfer_msg {
                     true => {
@@ -317,42 +331,56 @@ impl SubstrateChain {
 
                         let transfer = binding.sign_and_submit_then_watch_default(&tx, &signer);
                         let result = runtime.block_on(transfer);
-                        let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
+                        let events = runtime
+                            .block_on(result.unwrap().wait_for_finalized_success())
+                            .unwrap();
 
-                        let ibc_events = events
-                            .unwrap()
-                            .find_first::<parachain_node::ibc::events::IbcEvents>()
+                        let block_hash = events.block_hash();
+                        let send_packet_event = events
+                            .find_first::<relaychain_node::ics20_transfer::events::SendPacket>()
                             .unwrap()
                             .unwrap();
 
                         let height = self
-                            .block_on(Self::query_chain_latest_height(relay_rpc, Some(para_rpc)))
+                            .block_on(Self::query_chain_height(
+                                relay_rpc,
+                                Some(para_rpc),
+                                Some(block_hash),
+                            ))
                             .unwrap();
-                        let es: Vec<IbcEventWithHeight> = ibc_events
-                            .events
-                            .into_iter()
-                            .map(|e| IbcEventWithHeight {
-                                event: IbcEvent::from(e),
-                                height: height.clone(),
-                            })
-                            .collect();
 
-                        Ok(es)
+                        let event = SendPacket::from(send_packet_event.0);
+                        let event_with_height = IbcEventWithHeight {
+                            event: IbcEvent::from(event),
+                            height,
+                        };
+                        debug!(
+                            "🐙🐙 ics10::substrate -> do_send_messages_and_wait_commit transfer event_with_height : {:?}",
+                            event_with_height
+                        );
+
+                        Ok([event_with_height].to_vec())
                     }
                     false => {
                         let tx = parachain_node::tx().ibc().deliver(msg);
 
                         let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
                         let result = runtime.block_on(deliver);
-                        let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
+                        let events = runtime
+                            .block_on(result.unwrap().wait_for_finalized_success())
+                            .unwrap();
 
                         let ibc_events = events
-                            .unwrap()
                             .find_first::<parachain_node::ibc::events::IbcEvents>()
                             .unwrap()
                             .unwrap();
+                        let block_hash = events.block_hash();
                         let height = self
-                            .block_on(Self::query_chain_latest_height(relay_rpc, Some(para_rpc)))
+                            .block_on(Self::query_chain_height(
+                                relay_rpc,
+                                Some(para_rpc),
+                                Some(block_hash),
+                            ))
                             .unwrap();
 
                         let es: Vec<IbcEventWithHeight> = ibc_events
@@ -391,7 +419,10 @@ impl SubstrateChain {
                         })
                         .collect();
                 // use default signer
-                let signer = PairSigner::new(AccountKeyring::Alice.pair());
+
+                let key_pair: Sr25519KeyPair = self.key()?;
+                let signer = PairSigner::new(key_pair.pair());
+                // let signer = PairSigner::new(AccountKeyring::Alice.pair());
 
                 let binding = rpc.tx();
 
@@ -405,44 +436,51 @@ impl SubstrateChain {
                         //     "🐙🐙 ics10::substrate -> do_send_messages_and_wait_commit transfer result : {:?}",
                         //     result
                         // );
-                        let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
-                        debug!(
-                            "🐙🐙 ics10::substrate -> do_send_messages_and_wait_commit transfer events : {:?}",
-                            events
-                        );
-                        let ibc_events = events
-                            .unwrap()
-                            .find_first::<relaychain_node::ibc::events::IbcEvents>()
+                        let events = runtime
+                            .block_on(result.unwrap().wait_for_finalized_success())
+                            .unwrap();
+                        // debug!(
+                        //     "🐙🐙 ics10::substrate -> do_send_messages_and_wait_commit transfer events : {:?}",
+                        //     events
+                        // );
+                        let block_hash = events.block_hash();
+                        let send_packet_event = events
+                            .find_first::<relaychain_node::ics20_transfer::events::SendPacket>()
                             .unwrap()
                             .unwrap();
-                        let height = self
-                            .block_on(Self::query_chain_latest_height(rpc, None))
-                            .unwrap();
-                        let es: Vec<IbcEventWithHeight> = ibc_events
-                            .events
-                            .into_iter()
-                            .map(|e| IbcEventWithHeight {
-                                event: IbcEvent::from(e),
-                                height: height.clone(),
-                            })
-                            .collect();
 
-                        Ok(es)
+                        let height = self
+                            .block_on(Self::query_chain_height(rpc, None, Some(block_hash)))
+                            .unwrap();
+
+                        let event = SendPacket::from(send_packet_event.0);
+                        let event_with_height = IbcEventWithHeight {
+                            event: IbcEvent::from(event),
+                            height,
+                        };
+
+                        debug!(
+                            "🐙🐙 ics10::substrate -> do_send_messages_and_wait_commit transfer event_with_height : {:?}",
+                            event_with_height
+                        );
+
+                        Ok([event_with_height].to_vec())
                     }
                     false => {
                         let tx = relaychain_node::tx().ibc().deliver(msg);
                         let deliver = binding.sign_and_submit_then_watch_default(&tx, &signer);
                         let result = runtime.block_on(deliver);
 
-                        let events = runtime.block_on(result.unwrap().wait_for_finalized_success());
-
+                        let events = runtime
+                            .block_on(result.unwrap().wait_for_finalized_success())
+                            .unwrap();
+                        let block_hash = events.block_hash();
                         let ibc_events = events
-                            .unwrap()
                             .find_first::<relaychain_node::ibc::events::IbcEvents>()
                             .unwrap()
                             .unwrap();
                         let height = self
-                            .block_on(Self::query_chain_latest_height(rpc, None))
+                            .block_on(Self::query_chain_height(rpc, None, Some(block_hash)))
                             .unwrap();
                         let es: Vec<IbcEventWithHeight> = ibc_events
                             .events
@@ -469,7 +507,7 @@ impl ChainEndpoint for SubstrateChain {
     type Header = GpHeader;
     type ConsensusState = GpConsensusState;
     type ClientState = GpClientState;
-    type SigningKeyPair = Secp256k1KeyPair;
+    type SigningKeyPair = Sr25519KeyPair;
 
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
         let relay_chain_addr = config
@@ -687,21 +725,32 @@ impl ChainEndpoint for SubstrateChain {
     /// Get the account for the signer
     fn get_signer(&self) -> Result<Signer, Error> {
         crate::time!("get_signer");
-        use crate::chain::cosmos::encode::key_pair_to_signer;
-        use sp_core::hexdisplay::HexDisplay;
-        use sp_keyring::AccountKeyring;
-        // // Get the key from key seed file
-        // let key_pair = self.key()?;
+        // use crate::chain::cosmos::encode::key_pair_to_signer;
+        // use sp_core::hexdisplay::HexDisplay;
+        // use sp_keyring::AccountKeyring;
+        // // // Get the key from key seed file
+        // // let key_pair = self.key()?;
 
-        // let signer = key_pair_to_signer(&key_pair)?;
-        let account_id = AccountKeyring::Alice.to_account_id();
-        let pub_str = format!("0x{}", HexDisplay::from(&account_id.as_ref()));
+        // // let signer = key_pair_to_signer(&key_pair)?;
+        // let account_id = AccountKeyring::Alice.to_account_id();
+        // let pub_str = format!("0x{}", HexDisplay::from(&account_id.as_ref()));
+        // debug!(
+        //     "🐙🐙 ics10::substrate -> get_signer account_id hex: {:?}",
+        //     pub_str
+        // );
+        let key_pair = self.key()?;
         debug!(
-            "🐙🐙 ics10::substrate -> get_signer account_id hex: {:?}",
-            pub_str
+            "🐙🐙 ics10::substrate -> get_signer key_pair: {:?}",
+            key_pair
         );
 
-        let signer = Signer::from_str(&pub_str).unwrap();
+        // let signer = Signer::from_str(&key_pair.).unwrap();
+        let signer = key_pair
+            .account()
+            .parse()
+            .map_err(|e| Error::ics02(ClientError::signer(e)))?;
+
+        debug!("🐙🐙 ics10::substrate -> get_signer signer: {:?}", signer);
         Ok(signer)
     }
 
@@ -832,6 +881,39 @@ impl ChainEndpoint for SubstrateChain {
                 use subxt::config::Header;
                 let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
 
+                let storage = relaychain_node::storage().timestamp().now();
+
+                let result = relay_rpc_client
+                    .storage()
+                    .at(Some(finalized_head_hash))
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                debug!(
+                    " 🐙🐙 substrate::query_application_status -> latest time {:?}",
+                    result
+                );
+                // As the `u64` representation can only represent times up to
+                // about year 2554, there is no risk of overflowing `Time`
+                // or `OffsetDateTime`.
+                // let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
+                //     .unwrap()
+                //     .try_into()
+                //     .unwrap();
+                use sp_std::time::Duration;
+                let duration = Duration::from_millis(result);
+                let tm_timestamp =
+                    Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
+                        .unwrap();
+                // let timestamp = Timestamp::from_nanoseconds(result).unwrap();
+                debug!(
+                    " 🐙🐙 substrate::query_application_status -> timestamp {:?}",
+                    tm_timestamp
+                );
+
                 let block = relay_rpc_client
                     .rpc()
                     .block(Some(finalized_head_hash))
@@ -840,7 +922,7 @@ impl ChainEndpoint for SubstrateChain {
                 Ok(ChainStatus {
                     height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
                         .unwrap(),
-                    timestamp: Timestamp::default(),
+                    timestamp: tm_timestamp.into(),
                 })
             }
         }
@@ -3557,10 +3639,20 @@ impl ChainEndpoint for SubstrateChain {
                 // As the `u64` representation can only represent times up to
                 // about year 2554, there is no risk of overflowing `Time`
                 // or `OffsetDateTime`.
-                let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
-                    .unwrap()
-                    .try_into()
-                    .unwrap();
+                // let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
+                //     .unwrap()
+                //     .try_into()
+                //     .unwrap();
+
+                use sp_std::time::Duration;
+                let duration = Duration::from_millis(result);
+                let tm_timestamp =
+                    Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
+                        .unwrap();
+                debug!(
+                    " 🐙🐙 substrate::build_consensus_state -> timestamp {:?}",
+                    tm_timestamp
+                );
 
                 let last_finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
                 let finalized_head = rpc_client
@@ -3570,7 +3662,8 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
-                let consensus_state = GpConsensusState::new(root, timestamp);
+                let consensus_state = GpConsensusState::new(root, tm_timestamp);
+
                 Ok(consensus_state)
             } else {
                 let storage = relaychain_node::storage().timestamp().now();
@@ -3597,10 +3690,20 @@ impl ChainEndpoint for SubstrateChain {
                 // As the `u64` representation can only represent times up to
                 // about year 2554, there is no risk of overflowing `Time`
                 // or `OffsetDateTime`.
-                let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
-                    .unwrap()
-                    .try_into()
-                    .unwrap();
+                // let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
+                //     .unwrap()
+                //     .try_into()
+                //     .unwrap();
+                use sp_std::time::Duration;
+
+                let duration = Duration::from_millis(result);
+                let tm_timestamp =
+                    Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
+                        .unwrap();
+                debug!(
+                    " 🐙🐙 substrate::build_consensus_state -> timestamp {:?}",
+                    tm_timestamp
+                );
                 let last_finalized_head_hash =
                     relay_rpc_client.rpc().finalized_head().await.unwrap();
 
@@ -3611,7 +3714,8 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
-                let consensus_state = GpConsensusState::new(root, timestamp);
+                let consensus_state = GpConsensusState::new(root, tm_timestamp);
+
                 Ok(consensus_state)
             }
         }
@@ -3857,15 +3961,36 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
+                debug!(
+                    " 🐙🐙 substrate::build_consensus_state -> latest time {:?}",
+                    result
+                );
                 // As the `u64` representation can only represent times up to
                 // about year 2554, there is no risk of overflowing `Time`
                 // or `OffsetDateTime`.
-                let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
-                    .unwrap()
-                    .try_into()
-                    .unwrap();
+                // let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
+                //     .unwrap()
+                //     .try_into()
+                //     .unwrap();
+                // let timestamp = Timestamp::from_nanoseconds(result)
+                //     .unwrap()
+                //     .into_tm_time()
+                //     .unwrap();
+                use sp_std::time::Duration;
+                let duration = Duration::from_millis(result);
+                let tm_timestamp =
+                    Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
+                        .unwrap();
+                debug!(
+                    " 🐙🐙 substrate::build_consensus_state -> timestamp {:?}",
+                    tm_timestamp
+                );
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
-                let consensus_state = GpConsensusState::new(root, timestamp);
+                let consensus_state = GpConsensusState::new(root, tm_timestamp);
+                debug!(
+                    " 🐙🐙 substrate::build_consensus_state -> consensus_state {:?}",
+                    consensus_state
+                );
                 Ok(consensus_state)
             } else {
                 let last_finalized_head_hash =
@@ -3888,15 +4013,33 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
+                debug!(
+                    "🐙🐙 substrate::build_consensus_state -> latest time {:?}",
+                    result
+                );
                 // As the `u64` representation can only represent times up to
                 // about year 2554, there is no risk of overflowing `Time`
                 // or `OffsetDateTime`.
-                let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
-                    .unwrap()
-                    .try_into()
-                    .unwrap();
+                // let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
+                //     .unwrap()
+                //     .try_into()
+                //     .unwrap();
+                use sp_std::time::Duration;
+                let duration = Duration::from_millis(result);
+                let tm_timestamp =
+                    Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
+                        .unwrap();
+                debug!(
+                    " 🐙🐙 substrate::build_consensus_state -> timestamp {:?}",
+                    tm_timestamp
+                );
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
-                let consensus_state = GpConsensusState::new(root, timestamp);
+                let consensus_state = GpConsensusState::new(root, tm_timestamp);
+                debug!(
+                    " 🐙🐙 substrate::build_consensus_state -> consensus_state {:?}",
+                    consensus_state
+                );
+
                 Ok(consensus_state)
             }
         }
@@ -3945,14 +4088,114 @@ impl ChainEndpoint for SubstrateChain {
                     _ => unimplemented!(),
                 };
 
-                assert!(
-                    target_height.revision_height()
-                        < grandpa_client_state.latest_beefy_height.revision_height()
-                );
+                // assert!(
+                //     target_height.revision_height()
+                //         < grandpa_client_state.latest_beefy_height.revision_height()
+                // );
                 // assert trust_height <= grandpa_client_state height
                 // if trusted_height > grandpa_client_state.latest_chain_height {
                 //     panic!("trust height miss match client state height");
                 // }
+
+                if grandpa_client_state.latest_beefy_height.revision_height()
+                    < target_height.revision_height()
+                {
+                    debug!(
+                        "substrate::build_header -> grandpa_client_state.latest_beefy_height:{:?} < target_height {:?}, need to update beefy",
+                        grandpa_client_state.latest_beefy_height.revision_height(),target_height.revision_height()
+                    );
+
+                    let mut sub = subscribe_beefy_justifications(&*relay_rpc_client.rpc())
+                        .await
+                        .unwrap();
+
+                    let raw_signed_commitment = sub.next().await.unwrap().unwrap().0;
+                    debug!(
+                        "🐙🐙 substrate::build_header -> recv raw_signed_commitment: {:?}",
+                        raw_signed_commitment
+                    );
+
+                    // decode signed commitment
+                    let beefy_light_client::commitment::VersionedFinalityProof::V1(
+                        signed_commitment,
+                    ) = beefy_light_client::commitment::VersionedFinalityProof::decode(
+                        &mut &raw_signed_commitment.0[..],
+                    )
+                    .unwrap();
+                    debug!(
+                        "🐙🐙 substrate::build_header: -> decode signed_commitment : {:?} ",
+                        signed_commitment
+                    );
+                    // get commitment
+                    let beefy_light_client::commitment::Commitment {
+                        payload,
+                        block_number,
+                        validator_set_id,
+                    } = signed_commitment.commitment.clone();
+
+                    let authority_proof = utils::build_validator_proof(
+                        &relay_rpc_client,
+                        signed_commitment.clone(),
+                        block_number,
+                    )
+                    .await
+                    .unwrap();
+
+                    // build mmr proof for beefy
+                    let beefy_proof_heights = vec![block_number];
+                    let mmr_batch_proof = utils::build_mmr_proofs(
+                        &relay_rpc_client,
+                        beefy_proof_heights,
+                        Some(block_number),
+                        None,
+                    )
+                    .await
+                    .unwrap();
+
+                    let beefy_mmr = utils::to_pb_beefy_mmr(
+                        signed_commitment,
+                        mmr_batch_proof.clone(),
+                        authority_proof.to_vec(),
+                    );
+                    // build mmr proof for target header height
+                    let target_header_heights = vec![(target_height.revision_height() + 1) as u32];
+                    let header_proof = utils::build_mmr_proofs(
+                        relay_rpc_client,
+                        target_header_heights,
+                        Some(block_number),
+                        None,
+                    )
+                    .await
+                    .unwrap();
+
+                    let mmr_leaves_proof = beefy_light_client::mmr::MmrLeavesProof::try_from(
+                        header_proof.clone().proof.0,
+                    )
+                    .unwrap();
+
+                    // build target height header
+                    let headers = utils::build_subchain_headers(
+                        relay_rpc_client,
+                        mmr_leaves_proof.leaf_indices,
+                        grandpa_client_state.chain_id.to_string(),
+                    )
+                    .await
+                    .unwrap();
+
+                    let proof = Some(utils::convert_mmrproof(header_proof).unwrap());
+                    let subchain_headers =
+                    ibc_relayer_types::clients::ics10_grandpa::header::message::SubchainHeaders {
+                        subchain_headers: headers,
+                        mmr_leaves_and_batch_proof: proof,
+                    };
+                    let result = GpHeader {
+                        // leave beefy mmr None
+                        beefy_mmr:Some(beefy_mmr),
+                        message: ibc_relayer_types::clients::ics10_grandpa::header::message::Message::SubchainHeaders(subchain_headers),
+                    };
+
+                    return Ok((result, vec![]));
+                }
 
                 // build mmr proof for target height
                 let target_heights = vec![(target_height.revision_height() + 1) as u32];

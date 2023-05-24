@@ -1186,7 +1186,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         maybe_trusted_height: Option<Height>,
     ) -> Result<Vec<Any>, ForeignClientError> {
         // only for ics10,check and wait beefy height enough to verify block header
-        self.wait_beefy_height(&target_height)?;
+        // self.wait_beefy_height(&target_height)?;
 
         // Get the latest client state on destination.
         let (client_state, _) = self.validated_client_state()?;

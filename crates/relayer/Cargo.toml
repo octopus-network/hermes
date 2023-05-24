@@ -77,8 +77,7 @@ mmr-lib= { package = "ckb-merkle-mountain-range", version = "0.3.2", default-fea
 time = { version = ">=0.3.0, <0.3.21", default-features = false }
 subxt = { version = "0.27" }
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive", "full", "bit-vec"] }
-sp-core = "18.0.0"
-sp-keyring = "18.0.0"
+
 beefy-light-client = { git = "https://github.com/octopus-network/beefy-light-client.git", branch = "main" }
 binary-merkle-tree = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40"  }
 mmr-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.40" }
@@ -89,6 +88,11 @@ frame-support = { git = "https://github.com/paritytech/substrate", branch = "pol
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
+
+sp-core = {version="16.0.0"}
+sp-keyring = "18.0.0"
+# sp-core ={ git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
+# sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
 
 [dependencies.num-bigint]
 version = "0.4"

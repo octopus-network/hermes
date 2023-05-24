@@ -34904,7 +34904,7 @@ pub mod api {
                     )
                 }
             }
-        }
+        }SendPacket
         #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
         pub type Event = runtime_types::pallet_ics20_transfer::pallet::Event;
         pub mod events {

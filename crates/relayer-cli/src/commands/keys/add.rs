@@ -13,7 +13,8 @@ use ibc_relayer::{
     chain::ChainType,
     config::{ChainConfig, Config},
     keyring::{
-        AnySigningKeyPair, KeyRing, Secp256k1KeyPair, SigningKeyPair, SigningKeyPairSized, Store,
+        AnySigningKeyPair, KeyRing, Secp256k1KeyPair, SigningKeyPair, SigningKeyPairSized,
+        Sr25519KeyPair, Store,
     },
 };
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
@@ -212,19 +213,19 @@ pub fn add_key(
             keyring.add_key(key_name, key_pair.clone())?;
             key_pair.into()
         }
-        ChainType::Substrate =>  {
+        ChainType::Substrate => {
             let mut keyring =
-                KeyRing::new_secp256k1(Store::Test, &config.account_prefix, &config.id)?;
+                KeyRing::new_sr25519(Store::Test, &config.account_prefix, &config.id)?;
 
             check_key_exists(&keyring, key_name, overwrite);
 
             let key_contents =
                 fs::read_to_string(file).map_err(|_| eyre!("error reading the key file"))?;
-            let key_pair = Secp256k1KeyPair::from_seed_file(&key_contents, hd_path)?;
+            let key_pair = Sr25519KeyPair::from_seed_file(&key_contents, hd_path)?;
 
             keyring.add_key(key_name, key_pair.clone())?;
             key_pair.into()
-        },
+        }
     };
 
     Ok(key_pair)
