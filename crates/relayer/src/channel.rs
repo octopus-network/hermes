@@ -1015,21 +1015,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .map_err(ChannelError::channel_proof)?;
 
         // Build message(s) to update client on destination
-        // let mut msgs = self.build_update_client_on_dst(proofs.height())?;
-        let dst_client_msg = self.build_update_client_on_dst(proofs.height())?;
-
-        let tm = TrackedMsgs::new_static(
-            dst_client_msg,
-            "update client on dst chain for ConnectionOpenTry",
-        );
-        let events = self
-            .dst_chain()
-            .send_messages_and_wait_commit(tm)
-            .map_err(|e| ChannelError::submit(self.dst_chain().id(), e))?;
-        debug!(
-            "🐙🐙 ics10::channel -> build_chan_open_try update dst chain client events: {:?}",
-            events
-        );
+        let mut msgs = self.build_update_client_on_dst(proofs.height())?;
 
         let counterparty =
             Counterparty::new(self.src_port_id().clone(), self.src_channel_id().cloned());
@@ -1067,9 +1053,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             signer,
         };
 
-        // msgs.push(new_msg.to_any());
-        // Ok(msgs)
-        Ok(vec![new_msg.to_any()])
+        msgs.push(new_msg.to_any());
+        Ok(msgs)
     }
 
     pub fn build_chan_open_try_and_send(&self) -> Result<IbcEvent, ChannelError> {
@@ -1150,21 +1135,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .map_err(ChannelError::channel_proof)?;
 
         // Build message(s) to update client on destination
-        // let mut msgs = self.build_update_client_on_dst(proofs.height())?;
-        let dst_client_msg = self.build_update_client_on_dst(proofs.height())?;
-
-        let tm = TrackedMsgs::new_static(
-            dst_client_msg,
-            "update client on dst chain for ConnectionOpenTry",
-        );
-        let events = self
-            .dst_chain()
-            .send_messages_and_wait_commit(tm)
-            .map_err(|e| ChannelError::submit(self.dst_chain().id(), e))?;
-        debug!(
-            "🐙🐙 ics10::channel -> build_chan_open_ack update dst chain client events: {:?}",
-            events
-        );
+        let mut msgs = self.build_update_client_on_dst(proofs.height())?;
 
         // Get signer
         let signer = self
@@ -1182,9 +1153,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             signer,
         };
 
-        // msgs.push(new_msg.to_any());
-        // Ok(msgs)
-        Ok(vec![new_msg.to_any()])
+        msgs.push(new_msg.to_any());
+        Ok(msgs)
     }
 
     pub fn build_chan_open_ack_and_send(&self) -> Result<IbcEvent, ChannelError> {
@@ -1273,21 +1243,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .map_err(ChannelError::channel_proof)?;
 
         // Build message(s) to update client on destination
-        // let mut msgs = self.build_update_client_on_dst(proofs.height())?;
-        let dst_client_msg = self.build_update_client_on_dst(proofs.height())?;
-
-        let tm = TrackedMsgs::new_static(
-            dst_client_msg,
-            "update client on dst chain for ConnectionOpenTry",
-        );
-        let events = self
-            .dst_chain()
-            .send_messages_and_wait_commit(tm)
-            .map_err(|e| ChannelError::submit(self.dst_chain().id(), e))?;
-        debug!(
-            "🐙🐙 ics10::channel -> build_chan_open_confirm update dst chain client events: {:?}",
-            events
-        );
+        let mut msgs = self.build_update_client_on_dst(proofs.height())?;
 
         // Get signer
         let signer = self
@@ -1303,9 +1259,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             signer,
         };
 
-        //     msgs.push(new_msg.to_any());
-        //     Ok(msgs)
-        Ok(vec![new_msg.to_any()])
+        msgs.push(new_msg.to_any());
+        Ok(msgs)
     }
 
     pub fn build_chan_open_confirm_and_send(&self) -> Result<IbcEvent, ChannelError> {
@@ -1459,21 +1414,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .map_err(ChannelError::channel_proof)?;
 
         // Build message(s) to update client on destination
-        // let mut msgs = self.build_update_client_on_dst(proofs.height())?;
-        let dst_client_msg = self.build_update_client_on_dst(proofs.height())?;
-
-        let tm = TrackedMsgs::new_static(
-            dst_client_msg,
-            "update client on dst chain for ConnectionOpenTry",
-        );
-        let events = self
-            .dst_chain()
-            .send_messages_and_wait_commit(tm)
-            .map_err(|e| ChannelError::submit(self.dst_chain().id(), e))?;
-        debug!(
-            "🐙🐙 ics10::channel -> build_chan_close_confirm update dst chain client events: {:?}",
-            events
-        );
+        let mut msgs = self.build_update_client_on_dst(proofs.height())?;
 
         // Get signer
         let signer = self
@@ -1489,9 +1430,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             signer,
         };
 
-        // msgs.push(new_msg.to_any());
-        // Ok(msgs)
-        Ok(vec![new_msg.to_any()])
+        msgs.push(new_msg.to_any());
+        Ok(msgs)
     }
 
     pub fn build_chan_close_confirm_and_send(&self) -> Result<IbcEvent, ChannelError> {
