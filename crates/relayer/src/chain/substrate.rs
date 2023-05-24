@@ -390,10 +390,11 @@ impl SubstrateChain {
                         })
                         .collect();
 
-                let pair = self.get_sub_pair().unwrap();
-                let signer = PairSigner::<relay_rpc, Pair>::new(pair);
-
+                let key_pair: Sr25519KeyPair = self.key()?;
+                let signer = PairSigner::new(key_pair.pair());
+                // let signer = PairSigner::new(AccountKeyring::Alice.pair());
                 let binding = para_rpc.tx();
+
                 let runtime = self.rt.clone();
                 match is_transfer_msg {
                     true => {
@@ -491,7 +492,10 @@ impl SubstrateChain {
                         })
                         .collect();
                 // use default signer
-                let signer = PairSigner::new(AccountKeyring::Alice.pair());
+
+                let key_pair: Sr25519KeyPair = self.key()?;
+                let signer = PairSigner::new(key_pair.pair());
+                // let signer = PairSigner::new(AccountKeyring::Alice.pair());
 
                 let binding = rpc.tx();
 
