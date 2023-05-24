@@ -1005,9 +1005,9 @@ pub mod api {
         let runtime_metadata_hash = client.metadata().metadata_hash(&PALLETS);
         if runtime_metadata_hash
             != [
-                222u8, 212u8, 206u8, 186u8, 175u8, 166u8, 209u8, 116u8, 161u8, 233u8, 114u8, 100u8,
-                165u8, 186u8, 164u8, 171u8, 101u8, 30u8, 145u8, 230u8, 100u8, 18u8, 211u8, 147u8,
-                193u8, 60u8, 125u8, 247u8, 69u8, 68u8, 228u8, 217u8,
+                89u8, 64u8, 213u8, 228u8, 70u8, 66u8, 102u8, 81u8, 233u8, 125u8, 79u8, 33u8, 246u8,
+                186u8, 76u8, 185u8, 148u8, 71u8, 106u8, 61u8, 229u8, 211u8, 12u8, 3u8, 61u8, 240u8,
+                183u8, 174u8, 57u8, 108u8, 139u8, 191u8,
             ]
         {
             Err(::subxt::error::MetadataError::IncompatibleMetadata)
@@ -34784,6 +34784,55 @@ pub mod api {
                         ],
                     )
                 }
+                #[doc = " key: height"]
+                #[doc = " value: Ibc event height"]
+                pub fn ibc_event_store(
+                    &self,
+                    _0: impl ::std::borrow::Borrow<::core::primitive::u64>,
+                ) -> ::subxt::storage::address::Address<
+                    ::subxt::storage::address::StaticStorageMapKey,
+                    runtime_types::ibc::events::IbcEvent,
+                    ::subxt::storage::address::Yes,
+                    (),
+                    ::subxt::storage::address::Yes,
+                > {
+                    ::subxt::storage::address::Address::new_static(
+                        "Ibc",
+                        "IbcEventStore",
+                        vec![::subxt::storage::address::make_static_storage_map_key(
+                            _0.borrow(),
+                        )],
+                        [
+                            145u8, 246u8, 45u8, 229u8, 220u8, 160u8, 60u8, 30u8, 16u8, 96u8, 37u8,
+                            32u8, 71u8, 96u8, 179u8, 204u8, 225u8, 109u8, 187u8, 11u8, 213u8,
+                            126u8, 63u8, 114u8, 233u8, 144u8, 148u8, 69u8, 176u8, 15u8, 138u8,
+                            92u8,
+                        ],
+                    )
+                }
+                #[doc = " key: height"]
+                #[doc = " value: Ibc event height"]
+                pub fn ibc_event_store_root(
+                    &self,
+                ) -> ::subxt::storage::address::Address<
+                    ::subxt::storage::address::StaticStorageMapKey,
+                    runtime_types::ibc::events::IbcEvent,
+                    (),
+                    (),
+                    ::subxt::storage::address::Yes,
+                > {
+                    ::subxt::storage::address::Address::new_static(
+                        "Ibc",
+                        "IbcEventStore",
+                        Vec::new(),
+                        [
+                            145u8, 246u8, 45u8, 229u8, 220u8, 160u8, 60u8, 30u8, 16u8, 96u8, 37u8,
+                            32u8, 71u8, 96u8, 179u8, 204u8, 225u8, 109u8, 187u8, 11u8, 213u8,
+                            126u8, 63u8, 114u8, 233u8, 144u8, 148u8, 69u8, 176u8, 15u8, 138u8,
+                            92u8,
+                        ],
+                    )
+                }
                 #[doc = " Previous host block height"]
                 pub fn old_height(
                     &self,
@@ -35012,6 +35061,49 @@ pub mod api {
                             215u8, 34u8, 187u8, 76u8, 52u8, 161u8, 208u8, 252u8, 20u8, 73u8, 89u8,
                             86u8, 60u8, 181u8, 239u8, 83u8, 152u8, 173u8, 251u8, 138u8, 238u8,
                             156u8, 72u8, 45u8, 164u8, 36u8, 94u8, 16u8, 86u8, 155u8, 97u8, 234u8,
+                        ],
+                    )
+                }
+                pub fn denom_trace(
+                    &self,
+                    _0: impl ::std::borrow::Borrow<[::core::primitive::u8]>,
+                ) -> ::subxt::storage::address::Address<
+                    ::subxt::storage::address::StaticStorageMapKey,
+                    runtime_types::pallet_ics20_transfer::denom::PrefixedDenom,
+                    ::subxt::storage::address::Yes,
+                    (),
+                    ::subxt::storage::address::Yes,
+                > {
+                    ::subxt::storage::address::Address::new_static(
+                        "Ics20Transfer",
+                        "DenomTrace",
+                        vec![::subxt::storage::address::make_static_storage_map_key(
+                            _0.borrow(),
+                        )],
+                        [
+                            91u8, 75u8, 167u8, 11u8, 170u8, 142u8, 38u8, 14u8, 18u8, 91u8, 95u8,
+                            191u8, 59u8, 206u8, 132u8, 223u8, 158u8, 62u8, 204u8, 231u8, 106u8,
+                            1u8, 208u8, 38u8, 17u8, 17u8, 73u8, 96u8, 95u8, 202u8, 164u8, 2u8,
+                        ],
+                    )
+                }
+                pub fn denom_trace_root(
+                    &self,
+                ) -> ::subxt::storage::address::Address<
+                    ::subxt::storage::address::StaticStorageMapKey,
+                    runtime_types::pallet_ics20_transfer::denom::PrefixedDenom,
+                    (),
+                    (),
+                    ::subxt::storage::address::Yes,
+                > {
+                    ::subxt::storage::address::Address::new_static(
+                        "Ics20Transfer",
+                        "DenomTrace",
+                        Vec::new(),
+                        [
+                            91u8, 75u8, 167u8, 11u8, 170u8, 142u8, 38u8, 14u8, 18u8, 91u8, 95u8,
+                            191u8, 59u8, 206u8, 132u8, 223u8, 158u8, 62u8, 204u8, 231u8, 106u8,
+                            1u8, 208u8, 38u8, 17u8, 17u8, 73u8, 96u8, 95u8, 202u8, 164u8, 2u8,
                         ],
                     )
                 }
@@ -40383,6 +40475,22 @@ pub mod api {
         }
         pub mod pallet_ics20_transfer {
             use super::runtime_types;
+            pub mod denom {
+                use super::runtime_types;
+                #[derive(
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    :: subxt :: ext :: scale_decode :: DecodeAsType,
+                    :: subxt :: ext :: scale_encode :: EncodeAsType,
+                    Debug,
+                )]
+                #[decode_as_type(crate_path = ":: subxt :: ext :: scale_decode")]
+                #[encode_as_type(crate_path = ":: subxt :: ext :: scale_encode")]
+                pub struct PrefixedDenom {
+                    pub trace_path: ::std::vec::Vec<::core::primitive::u8>,
+                    pub base_denom: ::std::vec::Vec<::core::primitive::u8>,
+                }
+            }
             pub mod impls {
                 use super::runtime_types;
                 #[derive(
