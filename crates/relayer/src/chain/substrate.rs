@@ -3577,10 +3577,66 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             mut request: QueryPacketEventDataRequest,
         ) -> Result<Vec<IbcEventWithHeight>, Error> {
-            if let Some(rpc_client) = para_rpc_client {
-                todo!()
-            } else {
-                todo!()
+            use ibc_relayer_types::events::WithBlockDataType;
+            match request.height {
+                // Usage note: `Qualified::Equal` is currently only used in the call hierarchy involving
+                // the CLI methods, namely the CLI for `tx packet-recv` and `tx packet-ack` when the
+                // user passes the flag `packet-data-query-height`.
+                Qualified::Equal(_) => todo!(),
+                // self.block_on(query_packets_from_block(
+                // self.id(),
+                // &self.rpc_client,
+                // &self.config.rpc_addr,
+                // &request,
+                // )),
+                Qualified::SmallerEqual(_) => {
+                    todo!()
+                    // let tx_events = self.block_on(query_packets_from_txs(
+                    //     self.id(),
+                    //     &self.rpc_client,
+                    //     &self.config.rpc_addr,
+                    //     &request,
+                    // ))?;
+
+                    // let recvd_sequences: Vec<_> = tx_events
+                    //     .iter()
+                    //     .filter_map(|eh| eh.event.packet().map(|p| p.sequence))
+                    //     .collect();
+
+                    // request
+                    //     .sequences
+                    //     .retain(|seq| !recvd_sequences.contains(seq));
+
+                    // let (start_block_events, end_block_events) = if !request.sequences.is_empty() {
+                    //     self.query_packets_from_blocks(&request)?
+                    // } else {
+                    //     Default::default()
+                    // };
+
+                    // trace!("start_block_events {:?}", start_block_events);
+                    // trace!("tx_events {:?}", tx_events);
+                    // trace!("end_block_events {:?}", end_block_events);
+
+                    // // Events should be ordered in the following fashion,
+                    // // for any two blocks b1, b2 at height h1, h2 with h1 < h2:
+                    // // b1.start_block_events
+                    // // b1.tx_events
+                    // // b1.end_block_events
+                    // // b2.start_block_events
+                    // // b2.tx_events
+                    // // b2.end_block_events
+                    // //
+                    // // As of now, we just sort them by sequence number which should
+                    // // yield a similar result and will revisit this approach in the future.
+                    // let mut events = vec![];
+                    // events.extend(start_block_events);
+                    // events.extend(tx_events);
+                    // events.extend(end_block_events);
+
+                    // sort_events_by_sequence(&mut events);
+
+                    // Ok(events)
+                }
             }
         }
 
