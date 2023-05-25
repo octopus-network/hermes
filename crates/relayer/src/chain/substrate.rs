@@ -242,8 +242,7 @@ impl SubstrateChain {
             let hash = if let Some(hash) = block_hash {
                 hash
             } else {
-                let finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
-                finalized_head_hash
+                rpc_client.rpc().finalized_head().await.unwrap()
             };
 
             let block = rpc_client.rpc().block(Some(hash)).await.unwrap();
@@ -255,8 +254,7 @@ impl SubstrateChain {
             let hash = if let Some(hash) = block_hash {
                 hash
             } else {
-                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
-                finalized_head_hash
+                relay_rpc_client.rpc().finalized_head().await.unwrap()
             };
 
             let block = relay_rpc_client.rpc().block(Some(hash)).await.unwrap();
@@ -1075,10 +1073,6 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
 
-                // let client_state =
-                //     AnyClientState::decode_vec(&client_state).map_err(Error::decode)?;
-
-                // Ok((client_state, None))
                 let any_client_state =
                     AnyClientState::decode_vec(&client_state).map_err(Error::decode)?;
 
@@ -1140,10 +1134,6 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
 
-                // let client_state =
-                //     AnyClientState::decode_vec(&client_state.unwrap()).map_err(Error::decode)?;
-
-                // Ok((client_state, None))
                 let any_client_state =
                     AnyClientState::decode_vec(&client_state).map_err(Error::decode)?;
 
@@ -1366,11 +1356,6 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-
-                // let consensus_state = AnyConsensusState::decode_vec(&consensus_states.unwrap())
-                //     .map_err(Error::decode)?;
-
-                // Ok((consensus_state, None))
 
                 let any_consensus_state =
                     AnyConsensusState::decode_vec(&consensus_states).map_err(Error::decode)?;
@@ -1674,8 +1659,6 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
 
-                // Ok((connection.into(), None))
-
                 debug!(
                     "substrate::query_connection -> connection: {:?}",
                     connection
@@ -1757,7 +1740,6 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
 
-                // Ok((connection.into(), None))
                 debug!(
                     "substrate::query_connection -> connection: {:?}",
                     connection
@@ -2730,9 +2712,7 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                // match result {
-                //     relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => Ok((b"ok".to_vec(), None)),
-                // }
+
                 debug!("substrate::query_packet_receipt -> receipt: {:?}", result);
                 match result {
                     relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => {
@@ -2749,7 +2729,7 @@ impl ChainEndpoint for SubstrateChain {
                             },
                             IncludeProof::No => Ok((vec![0], None)),
                         }
-                        // Ok((vec![0], None))
+
                     }
 
                 }
