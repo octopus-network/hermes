@@ -820,27 +820,40 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // todo
     fn query_denom_trace(&self, hash: String) -> Result<DenomTrace, Error> {
-        fn query_denom_trace(
-            rt: Arc<TokioRuntime>,
+        async fn query_denom_trace(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             hash: String,
         ) -> Result<DenomTrace, Error> {
-            Ok(DenomTrace {
-                /// The chain of port/channel identifiers used for tracing the source of the coin.
-                path: String::default(),
-                /// The base denomination for that coin
-                base_denom: String::default(),
-            })
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                let storage = relaychain_node::storage()
+                    .ics20_transfer()
+                    .denom_trace(hash.as_bytes().to_vec());
+                let denom_trace = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                Ok(DenomTrace {
+                    path: String::from_utf8(denom_trace.trace_path).unwrap(),
+                    base_denom: String::from_utf8(denom_trace.base_denom).unwrap(),
+                })
+            }
         }
         match &self.rpc_client {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => query_denom_trace(self.rt.clone(), relay_rpc, Some(para_rpc), hash),
-            RpcClient::SubChainRpc { rpc } => query_denom_trace(self.rt.clone(), rpc, None, hash),
+            } => self.block_on(query_denom_trace(relay_rpc, Some(para_rpc), hash)),
+            RpcClient::SubChainRpc { rpc } => self.block_on(query_denom_trace(rpc, None, hash)),
         }
     }
 
