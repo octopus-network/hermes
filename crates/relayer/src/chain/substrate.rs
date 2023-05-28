@@ -58,6 +58,7 @@ use ibc_relayer_types::core::ics03_connection::connection::{
     ConnectionEnd, IdentifiedConnectionEnd,
 };
 use ibc_relayer_types::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
+use ibc_relayer_types::core::ics04_channel::events::SendPacket;
 use ibc_relayer_types::core::ics04_channel::packet::Sequence;
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentPrefix;
 use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
@@ -196,7 +197,7 @@ impl SubstrateChain {
             .init_subscriptions()
             .map_err(Error::event_monitor)?;
 
-        // thread::spawn(move || event_monitor.run());
+        thread::spawn(move || event_monitor.run());
 
         Ok(monitor_tx)
     }
@@ -286,10 +287,10 @@ impl SubstrateChain {
         use sp_core::Pair as PairT;
         use sp_keyring::AccountKeyring;
 
-        debug!(
-            "substrate::do_send_messages_and_wait_commit -> tracked_msgs: {:?}",
-            tracked_msgs
-        );
+        // debug!(
+        //     "substrate::do_send_messages_and_wait_commit -> tracked_msgs: {:?}",
+        //     tracked_msgs
+        // );
         let proto_msgs = tracked_msgs.msgs;
         let mut is_transfer_msg = false;
 
@@ -349,9 +350,14 @@ impl SubstrateChain {
                             ))
                             .unwrap();
 
+                        // let event = SendPacket::from(send_packet_event.0);
+                        // let event_with_height = IbcEventWithHeight {
+                        //     event: IbcEvent::from(event),
+                        //     height,
+                        // };
                         let event = SendPacket::from(send_packet_event.0);
                         let event_with_height = IbcEventWithHeight {
-                            event: IbcEvent::from(event),
+                            event: event.into(),
                             height,
                         };
                         debug!(
@@ -391,7 +397,10 @@ impl SubstrateChain {
                                 height: height.clone(),
                             })
                             .collect();
-
+                        debug!(
+                            "🐙🐙 ics10::substrate -> do_send_messages_and_wait_commit deliver event_with_height : {:?}",
+                            es
+                        );
                         Ok(es)
                     }
                 }
@@ -490,7 +499,10 @@ impl SubstrateChain {
                                 height: height.clone(),
                             })
                             .collect();
-
+                        debug!(
+                            "🐙🐙 ics10::substrate -> do_send_messages_and_wait_commit deliver event_with_height : {:?}",
+                            es
+                        );
                         Ok(es)
                     }
                 }
@@ -878,6 +890,32 @@ impl ChainEndpoint for SubstrateChain {
             if let Some(rpc_client) = para_rpc_client {
                 use subxt::config::Header;
                 let finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
+                let storage = parachain_node::storage().timestamp().now();
+
+                let result = rpc_client
+                    .storage()
+                    .at(Some(finalized_head_hash))
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                debug!(
+                    " 🐙🐙 substrate::query_application_status -> latest time {:?}",
+                    result
+                );
+                // let timestamp = Timestamp::from_nanoseconds(result).unwrap();
+                use sp_std::time::Duration;
+                let duration = Duration::from_millis(result);
+                let tm_time =
+                    Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
+                        .unwrap();
+
+                debug!(
+                    " 🐙🐙 substrate::query_application_status -> timestamp {:?}",
+                    tm_time
+                );
 
                 let block = rpc_client
                     .rpc()
@@ -888,7 +926,7 @@ impl ChainEndpoint for SubstrateChain {
                 Ok(ChainStatus {
                     height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
                         .unwrap(),
-                    timestamp: Timestamp::default(),
+                    timestamp: tm_time.into(),
                 })
             } else {
                 use subxt::config::Header;
@@ -918,13 +956,15 @@ impl ChainEndpoint for SubstrateChain {
                 //     .unwrap();
                 use sp_std::time::Duration;
                 let duration = Duration::from_millis(result);
-                let tm_timestamp =
+                let tm_time =
                     Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
                         .unwrap();
+
                 // let timestamp = Timestamp::from_nanoseconds(result).unwrap();
+
                 debug!(
                     " 🐙🐙 substrate::query_application_status -> timestamp {:?}",
-                    tm_timestamp
+                    tm_time
                 );
 
                 let block = relay_rpc_client
@@ -935,7 +975,7 @@ impl ChainEndpoint for SubstrateChain {
                 Ok(ChainStatus {
                     height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number()))
                         .unwrap(),
-                    timestamp: tm_timestamp.into(),
+                    timestamp: tm_time.into(),
                 })
             }
         }
@@ -2767,6 +2807,10 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryUnreceivedPacketsRequest,
         ) -> Result<Vec<Sequence>, Error> {
+            debug!(
+                "🐙🐙 substrate::query_packet_receipt -> query_unreceived_packets request: {:?}",
+                request
+            );
             if let Some(rpc_client) = para_rpc_client {
                 let key_addr = parachain_node::storage().ibc().packet_receipt_root();
 
@@ -2883,6 +2927,11 @@ impl ChainEndpoint for SubstrateChain {
                         .fetch(&storage)
                         .await
                         .unwrap();
+
+                    debug!(
+                        "🐙🐙 substrate::query_packet_receipt -> fetch storage result: {:?}",
+                        ret
+                    );
 
                     if ret.is_none() {
                         result.push(sequence)
@@ -3698,12 +3747,17 @@ impl ChainEndpoint for SubstrateChain {
 
                 use sp_std::time::Duration;
                 let duration = Duration::from_millis(result);
-                let tm_timestamp =
+                let tm_time =
                     Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
                         .unwrap();
+
+                // let tm_time = Timestamp::from_nanoseconds(result)
+                //     .unwrap()
+                //     .into_tm_time()
+                //     .unwrap();
                 debug!(
-                    " 🐙🐙 substrate::build_consensus_state -> timestamp {:?}",
-                    tm_timestamp
+                    " 🐙🐙 substrate::query_host_consensus_state -> timestamp {:?}",
+                    tm_time
                 );
 
                 let last_finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
@@ -3714,7 +3768,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
-                let consensus_state = GpConsensusState::new(root, tm_timestamp);
+                let consensus_state = GpConsensusState::new(root, tm_time);
 
                 Ok(consensus_state)
             } else {
@@ -3747,15 +3801,20 @@ impl ChainEndpoint for SubstrateChain {
                 //     .try_into()
                 //     .unwrap();
                 use sp_std::time::Duration;
-
                 let duration = Duration::from_millis(result);
-                let tm_timestamp =
+                let tm_time =
                     Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
                         .unwrap();
+                // let tm_time = Timestamp::from_nanoseconds(result)
+                //     .unwrap()
+                //     .into_tm_time()
+                //     .unwrap();
+
                 debug!(
                     " 🐙🐙 substrate::build_consensus_state -> timestamp {:?}",
-                    tm_timestamp
+                    tm_time
                 );
+
                 let last_finalized_head_hash =
                     relay_rpc_client.rpc().finalized_head().await.unwrap();
 
@@ -3766,7 +3825,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
-                let consensus_state = GpConsensusState::new(root, tm_timestamp);
+                let consensus_state = GpConsensusState::new(root, tm_time);
 
                 Ok(consensus_state)
             }
@@ -4024,21 +4083,23 @@ impl ChainEndpoint for SubstrateChain {
                 //     .unwrap()
                 //     .try_into()
                 //     .unwrap();
-                // let timestamp = Timestamp::from_nanoseconds(result)
+
+                use sp_std::time::Duration;
+                let duration = Duration::from_millis(result);
+                let tm_time =
+                    Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
+                        .unwrap();
+                // let tm_time = Timestamp::from_nanoseconds(result)
                 //     .unwrap()
                 //     .into_tm_time()
                 //     .unwrap();
-                use sp_std::time::Duration;
-                let duration = Duration::from_millis(result);
-                let tm_timestamp =
-                    Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
-                        .unwrap();
                 debug!(
                     " 🐙🐙 substrate::build_consensus_state -> timestamp {:?}",
-                    tm_timestamp
+                    tm_time
                 );
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
-                let consensus_state = GpConsensusState::new(root, tm_timestamp);
+                let consensus_state = GpConsensusState::new(root, tm_time);
+
                 debug!(
                     " 🐙🐙 substrate::build_consensus_state -> consensus_state {:?}",
                     consensus_state
@@ -4078,15 +4139,19 @@ impl ChainEndpoint for SubstrateChain {
                 //     .unwrap();
                 use sp_std::time::Duration;
                 let duration = Duration::from_millis(result);
-                let tm_timestamp =
+                let tm_time =
                     Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
                         .unwrap();
+                // let tm_time = Timestamp::from_nanoseconds(result)
+                //     .unwrap()
+                //     .into_tm_time()
+                //     .unwrap();
                 debug!(
                     " 🐙🐙 substrate::build_consensus_state -> timestamp {:?}",
-                    tm_timestamp
+                    tm_time
                 );
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
-                let consensus_state = GpConsensusState::new(root, tm_timestamp);
+                let consensus_state = GpConsensusState::new(root, tm_time);
                 debug!(
                     " 🐙🐙 substrate::build_consensus_state -> consensus_state {:?}",
                     consensus_state

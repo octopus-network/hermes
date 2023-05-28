@@ -61,6 +61,7 @@ mod subxt_ibc_event {
     };
     use super::relaychain_node::runtime_types::ibc::timestamp::Timestamp as SubxtTimestamp;
     use super::relaychain_node::runtime_types::{self, ibc::events::IbcEvent as SubxtIbcEvent};
+    // use super::relaychain_node::runtime_types::pallet_ics20_transfer::utils::SendPacket as PalletSendPacket;
 
     use ibc_relayer_types::core::ics02_client::client_type::ClientType;
     use ibc_relayer_types::core::ics02_client::events::Attributes as ClientAttributes;
@@ -540,6 +541,26 @@ mod subxt_ibc_event {
             }
         }
     }
+
+    // impl From<PalletSendPacket> for SendPacket {
+    //     fn from(value: PalletSendPacket) -> Self {
+    //         let timeout_timestamp = Timestamp::from_nanoseconds(value.timeout_timestamp).unwrap();
+
+    //         Self {
+    //             packet: Packet {
+    //                 sequence: value.sequence.into(),
+    //                 source_port: value.src_port_id.into(),
+    //                 source_channel: value.src_channel_id.into(),
+    //                 destination_port: value.dst_port_id.into(),
+    //                 destination_channel: value.dst_channel_id.into(),
+    //                 data: value.packet_data,
+    //                 timeout_height: value.timeout_height.into(),
+    //                 timeout_timestamp: timeout_timestamp,
+    //             },
+    //         }
+    //     }
+    // }
+
     // TimeoutPacket
     impl From<SubxtTimeoutPacket> for TimeoutPacket {
         fn from(value: SubxtTimeoutPacket) -> Self {
@@ -747,10 +768,16 @@ mod subxt_ibc_event {
         fn from(value: SubxtTimestamp) -> Self {
             if let Some(v) = value.time {
                 // todo unwrap need hanele
-                Timestamp::from_nanoseconds(v as u64).ok().unwrap()
+                Timestamp::from_nanoseconds(v).ok().unwrap()
             } else {
                 Timestamp::none()
             }
+            // if value.time == 0 {
+            //     Timestamp::none()
+            // } else {
+            //     Timestamp::from_nanoseconds(value.time).ok().unwrap()
+            // }
+            // Self { time: value.time }
         }
     }
 }

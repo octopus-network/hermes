@@ -290,7 +290,7 @@ impl CosmosSdkChain {
             .init_subscriptions()
             .map_err(Error::event_monitor)?;
 
-        // thread::spawn(move || event_monitor.run());
+        thread::spawn(move || event_monitor.run());
 
         Ok(monitor_tx)
     }

@@ -498,27 +498,26 @@ pub fn unreceived_packets(
     tracing::debug!("🐙🐙 ics10::counterparty -> unreceived_packets commit_sequences:{:?} in counterparty_chain:{:?}",commit_sequences,counterparty_chain.id());
 
     //TODO: testing skip substrate chain
-    let chain_type = chain.config().unwrap().r#type;
-    match chain_type {
-        ChainType::Substrate => {
-            //do not query from substrate
-            Ok((commit_sequences, h))
-        }
-        ChainType::CosmosSdk => {
-            let packet_seq_nrs = unreceived_packets_sequences(
-                chain,
-                &path.port_id,
-                &path.channel_id,
-                commit_sequences,
-            )?;
-            Ok((packet_seq_nrs, h))
-        }
-    }
-    // let packet_seq_nrs =
-    //     unreceived_packets_sequences(chain, &path.port_id, &path.channel_id, commit_sequences)?;
+    // let chain_type = chain.config().unwrap().r#type;
+    // match chain_type {
+    //     ChainType::Substrate => {
+    //         //do not query from substrate
+    //         Ok((commit_sequences, h))
+    //     }
+    //     ChainType::CosmosSdk => {
+    //         let packet_seq_nrs = unreceived_packets_sequences(
+    //             chain,
+    //             &path.port_id,
+    //             &path.channel_id,
+    //             commit_sequences,
+    //         )?;
+    //         Ok((packet_seq_nrs, h))
+    //     }
+    // }
+    let packet_seq_nrs =
+        unreceived_packets_sequences(chain, &path.port_id, &path.channel_id, commit_sequences)?;
 
-    // Ok((packet_seq_nrs, h))
-    // Ok((commit_sequences, h))
+    Ok((packet_seq_nrs, h))
 }
 
 pub fn acknowledgements_on_chain(

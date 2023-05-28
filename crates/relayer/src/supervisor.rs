@@ -190,19 +190,19 @@ pub fn spawn_supervisor_tasks<Chain: ChainHandle>(
     );
 
     //subscripte beefy signedcommitment and spawn worker
-    let beefy_sub = init_beefy_sub(&config, &mut registry.write())?;
-    debug!(
-        "substrate::spawn_supervisor_tasks -> beefy_sub = {:?}",
-        beefy_sub
-    );
-    let beefy_task = spawn_beefy_workers(
-        &config,
-        registry.clone(),
-        client_state_filter,
-        workers.clone(),
-        chains,
-        beefy_sub,
-    );
+    // let beefy_sub = init_beefy_sub(&config, &mut registry.write())?;
+    // debug!(
+    //     "substrate::spawn_supervisor_tasks -> beefy_sub = {:?}",
+    //     beefy_sub
+    // );
+    // let beefy_task = spawn_beefy_workers(
+    //     &config,
+    //     registry.clone(),
+    //     client_state_filter,
+    //     workers.clone(),
+    //     chains,
+    //     beefy_sub,
+    // );
 
     let cmd_task = spawn_cmd_worker(registry.clone(), workers.clone(), cmd_rx);
 
@@ -210,7 +210,7 @@ pub fn spawn_supervisor_tasks<Chain: ChainHandle>(
     tasks.extend(batch_tasks);
 
     //append beefy task
-    tasks.extend(beefy_task);
+    // tasks.extend(beefy_task);
 
     if let Some(rest_rx) = rest_rx {
         let rest_task = spawn_rest_worker(config, registry, workers, rest_rx);
