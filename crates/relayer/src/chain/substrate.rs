@@ -3755,8 +3755,18 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
         crate::time!("query_packet_events");
         crate::telemetry!(query, self.id(), "query_packet_events");
+        fn matches_packet(
+            request: &QueryPacketEventDataRequest,
+            seqs: &Vec<Sequence>,
+            packet: &Packet,
+        ) -> bool {
+            packet.source_port == request.source_port_id
+                && packet.source_channel == request.source_channel_id
+                && packet.destination_port == request.destination_port_id
+                && packet.destination_channel == request.destination_channel_id
+                && seqs.contains(&packet.sequence)
+        }
 
-        // todo need impl
         async fn query_packet_events(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
@@ -3790,7 +3800,8 @@ impl ChainEndpoint for SubstrateChain {
                                 (block_number, block_hash)
                             }
                         };
-                        // use subxt::{events::Events, OnlineClient, PolkadotConfig};
+                        let height = ICSHeight::new(0, block_number as u64).unwrap();
+
                         let metadata = relay_rpc_client
                             .rpc()
                             .metadata(Some(block_hash))
@@ -3800,20 +3811,6 @@ impl ChainEndpoint for SubstrateChain {
                             Events::new_from_client(metadata, block_hash, relay_rpc_client.clone())
                                 .await
                                 .unwrap();
-
-                        let height = ICSHeight::new(0, block_number as u64).unwrap();
-
-                        fn matches_packet(
-                            request: &QueryPacketEventDataRequest,
-                            seqs: &Vec<Sequence>,
-                            packet: &Packet,
-                        ) -> bool {
-                            packet.source_port == request.source_port_id
-                                && packet.source_channel == request.source_channel_id
-                                && packet.destination_port == request.destination_port_id
-                                && packet.destination_channel == request.destination_channel_id
-                                && seqs.contains(&packet.sequence)
-                        }
 
                         match request.event_id {
                             WithBlockDataType::SendPacket => {
@@ -3840,12 +3837,10 @@ impl ChainEndpoint for SubstrateChain {
                                                 events_with_height.push(event_with_height)
                                             }
                                         }
-                                        // return Ok(events_with_height);
                                     }
 
                                     Err(e) => {
                                         error!("🐙🐙 substrate::query_packet_events -> block: {}, filter send packet event error: {}", height, e);
-                                        // return Err(Error::event());
                                     }
                                 }
                             }
@@ -3860,7 +3855,6 @@ impl ChainEndpoint for SubstrateChain {
                                 match core_events_result {
                                     Ok(core_packet_events) => {
                                         //conver event
-                                        // let mut events_with_height = Vec::new();
                                         for ibc_events in core_packet_events.into_iter() {
                                             ibc_events.events.into_iter().for_each(|event| {
                                                 match event {
@@ -3888,25 +3882,113 @@ impl ChainEndpoint for SubstrateChain {
                                                 }
                                             });
                                         }
-                                        // return Ok(events_with_height);
                                     }
 
                                     Err(e) => {
                                         error!("🐙🐙 substrate::query_packet_events -> block: {}, filter write ack packet event error: {}", height, e);
-                                        // return Err(Error::event());
                                     }
                                 }
                             }
                             _ => {}
-                            // WithBlockDataType::CreateClient => todo!(),
-                            // WithBlockDataType::UpdateClient => todo!(),
                         }
                     }
                     Qualified::SmallerEqual(_) => {
-                        debug!(
-                            "🐙🐙 substrate::query_packet_events -> unsupport SmallerEqual query !"
-                        );
-                        // Err(Error::event())
+                        debug!("🐙🐙 substrate::query_packet_events ->  SmallerEqual query !");
+
+                        let resp = relay_rpc_client.rpc().block(None).await.unwrap().unwrap();
+                        let block_number = resp.block.header.number;
+                        let block_hash = resp.block.header.hash();
+                        let height = ICSHeight::new(0, block_number as u64).unwrap();
+
+                        let metadata = relay_rpc_client
+                            .rpc()
+                            .metadata(Some(block_hash))
+                            .await
+                            .unwrap();
+                        let events =
+                            Events::new_from_client(metadata, block_hash, relay_rpc_client.clone())
+                                .await
+                                .unwrap();
+
+                        match request.event_id {
+                            WithBlockDataType::SendPacket => {
+                                // filter ibc send packet events
+                                let send_packet_events_result: Result<Vec<_>, subxt::Error> = events
+                                    .find::<relaychain_node::ics20_transfer::events::SendPacket>()
+                                    .collect();
+                                debug!("🐙🐙 substrate::query_packet_events -> send_packet_events_result : {:?}", send_packet_events_result);
+                                match send_packet_events_result {
+                                    Ok(send_packet_events) => {
+                                        //conver event
+
+                                        for send_packet in send_packet_events.into_iter() {
+                                            let event = SendPacket::from(send_packet.0);
+                                            if matches_packet(
+                                                &request,
+                                                &request.sequences,
+                                                &event.packet,
+                                            ) {
+                                                let event_with_height = IbcEventWithHeight {
+                                                    event: event.into(),
+                                                    height,
+                                                };
+                                                events_with_height.push(event_with_height)
+                                            }
+                                        }
+                                    }
+
+                                    Err(e) => {
+                                        error!("🐙🐙 substrate::query_packet_events -> block: {}, filter send packet event error: {}", height, e);
+                                    }
+                                }
+                            }
+                            WithBlockDataType::WriteAck => {
+                                // filter ibc write ack packet events
+                                let core_events_result: Result<Vec<_>, subxt::Error> = events
+                                    .find::<relaychain_node::ibc::events::IbcEvents>()
+                                    .collect();
+                                debug!("🐙🐙 substrate::query_packet_events -> core_events_result : {:?}", core_events_result);
+                                use relaychain_node::runtime_types::ibc::events::IbcEvent as SubxtIbcEvent ;
+                                use relaychain_node::runtime_types::ibc::core::ics04_channel::events::WriteAcknowledgement as SubxtWriteAcknowledgement ;
+                                match core_events_result {
+                                    Ok(core_packet_events) => {
+                                        //conver event
+                                        for ibc_events in core_packet_events.into_iter() {
+                                            ibc_events.events.into_iter().for_each(|event| {
+                                                match event {
+                                                    SubxtIbcEvent::WriteAcknowledgement(
+                                                        subxt_write_ack,
+                                                    ) => {
+                                                        let write_ack = WriteAcknowledgement::from(
+                                                            subxt_write_ack,
+                                                        );
+                                                        if matches_packet(
+                                                            &request,
+                                                            &request.sequences,
+                                                            &write_ack.packet,
+                                                        ) {
+                                                            let event_with_height =
+                                                                IbcEventWithHeight {
+                                                                    event: write_ack.into(),
+                                                                    height,
+                                                                };
+                                                            events_with_height
+                                                                .push(event_with_height)
+                                                        }
+                                                    }
+                                                    _ => {}
+                                                }
+                                            });
+                                        }
+                                    }
+
+                                    Err(e) => {
+                                        error!("🐙🐙 substrate::query_packet_events -> block: {}, filter write ack packet event error: {}", height, e);
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
                     }
                 }
                 debug!(
