@@ -2944,14 +2944,14 @@ impl ChainEndpoint for SubstrateChain {
                         .await
                         .unwrap();
 
-                    debug!(
-                        "🐙🐙 substrate::query_packet_receipt -> fetch storage result: {:?}",
-                        ret
-                    );
-
+                    
                     if ret.is_none() {
                         result.push(sequence)
                     }
+                    debug!(
+                        "🐙🐙 substrate::query_packet_receipt ->  {:?}",
+                        result
+                    );
                 }
                 Ok(result)
             }
@@ -3471,7 +3471,7 @@ impl ChainEndpoint for SubstrateChain {
                     }
                 }
                 debug!(
-                    "🐙🐙 substrate::query_unreceived_acknowledgements -> Vec<Sequence>: {:?}",
+                    "🐙🐙 substrate::query_unreceived_acknowledgements -> {:?}",
                     result
                 );
 
@@ -3782,215 +3782,187 @@ impl ChainEndpoint for SubstrateChain {
                         let (block_number, block_hash) = match query_height {
                             QueryHeight::Latest => {
                                 // use subxt::config::Header;
-
                                 let resp =
                                     relay_rpc_client.rpc().block(None).await.unwrap().unwrap();
                                 //    resp.block.header.hash()
-                                (resp.block.header.number, resp.block.header.hash())
+                                (resp.block.header.number as u64, resp.block.header.hash())
                             }
                             QueryHeight::Specific(h) => {
                                 // use subxt::config::Header;
-                                let block_number = h.revision_height() as u32;
+                                let block_number = h.revision_height() ;
                                 let block_hash = relay_rpc_client
                                     .rpc()
                                     .block_hash(Some(block_number.into()))
                                     .await
                                     .unwrap()
                                     .unwrap();
-                                (block_number, block_hash)
+                                (block_number , block_hash)
                             }
                         };
-                        let height = ICSHeight::new(0, block_number as u64).unwrap();
-
-                        let metadata = relay_rpc_client
-                            .rpc()
-                            .metadata(Some(block_hash))
-                            .await
-                            .unwrap();
-                        let events =
-                            Events::new_from_client(metadata, block_hash, relay_rpc_client.clone())
-                                .await
-                                .unwrap();
-
+                        debug!("🐙🐙 substrate::query_packet_events -> Qualified::Equal block_number: {:?}, block_hash: {:?}", block_number,block_hash);
+                        let height = ICSHeight::new(0, block_number).unwrap();
+                    
                         match request.event_id {
                             WithBlockDataType::SendPacket => {
-                                // filter ibc send packet events
-                                let send_packet_events_result: Result<Vec<_>, subxt::Error> = events
-                                    .find::<relaychain_node::ics20_transfer::events::SendPacket>()
-                                    .collect();
-                                debug!("🐙🐙 substrate::query_packet_events -> send_packet_events_result : {:?}", send_packet_events_result);
-                                match send_packet_events_result {
-                                    Ok(send_packet_events) => {
-                                        //conver event
+                                //find specific height send packet
+                                let key_addr = relaychain_node::storage()
+                                    .ics20_transfer()
+                                    .send_packet_store_root();
+                                let mut iter = relay_rpc_client
+                                    .storage()
+                                    .at(Some(block_hash))
+                                    .await
+                                    .unwrap()
+                                    .iter(key_addr, 10)
+                                    .await
+                                    .unwrap();
+                                while let Some((key, value)) = iter.next().await.unwrap() {
+                                    let raw_key = key.0[48..].to_vec();
+                                    let h = u64::decode(&mut &*raw_key).unwrap();
+                                    let height = ICSHeight::new(0, h).unwrap();
+                                    match value {
+                                        relaychain_node::runtime_types::ibc::events::IbcEvent::SendPacket(v) =>{
 
-                                        for send_packet in send_packet_events.into_iter() {
-                                            let event = SendPacket::from(send_packet.0);
-                                            if matches_packet(
-                                                &request,
-                                                &request.sequences,
-                                                &event.packet,
-                                            ) {
-                                                let event_with_height = IbcEventWithHeight {
-                                                    event: event.into(),
-                                                    height,
-                                                };
-                                                events_with_height.push(event_with_height)
+                                            let send_packet_event = SendPacket::from(v);
+                                            if matches_packet(&request,&request.sequences,&send_packet_event.packet){
+                                                    let event_with_height = IbcEventWithHeight {
+                                                        event: send_packet_event.into(),
+                                                        height,
+                                                    };
+                                                    events_with_height.push(event_with_height)
                                             }
+                                           
                                         }
-                                    }
+                                        _ => {}
 
-                                    Err(e) => {
-                                        error!("🐙🐙 substrate::query_packet_events -> block: {}, filter send packet event error: {}", height, e);
                                     }
                                 }
+                                debug!("🐙🐙 substrate::query_packet_events -> send packet events : {:?}", events_with_height);                               
                             }
                             WithBlockDataType::WriteAck => {
                                 // filter ibc write ack packet events
-                                let core_events_result: Result<Vec<_>, subxt::Error> = events
-                                    .find::<relaychain_node::ibc::events::IbcEvents>()
-                                    .collect();
-                                debug!("🐙🐙 substrate::query_packet_events -> core_events_result : {:?}", core_events_result);
-                                use relaychain_node::runtime_types::ibc::events::IbcEvent as SubxtIbcEvent ;
-                                use relaychain_node::runtime_types::ibc::core::ics04_channel::events::WriteAcknowledgement as SubxtWriteAcknowledgement ;
-                                match core_events_result {
-                                    Ok(core_packet_events) => {
-                                        //conver event
-                                        for ibc_events in core_packet_events.into_iter() {
-                                            ibc_events.events.into_iter().for_each(|event| {
-                                                match event {
-                                                    SubxtIbcEvent::WriteAcknowledgement(
-                                                        subxt_write_ack,
-                                                    ) => {
-                                                        let write_ack = WriteAcknowledgement::from(
-                                                            subxt_write_ack,
-                                                        );
-                                                        if matches_packet(
-                                                            &request,
-                                                            &request.sequences,
-                                                            &write_ack.packet,
-                                                        ) {
-                                                            let event_with_height =
-                                                                IbcEventWithHeight {
-                                                                    event: write_ack.into(),
-                                                                    height,
-                                                                };
-                                                            events_with_height
-                                                                .push(event_with_height)
-                                                        }
-                                                    }
-                                                    _ => {}
-                                                }
-                                            });
+                                let key_addr = relaychain_node::storage().ibc().ibc_event_store_root();
+                                let mut iter = relay_rpc_client
+                                    .storage()
+                                    .at(Some(block_hash))
+                                    .await
+                                    .unwrap()
+                                    .iter(key_addr, 10)
+                                    .await
+                                    .unwrap();
+                                while let Some((key, value)) = iter.next().await.unwrap() {
+                                    let raw_key = key.0[48..].to_vec();
+                                    let h = u64::decode(&mut &*raw_key).unwrap();
+                                    let height = ICSHeight::new(0, h).unwrap();
+                                    match value { 
+                                        relaychain_node::runtime_types::ibc::events::IbcEvent::WriteAcknowledgement(v) =>{
+                                            let write_ack =  WriteAcknowledgement::from(v);
+                                            if matches_packet(&request,&request.sequences,&write_ack.packet){
+                                                    let event_with_height = IbcEventWithHeight {
+                                                        event: write_ack.into(),
+                                                        height,
+                                                    };
+                                                    events_with_height.push(event_with_height)
+                                            }
                                         }
-                                    }
-
-                                    Err(e) => {
-                                        error!("🐙🐙 substrate::query_packet_events -> block: {}, filter write ack packet event error: {}", height, e);
+                                        _ => {}
                                     }
                                 }
+                           
+                                debug!("🐙🐙 substrate::query_packet_events -> write ack events : {:?}", events_with_height);
+                               
                             }
                             _ => {}
                         }
                     }
                     Qualified::SmallerEqual(_) => {
-                        debug!("🐙🐙 substrate::query_packet_events ->  SmallerEqual query !");
-
+                        // get latest block height
                         let resp = relay_rpc_client.rpc().block(None).await.unwrap().unwrap();
                         let block_number = resp.block.header.number;
                         let block_hash = resp.block.header.hash();
+                        debug!("🐙🐙 substrate::query_packet_events -> Qualified::SmallerEqual block_number: {:?}, block_hash: {:?}", block_number,block_hash);
                         let height = ICSHeight::new(0, block_number as u64).unwrap();
-
-                        let metadata = relay_rpc_client
-                            .rpc()
-                            .metadata(Some(block_hash))
-                            .await
-                            .unwrap();
-                        let events =
-                            Events::new_from_client(metadata, block_hash, relay_rpc_client.clone())
-                                .await
-                                .unwrap();
-
+                        
                         match request.event_id {
                             WithBlockDataType::SendPacket => {
-                                // filter ibc send packet events
-                                let send_packet_events_result: Result<Vec<_>, subxt::Error> = events
-                                    .find::<relaychain_node::ics20_transfer::events::SendPacket>()
-                                    .collect();
-                                debug!("🐙🐙 substrate::query_packet_events -> send_packet_events_result : {:?}", send_packet_events_result);
-                                match send_packet_events_result {
-                                    Ok(send_packet_events) => {
-                                        //conver event
+                                //find specific height send packet
+                                let key_addr = relaychain_node::storage()
+                                    .ics20_transfer()
+                                    .send_packet_store_root();
+                                let mut iter = relay_rpc_client
+                                    .storage()
+                                    .at(Some(block_hash))
+                                    .await
+                                    .unwrap()
+                                    .iter(key_addr, 10)
+                                    .await
+                                    .unwrap();
+                                while let Some((key, value)) = iter.next().await.unwrap() {
+                                    let raw_key = key.0[48..].to_vec();
+                                    let h = u64::decode(&mut &*raw_key).unwrap();
+                                    let height = ICSHeight::new(0, h).unwrap();
+                                    match value {
+                                        relaychain_node::runtime_types::ibc::events::IbcEvent::SendPacket(v) =>{
 
-                                        for send_packet in send_packet_events.into_iter() {
-                                            let event = SendPacket::from(send_packet.0);
-                                            if matches_packet(
-                                                &request,
-                                                &request.sequences,
-                                                &event.packet,
-                                            ) {
-                                                let event_with_height = IbcEventWithHeight {
-                                                    event: event.into(),
-                                                    height,
-                                                };
-                                                events_with_height.push(event_with_height)
+                                            let send_packet_event = SendPacket::from(v);
+                                            if matches_packet(&request,&request.sequences,&send_packet_event.packet){
+                                                    let event_with_height = IbcEventWithHeight {
+                                                        event: send_packet_event.into(),
+                                                        height,
+                                                    };
+                                                    events_with_height.push(event_with_height)
                                             }
+                                           
                                         }
-                                    }
+                                        _ => {}
 
-                                    Err(e) => {
-                                        error!("🐙🐙 substrate::query_packet_events -> block: {}, filter send packet event error: {}", height, e);
                                     }
                                 }
+                              
+                                debug!("🐙🐙 substrate::query_packet_events -> send packet events : {:?}", events_with_height);
+                               
                             }
                             WithBlockDataType::WriteAck => {
                                 // filter ibc write ack packet events
-                                let core_events_result: Result<Vec<_>, subxt::Error> = events
-                                    .find::<relaychain_node::ibc::events::IbcEvents>()
-                                    .collect();
-                                debug!("🐙🐙 substrate::query_packet_events -> core_events_result : {:?}", core_events_result);
-                                use relaychain_node::runtime_types::ibc::events::IbcEvent as SubxtIbcEvent ;
-                                use relaychain_node::runtime_types::ibc::core::ics04_channel::events::WriteAcknowledgement as SubxtWriteAcknowledgement ;
-                                match core_events_result {
-                                    Ok(core_packet_events) => {
-                                        //conver event
-                                        for ibc_events in core_packet_events.into_iter() {
-                                            ibc_events.events.into_iter().for_each(|event| {
-                                                match event {
-                                                    SubxtIbcEvent::WriteAcknowledgement(
-                                                        subxt_write_ack,
-                                                    ) => {
-                                                        let write_ack = WriteAcknowledgement::from(
-                                                            subxt_write_ack,
-                                                        );
-                                                        if matches_packet(
-                                                            &request,
-                                                            &request.sequences,
-                                                            &write_ack.packet,
-                                                        ) {
-                                                            let event_with_height =
-                                                                IbcEventWithHeight {
-                                                                    event: write_ack.into(),
-                                                                    height,
-                                                                };
-                                                            events_with_height
-                                                                .push(event_with_height)
-                                                        }
-                                                    }
-                                                    _ => {}
-                                                }
-                                            });
-                                        }
-                                    }
+                                let key_addr = relaychain_node::storage().ibc().ibc_event_store_root();
 
-                                    Err(e) => {
-                                        error!("🐙🐙 substrate::query_packet_events -> block: {}, filter write ack packet event error: {}", height, e);
+                                let mut iter = relay_rpc_client
+                                    .storage()
+                                    .at(Some(block_hash))
+                                    .await
+                                    .unwrap()
+                                    .iter(key_addr, 10)
+                                    .await
+                                    .unwrap();
+                                while let Some((key, value)) = iter.next().await.unwrap() {
+                                    let raw_key = key.0[48..].to_vec();
+                                    let h = u64::decode(&mut &*raw_key).unwrap();
+                                    let height = ICSHeight::new(0, h).unwrap();
+                                    match value { 
+                                        relaychain_node::runtime_types::ibc::events::IbcEvent::WriteAcknowledgement(v) =>{
+                                            let write_ack =  WriteAcknowledgement::from(v);
+                                            if matches_packet(&request,&request.sequences,&write_ack.packet){
+                                                    let event_with_height = IbcEventWithHeight {
+                                                        event: write_ack.into(),
+                                                        height,
+                                                    };
+                                                    events_with_height.push(event_with_height)
+                                                    
+                                            }
+                                        }
+                                        _ => {}
                                     }
                                 }
+                           
+                                debug!("🐙🐙 substrate::query_packet_events -> write ack events : {:?}", events_with_height);
+                               
                             }
                             _ => {}
                         }
+                       
                     }
                 }
+
                 debug!(
                     "🐙🐙 substrate::query_packet_events -> events_with_height : {:?}",
                     events_with_height
