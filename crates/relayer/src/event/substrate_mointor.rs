@@ -315,7 +315,7 @@ impl EventMonitor {
                             .find::<ibc_node::ibc::events::IbcEvents>()
                             .collect();
                          debug!("🐙🐙 substrate_monitor::run_loop -> ibc_events_result: {:?}" ,ibc_events_result);
-                            match ibc_events_result {
+                        match ibc_events_result {
                                 Ok(ibc_core_events) => {
                                     //conver event
                                     for ibc_events in ibc_core_events.into_iter() {
@@ -337,7 +337,7 @@ impl EventMonitor {
                             .find::<ibc_node::ics20_transfer::events::SendPacket>()
                             .collect();
                         debug!("🐙🐙 substrate_monitor::run_loop -> send_packet_events_result: {:?}", send_packet_events_result);
-                            match send_packet_events_result {
+                        match send_packet_events_result {
                                 Ok(send_packet_events) => {
                                     //conver event
                                     for send_packet in send_packet_events.into_iter() {

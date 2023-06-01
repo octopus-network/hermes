@@ -45,10 +45,6 @@ use codec::Decode;
 use ibc_proto::cosmos::base::node::v1beta1::ConfigResponse;
 use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
 use ibc_proto::protobuf::Protobuf;
-use ibc_relayer_types::clients::ics10_grandpa::client_state::{
-    AllowUpdate, ClientState as GpClientState,
-};
-use ibc_relayer_types::clients::ics10_grandpa::consensus_state::ConsensusState as GpConsensusState;
 use ibc_relayer_types::clients::ics10_grandpa::header::Header as GpHeader;
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
@@ -78,6 +74,14 @@ use ibc_relayer_types::Height as ICSHeight;
 use ibc_relayer_types::{
     applications::ics31_icq::response::CrossChainQueryResponse, events::IbcEvent,
 };
+use ibc_relayer_types::{
+    clients::ics10_grandpa::client_state::{AllowUpdate, ClientState as GpClientState},
+    core::ics04_channel::packet::Packet,
+};
+use ibc_relayer_types::{
+    clients::ics10_grandpa::consensus_state::ConsensusState as GpConsensusState,
+    core::ics04_channel::events::WriteAcknowledgement,
+};
 
 use tendermint::block::Height as TmHeight;
 use tendermint::node::info::TxIndexStatus;
@@ -87,10 +91,10 @@ use tendermint_rpc::endpoint::status;
 use tendermint_rpc::{Client, HttpClient, Order};
 // substrate
 use serde::{Deserialize, Serialize};
-use subxt::rpc::RpcClient as SubxtRpcClient;
-use subxt::rpc::Subscription as SubxtSubscription;
 use subxt::rpc_params;
 use subxt::Error as SubxtError;
+use subxt::{config::Header, rpc::Subscription as SubxtSubscription};
+use subxt::{events::Events, rpc::RpcClient as SubxtRpcClient};
 use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
 // use subxt::rpc::types::into_block_number;
 pub mod beefy;
@@ -844,7 +848,7 @@ impl ChainEndpoint for SubstrateChain {
                 let storage = relaychain_node::storage()
                     .ics20_transfer()
                     .denom_trace(hash.as_bytes().to_vec());
-                let denom_trace = relay_rpc_client
+                let denom_trace: relaychain_node::runtime_types::pallet_ics20_transfer::denom::PrefixedDenom = relay_rpc_client
                     .storage()
                     .at(None)
                     .await
@@ -2546,7 +2550,19 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryPacketCommitmentsRequest,
         ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
             if let Some(rpc_client) = para_rpc_client {
-                let key_addr = parachain_node::storage().ibc().channels_root();
+                use subxt::config::Header;
+                let finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
+
+                let block = rpc_client
+                    .rpc()
+                    .block(Some(finalized_head_hash))
+                    .await
+                    .unwrap();
+
+                let height =
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+
+                let key_addr = parachain_node::storage().ibc().packet_commitment_root();
 
                 let mut iter = rpc_client
                     .storage()
@@ -2569,10 +2585,13 @@ impl ChainEndpoint for SubstrateChain {
                         result.push(sequence);
                     }
                 }
-                use subxt::config::Header;
-                let finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
 
-                let block = rpc_client
+                Ok((result, height))
+            } else {
+                use subxt::config::Header;
+                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+
+                let block = relay_rpc_client
                     .rpc()
                     .block(Some(finalized_head_hash))
                     .await
@@ -2581,13 +2600,11 @@ impl ChainEndpoint for SubstrateChain {
                 let height =
                     ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
 
-                Ok((result, height))
-            } else {
-                let key_addr = relaychain_node::storage().ibc().channels_root();
+                let key_addr = relaychain_node::storage().ibc().packet_commitment_root();
 
                 let mut iter = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(Some(finalized_head_hash))
                     .await
                     .unwrap()
                     .iter(key_addr, 10)
@@ -2606,17 +2623,10 @@ impl ChainEndpoint for SubstrateChain {
                         result.push(sequence);
                     }
                 }
-                use subxt::config::Header;
-                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
-
-                let block = relay_rpc_client
-                    .rpc()
-                    .block(Some(finalized_head_hash))
-                    .await
-                    .unwrap();
-
-                let height =
-                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+                debug!(
+                    "🐙🐙 substrate::query_packet_commitments -> Vec<Sequence>: {:?}",
+                    result
+                );
 
                 Ok((result, height))
             }
@@ -2692,7 +2702,10 @@ impl ChainEndpoint for SubstrateChain {
                 //     parachain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => Ok((b"ok".to_vec(), None)),
                 // }
 
-                debug!("substrate::query_packet_receipt -> receipt: {:?}", result);
+                debug!(
+                    "🐙🐙 substrate::query_packet_receipt -> receipt: {:?}",
+                    result
+                );
                 match result {
                     parachain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => {
 
@@ -3240,7 +3253,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 debug!(
-                    "substrate::query_packet_acknowledgement -> ack commitment: {:?}",
+                    "🐙🐙 substrate::query_packet_acknowledgement -> ack commitment: {:?}",
                     result
                 );
 
@@ -3632,63 +3645,154 @@ impl ChainEndpoint for SubstrateChain {
             if let Some(rpc_client) = para_rpc_client {
                 todo!()
             } else {
-                let key_addr = relaychain_node::storage().ibc().ibc_event_store_root();
+                let mut events_with_height = Vec::new();
+                match request.height {
+                    Qualified::Equal(query_height) => {
+                        let (block_number, block_hash) = match query_height {
+                            QueryHeight::Latest => {
+                                // use subxt::config::Header;
 
-                let mut iter = relay_rpc_client
-                    .storage()
-                    .at(None)
-                    .await
-                    .unwrap()
-                    .iter(key_addr, 10)
-                    .await
-                    .unwrap();
+                                let resp =
+                                    relay_rpc_client.rpc().block(None).await.unwrap().unwrap();
+                                //    resp.block.header.hash()
+                                (resp.block.header.number, resp.block.header.hash())
+                            }
+                            QueryHeight::Specific(h) => {
+                                // use subxt::config::Header;
+                                let block_number = h.revision_height() as u32;
+                                let block_hash = relay_rpc_client
+                                    .rpc()
+                                    .block_hash(Some(block_number.into()))
+                                    .await
+                                    .unwrap()
+                                    .unwrap();
+                                (block_number, block_hash)
+                            }
+                        };
+                        // use subxt::{events::Events, OnlineClient, PolkadotConfig};
+                        let metadata = relay_rpc_client
+                            .rpc()
+                            .metadata(Some(block_hash))
+                            .await
+                            .unwrap();
+                        let events =
+                            Events::new_from_client(metadata, block_hash, relay_rpc_client.clone())
+                                .await
+                                .unwrap();
 
-                let mut result = vec![];
-                while let Some((key, value)) = iter.next().await.unwrap() {
-                    let raw_key = key.0[48..].to_vec();
-                    let h = u64::decode(&mut &*raw_key).unwrap();
-                    let height = ICSHeight::new(0, h).unwrap();
-                    match (value, request.event_id.clone()) {
-                        (
-                            relaychain_node::runtime_types::ibc::events::IbcEvent::CreateClient(v),
-                            WithBlockDataType::CreateClient,
-                        ) => {
-                            result.push(IbcEventWithHeight {
-                                event: IbcEvent::CreateClient(v.into()),
-                                height,
-                            });
+                        let height = ICSHeight::new(0, block_number as u64).unwrap();
+
+                        fn matches_packet(
+                            request: &QueryPacketEventDataRequest,
+                            seqs: &Vec<Sequence>,
+                            packet: &Packet,
+                        ) -> bool {
+                            packet.source_port == request.source_port_id
+                                && packet.source_channel == request.source_channel_id
+                                && packet.destination_port == request.destination_port_id
+                                && packet.destination_channel == request.destination_channel_id
+                                && seqs.contains(&packet.sequence)
                         }
-                        (
-                            relaychain_node::runtime_types::ibc::events::IbcEvent::UpdateClient(v),
-                            WithBlockDataType::UpdateClient,
-                        ) => {
-                            result.push(IbcEventWithHeight {
-                                event: IbcEvent::UpdateClient(v.into()),
-                                height,
-                            });
+
+                        match request.event_id {
+                            WithBlockDataType::SendPacket => {
+                                // filter ibc send packet events
+                                let send_packet_events_result: Result<Vec<_>, subxt::Error> = events
+                                    .find::<relaychain_node::ics20_transfer::events::SendPacket>()
+                                    .collect();
+                                debug!("🐙🐙 substrate::query_packet_events -> send_packet_events_result : {:?}", send_packet_events_result);
+                                match send_packet_events_result {
+                                    Ok(send_packet_events) => {
+                                        //conver event
+
+                                        for send_packet in send_packet_events.into_iter() {
+                                            let event = SendPacket::from(send_packet.0);
+                                            if matches_packet(
+                                                &request,
+                                                &request.sequences,
+                                                &event.packet,
+                                            ) {
+                                                let event_with_height = IbcEventWithHeight {
+                                                    event: event.into(),
+                                                    height,
+                                                };
+                                                events_with_height.push(event_with_height)
+                                            }
+                                        }
+                                        // return Ok(events_with_height);
+                                    }
+
+                                    Err(e) => {
+                                        error!("🐙🐙 substrate::query_packet_events -> block: {}, filter send packet event error: {}", height, e);
+                                        // return Err(Error::event());
+                                    }
+                                }
+                            }
+                            WithBlockDataType::WriteAck => {
+                                // filter ibc write ack packet events
+                                let core_events_result: Result<Vec<_>, subxt::Error> = events
+                                    .find::<relaychain_node::ibc::events::IbcEvents>()
+                                    .collect();
+                                debug!("🐙🐙 substrate::query_packet_events -> core_events_result : {:?}", core_events_result);
+                                use relaychain_node::runtime_types::ibc::events::IbcEvent as SubxtIbcEvent ;
+                                use relaychain_node::runtime_types::ibc::core::ics04_channel::events::WriteAcknowledgement as SubxtWriteAcknowledgement ;
+                                match core_events_result {
+                                    Ok(core_packet_events) => {
+                                        //conver event
+                                        // let mut events_with_height = Vec::new();
+                                        for ibc_events in core_packet_events.into_iter() {
+                                            ibc_events.events.into_iter().for_each(|event| {
+                                                match event {
+                                                    SubxtIbcEvent::WriteAcknowledgement(
+                                                        subxt_write_ack,
+                                                    ) => {
+                                                        let write_ack = WriteAcknowledgement::from(
+                                                            subxt_write_ack,
+                                                        );
+                                                        if matches_packet(
+                                                            &request,
+                                                            &request.sequences,
+                                                            &write_ack.packet,
+                                                        ) {
+                                                            let event_with_height =
+                                                                IbcEventWithHeight {
+                                                                    event: write_ack.into(),
+                                                                    height,
+                                                                };
+                                                            events_with_height
+                                                                .push(event_with_height)
+                                                        }
+                                                    }
+                                                    _ => {}
+                                                }
+                                            });
+                                        }
+                                        // return Ok(events_with_height);
+                                    }
+
+                                    Err(e) => {
+                                        error!("🐙🐙 substrate::query_packet_events -> block: {}, filter write ack packet event error: {}", height, e);
+                                        // return Err(Error::event());
+                                    }
+                                }
+                            }
+                            _ => {}
+                            // WithBlockDataType::CreateClient => todo!(),
+                            // WithBlockDataType::UpdateClient => todo!(),
                         }
-                        (
-                            relaychain_node::runtime_types::ibc::events::IbcEvent::SendPacket(v),
-                            WithBlockDataType::SendPacket,
-                        ) => {
-                            result.push(IbcEventWithHeight {
-                                event: IbcEvent::SendPacket(v.into()),
-                                height,
-                            });
-                        }
-                        (
-                            relaychain_node::runtime_types::ibc::events::IbcEvent::WriteAcknowledgement(v),
-                            WithBlockDataType::WriteAck,
-                        ) => {
-                            result.push(IbcEventWithHeight {
-                                event: IbcEvent::WriteAcknowledgement(v.into()),
-                                height,
-                            });
-                        }
-                        (_, _) => {}
+                    }
+                    Qualified::SmallerEqual(_) => {
+                        debug!(
+                            "🐙🐙 substrate::query_packet_events -> nsupport SmallerEqual query !"
+                        );
+                        // Err(Error::event())
                     }
                 }
-                Ok(result)
+                debug!(
+                    "🐙🐙 substrate::query_packet_events -> events_with_height : {:?}",
+                    events_with_height
+                );
+                Ok(events_with_height)
             }
         }
 

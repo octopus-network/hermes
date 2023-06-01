@@ -772,12 +772,6 @@ mod subxt_ibc_event {
             } else {
                 Timestamp::none()
             }
-            // if value.time == 0 {
-            //     Timestamp::none()
-            // } else {
-            //     Timestamp::from_nanoseconds(value.time).ok().unwrap()
-            // }
-            // Self { time: value.time }
         }
     }
 }
