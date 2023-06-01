@@ -45,7 +45,6 @@ use codec::Decode;
 use ibc_proto::cosmos::base::node::v1beta1::ConfigResponse;
 use ibc_proto::cosmos::staking::v1beta1::Params as StakingParams;
 use ibc_proto::protobuf::Protobuf;
-use ibc_relayer_types::clients::ics10_grandpa::header::Header as GpHeader;
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
@@ -81,6 +80,10 @@ use ibc_relayer_types::{
 use ibc_relayer_types::{
     clients::ics10_grandpa::consensus_state::ConsensusState as GpConsensusState,
     core::ics04_channel::events::WriteAcknowledgement,
+};
+use ibc_relayer_types::{
+    clients::ics10_grandpa::header::Header as GpHeader,
+    core::ics04_channel::commitment::PacketCommitment,
 };
 
 use tendermint::block::Height as TmHeight;
@@ -3310,11 +3313,22 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryPacketAcknowledgementsRequest,
         ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
             if let Some(rpc_client) = para_rpc_client {
+                use subxt::config::Header;
+                let finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
+
+                let block = rpc_client
+                    .rpc()
+                    .block(Some(finalized_head_hash))
+                    .await
+                    .unwrap();
+                let height =
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+
                 let key_addr = parachain_node::storage().ibc().acknowledgements_root();
 
                 let mut iter = rpc_client
                     .storage()
-                    .at(None)
+                    .at(Some(finalized_head_hash))
                     .await
                     .unwrap()
                     .iter(key_addr, 10)
@@ -3333,24 +3347,29 @@ impl ChainEndpoint for SubstrateChain {
                         result.push(sequence);
                     }
                 }
-                use subxt::config::Header;
-                let finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
 
-                let block = rpc_client
+                debug!(
+                    "🐙🐙 substrate::query_packet_acknowledgements -> ack sequence: {:?}",
+                    result
+                );
+
+                Ok((result, height))
+            } else {
+                use subxt::config::Header;
+                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+
+                let block = relay_rpc_client
                     .rpc()
                     .block(Some(finalized_head_hash))
                     .await
                     .unwrap();
                 let height =
                     ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
-
-                Ok((result, height))
-            } else {
                 let key_addr = relaychain_node::storage().ibc().acknowledgements_root();
 
                 let mut iter = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(Some(finalized_head_hash))
                     .await
                     .unwrap()
                     .iter(key_addr, 10)
@@ -3369,16 +3388,10 @@ impl ChainEndpoint for SubstrateChain {
                         result.push(sequence);
                     }
                 }
-                use subxt::config::Header;
-                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
-
-                let block = relay_rpc_client
-                    .rpc()
-                    .block(Some(finalized_head_hash))
-                    .await
-                    .unwrap();
-                let height =
-                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+                debug!(
+                    "🐙🐙 substrate::query_packet_acknowledgements -> ack sequence: {:?}",
+                    result
+                );
 
                 Ok((result, height))
             }
@@ -3412,8 +3425,24 @@ impl ChainEndpoint for SubstrateChain {
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
             request: QueryUnreceivedAcksRequest,
         ) -> Result<Vec<Sequence>, Error> {
+            debug!(
+                "🐙🐙 substrate::query_unreceived_acknowledgements -> QueryUnreceivedAcksRequest: {:?}",
+                request
+            );
             if let Some(rpc_client) = para_rpc_client {
-                let key_addr = parachain_node::storage().ibc().acknowledgements_root();
+                use subxt::config::Header;
+                let finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
+
+                let block = rpc_client
+                    .rpc()
+                    .block(Some(finalized_head_hash))
+                    .await
+                    .unwrap();
+
+                let height =
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+
+                let key_addr = parachain_node::storage().ibc().packet_commitment_root();
 
                 let mut iter = rpc_client
                     .storage()
@@ -3427,31 +3456,44 @@ impl ChainEndpoint for SubstrateChain {
                 let mut result = vec![];
                 while let Some((key, value)) = iter.next().await.unwrap() {
                     let raw_key = key.0[48..].to_vec();
-                    let rets = parachain_node::runtime_types::ibc::core::ics24_host::path::AcksPath::decode(&mut &*raw_key).unwrap();
+                    let rets = parachain_node::runtime_types::ibc::core::ics24_host::path::CommitmentsPath::decode(&mut &*raw_key).unwrap();
                     let port_id = PortId::from(rets.port_id);
                     let channel_id = ChannelId::from(rets.channel_id);
                     let sequence = Sequence::from(rets.sequence);
-
-                    if port_id == request.port_id && channel_id == request.channel_id {
+                    let packet_commitment: PacketCommitment = value.into();
+                    // find unreceived packet
+                    if port_id == request.port_id
+                        && channel_id == request.channel_id
+                        // && request.packet_ack_sequences.contains(&sequence)
+                        && packet_commitment.into_vec().len() != 0
+                    {
                         result.push(sequence);
                     }
                 }
+                debug!(
+                    "🐙🐙 substrate::query_unreceived_acknowledgements -> Vec<Sequence>: {:?}",
+                    result
+                );
 
-                let mut ret = vec![];
-                for seq in request.packet_ack_sequences {
-                    for in_seq in result.iter() {
-                        if seq != *in_seq {
-                            ret.push(seq);
-                        }
-                    }
-                }
-                Ok(ret)
+                Ok(result)
             } else {
-                let key_addr = relaychain_node::storage().ibc().acknowledgements_root();
+                use subxt::config::Header;
+                let finalized_head_hash = relay_rpc_client.rpc().finalized_head().await.unwrap();
+
+                let block = relay_rpc_client
+                    .rpc()
+                    .block(Some(finalized_head_hash))
+                    .await
+                    .unwrap();
+
+                let height =
+                    ICSHeight::new(0, u64::from(block.unwrap().block.header.number())).unwrap();
+
+                let key_addr = relaychain_node::storage().ibc().packet_commitment_root();
 
                 let mut iter = relay_rpc_client
                     .storage()
-                    .at(None)
+                    .at(Some(finalized_head_hash))
                     .await
                     .unwrap()
                     .iter(key_addr, 10)
@@ -3461,26 +3503,105 @@ impl ChainEndpoint for SubstrateChain {
                 let mut result = vec![];
                 while let Some((key, value)) = iter.next().await.unwrap() {
                     let raw_key = key.0[48..].to_vec();
-                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::AcksPath::decode(&mut &*raw_key).unwrap();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::CommitmentsPath::decode(&mut &*raw_key).unwrap();
+                    debug!(
+                        "🐙🐙 substrate::query_unreceived_acknowledgements -> CommitmentsPath: {:?}",
+                        rets
+                    );
                     let port_id = PortId::from(rets.port_id);
                     let channel_id = ChannelId::from(rets.channel_id);
                     let sequence = Sequence::from(rets.sequence);
-
-                    if port_id == request.port_id && channel_id == request.channel_id {
+                    let packet_commitment: PacketCommitment = value.into();
+                    debug!(
+                        "🐙🐙 substrate::query_unreceived_acknowledgements -> PacketCommitment: {:?}",
+                        packet_commitment
+                    );
+                    // find unreceived packet
+                    if port_id == request.port_id
+                        && channel_id == request.channel_id
+                        // && request.packet_ack_sequences.contains(&sequence)
+                        && packet_commitment.into_vec().len() != 0
+                    {
                         result.push(sequence);
                     }
                 }
+                debug!(
+                    "🐙🐙 substrate::query_unreceived_acknowledgements -> Vec<Sequence>: {:?}",
+                    result
+                );
 
-                let mut ret = vec![];
-                for seq in request.packet_ack_sequences {
-                    for in_seq in result.iter() {
-                        if seq != *in_seq {
-                            ret.push(seq);
-                        }
-                    }
-                }
-                Ok(ret)
+                Ok(result)
             }
+
+            // if let Some(rpc_client) = para_rpc_client {
+            //     let key_addr = parachain_node::storage().ibc().acknowledgements_root();
+
+            //     let mut iter = rpc_client
+            //         .storage()
+            //         .at(None)
+            //         .await
+            //         .unwrap()
+            //         .iter(key_addr, 10)
+            //         .await
+            //         .unwrap();
+
+            //     let mut result = vec![];
+            //     while let Some((key, value)) = iter.next().await.unwrap() {
+            //         let raw_key = key.0[48..].to_vec();
+            //         let rets = parachain_node::runtime_types::ibc::core::ics24_host::path::AcksPath::decode(&mut &*raw_key).unwrap();
+            //         let port_id = PortId::from(rets.port_id);
+            //         let channel_id = ChannelId::from(rets.channel_id);
+            //         let sequence = Sequence::from(rets.sequence);
+
+            //         if port_id == request.port_id && channel_id == request.channel_id {
+            //             result.push(sequence);
+            //         }
+            //     }
+
+            //     let mut ret = vec![];
+            //     for seq in request.packet_ack_sequences {
+            //         for in_seq in result.iter() {
+            //             if seq != *in_seq {
+            //                 ret.push(seq);
+            //             }
+            //         }
+            //     }
+            //     Ok(ret)
+            // } else {
+            //     let key_addr = relaychain_node::storage().ibc().acknowledgements_root();
+
+            //     let mut iter = relay_rpc_client
+            //         .storage()
+            //         .at(None)
+            //         .await
+            //         .unwrap()
+            //         .iter(key_addr, 10)
+            //         .await
+            //         .unwrap();
+
+            //     let mut result = vec![];
+            //     while let Some((key, value)) = iter.next().await.unwrap() {
+            //         let raw_key = key.0[48..].to_vec();
+            //         let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::AcksPath::decode(&mut &*raw_key).unwrap();
+            //         let port_id = PortId::from(rets.port_id);
+            //         let channel_id = ChannelId::from(rets.channel_id);
+            //         let sequence = Sequence::from(rets.sequence);
+
+            //         if port_id == request.port_id && channel_id == request.channel_id {
+            //             result.push(sequence);
+            //         }
+            //     }
+
+            //     let mut ret = vec![];
+            //     for seq in request.packet_ack_sequences {
+            //         for in_seq in result.iter() {
+            //             if seq != *in_seq {
+            //                 ret.push(seq);
+            //             }
+            //         }
+            //     }
+            //     Ok(ret)
+            // }
         }
 
         match &self.rpc_client {
@@ -3783,7 +3904,7 @@ impl ChainEndpoint for SubstrateChain {
                     }
                     Qualified::SmallerEqual(_) => {
                         debug!(
-                            "🐙🐙 substrate::query_packet_events -> nsupport SmallerEqual query !"
+                            "🐙🐙 substrate::query_packet_events -> unsupport SmallerEqual query !"
                         );
                         // Err(Error::event())
                     }

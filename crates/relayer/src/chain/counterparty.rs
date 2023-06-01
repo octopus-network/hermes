@@ -583,12 +583,20 @@ pub fn unreceived_acknowledgements(
 ) -> Result<(Vec<Sequence>, Height), Error> {
     let (commitments_on_src, _) = commitments_on_chain(chain, &path.port_id, &path.channel_id)?;
 
+    tracing::debug!(
+        "🐙🐙 substrate::counterparty -> unreceived_acknowledgements  commitments_on_chain: {:?}",
+        commitments_on_src
+    );
     let (acks_on_counterparty, src_response_height) = packet_acknowledgements(
         counterparty_chain,
         &path.counterparty_port_id,
         &path.counterparty_channel_id,
         commitments_on_src,
     )?;
+    tracing::debug!(
+        "🐙🐙 substrate::counterparty -> unreceived_acknowledgements  packet_acknowledgements acks_on_counterparty: {:?},src_response_height:{:?}",
+        acks_on_counterparty,src_response_height
+    );
 
     let sns = unreceived_acknowledgements_sequences(
         chain,
@@ -596,6 +604,10 @@ pub fn unreceived_acknowledgements(
         &path.channel_id,
         acks_on_counterparty,
     )?;
+    tracing::debug!(
+        "🐙🐙 substrate::counterparty -> unreceived_acknowledgements_sequences sns: {:?}",
+        sns
+    );
 
     Ok((sns, src_response_height))
 }
