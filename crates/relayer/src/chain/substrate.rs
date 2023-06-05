@@ -2550,7 +2550,7 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryPacketCommitmentsRequest,
         ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
             if let Some(rpc_client) = para_rpc_client {
-                let key_addr = parachain_node::storage().ibc().channels_root();
+                let key_addr = parachain_node::storage().ibc().packet_commitment_root();
 
                 let mut iter = rpc_client
                     .storage()
@@ -2587,7 +2587,7 @@ impl ChainEndpoint for SubstrateChain {
 
                 Ok((result, height))
             } else {
-                let key_addr = relaychain_node::storage().ibc().channels_root();
+                let key_addr = relaychain_node::storage().ibc().packet_commitment_root();
 
                 let mut iter = relay_rpc_client
                     .storage()
@@ -2819,20 +2819,20 @@ impl ChainEndpoint for SubstrateChain {
             );
             if let Some(rpc_client) = para_rpc_client {
                 let port_id =
-                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
                         request.port_id.to_string(),
                     );
                 let channel_id =
-                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                    parachain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
                         request.channel_id.to_string(),
                     );
                 let channel_ends_path =
-                    relaychain_node::runtime_types::ibc::core::ics24_host::path::ChannelEndsPath(
+                    parachain_node::runtime_types::ibc::core::ics24_host::path::ChannelEndsPath(
                         port_id, channel_id,
                     );
-                let storage = relaychain_node::storage().ibc().channels(channel_ends_path);
+                let storage = parachain_node::storage().ibc().channels(channel_ends_path);
 
-                let result = relay_rpc_client
+                let result = rpc_client
                     .storage()
                     .at(None)
                     .await
@@ -2843,10 +2843,10 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 let result = match result.ordering {
-                    relaychain_node::runtime_types::ibc::core::ics04_channel::channel::Order::Ordered => {
-                        let key_addr = relaychain_node::storage().ibc().packet_receipt_root();
+                    parachain_node::runtime_types::ibc::core::ics04_channel::channel::Order::Ordered => {
+                        let key_addr = parachain_node::storage().ibc().packet_receipt_root();
 
-                        let mut iter = relay_rpc_client
+                        let mut iter = rpc_client
                             .storage()
                             .at(None)
                             .await
@@ -2869,11 +2869,11 @@ impl ChainEndpoint for SubstrateChain {
                         let mut result = vec![];
                         for (port_id, channel_id, sequence) in pair {
                             let port_id =
-                                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                                parachain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
                                     port_id.to_string(),
                                 );
                             let channel_id =
-                                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                                parachain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
                                     channel_id.to_string(),
                                 );
                             let seq =
@@ -2881,16 +2881,16 @@ impl ChainEndpoint for SubstrateChain {
                                     u64::from(sequence),
                                 );
                             let packet_receipt_path =
-                                relaychain_node::runtime_types::ibc::core::ics24_host::path::ReceiptsPath {
+                                parachain_node::runtime_types::ibc::core::ics24_host::path::ReceiptsPath {
                                     port_id,
                                     channel_id,
                                     sequence: seq,
                                 };
-                            let storage = relaychain_node::storage()
+                            let storage = parachain_node::storage()
                                 .ibc()
                                 .packet_receipt(&packet_receipt_path);
 
-                            let ret = relay_rpc_client
+                            let ret = rpc_client
                                 .storage()
                                 .at(None)
                                 .await
