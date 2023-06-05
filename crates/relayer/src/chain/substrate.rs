@@ -1824,6 +1824,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // ref: https://github.com/cosmos/ibc-go/blob/96808ebb72ec8db1edf71f4bff7e8ee68440237d/modules/core/04-channel/keeper/grpc_query.go#L85
     fn query_connection_channels(
         &self,
         request: QueryConnectionChannelsRequest,
@@ -1973,6 +1974,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // ref: https://github.com/cosmos/ibc-go/blob/96808ebb72ec8db1edf71f4bff7e8ee68440237d/modules/core/04-channel/keeper/grpc_query.go#L47
     fn query_channels(
         &self,
         request: QueryChannelsRequest,
@@ -2050,6 +2052,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    //ref: https://github.com/cosmos/ibc-go/blob/96808ebb72ec8db1edf71f4bff7e8ee68440237d/modules/core/04-channel/keeper/grpc_query.go#L24
     fn query_channel(
         &self,
         request: QueryChannelRequest,
@@ -2373,6 +2376,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // ref: https://github.com/cosmos/ibc-go/blob/96808ebb72ec8db1edf71f4bff7e8ee68440237d/modules/core/04-channel/keeper/grpc_query.go#L203
     fn query_packet_commitment(
         &self,
         request: QueryPacketCommitmentRequest,
@@ -2633,6 +2637,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // ref: https://github.com/cosmos/ibc-go/blob/96808ebb72ec8db1edf71f4bff7e8ee68440237d/modules/core/04-channel/keeper/grpc_query.go#L267
     fn query_packet_receipt(
         &self,
         request: QueryPacketReceiptRequest,
@@ -2794,6 +2799,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // ref: https://github.com/cosmos/ibc-go/blob/96808ebb72ec8db1edf71f4bff7e8ee68440237d/modules/core/04-channel/keeper/grpc_query.go#L390
     /// Queries the unreceived packet sequences associated with a channel.
     fn query_unreceived_packets(
         &self,
@@ -2812,131 +2818,282 @@ impl ChainEndpoint for SubstrateChain {
                 request
             );
             if let Some(rpc_client) = para_rpc_client {
-                let key_addr = parachain_node::storage().ibc().packet_receipt_root();
+                let port_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                        request.port_id.to_string(),
+                    );
+                let channel_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                        request.channel_id.to_string(),
+                    );
+                let channel_ends_path =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::path::ChannelEndsPath(
+                        port_id, channel_id,
+                    );
+                let storage = relaychain_node::storage().ibc().channels(channel_ends_path);
 
-                let mut iter = rpc_client
+                let result = relay_rpc_client
                     .storage()
                     .at(None)
                     .await
                     .unwrap()
-                    .iter(key_addr, 10)
+                    .fetch(&storage)
                     .await
+                    .unwrap()
                     .unwrap();
 
-                let pair = request
-                    .packet_commitment_sequences
-                    .into_iter()
-                    .map(|sequence| {
-                        (
-                            request.port_id.clone(),
-                            request.channel_id.clone(),
-                            sequence.clone(),
-                        )
-                    });
+                let result = match result.ordering {
+                    relaychain_node::runtime_types::ibc::core::ics04_channel::channel::Order::Ordered => {
+                        let key_addr = relaychain_node::storage().ibc().packet_receipt_root();
 
-                let mut result = vec![];
-                for (port_id, channel_id, sequence) in pair {
-                    let port_id =
-                        parachain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
-                            port_id.to_string(),
-                        );
-                    let channel_id =
-                        parachain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
-                            channel_id.to_string(),
-                        );
-                    let seq =
-                        parachain_node::runtime_types::ibc::core::ics04_channel::packet::Sequence(
-                            u64::from(sequence),
-                        );
-                    let packet_receipt_path =
-                        parachain_node::runtime_types::ibc::core::ics24_host::path::ReceiptsPath {
-                            port_id,
-                            channel_id,
-                            sequence: seq,
-                        };
-                    let storage = parachain_node::storage()
-                        .ibc()
-                        .packet_receipt(&packet_receipt_path);
+                        let mut iter = relay_rpc_client
+                            .storage()
+                            .at(None)
+                            .await
+                            .unwrap()
+                            .iter(key_addr, 10)
+                            .await
+                            .unwrap();
 
-                    let ret = rpc_client
-                        .storage()
-                        .at(None)
-                        .await
-                        .unwrap()
-                        .fetch(&storage)
-                        .await
-                        .unwrap();
+                        let pair = request
+                            .packet_commitment_sequences
+                            .into_iter()
+                            .map(|sequence| {
+                                (
+                                    request.port_id.clone(),
+                                    request.channel_id.clone(),
+                                    sequence.clone(),
+                                )
+                            });
 
-                    if ret.is_none() {
-                        result.push(sequence)
-                    }
-                }
+                        let mut result = vec![];
+                        for (port_id, channel_id, sequence) in pair {
+                            let port_id =
+                                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                                    port_id.to_string(),
+                                );
+                            let channel_id =
+                                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                                    channel_id.to_string(),
+                                );
+                            let seq =
+                                relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Sequence(
+                                    u64::from(sequence),
+                                );
+                            let packet_receipt_path =
+                                relaychain_node::runtime_types::ibc::core::ics24_host::path::ReceiptsPath {
+                                    port_id,
+                                    channel_id,
+                                    sequence: seq,
+                                };
+                            let storage = relaychain_node::storage()
+                                .ibc()
+                                .packet_receipt(&packet_receipt_path);
+
+                            let ret = relay_rpc_client
+                                .storage()
+                                .at(None)
+                                .await
+                                .unwrap()
+                                .fetch(&storage)
+                                .await
+                                .unwrap();
+
+                            debug!(
+                                "🐙🐙 substrate::query_packet_receipt -> fetch storage result: {:?}",
+                                ret
+                            );
+
+                            if ret.is_none() {
+                                result.push(sequence)
+                            }
+                        }
+                        result
+                    },
+                    relaychain_node::runtime_types::ibc::core::ics04_channel::channel::Order::Unordered => {
+                        let mut result = vec![];
+                        let port_id =
+                            relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                                request.port_id.to_string(),
+                            );
+                        let channel_id =
+                            relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                                request.channel_id.to_string(),
+                            );
+                        let next_sequence_recv_path =
+                            relaychain_node::runtime_types::ibc::core::ics24_host::path::SeqRecvsPath(
+                                port_id, channel_id,
+                            );
+                        let storage = relaychain_node::storage().ibc().next_sequence_recv(next_sequence_recv_path);
+
+                        let next_sequence_recv = relay_rpc_client
+                            .storage()
+                            .at(None)
+                            .await
+                            .unwrap()
+                            .fetch(&storage)
+                            .await
+                            .unwrap()
+                            .unwrap();
+
+                        if next_sequence_recv.0 == 0 {
+                            // Should return Error
+                            println!("packet sequence cannot be 0");
+                        }
+                        for seq in request.packet_commitment_sequences {
+                            if seq >= Sequence::from(next_sequence_recv.0) {
+                                result.push(seq);
+                            }
+                        }
+
+                        result
+                    },
+                    relaychain_node::runtime_types::ibc::core::ics04_channel::channel::Order::None => {
+                        // Should return Error
+                        println!("channel order None is not support");
+                        vec![]
+                    },
+                };
+
                 Ok(result)
             } else {
-                let key_addr = relaychain_node::storage().ibc().packet_receipt_root();
+                let port_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                        request.port_id.to_string(),
+                    );
+                let channel_id =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                        request.channel_id.to_string(),
+                    );
+                let channel_ends_path =
+                    relaychain_node::runtime_types::ibc::core::ics24_host::path::ChannelEndsPath(
+                        port_id, channel_id,
+                    );
+                let storage = relaychain_node::storage().ibc().channels(channel_ends_path);
 
-                let mut iter = relay_rpc_client
+                let result = relay_rpc_client
                     .storage()
                     .at(None)
                     .await
                     .unwrap()
-                    .iter(key_addr, 10)
+                    .fetch(&storage)
                     .await
+                    .unwrap()
                     .unwrap();
 
-                let pair = request
-                    .packet_commitment_sequences
-                    .into_iter()
-                    .map(|sequence| {
-                        (
-                            request.port_id.clone(),
-                            request.channel_id.clone(),
-                            sequence.clone(),
-                        )
-                    });
+                let result = match result.ordering {
+                    relaychain_node::runtime_types::ibc::core::ics04_channel::channel::Order::Ordered => {
+                        let key_addr = relaychain_node::storage().ibc().packet_receipt_root();
 
-                let mut result = vec![];
-                for (port_id, channel_id, sequence) in pair {
-                    let port_id =
-                        relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
-                            port_id.to_string(),
-                        );
-                    let channel_id =
-                        relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
-                            channel_id.to_string(),
-                        );
-                    let seq =
-                        relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Sequence(
-                            u64::from(sequence),
-                        );
-                    let packet_receipt_path =
-                        relaychain_node::runtime_types::ibc::core::ics24_host::path::ReceiptsPath {
-                            port_id,
-                            channel_id,
-                            sequence: seq,
-                        };
-                    let storage = relaychain_node::storage()
-                        .ibc()
-                        .packet_receipt(&packet_receipt_path);
+                        let mut iter = relay_rpc_client
+                            .storage()
+                            .at(None)
+                            .await
+                            .unwrap()
+                            .iter(key_addr, 10)
+                            .await
+                            .unwrap();
 
-                    let ret = relay_rpc_client
-                        .storage()
-                        .at(None)
-                        .await
-                        .unwrap()
-                        .fetch(&storage)
-                        .await
-                        .unwrap();
+                        let pair = request
+                            .packet_commitment_sequences
+                            .into_iter()
+                            .map(|sequence| {
+                                (
+                                    request.port_id.clone(),
+                                    request.channel_id.clone(),
+                                    sequence.clone(),
+                                )
+                            });
 
-                    debug!(
-                        "🐙🐙 substrate::query_packet_receipt -> fetch storage result: {:?}",
-                        ret
-                    );
+                        let mut result = vec![];
+                        for (port_id, channel_id, sequence) in pair {
+                            let port_id =
+                                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                                    port_id.to_string(),
+                                );
+                            let channel_id =
+                                relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                                    channel_id.to_string(),
+                                );
+                            let seq =
+                                relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Sequence(
+                                    u64::from(sequence),
+                                );
+                            let packet_receipt_path =
+                                relaychain_node::runtime_types::ibc::core::ics24_host::path::ReceiptsPath {
+                                    port_id,
+                                    channel_id,
+                                    sequence: seq,
+                                };
+                            let storage = relaychain_node::storage()
+                                .ibc()
+                                .packet_receipt(&packet_receipt_path);
 
-                    if ret.is_none() {
-                        result.push(sequence)
-                    }
-                }
+                            let ret = relay_rpc_client
+                                .storage()
+                                .at(None)
+                                .await
+                                .unwrap()
+                                .fetch(&storage)
+                                .await
+                                .unwrap();
+
+                            debug!(
+                                "🐙🐙 substrate::query_packet_receipt -> fetch storage result: {:?}",
+                                ret
+                            );
+
+                            if ret.is_none() {
+                                result.push(sequence)
+                            }
+                        }
+                        result
+                    },
+                    relaychain_node::runtime_types::ibc::core::ics04_channel::channel::Order::Unordered => {
+                        let mut result = vec![];
+                        let port_id =
+                            relaychain_node::runtime_types::ibc::core::ics24_host::identifier::PortId(
+                                request.port_id.to_string(),
+                            );
+                        let channel_id =
+                            relaychain_node::runtime_types::ibc::core::ics24_host::identifier::ChannelId(
+                                request.channel_id.to_string(),
+                            );
+                        let next_sequence_recv_path =
+                            relaychain_node::runtime_types::ibc::core::ics24_host::path::SeqRecvsPath(
+                                port_id, channel_id,
+                            );
+                        let storage = relaychain_node::storage().ibc().next_sequence_recv(next_sequence_recv_path);
+
+                        let next_sequence_recv = relay_rpc_client
+                            .storage()
+                            .at(None)
+                            .await
+                            .unwrap()
+                            .fetch(&storage)
+                            .await
+                            .unwrap()
+                            .unwrap();
+
+                        if next_sequence_recv.0 == 0 {
+                            // Should return Error
+                            println!("packet sequence cannot be 0");
+                        }
+                        for seq in request.packet_commitment_sequences {
+                            if seq >= Sequence::from(next_sequence_recv.0) {
+                                result.push(seq);
+                            }
+                        }
+
+                        result
+                    },
+                    relaychain_node::runtime_types::ibc::core::ics04_channel::channel::Order::None => {
+                        // Should return Error
+                        println!("channel order None is not support");
+                        vec![]
+                    },
+                };
+
                 Ok(result)
             }
         }
@@ -2952,6 +3109,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // ref: https://github.com/cosmos/ibc-go/blob/96808ebb72ec8db1edf71f4bff7e8ee68440237d/modules/core/04-channel/keeper/grpc_query.go#L510
     fn query_next_sequence_receive(
         &self,
         request: QueryNextSequenceReceiveRequest,
@@ -3118,6 +3276,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    // ref: https://github.com/cosmos/ibc-go/blob/96808ebb72ec8db1edf71f4bff7e8ee68440237d/modules/core/04-channel/keeper/grpc_query.go#L314
     fn query_packet_acknowledgement(
         &self,
         request: QueryPacketAcknowledgementRequest,
@@ -3386,6 +3545,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    /// ref: https://github.com/cosmos/ibc-go/blob/96808ebb72ec8db1edf71f4bff7e8ee68440237d/modules/core/04-channel/keeper/grpc_query.go#L476
     /// Queries the unreceived acknowledgements sequences associated with a channel.
     fn query_unreceived_acknowledgements(
         &self,
