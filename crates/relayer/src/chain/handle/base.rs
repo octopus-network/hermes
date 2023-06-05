@@ -106,7 +106,9 @@ impl ChainHandle for BaseChainHandle {
     }
 
     fn subscribe_beefy(&self) -> Result<BeefySubscription, Error> {
-        tracing::debug!("base::subscribe_beefy -> send subcribe beefy request to substrate app chain !");
+        tracing::debug!(
+            "base::subscribe_beefy -> send subcribe beefy request to substrate app chain !"
+        );
         self.send(|reply_to| ChainRequest::SubscribeBeefy { reply_to })
     }
 
@@ -493,7 +495,6 @@ impl ChainHandle for BaseChainHandle {
         self.send(|reply_to| ChainRequest::QueryHostConsensusState { request, reply_to })
     }
 
-    
     fn maybe_register_counterparty_payee(
         &self,
         channel_id: ChannelId,

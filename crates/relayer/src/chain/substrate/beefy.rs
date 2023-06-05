@@ -14,7 +14,7 @@ use sp_std::prelude::*;
 // pub mod beefy;
 /// Host functions that allow the light client perform cryptographic operations in native.
 // pub trait HostFunctions: CommonHostFunctions {
-    pub trait HostFunctions {
+pub trait HostFunctions {
     /// Keccak 256 hash function
     fn keccak_256(input: &[u8]) -> [u8; 32];
 

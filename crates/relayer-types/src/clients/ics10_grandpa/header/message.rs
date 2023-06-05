@@ -3,7 +3,7 @@ use crate::clients::ics10_grandpa::error::Error;
 use crate::core::ics24_host::identifier::ChainId;
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
-use codec::{Encode, Decode};
+use codec::{Decode, Encode};
 use ibc_proto::ibc::lightclients::grandpa::v1::header::Message as RawMessage;
 use ibc_proto::ibc::lightclients::grandpa::v1::{
     ParachainHeader as RawParachainHeader, ParachainHeaders as RawParachainHeaders,

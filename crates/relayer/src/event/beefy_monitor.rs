@@ -422,7 +422,6 @@ impl BeefyMonitor {
     }
 }
 
-
 pub enum Next {
     Abort,
     Continue,

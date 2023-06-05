@@ -107,7 +107,6 @@ impl ChainsScan {
     }
 }
 
-
 impl Display for ChainsScan {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), FmtError> {
         for scan in self.chains.iter().flatten() {

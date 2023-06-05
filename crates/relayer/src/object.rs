@@ -298,7 +298,6 @@ impl From<Beefy> for Object {
     }
 }
 
-
 impl From<Connection> for Object {
     fn from(c: Connection) -> Self {
         Self::Connection(c)

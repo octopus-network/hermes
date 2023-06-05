@@ -819,7 +819,6 @@ where
         Ok(())
     }
 
-
     fn maybe_register_counterparty_payee(
         &mut self,
         channel_id: &ChannelId,

@@ -1,8 +1,8 @@
-use crate::util::retry::{retry_with_index, RetryResult};
-use codec::{Decode, Encode};
 use crate::chain::substrate::REVISION_NUMBER;
 use crate::chain::tracking::TrackingId;
+use crate::util::retry::{retry_with_index, RetryResult};
 use alloc::sync::Arc;
+use codec::{Decode, Encode};
 use core::cmp::Ordering;
 use crossbeam_channel as channel;
 use futures::{
@@ -13,28 +13,28 @@ use ibc_relayer_types::core::ics02_client::events::NewBlock;
 
 use std::{future::Future, pin::Pin};
 
+use ibc_relayer_types::core::ics04_channel::events::SendPacket;
 use ibc_relayer_types::{
     core::{ics02_client::height::Height, ics24_host::identifier::ChainId},
     events::IbcEvent,
 };
-use ibc_relayer_types::core::ics04_channel::events::SendPacket;
 
 use super::{bus::EventBus, IbcEventWithHeight};
 use tendermint_rpc::{event::Event as RpcEvent, Url};
 use tokio::{runtime::Runtime as TokioRuntime, sync::mpsc};
 use tracing::{debug, error, info, instrument, trace};
 
+use crate::error::Error;
+use serde::{Deserialize, Serialize};
 use subxt::blocks::Block;
 use subxt::blocks::BlocksClient;
 use subxt::error::RpcError as SubxtRpcError;
+use subxt::rpc::types::BlockNumber;
 use subxt::rpc::RpcClient as SubxtRpcClient;
 use subxt::rpc::Subscription as SubxtSubscription;
 use subxt::rpc_params;
 use subxt::Error as SubxtError;
 use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
-use crate::error::Error;
-use serde::{Deserialize, Serialize};
-use subxt::rpc::types::BlockNumber;
 
 use crate::chain::substrate::relaychain::relaychain_node as ibc_node;
 use crate::chain::substrate::utils;
@@ -58,15 +58,13 @@ mod retry_strategy {
 
 // mod error;
 // pub use error::*;
-pub use super::monitor::error::*;
 pub use super::monitor::error::Error as MonitorError;
+pub use super::monitor::error::*;
 pub use super::monitor::EventBatch;
 pub use super::monitor::EventReceiver;
 pub use super::monitor::EventSender;
 pub use super::monitor::Next;
 pub use super::monitor::Result;
-
-
 
 /// Connect to a substrate node, subscribe ibc event,
 /// receive push events over a websocket, and filter them for the
@@ -96,9 +94,7 @@ impl TxMonitorCmd {
             .send(MonitorCmd::Subscribe(tx))
             .map_err(|_| MonitorError::channel_send_failed())?;
 
-        let subscription = rx
-            .recv()
-            .map_err(|_| MonitorError::channel_recv_failed())?;
+        let subscription = rx.recv().map_err(|_| MonitorError::channel_recv_failed())?;
         Ok(subscription)
     }
 }
@@ -113,11 +109,9 @@ pub struct EventMonitor {
     chain_id: ChainId,
 
     ibc_node_addr: Url,
-  
+
     /// WebSocket to  substrate chain integrated pallet-ibc
     ibc_rpc_client: OnlineClient<SubstrateConfig>,
-
-    
 
     /// Event bus for broadcasting events
     event_bus: EventBus<Arc<Result<EventBatch>>>,
@@ -151,7 +145,6 @@ impl EventMonitor {
                 ibc_node_addr.to_string(),
             ))
             .unwrap();
-       
 
         let monitor = Self {
             rt,
@@ -177,7 +170,6 @@ impl EventMonitor {
             .block_on(self.ibc_rpc_client.blocks().subscribe_finalized())
             .unwrap();
 
-        
         Ok(())
     }
 
@@ -199,7 +191,6 @@ impl EventMonitor {
                 self.ibc_node_addr.to_string(),
             ))
             .unwrap();
-        
 
         // Swap the new client with the previous one which failed,
         // so that we can shut the latter down gracefully.
@@ -248,7 +239,7 @@ impl EventMonitor {
             ),
             Err(e) => error!(
                 "failed to reconnect tto ibc endpoint: {} after {} retries",
-                self.ibc_node_addr,  e.tries
+                self.ibc_node_addr, e.tries
             ),
         }
     }
@@ -256,7 +247,10 @@ impl EventMonitor {
     /// Event monitor loop
     #[allow(clippy::while_let_loop)]
     pub fn run(mut self) {
-        debug!("[{}] substrate_monitor::run -> starting event monitor", self.chain_id);
+        debug!(
+            "[{}] substrate_monitor::run -> starting event monitor",
+            self.chain_id
+        );
 
         // Continuously run the event loop, so that when it aborts
         // because of WebSocket client restart, we pick up the work again.
@@ -269,15 +263,19 @@ impl EventMonitor {
 
         // close connection
         let _ = self.ibc_rpc_client;
-       
-        trace!("[{}] substrate_monitor::run -> event monitor is shutting down", self.chain_id);
+
+        trace!(
+            "[{}] substrate_monitor::run -> event monitor is shutting down",
+            self.chain_id
+        );
     }
 
     fn run_loop(&mut self) -> Next {
         trace!("substrate_monitor::run_loop");
         // Take ownership of the subscriptions
-        let mut event_sub = core::mem::replace(&mut self.block_sub, Box::pin(futures::stream::empty()));
-       
+        let mut event_sub =
+            core::mem::replace(&mut self.block_sub, Box::pin(futures::stream::empty()));
+
         // Work around double borrow
         let rt = self.rt.clone();
 
@@ -303,13 +301,12 @@ impl EventMonitor {
 
                         let block_number = block.number();
                         let height = Height::new(REVISION_NUMBER,block_number.into()).unwrap();
-
                         let mut events_with_heights = Vec::new();
-        
+
                         // add new block event
                         let new_block = IbcEvent::NewBlock(NewBlock { height });
                         events_with_heights.push(IbcEventWithHeight::new(new_block, height));
-        
+
                         // filter ibc core events
                         let ibc_events_result:  core::result::Result<Vec<ibc_node::ibc::events::IbcEvents>, SubxtError> = events
                             .find::<ibc_node::ibc::events::IbcEvents>()
@@ -331,7 +328,7 @@ impl EventMonitor {
                                     error!("🐙🐙 substrate_monitor::run_loop -> block: {}, filter ibc core event error: {}", block_number, e);
                                 }
                             }
-                        
+
                         // filter ibc ics20 events
                         let send_packet_events_result:  core::result::Result<Vec<ibc_node::ics20_transfer::events::SendPacket>, SubxtError> = events
                             .find::<ibc_node::ics20_transfer::events::SendPacket>()
@@ -354,20 +351,20 @@ impl EventMonitor {
                                     error!("🐙🐙 substrate_monitor::run_loop -> block: {}, filter send packet event error: {}", block_number, e);
                                 }
                             }
-                          
+
 
                         Ok((height,events_with_heights))
 
                     },
-                
+
                     Some(e) = self.rx_err.recv() => Err(MonitorError::subxt_error(e)),
                 }
-            
+
             });
 
             match event_result {
                 Ok((height, events)) => self.process_batch(height, events),
-                
+
                 Err(e) => {
                     error!("🐙🐙 substrate_monitor::run_loop -> subscription dropped, need to reconnect !");
 
@@ -384,8 +381,6 @@ impl EventMonitor {
                     return Next::Continue;
                 }
             }
-
-            
         }
     }
 
@@ -401,47 +396,41 @@ impl EventMonitor {
     }
 
     /// broadcast the IBC events to subscriber
-    fn process_batch(
-        &mut self,
-        height: Height,
-        events: Vec<IbcEventWithHeight>,
-    ) {
-
+    fn process_batch(&mut self, height: Height, events: Vec<IbcEventWithHeight>) {
         let event_batch = EventBatch {
             height,
             events,
             chain_id: self.chain_id.clone(),
             tracking_id: TrackingId::new_uuid(),
         };
-        debug!("🐙🐙 substrate_monitor::process_batch -> event_batch: {:?}", event_batch);
+        debug!(
+            "🐙🐙 substrate_monitor::process_batch -> event_batch: {:?}",
+            event_batch
+        );
 
-        // broadcast        
+        // broadcast
         self.event_bus.broadcast(Arc::new(Ok(event_batch)));
-
-      
     }
 }
 
-
 #[cfg(test)]
 mod tests {
+    use super::EventBatch;
+    use super::{EventBus, IbcEventWithHeight};
+    use crate::chain::substrate::relaychain::relaychain_node as ibc_node;
+    use crate::chain::substrate::REVISION_NUMBER;
+    use crate::chain::tracking::TrackingId;
     use futures::StreamExt;
-    use sp_keyring::AccountKeyring;
-    use std::time::Duration;
-    use subxt::{error::Error, tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
+    use ibc_relayer_types::core::ics02_client::events::NewBlock;
     use ibc_relayer_types::{
         core::{ics02_client::height::Height, ics24_host::identifier::ChainId},
         events::IbcEvent,
     };
-    use ibc_relayer_types::core::ics02_client::events::NewBlock;
-    use super::{EventBus, IbcEventWithHeight};
-    use crate::chain::substrate::REVISION_NUMBER;
-    use crate::chain::substrate::relaychain::relaychain_node as ibc_node;
-    use super::EventBatch;
-    use crate::chain::tracking::TrackingId;
+    use sp_keyring::AccountKeyring;
+    use std::time::Duration;
+    use subxt::{error::Error, tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
     // use ibc_relayer_types::core::ics24_host::identifier::ClientId;
     //  use ibc_relayer_types::core::ics02_client::client_type::ClientType;
-    
 
     #[subxt::subxt(runtime_metadata_path = "./polkadot.scale")]
     // #[subxt::subxt(runtime_metadata_url = "ws://127.0.0.1:9944")]
@@ -516,7 +505,7 @@ mod tests {
 
         Ok(())
     }
-   
+
     #[tokio::test]
     async fn subscribe_parachain_block_events() -> Result<(), Box<dyn std::error::Error>> {
         tracing_subscriber::fmt::init();
@@ -528,7 +517,6 @@ mod tests {
         // Subscribe to (in this case, finalized) blocks.
         let mut block_sub = api.blocks().subscribe_finalized().await?;
 
-
         // Get each finalized block as it arrives.
         while let Some(block) = block_sub.next().await {
             let block = block?;
@@ -538,55 +526,48 @@ mod tests {
 
             let block_hash = block.hash();
             let block_number = block.number().into();
-            
-       
-         
-            let ibc_events: Result<Vec<_>, Error> = events
-                .find::<ibc_node::ibc::events::IbcEvents>()
-                .collect();
+
+            let ibc_events: Result<Vec<_>, Error> =
+                events.find::<ibc_node::ibc::events::IbcEvents>().collect();
             println!("  All the ibc events: {:?}", ibc_events);
-          
-          
+
             match ibc_events {
                 Ok(batch_event) => {
-                  
-    
-                    let height = Height::new(REVISION_NUMBER,block_number).unwrap();
-    
+                    let height = Height::new(REVISION_NUMBER, block_number).unwrap();
+
                     let mut events_with_heights = Vec::new();
-    
+
                     // add new block
                     let new_block = IbcEvent::NewBlock(NewBlock { height });
                     events_with_heights.push(IbcEventWithHeight::new(new_block, height));
-    
+
                     //conver event
                     for ibc_events in batch_event.into_iter() {
                         ibc_events.events.into_iter().for_each(|event| {
-                        //   let c_event = *event.clone();
-                          let new_event = event.into();
-                            
+                            //   let c_event = *event.clone();
+                            let new_event = event.into();
+
                             events_with_heights.push(IbcEventWithHeight::new(new_event, height));
                         });
                     }
                     // let tm_client_id = ClientId::new(ClientType::Tendermint, 0);
                     let epoch_number = 10;
-                    let chain_id  = ChainId::new("earth".to_string(), epoch_number);
-                    
+                    let chain_id = ChainId::new("earth".to_string(), epoch_number);
+
                     let event_batch = EventBatch {
                         height,
                         events: events_with_heights,
                         chain_id: chain_id,
                         tracking_id: TrackingId::new_uuid(),
                     };
-    
+
                     println!("  event_batch: {:?}", event_batch);
                 }
                 Err(e) => {
                     println!("block: {}, found ibc event error: {}", block_number, e);
                 }
-            };  
+            };
         }
         Ok(())
-    }    
-        
+    }
 }

@@ -172,10 +172,7 @@ pub fn spawn_supervisor_tasks<Chain: ChainHandle>(
     info!("{}", scan);
 
     let chains = scan.get_chains();
-    info!(
-        "substrate::spawn_supervisor_tasks -> chains ={:?}",
-        chains
-    );
+    info!("substrate::spawn_supervisor_tasks -> chains ={:?}", chains);
 
     spawn_context(&config, &mut registry.write(), &mut workers.acquire_write()).spawn_workers(scan);
 
@@ -298,7 +295,7 @@ fn spawn_beefy_workers<Chain: ChainHandle>(
             "substrate::spawn_beefy_workers -> dst_chains ={:?}",
             dst_chains
         );
-   
+
         if dst_chains.len() == 0 {
             tracing::debug!(
                 "substrate::spawn_beefy_workers -> dst_chains len ={:?}",
@@ -762,10 +759,8 @@ fn init_beefy_sub<Chain: ChainHandle>(
                         continue;
                     }
                 };
-                tracing::debug!("substrate::init_beefy_sub -> chain id = {:?}",
-                    chain.id()
-                );
-        
+                tracing::debug!("substrate::init_beefy_sub -> chain id = {:?}", chain.id());
+
                 match chain.subscribe_beefy() {
                     Ok(beefy_sub) => beefy_subs.push((chain, beefy_sub)),
                     Err(e) => error!(
@@ -990,7 +985,11 @@ fn process_beefy<Chain: ChainHandle>(
 
     for dst_chain in &dst_chains {
         for (client_id, client_scan) in &dst_chain.clients {
-            tracing::debug!("substrate::process_beefy -> dst_chain client_id = {:?},dst_chain client ={:?} ", client_id,client_scan.client);
+            tracing::debug!(
+                "substrate::process_beefy -> dst_chain client_id = {:?},dst_chain client ={:?} ",
+                client_id,
+                client_scan.client
+            );
             match client_scan.client.client_state.client_type() {
                 ClientType::Grandpa => {
                     tracing::debug!("substrate::process_beefy -> dst_chain = {:?}, client_id ={:?} ", dst_chain.chain_id,client_id);
@@ -1001,7 +1000,7 @@ fn process_beefy<Chain: ChainHandle>(
                                     src_chain_id: src_chain.id().clone(),
                                 });
                     tracing::debug!("substrate::process_beefy -> object ={:?} ", object);
-                
+
                     let src = registry
                                     .get_or_spawn(object.src_chain_id())
                                     .map_err(Error::spawn)?;
