@@ -3400,7 +3400,7 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryUnreceivedAcksRequest,
         ) -> Result<Vec<Sequence>, Error> {
             if let Some(rpc_client) = para_rpc_client {
-                let key_addr = parachain_node::storage().ibc().acknowledgements_root();
+                let key_addr = parachain_node::storage().ibc().packet_commitment_root();
 
                 let mut iter = rpc_client
                     .storage()
@@ -3414,7 +3414,7 @@ impl ChainEndpoint for SubstrateChain {
                 let mut result = vec![];
                 while let Some((key, value)) = iter.next().await.unwrap() {
                     let raw_key = key.0[48..].to_vec();
-                    let rets = parachain_node::runtime_types::ibc::core::ics24_host::path::AcksPath::decode(&mut &*raw_key).unwrap();
+                    let rets = parachain_node::runtime_types::ibc::core::ics24_host::path::CommitmentsPath::decode(&mut &*raw_key).unwrap();
                     let port_id = PortId::from(rets.port_id);
                     let channel_id = ChannelId::from(rets.channel_id);
                     let sequence = Sequence::from(rets.sequence);
@@ -3434,7 +3434,7 @@ impl ChainEndpoint for SubstrateChain {
                 }
                 Ok(ret)
             } else {
-                let key_addr = relaychain_node::storage().ibc().acknowledgements_root();
+                let key_addr = relaychain_node::storage().ibc().packet_commitment_root();
 
                 let mut iter = relay_rpc_client
                     .storage()
@@ -3448,7 +3448,7 @@ impl ChainEndpoint for SubstrateChain {
                 let mut result = vec![];
                 while let Some((key, value)) = iter.next().await.unwrap() {
                     let raw_key = key.0[48..].to_vec();
-                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::AcksPath::decode(&mut &*raw_key).unwrap();
+                    let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::CommitmentsPath::decode(&mut &*raw_key).unwrap();
                     let port_id = PortId::from(rets.port_id);
                     let channel_id = ChannelId::from(rets.channel_id);
                     let sequence = Sequence::from(rets.sequence);
