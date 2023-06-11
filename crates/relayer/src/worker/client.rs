@@ -182,7 +182,7 @@ pub fn spawn_update_beefy<ChainA: ChainHandle, ChainB: ChainHandle>(
         move || -> Result<Next, TaskError<Infallible>> {
             if let Ok(cmd) = receiver.try_recv() {
                 debug!(
-                    "worker::client::spawn_update_beefy -> recv work cmd ={:?} ",
+                    "🐙🐙 ics10::worker::client -> spawn_update_beefy recv work cmd {:?} ",
                     cmd
                 );
 

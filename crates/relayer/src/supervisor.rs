@@ -512,9 +512,11 @@ pub fn collect_events(
     for event_with_height in &batch.events {
         match &event_with_height.event {
             IbcEvent::NewBlock(_) => {
+                debug!("🐙🐙 ics10::supervisor -> collectt_events IbcEvent::NewBlock(_): {:?}", event_with_height);
                 collected.new_block = Some(event_with_height.event.clone());
             }
             IbcEvent::UpdateClient(update) => {
+                debug!("🐙🐙 ics10::supervisor -> collectt_events IbcEvent::UpdateClient(update): {:?}", update);
                 collect_event(
                     &mut collected,
                     event_with_height.clone(),
@@ -532,6 +534,7 @@ pub fn collect_events(
             IbcEvent::OpenInitConnection(..)
             | IbcEvent::OpenTryConnection(..)
             | IbcEvent::OpenAckConnection(..) => {
+                debug!("🐙🐙 ics10::supervisor -> collectt_events IbcEvent::OpenInit/Try/Ack/Connection: {:?}", event_with_height);
                 collect_event(
                     &mut collected,
                     event_with_height.clone(),
@@ -547,6 +550,7 @@ pub fn collect_events(
                 );
             }
             IbcEvent::OpenInitChannel(..) | IbcEvent::OpenTryChannel(..) => {
+                debug!("🐙🐙 ics10::supervisor -> collectt_events IbcEvent::OpenInit/Try/Channel: {:?}", event_with_height);
                 collect_event(
                     &mut collected,
                     event_with_height.clone(),
@@ -568,6 +572,7 @@ pub fn collect_events(
                 );
             }
             IbcEvent::OpenAckChannel(open_ack) => {
+                debug!("🐙🐙 ics10::supervisor -> collectt_events IbcEvent::OpenAckChannel(open_ack): {:?}", open_ack);
                 // Create client and packet workers here as channel end must be opened
                 let attributes = open_ack.clone().into();
                 collect_event(
@@ -593,6 +598,7 @@ pub fn collect_events(
                 );
             }
             IbcEvent::OpenConfirmChannel(open_confirm) => {
+                debug!("🐙🐙 ics10::supervisor -> collectt_events IbcEvent::OpenConfirmChannel(open_confirm): {:?}", open_confirm);
                 let attributes = open_confirm.clone().into();
                 // Create client worker here as channel end must be opened
                 collect_event(
@@ -603,6 +609,7 @@ pub fn collect_events(
                 );
             }
             IbcEvent::SendPacket(ref packet) => {
+                debug!("🐙🐙 ics10::supervisor -> collectt_events IbcEvent::SendPacket(ref packet): {:?}", packet);
                 collect_event(
                     &mut collected,
                     event_with_height.clone(),
@@ -611,6 +618,7 @@ pub fn collect_events(
                 );
             }
             IbcEvent::TimeoutPacket(ref packet) => {
+                debug!("🐙🐙 ics10::supervisor -> collectt_events IbcEvent::TimeoutPacket(ref packet): {:?}", packet);
                 collect_event(
                     &mut collected,
                     event_with_height.clone(),
@@ -619,6 +627,7 @@ pub fn collect_events(
                 );
             }
             IbcEvent::WriteAcknowledgement(ref packet) => {
+                debug!("🐙🐙 ics10::supervisor -> collectt_events IbcEvent::WriteAcknowledgement(ref packet): {:?}", packet);
                 collect_event(
                     &mut collected,
                     event_with_height.clone(),
@@ -762,14 +771,14 @@ fn init_beefy_sub<Chain: ChainHandle>(
                         continue;
                     }
                 };
-                tracing::debug!("substrate::init_beefy_sub -> chain id = {:?}",
+                tracing::debug!("🐙🐙 ics10::supervisor -> init_beefy_sub chain_id = {:?}",
                     chain.id()
                 );
         
                 match chain.subscribe_beefy() {
                     Ok(beefy_sub) => beefy_subs.push((chain, beefy_sub)),
                     Err(e) => error!(
-                        "failed to subscribe to events of {}: {}",
+                        "🐙🐙 ics10::supervisor -> init_beefy_sub failed to subscribe to events of {}: {}",
                         chain_config.id, e
                     ),
                 }
@@ -864,7 +873,7 @@ fn process_batch<Chain: ChainHandle>(
     telemetry!(received_event_batch, batch.tracking_id);
 
     let collected = collect_events(config, workers, &src_chain, batch);
-
+    debug!("🐙🐙 ics10::supervisor -> process_batch CollectedEvents: {:?}", collected);
     // If there is a NewBlock event, forward this event first to any workers affected by it.
     if let Some(IbcEvent::NewBlock(new_block)) = collected.new_block {
         workers.notify_new_block(&src_chain.id(), batch.height, new_block);
@@ -896,7 +905,7 @@ fn process_batch<Chain: ChainHandle>(
             .get_or_spawn(object.src_chain_id())
             .map_err(Error::spawn)?;
 
-        let dst = registry
+        let dst: Chain = registry
             .get_or_spawn(object.dst_chain_id())
             .map_err(Error::spawn)?;
 
@@ -986,21 +995,21 @@ fn process_beefy<Chain: ChainHandle>(
     dst_chains: Vec<ChainScan>,
     header: GPheader,
 ) -> Result<(), Error> {
-    tracing::debug!("substrate::process_beefy -> beefy header = {:?}", header);
+    tracing::debug!("🐙🐙 ics10::supervisor -> process_beefy beefy header = {:?}", header);
 
     for dst_chain in &dst_chains {
         for (client_id, client_scan) in &dst_chain.clients {
-            tracing::debug!("substrate::process_beefy -> dst_chain client_id = {:?},dst_chain client ={:?} ", client_id,client_scan.client);
+            tracing::debug!("🐙🐙 ics10::supervisor -> process_beefy  client_id = {:?},dst_chain client ={:?} ", client_id,client_scan.client);
             match client_scan.client.client_state.client_type() {
                 ClientType::Grandpa => {
-                    tracing::debug!("substrate::process_beefy -> dst_chain = {:?}, client_id ={:?} ", dst_chain.chain_id,client_id);
+                    tracing::debug!("🐙🐙 ics10::supervisor -> process_beefy dst_chain = {:?}, client_id ={:?} ", dst_chain.chain_id,client_id);
 
                     let object = Object::Beefy(Beefy {
                                 dst_chain_id: dst_chain.chain_id.clone(),
                                     dst_client_id: client_id.clone(),
                                     src_chain_id: src_chain.id().clone(),
                                 });
-                    tracing::debug!("substrate::process_beefy -> object ={:?} ", object);
+                    tracing::debug!("🐙🐙 ics10::supervisor -> process_beefy object ={:?} ", object);
                 
                     let src = registry
                                     .get_or_spawn(object.src_chain_id())
@@ -1011,7 +1020,7 @@ fn process_beefy<Chain: ChainHandle>(
                     let worker = workers.get_or_spawn(object, src, dst, config);
                     let header = GPheader { ..header.clone()};
                     let cmd = WorkerCmd::Beefy { header };
-                    tracing::debug!("substrate::process_beefy -> work cmd ={:?} ", cmd);
+                    tracing::debug!("🐙🐙 ics10::supervisor -> process_beefy work cmd ={:?} ", cmd);
                     worker.try_send_command(cmd);
                     },
                 _ => {}
@@ -1073,7 +1082,7 @@ fn handle_beefy<Chain: ChainHandle>(
     dst_chains: Vec<ChainScan>,
     beefy: ArcBeefy,
 ) {
-    tracing::debug!("substrate::handle_beefy -> src_chain = {:?}", src_chain);
+    tracing::debug!("🐙🐙 ics10::handle_beefy -> src_chain = {:?}", src_chain);
     let src_chain_id = src_chain.id();
 
     match beefy.deref() {
@@ -1087,7 +1096,7 @@ fn handle_beefy<Chain: ChainHandle>(
                 dst_chains,
                 msg.clone(),
             ) {
-                error!("[{}] error during beefy processing: {}", src_chain_id, e);
+                error!("🐙🐙 [{}] error during beefy processing: {}", src_chain_id, e);
             }
         }
         // Err(EventError(EventErrorDetail::SubscriptionCancelled(_), _)) => {
@@ -1101,7 +1110,7 @@ fn handle_beefy<Chain: ChainHandle>(
         //     });
         // }
         Err(e) => {
-            error!("[{}] error in receiving beefy: {}", src_chain_id, e)
+            error!("🐙🐙 [{}] error in receiving beefy: {}", src_chain_id, e)
         }
     }
 }

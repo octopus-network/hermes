@@ -16,7 +16,7 @@ pub enum WorkerCmd {
     /// Trigger a pending packets clear
     ClearPendingPackets,
 
-    /// A beefy msg has been receive
+    /// A beefy msg need to be relayed
     Beefy { header: GPheader },
 }
 

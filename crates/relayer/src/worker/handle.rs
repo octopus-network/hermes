@@ -52,6 +52,11 @@ impl WorkerHandle {
     }
 
     pub fn try_send_command(&self, cmd: WorkerCmd) {
+        debug!(
+            "🐙🐙 ics10::handle::WorkHandle -> try_send_command WorkerCmd: {:?} ",
+            cmd
+        );
+
         let res = if let Some(tx) = self.tx.acquire_read().as_ref() {
             tx.send(cmd)
         } else {

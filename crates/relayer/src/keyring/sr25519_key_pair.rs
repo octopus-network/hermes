@@ -52,7 +52,7 @@ impl SigningKeyPair for Sr25519KeyPair {
 
     fn from_key_file(key_file: KeyFile, hd_path: &StandardHDPath) -> Result<Self, Error> {
         tracing::debug!(
-            "🐙🐙 sr25519_key_pair -> from_key_file key_file: {:?}",
+            "🐙🐙 ics10::sr25519_key_pair -> from_key_file key_file: {:?}",
             key_file
         );
 

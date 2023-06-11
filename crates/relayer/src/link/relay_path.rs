@@ -518,6 +518,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             Some(ev) => ev.height,
         };
 
+        debug!("🐙🐙 ics10::relay_path -> generate_operational_datadone ibc Events: {:?}, height: {:?}",input,src_height);
+
         let dst_latest_info = self
             .dst_chain()
             .query_application_status()
@@ -631,6 +633,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
 
         let src_od = Some(src_od).filter(|s| !s.batch.is_empty());
         let dst_od = Some(dst_od).filter(|s| !s.batch.is_empty());
+        debug!(
+            "🐙🐙 ics10::relay_path -> generate_operational_datadone src_od: {:?}, dst_od: {:?}",
+            src_od, dst_od
+        );
 
         Ok((src_od, dst_od))
     }
@@ -1236,6 +1242,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         event: &WriteAcknowledgement,
         height: Height,
     ) -> Result<Option<Any>, LinkError> {
+        debug!(
+            "🐙🐙 ics10::relay_path -> build_ack_from_recv_event event: {:?}, height: {:?}",
+            event, height
+        );
         let packet = event.packet.clone();
 
         let proofs = self

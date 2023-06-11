@@ -111,14 +111,9 @@ pub enum MonitorCmd {
 
 pub struct EventMonitor {
     chain_id: ChainId,
-
     ibc_node_addr: Url,
-  
     /// WebSocket to  substrate chain integrated pallet-ibc
     ibc_rpc_client: OnlineClient<SubstrateConfig>,
-
-    
-
     /// Event bus for broadcasting events
     event_bus: EventBus<Arc<Result<EventBatch>>>,
     /// Channel where to receive client driver errors
@@ -127,7 +122,6 @@ pub struct EventMonitor {
     tx_err: mpsc::UnboundedSender<SubxtError>,
     /// Channel where to receive commands
     rx_cmd: channel::Receiver<MonitorCmd>,
-
     /// block stream subscription
     block_sub: BlockStream<Block<SubstrateConfig, OnlineClient<SubstrateConfig>>>,
     /// Tokio runtime
@@ -306,7 +300,7 @@ impl EventMonitor {
 
                         let mut events_with_heights = Vec::new();
         
-                        // add new block event
+                        // add new block event for every new block
                         let new_block = IbcEvent::NewBlock(NewBlock { height });
                         events_with_heights.push(IbcEventWithHeight::new(new_block, height));
         
@@ -314,21 +308,21 @@ impl EventMonitor {
                         let ibc_events_result:  core::result::Result<Vec<ibc_node::ibc::events::IbcEvents>, SubxtError> = events
                             .find::<ibc_node::ibc::events::IbcEvents>()
                             .collect();
-                         debug!("🐙🐙 substrate_monitor::run_loop -> ibc_events_result: {:?}" ,ibc_events_result);
                         match ibc_events_result {
-                                Ok(ibc_core_events) => {
-                                    //conver event
-                                    for ibc_events in ibc_core_events.into_iter() {
-                                        ibc_events.events.into_iter().for_each(|event| {
+                            Ok(ibc_tao_events) => {
+                                //conver event
+                                for ibc_events in ibc_tao_events.into_iter() {
+                                    ibc_events.events.into_iter().for_each(|event| {
                                         //   let c_event = *event.clone();
                                         // let new_event = event.into();
+                                            debug!("🐙🐙 ics10::substrate_monitor::run_loop -> ibc_tao_event: {:?}" ,event);
                                             events_with_heights.push(IbcEventWithHeight::new(event.into(), height));
                                         });
                                     }
                                 }
 
                                 Err(e) => {
-                                    error!("🐙🐙 substrate_monitor::run_loop -> block: {}, filter ibc core event error: {}", block_number, e);
+                                    error!("🐙🐙 ics10::substrate_monitor::run_loop -> block: {}, filter ibc tao event error: {}", block_number, e);
                                 }
                             }
                         
@@ -336,22 +330,22 @@ impl EventMonitor {
                         let send_packet_events_result:  core::result::Result<Vec<ibc_node::ics20_transfer::events::SendPacket>, SubxtError> = events
                             .find::<ibc_node::ics20_transfer::events::SendPacket>()
                             .collect();
-                        debug!("🐙🐙 substrate_monitor::run_loop -> send_packet_events_result: {:?}", send_packet_events_result);
                         match send_packet_events_result {
-                                Ok(send_packet_events) => {
-                                    //conver event
-                                    for send_packet in send_packet_events.into_iter() {
+                            Ok(send_packet_events) => {
+                                //conver event
+                                for send_packet in send_packet_events.into_iter() {
                                         let event = SendPacket::from(send_packet.0);
                                         let event_with_height = IbcEventWithHeight {
                                             event: event.into(),
                                             height,
                                         };
+                                        debug!("🐙🐙 ics10::substrate_monitor::run_loop -> send_packet: {:?}", event_with_height);
                                         events_with_heights.push(event_with_height)
                                     }
                                 }
 
                                 Err(e) => {
-                                    error!("🐙🐙 substrate_monitor::run_loop -> block: {}, filter send packet event error: {}", block_number, e);
+                                    error!("🐙🐙 ics10::substrate_monitor::run_loop -> block: {}, filter send packet event error: {}", block_number, e);
                                 }
                             }
                           
@@ -369,7 +363,7 @@ impl EventMonitor {
                 Ok((height, events)) => self.process_batch(height, events),
                 
                 Err(e) => {
-                    error!("🐙🐙 substrate_monitor::run_loop -> subscription dropped, need to reconnect !");
+                    error!("🐙🐙 ics10::substrate_monitor::run_loop -> subscription dropped, need to reconnect !");
 
                     self.propagate_error(e);
                     telemetry!(ws_reconnect, &self.chain_id);
@@ -413,7 +407,7 @@ impl EventMonitor {
             chain_id: self.chain_id.clone(),
             tracking_id: TrackingId::new_uuid(),
         };
-        debug!("🐙🐙 substrate_monitor::process_batch -> event_batch: {:?}", event_batch);
+        debug!("🐙🐙 ics10::substrate_monitor::process_batch -> event_batch: {:?}", event_batch);
 
         // broadcast        
         self.event_bus.broadcast(Arc::new(Ok(event_batch)));

@@ -74,15 +74,6 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
                 refresh = true;
             }
 
-            //TODO: disable refresh for substrate chain because that update client by update_mmr_root
-            // if config.mode.clients.refresh {
-            //     let refresh_task = client::spawn_refresh_client(client.clone());
-            //     if let Some(refresh_task) = refresh_task {
-            //         task_handles.push(refresh_task);
-            //         refresh = true;
-            //     }
-            // }
-
             let cmd_tx = if config.mode.clients.misbehaviour {
                 let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded();
                 let misbehavior_task = client::detect_misbehavior_task(cmd_rx, client);
@@ -106,7 +97,7 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
 
         Object::Beefy(beefy) => {
             tracing::debug!(
-                "substrate::spawn_worker_tasks ->  Object::Beefy(beefy) ={:?} ",
+                "🐙🐙 ics10::worker -> spawn_worker_tasks Object::Beefy(beefy) {:?} ",
                 beefy
             );
             let client = ForeignClient::restore(beefy.dst_client_id.clone(), chains.b, chains.a);
@@ -126,6 +117,10 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
         }
 
         Object::Connection(connection) => {
+            tracing::debug!(
+                "🐙🐙 ics10::worker -> spawn_worker_tasks Object::Connection(connection) {:?} ",
+                connection
+            );
             let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded();
             let connection_task =
                 connection::spawn_connection_worker(connection.clone(), chains, cmd_rx);
@@ -134,6 +129,10 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
             (Some(cmd_tx), None)
         }
         Object::Channel(channel) => {
+            tracing::debug!(
+                "🐙🐙 ics10::worker -> Object::Channel(channel) {:?} ",
+                channel
+            );
             let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded();
             let channel_task = channel::spawn_channel_worker(channel.clone(), chains, cmd_rx);
             task_handles.push(channel_task);
@@ -141,6 +140,7 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
             (Some(cmd_tx), None)
         }
         Object::Packet(path) => {
+            tracing::debug!("🐙🐙 ics10::worker -> Object::Packet(path) {:?} ", path);
             let packets_config = config.mode.packets;
             let link_res = Link::new_from_opts(
                 chains.a.clone(),
@@ -163,6 +163,7 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
                     let link = Arc::new(Mutex::new(link));
                     let resubmit = Resubmit::from_clear_interval(packets_config.clear_interval);
 
+                    // spawn a cmd-driven packet worker to clean pending packet
                     let packet_task = packet::spawn_packet_cmd_worker(
                         cmd_rx,
                         link.clone(),
@@ -172,6 +173,7 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
                     );
                     task_handles.push(packet_task);
 
+                    // spawn a interval packet worker task to clear pending packet
                     let link_task = packet::spawn_packet_worker(path.clone(), link, resubmit);
                     task_handles.push(link_task);
 
@@ -185,6 +187,7 @@ pub fn spawn_worker_tasks<ChainA: ChainHandle, ChainB: ChainHandle>(
         }
 
         Object::Wallet(wallet) => {
+            tracing::debug!("🐙🐙 ics10::worker -> Object::Wallet(wallet) {:?} ", wallet);
             assert_eq!(wallet.chain_id, chains.a.id());
 
             let wallet_task = wallet::spawn_wallet_worker(chains.a);

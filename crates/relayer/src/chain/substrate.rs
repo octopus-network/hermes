@@ -10,7 +10,7 @@ use digest::typenum::U264;
 use futures::future::join_all;
 use num_bigint::BigInt;
 use sp_core::{Pair, H256};
-use std::{cmp::Ordering, thread};
+use std::{cmp::Ordering, thread, collections::HashMap};
 
 use tokio::runtime::Runtime as TokioRuntime;
 use tonic::{codegen::http::Uri, metadata::AsciiMetadataValue};
@@ -94,7 +94,7 @@ use tendermint_rpc::endpoint::status;
 use tendermint_rpc::{Client, HttpClient, Order};
 // substrate
 use serde::{Deserialize, Serialize};
-use subxt::rpc_params;
+use subxt::{rpc_params, utils::{AccountId32, account_id}, storage::address::{StorageMapKey,StorageHasher}};
 use subxt::Error as SubxtError;
 use subxt::{config::Header, rpc::Subscription as SubxtSubscription};
 use subxt::{events::Events, rpc::RpcClient as SubxtRpcClient};
@@ -189,7 +189,7 @@ impl SubstrateChain {
         crate::time!("init_event_monitor");
 
         tracing::debug!(
-            "substrate::init_event_mointor -> websocket addr: {:?}",
+            "🐙🐙 ics10::substrate::init_event_mointor -> websocket addr: {:?}",
             self.config.websocket_addr.clone()
         );
 
@@ -213,7 +213,7 @@ impl SubstrateChain {
         crate::time!("init_beefy_monitor");
 
         tracing::debug!(
-            "substrate::init_beefy_mointor -> websocket addr: {:?}",
+            "🐙🐙 ics10::substrate::init_beefy_mointor -> websocket addr: {:?}",
             self.config.websocket_addr.clone()
         );
 
@@ -229,7 +229,7 @@ impl SubstrateChain {
             .map_err(Error::event_monitor)?;
 
         thread::spawn(move || beefy_monitor.run());
-        debug!("substrate::init_beefy_mointor ->  beefy monitor is running ...");
+        debug!("🐙🐙 ics10::substrate::init_beefy_mointor ->  beefy monitor is running ...");
 
         Ok(monitor_tx)
     }
@@ -295,7 +295,7 @@ impl SubstrateChain {
         use sp_keyring::AccountKeyring;
 
         // debug!(
-        //     "substrate::do_send_messages_and_wait_commit -> tracked_msgs: {:?}",
+        //     "🐙🐙 ics10::substrate::do_send_messages_and_wait_commit -> tracked_msgs: {:?}",
         //     tracked_msgs
         // );
         let proto_msgs = tracked_msgs.msgs;
@@ -314,7 +314,7 @@ impl SubstrateChain {
                                 TRANSFER_TYPE_URL => {
                                     is_transfer_msg = true;
                                     debug!(
-                                        "substrate::do_send_messages_and_wait_commit -> transfer msg: {:?}",
+                                        "🐙🐙 ics10::substrate::do_send_messages_and_wait_commit -> transfer msg: {:?}",
                                         m.clone()
                                     );
                                  },
@@ -421,7 +421,7 @@ impl SubstrateChain {
                                 TRANSFER_TYPE_URL => {
                                     is_transfer_msg = true;
                                     debug!(
-                                        "substrate::do_send_messages_and_wait_commit -> transfer msg: {:?}",
+                                        "🐙🐙 ics10::substrate::do_send_messages_and_wait_commit -> transfer msg: {:?}",
                                         m.clone()
                                     );
                                  },
@@ -595,7 +595,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn subscribe(&mut self) -> Result<Subscription, Error> {
-        tracing::info!("substrate::subscribe -> requst to subscribe substrate event msg !",);
+        tracing::info!("🐙🐙 ics10::substrate::subscribe -> requst to subscribe substrate event msg !",);
         let tx_monitor_cmd = match &self.tx_event_monitor_cmd {
             Some(tx_monitor_cmd) => tx_monitor_cmd,
             None => {
@@ -609,7 +609,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok(subscription)
     }
     fn subscribe_beefy(&mut self) -> Result<super::handle::BeefySubscription, Error> {
-        tracing::info!("substrate::subscribe_beefy -> reqeust to subscribe substrate beefy msg !",);
+        tracing::info!("🐙🐙 ics10::substrate::subscribe_beefy -> reqeust to subscribe substrate beefy msg !",);
         let tx_beefy_monitor_cmd = match &self.tx_beefy_monitor_cmd {
             Some(tx_beefy_monitor_cmd) => tx_beefy_monitor_cmd,
             None => {
@@ -794,47 +794,233 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // todo
+    
     fn query_balance(&self, key_name: Option<&str>, denom: Option<&str>) -> Result<Balance, Error> {
-        async fn query_balance(
+        async fn query_account(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
-            key_name: Option<&str>,
-            denom: Option<&str>,
+            // key_name: Option<&str>,       
+            pair : Sr25519KeyPair,
+            denom: &str,
         ) -> Result<Balance, Error> {
-            Ok(Balance {
-                amount: String::default(),
-                denom: String::default(),
-            })
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                let account_id:AccountId32 = pair.pair().public().into();
+                // fetch balance from storage: system account 
+                let storage = relaychain_node::storage().system().account(account_id);
+
+                let result = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                debug!(
+                    "🐙🐙 ics10::substrate::query_balance -> account {:?}",
+                    result
+                );
+                let balance = Balance {
+                    amount:  result.data.free.to_string(),
+                    denom: denom.to_string(),
+                };
+                debug!(
+                    "🐙🐙 ics10::substrate::query_balance -> balance {:?}",
+                    balance
+                );
+                Ok(balance)
+            }
         }
+        let key_pair = match key_name {
+                Some(key_name) => self.keybase().get_key(key_name).map_err(Error::key_base)?,
+                None => self.key()?,
+            };
+        let denom = denom.unwrap_or(&self.config.gas_price.denom);
+
         match &self.rpc_client {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => self.block_on(query_balance(relay_rpc, Some(para_rpc), key_name, denom)),
-            RpcClient::SubChainRpc { rpc } => {
-                self.block_on(query_balance(rpc, None, key_name, denom))
+            } => self.block_on(query_account(relay_rpc, Some(para_rpc), key_pair, denom)),
+            RpcClient::SubChainRpc { rpc } => {               
+                self.block_on(query_account(rpc, None, key_pair,denom))
             }
         }
+        
+    
     }
-
     // todo
     // native token and cross chain token
     fn query_all_balances(&self, key_name: Option<&str>) -> Result<Vec<Balance>, Error> {
         async fn query_all_balances(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
-            key_name: Option<&str>,
+            // key_name: Option<&str>,
+            pair : Sr25519KeyPair,
+            denom: &str,
         ) -> Result<Vec<Balance>, Error> {
-            Ok(vec![])
+            if let Some(rpc_client) = para_rpc_client {
+                todo!()
+            } else {
+                let mut balances =  Vec::<Balance>::new();
+                let account_id:AccountId32 = pair.pair().public().into();
+                // fetch balance from storage: system account 
+                let storage = relaychain_node::storage().system().account(account_id.clone());
+
+                let result = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&storage)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                debug!(
+                    "🐙🐙 ics10::substrate::query_balances -> account {:?}",
+                    result
+                );
+                let balance = Balance {
+                    amount:  result.data.free.to_string(),
+                    denom: denom.to_string(),
+                };
+                debug!(
+                    "🐙🐙 ics10::substrate::query_balances -> balance {:?}",
+                    balance
+                );
+                balances.push(balance);
+
+                // fetch all the assets
+                let assets_storage = relaychain_node::storage().assets().asset_root();
+                let mut root_key_len = assets_storage.to_root_bytes().len();
+                debug!(
+                    "🐙🐙 ics10::substrate::query_balances -> query_key.len() {:?}",
+                    root_key_len
+                );
+                // StorageMapKey::new(Some(2u32), StorageHasher::Blake2_128Concat).to_bytes(&mut query_key);
+                // let key_len = query_key.len();
+                let raw_asset_id = codec::Encode::encode(&Some(2u32));
+                let single_key = sp_core_hashing::blake2_128(&raw_asset_id).len();
+                debug!(
+                    "🐙🐙 ics10::substrate::query_balances -> query_key.len()+ StorageMapKey {:?}",
+                    root_key_len+single_key
+                );
+                let mut asset_iter = relay_rpc_client
+                .storage()
+                .at(None)
+                .await
+                .unwrap()
+                .iter(assets_storage, 10)
+                .await
+                .unwrap();
+
+                let mut asset_account = vec![];
+                while let Some((raw_id, _)) = asset_iter.next().await.unwrap() {
+                    let raw_key = raw_id.0[48..].to_vec();
+                    let asset_id =u32::decode(&mut &raw_key[..]).unwrap();
+                    debug!(
+                        "🐙🐙 ics10::substrate::query_balances -> asset_id {:?}",
+                        asset_id
+                    );
+                    // let asset_id:u32 = codec::Decode::decode(&mut &raw_id.0[..]).unwrap();
+                    // result.push(asset_id);
+                    // fetch all the asset accounts
+                    let asset_account_storage = relaychain_node::storage().assets().account(asset_id,account_id.clone());
+                    let result = relay_rpc_client
+                    .storage()
+                    .at(None)
+                    .await
+                    .unwrap()
+                    .fetch(&asset_account_storage)
+                    .await
+                    .unwrap();
+                    if let Some(account) = result {
+                        asset_account.push((asset_id,account.balance));
+                    }
+                }
+                debug!(
+                    "🐙🐙 ics10::substrate::query_balances -> asset_account {:?}",
+                    asset_account
+                );
+
+                // fetch all the assets
+                let mut asset_id_name =  HashMap::new();
+                let assets_id_name_storage = relaychain_node::storage().ics20_transfer().asset_id_by_name_root();
+                let mut root_key_len = assets_id_name_storage.to_root_bytes().len();
+                debug!(
+                    "🐙🐙 ics10::substrate::query_balances -> assets_id_name_storage query_key.len() {:?}",
+                    root_key_len
+                );
+                // StorageMapKey::new(vec![2u8], StorageHasher::Twox64Concat).to_bytes(&mut query_key);
+                // let key_len = query_key.len();
+                let single_key = sp_core_hashing::twox_64(&[2u8]).len();
+
+                debug!(
+                    "🐙🐙 ics10::substrate::query_balances -> assets_id_name_storage query_key.len()+ StorageMapKey {:?}",
+                    root_key_len+single_key
+                );
+                
+                let mut assets_id_name_iter = relay_rpc_client
+                .storage()
+                .at(None)
+                .await
+                .unwrap()
+                .iter(assets_id_name_storage, 10)
+                .await
+                .unwrap();
+                while let Some((key,id )) = assets_id_name_iter.next().await.unwrap() {
+                    // let raw_name = Vec::<u8>::Decode(key.0).unwrap();
+                    let raw_name =key.0[40..].to_vec();
+                    let asset_name:Vec<u8>  = codec::Decode::decode(&mut &raw_name[..]).unwrap();
+                    let asset_name = String::from_utf8(asset_name).unwrap();
+                    // let asset_name = format!("{:?}", &raw_name);
+                    debug!(
+                        "🐙🐙 ics10::substrate::query_balances -> asset_name {:?}",
+                        asset_name
+                    );
+                    asset_id_name.insert(id,asset_name);
+                }
+
+                debug!(
+                    "🐙🐙 ics10::substrate::query_balances -> asset_id_name {:?}",
+                    asset_id_name
+                );
+
+                for aa in asset_account.iter(){
+                    let amount = aa.1;
+                    let denom = asset_id_name.get(&aa.0).unwrap();
+                    let balance = Balance {
+                        amount: amount.to_string(),
+                        denom:denom.to_string(),
+                    };
+                    balances.push(balance);
+                }
+                debug!(
+                    "🐙🐙 ics10::substrate::query_balances -> balances {:?}",
+                    balances
+                );
+
+             Ok(balances)
+
         }
+    }
+        let key_pair = match key_name {
+            Some(key_name) => self.keybase().get_key(key_name).map_err(Error::key_base)?,
+            None => self.key()?,
+        };
+        
+        let default_denom = &self.config.gas_price.denom;
+
         match &self.rpc_client {
             RpcClient::ParachainRpc {
                 relay_rpc,
                 para_rpc,
-            } => self.block_on(query_all_balances(relay_rpc, Some(para_rpc), key_name)),
+            } => self.block_on(query_all_balances(relay_rpc, Some(para_rpc), key_pair,&default_denom)),
             RpcClient::SubChainRpc { rpc } => {
-                self.block_on(query_all_balances(rpc, None, key_name))
+                self.block_on(query_all_balances(rpc, None, key_pair,&default_denom))
             }
         }
     }
@@ -909,7 +1095,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
                 debug!(
-                    " 🐙🐙 substrate::query_application_status -> latest time {:?}",
+                    "🐙🐙 ics10::substrate::query_application_status -> latest time {:?}",
                     result
                 );
                 // let timestamp = Timestamp::from_nanoseconds(result).unwrap();
@@ -920,7 +1106,7 @@ impl ChainEndpoint for SubstrateChain {
                         .unwrap();
 
                 debug!(
-                    " 🐙🐙 substrate::query_application_status -> timestamp {:?}",
+                    "🐙🐙 ics10::substrate::query_application_status -> timestamp {:?}",
                     tm_time
                 );
 
@@ -951,7 +1137,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
                 debug!(
-                    " 🐙🐙 substrate::query_application_status -> latest time {:?}",
+                    "🐙🐙 ics10::substrate::query_application_status -> latest time {:?}",
                     result
                 );
                 // As the `u64` representation can only represent times up to
@@ -970,7 +1156,7 @@ impl ChainEndpoint for SubstrateChain {
                 // let timestamp = Timestamp::from_nanoseconds(result).unwrap();
 
                 debug!(
-                    " 🐙🐙 substrate::query_application_status -> timestamp {:?}",
+                    "🐙🐙 ics10::substrate::query_application_status -> timestamp {:?}",
                     tm_time
                 );
 
@@ -1126,7 +1312,7 @@ impl ChainEndpoint for SubstrateChain {
                     AnyClientState::decode_vec(&client_state).map_err(Error::decode)?;
 
                 debug!(
-                    "substrate::query_client_state -> states: {:?}",
+                    "🐙🐙 ics10::substrate::query_client_state -> states: {:?}",
                     any_client_state
                 );
                 match include_proof {
@@ -1142,7 +1328,7 @@ impl ChainEndpoint for SubstrateChain {
                         )
                         .await;
                         // debug!(
-                        //     "substrate::query_client_state -> state_proof: {:?}",
+                        //     "🐙🐙 ics10::substrate::query_client_state -> state_proof: {:?}",
                         //     state_proof
                         // );
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
@@ -1187,7 +1373,7 @@ impl ChainEndpoint for SubstrateChain {
                     AnyClientState::decode_vec(&client_state).map_err(Error::decode)?;
 
                 debug!(
-                    "substrate::query_client_state -> states: {:?}",
+                    "🐙🐙 ics10::substrate::query_client_state -> states: {:?}",
                     any_client_state
                 );
                 match include_proof {
@@ -1203,7 +1389,7 @@ impl ChainEndpoint for SubstrateChain {
                         )
                         .await;
                         // debug!(
-                        //     "substrate::query_client_state -> state_proof: {:?}",
+                        //     "🐙🐙 ics10::substrate::query_client_state -> state_proof: {:?}",
                         //     state_proof
                         // );
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
@@ -1410,7 +1596,7 @@ impl ChainEndpoint for SubstrateChain {
                     AnyConsensusState::decode_vec(&consensus_states).map_err(Error::decode)?;
 
                 debug!(
-                    "substrate::query_consensus_state -> consensus_state: {:?}",
+                    "🐙🐙 ics10::substrate::query_consensus_state -> consensus_state: {:?}",
                     any_consensus_state
                 );
                 match include_proof {
@@ -1426,7 +1612,7 @@ impl ChainEndpoint for SubstrateChain {
                         )
                         .await;
                         // debug!(
-                        //     "substrate::query_consensus_state -> state_proof: {:?}",
+                        //     "🐙🐙 ics10::substrate::query_consensus_state -> state_proof: {:?}",
                         //     state_proof
                         // );
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
@@ -1473,7 +1659,7 @@ impl ChainEndpoint for SubstrateChain {
                     AnyConsensusState::decode_vec(&consensus_states).map_err(Error::decode)?;
 
                 debug!(
-                    "substrate::query_consensus_state -> consensus_state: {:?}",
+                    "🐙🐙 ics10::substrate::query_consensus_state -> consensus_state: {:?}",
                     any_consensus_state
                 );
                 match include_proof {
@@ -1489,7 +1675,7 @@ impl ChainEndpoint for SubstrateChain {
                         )
                         .await;
                         // debug!(
-                        //     "substrate::query_consensus_state -> state_proof: {:?}",
+                        //     "🐙🐙 ics10::substrate::query_consensus_state -> state_proof: {:?}",
                         //     state_proof
                         // );
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
@@ -1673,7 +1859,7 @@ impl ChainEndpoint for SubstrateChain {
             include_proof: IncludeProof,
         ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
             debug!(
-                "substrate::query_connection -> QueryConnectionRequest: {:?}, IncludeProof: {:?}",
+                "🐙🐙 ics10::substrate::query_connection -> QueryConnectionRequest: {:?}, IncludeProof: {:?}",
                 request, include_proof
             );
             if let Some(rpc_client) = para_rpc_client {
@@ -1709,7 +1895,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 debug!(
-                    "substrate::query_connection -> connection: {:?}",
+                    "🐙🐙 ics10::substrate::query_connection -> connection: {:?}",
                     connection
                 );
                 match include_proof {
@@ -1724,7 +1910,7 @@ impl ChainEndpoint for SubstrateChain {
                         )
                         .await;
                         // debug!(
-                        //     "substrate::query_connection -> state_proof: {:?}",
+                        //     "🐙🐙 ics10::substrate::query_connection -> state_proof: {:?}",
                         //     state_proof
                         // );
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
@@ -1742,7 +1928,7 @@ impl ChainEndpoint for SubstrateChain {
                         connection_id,
                     );
                 debug!(
-                    "substrate::query_connection -> connection_id: {:?} connection_path: {:?}",
+                    "🐙🐙 ics10::substrate::query_connection -> connection_id: {:?} connection_path: {:?}",
                     request.connection_id, connection_path
                 );
 
@@ -1751,7 +1937,7 @@ impl ChainEndpoint for SubstrateChain {
                     .connections(connection_path);
 
                 debug!(
-                    "substrate::query_connection -> storage key: {:?}",
+                    "🐙🐙 ics10::substrate::query_connection -> storage key: {:?}",
                     hex::encode(storage.to_bytes())
                 );
 
@@ -1759,7 +1945,7 @@ impl ChainEndpoint for SubstrateChain {
                     QueryHeight::Latest => {
                         let query_hash = relay_rpc_client.rpc().block_hash(None).await.unwrap();
                         debug!(
-                            "substrate::query_connection -> query_height: latest height, query_hash: {:?}",
+                            "🐙🐙 ics10::substrate::query_connection -> query_height: latest height, query_hash: {:?}",
                             query_hash
                         );
                         query_hash
@@ -1773,7 +1959,7 @@ impl ChainEndpoint for SubstrateChain {
                             .await
                             .unwrap();
                         debug!(
-                            "substrate::query_connection -> query_height: {:?}, query_hash: {:?}",
+                            "🐙🐙 ics10::substrate::query_connection -> query_height: {:?}, query_hash: {:?}",
                             v, query_hash
                         );
                         query_hash
@@ -1790,7 +1976,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 debug!(
-                    "substrate::query_connection -> connection: {:?}",
+                    "🐙🐙 ics10::substrate::query_connection -> connection: {:?}",
                     connection
                 );
                 match include_proof {
@@ -1805,7 +1991,7 @@ impl ChainEndpoint for SubstrateChain {
                         )
                         .await;
                         // debug!(
-                        //     "substrate::query_connection -> state_proof: {:?}",
+                        //     "🐙🐙 ics10::substrate::query_connection -> state_proof: {:?}",
                         //     state_proof
                         // );
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
@@ -2108,7 +2294,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 // Ok((result.into(), None))
-                debug!("substrate::query_channel -> channel_end: {:?}", result);
+                debug!("🐙🐙 ics10::substrate::query_channel -> channel_end: {:?}", result);
                 match include_proof {
                     IncludeProof::Yes => {
                         // scale encode result
@@ -2120,7 +2306,7 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!("substrate::query_channel -> state_proof: {:?}", state_proof);
+                        // debug!("🐙🐙 ics10::substrate::query_channel -> state_proof: {:?}", state_proof);
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
                         Ok((result.into(), merkle_proof))
                     }
@@ -2162,7 +2348,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 // Ok((result.into(), None))
-                debug!("substrate::query_channel -> channel_end: {:?}", result);
+                debug!("🐙🐙 ics10::substrate::query_channel -> channel_end: {:?}", result);
                 match include_proof {
                     IncludeProof::Yes => {
                         // scale encode consensus_states
@@ -2174,7 +2360,7 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!("substrate::query_channel -> state_proof: {:?}", state_proof);
+                        // debug!("🐙🐙 ics10::substrate::query_channel -> state_proof: {:?}", state_proof);
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
                         Ok((result.into(), merkle_proof))
                     }
@@ -2435,7 +2621,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 debug!(
-                    "substrate::query_packet_commitment -> packet commitment: {:?}",
+                    "🐙🐙 ics10::substrate::query_packet_commitment -> packet commitment: {:?}",
                     result
                 );
                 match include_proof {
@@ -2449,7 +2635,7 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        // debug!("🐙🐙 ics10::substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
                         Ok((result.0, merkle_proof))
                     }
@@ -2500,7 +2686,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 debug!(
-                    "substrate::query_packet_commitment -> packet commitment: {:?}",
+                    "🐙🐙 ics10::substrate::query_packet_commitment -> packet commitment: {:?}",
                     result
                 );
                 match include_proof {
@@ -2514,7 +2700,7 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        // debug!("🐙🐙 ics10::substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
                         Ok((result.0, merkle_proof))
                     }
@@ -2627,7 +2813,7 @@ impl ChainEndpoint for SubstrateChain {
                     }
                 }
                 debug!(
-                    "🐙🐙 substrate::query_packet_commitments -> Vec<Sequence>: {:?}",
+                    "🐙🐙 ics10::substrate::query_packet_commitments -> Vec<Sequence>: {:?}",
                     result
                 );
 
@@ -2706,7 +2892,7 @@ impl ChainEndpoint for SubstrateChain {
                 // }
 
                 debug!(
-                    "🐙🐙 substrate::query_packet_receipt -> receipt: {:?}",
+                    "🐙🐙 ics10::substrate::query_packet_receipt -> receipt: {:?}",
                     result
                 );
                 match result {
@@ -2718,7 +2904,7 @@ impl ChainEndpoint for SubstrateChain {
                                 let value = codec::Encode::encode(&result);
                                let state_proof= utils::build_state_proof(relay_rpc_client, query_hash,
                                 storage.to_bytes(), value).await;
-                                // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                                // debug!("🐙🐙 ics10::substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
                                 let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
                                 Ok((vec![0], merkle_proof))
                             },
@@ -2771,7 +2957,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
 
-                debug!("substrate::query_packet_receipt -> receipt: {:?}", result);
+                debug!("🐙🐙 ics10::substrate::query_packet_receipt -> receipt: {:?}", result);
                 match result {
                     relaychain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => {
 
@@ -2781,7 +2967,7 @@ impl ChainEndpoint for SubstrateChain {
                                 let value = codec::Encode::encode(&result);
                                let state_proof= utils::build_state_proof(relay_rpc_client, query_hash,
                                 storage.to_bytes(), value).await;
-                                // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                                // debug!("🐙🐙 ics10::substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
                                 let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
                                 Ok((vec![0], merkle_proof))
                             },
@@ -2824,7 +3010,7 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryUnreceivedPacketsRequest,
         ) -> Result<Vec<Sequence>, Error> {
             debug!(
-                "🐙🐙 substrate::query_packet_receipt -> query_unreceived_packets request: {:?}",
+                "🐙🐙 ics10::substrate::query_packet_receipt -> query_unreceived_packets request: {:?}",
                 request
             );
             if let Some(rpc_client) = para_rpc_client {
@@ -2949,7 +3135,7 @@ impl ChainEndpoint for SubstrateChain {
                         result.push(sequence)
                     }
                     debug!(
-                        "🐙🐙 substrate::query_packet_receipt ->  {:?}",
+                        "🐙🐙 ics10::substrate::query_packet_receipt ->  {:?}",
                         result
                     );
                 }
@@ -3020,7 +3206,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 debug!(
-                    "substrate::query_next_sequence_receive -> sequence: {:?}",
+                    "🐙🐙 ics10::substrate::query_next_sequence_receive -> sequence: {:?}",
                     result
                 );
 
@@ -3042,7 +3228,7 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        // debug!("🐙🐙 ics10::substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
                         Ok((result.into(), merkle_proof))
                     }
@@ -3106,7 +3292,7 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        // debug!("🐙🐙 ics10::substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
                         Ok((result.into(), merkle_proof))
                     }
@@ -3139,6 +3325,10 @@ impl ChainEndpoint for SubstrateChain {
         request: QueryPacketAcknowledgementRequest,
         include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
+        debug!(
+            "🐙🐙 ics10::substrate::query_packet_acknowledgement -> request: {:?}",
+            request
+        );
         async fn query_packet_acknowledgement(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
             para_rpc_client: Option<&OnlineClient<SubstrateConfig>>,
@@ -3190,7 +3380,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 debug!(
-                    "substrate::query_packet_acknowledgement -> ack commitment: {:?}",
+                    "🐙🐙 ics10::substrate::query_packet_acknowledgement -> ack commitment: {:?}",
                     result
                 );
 
@@ -3205,7 +3395,7 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        // debug!("🐙🐙 ics10::substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
                         Ok((result.0, merkle_proof))
                     }
@@ -3231,6 +3421,12 @@ impl ChainEndpoint for SubstrateChain {
                         channel_id,
                         sequence,
                     };
+                
+                debug!(
+                        "🐙🐙 ics10::substrate::query_packet_acknowledgement -> acknowledgement_path: {:?}",
+                        acknowledgement_path
+                    );
+    
                 let storage = relaychain_node::storage()
                     .ibc()
                     .acknowledgements(acknowledgement_path);
@@ -3245,6 +3441,11 @@ impl ChainEndpoint for SubstrateChain {
                         .await
                         .unwrap(),
                 };
+                debug!(
+                    "🐙🐙 ics10::substrate::query_packet_acknowledgement -> request.height: {:?}, query_hash: {:?}",
+                    request.height,query_hash
+                );
+
                 let result = relay_rpc_client
                     .storage()
                     .at(query_hash)
@@ -3256,7 +3457,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap();
 
                 debug!(
-                    "🐙🐙 substrate::query_packet_acknowledgement -> ack commitment: {:?}",
+                    "🐙🐙 ics10::substrate::query_packet_acknowledgement -> ack commitment: {:?}",
                     result
                 );
 
@@ -3271,7 +3472,7 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!("substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
+                        // debug!("🐙🐙 ics10::substrate::query_packet_commitment -> state_proof: {:?}", state_proof);
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
                         Ok((result.0, merkle_proof))
                     }
@@ -3349,7 +3550,7 @@ impl ChainEndpoint for SubstrateChain {
                 }
 
                 debug!(
-                    "🐙🐙 substrate::query_packet_acknowledgements -> ack sequence: {:?}",
+                    "🐙🐙 ics10::substrate::query_packet_acknowledgements -> ack sequence: {:?}",
                     result
                 );
 
@@ -3389,7 +3590,7 @@ impl ChainEndpoint for SubstrateChain {
                     }
                 }
                 debug!(
-                    "🐙🐙 substrate::query_packet_acknowledgements -> ack sequence: {:?}",
+                    "🐙🐙 ics10::substrate::query_packet_acknowledgements -> ack sequence: {:?}",
                     result
                 );
 
@@ -3426,7 +3627,7 @@ impl ChainEndpoint for SubstrateChain {
             request: QueryUnreceivedAcksRequest,
         ) -> Result<Vec<Sequence>, Error> {
             debug!(
-                "🐙🐙 substrate::query_unreceived_acknowledgements -> QueryUnreceivedAcksRequest: {:?}",
+                "🐙🐙 ics10::substrate::query_unreceived_acknowledgements -> QueryUnreceivedAcksRequest: {:?}",
                 request
             );
             if let Some(rpc_client) = para_rpc_client {
@@ -3471,7 +3672,7 @@ impl ChainEndpoint for SubstrateChain {
                     }
                 }
                 debug!(
-                    "🐙🐙 substrate::query_unreceived_acknowledgements -> {:?}",
+                    "🐙🐙 ics10::substrate::query_unreceived_acknowledgements -> {:?}",
                     result
                 );
 
@@ -3505,7 +3706,7 @@ impl ChainEndpoint for SubstrateChain {
                     let raw_key = key.0[48..].to_vec();
                     let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::CommitmentsPath::decode(&mut &*raw_key).unwrap();
                     debug!(
-                        "🐙🐙 substrate::query_unreceived_acknowledgements -> CommitmentsPath: {:?}",
+                        "🐙🐙 ics10::substrate::query_unreceived_acknowledgements -> CommitmentsPath: {:?}",
                         rets
                     );
                     let port_id = PortId::from(rets.port_id);
@@ -3513,7 +3714,7 @@ impl ChainEndpoint for SubstrateChain {
                     let sequence = Sequence::from(rets.sequence);
                     let packet_commitment: PacketCommitment = value.into();
                     debug!(
-                        "🐙🐙 substrate::query_unreceived_acknowledgements -> PacketCommitment: {:?}",
+                        "🐙🐙 ics10::substrate::query_unreceived_acknowledgements -> PacketCommitment: {:?}",
                         packet_commitment
                     );
                     // find unreceived packet
@@ -3526,7 +3727,7 @@ impl ChainEndpoint for SubstrateChain {
                     }
                 }
                 debug!(
-                    "🐙🐙 substrate::query_unreceived_acknowledgements -> Vec<Sequence>: {:?}",
+                    "🐙🐙 ics10::substrate::query_unreceived_acknowledgements -> Vec<Sequence>: {:?}",
                     result
                 );
 
@@ -3786,6 +3987,7 @@ impl ChainEndpoint for SubstrateChain {
                                     relay_rpc_client.rpc().block(None).await.unwrap().unwrap();
                                 //    resp.block.header.hash()
                                 (resp.block.header.number as u64, resp.block.header.hash())
+
                             }
                             QueryHeight::Specific(h) => {
                                 // use subxt::config::Header;
@@ -3797,9 +3999,10 @@ impl ChainEndpoint for SubstrateChain {
                                     .unwrap()
                                     .unwrap();
                                 (block_number , block_hash)
+                                
                             }
                         };
-                        debug!("🐙🐙 substrate::query_packet_events -> Qualified::Equal block_number: {:?}, block_hash: {:?}", block_number,block_hash);
+                        debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::Equal block_number: {:?}, block_hash: {:?}", block_number,block_hash);
                         let height = ICSHeight::new(0, block_number).unwrap();
                     
                         match request.event_id {
@@ -3824,7 +4027,8 @@ impl ChainEndpoint for SubstrateChain {
                                         relaychain_node::runtime_types::ibc::events::IbcEvent::SendPacket(v) =>{
 
                                             let send_packet_event = SendPacket::from(v);
-                                            if matches_packet(&request,&request.sequences,&send_packet_event.packet){
+                                            if matches_packet(&request,&request.sequences,&send_packet_event.packet)
+                                                && block_number==h {
                                                     let event_with_height = IbcEventWithHeight {
                                                         event: send_packet_event.into(),
                                                         height,
@@ -3837,7 +4041,7 @@ impl ChainEndpoint for SubstrateChain {
 
                                     }
                                 }
-                                debug!("🐙🐙 substrate::query_packet_events -> send packet events : {:?}", events_with_height);                               
+                                debug!("🐙🐙 ics10::substrate::query_packet_events -> send packet events : {:?}", events_with_height);                               
                             }
                             WithBlockDataType::WriteAck => {
                                 // filter ibc write ack packet events
@@ -3869,19 +4073,39 @@ impl ChainEndpoint for SubstrateChain {
                                     }
                                 }
                            
-                                debug!("🐙🐙 substrate::query_packet_events -> write ack events : {:?}", events_with_height);
+                                debug!("🐙🐙 ics10::substrate::query_packet_events -> write ack events : {:?}", events_with_height);
                                
                             }
                             _ => {}
                         }
                     }
-                    Qualified::SmallerEqual(_) => {
+                    Qualified::SmallerEqual(query_height) => {
+                        let (block_number, block_hash) = match query_height {
+                            QueryHeight::Latest => {
+                                // use subxt::config::Header;
+                                let resp =
+                                    relay_rpc_client.rpc().block(None).await.unwrap().unwrap();
+                                //    resp.block.header.hash()
+                                (resp.block.header.number as u64, resp.block.header.hash())
+                            }
+                            QueryHeight::Specific(h) => {
+                                // use subxt::config::Header;
+                                let block_number = h.revision_height() ;
+                                let block_hash = relay_rpc_client
+                                    .rpc()
+                                    .block_hash(Some(block_number.into()))
+                                    .await
+                                    .unwrap()
+                                    .unwrap();
+                                (block_number , block_hash)
+                            }
+                        };
                         // get latest block height
-                        let resp = relay_rpc_client.rpc().block(None).await.unwrap().unwrap();
-                        let block_number = resp.block.header.number;
-                        let block_hash = resp.block.header.hash();
-                        debug!("🐙🐙 substrate::query_packet_events -> Qualified::SmallerEqual block_number: {:?}, block_hash: {:?}", block_number,block_hash);
-                        let height = ICSHeight::new(0, block_number as u64).unwrap();
+                        // let resp = relay_rpc_client.rpc().block(None).await.unwrap().unwrap();
+                        // let block_number = resp.block.header.number;
+                        // let block_hash = resp.block.header.hash();
+                        debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::SmallerEqual block_number: {:?}, block_hash: {:?}", block_number,block_hash);
+                        let height = ICSHeight::new(0, block_number).unwrap();
                         
                         match request.event_id {
                             WithBlockDataType::SendPacket => {
@@ -3919,7 +4143,7 @@ impl ChainEndpoint for SubstrateChain {
                                     }
                                 }
                               
-                                debug!("🐙🐙 substrate::query_packet_events -> send packet events : {:?}", events_with_height);
+                                debug!("🐙🐙 ics10::substrate::query_packet_events -> send packet events : {:?}", events_with_height);
                                
                             }
                             WithBlockDataType::WriteAck => {
@@ -3954,17 +4178,17 @@ impl ChainEndpoint for SubstrateChain {
                                     }
                                 }
                            
-                                debug!("🐙🐙 substrate::query_packet_events -> write ack events : {:?}", events_with_height);
+                                debug!("🐙🐙 ics10::substrate::query_packet_events -> write ack events : {:?}", events_with_height);
                                
                             }
                             _ => {}
                         }
-                       
+                    
                     }
                 }
 
                 debug!(
-                    "🐙🐙 substrate::query_packet_events -> events_with_height : {:?}",
+                    "🐙🐙 ics10::substrate::query_packet_events -> events_with_height : {:?}",
                     events_with_height
                 );
                 Ok(events_with_height)
@@ -4035,7 +4259,7 @@ impl ChainEndpoint for SubstrateChain {
                 //     .into_tm_time()
                 //     .unwrap();
                 debug!(
-                    " 🐙🐙 substrate::query_host_consensus_state -> timestamp {:?}",
+                    "🐙🐙 ics10::substrate::query_host_consensus_state -> timestamp {:?}",
                     tm_time
                 );
 
@@ -4090,7 +4314,7 @@ impl ChainEndpoint for SubstrateChain {
                 //     .unwrap();
 
                 debug!(
-                    " 🐙🐙 substrate::build_consensus_state -> timestamp {:?}",
+                    "🐙🐙 ics10::substrate::build_consensus_state -> timestamp {:?}",
                     tm_time
                 );
 
@@ -4352,7 +4576,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
                 debug!(
-                    " 🐙🐙 substrate::build_consensus_state -> latest time {:?}",
+                    "🐙🐙 ics10::substrate::build_consensus_state -> latest time {:?}",
                     result
                 );
                 // As the `u64` representation can only represent times up to
@@ -4373,14 +4597,14 @@ impl ChainEndpoint for SubstrateChain {
                 //     .into_tm_time()
                 //     .unwrap();
                 debug!(
-                    " 🐙🐙 substrate::build_consensus_state -> timestamp {:?}",
+                    "🐙🐙 ics10::substrate::build_consensus_state -> timestamp {:?}",
                     tm_time
                 );
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
                 let consensus_state = GpConsensusState::new(root, tm_time);
 
                 debug!(
-                    " 🐙🐙 substrate::build_consensus_state -> consensus_state {:?}",
+                    "🐙🐙 ics10::substrate::build_consensus_state -> consensus_state {:?}",
                     consensus_state
                 );
                 Ok(consensus_state)
@@ -4406,7 +4630,7 @@ impl ChainEndpoint for SubstrateChain {
                     .unwrap()
                     .unwrap();
                 debug!(
-                    "🐙🐙 substrate::build_consensus_state -> latest time {:?}",
+                    "🐙🐙 ics10::substrate::build_consensus_state -> latest time {:?}",
                     result
                 );
                 // As the `u64` representation can only represent times up to
@@ -4426,13 +4650,13 @@ impl ChainEndpoint for SubstrateChain {
                 //     .into_tm_time()
                 //     .unwrap();
                 debug!(
-                    " 🐙🐙 substrate::build_consensus_state -> timestamp {:?}",
+                    "🐙🐙 ics10::substrate::build_consensus_state -> timestamp {:?}",
                     tm_time
                 );
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
                 let consensus_state = GpConsensusState::new(root, tm_time);
                 debug!(
-                    " 🐙🐙 substrate::build_consensus_state -> consensus_state {:?}",
+                    "🐙🐙 ics10::substrate::build_consensus_state -> consensus_state {:?}",
                     consensus_state
                 );
 
@@ -4497,7 +4721,7 @@ impl ChainEndpoint for SubstrateChain {
                     < target_height.revision_height()
                 {
                     debug!(
-                        "substrate::build_header -> grandpa_client_state.latest_beefy_height:{:?} < target_height {:?}, need to update beefy",
+                        "🐙🐙 ics10::substrate::build_header -> grandpa_client_state.latest_beefy_height:{:?} < target_height {:?}, need to update beefy",
                         grandpa_client_state.latest_beefy_height.revision_height(),target_height.revision_height()
                     );
 
@@ -4507,7 +4731,7 @@ impl ChainEndpoint for SubstrateChain {
 
                     let raw_signed_commitment = sub.next().await.unwrap().unwrap().0;
                     debug!(
-                        "🐙🐙 substrate::build_header -> recv raw_signed_commitment: {:?}",
+                        "🐙🐙 ics10::substrate::build_header -> recv raw_signed_commitment: {:?}",
                         raw_signed_commitment
                     );
 
@@ -4519,7 +4743,7 @@ impl ChainEndpoint for SubstrateChain {
                     )
                     .unwrap();
                     debug!(
-                        "🐙🐙 substrate::build_header: -> decode signed_commitment : {:?} ",
+                        "🐙🐙 ics10::substrate::build_header: -> decode signed_commitment : {:?} ",
                         signed_commitment
                     );
                     // get commitment

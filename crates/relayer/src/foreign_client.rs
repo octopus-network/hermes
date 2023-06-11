@@ -813,7 +813,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             };
 
             // debug!(
-            //     "ics10::foreign_client -> wait_beefy_height -> client_state:{:?} ",
+            //     "🐙🐙 ics10::foreign_client -> wait_beefy_height -> client_state:{:?} ",
             //     client_state
             // );
 
@@ -822,7 +822,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     if state.latest_beefy_height.revision_height()
                         < (target_height.revision_height() + 1)
                     {
-                        // debug!("ics10::foreign_client -> wait_beefy_height latest_beefy_height[{:?}] < target_height[{:?}], waiting ...",
+                        // debug!("🐙🐙 ics10::foreign_client -> wait_beefy_height latest_beefy_height[{:?}] < target_height[{:?}], waiting ...",
                         // state.latest_beefy_height,target_height);
                         thread::sleep(Duration::from_millis(500));
                         continue;
@@ -1167,7 +1167,16 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             })
         };
         // Wait for the source network to produce block(s) & reach `target_height`.
-        while src_application_latest_height()? < target_height {
+        loop {
+            let src_latest_height = src_application_latest_height()?;
+
+            if src_latest_height >= target_height {
+                debug!(
+                    "🐙🐙 ics10::foreign_client -> wait_and_build_update_client_with_trusted src_latest_height: {:?} >= target_height:{:?}",
+                    src_latest_height,target_height
+                );
+                break;
+            }
             thread::sleep(Duration::from_millis(100));
         }
 
@@ -1246,7 +1255,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         let any_header: Any = header.clone().into();
 
         // debug!(
-        //     "ics10::foreign_client -> build_update_client_with_trusted -> Any header type_url: {} \nAny header: {:?} ",
+        //     "🐙🐙 ics10::foreign_client -> build_update_client_with_trusted -> Any header type_url: {} \nAny header: {:?} ",
         //     any_header.type_url,any_header
         // );
 
@@ -1328,7 +1337,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             })?,
             QueryHeight::Specific(height) => height,
         };
-        debug!("ics10::foreign_client -> build_update_client_and_send target_height:{:?},trusted_height:{:?}",
+        debug!("🐙🐙 ics10::foreign_client -> build_update_client_and_send target_height:{:?},trusted_height:{:?}",
         target_height,trusted_height);
 
         let new_msgs =

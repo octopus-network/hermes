@@ -93,7 +93,7 @@ sp-core = {version="16.0.0"}
 sp-keyring = "18.0.0"
 # sp-core ={ git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
 # sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
-
+sp-core-hashing = "6.0.0"
 [dependencies.num-bigint]
 version = "0.4"
 features = ["serde"]

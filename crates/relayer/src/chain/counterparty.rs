@@ -389,6 +389,11 @@ pub fn commitments_on_chain(
 
     commit_sequences.sort_unstable();
 
+    tracing::debug!(
+        "🐙🐙 ics10::counterparty -> commitments_on_chain  commit_sequences: {:?},height: {:?}, on chain: {:?}",
+        commit_sequences,response_height,chain.id()
+    );
+
     Ok((commit_sequences, response_height))
 }
 
@@ -404,13 +409,20 @@ pub fn unreceived_packets_sequences(
         return Ok(vec![]);
     }
 
-    chain
+    let result = chain
         .query_unreceived_packets(QueryUnreceivedPacketsRequest {
             port_id: port_id.clone(),
             channel_id: channel_id.clone(),
             packet_commitment_sequences: commitments_on_counterparty,
         })
-        .map_err(Error::relayer)
+        .map_err(Error::relayer);
+
+    tracing::debug!(
+        "🐙🐙 ics10::counterparty -> unreceived_packets_sequences result: {:?}  on chain:{:?}",
+        result,
+        chain.id()
+    );
+    result
 }
 
 /// Returns the sequences of the written acknowledgments on a given chain and channel (port_id + channel_id), out of
@@ -436,6 +448,11 @@ pub fn packet_acknowledgements(
     acked_sequences.retain(|s| commit_set.contains(s));
     acked_sequences.sort_unstable();
 
+    tracing::debug!(
+        "🐙🐙 ics10::counterparty -> packet_acknowledgements acked_sequences: {:?},height: {:?}, on chain: {:?}",
+        acked_sequences,response_height,chain.id()
+    );
+
     Ok((acked_sequences, response_height))
 }
 
@@ -452,13 +469,18 @@ pub fn unreceived_acknowledgements_sequences(
         return Ok(vec![]);
     }
 
-    chain
+    let result = chain
         .query_unreceived_acknowledgements(QueryUnreceivedAcksRequest {
             port_id: port_id.clone(),
             channel_id: channel_id.clone(),
             packet_ack_sequences: acks_on_counterparty,
         })
-        .map_err(Error::relayer)
+        .map_err(Error::relayer);
+    tracing::debug!(
+        "🐙🐙 ics10::counterparty -> unreceived_acknowledgements_sequences sns: {:?} on chain: {:?}",
+        result,chain.id()
+    );
+    result
 }
 
 /// Given a channel, this method returns:
@@ -495,7 +517,7 @@ pub fn unreceived_packets(
         &path.counterparty_port_id,
         &path.counterparty_channel_id,
     )?;
-    tracing::debug!("🐙🐙 ics10::counterparty -> unreceived_packets commit_sequences:{:?} in counterparty_chain:{:?}",commit_sequences,counterparty_chain.id());
+    // tracing::debug!("🐙🐙 ics10::counterparty -> unreceived_packets commit_sequences:{:?} in counterparty_chain:{:?}",commit_sequences,counterparty_chain.id());
 
     //TODO: testing skip substrate chain
     // let chain_type = chain.config().unwrap().r#type;
@@ -583,20 +605,12 @@ pub fn unreceived_acknowledgements(
 ) -> Result<(Vec<Sequence>, Height), Error> {
     let (commitments_on_src, _) = commitments_on_chain(chain, &path.port_id, &path.channel_id)?;
 
-    tracing::debug!(
-        "🐙🐙 substrate::counterparty -> unreceived_acknowledgements  commitments_on_chain: {:?}",
-        commitments_on_src
-    );
     let (acks_on_counterparty, src_response_height) = packet_acknowledgements(
         counterparty_chain,
         &path.counterparty_port_id,
         &path.counterparty_channel_id,
         commitments_on_src,
     )?;
-    tracing::debug!(
-        "🐙🐙 substrate::counterparty -> unreceived_acknowledgements  packet_acknowledgements acks_on_counterparty: {:?},src_response_height:{:?}",
-        acks_on_counterparty,src_response_height
-    );
 
     let sns = unreceived_acknowledgements_sequences(
         chain,
@@ -604,10 +618,6 @@ pub fn unreceived_acknowledgements(
         &path.channel_id,
         acks_on_counterparty,
     )?;
-    tracing::debug!(
-        "🐙🐙 substrate::counterparty -> unreceived_acknowledgements_sequences sns: {:?}",
-        sns
-    );
 
     Ok((sns, src_response_height))
 }
