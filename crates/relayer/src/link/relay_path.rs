@@ -61,6 +61,7 @@ use crate::telemetry;
 use crate::util::collate::CollatedIterExt;
 use crate::util::pretty::PrettyEvents;
 use crate::util::queue::Queue;
+use prost::Message;
 
 const MAX_RETRIES: usize = 5;
 
@@ -1211,6 +1212,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
         let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
+        println!(
+            "{:?}->{:?} MsgRecvPacket: {:?}",
+            self.src_chain().id(),
+            self.dst_chain().id(),
+            msg.clone().to_any().encode_to_vec()
+        );
 
         trace!(packet = %packet, height = %proofs.height(), "built recv_packet msg");
 
@@ -1240,6 +1247,13 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             event.ack.clone().into(),
             proofs.clone(),
             self.dst_signer()?,
+        );
+
+        println!(
+            "{:?}->{:?} MsgAcknowledgement: {:?}",
+            self.src_chain().id(),
+            self.dst_chain().id(),
+            msg.clone().to_any().encode_to_vec()
         );
 
         trace!(packet = %msg.packet, height = %proofs.height(), "built acknowledgment msg");

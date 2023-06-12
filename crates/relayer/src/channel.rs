@@ -37,6 +37,7 @@ use crate::util::pretty::{PrettyDuration, PrettyOption};
 use crate::util::retry::retry_with_index;
 use crate::util::retry::RetryResult;
 use crate::util::task::Next;
+use prost::Message;
 
 pub mod error;
 pub mod version;
@@ -873,6 +874,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
     pub fn build_chan_open_init_and_send(&self) -> Result<IbcEvent, ChannelError> {
         let dst_msgs = self.build_chan_open_init()?;
+        for m in dst_msgs.clone().iter() {
+            println!(
+                "{:?}->{:?} MsgChannelOpenInit: {:?}",
+                self.src_chain().id(),
+                self.dst_chain().id(),
+                m.encode_to_vec()
+            );
+        }
 
         let tm = TrackedMsgs::new_static(dst_msgs, "ChannelOpenInit");
 
@@ -1059,6 +1068,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
     pub fn build_chan_open_try_and_send(&self) -> Result<IbcEvent, ChannelError> {
         let dst_msgs = self.build_chan_open_try()?;
+        for m in dst_msgs.clone().iter() {
+            println!(
+                "{:?}->{:?} MsgChannelOpenTry: {:?}",
+                self.src_chain().id(),
+                self.dst_chain().id(),
+                m.encode_to_vec()
+            );
+        }
 
         let tm = TrackedMsgs::new_static(dst_msgs, "ChannelOpenTry");
 
@@ -1162,6 +1179,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             channel: &Channel<ChainA, ChainB>,
         ) -> Result<IbcEvent, ChannelError> {
             let dst_msgs = channel.build_chan_open_ack()?;
+            for m in dst_msgs.clone().iter() {
+                println!(
+                    "{:?}->{:?} MsgChannelOpenAck: {:?}",
+                    channel.src_chain().id(),
+                    channel.dst_chain().id(),
+                    m.encode_to_vec()
+                );
+            }
 
             let tm = TrackedMsgs::new_static(dst_msgs, "ChannelOpenAck");
 
@@ -1268,6 +1293,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             channel: &Channel<ChainA, ChainB>,
         ) -> Result<IbcEvent, ChannelError> {
             let dst_msgs = channel.build_chan_open_confirm()?;
+            for m in dst_msgs.clone().iter() {
+                println!(
+                    "{:?}->{:?} MsgChannelOpenConfirm: {:?}",
+                    channel.src_chain().id(),
+                    channel.dst_chain().id(),
+                    m.encode_to_vec()
+                );
+            }
 
             let tm = TrackedMsgs::new_static(dst_msgs, "ChannelOpenConfirm");
             let events = channel

@@ -10,6 +10,7 @@ use std::time::Instant;
 
 use ibc_proto::google::protobuf::Any;
 use itertools::Itertools;
+use prost::Message;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use flex_error::define_error;
@@ -626,6 +627,12 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         let msg = MsgCreateClient::new(client_state.into(), consensus_state.into(), signer)
             .map_err(ForeignClientError::client)?;
 
+        println!(
+            "{:?}->{:?} MsgCreateClient: {:?}",
+            self.src_chain.id(),
+            self.dst_chain.id(),
+            msg.clone().to_any().encode_to_vec()
+        );
         Ok(msg)
     }
 
@@ -1249,6 +1256,14 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 self.src_chain.id(),
                 target_height,
             ));
+        }
+        for m in new_msgs.clone().iter() {
+            println!(
+                "{:?}->{:?} MsgUpdateClient: {:?}",
+                self.src_chain.id(),
+                self.dst_chain.id(),
+                m.encode_to_vec()
+            );
         }
 
         let tm = TrackedMsgs::new_static(new_msgs, "update client");

@@ -30,6 +30,7 @@ use crate::object::Connection as WorkerConnectionObject;
 use crate::util::pretty::{PrettyDuration, PrettyOption};
 use crate::util::retry::{retry_with_index, RetryResult};
 use crate::util::task::Next;
+use prost::Message;
 
 mod error;
 pub use error::ConnectionError;
@@ -897,6 +898,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
     pub fn build_conn_init_and_send(&self) -> Result<IbcEvent, ConnectionError> {
         let dst_msgs = self.build_conn_init()?;
+        for m in dst_msgs.clone().iter() {
+            println!(
+                "{:?}->{:?} MsgConnectionOpenInit: {:?}",
+                self.src_chain().id(),
+                self.dst_chain().id(),
+                m.encode_to_vec()
+            );
+        }
 
         let tm = TrackedMsgs::new_static(dst_msgs, "ConnectionOpenInit");
 
@@ -1073,6 +1082,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
     pub fn build_conn_try_and_send(&self) -> Result<IbcEvent, ConnectionError> {
         let (dst_msgs, src_client_target_height) = self.build_conn_try()?;
+        for m in dst_msgs.clone().iter() {
+            println!(
+                "{:?}->{:?} MsgConnectionOpenTry: {:?}",
+                self.src_chain().id(),
+                self.dst_chain().id(),
+                m.encode_to_vec()
+            );
+        }
 
         // Wait for the height of the application on the destination chain to be higher than
         // the height of the consensus state included in the proofs.
@@ -1188,6 +1205,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
     pub fn build_conn_ack_and_send(&self) -> Result<IbcEvent, ConnectionError> {
         let (dst_msgs, src_client_target_height) = self.build_conn_ack()?;
+        for m in dst_msgs.clone().iter() {
+            println!(
+                "{:?}->{:?} MsgConnectionOpenAck: {:?}",
+                self.src_chain().id(),
+                self.dst_chain().id(),
+                m.encode_to_vec()
+            );
+        }
 
         // Wait for the height of the application on the destination chain to be higher than
         // the height of the consensus state included in the proofs.
@@ -1280,6 +1305,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
     pub fn build_conn_confirm_and_send(&self) -> Result<IbcEvent, ConnectionError> {
         let dst_msgs = self.build_conn_confirm()?;
+        for m in dst_msgs.clone().iter() {
+            println!(
+                "{:?}->{:?} MsgConnectionOpenConfirm: {:?}",
+                self.src_chain().id(),
+                self.dst_chain().id(),
+                m.encode_to_vec()
+            );
+        }
 
         let tm = TrackedMsgs::new_static(dst_msgs, "ConnectionOpenConfirm");
 
