@@ -150,7 +150,10 @@ impl CosmosSdkChain {
 
     /// The maximum size of any transaction sent by the relayer to this chain
     fn max_tx_size(&self) -> usize {
-        self.config.max_tx_size.into()
+        let size = self.config.max_tx_size.into();
+        // TODO: check max tx size
+        debug!("🐙🐙 ics10::cosmos -> max_tx_size :{:?}", size);
+        size
     }
 
     fn key(&self) -> Result<Secp256k1KeyPair, Error> {

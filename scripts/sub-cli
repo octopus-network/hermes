@@ -11,55 +11,39 @@ from substrateinterface.exceptions import SubstrateRequestException
 # import logging
 # logging.basicConfig(level=logging.DEBUG)
 
-substrate = SubstrateInterface(
-    url="ws://127.0.0.1:9944"
-)
-print(substrate.properties)
+# substrate = SubstrateInterface(
+#     url="ws://127.0.0.1:9944"
+# )
+# print(substrate.properties)
 # keypair = Keypair.create_from_uri('//Alice')
 
-def query_ibc_asset_info():
+def query_denom_trace(substrate):
     result = substrate.query_map(
         module='Ics20Transfer',
-        storage_function='AssetIdByName',
-        # params=[666,'5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty']
+        storage_function='DenomTrace', 
     )
-    for record in result:
-        print('query_asset_info: ', record)
 
-
-def query_denom_trace():
-    result = substrate.query_map(
-        module='Ics20Transfer',
-        storage_function='DenomTrace',
-        # params=[666,'5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty']
-    )
-    # for record in result:
-    #     print('query_denom_trace: ', record)
     return result
 
-def query_assets():
+
+def query_assets(substrate):
     result = substrate.query_map(
         module="Assets",
         storage_function="Asset")
-    # for record in result:
-    #     #   print('query record: ', record[0],record[1])
-    #     print('query record: ', record)
     return result
 
 
-
-
 def tx(args):
-    print("tx args",args)
+    # print("tx args",args)
     params = json.loads(args.params)
-    print(params)
-
+    # print(params)
+    substrate = SubstrateInterface(args.url)
     call = substrate.compose_call(
         call_module=args.module,
         call_function=args.method,
         call_params=params
     )
-    print(call)
+    # print(call)
     keypair = Keypair.create_from_uri(args.signer)
     # # Wrap it in sudo.
     if args.sudo is not None:
@@ -86,7 +70,9 @@ def tx(args):
 
             print('✅ Success, triggered events:')
             for event in receipt.triggered_events:
-                print(f'* {event.value}')
+                # print(f'* {event.value}')
+                event_json = json.dumps(event.value, indent=4)
+                print(event_json)
 
         else:
             print('⚠️ Extrinsic Failed: ', receipt.error_message)
@@ -96,8 +82,9 @@ def tx(args):
 
 
 def query(args):
-    print("query args",args)
+    # print("query args",args)
     # params = list(args.params)
+    substrate = SubstrateInterface(args.url)
     if args.params != None:
         params = []
         for param in args.params:
@@ -105,14 +92,15 @@ def query(args):
                 params.append(int(param))
             except ValueError:
                 params.append(param)
-        print(params)
+        # print(params)
     
         result = substrate.query(
             module=args.module,
             storage_function=args.storage,
             params=params
         )
-        print('query result: ', result)
+        result_json = json.dumps(result.value, indent=4)
+        print('query result: \n', result_json)
 
     else:
         result = substrate.query_map(
@@ -122,42 +110,31 @@ def query(args):
         #   print('query record: ', record[0],record[1])
           print('query record: ', record)
 
-def format_balance(amount: int):
+
+def format_balance(amount: int,substrate):
     amount = format(amount / 10**substrate.properties.get('tokenDecimals', 0), ".18g")
     return f"{amount} {substrate.properties.get('tokenSymbol', 'UNIT')}"
 
+
 def query_balances(args):
-    print("query balances args",args)
-    account = args.account[0]
-    # asset_info = [args.asset[0],account]
-    # for asset in asset_infos:
-    print(account)
+    # print("query balances args",args)
+    account = args.account
+    # print(account)
+    substrate = SubstrateInterface(args.url)
     result = substrate.query(
         module='System',
         storage_function='Account',
-        params=args.account
+        params=[args.account]
     )
-    print('System Account: ', result)
+    # print('System Account: ', result)
     amount = (result.value["data"]["free"] + result.value["data"]["reserved"])
     # amount = format(amount / 10**substrate.properties.get('tokenDecimals', 0), ".18g")
     print(f'''account: {account}\nbalances:\n- amount: {amount}\n  denom: {substrate.properties.get('tokenSymbol', 'UNIT')}''')
 
-    # asset_info = zip(args.asset,args.account)
-    # asset_info = [args.asset[0],args.account[0]]
-    # # for asset in asset_infos:
-    # print(asset_info)
-    # result = substrate.query_map(
-    #     module=args.Assets,
-    #     storage_function=args.Account)
-    # for record in result:
-    #     #   print('query record: ', record[0],record[1])
-    #     print('query record: ', record)
-    assets = query_assets()
+    assets = query_assets(substrate)
     # print('Assets Info: ', assets)
     for asset in assets:
         asset_id = asset[0]
-       
-        
         result = substrate.query_map(
             module='Ics20Transfer',
             storage_function='AssetIdByName',
@@ -167,7 +144,7 @@ def query_balances(args):
                 asset_name = r[0]
                 # print(asset_id,asset_name)
         
-        denom_traces = query_denom_trace()
+        denom_traces = query_denom_trace(substrate)
         for dt in denom_traces:
             # print(dt)
             if asset_name==dt[1]['base_denom']:
@@ -187,40 +164,23 @@ def query_balances(args):
         # print('Assets Account: ', result)
         if result!= None:
             print(f'''- amount: {result['balance']}\n  denom: {asset_name}\n  trace_path: {trace_path}\n  denom_trace_hash: {denom_trace_hash}''')
-    # query_ibc_asset_info()
-    
-    # result = substrate.query(
-    #     module='Assets',
-    #     storage_function='Account',
-    #     params=asset_info
-    #     )
-    # print('Assets Account: ', result)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        prog='sub_cli',
-        description='The sub_cli is a utility used to interact with substrate.')
+        prog='sub-cli',
+        description='The sub-cli is a utility used to interact with substrate.')
 
     parser.add_argument('--url',
                         help=' The substrate endpoint to connect to, e.g. wss://rpc.polkadot.io (default: %(default)s)',
-                        # action='store_const',
-                        # const=str,
-                        # nargs='?',
                         type=str,
                         metavar='url',
                         default='ws://127.0.0.1:9944')
     
     parser.add_argument('--sudo',
-                        # action='store_true',
                         help='Execute tx as a sudo account, e.g. "//Alice" or "bottom drive obey lake curtain smoke basket hold race lonely fit walk"',
-                        # metavar='sudo'
-                        # default=False
-                        metavar='account',
-                        # nargs='?',
-                        type=str,
-                        # default='//Alice'
-                        )
+                        metavar='sudo account',
+                        type=str)
     # parser.add_argument('--log-level',
     #                     help='minimum log level (default: debug)',
     #                     metavar='LOG',
@@ -230,121 +190,74 @@ def main():
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
     
     subparsers = parser.add_subparsers(title='sub command',
-                                       metavar='tx|query|query-balances',)
+                                       metavar='  tx|query|query-balances',)
 
     # add sub command for tx
     parser_tx = subparsers.add_parser('tx',
-                                        help='Create and execute a extrinsic transaction.',
-                                       description='''  sub_cli tx --module Balances --method transfer --params '{"dest": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty","value": 20000000000000000}' ''',
-                                       formatter_class=argparse.RawDescriptionHelpFormatter)
+                                    help='Create and execute a extrinsic transaction.',
+                                    description='''  sub-cli tx --signer //Alice --module Balances --method transfer --params '{"dest": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty","value": 20000000000000000}' ''',
+                                    formatter_class=argparse.RawDescriptionHelpFormatter)
     parser_tx.add_argument('--signer',
                         help='''The tx signer, e.g. '//Alice' or 'bottom drive obey lake curtain smoke basket hold race lonely fit walk' (default: '//Alice')''',
-                        # nargs=1,
+                        required=True,
+                        nargs='?',
                         type=str,
-                        # metavar='module name',
-                        # required=True
-                        default='//Alice'
-                        )
+                        default='//Alice')
  
     parser_tx.add_argument('--module',
                         help='The module name, e.g. --module Balances',
-                        # nargs=1,
-                        type=str,
-                        # metavar='module name',
-                        # required=True
-                        )
+                        nargs='?',
+                        type=str)
+    
     parser_tx.add_argument('--method',
                         help='The method name, e.g. --method transfer or --method force_transfer',
-                        # nargs=1,
-                        type=str,
-                        # metavar='Method name',
-                        # required=True
-                        )
+                        nargs='?',
+                        type=str)
     parser_tx.add_argument('--params',
                         help='''The method params,a json string, e.g. '{"dest": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty","value": 20000000000000000}' ''',
-                        # nargs=1,
-                        type=str,
-            
-                        # metavar='Method name',
-                        # required=True
-                        )
+                        nargs='?',
+                        type=str)
     parser_tx.set_defaults(func=tx)
 
-     # add sub command for query
+    # add sub command for query
     parser_query = subparsers.add_parser('query',
                                         help='Query the chain state value for module/pallet storage object.',
-                                       description='''  sub_cli query --module System --storage Account --params 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty ''',
+                                       description='''  sub-cli query --module System --storage Account --params 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty ''',
                                        formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser_query.add_argument('--module',
                         help='The module name, e.g. --module System',
-                        # nargs=1,
-                        type=str,
-                        # metavar='module name',
-                        # required=True
-                        )
+                        nargs='?',
+                        type=str)
     parser_query.add_argument('--storage',
                         help='The storage name, e.g. --storage Account or --storage BlockHash',
-                        # nargs=1,
-                        type=str,
-                        # metavar='Method name',
-                        # required=True
-                        )
+                        nargs='?',
+                        type=str)
     parser_query.add_argument('--params',
                         help='''The storage params, e.g. --params 666 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty ''',
-                        nargs="*",
-                        # type=str,
-            
-                        # metavar='Method name',
-                        # required=True
-                        )
+                        nargs="*")
     parser_query.set_defaults(func=query)
 
-
-    # parser.add_argument('--query',
-    #                     help='query the state value for module/pallet storage object ,e.g. System Account',
-    #                     metavar='query',
-    #                     # required=True
-    #                     )
- 
+    # add sub command for query balances
     parser_query_balances = subparsers.add_parser('query-balances',
                                        help='Query all the asset balances for specificed account.',
-                                       description='''  sub_cli query-balances --asset 666  --account 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty''',
+                                       description='''  sub-cli query-balances --account 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty''',
                                        formatter_class=argparse.RawDescriptionHelpFormatter)
     parser_query_balances.add_argument('--account',
                         help='''The account, e.g. --account 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty''',
-                        nargs="*",
-                        # type=str,
-            
-                        # metavar='Method name',
-                        # required=True
-                        )
+                        nargs="?",
+                        type=str)
     parser_query_balances.add_argument('--asset',
                         help='''The asset id, e.g. --asset 666''',
-                        nargs="*",
-                        type=int,
-            
-                        # metavar='Method name',
-                        # required=True
-                        )
+                        nargs="?",
+                        type=int)
     parser_query_balances.set_defaults(func=query_balances)
     
     args = parser.parse_args()
-    print(args)
+    # print(args)
     args.func(args)
-    # aDict = json.loads(args.params)
-    # print(aDict)
+ 
 
-   
-     
 
 if __name__ == "__main__":
     main()
-    # creat_asset(888)
-    # query_account()
-    # query_asset_info()
-    # query_denom_trace()
-    # json_str = '{"dest":"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty", "value": 20000000000000000}'
-    # # json_str = '{"a":54, "b": 28}'
-    # aDict = json.loads(json_str)
-    # print(aDict)

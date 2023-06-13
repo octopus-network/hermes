@@ -45,6 +45,7 @@ max_gas = 10000000
 clock_drift = '5s'
 trusting_period = '14days'
 trust_threshold = { numerator = '1', denominator = '3' }
+max_msg_num = 30
 
 # [[chains]]
 # id = 'mars-0'
@@ -81,6 +82,7 @@ trusting_period = '14days'
 trust_threshold = { numerator = '1', denominator = '3' }
 memo_prefix = '🐙🐙'
 max_block_time = '12s'
+max_msg_num = 30
 # [[chains]]
 # id = 'parachain-0'
 # rpc_addr = 'http://127.0.0.1:32200'

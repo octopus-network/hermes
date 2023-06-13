@@ -38,11 +38,9 @@ pub struct Sr25519KeyPair {
 
 impl Sr25519KeyPair {
     pub fn pair(self) -> Pair {
-        // 	Pair::from_string(&format!("//{}", <&'static str>::from(self)), None)
-        // 		.expect("static values are known good; qed")
-        //
+
         let pair = Pair::from_string(&self.seed, None).unwrap();
-        // tracing::debug!("🐙🐙 ics10::substrate -> Sr25519KeyPair pair: {:?}", pair);
+        
         pair
     }
 }

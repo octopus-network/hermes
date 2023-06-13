@@ -100,7 +100,7 @@ use subxt::{config::Header, rpc::Subscription as SubxtSubscription};
 use subxt::{events::Events, rpc::RpcClient as SubxtRpcClient};
 use subxt::{tx::PairSigner, OnlineClient, PolkadotConfig, SubstrateConfig};
 // use subxt::rpc::types::into_block_number;
-pub mod beefy;
+pub mod hostfunction;
 // #[subxt::subxt(runtime_metadata_path = "./metadata.scale")]
 pub mod parachain;
 pub mod relaychain;
@@ -188,7 +188,7 @@ impl SubstrateChain {
     fn init_event_monitor(&mut self) -> Result<TxMonitorCmd, Error> {
         crate::time!("init_event_monitor");
 
-        tracing::debug!(
+        debug!(
             "🐙🐙 ics10::substrate::init_event_mointor -> websocket addr: {:?}",
             self.config.websocket_addr.clone()
         );
@@ -212,7 +212,7 @@ impl SubstrateChain {
     fn init_beefy_monitor(&mut self) -> Result<BeefyTxMonitorCmd, Error> {
         crate::time!("init_beefy_monitor");
 
-        tracing::debug!(
+        debug!(
             "🐙🐙 ics10::substrate::init_beefy_mointor -> websocket addr: {:?}",
             self.config.websocket_addr.clone()
         );
@@ -595,7 +595,7 @@ impl ChainEndpoint for SubstrateChain {
     }
 
     fn subscribe(&mut self) -> Result<Subscription, Error> {
-        tracing::info!("🐙🐙 ics10::substrate::subscribe -> requst to subscribe substrate event msg !",);
+        debug!("🐙🐙 ics10::substrate::subscribe -> requst to subscribe substrate event !",);
         let tx_monitor_cmd = match &self.tx_event_monitor_cmd {
             Some(tx_monitor_cmd) => tx_monitor_cmd,
             None => {
@@ -609,7 +609,7 @@ impl ChainEndpoint for SubstrateChain {
         Ok(subscription)
     }
     fn subscribe_beefy(&mut self) -> Result<super::handle::BeefySubscription, Error> {
-        tracing::info!("🐙🐙 ics10::substrate::subscribe_beefy -> reqeust to subscribe substrate beefy msg !",);
+        debug!("🐙🐙 ics10::substrate::subscribe_beefy -> reqeust to subscribe substrate beefy msg !");
         let tx_beefy_monitor_cmd = match &self.tx_beefy_monitor_cmd {
             Some(tx_beefy_monitor_cmd) => tx_beefy_monitor_cmd,
             None => {
@@ -636,10 +636,12 @@ impl ChainEndpoint for SubstrateChain {
     /// Exits early if any health check fails, without doing any
     /// further checks.
     fn health_check(&self) -> Result<HealthCheck, Error> {
+        // TODO 
         Ok(HealthCheck::Healthy)
     }
 
     /// Fetch a header from the chain at the given height and verify it.
+    // TODO 
     fn verify_header(
         &mut self,
         trusted: ICSHeight,
@@ -675,6 +677,7 @@ impl ChainEndpoint for SubstrateChain {
 
     /// Given a client update event that includes the header used in a client update,
     /// look for misbehaviour by fetching a header at same or latest height.
+    // TODO
     fn check_misbehaviour(
         &mut self,
         update: &UpdateClient,
@@ -722,6 +725,7 @@ impl ChainEndpoint for SubstrateChain {
         self.do_send_messages_and_wait_commit(tracked_msgs)
     }
 
+    // TODO
     fn send_messages_and_wait_check_tx(
         &mut self,
         tracked_msgs: TrackedMsgs,
@@ -744,26 +748,13 @@ impl ChainEndpoint for SubstrateChain {
     /// Get the account for the signer
     fn get_signer(&self) -> Result<Signer, Error> {
         crate::time!("get_signer");
-        // use crate::chain::cosmos::encode::key_pair_to_signer;
-        // use sp_core::hexdisplay::HexDisplay;
-        // use sp_keyring::AccountKeyring;
-        // // // Get the key from key seed file
-        // // let key_pair = self.key()?;
-
-        // // let signer = key_pair_to_signer(&key_pair)?;
-        // let account_id = AccountKeyring::Alice.to_account_id();
-        // let pub_str = format!("0x{}", HexDisplay::from(&account_id.as_ref()));
-        // debug!(
-        //     "🐙🐙 ics10::substrate -> get_signer account_id hex: {:?}",
-        //     pub_str
-        // );
+       
         let key_pair = self.key()?;
         debug!(
             "🐙🐙 ics10::substrate -> get_signer key_pair: {:?}",
             key_pair
         );
 
-        // let signer = Signer::from_str(&key_pair.).unwrap();
         let signer = key_pair
             .account()
             .parse()
@@ -777,7 +768,7 @@ impl ChainEndpoint for SubstrateChain {
     fn config(&self) -> &ChainConfig {
         &self.config
     }
-
+    // TODO
     fn ibc_version(&self) -> Result<Option<semver::Version>, Error> {
         async fn ibc_version(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
@@ -852,7 +843,6 @@ impl ChainEndpoint for SubstrateChain {
         
     
     }
-    // todo
     // native token and cross chain token
     fn query_all_balances(&self, key_name: Option<&str>) -> Result<Vec<Balance>, Error> {
         async fn query_all_balances(
@@ -879,10 +869,10 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                debug!(
-                    "🐙🐙 ics10::substrate::query_balances -> account {:?}",
-                    result
-                );
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_balances -> account {:?}",
+                //     result
+                // );
                 let balance = Balance {
                     amount:  result.data.free.to_string(),
                     denom: denom.to_string(),
@@ -895,19 +885,18 @@ impl ChainEndpoint for SubstrateChain {
 
                 // fetch all the assets
                 let assets_storage = relaychain_node::storage().assets().asset_root();
-                let mut root_key_len = assets_storage.to_root_bytes().len();
-                debug!(
-                    "🐙🐙 ics10::substrate::query_balances -> query_key.len() {:?}",
-                    root_key_len
-                );
-                // StorageMapKey::new(Some(2u32), StorageHasher::Blake2_128Concat).to_bytes(&mut query_key);
-                // let key_len = query_key.len();
-                let raw_asset_id = codec::Encode::encode(&Some(2u32));
-                let single_key = sp_core_hashing::blake2_128(&raw_asset_id).len();
-                debug!(
-                    "🐙🐙 ics10::substrate::query_balances -> query_key.len()+ StorageMapKey {:?}",
-                    root_key_len+single_key
-                );
+                // let mut root_key_len = assets_storage.to_root_bytes().len();
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_balances -> query_key.len() {:?}",
+                //     root_key_len
+                // );
+              
+                // let raw_asset_id = codec::Encode::encode(&Some(2u32));
+                // let single_key = sp_core_hashing::blake2_128(&raw_asset_id).len();
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_balances -> query_key.len()+ StorageMapKey {:?}",
+                //     root_key_len+single_key
+                // );
                 let mut asset_iter = relay_rpc_client
                 .storage()
                 .at(None)
@@ -921,12 +910,11 @@ impl ChainEndpoint for SubstrateChain {
                 while let Some((raw_id, _)) = asset_iter.next().await.unwrap() {
                     let raw_key = raw_id.0[48..].to_vec();
                     let asset_id =u32::decode(&mut &raw_key[..]).unwrap();
-                    debug!(
-                        "🐙🐙 ics10::substrate::query_balances -> asset_id {:?}",
-                        asset_id
-                    );
-                    // let asset_id:u32 = codec::Decode::decode(&mut &raw_id.0[..]).unwrap();
-                    // result.push(asset_id);
+                    // debug!(
+                    //     "🐙🐙 ics10::substrate::query_balances -> asset_id {:?}",
+                    //     asset_id
+                    // );
+               
                     // fetch all the asset accounts
                     let asset_account_storage = relaychain_node::storage().assets().account(asset_id,account_id.clone());
                     let result = relay_rpc_client
@@ -949,19 +937,18 @@ impl ChainEndpoint for SubstrateChain {
                 // fetch all the assets
                 let mut asset_id_name =  HashMap::new();
                 let assets_id_name_storage = relaychain_node::storage().ics20_transfer().asset_id_by_name_root();
-                let mut root_key_len = assets_id_name_storage.to_root_bytes().len();
-                debug!(
-                    "🐙🐙 ics10::substrate::query_balances -> assets_id_name_storage query_key.len() {:?}",
-                    root_key_len
-                );
-                // StorageMapKey::new(vec![2u8], StorageHasher::Twox64Concat).to_bytes(&mut query_key);
-                // let key_len = query_key.len();
-                let single_key = sp_core_hashing::twox_64(&[2u8]).len();
+                // let mut root_key_len = assets_id_name_storage.to_root_bytes().len();
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_balances -> assets_id_name_storage query_key.len() {:?}",
+                //     root_key_len
+                // );
 
-                debug!(
-                    "🐙🐙 ics10::substrate::query_balances -> assets_id_name_storage query_key.len()+ StorageMapKey {:?}",
-                    root_key_len+single_key
-                );
+                // let single_key = sp_core_hashing::twox_64(&[2u8]).len();
+
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_balances -> assets_id_name_storage query_key.len()+ StorageMapKey {:?}",
+                //     root_key_len+single_key
+                // );
                 
                 let mut assets_id_name_iter = relay_rpc_client
                 .storage()
@@ -972,15 +959,15 @@ impl ChainEndpoint for SubstrateChain {
                 .await
                 .unwrap();
                 while let Some((key,id )) = assets_id_name_iter.next().await.unwrap() {
-                    // let raw_name = Vec::<u8>::Decode(key.0).unwrap();
                     let raw_name =key.0[40..].to_vec();
                     let asset_name:Vec<u8>  = codec::Decode::decode(&mut &raw_name[..]).unwrap();
                     let asset_name = String::from_utf8(asset_name).unwrap();
-                    // let asset_name = format!("{:?}", &raw_name);
-                    debug!(
-                        "🐙🐙 ics10::substrate::query_balances -> asset_name {:?}",
-                        asset_name
-                    );
+                  
+                    // debug!(
+                    //     "🐙🐙 ics10::substrate::query_balances -> asset_name {:?}",
+                    //     asset_name
+                    // );
+
                     asset_id_name.insert(id,asset_name);
                 }
 
@@ -1094,21 +1081,21 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                debug!(
-                    "🐙🐙 ics10::substrate::query_application_status -> latest time {:?}",
-                    result
-                );
-                // let timestamp = Timestamp::from_nanoseconds(result).unwrap();
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_application_status -> latest time {:?}",
+                //     result
+                // );
+              
                 use sp_std::time::Duration;
                 let duration = Duration::from_millis(result);
                 let tm_time =
                     Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
                         .unwrap();
 
-                debug!(
-                    "🐙🐙 ics10::substrate::query_application_status -> timestamp {:?}",
-                    tm_time
-                );
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_application_status -> timestamp {:?}",
+                //     tm_time
+                // );
 
                 let block = rpc_client
                     .rpc()
@@ -1136,29 +1123,21 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                debug!(
-                    "🐙🐙 ics10::substrate::query_application_status -> latest time {:?}",
-                    result
-                );
-                // As the `u64` representation can only represent times up to
-                // about year 2554, there is no risk of overflowing `Time`
-                // or `OffsetDateTime`.
-                // let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
-                //     .unwrap()
-                //     .try_into()
-                //     .unwrap();
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_application_status -> latest time {:?}",
+                //     result
+                // );
+               
                 use sp_std::time::Duration;
                 let duration = Duration::from_millis(result);
                 let tm_time =
                     Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
                         .unwrap();
 
-                // let timestamp = Timestamp::from_nanoseconds(result).unwrap();
-
-                debug!(
-                    "🐙🐙 ics10::substrate::query_application_status -> timestamp {:?}",
-                    tm_time
-                );
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_application_status -> timestamp {:?}",
+                //     tm_time
+                // );
 
                 let block = relay_rpc_client
                     .rpc()
@@ -1264,9 +1243,7 @@ impl ChainEndpoint for SubstrateChain {
     ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
         crate::time!("query_client_state");
         crate::telemetry!(query, self.id(), "query_client_state");
-
-        println!("query_client_state: request: {:?}", request);
-        println!("query_client_state: include_proof: {:?}", include_proof);
+        debug!("query_client_state: request: {:?}, include_proof: {:?}", request,include_proof);
 
         async fn query_client_state(
             relay_rpc_client: &OnlineClient<PolkadotConfig>,
@@ -1327,11 +1304,12 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!(
-                        //     "🐙🐙 ics10::substrate::query_client_state -> state_proof: {:?}",
-                        //     state_proof
-                        // );
-                        let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                    let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                  
+                    // debug!(
+                    //     "🐙🐙 ics10::substrate::query_client_state -> merkle_proof: {:?}",
+                    //     merkle_proof
+                    // );
                         Ok((any_client_state, merkle_proof))
                     }
                     IncludeProof::No => Ok((any_client_state, None)),
@@ -1388,11 +1366,12 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!(
-                        //     "🐙🐙 ics10::substrate::query_client_state -> state_proof: {:?}",
-                        //     state_proof
-                        // );
+                  
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        // debug!(
+                        //     "🐙🐙 ics10::substrate::query_client_state -> merkle_proof: {:?}",
+                        //     merkle_proof
+                        // );
                         Ok((any_client_state, merkle_proof))
                     }
                     IncludeProof::No => Ok((any_client_state, None)),
@@ -1443,6 +1422,7 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
+    //TODO
     fn query_upgraded_consensus_state(
         &self,
         request: QueryUpgradedConsensusStateRequest,
@@ -1611,11 +1591,12 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!(
-                        //     "🐙🐙 ics10::substrate::query_consensus_state -> state_proof: {:?}",
-                        //     state_proof
-                        // );
+                       
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        //  debug!(
+                        //     "🐙🐙 ics10::substrate::query_consensus_state -> merkle_proof: {:?}",
+                        //     merkle_proof
+                        // );
                         Ok((any_consensus_state, merkle_proof))
                     }
                     IncludeProof::No => Ok((any_consensus_state, None)),
@@ -1674,11 +1655,12 @@ impl ChainEndpoint for SubstrateChain {
                             value,
                         )
                         .await;
-                        // debug!(
-                        //     "🐙🐙 ics10::substrate::query_consensus_state -> state_proof: {:?}",
-                        //     state_proof
-                        // );
+                      
                         let merkle_proof = utils::build_ics23_merkle_proof(state_proof.unwrap());
+                        // debug!(
+                        //     "🐙🐙 ics10::substrate::query_consensus_state -> merkle_proof: {:?}",
+                        //     merkle_proof
+                        // );
                         Ok((any_consensus_state, merkle_proof))
                     }
                     IncludeProof::No => Ok((any_consensus_state, None)),
@@ -1927,19 +1909,19 @@ impl ChainEndpoint for SubstrateChain {
                     relaychain_node::runtime_types::ibc::core::ics24_host::path::ConnectionsPath(
                         connection_id,
                     );
-                debug!(
-                    "🐙🐙 ics10::substrate::query_connection -> connection_id: {:?} connection_path: {:?}",
-                    request.connection_id, connection_path
-                );
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_connection -> connection_id: {:?} connection_path: {:?}",
+                //     request.connection_id, connection_path
+                // );
 
                 let storage = relaychain_node::storage()
                     .ibc()
                     .connections(connection_path);
 
-                debug!(
-                    "🐙🐙 ics10::substrate::query_connection -> storage key: {:?}",
-                    hex::encode(storage.to_bytes())
-                );
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_connection -> storage key: {:?}",
+                //     hex::encode(storage.to_bytes())
+                // );
 
                 let query_hash = match request.height {
                     QueryHeight::Latest => {
@@ -2887,9 +2869,7 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                // match result {
-                //     parachain_node::runtime_types::ibc::core::ics04_channel::packet::Receipt::Ok => Ok((b"ok".to_vec(), None)),
-                // }
+              
 
                 debug!(
                     "🐙🐙 ics10::substrate::query_packet_receipt -> receipt: {:?}",
@@ -3734,75 +3714,6 @@ impl ChainEndpoint for SubstrateChain {
                 Ok(result)
             }
 
-            // if let Some(rpc_client) = para_rpc_client {
-            //     let key_addr = parachain_node::storage().ibc().acknowledgements_root();
-
-            //     let mut iter = rpc_client
-            //         .storage()
-            //         .at(None)
-            //         .await
-            //         .unwrap()
-            //         .iter(key_addr, 10)
-            //         .await
-            //         .unwrap();
-
-            //     let mut result = vec![];
-            //     while let Some((key, value)) = iter.next().await.unwrap() {
-            //         let raw_key = key.0[48..].to_vec();
-            //         let rets = parachain_node::runtime_types::ibc::core::ics24_host::path::AcksPath::decode(&mut &*raw_key).unwrap();
-            //         let port_id = PortId::from(rets.port_id);
-            //         let channel_id = ChannelId::from(rets.channel_id);
-            //         let sequence = Sequence::from(rets.sequence);
-
-            //         if port_id == request.port_id && channel_id == request.channel_id {
-            //             result.push(sequence);
-            //         }
-            //     }
-
-            //     let mut ret = vec![];
-            //     for seq in request.packet_ack_sequences {
-            //         for in_seq in result.iter() {
-            //             if seq != *in_seq {
-            //                 ret.push(seq);
-            //             }
-            //         }
-            //     }
-            //     Ok(ret)
-            // } else {
-            //     let key_addr = relaychain_node::storage().ibc().acknowledgements_root();
-
-            //     let mut iter = relay_rpc_client
-            //         .storage()
-            //         .at(None)
-            //         .await
-            //         .unwrap()
-            //         .iter(key_addr, 10)
-            //         .await
-            //         .unwrap();
-
-            //     let mut result = vec![];
-            //     while let Some((key, value)) = iter.next().await.unwrap() {
-            //         let raw_key = key.0[48..].to_vec();
-            //         let rets = relaychain_node::runtime_types::ibc::core::ics24_host::path::AcksPath::decode(&mut &*raw_key).unwrap();
-            //         let port_id = PortId::from(rets.port_id);
-            //         let channel_id = ChannelId::from(rets.channel_id);
-            //         let sequence = Sequence::from(rets.sequence);
-
-            //         if port_id == request.port_id && channel_id == request.channel_id {
-            //             result.push(sequence);
-            //         }
-            //     }
-
-            //     let mut ret = vec![];
-            //     for seq in request.packet_ack_sequences {
-            //         for in_seq in result.iter() {
-            //             if seq != *in_seq {
-            //                 ret.push(seq);
-            //             }
-            //         }
-            //     }
-            //     Ok(ret)
-            // }
         }
 
         match &self.rpc_client {
@@ -3823,6 +3734,7 @@ impl ChainEndpoint for SubstrateChain {
     /// This function queries transactions for events matching certain criteria.
     /// 1. Client Update request - returns a vector with at most one update client event
     /// 2. Transaction event request - returns all IBC events resulted from a Tx execution
+    // TODO
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
         crate::time!("query_txs");
         crate::telemetry!(query, self.id(), "query_txs");
@@ -3980,17 +3892,90 @@ impl ChainEndpoint for SubstrateChain {
                 let mut events_with_height = Vec::new();
                 match request.height {
                     Qualified::Equal(query_height) => {
-                        let (block_number, block_hash) = match query_height {
+                       match query_height {
                             QueryHeight::Latest => {
-                                // use subxt::config::Header;
                                 let resp =
                                     relay_rpc_client.rpc().block(None).await.unwrap().unwrap();
-                                //    resp.block.header.hash()
-                                (resp.block.header.number as u64, resp.block.header.hash())
+                                // (resp.block.header.number as u64, resp.block.header.hash())
+                                let block_number = resp.block.header.number as u64;
+                                let block_hash = resp.block.header.hash();
+                                debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::Equal(query_height) and QueryHeight::Latest block_number: {:?}, block_hash: {:?}", block_number,block_hash);
+                                let height = ICSHeight::new(0, block_number).unwrap();
+                                match request.event_id {
+                                    WithBlockDataType::SendPacket => {
+                                        //find specific height send packet
+                                        let key_addr = relaychain_node::storage()
+                                            .ics20_transfer()
+                                            .send_packet_store_root();
+                                        let mut iter = relay_rpc_client
+                                            .storage()
+                                            .at(Some(block_hash))
+                                            .await
+                                            .unwrap()
+                                            .iter(key_addr, 10)
+                                            .await
+                                            .unwrap();
+                                        while let Some((key, value)) = iter.next().await.unwrap() {
+                                            let raw_key = key.0[48..].to_vec();
+                                            let h = u64::decode(&mut &*raw_key).unwrap();
+                                            let height = ICSHeight::new(0, h).unwrap();
+                                            match value {
+                                                relaychain_node::runtime_types::ibc::events::IbcEvent::SendPacket(v) =>{
+        
+                                                    let send_packet_event = SendPacket::from(v);
+                                                    if matches_packet(&request,&request.sequences,&send_packet_event.packet){
+                                                            let event_with_height = IbcEventWithHeight {
+                                                                event: send_packet_event.into(),
+                                                                height,
+                                                            };
+                                                            events_with_height.push(event_with_height)
+                                                    }
+                                                   
+                                                }
+                                                _ => {}
+        
+                                            }
+                                        }
+                                        debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::Equal(query_height) and QueryHeight::Latest send packet events : {:?}", events_with_height);                               
+                                    }
+                                    WithBlockDataType::WriteAck => {
+                                        // filter ibc write ack packet events
+                                        let key_addr = relaychain_node::storage().ibc().ibc_event_store_root();
+                                        let mut iter = relay_rpc_client
+                                            .storage()
+                                            .at(Some(block_hash))
+                                            .await
+                                            .unwrap()
+                                            .iter(key_addr, 10)
+                                            .await
+                                            .unwrap();
+                                        while let Some((key, value)) = iter.next().await.unwrap() {
+                                            let raw_key = key.0[48..].to_vec();
+                                            let h = u64::decode(&mut &*raw_key).unwrap();
+                                            let height = ICSHeight::new(0, h).unwrap();
+                                            match value { 
+                                                relaychain_node::runtime_types::ibc::events::IbcEvent::WriteAcknowledgement(v) =>{
+                                                    let write_ack =  WriteAcknowledgement::from(v);
+                                                    if matches_packet(&request,&request.sequences,&write_ack.packet){
+                                                            let event_with_height = IbcEventWithHeight {
+                                                                event: write_ack.into(),
+                                                                height,
+                                                            };
+                                                            events_with_height.push(event_with_height)
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                   
+                                        debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::Equal(query_height) and QueryHeight::Latest write ack events : {:?}", events_with_height);
+                                       
+                                    }
+                                    _ => {}
+                                }
 
                             }
                             QueryHeight::Specific(h) => {
-                                // use subxt::config::Header;
                                 let block_number = h.revision_height() ;
                                 let block_hash = relay_rpc_client
                                     .rpc()
@@ -3998,95 +3983,179 @@ impl ChainEndpoint for SubstrateChain {
                                     .await
                                     .unwrap()
                                     .unwrap();
-                                (block_number , block_hash)
-                                
+                                // (block_number , block_hash)
+                                debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::Equal and QueryHeight::Specific(h)  block_number: {:?}, block_hash: {:?}", block_number,block_hash);
+                                let height = ICSHeight::new(0, block_number).unwrap();
+
+                                match request.event_id {
+                                    WithBlockDataType::SendPacket => {
+                                        //find specific height send packet
+                                        let key_addr = relaychain_node::storage()
+                                            .ics20_transfer()
+                                            .send_packet_store_root();
+                                        let mut iter = relay_rpc_client
+                                            .storage()
+                                            .at(Some(block_hash))
+                                            .await
+                                            .unwrap()
+                                            .iter(key_addr, 10)
+                                            .await
+                                            .unwrap();
+                                        while let Some((key, value)) = iter.next().await.unwrap() {
+                                            let raw_key = key.0[48..].to_vec();
+                                            let h = u64::decode(&mut &*raw_key).unwrap();
+                                            let height = ICSHeight::new(0, h).unwrap();
+                                            match value {
+                                                relaychain_node::runtime_types::ibc::events::IbcEvent::SendPacket(v) =>{
+        
+                                                    let send_packet_event = SendPacket::from(v);
+                                                    if matches_packet(&request,&request.sequences,&send_packet_event.packet)
+                                                        && block_number==h {
+                                                            let event_with_height = IbcEventWithHeight {
+                                                                event: send_packet_event.into(),
+                                                                height,
+                                                            };
+                                                            events_with_height.push(event_with_height)
+                                                    }
+                                                   
+                                                }
+                                                _ => {}
+        
+                                            }
+                                        }
+                                        debug!("🐙🐙 ics10::substrate::query_packet_events -> ics10::substrate::query_packet_events -> Qualified::Equal and QueryHeight::Specific(h) send packet events : {:?}", events_with_height);                               
+                                    }
+                                    WithBlockDataType::WriteAck => {
+                                        // filter ibc write ack packet events
+                                        let key_addr = relaychain_node::storage().ibc().ibc_event_store_root();
+                                        let mut iter = relay_rpc_client
+                                            .storage()
+                                            .at(Some(block_hash))
+                                            .await
+                                            .unwrap()
+                                            .iter(key_addr, 10)
+                                            .await
+                                            .unwrap();
+                                        while let Some((key, value)) = iter.next().await.unwrap() {
+                                            let raw_key = key.0[48..].to_vec();
+                                            let h = u64::decode(&mut &*raw_key).unwrap();
+                                            let height = ICSHeight::new(0, h).unwrap();
+                                            match value { 
+                                                relaychain_node::runtime_types::ibc::events::IbcEvent::WriteAcknowledgement(v) =>{
+                                                    let write_ack =  WriteAcknowledgement::from(v);
+                                                    if matches_packet(&request,&request.sequences,&write_ack.packet)
+                                                        && block_number==h {
+                                                            let event_with_height = IbcEventWithHeight {
+                                                                event: write_ack.into(),
+                                                                height,
+                                                            };
+                                                            events_with_height.push(event_with_height)
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                   
+                                        debug!("🐙🐙 ics10::substrate::query_packet_events -> ics10::substrate::query_packet_events -> Qualified::Equal and QueryHeight::Specific(h) write ack events : {:?}", events_with_height);
+                                       
+                                    }
+                                    _ => {}
+                                }
                             }
                         };
-                        debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::Equal block_number: {:?}, block_hash: {:?}", block_number,block_hash);
-                        let height = ICSHeight::new(0, block_number).unwrap();
+                       
                     
-                        match request.event_id {
-                            WithBlockDataType::SendPacket => {
-                                //find specific height send packet
-                                let key_addr = relaychain_node::storage()
-                                    .ics20_transfer()
-                                    .send_packet_store_root();
-                                let mut iter = relay_rpc_client
-                                    .storage()
-                                    .at(Some(block_hash))
-                                    .await
-                                    .unwrap()
-                                    .iter(key_addr, 10)
-                                    .await
-                                    .unwrap();
-                                while let Some((key, value)) = iter.next().await.unwrap() {
-                                    let raw_key = key.0[48..].to_vec();
-                                    let h = u64::decode(&mut &*raw_key).unwrap();
-                                    let height = ICSHeight::new(0, h).unwrap();
-                                    match value {
-                                        relaychain_node::runtime_types::ibc::events::IbcEvent::SendPacket(v) =>{
-
-                                            let send_packet_event = SendPacket::from(v);
-                                            if matches_packet(&request,&request.sequences,&send_packet_event.packet)
-                                                && block_number==h {
-                                                    let event_with_height = IbcEventWithHeight {
-                                                        event: send_packet_event.into(),
-                                                        height,
-                                                    };
-                                                    events_with_height.push(event_with_height)
-                                            }
-                                           
-                                        }
-                                        _ => {}
-
-                                    }
-                                }
-                                debug!("🐙🐙 ics10::substrate::query_packet_events -> send packet events : {:?}", events_with_height);                               
-                            }
-                            WithBlockDataType::WriteAck => {
-                                // filter ibc write ack packet events
-                                let key_addr = relaychain_node::storage().ibc().ibc_event_store_root();
-                                let mut iter = relay_rpc_client
-                                    .storage()
-                                    .at(Some(block_hash))
-                                    .await
-                                    .unwrap()
-                                    .iter(key_addr, 10)
-                                    .await
-                                    .unwrap();
-                                while let Some((key, value)) = iter.next().await.unwrap() {
-                                    let raw_key = key.0[48..].to_vec();
-                                    let h = u64::decode(&mut &*raw_key).unwrap();
-                                    let height = ICSHeight::new(0, h).unwrap();
-                                    match value { 
-                                        relaychain_node::runtime_types::ibc::events::IbcEvent::WriteAcknowledgement(v) =>{
-                                            let write_ack =  WriteAcknowledgement::from(v);
-                                            if matches_packet(&request,&request.sequences,&write_ack.packet){
-                                                    let event_with_height = IbcEventWithHeight {
-                                                        event: write_ack.into(),
-                                                        height,
-                                                    };
-                                                    events_with_height.push(event_with_height)
-                                            }
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                           
-                                debug!("🐙🐙 ics10::substrate::query_packet_events -> write ack events : {:?}", events_with_height);
-                               
-                            }
-                            _ => {}
-                        }
+                        
                     }
                     Qualified::SmallerEqual(query_height) => {
-                        let (block_number, block_hash) = match query_height {
+                        match query_height {
                             QueryHeight::Latest => {
-                                // use subxt::config::Header;
                                 let resp =
                                     relay_rpc_client.rpc().block(None).await.unwrap().unwrap();
-                                //    resp.block.header.hash()
-                                (resp.block.header.number as u64, resp.block.header.hash())
+                                // (resp.block.header.number as u64, resp.block.header.hash())
+                                let block_number = resp.block.header.number as u64;
+                                let block_hash = resp.block.header.hash();
+
+                                debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::SmallerEqual and QueryHeight::Latest, block_number: {:?}, block_hash: {:?}", block_number,block_hash);
+                                let height = ICSHeight::new(0, block_number).unwrap();
+                                
+                                match request.event_id {
+                                    WithBlockDataType::SendPacket => {
+                                        //find specific height send packet
+                                        let key_addr = relaychain_node::storage()
+                                            .ics20_transfer()
+                                            .send_packet_store_root();
+                                        let mut iter = relay_rpc_client
+                                            .storage()
+                                            .at(Some(block_hash))
+                                            .await
+                                            .unwrap()
+                                            .iter(key_addr, 10)
+                                            .await
+                                            .unwrap();
+                                        while let Some((key, value)) = iter.next().await.unwrap() {
+                                            let raw_key = key.0[48..].to_vec();
+                                            let h = u64::decode(&mut &*raw_key).unwrap();
+                                            let height = ICSHeight::new(0, h).unwrap();
+                                            match value {
+                                                relaychain_node::runtime_types::ibc::events::IbcEvent::SendPacket(v) =>{
+        
+                                                    let send_packet_event = SendPacket::from(v);
+                                                    if matches_packet(&request,&request.sequences,&send_packet_event.packet){
+                                                            let event_with_height = IbcEventWithHeight {
+                                                                event: send_packet_event.into(),
+                                                                height,
+                                                            };
+                                                            events_with_height.push(event_with_height)
+                                                    }
+                                                   
+                                                }
+                                                _ => {}
+        
+                                            }
+                                        }
+                                      
+                                        debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::SmallerEqual and QueryHeight::Latest send packet events : {:?}", events_with_height);
+                                       
+                                    }
+                                    WithBlockDataType::WriteAck => {
+                                        // filter ibc write ack packet events
+                                        let key_addr = relaychain_node::storage().ibc().ibc_event_store_root();
+        
+                                        let mut iter = relay_rpc_client
+                                            .storage()
+                                            .at(Some(block_hash))
+                                            .await
+                                            .unwrap()
+                                            .iter(key_addr, 10)
+                                            .await
+                                            .unwrap();
+                                        while let Some((key, value)) = iter.next().await.unwrap() {
+                                            let raw_key = key.0[48..].to_vec();
+                                            let h = u64::decode(&mut &*raw_key).unwrap();
+                                            let height = ICSHeight::new(0, h).unwrap();
+                                            match value { 
+                                                relaychain_node::runtime_types::ibc::events::IbcEvent::WriteAcknowledgement(v) =>{
+                                                    let write_ack =  WriteAcknowledgement::from(v);
+                                                    if matches_packet(&request,&request.sequences,&write_ack.packet){
+                                                            let event_with_height = IbcEventWithHeight {
+                                                                event: write_ack.into(),
+                                                                height,
+                                                            };
+                                                            events_with_height.push(event_with_height)
+                                                            
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                   
+                                        debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::SmallerEqual and QueryHeight::Latest write ack events : {:?}", events_with_height);
+                                       
+                                    }
+                                    _ => {}
+                                }
+
                             }
                             QueryHeight::Specific(h) => {
                                 // use subxt::config::Header;
@@ -4097,92 +4166,87 @@ impl ChainEndpoint for SubstrateChain {
                                     .await
                                     .unwrap()
                                     .unwrap();
-                                (block_number , block_hash)
+                                // (block_number , block_hash)
+                                debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::SmallerEqual and Qualified::Equal block_number: {:?}, block_hash: {:?}", block_number,block_hash);
+                                let height = ICSHeight::new(0, block_number).unwrap();
+
+                                match request.event_id {
+                                    WithBlockDataType::SendPacket => {
+                                        //find specific height send packet
+                                        let key_addr = relaychain_node::storage()
+                                            .ics20_transfer()
+                                            .send_packet_store_root();
+                                        let mut iter = relay_rpc_client
+                                            .storage()
+                                            .at(Some(block_hash))
+                                            .await
+                                            .unwrap()
+                                            .iter(key_addr, 10)
+                                            .await
+                                            .unwrap();
+                                        while let Some((key, value)) = iter.next().await.unwrap() {
+                                            let raw_key = key.0[48..].to_vec();
+                                            let h = u64::decode(&mut &*raw_key).unwrap();
+                                            let height = ICSHeight::new(0, h).unwrap();
+                                            match value {
+                                                relaychain_node::runtime_types::ibc::events::IbcEvent::SendPacket(v) =>{
+        
+                                                    let send_packet_event = SendPacket::from(v);
+                                                    if matches_packet(&request,&request.sequences,&send_packet_event.packet)
+                                                        && block_number==h {
+                                                            let event_with_height = IbcEventWithHeight {
+                                                                event: send_packet_event.into(),
+                                                                height,
+                                                            };
+                                                            events_with_height.push(event_with_height)
+                                                    }
+                                                   
+                                                }
+                                                _ => {}
+        
+                                            }
+                                        }
+                                        debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::SmallerEqual and Qualified::Equal send packet events : {:?}", events_with_height);                               
+                                    }
+                                    WithBlockDataType::WriteAck => {
+                                        // filter ibc write ack packet events
+                                        let key_addr = relaychain_node::storage().ibc().ibc_event_store_root();
+                                        let mut iter = relay_rpc_client
+                                            .storage()
+                                            .at(Some(block_hash))
+                                            .await
+                                            .unwrap()
+                                            .iter(key_addr, 10)
+                                            .await
+                                            .unwrap();
+                                        while let Some((key, value)) = iter.next().await.unwrap() {
+                                            let raw_key = key.0[48..].to_vec();
+                                            let h = u64::decode(&mut &*raw_key).unwrap();
+                                            let height = ICSHeight::new(0, h).unwrap();
+                                            match value { 
+                                                relaychain_node::runtime_types::ibc::events::IbcEvent::WriteAcknowledgement(v) =>{
+                                                    let write_ack =  WriteAcknowledgement::from(v);
+                                                    if matches_packet(&request,&request.sequences,&write_ack.packet)
+                                                        && block_number==h {
+                                                            let event_with_height = IbcEventWithHeight {
+                                                                event: write_ack.into(),
+                                                                height,
+                                                            };
+                                                            events_with_height.push(event_with_height)
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                   
+                                        debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::SmallerEqual and Qualified::Equal write ack events : {:?}", events_with_height);
+                                       
+                                    }
+                                    _ => {}
+                                }
                             }
                         };
-                        // get latest block height
-                        // let resp = relay_rpc_client.rpc().block(None).await.unwrap().unwrap();
-                        // let block_number = resp.block.header.number;
-                        // let block_hash = resp.block.header.hash();
-                        debug!("🐙🐙 ics10::substrate::query_packet_events -> Qualified::SmallerEqual block_number: {:?}, block_hash: {:?}", block_number,block_hash);
-                        let height = ICSHeight::new(0, block_number).unwrap();
-                        
-                        match request.event_id {
-                            WithBlockDataType::SendPacket => {
-                                //find specific height send packet
-                                let key_addr = relaychain_node::storage()
-                                    .ics20_transfer()
-                                    .send_packet_store_root();
-                                let mut iter = relay_rpc_client
-                                    .storage()
-                                    .at(Some(block_hash))
-                                    .await
-                                    .unwrap()
-                                    .iter(key_addr, 10)
-                                    .await
-                                    .unwrap();
-                                while let Some((key, value)) = iter.next().await.unwrap() {
-                                    let raw_key = key.0[48..].to_vec();
-                                    let h = u64::decode(&mut &*raw_key).unwrap();
-                                    let height = ICSHeight::new(0, h).unwrap();
-                                    match value {
-                                        relaychain_node::runtime_types::ibc::events::IbcEvent::SendPacket(v) =>{
-
-                                            let send_packet_event = SendPacket::from(v);
-                                            if matches_packet(&request,&request.sequences,&send_packet_event.packet){
-                                                    let event_with_height = IbcEventWithHeight {
-                                                        event: send_packet_event.into(),
-                                                        height,
-                                                    };
-                                                    events_with_height.push(event_with_height)
-                                            }
-                                           
-                                        }
-                                        _ => {}
-
-                                    }
-                                }
-                              
-                                debug!("🐙🐙 ics10::substrate::query_packet_events -> send packet events : {:?}", events_with_height);
-                               
-                            }
-                            WithBlockDataType::WriteAck => {
-                                // filter ibc write ack packet events
-                                let key_addr = relaychain_node::storage().ibc().ibc_event_store_root();
-
-                                let mut iter = relay_rpc_client
-                                    .storage()
-                                    .at(Some(block_hash))
-                                    .await
-                                    .unwrap()
-                                    .iter(key_addr, 10)
-                                    .await
-                                    .unwrap();
-                                while let Some((key, value)) = iter.next().await.unwrap() {
-                                    let raw_key = key.0[48..].to_vec();
-                                    let h = u64::decode(&mut &*raw_key).unwrap();
-                                    let height = ICSHeight::new(0, h).unwrap();
-                                    match value { 
-                                        relaychain_node::runtime_types::ibc::events::IbcEvent::WriteAcknowledgement(v) =>{
-                                            let write_ack =  WriteAcknowledgement::from(v);
-                                            if matches_packet(&request,&request.sequences,&write_ack.packet){
-                                                    let event_with_height = IbcEventWithHeight {
-                                                        event: write_ack.into(),
-                                                        height,
-                                                    };
-                                                    events_with_height.push(event_with_height)
-                                                    
-                                            }
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                           
-                                debug!("🐙🐙 ics10::substrate::query_packet_events -> write ack events : {:?}", events_with_height);
-                               
-                            }
-                            _ => {}
-                        }
+                
                     
                     }
                 }
@@ -4240,13 +4304,6 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                // As the `u64` representation can only represent times up to
-                // about year 2554, there is no risk of overflowing `Time`
-                // or `OffsetDateTime`.
-                // let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
-                //     .unwrap()
-                //     .try_into()
-                //     .unwrap();
 
                 use sp_std::time::Duration;
                 let duration = Duration::from_millis(result);
@@ -4254,14 +4311,10 @@ impl ChainEndpoint for SubstrateChain {
                     Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
                         .unwrap();
 
-                // let tm_time = Timestamp::from_nanoseconds(result)
-                //     .unwrap()
-                //     .into_tm_time()
-                //     .unwrap();
-                debug!(
-                    "🐙🐙 ics10::substrate::query_host_consensus_state -> timestamp {:?}",
-                    tm_time
-                );
+                // debug!(
+                //     "🐙🐙 ics10::substrate::query_host_consensus_state -> timestamp {:?}",
+                //     tm_time
+                // );
 
                 let last_finalized_head_hash = rpc_client.rpc().finalized_head().await.unwrap();
                 let finalized_head = rpc_client
@@ -4296,27 +4349,18 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                // As the `u64` representation can only represent times up to
-                // about year 2554, there is no risk of overflowing `Time`
-                // or `OffsetDateTime`.
-                // let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
-                //     .unwrap()
-                //     .try_into()
-                //     .unwrap();
+           
                 use sp_std::time::Duration;
                 let duration = Duration::from_millis(result);
                 let tm_time =
                     Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
                         .unwrap();
-                // let tm_time = Timestamp::from_nanoseconds(result)
-                //     .unwrap()
-                //     .into_tm_time()
-                //     .unwrap();
+   
 
-                debug!(
-                    "🐙🐙 ics10::substrate::build_consensus_state -> timestamp {:?}",
-                    tm_time
-                );
+                // debug!(
+                //     "🐙🐙 ics10::substrate::build_consensus_state -> timestamp {:?}",
+                //     tm_time
+                // );
 
                 let last_finalized_head_hash =
                     relay_rpc_client.rpc().finalized_head().await.unwrap();
@@ -4349,7 +4393,6 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // need to do
     fn build_client_state(
         &self,
         height: ICSHeight,
@@ -4423,6 +4466,7 @@ impl ChainEndpoint for SubstrateChain {
                         root: v.root.as_bytes().to_vec(),
                     });
 
+                //TOOD: get parachain id from config
                 let (chain_type, parachain_id, latest_chain_height) = (
                     ChaninType::Parachian,
                     2000,
@@ -4542,7 +4586,6 @@ impl ChainEndpoint for SubstrateChain {
         }
     }
 
-    // need to do
     fn build_consensus_state(
         &self,
         light_block: Self::LightBlock,
@@ -4575,31 +4618,22 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                debug!(
-                    "🐙🐙 ics10::substrate::build_consensus_state -> latest time {:?}",
-                    result
-                );
-                // As the `u64` representation can only represent times up to
-                // about year 2554, there is no risk of overflowing `Time`
-                // or `OffsetDateTime`.
-                // let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
-                //     .unwrap()
-                //     .try_into()
-                //     .unwrap();
+                // debug!(
+                //     "🐙🐙 ics10::substrate::build_consensus_state -> latest time {:?}",
+                //     result
+                // );
+    
 
                 use sp_std::time::Duration;
                 let duration = Duration::from_millis(result);
                 let tm_time =
                     Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
                         .unwrap();
-                // let tm_time = Timestamp::from_nanoseconds(result)
-                //     .unwrap()
-                //     .into_tm_time()
-                //     .unwrap();
-                debug!(
-                    "🐙🐙 ics10::substrate::build_consensus_state -> timestamp {:?}",
-                    tm_time
-                );
+        
+                // debug!(
+                //     "🐙🐙 ics10::substrate::build_consensus_state -> timestamp {:?}",
+                //     tm_time
+                // );
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
                 let consensus_state = GpConsensusState::new(root, tm_time);
 
@@ -4629,30 +4663,21 @@ impl ChainEndpoint for SubstrateChain {
                     .await
                     .unwrap()
                     .unwrap();
-                debug!(
-                    "🐙🐙 ics10::substrate::build_consensus_state -> latest time {:?}",
-                    result
-                );
-                // As the `u64` representation can only represent times up to
-                // about year 2554, there is no risk of overflowing `Time`
-                // or `OffsetDateTime`.
-                // let timestamp = time::OffsetDateTime::from_unix_timestamp_nanos(result as i128)
-                //     .unwrap()
-                //     .try_into()
-                //     .unwrap();
+                // debug!(
+                //     "🐙🐙 ics10::substrate::build_consensus_state -> latest time {:?}",
+                //     result
+                // );
+          
                 use sp_std::time::Duration;
                 let duration = Duration::from_millis(result);
                 let tm_time =
-                    Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
+                Time::from_unix_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
                         .unwrap();
-                // let tm_time = Timestamp::from_nanoseconds(result)
-                //     .unwrap()
-                //     .into_tm_time()
-                //     .unwrap();
-                debug!(
-                    "🐙🐙 ics10::substrate::build_consensus_state -> timestamp {:?}",
-                    tm_time
-                );
+               
+                // debug!(
+                //     "🐙🐙 ics10::substrate::build_consensus_state -> timestamp {:?}",
+                //     tm_time
+                // );
                 let root = CommitmentRoot::from(finalized_head.state_root.as_bytes().to_vec());
                 let consensus_state = GpConsensusState::new(root, tm_time);
                 debug!(
@@ -4708,15 +4733,6 @@ impl ChainEndpoint for SubstrateChain {
                     _ => unimplemented!(),
                 };
 
-                // assert!(
-                //     target_height.revision_height()
-                //         < grandpa_client_state.latest_beefy_height.revision_height()
-                // );
-                // assert trust_height <= grandpa_client_state height
-                // if trusted_height > grandpa_client_state.latest_chain_height {
-                //     panic!("trust height miss match client state height");
-                // }
-
                 if grandpa_client_state.latest_beefy_height.revision_height()
                     < target_height.revision_height()
                 {
@@ -4742,10 +4758,10 @@ impl ChainEndpoint for SubstrateChain {
                         &mut &raw_signed_commitment.0[..],
                     )
                     .unwrap();
-                    debug!(
-                        "🐙🐙 ics10::substrate::build_header: -> decode signed_commitment : {:?} ",
-                        signed_commitment
-                    );
+                    // debug!(
+                    //     "🐙🐙 ics10::substrate::build_header: -> decode signed_commitment : {:?} ",
+                    //     signed_commitment
+                    // );
                     // get commitment
                     let beefy_light_client::commitment::Commitment {
                         payload,
@@ -4818,6 +4834,7 @@ impl ChainEndpoint for SubstrateChain {
                 }
 
                 // build mmr proof for target height
+                // Note: target_height = target_height.revision_height() + 1
                 let target_heights = vec![(target_height.revision_height() + 1) as u32];
                 let mmr_batch_proof = utils::build_mmr_proofs(
                     relay_rpc_client,

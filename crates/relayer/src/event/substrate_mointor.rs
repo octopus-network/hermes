@@ -313,8 +313,6 @@ impl EventMonitor {
                                 //conver event
                                 for ibc_events in ibc_tao_events.into_iter() {
                                     ibc_events.events.into_iter().for_each(|event| {
-                                        //   let c_event = *event.clone();
-                                        // let new_event = event.into();
                                             debug!("🐙🐙 ics10::substrate_monitor::run_loop -> ibc_tao_event: {:?}" ,event);
                                             events_with_heights.push(IbcEventWithHeight::new(event.into(), height));
                                         });

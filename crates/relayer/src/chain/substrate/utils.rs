@@ -11,7 +11,7 @@ use ics23::ExistenceProof;
 use ics23::{commitment_proof, InnerOp};
 use pallet_beefy_mmr::BeefyEcdsaToEthereum;
 
-use crate::chain::substrate::beefy::{Crypto, MerkleHasher};
+use crate::chain::substrate::hostfunction::{Crypto, MerkleHasher};
 use ibc_relayer_types::core::ics23_commitment::merkle::MerkleProof;
 use sp_core::keccak_256;
 use sp_core::{hexdisplay::HexDisplay, ByteArray, H256};
@@ -353,11 +353,11 @@ pub async fn build_state_proof(
     storage_key: Vec<u8>,
     value: Vec<u8>,
 ) -> Result<StateProof, Error> {
-    debug!(
-        "🐙🐙 ics10::utils -> build_state_proof storage_key:{:?} block_hash:{:?} ",
-        hex::encode(storage_key.clone()),
-        block_hash
-    );
+    // debug!(
+    //     "🐙🐙 ics10::utils -> build_state_proof storage_key:{:?} block_hash:{:?} ",
+    //     hex::encode(storage_key.clone()),
+    //     block_hash
+    // );
 
     let proofs = relay_rpc_client
         .rpc()
@@ -370,10 +370,10 @@ pub async fn build_state_proof(
         proofs: proofs.proof.into_iter().map(|v| v.0).collect(),
     };
 
-    debug!(
-        "🐙🐙 ics10::utils -> build_state_proof state_proof is {:?}",
-        state_proof
-    );
+    // debug!(
+    //     "🐙🐙 ics10::utils -> build_state_proof state_proof is {:?}",
+    //     state_proof
+    // );
 
     Ok(state_proof)
 }
@@ -396,10 +396,10 @@ pub fn build_ics23_merkle_proof(state_proof: StateProof) -> Option<MerkleProof> 
     let cp = ics23::CommitmentProof {
         proof: Some(exist_proof),
     };
-    debug!(
-        "🐙🐙 ics10::utils -> build_ics23_merkle_proof::CommitmentProof: {:?}",
-        cp
-    );
+    // debug!(
+    //     "🐙🐙 ics10::utils -> build_ics23_merkle_proof::CommitmentProof: {:?}",
+    //     cp
+    // );
 
     let cps: Vec<ics23::CommitmentProof> = vec![cp];
     Some(MerkleProof { proofs: cps })

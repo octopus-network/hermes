@@ -6,15 +6,7 @@ use sp_core::H256;
 use sp_io::crypto;
 // use sp_runtime::traits::BlakeTwo256;
 use sp_std::prelude::*;
-
-// pub trait CommonHostFunctions: Clone + Send + Sync + Eq + Debug + Default {
-//     /// Blake2-256 hashing implementation
-//     type BlakeTwo256: hash_db::Hasher<Out = H256> + Debug + 'static;
-// }
-// pub mod beefy;
-/// Host functions that allow the light client perform cryptographic operations in native.
-// pub trait HostFunctions: CommonHostFunctions {
-    pub trait HostFunctions {
+pub trait HostFunctions {
     /// Keccak 256 hash function
     fn keccak_256(input: &[u8]) -> [u8; 32];
 
