@@ -1213,8 +1213,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
 
         let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
         println!(
-            "{:?}->{:?} MsgRecvPacket: {:?}",
-            self.src_chain().id(),
+            "ys-debug: dst_chain: {:?} MsgRecvPacket: {:?}",
             self.dst_chain().id(),
             msg.clone().to_any().encode_to_vec()
         );
@@ -1250,8 +1249,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         );
 
         println!(
-            "{:?}->{:?} MsgAcknowledgement: {:?}",
-            self.src_chain().id(),
+            "ys-debug: dst_chain: {:?} MsgAcknowledgement: {:?}",
             self.dst_chain().id(),
             msg.clone().to_any().encode_to_vec()
         );

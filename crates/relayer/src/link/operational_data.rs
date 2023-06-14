@@ -18,6 +18,8 @@ use crate::event::IbcEventWithHeight;
 use crate::link::error::LinkError;
 use crate::link::RelayPath;
 
+use prost::Message;
+
 /// The chain that the events associated with a piece of [`OperationalData`] are bound for.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum OperationalDataTarget {
@@ -210,10 +212,18 @@ impl OperationalData {
             }
         };
 
-        let msgs = client_update_msg
+        let msgs: Vec<Any> = client_update_msg
             .into_iter()
             .chain(self.batch.iter().map(|gm| gm.msg.clone()))
             .collect();
+
+        for m in msgs.clone().iter() {
+            println!(
+                "ys-debug: dst_chain: {:?} assemble_msgs: {:?}",
+                relay_path.dst_chain().id(),
+                m.encode_to_vec()
+            );
+        }
 
         let tm = TrackedMsgs::new(msgs, self.tracking_id);
 

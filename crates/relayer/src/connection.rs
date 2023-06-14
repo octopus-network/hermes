@@ -900,8 +900,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let dst_msgs = self.build_conn_init()?;
         for m in dst_msgs.clone().iter() {
             println!(
-                "{:?}->{:?} MsgConnectionOpenInit: {:?}",
-                self.src_chain().id(),
+                "ys-debug: dst_chain: {:?} MsgConnectionOpenInit: {:?}",
                 self.dst_chain().id(),
                 m.encode_to_vec()
             );
@@ -1084,8 +1083,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let (dst_msgs, src_client_target_height) = self.build_conn_try()?;
         for m in dst_msgs.clone().iter() {
             println!(
-                "{:?}->{:?} MsgConnectionOpenTry: {:?}",
-                self.src_chain().id(),
+                "ys-debug: dst_chain: {:?} MsgConnectionOpenTry: {:?}",
                 self.dst_chain().id(),
                 m.encode_to_vec()
             );
@@ -1207,8 +1205,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let (dst_msgs, src_client_target_height) = self.build_conn_ack()?;
         for m in dst_msgs.clone().iter() {
             println!(
-                "{:?}->{:?} MsgConnectionOpenAck: {:?}",
-                self.src_chain().id(),
+                "ys-debug: dst_chain: {:?} MsgConnectionOpenAck: {:?}",
                 self.dst_chain().id(),
                 m.encode_to_vec()
             );
@@ -1307,8 +1304,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let dst_msgs = self.build_conn_confirm()?;
         for m in dst_msgs.clone().iter() {
             println!(
-                "{:?}->{:?} MsgConnectionOpenConfirm: {:?}",
-                self.src_chain().id(),
+                "ys-debug: dst_chain: {:?} MsgConnectionOpenConfirm: {:?}",
                 self.dst_chain().id(),
                 m.encode_to_vec()
             );

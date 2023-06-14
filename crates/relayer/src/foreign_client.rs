@@ -628,8 +628,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             .map_err(ForeignClientError::client)?;
 
         println!(
-            "{:?}->{:?} MsgCreateClient: {:?}",
-            self.src_chain.id(),
+            "ys-debug: dst_chain: {:?} MsgCreateClient: {:?}",
             self.dst_chain.id(),
             msg.clone().to_any().encode_to_vec()
         );
@@ -1102,7 +1101,14 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         let messages = self.build_update_client_with_trusted(target_height, trusted_height)?;
 
-        let encoded_messages = messages.into_iter().map(Msg::to_any).collect();
+        let encoded_messages: Vec<Any> = messages.into_iter().map(Msg::to_any).collect();
+        for m in encoded_messages.clone().iter() {
+            println!(
+                "ys-debug: dst_chain: {:?} MsgUpdateClient: {:?}",
+                self.dst_chain.id(),
+                m.encode_to_vec()
+            );
+        }
 
         Ok(encoded_messages)
     }
@@ -1256,14 +1262,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 self.src_chain.id(),
                 target_height,
             ));
-        }
-        for m in new_msgs.clone().iter() {
-            println!(
-                "{:?}->{:?} MsgUpdateClient: {:?}",
-                self.src_chain.id(),
-                self.dst_chain.id(),
-                m.encode_to_vec()
-            );
         }
 
         let tm = TrackedMsgs::new_static(new_msgs, "update client");

@@ -876,8 +876,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         let dst_msgs = self.build_chan_open_init()?;
         for m in dst_msgs.clone().iter() {
             println!(
-                "{:?}->{:?} MsgChannelOpenInit: {:?}",
-                self.src_chain().id(),
+                "ys-debug: dst_chain: {:?} MsgChannelOpenInit: {:?}",
                 self.dst_chain().id(),
                 m.encode_to_vec()
             );
@@ -1070,8 +1069,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
         let dst_msgs = self.build_chan_open_try()?;
         for m in dst_msgs.clone().iter() {
             println!(
-                "{:?}->{:?} MsgChannelOpenTry: {:?}",
-                self.src_chain().id(),
+                "ys-debug: dst_chain: {:?} MsgChannelOpenTry: {:?}",
                 self.dst_chain().id(),
                 m.encode_to_vec()
             );
@@ -1181,8 +1179,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             let dst_msgs = channel.build_chan_open_ack()?;
             for m in dst_msgs.clone().iter() {
                 println!(
-                    "{:?}->{:?} MsgChannelOpenAck: {:?}",
-                    channel.src_chain().id(),
+                    "ys-debug: dst_chain: {:?} MsgChannelOpenAck: {:?}",
                     channel.dst_chain().id(),
                     m.encode_to_vec()
                 );
@@ -1295,8 +1292,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             let dst_msgs = channel.build_chan_open_confirm()?;
             for m in dst_msgs.clone().iter() {
                 println!(
-                    "{:?}->{:?} MsgChannelOpenConfirm: {:?}",
-                    channel.src_chain().id(),
+                    "ys-debug: dst_chain: {:?} MsgChannelOpenConfirm: {:?}",
                     channel.dst_chain().id(),
                     m.encode_to_vec()
                 );
