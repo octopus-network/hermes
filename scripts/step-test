@@ -34,23 +34,26 @@
 # sleep 2
 # hermes --config config/cos_sub.toml tx packet-ack --dst-chain earth-0 --src-chain rococo-0 --src-port transfer --src-channel channel-0
 
+# sleep 30
 # transfer back to earth from rococo
 # hermes --config config/cos_sub.toml tx ft-transfer --timeout-height-offset 1000 --denom ibc/972368C2A53AAD83A3718FD4A43522394D4B5A905D79296BF04EE80565B595DF  --dst-chain earth-0 --src-chain rococo-0 --src-port transfer --src-channel channel-0 --amount 999000
-# sleep 2
+# sleep 30
 # hermes --config config/cos_sub.toml tx packet-recv --dst-chain earth-0 --src-chain rococo-0 --src-port transfer --src-channel channel-0
-# sleep 2
+# sleep 30
 # hermes --config config/cos_sub.toml tx packet-ack --dst-chain rococo-0 --src-chain earth-0 --src-port transfer --src-channel channel-0
 
+# sleep 30
 # # transfer from rococo to earth
 # hermes --config config/cos_sub.toml tx ft-transfer --timeout-height-offset 1000  --number-msgs 1 --dst-chain earth-0 --src-chain rococo-0 --src-port transfer --src-channel channel-0 --amount 20000000000000000 --denom ROC
-# sleep 2
+# sleep 30
 # hermes --config config/cos_sub.toml tx packet-recv --dst-chain earth-0 --src-chain rococo-0 --src-port transfer --src-channel channel-0
-# sleep 2
+# sleep 30
 # hermes --config config/cos_sub.toml tx packet-ack --dst-chain rococo-0 --src-chain earth-0 --src-port transfer --src-channel channel-0
 
+# sleep 30
 # transfer back to rococo from earth
-hermes --config config/cos_sub.toml tx ft-transfer --timeout-height-offset 1000 --denom ibc/B94E95895D5F53F95DDE1A02663268D7288B39172F7DBA4D4A48FF4DDA4E092A  --dst-chain rococo-0 --src-chain earth-0 --src-port transfer --src-channel channel-0 --amount 20000000000000000
-# sleep 2
+# hermes --config config/cos_sub.toml tx ft-transfer --timeout-height-offset 1000 --denom ibc/B94E95895D5F53F95DDE1A02663268D7288B39172F7DBA4D4A48FF4DDA4E092A  --dst-chain rococo-0 --src-chain earth-0 --src-port transfer --src-channel channel-0 --amount 20000000000000000
+# sleep 30
 # hermes --config config/cos_sub.toml tx packet-recv --dst-chain rococo-0 --src-chain earth-0 --src-port transfer --src-channel channel-0
-# sleep 2
+# sleep 30
 # hermes --config config/cos_sub.toml tx packet-ack --dst-chain earth-0 --src-chain rococo-0 --src-port transfer --src-channel channel-0
