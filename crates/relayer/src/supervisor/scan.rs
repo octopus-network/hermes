@@ -5,7 +5,7 @@ use itertools::Itertools;
 use tracing::{debug, error, error_span, info, warn};
 
 use ibc_relayer_types::core::{
-    ics02_client::client_state::ClientState,
+    // ics02_client::client_state::ClientState,
     ics03_connection::connection::{IdentifiedConnectionEnd, State as ConnectionState},
     ics04_channel::{
         channel::{IdentifiedChannelEnd, State as ChannelState},
@@ -170,7 +170,8 @@ impl ClientScan {
     }
 
     pub fn counterparty_chain_id(&self) -> ChainId {
-        self.client.client_state.chain_id()
+        // self.client.client_state.chain_id()
+        ChainId::default() // TODO
     }
 }
 
@@ -360,7 +361,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
                     counterparty_connection_state,
                     client,
                 }) => {
-                    let counterparty_chain_id = client.client_state.chain_id();
+                    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
                     if let Some(counterparty_channel) = &counterparty_channel {
                         init_telemetry(
                             &chain.id(),
@@ -453,7 +454,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
             return Ok(None);
         }
 
-        let counterparty_chain_id = client.client_state.chain_id();
+        let counterparty_chain_id = chain.config().unwrap().counterparty_id;
         let has_counterparty = self.config.has_chain(&counterparty_chain_id);
 
         if !has_counterparty {
@@ -505,7 +506,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
             return Ok(Some(scan));
         }
 
-        let counterparty_state = match self.counterparty_connection_state(client, &scan.connection)
+        let counterparty_state = match self.counterparty_connection_state(chain.config().unwrap().counterparty_id, client, &scan.connection)
         {
             Ok(state)
                 if !state.eq(&ConnectionState::Open) && !self.config.mode.connections.enabled =>
@@ -532,7 +533,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
 
         let counterparty_chain = self
             .registry
-            .get_or_spawn(&client.client_state.chain_id())
+            .get_or_spawn(&chain.config().unwrap().counterparty_id)
             .map_err(Error::spawn)?;
 
         let channels = channels
@@ -559,19 +560,20 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
 
     fn counterparty_connection_state(
         &mut self,
-        client: &IdentifiedAnyClientState,
+        chain_id: ChainId,
+        _client: &IdentifiedAnyClientState,
         connection: &IdentifiedConnectionEnd,
     ) -> Result<ConnectionState, Error> {
         let counterparty_chain = self
             .registry
-            .get_or_spawn(&client.client_state.chain_id())
+            .get_or_spawn(&chain_id) // todo
             .map_err(Error::spawn)?;
 
         let counterparty_state = connection_state_on_destination(connection, &counterparty_chain)
             .map_err(|e| {
             Error::counterparty_connection_state(
                 connection.connection_id.clone(),
-                client.client_state.chain_id(),
+                chain_id,
                 e.to_string(),
             )
         })?;
@@ -702,7 +704,7 @@ fn scan_allowed_channel<Chain: ChainHandle>(
     info!(client = %client_id, "querying client...");
     let client = query_client(chain, client_id)?;
 
-    let counterparty_chain_id = client.client_state.chain_id();
+    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
 
     info!(
         client = %client_id,

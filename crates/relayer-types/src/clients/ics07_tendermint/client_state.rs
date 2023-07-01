@@ -202,7 +202,7 @@ pub struct UpgradeOptions {
 impl CoreUpgradeOptions for UpgradeOptions {}
 
 impl Ics2ClientState for ClientState {
-    fn chain_id(&self) -> ChainId {
+    fn chain_id1(&self) -> ChainId {
         self.chain_id.clone()
     }
 

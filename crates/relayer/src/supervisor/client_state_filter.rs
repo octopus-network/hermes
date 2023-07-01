@@ -4,7 +4,7 @@ use flex_error::define_error;
 use ibc_relayer_types::core::ics02_client::trust_threshold::TrustThreshold;
 use tracing::{debug, trace};
 
-use ibc_relayer_types::core::ics02_client::client_state::ClientState;
+// use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics03_connection::connection::ConnectionEnd;
 use ibc_relayer_types::core::ics04_channel::error::Error as ChannelError;
 use ibc_relayer_types::core::ics24_host::identifier::{
@@ -114,7 +114,8 @@ impl FilterPolicy {
         }
 
         // Fetch the details of the client on counterparty chain.
-        let counterparty_chain_id = client_state.chain_id();
+        // let counterparty_chain_id = client_state.chain_id();
+        let counterparty_chain_id = chain_id; // TODO
         let counterparty_chain = registry
             .get_or_spawn(&counterparty_chain_id)
             .map_err(FilterError::spawn)?;

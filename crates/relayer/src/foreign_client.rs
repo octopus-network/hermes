@@ -413,12 +413,13 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             },
             IncludeProof::No,
         ) {
-            Ok((cs, _)) => {
-                if cs.chain_id() != expected_target_chain.id() {
+            Ok((_cs, _)) => {
+                let chain_id = expected_target_chain.id(); // TODO
+                if chain_id != expected_target_chain.id() {
                     Err(ForeignClientError::mismatch_chain_id(
                         client_id.clone(),
                         expected_target_chain.id(),
-                        cs.chain_id(),
+                        chain_id,
                     ))
                 } else {
                     // TODO: Any additional checks?
@@ -751,10 +752,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         height: &Height,
     ) -> Result<ConsensusStateTrusted, ForeignClientError> {
         // Safety check
-        if client_state.chain_id() != self.src_chain.id() {
-            warn!("the chain id in the client state ('{}') is inconsistent with the client's source chain id ('{}')",
-            client_state.chain_id(), self.src_chain.id());
-        }
+        // if client_state.chain_id() != self.src_chain.id() {
+        //     warn!("the chain id in the client state ('{}') is inconsistent with the client's source chain id ('{}')",
+        //     client_state.chain_id(), self.src_chain.id());
+        // }
 
         let consensus_state_timestamp = self.fetch_consensus_state(*height)?.timestamp();
 

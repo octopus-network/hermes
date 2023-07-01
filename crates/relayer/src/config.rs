@@ -557,6 +557,7 @@ pub enum EventSourceMode {
 pub struct ChainConfig {
     /// The chain's network identifier
     pub id: ChainId,
+    pub counterparty_id: ChainId,
 
     /// The chain type
     #[serde(default = "default::chain_type")]

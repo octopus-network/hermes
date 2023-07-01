@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use ibc_relayer_types::applications::ics29_fee::events::IncentivizedPacket;
 use ibc_relayer_types::core::{
-    ics02_client::{client_state::ClientState, events::UpdateClient},
+    ics02_client::events::UpdateClient,
     ics03_connection::events::Attributes as ConnectionAttributes,
     ics04_channel::events::{
         Attributes, CloseInit, SendPacket, TimeoutPacket, WriteAcknowledgement,
@@ -363,7 +363,7 @@ impl Object {
                 dst_chain.id(),
             ));
         }
-        let src_chain_id = client_state.chain_id();
+        let src_chain_id = dst_chain.config().unwrap().counterparty_id;
 
         Ok(Client {
             dst_client_id: e.client_id().clone(),
@@ -396,7 +396,7 @@ impl Object {
         Ok(Client {
             dst_client_id: client.client_id.clone(),
             dst_chain_id: chain.id(), // The object's destination is the chain hosting the client
-            src_chain_id: client.client_state.chain_id(),
+            src_chain_id: chain.config().unwrap().counterparty_id,
         }
         .into())
     }
@@ -443,11 +443,12 @@ impl Object {
             // the channel events while the connection is being established.
             // The channel worker will eventually finish the channel handshake via the retry mechanism.
             channel_connection_client_no_checks(src_chain, port_id, channel_id)
-                .map(|c| c.client.client_state.chain_id())
+                // .map(|c| c.client.client_state.chain_id())
+                .map(|c| c.chain_id)
                 .map_err(ObjectError::supervisor)?
         } else {
             channel_connection_client(src_chain, port_id, channel_id)
-                .map(|c| c.client.client_state.chain_id())
+                .map(|c| c.chain_id)
                 .map_err(ObjectError::supervisor)?
         };
 

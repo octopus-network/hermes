@@ -121,7 +121,8 @@ where
     };
 
     Ok(ChainConfig {
-        id: chain_data.chain_id,
+        id: chain_data.chain_id.clone(),
+        counterparty_id: chain_data.chain_id, //TODO
         r#type: default::chain_type(),
         rpc_addr: rpc_data.rpc_address,
         grpc_addr: grpc_address,

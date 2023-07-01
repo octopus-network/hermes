@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use ibc_relayer_types::{
     core::{
-        ics02_client::client_state::ClientState,
+        // ics02_client::client_state::ClientState,
         ics03_connection::connection::{
             ConnectionEnd, IdentifiedConnectionEnd, State as ConnectionState,
         },
@@ -49,7 +49,7 @@ pub fn counterparty_chain_from_connection(
         .map_err(Error::relayer)?;
 
     let client_id = connection_end.client_id();
-    let (client_state, _) = src_chain
+    let (_client_state, _) = src_chain
         .query_client_state(
             QueryClientStateRequest {
                 client_id: client_id.clone(),
@@ -59,11 +59,13 @@ pub fn counterparty_chain_from_connection(
         )
         .map_err(Error::relayer)?;
 
+    // 1. get counterparyt chain_id from src_chain's config
+    let counterparty_id = src_chain.config().unwrap().counterparty_id;
     trace!(
         chain_id=%src_chain.id(), connection_id=%src_connection_id,
-        "counterparty chain: {}", client_state.chain_id()
+        "counterparty chain: {}", counterparty_id
     );
-    Ok(client_state.chain_id())
+    Ok(counterparty_id)
 }
 
 fn connection_on_destination(
@@ -134,6 +136,7 @@ pub fn connection_state_on_destination(
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChannelConnectionClient {
+    pub chain_id: ChainId,
     pub channel: IdentifiedChannelEnd,
     pub connection: IdentifiedConnectionEnd,
     pub client: IdentifiedAnyClientState,
@@ -141,11 +144,13 @@ pub struct ChannelConnectionClient {
 
 impl ChannelConnectionClient {
     pub fn new(
+        chain_id: ChainId,
         channel: IdentifiedChannelEnd,
         connection: IdentifiedConnectionEnd,
         client: IdentifiedAnyClientState,
     ) -> Self {
         Self {
+            chain_id,
             channel,
             connection,
             client,
@@ -209,7 +214,7 @@ pub fn channel_connection_client_no_checks(
     let connection = IdentifiedConnectionEnd::new(connection_id.clone(), connection_end);
     let channel = IdentifiedChannelEnd::new(port_id.clone(), channel_id.clone(), channel_end);
 
-    Ok(ChannelConnectionClient::new(channel, connection, client))
+    Ok(ChannelConnectionClient::new(chain.config().unwrap().counterparty_id, channel, connection, client))
 }
 
 /// Returns the [`ChannelConnectionClient`] associated with the
@@ -243,7 +248,8 @@ pub fn counterparty_chain_from_channel(
     src_port_id: &PortId,
 ) -> Result<ChainId, Error> {
     channel_connection_client(src_chain, src_port_id, src_channel_id)
-        .map(|c| c.client.client_state.chain_id())
+        // .map(|c| c.client.client_state.chain_id())
+        .map(|c| c.chain_id)
 }
 
 fn fetch_channel_on_destination(
