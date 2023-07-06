@@ -63,6 +63,13 @@ fn run_query_channels<Chain: ChainHandle>(
 
     let config = app_config();
     let chain_id = cmd.chain_id.clone();
+    let counterparty_ids = config
+        .chains
+        .iter()
+        .filter(|e| e.id != chain_id)
+        .collect::<Vec<_>>();
+    assert!(counterparty_ids.len() == 1);
+    let temp_cid = counterparty_ids[0].clone().id;
 
     let mut registry = <Registry<Chain>>::new((*config).clone());
     let chain = registry.get_or_spawn(&cmd.chain_id)?;
@@ -123,7 +130,7 @@ fn run_query_channels<Chain: ChainHandle>(
                 },
                 IncludeProof::No,
             )?;
-            let cid = client_state.chain_id().clone();
+            let cid = temp_cid.clone();
 
             if let Some(dst_chain_id) = &cmd.dst_chain_id {
                 if cid != *dst_chain_id {
@@ -205,7 +212,7 @@ fn query_channel_ends<Chain: ChainHandle>(
         },
         IncludeProof::No,
     )?;
-    let counterparty_chain_id = client_state.chain_id();
+    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
 
     let channel_counterparty = channel_end.counterparty().clone();
     let connection_counterparty = connection_end.counterparty().clone();

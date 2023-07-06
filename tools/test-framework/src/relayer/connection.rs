@@ -11,6 +11,7 @@ use ibc_relayer_types::core::ics03_connection::connection::State as ConnectionSt
 use ibc_relayer_types::core::ics03_connection::connection::{
     ConnectionEnd, IdentifiedConnectionEnd,
 };
+use ibc_relayer_types::core::ics24_host::identifier::ChainId;
 use ibc_relayer_types::timestamp::ZERO_DURATION;
 
 use crate::error::Error;
@@ -147,6 +148,7 @@ pub fn query_identified_connection_end<ChainA: ChainHandle, ChainB>(
         IncludeProof::No,
     )?;
     Ok(DualTagged::new(IdentifiedConnectionEnd::new(
+        ChainId::default(),
         connection_id.into_value().clone(),
         connection_end,
     )))

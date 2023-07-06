@@ -191,7 +191,7 @@ impl Runnable for TxUpdateClientCmd {
             },
             IncludeProof::No,
         ) {
-            Ok((cs, _)) => cs.chain_id(),
+            Ok((cs, _)) => dst_chain.config().unwrap().counterparty_id,
             Err(e) => {
                 Output::error(format!(
                     "Query of client '{}' on chain '{}' failed with error: {}",
@@ -284,7 +284,7 @@ impl Runnable for TxUpgradeClientCmd {
             },
             IncludeProof::No,
         ) {
-            Ok((cs, _)) => cs.chain_id(),
+            Ok((_cs, _)) => host_chain.config().unwrap().counterparty_id,
             Err(e) => {
                 Output::error(format!(
                     "Query of client '{}' on chain '{}' failed with error: {}",
@@ -475,7 +475,8 @@ impl TxUpgradeClientsCmd {
             .map_err(Error::relayer)?
             .into_iter()
             .filter_map(|c| {
-                (self.reference_chain_id == c.client_state.chain_id()).then_some(c.client_id)
+                (self.reference_chain_id == reference_chain.config().unwrap().id)
+                    .then_some(c.client_id)
             })
             .map(|id| {
                 TxUpgradeClientsCmd::upgrade_client(

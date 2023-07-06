@@ -81,7 +81,7 @@ impl Runnable for QueryAllClientsCmd {
                                     .into_iter()
                                     .map(|cs| ClientChain {
                                         client_id: cs.client_id,
-                                        chain_id: cs.client_state.chain_id(),
+                                        chain_id: chain.config().unwrap().id,
                                     })
                                     .collect();
                                 Output::success(out).exit()
@@ -96,7 +96,7 @@ impl Runnable for QueryAllClientsCmd {
                         // Filter and omit chain ids
                         let out: Vec<ClientId> = clients
                             .into_iter()
-                            .filter(|cs| cs.client_state.chain_id().eq(&source_chain_id))
+                            .filter(|cs| chain.config().unwrap().id.eq(&source_chain_id))
                             .map(|cs| cs.client_id)
                             .collect();
                         Output::success(out).exit()

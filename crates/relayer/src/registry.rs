@@ -22,7 +22,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Registry<Chain: ChainHandle> {
     config: Config,
-    handles: HashMap<ChainId, Chain>,
+    pub handles: HashMap<ChainId, Chain>,
     rt: Arc<TokioRuntime>,
 }
 

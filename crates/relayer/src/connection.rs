@@ -699,6 +699,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .map_err(|e| ConnectionError::connection_query(connection_id.clone(), e))?;
 
         let connection = IdentifiedConnectionEnd {
+            counterparty_chain_id: self.dst_chain().config().unwrap().counterparty_id.clone(),
             connection_end,
             connection_id: connection_id.clone(),
         };

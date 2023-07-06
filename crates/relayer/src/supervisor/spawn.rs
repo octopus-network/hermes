@@ -163,7 +163,7 @@ impl<'a, Chain: ChainHandle> SpawnContext<'a, Chain> {
 
         let counterparty_chain = self
             .registry
-            .get_or_spawn(&client.client_state.chain_id())
+            .get_or_spawn(&chain.config().unwrap().counterparty_id)
             .map_err(Error::spawn)?;
 
         let conn_state_src = connection.connection_end.state;
@@ -192,7 +192,7 @@ impl<'a, Chain: ChainHandle> SpawnContext<'a, Chain> {
         {
             // create worker for connection handshake that will advance the remote state
             let connection_object = Object::Connection(Connection {
-                dst_chain_id: client.client_state.chain_id(),
+                dst_chain_id: chain.config().unwrap().counterparty_id,
                 src_chain_id: chain.id(),
                 src_connection_id: connection.connection_id,
             });
@@ -226,7 +226,7 @@ impl<'a, Chain: ChainHandle> SpawnContext<'a, Chain> {
 
         let counterparty_chain = self
             .registry
-            .get_or_spawn(&client.client_state.chain_id())
+            .get_or_spawn(&chain.config().unwrap().counterparty_id)
             .map_err(SupervisorError::spawn)?;
 
         let chan_state_src = channel_scan.channel.channel_end.state;
@@ -253,7 +253,7 @@ impl<'a, Chain: ChainHandle> SpawnContext<'a, Chain> {
                 let client_object = Object::Client(Client {
                     dst_client_id: client.client_id.clone(),
                     dst_chain_id: chain.id(),
-                    src_chain_id: client.client_state.chain_id(),
+                    src_chain_id: chain.config().unwrap().id,
                 });
 
                 self.workers
