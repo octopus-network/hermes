@@ -6,6 +6,7 @@ use std::marker::Send;
 
 use futures::future::join_all;
 use http::Uri;
+use ibc_relayer_types::core::ics24_host::identifier::ChainId;
 use tokio::task::{JoinError, JoinHandle};
 use tracing::trace;
 
@@ -122,6 +123,7 @@ where
 
     Ok(ChainConfig {
         id: chain_data.chain_id,
+        counterparty_id: ChainId::default(), // todo(davirain)
         r#type: default::chain_type(),
         rpc_addr: rpc_data.rpc_address,
         grpc_addr: grpc_address,

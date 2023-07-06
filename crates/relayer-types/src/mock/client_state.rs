@@ -116,7 +116,7 @@ impl From<MockClientState> for Any {
 }
 
 impl ClientState for MockClientState {
-    fn chain_id(&self) -> ChainId {
+    fn chain_id1(&self) -> ChainId {
         unimplemented!()
     }
 

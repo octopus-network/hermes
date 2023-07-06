@@ -132,7 +132,7 @@ impl CreateConnectionCommand {
             },
             IncludeProof::No,
         ) {
-            Ok((cs, _)) => cs.chain_id(),
+            Ok((_cs, _)) => chain_a.config().unwrap().counterparty_id,
             Err(e) => Output::error(format!(
                 "failed while querying client '{}' on chain '{}' with error: {}",
                 client_a_id, self.chain_a_id, e

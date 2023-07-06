@@ -27,7 +27,7 @@ pub trait ClientState:
 {
     /// Return the chain identifier which this client is serving (i.e., the client is verifying
     /// consensus states from this chain).
-    fn chain_id(&self) -> ChainId;
+    fn chain_id1(&self) -> ChainId;
 
     /// Type of client associated with this state (eg. Tendermint)
     fn client_type(&self) -> ClientType;
