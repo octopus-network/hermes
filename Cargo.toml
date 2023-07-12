@@ -11,6 +11,8 @@ members = [
     "crates/chain-registry",
     "tools/integration-test",
     "tools/test-framework",
+    # for octopus
+    "crates/tendermint-vp-sdk",
 ]
 
 exclude = [
