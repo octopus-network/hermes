@@ -142,7 +142,7 @@ pub mod subxt_ibc_event {
     use ibc_relayer_types::core::ics03_connection::events::Attributes as ConnectionAttributes;
     use ibc_relayer_types::core::ics03_connection::version::Version as ConnectionVersion;
     use ibc_relayer_types::core::ics04_channel::channel::{
-        ChannelEnd, Counterparty as ChannelCounterparty, Order as ChannelOrder,
+        ChannelEnd, Counterparty as ChannelCounterparty, Ordering as ChannelOrder,
         State as ChannelState,
     };
     use ibc_relayer_types::core::ics04_channel::commitment::{
@@ -399,7 +399,7 @@ pub mod subxt_ibc_event {
     impl From<SubxtChannelOrder> for ChannelOrder {
         fn from(value: SubxtChannelOrder) -> Self {
             match value {
-                SubxtChannelOrder::None => Self::None,
+                SubxtChannelOrder::None => Self::Uninitialized,
                 SubxtChannelOrder::Unordered => Self::Unordered,
                 SubxtChannelOrder::Ordered => Self::Ordered,
             }
@@ -1240,8 +1240,8 @@ impl ChainEndpoint for SubstrateChain {
         // let a = parity_scale_codec::Decode::decode::<substrate::timestamp::calls::Set>(&mut block.unwrap().block.extrinsics[0]);
 
         Ok(ChainStatus {
-           height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number)).unwrap(),
-           timestamp: Timestamp::default(),
+            height: ICSHeight::new(0, u64::from(block.unwrap().block.header.number)).unwrap(),
+            timestamp: Timestamp::default(),
         })
     }
 
@@ -1601,12 +1601,8 @@ impl ChainEndpoint for SubstrateChain {
             };
             timestamp = timestamp + 1;
 
-            let sig_data = alice_sign_sign_bytes(
-                seq,
-                timestamp,
-                DataType::Header.into(),
-                data.encode_vec().unwrap(),
-            );
+            let sig_data =
+                alice_sign_sign_bytes(seq, timestamp, DataType::Header.into(), data.encode_vec());
 
             let header = SmHeader {
                 sequence: seq,
@@ -1831,6 +1827,15 @@ impl ChainEndpoint for SubstrateChain {
             .map_err(Error::malformed_proof)?,
         ))
     }
+
+    type Time = ibc::core::timestamp::Timestamp;
+
+    fn query_incentivized_packet(
+        &self,
+        request: ibc_proto::ibc::apps::fee::v1::QueryIncentivizedPacketRequest,
+    ) -> Result<ibc_proto::ibc::apps::fee::v1::QueryIncentivizedPacketResponse, Error> {
+        todo!()
+    }
 }
 
 // Todo: to create a new type in `commitment_proof::Proof`
@@ -1843,7 +1848,7 @@ pub fn compose_ibc_merkle_proof(proof: subxt::rpc::ReadProof<H256>) -> MerklePro
         .proof
         .iter()
         .map(|p| ics23::CommitmentProof {
-            proof: Some(commitment_proof::Proof::Exist(ExistenceProof {
+            proof: Some(ics23::commitment_proof::Proof::Exist(ExistenceProof {
                 key: vec![0],
                 value: p.to_vec(),
                 leaf: None,

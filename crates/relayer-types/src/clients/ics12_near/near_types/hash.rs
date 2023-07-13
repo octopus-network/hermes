@@ -1,11 +1,22 @@
 use alloc::string::{String, ToString};
 use borsh::{BorshDeserialize, BorshSerialize};
 use core::fmt::{self, Debug, Display};
-use sha2::Digest;
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 
-
-#[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize, Hash)]
+#[derive(
+    Deserialize,
+    Serialize,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    BorshDeserialize,
+    BorshSerialize,
+    Hash,
+)]
 pub struct CryptoHash(pub [u8; 32]);
 
 impl CryptoHash {

@@ -13,6 +13,7 @@ use crossbeam_channel as channel;
 use ibc_relayer_types::{
     core::ics02_client::height::Height, core::ics24_host::identifier::ChainId,
 };
+use near_primitives::types::AccountId;
 use serde_json::json;
 use std::str::FromStr;
 use tokio::runtime::Runtime as TokioRuntime;
@@ -75,8 +76,8 @@ pub struct NearEventMonitor {
 }
 
 impl NearIbcContract for NearEventMonitor {
-    fn get_contract_id(&self) -> near_account_id::AccountId {
-        near_account_id::AccountId::from_str(CONTRACT_ACCOUNT_ID).unwrap()
+    fn get_contract_id(&self) -> AccountId {
+        AccountId::from_str(CONTRACT_ACCOUNT_ID).unwrap()
     }
 
     fn get_client(&self) -> &NearRpcClient {
@@ -137,7 +138,10 @@ impl NearEventMonitor {
             }
         }
 
-        info!("Event monitor for {} has successfully shut down.", self.chain_id);
+        info!(
+            "Event monitor for {} has successfully shut down.",
+            self.chain_id
+        );
     }
 
     fn run_loop(&mut self) -> Next {
@@ -217,7 +221,7 @@ impl NearEventMonitor {
                     })
                 },
                 |result| {
-                    let ibc_events: Vec<ibc::events::IbcEvent> = result.json().unwrap();
+                    let ibc_events: Vec<ibc::core::events::IbcEvent> = result.json().unwrap();
                     Ok(EventBatch {
                         height: height.clone(),
                         events: ibc_events

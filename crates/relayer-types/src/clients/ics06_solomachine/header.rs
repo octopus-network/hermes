@@ -13,7 +13,6 @@ use eyre::Result;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::lightclients::solomachine::v2::Header as RawHeader;
 use ibc_proto::ibc::lightclients::solomachine::v2::HeaderData as RawHeaderData;
-use ibc_proto::ibc::lightclients::solomachine::v2::SignBytes as RawSignBytes;
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
 
@@ -88,8 +87,7 @@ impl From<Header> for Any {
     fn from(header: Header) -> Self {
         Any {
             type_url: SOLOMACHINE_HEADER_TYPE_URL.to_string(),
-            value: Protobuf::<RawHeader>::encode_vec(&header)
-                .expect("encoding to `Any` from `SmHeader`"),
+            value: Protobuf::<RawHeader>::encode_vec(&header),
         }
     }
 }

@@ -5,7 +5,10 @@ use ibc_proto::ibc::core::commitment::v1::MerklePath;
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as RawMerkleProof;
 use ibc_proto::ibc::core::commitment::v1::MerkleRoot;
 use ics23::commitment_proof::Proof;
-use ics23::{calculate_existence_root, verify_membership, verify_non_membership, CommitmentProof, NonExistenceProof, commitment_proof, ExistenceProof, InnerOp};
+use ics23::{
+    calculate_existence_root, commitment_proof, verify_membership, verify_non_membership,
+    CommitmentProof, ExistenceProof, InnerOp, NonExistenceProof,
+};
 
 use crate::core::ics23_commitment::commitment::{CommitmentPrefix, CommitmentRoot};
 use crate::core::ics23_commitment::error::Error;
@@ -32,23 +35,22 @@ pub struct MerkleProof {
 
 impl Default for MerkleProof {
     fn default() -> Self {
-
-        let existence_proof =ExistenceProof {
+        let existence_proof = ExistenceProof {
             key: vec![1],
             value: vec![2],
             leaf: None,
-            path: vec![InnerOp{
+            path: vec![InnerOp {
                 hash: 0,
                 prefix: vec![3],
-                suffix: vec![4]
-            }]
+                suffix: vec![4],
+            }],
         };
         let proof = CommitmentProof {
-            proof: Some(commitment_proof::Proof::Exist(existence_proof))
+            proof: Some(commitment_proof::Proof::Exist(existence_proof)),
         };
 
         Self {
-            proofs: vec![proof]
+            proofs: vec![proof],
         }
     }
 }

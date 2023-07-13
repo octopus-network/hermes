@@ -1219,7 +1219,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         };
         info!(
             "{}: [build_conn_ack] - MsgConnectionOpenAck before sending: {:?}",
-            self.dst_chain().id(), new_msg
+            self.dst_chain().id(),
+            new_msg
         );
         msgs.push(new_msg.to_any());
 

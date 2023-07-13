@@ -1,22 +1,21 @@
+use crate::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
+use crate::clients::ics12_near::near_types::hash::CryptoHash;
+use crate::clients::ics12_near::near_types::LightClientBlockView;
+use crate::core::ics02_client::client_type::ClientType;
+use crate::core::ics02_client::error::Error;
+use crate::timestamp::Timestamp;
+use crate::Height;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 use bytes::Buf;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::protobuf::Protobuf;
-use crate::clients::ics12_near::near_types::hash::CryptoHash;
-use crate::clients::ics12_near::near_types::LightClientBlockView;
-use crate::core::ics02_client::client_type::ClientType;
-use crate::Height;
-use crate::timestamp::Timestamp;
 use serde::{Deserialize, Serialize};
-use crate::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
-use crate::core::ics02_client::error::Error;
-use core::fmt::{Display, Error as FmtError, Formatter};
 use std::vec;
 
 pub const NEAR_HEADER_TYPE_URL: &str = "/ibc.lightclients.near.v1.Header";
 
-#[derive(Default, Clone,Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Header {
     pub light_client_block_view: LightClientBlockView,
     pub prev_state_root_of_chunks: Vec<CryptoHash>,
@@ -28,10 +27,7 @@ impl crate::core::ics02_client::header::Header for Header {
     }
 
     fn height(&self) -> Height {
-        Height::new(
-            0,
-            self.light_client_block_view.inner_lite.height)
-            .unwrap()
+        Height::new(0, self.light_client_block_view.inner_lite.height).unwrap()
     }
 
     fn timestamp(&self) -> Timestamp {
@@ -39,7 +35,6 @@ impl crate::core::ics02_client::header::Header for Header {
             .unwrap()
     }
 }
-
 
 impl Protobuf<Any> for Header {}
 

@@ -11,10 +11,7 @@ use crate::core::ics24_host::identifier::ChainId;
 use crate::prelude::*;
 use crate::Height;
 use core::time::Duration;
-use cosmos_sdk_proto::{
-    self,
-    traits::{Message, MessageExt},
-};
+use cosmos_sdk_proto::{self, traits::Message};
 use eyre::Result;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::lightclients::solomachine::v2::ClientState as RawSmClientState;
@@ -129,8 +126,7 @@ impl From<ClientState> for Any {
     fn from(client_state: ClientState) -> Self {
         Any {
             type_url: SOLOMACHINE_CLIENT_STATE_TYPE_URL.to_string(),
-            value: Protobuf::<RawSmClientState>::encode_vec(&client_state)
-                .expect("encoding to `Any` from `SmClientState`"),
+            value: Protobuf::<RawSmClientState>::encode_vec(&client_state),
         }
     }
 }

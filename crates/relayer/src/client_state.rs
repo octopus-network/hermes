@@ -162,8 +162,7 @@ impl From<AnyClientState> for Any {
             },
             AnyClientState::Solomachine(value) => Any {
                 type_url: SOLOMACHINE_CLIENT_STATE_TYPE_URL.to_string(),
-                value: Protobuf::<SmRawClientState>::encode_vec(&value)
-                    .expect("encoding to `Any` from `AnyClientState::Solomachine`"),
+                value: Protobuf::<SmRawClientState>::encode_vec(&value),
             },
             #[cfg(test)]
             AnyClientState::Mock(value) => Any {

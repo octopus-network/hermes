@@ -1,18 +1,16 @@
-use crate::chain::near::rpc::client::NearRpcClient;
 use crate::chain::near::CONTRACT_ACCOUNT_ID;
-use crate::chain::requests::{QueryChannelsRequest, QueryPacketAcknowledgementsRequest, QueryPacketEventDataRequest};
+use crate::chain::near::rpc::client::NearRpcClient;
+use crate::chain::requests::{
+    QueryChannelsRequest, QueryPacketAcknowledgementsRequest, QueryPacketEventDataRequest,
+};
 use crate::chain::requests::{
     QueryClientConnectionsRequest, QueryClientStatesRequest, QueryConnectionsRequest,
-    QueryPacketCommitmentsRequest, QueryUnreceivedAcksRequest,
+    QueryPacketCommitmentsRequest,
 };
-use crate::client_state::{AnyClientState, IdentifiedAnyClientState};
 use crate::consensus_state::AnyConsensusState;
-use crate::event::IbcEventWithHeight;
 use alloc::sync::Arc;
-use humantime_serde::re;
-use ibc::events::IbcEvent;
+use ibc::core::events::IbcEvent;
 use ibc_proto::google::protobuf::Any;
-use ibc_proto::ibc::core::channel::v1::PacketState;
 use ibc_relayer_types::core::ics02_client::height::Height;
 use ibc_relayer_types::core::ics03_connection::connection::{
     ConnectionEnd, IdentifiedConnectionEnd,
@@ -21,15 +19,11 @@ use ibc_relayer_types::core::ics04_channel::channel::{ChannelEnd, IdentifiedChan
 use ibc_relayer_types::core::ics04_channel::packet::Sequence;
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentPrefix;
 use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
-use near_account_id::AccountId;
 use near_crypto::{InMemorySigner, KeyType};
-use near_primitives::views::FinalExecutionOutcomeView;
-use serde::{Deserialize, Serialize};
+use near_primitives::{views::FinalExecutionOutcomeView, types::AccountId};
 use serde_json::json;
-use std::thread;
-use std::time::Duration;
 use tokio::runtime::Runtime as TokioRuntime;
-use tracing::{debug, info};
+use tracing::info;
 
 pub trait NearIbcContract {
     fn get_contract_id(&self) -> AccountId;
@@ -531,7 +525,10 @@ pub trait NearIbcContract {
         &self,
         request: QueryPacketEventDataRequest,
     ) -> anyhow::Result<Vec<(Height, Vec<IbcEvent>)>> {
-        info!("NearIbcContract: [get_packet_events] - request: {:?}", request);
+        info!(
+            "NearIbcContract: [get_packet_events] - request: {:?}",
+            request
+        );
 
         self.get_rt()
             .block_on(self.get_client().view(

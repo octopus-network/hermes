@@ -1,32 +1,20 @@
 use super::client::ClientSettings;
 use crate::{
     account::Balance,
-    chain::endpoint::ChainEndpoint,
-    chain::endpoint::ChainStatus,
-    chain::endpoint::HealthCheck,
+    chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck},
     chain::handle::Subscription,
-    chain::near::contract::NearIbcContract,
-    chain::near::rpc::client::NearRpcClient,
-    chain::near::rpc::rpc_provider::{NearEnv, RpcProvider},
-    chain::near::rpc::tool::convert_ibc_event_to_hermes_ibc_event,
-    chain::requests::QueryChannelRequest,
-    chain::requests::QueryChannelsRequest,
-    chain::requests::QueryClientConnectionsRequest,
-    chain::requests::QueryClientStatesRequest,
-    chain::requests::QueryConnectionChannelsRequest,
-    chain::requests::QueryConnectionRequest,
-    chain::requests::QueryConnectionsRequest,
-    chain::requests::QueryConsensusStateRequest,
-    chain::requests::QueryConsensusStatesRequest,
-    chain::requests::QueryNextSequenceReceiveRequest,
-    chain::requests::QueryPacketAcknowledgementsRequest,
-    chain::requests::QueryPacketCommitmentsRequest,
-    chain::requests::QueryPacketEventDataRequest,
-    chain::requests::QueryTxRequest,
-    chain::requests::QueryUnreceivedAcksRequest,
-    chain::requests::QueryUnreceivedPacketsRequest,
+    chain::near::{
+        contract::NearIbcContract,
+        rpc::{client::NearRpcClient, tool::convert_ibc_event_to_hermes_ibc_event},
+    },
     chain::requests::{
-        CrossChainQueryRequest, QueryChannelClientStateRequest, QueryConsensusStateHeightsRequest,
+        CrossChainQueryRequest, QueryChannelClientStateRequest, QueryChannelRequest,
+        QueryChannelsRequest, QueryClientConnectionsRequest, QueryClientStatesRequest,
+        QueryConnectionChannelsRequest, QueryConnectionRequest, QueryConnectionsRequest,
+        QueryConsensusStateHeightsRequest, QueryConsensusStateRequest,
+        QueryNextSequenceReceiveRequest, QueryPacketAcknowledgementsRequest,
+        QueryPacketCommitmentsRequest, QueryPacketEventDataRequest, QueryTxRequest,
+        QueryUnreceivedAcksRequest, QueryUnreceivedPacketsRequest,
     },
     chain::requests::{
         IncludeProof, QueryClientStateRequest, QueryHeight, QueryHostConsensusStateRequest,
@@ -35,30 +23,26 @@ use crate::{
     },
     chain::tracking::{TrackedMsgs, TrackingId},
     client_state::{AnyClientState, IdentifiedAnyClientState},
-    config::AddressType,
     config::ChainConfig,
     connection::ConnectionMsgType,
-    consensus_state::{AnyConsensusState, AnyConsensusStateWithHeight},
+    consensus_state::AnyConsensusState,
     denom::DenomTrace,
     error::Error,
-    event::{monitor::EventBatch, near_event_monitor::TxMonitorCmd},
-    event::{monitor::EventReceiver, near_event_monitor::NearEventMonitor, IbcEventWithHeight},
-    keyring::{KeyRing, Secp256k1KeyPair, SigningKeyPair, Test},
+    event::{
+        near_event_monitor::{NearEventMonitor, TxMonitorCmd},
+        IbcEventWithHeight,
+    },
+    keyring::{KeyRing, Secp256k1KeyPair, SigningKeyPair},
     misbehaviour::MisbehaviourEvidence,
 };
 use alloc::{string::String, sync::Arc};
 use anyhow::Result;
-use bitcoin::util::bip32::ExtendedPubKey;
 use core::{fmt::Debug, future::Future, str::FromStr};
-use hdpath::StandardHDPath;
 use ibc_proto::{
     google::protobuf::Any,
-    ibc::{
-        core::channel::v1::PacketState,
-        lightclients::solomachine::v2::{
-            ChannelStateData, ClientStateData, ConnectionStateData, ConsensusStateData, DataType,
-            HeaderData, SignBytes, TimestampedSignatureData,
-        },
+    ibc::lightclients::solomachine::v2::{
+        ChannelStateData, ClientStateData, ConnectionStateData, ConsensusStateData, DataType,
+        SignBytes, TimestampedSignatureData,
     },
     protobuf::Protobuf,
 };
@@ -69,12 +53,10 @@ use ibc_relayer_types::{
         ics06_solomachine::consensus_state::{ConsensusState as SmConsensusState, PublicKey},
         ics06_solomachine::header::{Header as SmHeader, HeaderData as SmHeaderData},
     },
-    core::ics02_client::client_state::ClientState,
     core::ics02_client::events::UpdateClient,
     core::ics23_commitment::merkle::MerkleProof,
     core::ics24_host::path::{
-        AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
-        ConnectionsPath, ReceiptsPath, SeqRecvsPath,
+        AcksPath, ChannelEndsPath, CommitmentsPath, ConnectionsPath, ReceiptsPath, SeqRecvsPath,
     },
     core::{
         ics02_client::{client_type::ClientType, error::Error as ClientError},
@@ -96,25 +78,12 @@ use ibc_relayer_types::{
     timestamp::Timestamp,
     Height, Height as ICSHeight,
 };
-use near_account_id::AccountId;
 use near_crypto::{InMemorySigner, KeyType};
-use near_jsonrpc_client::JsonRpcClient;
-use near_primitives::{
-    types::{BlockId, Gas},
-    views::FinalExecutionOutcomeView,
-};
+use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
 use prost::Message;
 use semver::Version;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sp_core::sr25519;
-use sp_core::{hexdisplay::HexDisplay, Pair, H256};
-use std::{
-    path::Path,
-    thread,
-    time::{Duration, SystemTime},
-};
-use tendermint::time::Time;
+use std::{thread, time::SystemTime};
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
 use tracing::{debug, info, trace};
@@ -126,7 +95,7 @@ pub mod rpc;
 
 pub const REVISION_NUMBER: u64 = 0;
 pub const CLIENT_DIVERSIFIER: &str = "NEAR";
-pub const CONTRACT_ACCOUNT_ID: &str = "v2.nearibc.testnet";
+pub const CONTRACT_ACCOUNT_ID: &str = "v3.nearibc.testnet";
 pub const SIGNER_ACCOUNT_TESTNET: &str = "my-account.testnet";
 const MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG: u128 = 100_000_000_000_000_000_000_000;
 
@@ -139,6 +108,7 @@ pub struct NearChain {
     near_ibc_contract: AccountId,
     rt: Arc<TokioRuntime>,
     tx_monitor_cmd: Option<TxMonitorCmd>,
+    signing_key_pair: Option<Secp256k1KeyPair>,
 }
 
 impl NearIbcContract for NearChain {
@@ -248,10 +218,20 @@ impl NearChain {
         Ok(MerkleProof::default())
     }
 
+    fn init_signing_key_pair(&mut self) {
+        let key_pair = self.get_key().unwrap();
+        self.signing_key_pair = Some(key_pair);
+    }
+
     fn get_sm_client_pubkey(&self) -> PublicKey {
         PublicKey(
             tendermint::PublicKey::from_raw_secp256k1(
-                &self.get_key().unwrap().public_key.serialize_uncompressed(),
+                &self
+                    .signing_key_pair
+                    .as_ref()
+                    .unwrap()
+                    .public_key
+                    .serialize_uncompressed(),
             )
             .unwrap(),
         )
@@ -298,7 +278,7 @@ impl NearChain {
             buf
         );
 
-        let key_pair = self.get_key().unwrap();
+        let key_pair = self.signing_key_pair.as_ref().unwrap();
         let signature = key_pair.sign(&buf).unwrap();
         debug!(
             "{}: [sign_bytes_with_solomachine_pubkey] - signature: {:?}",
@@ -329,6 +309,7 @@ impl ChainEndpoint for NearChain {
     type ConsensusState = SmConsensusState; // Todo: Import from Near light client //CS
     type ClientState = SmClientState; // Todo: Import from Near light client //CS
     type SigningKeyPair = Secp256k1KeyPair;
+    type Time = ibc::core::timestamp::Timestamp;
 
     fn id(&self) -> &ChainId {
         &self.config().id
@@ -342,16 +323,24 @@ impl ChainEndpoint for NearChain {
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
         info!("{}: [bootstrap]", config.id);
         // Initialize key store and load key
-        let keybase = KeyRing::new(config.key_store_type, &config.account_prefix, &config.id)
-            .map_err(Error::key_base)?;
-        Ok(NearChain {
+        let keybase = KeyRing::new(
+            config.key_store_type,
+            &config.account_prefix,
+            &config.id,
+            &config.key_store_folder,
+        )
+        .map_err(Error::key_base)?;
+        let mut new_instance = NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
             config,
             keybase,
             near_ibc_contract: AccountId::from_str(CONTRACT_ACCOUNT_ID).unwrap(),
             rt,
             tx_monitor_cmd: None,
-        })
+            signing_key_pair: None,
+        };
+        new_instance.init_signing_key_pair();
+        Ok(new_instance)
     }
 
     fn shutdown(self) -> Result<(), Error> {
@@ -1338,7 +1327,7 @@ impl ChainEndpoint for NearChain {
                 seq,
                 timestamp,
                 DataType::Header.into(),
-                data.encode_vec().unwrap(),
+                data.encode_vec(),
             );
 
             let header = SmHeader {
@@ -1685,6 +1674,14 @@ impl ChainEndpoint for NearChain {
     ) -> std::result::Result<Vec<CrossChainQueryResponse>, Error> {
         todo!()
     }
+
+    fn query_incentivized_packet(
+        &self,
+        request: ibc_proto::ibc::apps::fee::v1::QueryIncentivizedPacketRequest,
+    ) -> std::result::Result<ibc_proto::ibc::apps::fee::v1::QueryIncentivizedPacketResponse, Error>
+    {
+        todo!()
+    }
 }
 
 impl NearChain {
@@ -1715,7 +1712,7 @@ pub fn collect_ibc_event_by_outcome(outcome: FinalExecutionOutcomeView) -> Vec<I
                 let event = log.replace("EVENT_JSON:", "");
                 let event_value = serde_json::value::Value::from_str(event.as_str()).unwrap();
                 if event_value["standard"].eq("near-ibc") {
-                    let ibc_event: ibc::events::IbcEvent =
+                    let ibc_event: ibc::core::events::IbcEvent =
                         serde_json::from_value(event_value["raw-ibc-event"].clone()).unwrap();
                     let block_height = u64::from_str(
                         event_value["block_height"]

@@ -200,7 +200,6 @@ impl TryFrom<Any> for ConsensusState {
     fn try_from(raw: Any) -> Result<Self, Self::Error> {
         use bytes::Buf;
         use core::ops::Deref;
-        use prost::Message;
 
         fn decode_consensus_state<B: Buf>(buf: B) -> Result<ConsensusState, Error> {
             RawConsensusState::decode(buf)
@@ -221,8 +220,7 @@ impl From<ConsensusState> for Any {
     fn from(consensus_state: ConsensusState) -> Self {
         Any {
             type_url: SOLOMACHINE_CONSENSUS_STATE_TYPE_URL.to_string(),
-            value: Protobuf::<RawConsensusState>::encode_vec(&consensus_state)
-                .expect("encoding to `Any` from `SmConsensusState`"),
+            value: Protobuf::<RawConsensusState>::encode_vec(&consensus_state),
         }
     }
 }

@@ -103,13 +103,11 @@ impl From<AnyConsensusState> for Any {
             },
             AnyConsensusState::Solomachine(value) => Any {
                 type_url: SOLOMACHINE_CONSENSUS_STATE_TYPE_URL.to_string(),
-                value: Protobuf::<RawSmConsensusState>::encode_vec(&value)
-                    .expect("encoding to `Any` from `AnyConsensusState::Solomachine`"),
+                value: Protobuf::<RawSmConsensusState>::encode_vec(&value),
             },
             AnyConsensusState::Near(value) => Any {
                 type_url: NEAR_CONSENSUS_STATE_TYPE_URL.to_string(),
-                value: Protobuf::<RawSmConsensusState>::encode_vec(&value)
-                    .expect("encoding to `Any` from `AnyConsensusState::Near`"),
+                value: Protobuf::<RawSmConsensusState>::encode_vec(&value),
             },
             #[cfg(test)]
             AnyConsensusState::Mock(value) => Any {

@@ -85,7 +85,7 @@ impl CallExecutionDetails {
     /// If we want to deserialize these bytes into a rust datatype, use [`CallExecutionDetails::json`]
     /// or [`CallExecutionDetails::borsh`] instead.
     pub fn raw_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        let result  = match self.status {
+        let result = match self.status {
             FinalExecutionStatus::SuccessValue(ref val) => val,
             FinalExecutionStatus::Failure(ref err) => anyhow::bail!(err.clone()),
             FinalExecutionStatus::NotStarted => anyhow::bail!("Transaction not started."),

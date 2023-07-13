@@ -1,5 +1,5 @@
+use crate::clients::ics12_near::near_types::signature::PublicKey::ED25519;
 use alloc::string::ToString;
-use std::vec;
 use borsh::{
     maybestd::format,
     maybestd::io::{Error, ErrorKind, Write},
@@ -7,7 +7,6 @@ use borsh::{
 };
 use ed25519_dalek::Verifier;
 use serde::{Deserialize, Serialize};
-use crate::clients::ics12_near::near_types::signature::PublicKey::ED25519;
 
 #[derive(PartialEq, Eq, Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ED25519PublicKey(pub [u8; ed25519_dalek::PUBLIC_KEY_LENGTH]);
@@ -40,7 +39,10 @@ pub enum Signature {
 
 impl Default for Signature {
     fn default() -> Self {
-        Signature::ED25519(ed25519_dalek::Signature::from_bytes(&[0u8; ed25519_dalek::Signature::BYTE_SIZE]).unwrap())
+        Signature::ED25519(
+            ed25519_dalek::Signature::from_bytes(&[0u8; ed25519_dalek::Signature::BYTE_SIZE])
+                .unwrap(),
+        )
     }
 }
 
@@ -90,9 +92,9 @@ impl BorshDeserialize for PublicKey {
         let key_type = KeyType::try_from(<u8 as BorshDeserialize>::deserialize(buf)?)
             .map_err(|err| Error::new(ErrorKind::InvalidData, err.to_string()))?;
         match key_type {
-            KeyType::ED25519 => Ok(ED25519(ED25519PublicKey(
-                BorshDeserialize::deserialize(buf)?,
-            ))),
+            KeyType::ED25519 => Ok(ED25519(ED25519PublicKey(BorshDeserialize::deserialize(
+                buf,
+            )?))),
         }
     }
 }

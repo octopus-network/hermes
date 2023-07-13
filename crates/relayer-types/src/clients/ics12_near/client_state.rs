@@ -1,18 +1,17 @@
-use alloc::vec::Vec;
-use std::time::Duration;
-use std::vec;
-use serde::{Deserialize, Serialize};
-use crate::core::ics02_client::height::Height;
+use crate::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
 use crate::core::ics02_client::client_state::{ClientState as Ics2ClientState, UpgradeOptions};
 use crate::core::ics02_client::client_type::ClientType;
+use crate::core::ics02_client::error::Error;
+use crate::core::ics02_client::height::Height;
 use crate::core::ics24_host::identifier::ChainId;
+use alloc::vec::Vec;
+use bytes::Buf;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::protobuf::Protobuf;
-use crate::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
-use crate::core::ics02_client::error::Error;
-use core::str::FromStr;
+use serde::{Deserialize, Serialize};
 use std::prelude::rust_2015::ToString;
-use bytes::Buf;
+use std::time::Duration;
+use std::vec;
 
 pub const NEAR_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.near.v1.ClientState";
 
@@ -24,7 +23,7 @@ pub struct ClientState {
     pub latest_timestamp: u64,
     pub frozen_height: Option<u64>,
     pub upgrade_commitment_prefix: Vec<u8>,
-    pub upgrade_key: Vec<u8>
+    pub upgrade_key: Vec<u8>,
 }
 
 impl ClientState {
@@ -45,20 +44,24 @@ impl Ics2ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        Height::new(0, self.latest_height+1).unwrap()
+        Height::new(0, self.latest_height + 1).unwrap()
     }
 
     fn frozen_height(&self) -> Option<crate::Height> {
-        self.frozen_height.map(|frozen_height| {
-            Height::new(0, frozen_height+1).unwrap()
-        })
+        self.frozen_height
+            .map(|frozen_height| Height::new(0, frozen_height + 1).unwrap())
     }
 
     fn expired(&self, _elapsed: Duration) -> bool {
         false
     }
 
-    fn upgrade(&mut self, _upgrade_height: crate::Height, _upgrade_options: &dyn UpgradeOptions, _chain_id: ChainId) {
+    fn upgrade(
+        &mut self,
+        _upgrade_height: crate::Height,
+        _upgrade_options: &dyn UpgradeOptions,
+        _chain_id: ChainId,
+    ) {
     }
 }
 

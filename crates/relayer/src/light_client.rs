@@ -9,9 +9,8 @@ use ibc_proto::protobuf::Protobuf as ErasedProtobuf;
 use ibc_relayer_types::clients::ics07_tendermint::header::{
     decode_header as tm_decode_header, Header as TendermintHeader, TENDERMINT_HEADER_TYPE_URL,
 };
-use ibc_relayer_types::clients::ics12_near::header::{
-    Header as NearHeader, NEAR_HEADER_TYPE_URL
-};
+use ibc_relayer_types::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
+use ibc_relayer_types::clients::ics12_near::header::{Header as NearHeader, NEAR_HEADER_TYPE_URL};
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
@@ -19,7 +18,6 @@ use ibc_relayer_types::core::ics02_client::header::Header;
 use ibc_relayer_types::timestamp::Timestamp;
 use ibc_relayer_types::Height;
 use serde::{Deserialize, Serialize};
-use ibc_relayer_types::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
 
 use crate::chain::endpoint::ChainEndpoint;
 use crate::client_state::AnyClientState;
@@ -93,7 +91,7 @@ pub fn decode_header(header_bytes: &[u8]) -> Result<Box<dyn Header>, Error> {
 pub enum AnyHeader {
     Tendermint(TendermintHeader),
     Solomachine(SolomachineHeader),
-    Near(NearHeader)
+    Near(NearHeader),
 }
 
 impl Header for AnyHeader {
@@ -118,7 +116,6 @@ impl Header for AnyHeader {
             Self::Tendermint(header) => header.timestamp(),
             Self::Solomachine(header) => header.timestamp(),
             Self::Near(header) => header.timestamp(),
-
         }
     }
 }
@@ -135,9 +132,7 @@ impl TryFrom<Any> for AnyHeader {
 
                 Ok(AnyHeader::Tendermint(val))
             }
-            NEAR_HEADER_TYPE_URL => {
-                Ok(AnyHeader::Near(NearHeader::default()))
-            }
+            NEAR_HEADER_TYPE_URL => Ok(AnyHeader::Near(NearHeader::default())),
             SOLOMACHINE_HEADER_TYPE_URL => {
                 let val = sm_decode_header(raw.value.deref())?;
 
@@ -158,12 +153,11 @@ impl From<AnyHeader> for Any {
             },
             AnyHeader::Near(header) => Any {
                 type_url: NEAR_CONSENSUS_STATE_TYPE_URL.to_string(),
-                value: vec![]
+                value: vec![],
             },
             AnyHeader::Solomachine(header) => Any {
                 type_url: SOLOMACHINE_HEADER_TYPE_URL.to_string(),
-                value: ErasedProtobuf::<RawSmHeader>::encode_vec(&header)
-                    .expect("encoding to `Any` from `AnyHeader::Solomachine`"),
+                value: ErasedProtobuf::<RawSmHeader>::encode_vec(&header),
             },
         }
     }

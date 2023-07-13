@@ -21,7 +21,7 @@ use near_primitives::transaction::{
 use near_primitives::types::{AccountId, Balance, BlockId, Finality, Gas, StoreKey};
 use near_primitives::views::{
     AccessKeyView, AccountView, BlockView, ContractCodeView, FinalExecutionOutcomeView,
-    QueryRequest, StateChangesRequestView, StatusResponse, StateChangeWithCauseView,
+    QueryRequest, StateChangeWithCauseView, StateChangesRequestView, StatusResponse,
 };
 use tokio_retry::strategy::{jitter, ExponentialBackoff};
 use tokio_retry::Retry;
@@ -286,7 +286,10 @@ impl NearRpcClient {
         Ok(block_view)
     }
 
-    pub(crate) async fn view_tx(&self, transaction_info: TransactionInfo) -> anyhow::Result<FinalExecutionOutcomeView> {
+    pub(crate) async fn view_tx(
+        &self,
+        transaction_info: TransactionInfo,
+    ) -> anyhow::Result<FinalExecutionOutcomeView> {
         let tx_view = self
             .query(&methods::tx::RpcTransactionStatusRequest { transaction_info })
             .await?;

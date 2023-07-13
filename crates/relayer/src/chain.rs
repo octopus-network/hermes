@@ -3,11 +3,11 @@ pub mod cosmos;
 pub mod counterparty;
 pub mod endpoint;
 pub mod handle;
+pub mod near;
 pub mod requests;
 pub mod runtime;
 pub mod substrate;
 pub mod tracking;
-pub mod near;
 
 use serde::{de::Error, Deserialize, Serialize};
 
@@ -21,7 +21,7 @@ pub enum ChainType {
     /// Chains based on the Cosmos SDK
     CosmosSdk,
     Substrate,
-    Near
+    Near,
 }
 
 impl<'de> Deserialize<'de> for ChainType {

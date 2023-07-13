@@ -29,7 +29,9 @@ pub enum BlockId {
     Hash(CryptoHash),
 }
 
-#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq, BorshDeserialize, BorshSerialize)]
+#[derive(
+    Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq, BorshDeserialize, BorshSerialize,
+)]
 pub struct BlockHeaderInnerLiteView {
     pub height: BlockHeight,
     pub epoch_id: CryptoHash,
@@ -91,7 +93,9 @@ pub struct BlockHeaderInnerLite {
     pub block_merkle_root: CryptoHash,
 }
 
-#[derive(Serialize, Deserialize, Default, BorshSerialize, BorshDeserialize, PartialEq, Eq, Debug, Clone)]
+#[derive(
+    Serialize, Deserialize, Default, BorshSerialize, BorshDeserialize, PartialEq, Eq, Debug, Clone,
+)]
 pub struct ValidatorStakeViewV1 {
     pub account_id: AccountId,
     pub public_key: PublicKey,
@@ -111,7 +115,9 @@ impl ValidatorStakeView {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default, BorshDeserialize, BorshSerialize)]
+#[derive(
+    Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default, BorshDeserialize, BorshSerialize,
+)]
 pub struct LightClientBlockView {
     pub prev_block_hash: CryptoHash,
     pub next_block_inner_hash: CryptoHash,
