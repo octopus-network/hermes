@@ -120,7 +120,6 @@ impl From<MsgConnectionOpenAck> for RawMsgConnectionOpenAck {
                 .map_or_else(|| None, |h| Some(h.height().into())),
             version: Some(ics_msg.version.into()),
             signer: ics_msg.signer.to_string(),
-            host_consensus_state_proof: vec![],
         }
     }
 }
@@ -156,7 +155,6 @@ pub mod test_util {
             proof_client: get_dummy_proof(),
             version: Some(Version::default().into()),
             signer: get_dummy_bech32_account(),
-            host_consensus_state_proof: vec![],
         }
     }
 }

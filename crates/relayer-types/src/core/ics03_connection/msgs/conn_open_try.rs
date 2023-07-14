@@ -157,7 +157,6 @@ impl From<MsgConnectionOpenTry> for RawMsgConnectionOpenTry {
                 .consensus_proof()
                 .map_or_else(|| None, |h| Some(h.height().into())),
             signer: ics_msg.signer.to_string(),
-            host_consensus_state_proof: vec![],
         }
     }
 }
@@ -224,7 +223,6 @@ pub mod test_util {
             }),
             proof_client: get_dummy_proof(),
             signer: get_dummy_bech32_account(),
-            host_consensus_state_proof: vec![],
         }
     }
 }

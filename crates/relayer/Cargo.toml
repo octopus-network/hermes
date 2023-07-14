@@ -77,7 +77,7 @@ pallet-ibc = { git = "https://github.com/octopus-network/substrate-ibc.git", bra
 sp-core = "7.0.0"
 ics23 = { version = "0.10" }
 jsonrpsee = { version = "0.14", features = ["macros", "ws-client", "http-client"] }
-ibc = "0.41.0"
+ibc = "0.42.0"
 
 # for near chain
 near-crypto = "0.15"

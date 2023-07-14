@@ -91,15 +91,18 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
             HermesIbcEvent::OpenInitConnection(
                 ibc_relayer_types::core::ics03_connection::events::OpenInit::from(Attributes {
                     connection_id: Some(
-                        ConnectionId::from_str(open_init_connection.connection_id().as_str())
+                        ConnectionId::from_str(open_init_connection.conn_id_on_a().as_str())
                             .unwrap(),
                     ),
-                    client_id: ClientId::from_str(open_init_connection.client_id().as_str())
+                    client_id: ClientId::from_str(open_init_connection.client_id_on_a().as_str())
                         .unwrap(),
                     counterparty_connection_id: open_init_connection
-                        .counterparty_connection_id()
+                        .conn_id_on_b()
                         .map(|e| ConnectionId::from_str(e.as_str()).unwrap()),
-                    counterparty_client_id: Default::default(),
+                    counterparty_client_id: ClientId::from_str(
+                        open_init_connection.client_id_on_b().as_str(),
+                    )
+                    .unwrap(),
                 }),
             )
         }
@@ -108,15 +111,18 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
             HermesIbcEvent::OpenTryConnection(
                 ibc_relayer_types::core::ics03_connection::events::OpenTry::from(Attributes {
                     connection_id: Some(
-                        ConnectionId::from_str(open_try_connection.connection_id().as_str())
+                        ConnectionId::from_str(open_try_connection.conn_id_on_b().as_str())
                             .unwrap(),
                     ),
-                    client_id: ClientId::from_str(open_try_connection.client_id().as_str())
+                    client_id: ClientId::from_str(open_try_connection.client_id_on_b().as_str())
                         .unwrap(),
                     counterparty_connection_id: open_try_connection
-                        .counterparty_connection_id()
+                        .conn_id_on_a()
                         .map(|e| ConnectionId::from_str(e.as_str()).unwrap()),
-                    counterparty_client_id: Default::default(),
+                    counterparty_client_id: ClientId::from_str(
+                        open_try_connection.client_id_on_a().as_str(),
+                    )
+                    .unwrap(),
                 }),
             )
         }
@@ -125,15 +131,18 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
             HermesIbcEvent::OpenAckConnection(
                 ibc_relayer_types::core::ics03_connection::events::OpenAck::from(Attributes {
                     connection_id: Some(
-                        ConnectionId::from_str(open_ack_connection.connection_id().as_str())
+                        ConnectionId::from_str(open_ack_connection.conn_id_on_a().as_str())
                             .unwrap(),
                     ),
-                    client_id: ClientId::from_str(open_ack_connection.client_id().as_str())
+                    client_id: ClientId::from_str(open_ack_connection.client_id_on_a().as_str())
                         .unwrap(),
                     counterparty_connection_id: open_ack_connection
-                        .counterparty_connection_id()
+                        .conn_id_on_b()
                         .map(|e| ConnectionId::from_str(e.as_str()).unwrap()),
-                    counterparty_client_id: Default::default(),
+                    counterparty_client_id: ClientId::from_str(
+                        open_ack_connection.client_id_on_b().as_str(),
+                    )
+                    .unwrap(),
                 }),
             )
         }
@@ -142,126 +151,136 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
             HermesIbcEvent::OpenConfirmConnection(
                 ibc_relayer_types::core::ics03_connection::events::OpenConfirm::from(Attributes {
                     connection_id: Some(
-                        ConnectionId::from_str(open_confirm_connection.connection_id().as_str())
+                        ConnectionId::from_str(open_confirm_connection.conn_id_on_b().as_str())
                             .unwrap(),
                     ),
-                    client_id: ClientId::from_str(open_confirm_connection.client_id().as_str())
-                        .unwrap(),
+                    client_id: ClientId::from_str(
+                        open_confirm_connection.client_id_on_b().as_str(),
+                    )
+                    .unwrap(),
                     counterparty_connection_id: open_confirm_connection
-                        .counterparty_connection_id()
+                        .conn_id_on_a()
                         .map(|e| ConnectionId::from_str(e.as_str()).unwrap()),
-                    counterparty_client_id: Default::default(),
+                    counterparty_client_id: ClientId::from_str(
+                        open_confirm_connection.client_id_on_a().as_str(),
+                    )
+                    .unwrap(),
                 }),
             )
         }
         IbcEvent::OpenInitChannel(open_init_channel) => HermesIbcEvent::OpenInitChannel(
             ibc_relayer_types::core::ics04_channel::events::OpenInit {
-                port_id: PortId::from_str(open_init_channel.port_id().as_str()).unwrap(),
+                port_id: PortId::from_str(open_init_channel.port_id_on_a().as_str()).unwrap(),
                 channel_id: Some(
-                    ChannelId::from_str(open_init_channel.channel_id().as_str()).unwrap(),
+                    ChannelId::from_str(open_init_channel.chan_id_on_a().as_str()).unwrap(),
                 ),
-                connection_id: ConnectionId::from_str(open_init_channel.connection_id().as_str())
+                connection_id: ConnectionId::from_str(open_init_channel.conn_id_on_a().as_str())
                     .unwrap(),
-                counterparty_port_id: PortId::from_str(
-                    open_init_channel.counterparty_port_id().as_str(),
-                )
-                .unwrap(),
+                counterparty_port_id: PortId::from_str(open_init_channel.port_id_on_b().as_str())
+                    .unwrap(),
                 counterparty_channel_id: None,
             },
         ),
         IbcEvent::OpenTryChannel(open_try_channel) => HermesIbcEvent::OpenTryChannel(
             ibc_relayer_types::core::ics04_channel::events::OpenTry {
-                port_id: PortId::from_str(open_try_channel.port_id().as_str()).unwrap(),
+                port_id: PortId::from_str(open_try_channel.port_id_on_b().as_str()).unwrap(),
                 channel_id: Some(
-                    ChannelId::from_str(open_try_channel.channel_id().as_str()).unwrap(),
+                    ChannelId::from_str(open_try_channel.chan_id_on_b().as_str()).unwrap(),
                 ),
-                connection_id: ConnectionId::from_str(open_try_channel.connection_id().as_str())
+                connection_id: ConnectionId::from_str(open_try_channel.conn_id_on_b().as_str())
                     .unwrap(),
-                counterparty_port_id: PortId::from_str(
-                    open_try_channel.counterparty_port_id().as_str(),
-                )
-                .unwrap(),
-                counterparty_channel_id: None,
+                counterparty_port_id: PortId::from_str(open_try_channel.port_id_on_a().as_str())
+                    .unwrap(),
+                counterparty_channel_id: Some(
+                    ChannelId::from_str(open_try_channel.chan_id_on_a().as_str()).unwrap(),
+                ),
             },
         ),
         IbcEvent::OpenAckChannel(open_ack_channel) => HermesIbcEvent::OpenAckChannel(
             ibc_relayer_types::core::ics04_channel::events::OpenAck {
-                port_id: PortId::from_str(open_ack_channel.port_id().as_str()).unwrap(),
+                port_id: PortId::from_str(open_ack_channel.port_id_on_a().as_str()).unwrap(),
                 channel_id: Some(
-                    ChannelId::from_str(open_ack_channel.channel_id().as_str()).unwrap(),
+                    ChannelId::from_str(open_ack_channel.chan_id_on_a().as_str()).unwrap(),
                 ),
-                connection_id: ConnectionId::from_str(open_ack_channel.connection_id().as_str())
+                connection_id: ConnectionId::from_str(open_ack_channel.conn_id_on_a().as_str())
                     .unwrap(),
-                counterparty_port_id: PortId::from_str(
-                    open_ack_channel.counterparty_port_id().as_str(),
-                )
-                .unwrap(),
-                counterparty_channel_id: None,
+                counterparty_port_id: PortId::from_str(open_ack_channel.port_id_on_b().as_str())
+                    .unwrap(),
+                counterparty_channel_id: Some(
+                    ChannelId::from_str(open_ack_channel.chan_id_on_b().as_str()).unwrap(),
+                ),
             },
         ),
         IbcEvent::OpenConfirmChannel(open_confirm_channel) => HermesIbcEvent::OpenConfirmChannel(
             ibc_relayer_types::core::ics04_channel::events::OpenConfirm {
-                port_id: PortId::from_str(open_confirm_channel.port_id().as_str()).unwrap(),
+                port_id: PortId::from_str(open_confirm_channel.port_id_on_b().as_str()).unwrap(),
                 channel_id: Some(
-                    ChannelId::from_str(open_confirm_channel.channel_id().as_str()).unwrap(),
+                    ChannelId::from_str(open_confirm_channel.chan_id_on_b().as_str()).unwrap(),
                 ),
-                connection_id: ConnectionId::from_str(
-                    open_confirm_channel.connection_id().as_str(),
-                )
-                .unwrap(),
+                connection_id: ConnectionId::from_str(open_confirm_channel.conn_id_on_b().as_str())
+                    .unwrap(),
                 counterparty_port_id: PortId::from_str(
-                    open_confirm_channel.counterparty_port_id().as_str(),
+                    open_confirm_channel.port_id_on_a().as_str(),
                 )
                 .unwrap(),
-                counterparty_channel_id: None,
+                counterparty_channel_id: Some(
+                    ChannelId::from_str(open_confirm_channel.chan_id_on_a().as_str()).unwrap(),
+                ),
             },
         ),
         IbcEvent::CloseInitChannel(close_init_channel) => HermesIbcEvent::CloseInitChannel(
             ibc_relayer_types::core::ics04_channel::events::CloseInit {
-                port_id: PortId::from_str(close_init_channel.port_id().as_str()).unwrap(),
-                channel_id: ChannelId::from_str(close_init_channel.channel_id().as_str()).unwrap(),
-                connection_id: ConnectionId::from_str(close_init_channel.connection_id().as_str())
+                port_id: PortId::from_str(close_init_channel.port_id_on_a().as_str()).unwrap(),
+                channel_id: ChannelId::from_str(close_init_channel.chan_id_on_a().as_str())
                     .unwrap(),
-                counterparty_port_id: PortId::from_str(
-                    close_init_channel.counterparty_port_id().as_str(),
-                )
-                .unwrap(),
-                counterparty_channel_id: None,
+                connection_id: ConnectionId::from_str(close_init_channel.conn_id_on_a().as_str())
+                    .unwrap(),
+                counterparty_port_id: PortId::from_str(close_init_channel.port_id_on_b().as_str())
+                    .unwrap(),
+                counterparty_channel_id: Some(
+                    ChannelId::from_str(close_init_channel.chan_id_on_b().as_str()).unwrap(),
+                ),
             },
         ),
         IbcEvent::CloseConfirmChannel(close_confirm_channel) => {
             HermesIbcEvent::CloseConfirmChannel(
                 ibc_relayer_types::core::ics04_channel::events::CloseConfirm {
                     channel_id: Some(
-                        ChannelId::from_str(close_confirm_channel.channel_id().as_str()).unwrap(),
+                        ChannelId::from_str(close_confirm_channel.chan_id_on_b().as_str()).unwrap(),
                     ),
-                    port_id: PortId::from_str(close_confirm_channel.port_id().as_str()).unwrap(),
+                    port_id: PortId::from_str(close_confirm_channel.port_id_on_b().as_str())
+                        .unwrap(),
                     connection_id: ConnectionId::from_str(
-                        close_confirm_channel.connection_id().as_str(),
+                        close_confirm_channel.conn_id_on_b().as_str(),
                     )
                     .unwrap(),
                     counterparty_port_id: PortId::from_str(
-                        close_confirm_channel.counterparty_port_id().as_str(),
+                        close_confirm_channel.port_id_on_a().as_str(),
                     )
                     .unwrap(),
-                    counterparty_channel_id: None,
+                    counterparty_channel_id: Some(
+                        ChannelId::from_str(close_confirm_channel.chan_id_on_a().as_str()).unwrap(),
+                    ),
                 },
             )
         }
         IbcEvent::SendPacket(send_packet) => {
             HermesIbcEvent::SendPacket(ibc_relayer_types::core::ics04_channel::events::SendPacket {
                 packet: Packet {
-                    sequence: u64::from(*send_packet.sequence()).into(),
-                    source_port: PortId::from_str(send_packet.src_port_id().as_str()).unwrap(),
-                    source_channel: ChannelId::from_str(send_packet.src_channel_id().as_str())
+                    sequence: u64::from(*send_packet.seq_on_a()).into(),
+                    source_port: PortId::from_str(send_packet.port_id_on_a().as_str()).unwrap(),
+                    source_channel: ChannelId::from_str(send_packet.chan_id_on_a().as_str())
                         .unwrap(),
-                    destination_port: PortId::from_str(send_packet.dst_port_id().as_str()).unwrap(),
-                    destination_channel: ChannelId::from_str(send_packet.dst_channel_id().as_str())
+                    destination_port: PortId::from_str(send_packet.port_id_on_b().as_str())
+                        .unwrap(),
+                    destination_channel: ChannelId::from_str(send_packet.chan_id_on_b().as_str())
                         .unwrap(),
                     data: send_packet.packet_data().to_vec(),
-                    timeout_height: convert_timeout_height(send_packet.timeout_height().clone()),
+                    timeout_height: convert_timeout_height(
+                        send_packet.timeout_height_on_b().clone(),
+                    ),
                     timeout_timestamp: Timestamp::from_nanoseconds(
-                        send_packet.timeout_timestamp().nanoseconds(),
+                        send_packet.timeout_timestamp_on_b().nanoseconds(),
                     )
                     .unwrap(),
                 },
@@ -270,20 +289,22 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
         IbcEvent::ReceivePacket(receive_packet) => HermesIbcEvent::ReceivePacket(
             ibc_relayer_types::core::ics04_channel::events::ReceivePacket {
                 packet: Packet {
-                    sequence: u64::from(*receive_packet.sequence()).into(),
-                    source_port: PortId::from_str(receive_packet.src_port_id().as_str()).unwrap(),
-                    source_channel: ChannelId::from_str(receive_packet.src_channel_id().as_str())
+                    sequence: u64::from(*receive_packet.seq_on_b()).into(),
+                    source_port: PortId::from_str(receive_packet.port_id_on_b().as_str()).unwrap(),
+                    source_channel: ChannelId::from_str(receive_packet.chan_id_on_b().as_str())
                         .unwrap(),
-                    destination_port: PortId::from_str(receive_packet.dst_port_id().as_str())
+                    destination_port: PortId::from_str(receive_packet.port_id_on_a().as_str())
                         .unwrap(),
                     destination_channel: ChannelId::from_str(
-                        receive_packet.dst_channel_id().as_str(),
+                        receive_packet.chan_id_on_a().as_str(),
                     )
                     .unwrap(),
                     data: receive_packet.packet_data().to_vec(),
-                    timeout_height: convert_timeout_height(receive_packet.timeout_height().clone()),
+                    timeout_height: convert_timeout_height(
+                        receive_packet.timeout_height_on_b().clone(),
+                    ),
                     timeout_timestamp: Timestamp::from_nanoseconds(
-                        receive_packet.timeout_timestamp().nanoseconds(),
+                        receive_packet.timeout_timestamp_on_b().nanoseconds(),
                     )
                     .unwrap(),
                 },
@@ -293,27 +314,29 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
             HermesIbcEvent::WriteAcknowledgement(
                 ibc_relayer_types::core::ics04_channel::events::WriteAcknowledgement {
                     packet: Packet {
-                        sequence: u64::from(*write_acknowledgement.sequence()).into(),
-                        source_port: PortId::from_str(write_acknowledgement.src_port_id().as_str())
-                            .unwrap(),
+                        sequence: u64::from(*write_acknowledgement.seq_on_a()).into(),
+                        source_port: PortId::from_str(
+                            write_acknowledgement.port_id_on_a().as_str(),
+                        )
+                        .unwrap(),
                         source_channel: ChannelId::from_str(
-                            write_acknowledgement.src_channel_id().as_str(),
+                            write_acknowledgement.chan_id_on_a().as_str(),
                         )
                         .unwrap(),
                         destination_port: PortId::from_str(
-                            write_acknowledgement.dst_port_id().as_str(),
+                            write_acknowledgement.port_id_on_b().as_str(),
                         )
                         .unwrap(),
                         destination_channel: ChannelId::from_str(
-                            write_acknowledgement.dst_channel_id().as_str(),
+                            write_acknowledgement.chan_id_on_b().as_str(),
                         )
                         .unwrap(),
                         data: write_acknowledgement.packet_data().to_vec(),
                         timeout_height: convert_timeout_height(
-                            write_acknowledgement.timeout_height().clone(),
+                            write_acknowledgement.timeout_height_on_b().clone(),
                         ),
                         timeout_timestamp: Timestamp::from_nanoseconds(
-                            write_acknowledgement.timeout_timestamp().nanoseconds(),
+                            write_acknowledgement.timeout_timestamp_on_b().nanoseconds(),
                         )
                         .unwrap(),
                     },
@@ -324,25 +347,23 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
         IbcEvent::AcknowledgePacket(acknowledge_packet) => HermesIbcEvent::AcknowledgePacket(
             ibc_relayer_types::core::ics04_channel::events::AcknowledgePacket {
                 packet: Packet {
-                    sequence: u64::from(*acknowledge_packet.sequence()).into(),
-                    source_port: PortId::from_str(acknowledge_packet.src_port_id().as_str())
+                    sequence: u64::from(*acknowledge_packet.seq_on_a()).into(),
+                    source_port: PortId::from_str(acknowledge_packet.port_id_on_a().as_str())
                         .unwrap(),
-                    source_channel: ChannelId::from_str(
-                        acknowledge_packet.src_channel_id().as_str(),
-                    )
-                    .unwrap(),
-                    destination_port: PortId::from_str(acknowledge_packet.dst_port_id().as_str())
+                    source_channel: ChannelId::from_str(acknowledge_packet.chan_id_on_a().as_str())
+                        .unwrap(),
+                    destination_port: PortId::from_str(acknowledge_packet.port_id_on_b().as_str())
                         .unwrap(),
                     destination_channel: ChannelId::from_str(
-                        acknowledge_packet.dst_channel_id().as_str(),
+                        acknowledge_packet.chan_id_on_b().as_str(),
                     )
                     .unwrap(),
                     data: vec![],
                     timeout_height: convert_timeout_height(
-                        acknowledge_packet.timeout_height().clone(),
+                        acknowledge_packet.timeout_height_on_b().clone(),
                     ),
                     timeout_timestamp: Timestamp::from_nanoseconds(
-                        acknowledge_packet.timeout_timestamp().nanoseconds(),
+                        acknowledge_packet.timeout_timestamp_on_b().nanoseconds(),
                     )
                     .unwrap(),
                 },
@@ -351,20 +372,22 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
         IbcEvent::TimeoutPacket(timeout_packet) => HermesIbcEvent::TimeoutPacket(
             ibc_relayer_types::core::ics04_channel::events::TimeoutPacket {
                 packet: Packet {
-                    sequence: u64::from(*timeout_packet.sequence()).into(),
-                    source_port: PortId::from_str(timeout_packet.src_port_id().as_str()).unwrap(),
-                    source_channel: ChannelId::from_str(timeout_packet.src_channel_id().as_str())
+                    sequence: u64::from(*timeout_packet.seq_on_a()).into(),
+                    source_port: PortId::from_str(timeout_packet.port_id_on_a().as_str()).unwrap(),
+                    source_channel: ChannelId::from_str(timeout_packet.chan_id_on_a().as_str())
                         .unwrap(),
-                    destination_port: PortId::from_str(timeout_packet.dst_port_id().as_str())
+                    destination_port: PortId::from_str(timeout_packet.port_id_on_b().as_str())
                         .unwrap(),
                     destination_channel: ChannelId::from_str(
-                        timeout_packet.dst_channel_id().as_str(),
+                        timeout_packet.chan_id_on_b().as_str(),
                     )
                     .unwrap(),
                     data: vec![],
-                    timeout_height: convert_timeout_height(timeout_packet.timeout_height().clone()),
+                    timeout_height: convert_timeout_height(
+                        timeout_packet.timeout_height_on_b().clone(),
+                    ),
                     timeout_timestamp: Timestamp::from_nanoseconds(
-                        timeout_packet.timeout_timestamp().nanoseconds(),
+                        timeout_packet.timeout_timestamp_on_b().nanoseconds(),
                     )
                     .unwrap(),
                 },

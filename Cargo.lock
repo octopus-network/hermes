@@ -599,7 +599,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4114279215a005bc675e386011e594e1d9b800918cea18fcadadcce864a2046b"
 dependencies = [
  "borsh-derive 0.10.3",
- "hashbrown 0.12.3",
+ "hashbrown 0.13.2",
 ]
 
 [[package]]
@@ -789,9 +789,9 @@ checksum = "e6e9e01327e6c86e92ec72b1c798d4a94810f147209bbe3ffab6a86954937a6f"
 
 [[package]]
 name = "cargo-platform"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbdb825da8a5df079a43676dbe042702f1707b1109f713a01420fbb4cc71fa27"
+checksum = "2cfa25e60aea747ec7e1124f238816749faa93759c6ff5b31f1ccdda137f4479"
 dependencies = [
  "serde",
 ]
@@ -1264,8 +1264,18 @@ version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b750cb3417fd1b327431a470f388520309479ab0bf5e323505daf0290cd3850"
 dependencies = [
- "darling_core",
- "darling_macro",
+ "darling_core 0.14.4",
+ "darling_macro 0.14.4",
+]
+
+[[package]]
+name = "darling"
+version = "0.20.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0209d94da627ab5605dcccf08bb18afa5009cfbef48d8a8b7d7bdbc79be25c5e"
+dependencies = [
+ "darling_core 0.20.3",
+ "darling_macro 0.20.3",
 ]
 
 [[package]]
@@ -1283,14 +1293,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "darling_core"
+version = "0.20.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "177e3443818124b357d8e76f53be906d60937f0d3a90773a664fa63fa253e621"
+dependencies = [
+ "fnv",
+ "ident_case",
+ "proc-macro2",
+ "quote",
+ "strsim",
+ "syn 2.0.25",
+]
+
+[[package]]
 name = "darling_macro"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4aab4dbc9f7611d8b55048a3a16d2d010c2c8334e46304b40ac1cc14bf3b48e"
 dependencies = [
- "darling_core",
+ "darling_core 0.14.4",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "darling_macro"
+version = "0.20.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "836a9bbc7ad63342d6d6e7b815ccab164bc77a2d95d84bc3117a8c0d5c98e2d5"
+dependencies = [
+ "darling_core 0.20.3",
+ "quote",
+ "syn 2.0.25",
 ]
 
 [[package]]
@@ -2726,14 +2761,13 @@ dependencies = [
 
 [[package]]
 name = "ibc"
-version = "0.41.0"
-source = "git+https://github.com/octopus-network/ibc-rs.git?branch=for-near-ibc-pre2#2f86448a736db4b01439ce2e7b175b47f5028e8b"
+version = "0.42.0"
+source = "git+https://github.com/octopus-network/ibc-rs.git?branch=octopus-relayer-v0.42.0#0167f6707371219d6508e33bba9529370a8185ab"
 dependencies = [
  "bytes",
  "derive_more",
  "displaydoc",
- "dyn-clone",
- "erased-serde",
+ "ibc-derive",
  "ibc-proto 0.32.0",
  "ics23 0.10.1",
  "num-traits",
@@ -2770,6 +2804,17 @@ dependencies = [
  "tendermint-rpc",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "ibc-derive"
+version = "0.1.0"
+source = "git+https://github.com/octopus-network/ibc-rs.git?branch=octopus-relayer-v0.42.0#0167f6707371219d6508e33bba9529370a8185ab"
+dependencies = [
+ "darling 0.20.3",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.25",
 ]
 
 [[package]]
@@ -2826,7 +2871,7 @@ dependencies = [
 [[package]]
 name = "ibc-proto"
 version = "0.32.0"
-source = "git+https://github.com/octopus-network/ibc-proto-rs.git?branch=for-near-ibc-pre2#d624a3fde8c02c2a2cbd0d6a6f60a4911bbde63e"
+source = "git+https://github.com/octopus-network/ibc-proto-rs.git?branch=octopus-relayer-v0.32.0#45f37767f7f05df9f0e158987048d62e4b976547"
 dependencies = [
  "base64 0.21.2",
  "bytes",
@@ -2870,7 +2915,7 @@ dependencies = [
  "http",
  "humantime",
  "humantime-serde",
- "ibc 0.41.0",
+ "ibc 0.42.0",
  "ibc-proto 0.32.0",
  "ibc-relayer-types",
  "ibc-telemetry",
@@ -7110,7 +7155,7 @@ version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7722c31febf55eb300c73d977da5d65cfd6fb443419b1185b9abcdd9925fd7be"
 dependencies = [
- "darling",
+ "darling 0.14.4",
  "frame-metadata",
  "heck",
  "hex",
@@ -7131,7 +7176,7 @@ version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f64826f2c4ba20e3b2a86ec81a6ae8655ca6b6a4c2a6ccc888b6615efc2df14"
 dependencies = [
- "darling",
+ "darling 0.14.4",
  "proc-macro-error",
  "subxt-codegen",
  "syn 1.0.109",
@@ -7815,9 +7860,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.19.12"
+version = "0.19.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c500344a19072298cd05a7224b3c0c629348b78692bf48466c5238656e315a78"
+checksum = "5f8751d9c1b03c6500c387e96f81f815a4f8e72d142d2d4a9ffa6fedd51ddee7"
 dependencies = [
  "indexmap 2.0.0",
  "serde",
@@ -8809,9 +8854,9 @@ checksum = "1a515f5799fe4961cb532f983ce2b23082366b898e52ffbce459c86f67c8378a"
 
 [[package]]
 name = "winnow"
-version = "0.4.9"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81a2094c43cc94775293eaa0e499fbc30048a6d824ac82c0351a8c0bf9112529"
+checksum = "81fac9742fd1ad1bd9643b991319f72dd031016d44b77039a26977eb667141e7"
 dependencies = [
  "memchr",
 ]
