@@ -1185,7 +1185,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             );
 
             msgs.push(MsgUpdateClient {
-                header: header.into(),
+                client_message: header.into(),
                 client_id: self.id.clone(),
                 signer: signer.clone(),
             });
@@ -1198,7 +1198,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         );
 
         msgs.push(MsgUpdateClient {
-            header: header.into(),
+            client_message: header.into(),
             signer,
             client_id: self.id.clone(),
         });
@@ -1648,7 +1648,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         for header in evidence.supporting_headers {
             msgs.push(
                 MsgUpdateClient {
-                    header: header.into(),
+                    client_message: header.into(),
                     client_id: self.id.clone(),
                     signer: signer.clone(),
                 }
