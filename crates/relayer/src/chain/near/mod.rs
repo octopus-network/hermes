@@ -582,12 +582,9 @@ impl ChainEndpoint for NearChain {
         let QueryClientStateRequest { client_id, height } = request;
 
         let _query_height = match height {
-            QueryHeight::Latest => {
-                let height = self
-                    .get_latest_height()
-                    .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                height
-            }
+            QueryHeight::Latest => self
+                .get_latest_height()
+                .map_err(|_| Error::report_error("query_latest_height".to_string()))?,
             QueryHeight::Specific(value) => value,
         };
 
@@ -625,7 +622,7 @@ impl ChainEndpoint for NearChain {
             .get_client_consensus(&client_id, &consensus_height)
             .map_err(|_| Error::report_error("query_client_consensus".to_string()))?;
 
-        if result.len() == 0 {
+        if result.is_empty() {
             return Err(Error::report_error("query_client_consensus".to_string()));
         }
 
@@ -751,7 +748,7 @@ impl ChainEndpoint for NearChain {
             .map_err(|_| Error::report_error("query_connection_end".to_string()))?;
 
         // update ConnectionsPath key
-        let _connections_path = ConnectionsPath(connection_id.clone()).to_string();
+        let _connections_path = ConnectionsPath(connection_id).to_string();
 
         Ok((connection_end, Some(MerkleProof::default())))
 
@@ -833,17 +830,14 @@ impl ChainEndpoint for NearChain {
             .map_err(|_| Error::report_error("query_channel_end".to_string()))?;
 
         // use channel_end path as key
-        let _channel_end_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string();
+        let _channel_end_path = ChannelEndsPath(port_id, channel_id).to_string();
 
         match include_proof {
             IncludeProof::Yes => {
                 let _query_height = match height {
-                    QueryHeight::Latest => {
-                        let height = self
-                            .get_latest_height()
-                            .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                        height
-                    }
+                    QueryHeight::Latest => self
+                        .get_latest_height()
+                        .map_err(|_| Error::report_error("query_latest_height".to_string()))?,
                     QueryHeight::Specific(value) => value,
                 };
 
@@ -883,21 +877,18 @@ impl ChainEndpoint for NearChain {
             .map_err(|_| Error::report_error("query_packet_commitment".to_string()))?;
 
         let _packet_commits_path = CommitmentsPath {
-            port_id: port_id.clone(),
-            channel_id: channel_id.clone(),
-            sequence: sequence.clone(),
+            port_id,
+            channel_id,
+            sequence,
         }
         .to_string();
 
         match include_proof {
             IncludeProof::Yes => {
                 let _query_height = match height {
-                    QueryHeight::Latest => {
-                        let height = self
-                            .get_latest_height()
-                            .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                        height
-                    }
+                    QueryHeight::Latest => self
+                        .get_latest_height()
+                        .map_err(|_| Error::report_error("query_latest_height".to_string()))?,
                     QueryHeight::Specific(value) => value,
                 };
                 Ok((packet_commit, Some(MerkleProof::default())))
@@ -944,21 +935,18 @@ impl ChainEndpoint for NearChain {
             .map_err(|_| Error::report_error("query_packet_receipt".to_string()))?;
 
         let packet_receipt_path = ReceiptsPath {
-            port_id: port_id.clone(),
-            channel_id: channel_id.clone(),
-            sequence: sequence.clone(),
+            port_id,
+            channel_id,
+            sequence,
         }
         .to_string();
 
         match include_proof {
             IncludeProof::Yes => {
                 let query_height = match height {
-                    QueryHeight::Latest => {
-                        let height = self
-                            .get_latest_height()
-                            .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                        height
-                    }
+                    QueryHeight::Latest => self
+                        .get_latest_height()
+                        .map_err(|_| Error::report_error("query_latest_height".to_string()))?,
                     QueryHeight::Specific(value) => value,
                 };
                 Ok((
@@ -998,7 +986,7 @@ impl ChainEndpoint for NearChain {
             .get_unreceipt_packet(&port_id, &channel_id, &sequences)
             .map_err(|_| Error::report_error("get_unreceipt_packet".to_string()))?
             .into_iter()
-            .map(|value| Sequence::from(value))
+            .map(Sequence::from)
             .collect();
 
         Ok(result)
@@ -1021,21 +1009,18 @@ impl ChainEndpoint for NearChain {
             .map_err(|_| Error::report_error("query_packet_acknowledgement".to_string()))?;
 
         let packet_acknowledgement_path = AcksPath {
-            port_id: port_id.clone(),
-            channel_id: channel_id.clone(),
-            sequence: sequence.clone(),
+            port_id,
+            channel_id,
+            sequence,
         }
         .to_string();
 
         match include_proof {
             IncludeProof::Yes => {
                 let query_height = match height {
-                    QueryHeight::Latest => {
-                        let height = self
-                            .get_latest_height()
-                            .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                        height
-                    }
+                    QueryHeight::Latest => self
+                        .get_latest_height()
+                        .map_err(|_| Error::report_error("query_latest_height".to_string()))?,
                     QueryHeight::Specific(value) => value,
                 };
                 Ok((
@@ -1099,7 +1084,7 @@ impl ChainEndpoint for NearChain {
 
             // if packet commitment still exists on the original sending chain, then packet ack is unreceived
             // since processing the ack will delete the packet commitment
-            if let Ok(_) = cmt {
+            if cmt.is_ok() {
                 unreceived_seqs.push(seq);
             }
         }
@@ -1128,18 +1113,14 @@ impl ChainEndpoint for NearChain {
             .get_next_sequence_receive(&port_id, &channel_id)
             .map_err(|_| Error::report_error("query_next_sequence_receive".to_string()))?;
 
-        let next_sequence_receive_path =
-            SeqRecvsPath(port_id.clone(), channel_id.clone()).to_string();
+        let next_sequence_receive_path = SeqRecvsPath(port_id, channel_id).to_string();
 
         match include_proof {
             IncludeProof::Yes => {
                 let query_height = match height {
-                    QueryHeight::Latest => {
-                        let height = self
-                            .get_latest_height()
-                            .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-                        height
-                    }
+                    QueryHeight::Latest => self
+                        .get_latest_height()
+                        .map_err(|_| Error::report_error("query_latest_height".to_string()))?,
                     QueryHeight::Specific(value) => value,
                 };
                 Ok((
@@ -1197,7 +1178,7 @@ impl ChainEndpoint for NearChain {
             self.id(),
             request
         );
-        let mut request = request.clone();
+        let mut request = request;
         request.height = request.height.map(|height| match height {
             QueryHeight::Latest => QueryHeight::Latest,
             QueryHeight::Specific(value) => QueryHeight::Specific(
@@ -1211,7 +1192,7 @@ impl ChainEndpoint for NearChain {
         for (height, ibc_events) in original_result {
             ibc_events.iter().for_each(|ibc_event| {
                 result.push(IbcEventWithHeight {
-                    event: convert_ibc_event_to_hermes_ibc_event(&ibc_event),
+                    event: convert_ibc_event_to_hermes_ibc_event(ibc_event),
                     height,
                 })
             });
@@ -1321,7 +1302,7 @@ impl ChainEndpoint for NearChain {
                 new_pub_key: Some(pk),
                 new_diversifier: CLIENT_DIVERSIFIER.to_string(),
             };
-            timestamp = timestamp + 1;
+            timestamp += 1;
 
             let sig_data = self.sign_bytes_with_solomachine_pubkey(
                 seq,
@@ -1510,15 +1491,12 @@ impl ChainEndpoint for NearChain {
                 let data = ConsensusStateData {
                     path: format!(
                         "/{}/clients%2F{}%2FconsensusStates%2F0-{}",
-                        String::from_utf8(commitment_prefix.clone().into_vec()).unwrap(),
+                        String::from_utf8(commitment_prefix.into_vec()).unwrap(),
                         client_id.as_str(),
-                        client_state_value
-                            .latest_height()
-                            .revision_height()
-                            .to_string()
+                        client_state_value.latest_height().revision_height()
                     )
                     .into(),
-                    consensus_state: Some(consensus_state_value.clone().into()),
+                    consensus_state: Some(consensus_state_value.into()),
                 };
                 debug!("{}: ConsensusStateData: {:?}", self.id(), data);
                 Message::encode(&data, &mut buf).unwrap();
@@ -1596,10 +1574,10 @@ impl ChainEndpoint for NearChain {
         let data = ChannelStateData {
             path: ("/ibc/channelEnds%2Fports%2F".to_string()
                 + port_id.as_str()
-                + &"%2Fchannels%2F".to_string()
+                + "%2Fchannels%2F"
                 + channel_id.as_str())
             .into(),
-            channel: Some(channel.clone().into()),
+            channel: Some(channel.into()),
         };
         println!("ys-debug: ChannelStateData: {:?}", data);
         Message::encode(&data, &mut buf).unwrap();

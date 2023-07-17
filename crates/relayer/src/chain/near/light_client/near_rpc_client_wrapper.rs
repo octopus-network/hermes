@@ -75,12 +75,12 @@ impl NearRpcClientWrapper {
                 let query_resp = self
                     .query(
                         &methods::next_light_client_block::RpcLightClientNextBlockRequest {
-                            last_block_hash: last_block_hash.clone(),
+                            last_block_hash: *last_block_hash,
                         },
                     )
                     .await?;
-                if query_resp.is_some() {
-                    anyhow::Ok(query_resp.unwrap())
+                if let Some(result) = query_resp {
+                    anyhow::Ok(result)
                 } else {
                     anyhow::bail!("Failed to get next light client block. Response is empty.")
                 }
@@ -135,7 +135,7 @@ impl NearRpcClientWrapper {
                     .query(
                         &methods::light_client_proof::RpcLightClientExecutionProofRequest {
                             id: id.clone(),
-                            light_client_head: light_client_head.clone(),
+                            light_client_head: *light_client_head,
                         },
                     )
                     .await?;

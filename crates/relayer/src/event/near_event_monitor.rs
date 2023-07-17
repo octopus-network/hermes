@@ -163,15 +163,16 @@ impl NearEventMonitor {
                 let unchecked_heights = heights
                     .iter()
                     .filter(|h| !self.checked_heights.contains(h))
-                    .map(|h| *h)
-                    .collect::<Vec<u64>>();
-                if unchecked_heights.len() > 0 {
+                    .copied()
+                    .collect::<Vec<_>>();
+
+                if !unchecked_heights.is_empty() {
                     let height = unchecked_heights[0];
                     info!("querying ibc events at height: {}", height);
                     let event_tx = self.event_tx.as_ref().unwrap();
                     match self.query_events_at_height(&Height::new(0, height).unwrap()) {
                         Ok(batch) => {
-                            if batch.events.len() > 0 {
+                            if !batch.events.is_empty() {
                                 info!("ibc events found at height {}: {:?}", height, batch);
                                 if let Err(e) = event_tx.send(Arc::new(Ok(batch))) {
                                     error!("failed to send event batch: {}", e);
@@ -193,7 +194,7 @@ impl NearEventMonitor {
     fn get_ibc_events_heights(&self) -> Vec<u64> {
         self.get_rt()
             .block_on(self.get_client().view(
-                self.get_contract_id().clone(),
+                self.get_contract_id(),
                 "get_ibc_events_heights".to_string(),
                 json!({}).to_string().into_bytes(),
             ))
@@ -204,7 +205,7 @@ impl NearEventMonitor {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_ibc_events_at".to_string(),
                     json!({ "height": height.revision_height() })
                         .to_string()
@@ -214,7 +215,7 @@ impl NearEventMonitor {
             .map_or_else(
                 |_| {
                     Ok(EventBatch {
-                        height: height.clone(),
+                        height: *height,
                         events: vec![],
                         chain_id: self.chain_id.clone(),
                         tracking_id: TrackingId::new_uuid(),
@@ -223,11 +224,11 @@ impl NearEventMonitor {
                 |result| {
                     let ibc_events: Vec<ibc::core::events::IbcEvent> = result.json().unwrap();
                     Ok(EventBatch {
-                        height: height.clone(),
+                        height: *height,
                         events: ibc_events
                             .iter()
                             .map(|event| IbcEventWithHeight {
-                                height: height.clone(),
+                                height: *height,
                                 event: convert_ibc_event_to_hermes_ibc_event(event),
                             })
                             .collect(),

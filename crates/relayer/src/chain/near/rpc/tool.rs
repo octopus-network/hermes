@@ -275,9 +275,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                     destination_channel: ChannelId::from_str(send_packet.chan_id_on_b().as_str())
                         .unwrap(),
                     data: send_packet.packet_data().to_vec(),
-                    timeout_height: convert_timeout_height(
-                        send_packet.timeout_height_on_b().clone(),
-                    ),
+                    timeout_height: convert_timeout_height(*send_packet.timeout_height_on_b()),
                     timeout_timestamp: Timestamp::from_nanoseconds(
                         send_packet.timeout_timestamp_on_b().nanoseconds(),
                     )
@@ -299,9 +297,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                     )
                     .unwrap(),
                     data: receive_packet.packet_data().to_vec(),
-                    timeout_height: convert_timeout_height(
-                        receive_packet.timeout_height_on_b().clone(),
-                    ),
+                    timeout_height: convert_timeout_height(*receive_packet.timeout_height_on_b()),
                     timeout_timestamp: Timestamp::from_nanoseconds(
                         receive_packet.timeout_timestamp_on_b().nanoseconds(),
                     )
@@ -332,7 +328,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                         .unwrap(),
                         data: write_acknowledgement.packet_data().to_vec(),
                         timeout_height: convert_timeout_height(
-                            write_acknowledgement.timeout_height_on_b().clone(),
+                            *write_acknowledgement.timeout_height_on_b(),
                         ),
                         timeout_timestamp: Timestamp::from_nanoseconds(
                             write_acknowledgement.timeout_timestamp_on_b().nanoseconds(),
@@ -359,7 +355,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                     .unwrap(),
                     data: vec![],
                     timeout_height: convert_timeout_height(
-                        acknowledge_packet.timeout_height_on_b().clone(),
+                        *acknowledge_packet.timeout_height_on_b(),
                     ),
                     timeout_timestamp: Timestamp::from_nanoseconds(
                         acknowledge_packet.timeout_timestamp_on_b().nanoseconds(),
@@ -382,9 +378,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                     )
                     .unwrap(),
                     data: vec![],
-                    timeout_height: convert_timeout_height(
-                        timeout_packet.timeout_height_on_b().clone(),
-                    ),
+                    timeout_height: convert_timeout_height(*timeout_packet.timeout_height_on_b()),
                     timeout_timestamp: Timestamp::from_nanoseconds(
                         timeout_packet.timeout_timestamp_on_b().nanoseconds(),
                     )

@@ -33,10 +33,9 @@ impl BasicNearLightClient for LightClient {
     fn get_consensus_state(&self, height: &Height) -> Option<ConsensusState> {
         let file_name = format!("{}/{}/{}", self.base_folder, HEAD_DATA_SUB_FOLDER, height);
         if let Ok(bytes) = std::fs::read(file_name) {
-            return Some(
-                ConsensusState::try_from_slice(&bytes)
-                    .expect(format!("Invalid head data file for height {}.", height).as_str()),
-            );
+            return Some(ConsensusState::try_from_slice(&bytes).unwrap_or_else(|_| {
+                panic!("Failed to deserialize head data for height {}.", height)
+            }));
         }
         None
     }
@@ -47,17 +46,17 @@ impl LightClient {
     pub fn new(base_folder: String) -> Self {
         let (queue, _map) = get_cached_heights(&base_folder);
         LightClient {
-            base_folder: base_folder.clone(),
+            base_folder,
             cached_heights: queue,
         }
     }
     ///
     pub fn oldest_height(&self) -> Option<u64> {
-        self.cached_heights.front().map(|h| *h)
+        self.cached_heights.front().copied()
     }
     ///
     pub fn cached_heights(&self) -> Vec<u64> {
-        self.cached_heights.iter().map(|h| *h).collect()
+        self.cached_heights.iter().copied().collect()
     }
     ///
     pub fn set_consensus_state(&mut self, height: &Height, consensus_state: ConsensusState) {
@@ -69,8 +68,9 @@ impl LightClient {
     pub fn remove_oldest_head(&mut self) {
         if let Some(height) = self.cached_heights.pop_front() {
             let file_name = format!("{}/{}/{}", self.base_folder, HEAD_DATA_SUB_FOLDER, height);
-            std::fs::remove_file(file_name)
-                .expect(format!("Failed to remove head data file for height {}.", height).as_str());
+            std::fs::remove_file(file_name).unwrap_or_else(|_| {
+                panic!("Failed to remove head data file for height {}.", height)
+            });
         }
     }
     ///
@@ -114,7 +114,8 @@ pub fn get_cached_heights(
         if path.is_file() {
             if let Ok(bytes) = std::fs::read(path.as_os_str()) {
                 let head = ConsensusState::try_from_slice(&bytes)
-                    .expect(format!("Invalid head data file {}.", path.display()).as_str());
+                    .unwrap_or_else(|_| panic!("Failed to deserialize head data file."));
+                // .expect(format!("Invalid head data file {}.", path.display()).as_str());
                 heights.push(head.header.light_client_block.inner_lite.height);
                 let current_block_hash = head.header.light_client_block.current_block_hash();
                 result_map.insert(
