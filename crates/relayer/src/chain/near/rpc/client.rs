@@ -318,7 +318,7 @@ impl NearRpcClient {
         args: Vec<u8>,
     ) -> anyhow::Result<FinalExecutionOutcomeView> {
         send_batch_tx_and_retry(
-            &self,
+            self,
             signer,
             &signer.account_id,
             vec![
@@ -367,7 +367,7 @@ impl NearRpcClient {
             vec![
                 CreateAccountAction {}.into(),
                 AddKeyAction {
-                    public_key: new_account_pk.into(),
+                    public_key: new_account_pk,
                     access_key: AccessKey {
                         nonce: 0,
                         permission: AccessKeyPermission::FullAccess,
@@ -395,7 +395,7 @@ impl NearRpcClient {
             vec![
                 CreateAccountAction {}.into(),
                 AddKeyAction {
-                    public_key: new_account_pk.into(),
+                    public_key: new_account_pk,
                     access_key: AccessKey {
                         nonce: 0,
                         permission: AccessKeyPermission::FullAccess,

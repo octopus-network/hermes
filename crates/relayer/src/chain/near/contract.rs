@@ -35,7 +35,7 @@ pub trait NearIbcContract {
         let height: Height = self
             .get_rt()
             .block_on(self.get_client().view(
-                self.get_contract_id().clone(),
+                self.get_contract_id(),
                 "get_latest_height".to_string(),
                 json!({}).to_string().into_bytes(),
             ))
@@ -61,7 +61,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_connection_end".to_string(),
                     json!({ "connection_id": connection_id })
                         .to_string()
@@ -92,7 +92,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_channel_end".to_string(),
                     json!({"port_id": port_id, "channel_id": channel_id})
                         .to_string()
@@ -113,7 +113,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_client_state".to_string(),
                     json!({"client_id": client_id.clone()})
                         .to_string()
@@ -132,7 +132,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_client_consensus_heights".to_string(),
                     json!({"client_id": client_id.clone()})
                         .to_string()
@@ -157,7 +157,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_client_consensus".to_string(),
                     json!({"client_id": client_id.clone(), "consensus_height": consensus_height })
                         .to_string()
@@ -180,7 +180,7 @@ pub trait NearIbcContract {
 
         self.get_rt()
             .block_on(self.get_client().view(
-                self.get_contract_id().clone(),
+                self.get_contract_id(),
                 "get_consensus_state_with_height".to_string(),
                 json!({ "client_id": client_id }).to_string().into_bytes(),
             ))
@@ -202,7 +202,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_unreceipt_packet".to_string(),
                     json!({
                         "port_id": port_id,
@@ -227,7 +227,7 @@ pub trait NearIbcContract {
 
         self.get_rt()
             .block_on(self.get_client().view(
-                self.get_contract_id().clone(),
+                self.get_contract_id(),
                 "get_clients".to_string(),
                 json!({ "request": request }).to_string().into_bytes(),
             ))
@@ -248,7 +248,7 @@ pub trait NearIbcContract {
 
         self.get_rt()
             .block_on(self.get_client().view(
-                self.get_contract_id().clone(),
+                self.get_contract_id(),
                 "get_connections".to_string(),
                 json!({ "request": request }).to_string().into_bytes(),
             ))
@@ -266,7 +266,7 @@ pub trait NearIbcContract {
 
         self.get_rt()
             .block_on(self.get_client().view(
-                self.get_contract_id().clone(),
+                self.get_contract_id(),
                 "get_channels".to_string(),
                 json!({ "request": request }).to_string().into_bytes(),
             ))
@@ -285,7 +285,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_packet_commitments".to_string(),
                     json!({
                         "port_id": request.port_id.to_string(),
@@ -307,7 +307,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_packet_acknowledgements".to_string(),
                     json!({
                         "port_id": request.port_id.to_string(),
@@ -333,7 +333,7 @@ pub trait NearIbcContract {
         );
         self.get_rt()
             .block_on(self.get_client().view(
-                self.get_contract_id().clone(),
+                self.get_contract_id(),
                 "get_client_connections".to_string(),
                 json!({ "client_id": client_id }).to_string().into_bytes(),
             ))
@@ -353,7 +353,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_connection_channels".to_string(),
                     json!({ "connection_id": connection_id })
                         .to_string()
@@ -408,7 +408,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_packet_commitment".to_string(),
                     json!({
                         "port_id": port_id,
@@ -427,7 +427,7 @@ pub trait NearIbcContract {
         info!("NearIbcContract: [get_commitment_prefix]");
         self.get_rt()
             .block_on(self.get_client().view(
-                self.get_contract_id().clone(),
+                self.get_contract_id(),
                 "get_commitment_prefix".to_string(),
                 json!({}).to_string().into_bytes(),
             ))
@@ -449,7 +449,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_packet_receipt".to_string(),
                     json!({
                         "port_id": port_id,
@@ -477,7 +477,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_next_sequence_receive".to_string(),
                     json!({
                         "port_id": port_id,
@@ -505,7 +505,7 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(
                 self.get_client().view(
-                    self.get_contract_id().clone(),
+                    self.get_contract_id(),
                     "get_packet_acknowledgement".to_string(),
                     json!({
                         "port_id": port_id,
@@ -531,7 +531,7 @@ pub trait NearIbcContract {
 
         self.get_rt()
             .block_on(self.get_client().view(
-                self.get_contract_id().clone(),
+                self.get_contract_id(),
                 "get_packet_events".to_string(),
                 json!({ "request": request }).to_string().into_bytes(),
             ))

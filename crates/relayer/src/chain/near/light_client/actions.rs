@@ -67,7 +67,7 @@ pub async fn start_light_client(
 
 pub async fn get_block(rpc_client: &NearRpcClientWrapper, height: &Option<u64>) -> BlockView {
     rpc_client
-        .view_block(&height.map(|height| BlockId::Height(height)))
+        .view_block(&height.map(BlockId::Height))
         .await
-        .expect(format!("Failed to get block at height {:?}.", height).as_str())
+        .unwrap_or_else(|_| panic!("Failed to get block at height {:?}.", height))
 }
