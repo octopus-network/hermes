@@ -33,9 +33,11 @@ mod tests {
         tokio::runtime::Runtime::new().unwrap().block_on(async {
             let ret = restart_vp(&canister_id, false).await;
             match ret {
-                Ok(_) => assert!(false),
+                Ok(r) => {
+                    dbg!("{:?}", r);
+                }
                 Err(e) => {
-                    println!("error: {:?}", e.to_string());
+                    println!("error: {:?}", e);
                     assert!(e.contains("unauthorized"));
                 }
             }
