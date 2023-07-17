@@ -16,15 +16,15 @@ pub const TYPE_URL: &str = "/ibc.core.client.v1.MsgUpdateClient";
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MsgUpdateClient {
     pub client_id: ClientId,
-    pub header: Any,
+    pub client_message: Any,
     pub signer: Signer,
 }
 
 impl MsgUpdateClient {
-    pub fn new(client_id: ClientId, header: Any, signer: Signer) -> Self {
+    pub fn new(client_id: ClientId, client_message: Any, signer: Signer) -> Self {
         MsgUpdateClient {
             client_id,
-            header,
+            client_message,
             signer,
         }
     }
@@ -54,7 +54,9 @@ impl TryFrom<RawMsgUpdateClient> for MsgUpdateClient {
                 .client_id
                 .parse()
                 .map_err(Error::invalid_msg_update_client_id)?,
-            header: raw.header.ok_or_else(Error::missing_raw_header)?,
+            client_message: raw
+                .client_message
+                .ok_or_else(Error::missing_client_message)?,
             signer: raw.signer.parse().map_err(Error::signer)?,
         })
     }
@@ -64,7 +66,7 @@ impl From<MsgUpdateClient> for RawMsgUpdateClient {
     fn from(ics_msg: MsgUpdateClient) -> Self {
         RawMsgUpdateClient {
             client_id: ics_msg.client_id.to_string(),
-            header: Some(ics_msg.header),
+            client_message: Some(ics_msg.client_message),
             signer: ics_msg.signer.to_string(),
         }
     }
