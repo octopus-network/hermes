@@ -41,7 +41,7 @@ use ibc_relayer_types::{
 use crate::chain::cosmos::version;
 use crate::chain::cosmos::BLOCK_MAX_BYTES_MAX_FRACTION;
 use crate::config::Error as ConfigError;
-use crate::event::source;
+use crate::event::{self, source};
 use crate::keyring::{errors::Error as KeyringError, KeyType};
 use crate::sdk_error::SdkError;
 
@@ -591,6 +591,17 @@ define_error! {
             { address: String }
             [ TendermintRpcError ]
             |e| { format!("invalid archive node address {}", e.address) },
+
+        EventMonitor
+            [ event::error::Error ]
+            |_| { "event monitor error" },
+
+        ReportError
+            { error: String }
+            |e| {
+                format_args!("Report Error: ({})", e.error)
+            },
+
     }
 }
 
