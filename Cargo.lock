@@ -544,6 +544,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e496a50fda8aacccc86d7529e2c1e0892dbd0f898a6b5645b5561b89c3210efa"
 
 [[package]]
+name = "cosmos-sdk-proto"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73c9d2043a9e617b0d602fbc0a0ecd621568edbf3a9774890a6d562389bd8e1c"
+dependencies = [
+ "prost",
+ "prost-types",
+ "tendermint-proto",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1273,6 +1284,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
+name = "hex-literal"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ebdb29d2ea9ed0083cd8cece49bbd968021bd99b0849edb4a9a7ee0fdf6a4e0"
+
+[[package]]
 name = "hex_lit"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1485,8 +1502,7 @@ dependencies = [
 [[package]]
 name = "ibc-proto"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc198998f950ed48ffcd405a6b147e2a4ee7fc25ed9531857774d170e1562ea1"
+source = "git+https://github.com/octopus-network/ibc-proto-rs.git?branch=v0.31.0-for-vp#7f989cfce9075d5d1b5aa53c76de5147a7527187"
 dependencies = [
  "base64 0.21.2",
  "bytes",
@@ -1522,6 +1538,7 @@ dependencies = [
  "generic-array",
  "hdpath",
  "hex",
+ "hex-literal",
  "http",
  "humantime",
  "humantime-serde",
@@ -1627,10 +1644,12 @@ name = "ibc-relayer-types"
 version = "0.24.1"
 dependencies = [
  "bytes",
+ "cosmos-sdk-proto",
  "derive_more",
  "dyn-clone",
  "env_logger",
  "erased-serde",
+ "eyre",
  "flex-error",
  "ibc-proto",
  "ics23",
