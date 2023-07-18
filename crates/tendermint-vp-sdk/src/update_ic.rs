@@ -2,6 +2,33 @@ use crate::identity::create_identity;
 use crate::types::*;
 use candid::{Decode, Encode};
 
+pub async fn call_args_is_string_function(
+    canister_id: &str,
+    method_name: &str,
+    arg: String, // 我们使用String来代替原来的Vec<u8>
+    is_mainnet: bool,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let url = if is_mainnet { MAIN_NET } else { LOCAL_NET };
+    let agent = ic_agent::Agent::builder()
+        .with_url(url)
+        .with_identity(create_identity())
+        .build()
+        .expect("should work");
+
+    if !is_mainnet {
+        agent.fetch_root_key().await?;
+    }
+
+    let canister_id = ic_cdk::export::Principal::from_text(canister_id)?;
+
+    let mut update_builder =
+        ic_agent::agent::UpdateBuilder::new(&agent, canister_id, method_name.to_string());
+    let update_builder_with_args = update_builder.with_arg(&Encode!(&arg)?); // 将参数arg使用Encode!宏转化为字节序列
+
+    let response = update_builder_with_args.call_and_wait().await?;
+    Ok(response)
+}
+
 async fn update_ic(
     canister_id: &str,
     method_name: &str,
