@@ -1,5 +1,7 @@
+use crate::errors::Error;
 use crate::identity::create_identity;
 use crate::types::*;
+use anyhow::Result;
 use candid::{Decode, Encode};
 
 pub async fn call_args_is_string_function(
@@ -7,13 +9,13 @@ pub async fn call_args_is_string_function(
     method_name: &str,
     arg: String, // 我们使用String来代替原来的Vec<u8>
     is_mainnet: bool,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+) -> Result<Vec<u8>> {
     let url = if is_mainnet { MAIN_NET } else { LOCAL_NET };
     let agent = ic_agent::Agent::builder()
         .with_url(url)
         .with_identity(create_identity())
         .build()
-        .expect("should work");
+        .map_err(Error::AgentError)?;
 
     if !is_mainnet {
         agent.fetch_root_key().await?;
@@ -34,13 +36,13 @@ async fn update_ic(
     method_name: &str,
     args: Vec<u8>,
     is_mainnet: bool,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+) -> Result<Vec<u8>> {
     let url = if is_mainnet { MAIN_NET } else { LOCAL_NET };
     let agent = ic_agent::Agent::builder()
         .with_url(url)
         .with_identity(create_identity())
         .build()
-        .expect("should work");
+        .map_err(Error::AgentError)?;
 
     if !is_mainnet {
         agent.fetch_root_key().await?;
@@ -61,7 +63,7 @@ async fn update_ic_and_get_vec(
     method_name: &str,
     args: Vec<u8>,
     is_mainnet: bool,
-) -> Result<VecResult, Box<dyn std::error::Error>> {
+) -> Result<VecResult> {
     let response = update_ic(canister_id, method_name, args, is_mainnet).await?;
     let response = Decode!(response.as_slice(), VecResult)?;
 
@@ -73,7 +75,7 @@ async fn update_ic_and_get_nothing(
     method_name: &str,
     args: Vec<u8>,
     is_mainnet: bool,
-) -> Result<NullResult, Box<dyn std::error::Error>> {
+) -> Result<NullResult> {
     let response = update_ic(canister_id, method_name, args, is_mainnet).await?;
     let response = Decode!(response.as_slice(), NullResult)?;
 
@@ -85,7 +87,7 @@ async fn update_ic_and_get_smstate(
     method_name: &str,
     args: Vec<u8>,
     is_mainnet: bool,
-) -> Result<SmStateResult, Box<dyn std::error::Error>> {
+) -> Result<SmStateResult> {
     let response = update_ic(canister_id, method_name, args, is_mainnet).await?;
     let response = Decode!(response.as_slice(), SmStateResult)?;
 
@@ -97,7 +99,7 @@ async fn update_ic_and_get_proofs(
     method_name: &str,
     args: Vec<u8>,
     is_mainnet: bool,
-) -> Result<ProofsResult, Box<dyn std::error::Error>> {
+) -> Result<ProofsResult> {
     let response = update_ic(canister_id, method_name, args, is_mainnet).await?;
     let response = Decode!(response.as_slice(), ProofsResult)?;
 
@@ -109,14 +111,12 @@ pub(crate) async fn send_msg_for_vec(
     method_name: &str,
     args: Vec<u8>,
     is_mainnet: bool,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let result = update_ic_and_get_vec(canister_id, method_name, args, is_mainnet)
-        .await
-        .map_err(|e| e.to_string())?;
+) -> Result<Vec<u8>> {
+    let result = update_ic_and_get_vec(canister_id, method_name, args, is_mainnet).await?;
 
     match result {
         VecResult::Ok(smheader) => Ok(smheader),
-        VecResult::Err(e) => Err(e.into()),
+        VecResult::Err(e) => Err(anyhow::anyhow!(e)),
     }
 }
 
@@ -125,14 +125,12 @@ pub(crate) async fn send_msg_for_smstate(
     method_name: &str,
     args: Vec<u8>,
     is_mainnet: bool,
-) -> Result<SmState, Box<dyn std::error::Error>> {
-    let result = update_ic_and_get_smstate(canister_id, method_name, args, is_mainnet)
-        .await
-        .map_err(|e| e.to_string())?;
+) -> Result<SmState> {
+    let result = update_ic_and_get_smstate(canister_id, method_name, args, is_mainnet).await?;
 
     match result {
         SmStateResult::Ok(state) => Ok(state),
-        SmStateResult::Err(e) => Err(e.into()),
+        SmStateResult::Err(e) => Err(anyhow::anyhow!(e)),
     }
 }
 
@@ -141,14 +139,12 @@ pub(crate) async fn send_msg_for_proofs(
     method_name: &str,
     args: Vec<u8>,
     is_mainnet: bool,
-) -> Result<Proofs, String> {
-    let result = update_ic_and_get_proofs(canister_id, method_name, args, is_mainnet)
-        .await
-        .map_err(|e| e.to_string())?;
+) -> Result<Proofs> {
+    let result = update_ic_and_get_proofs(canister_id, method_name, args, is_mainnet).await?;
 
     match result {
         ProofsResult::Ok(proofs) => Ok(proofs),
-        ProofsResult::Err(e) => Err(e),
+        ProofsResult::Err(e) => Err(anyhow::anyhow!(e)),
     }
 }
 
@@ -157,13 +153,11 @@ pub(crate) async fn send_msg(
     method_name: &str,
     args: Vec<u8>,
     is_mainnet: bool,
-) -> Result<(), String> {
-    let result = update_ic_and_get_nothing(canister_id, method_name, args, is_mainnet)
-        .await
-        .map_err(|e| e.to_string())?;
+) -> Result<()> {
+    let result = update_ic_and_get_nothing(canister_id, method_name, args, is_mainnet).await?;
 
     match result {
         NullResult::Ok(_) => Ok(()),
-        NullResult::Err(e) => Err(e),
+        NullResult::Err(e) => Err(anyhow::anyhow!(e)),
     }
 }

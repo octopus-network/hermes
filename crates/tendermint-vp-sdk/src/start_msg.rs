@@ -1,23 +1,22 @@
 use crate::update_ic::call_args_is_string_function;
 use crate::update_ic::send_msg;
+use anyhow::Result;
 
-pub async fn greet(canister_id: &str, is_mainnet: bool) -> Result<String, String> {
+pub async fn greet(canister_id: &str, is_mainnet: bool) -> Result<String> {
     let method_name = "greet";
     let args = "davirain".to_string();
-    let ret = call_args_is_string_function(canister_id, method_name, args, is_mainnet)
-        .await
-        .map_err(|e| format!("{:?}", e))?;
+    let ret = call_args_is_string_function(canister_id, method_name, args, is_mainnet).await?;
 
-    String::from_utf8(ret).map_err(|e| e.to_string())
+    String::from_utf8(ret).map_err(|e| anyhow::anyhow!(e))
 }
 
-pub async fn start_vp(canister_id: &str, is_mainnet: bool) -> Result<(), String> {
+pub async fn start_vp(canister_id: &str, is_mainnet: bool) -> Result<()> {
     let method_name = "start";
     let args = vec![];
     send_msg(canister_id, method_name, args, is_mainnet).await
 }
 
-pub async fn restart_vp(canister_id: &str, is_mainnet: bool) -> Result<(), String> {
+pub async fn restart_vp(canister_id: &str, is_mainnet: bool) -> Result<()> {
     let method_name = "restart";
     let args = vec![];
     send_msg(canister_id, method_name, args, is_mainnet).await

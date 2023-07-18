@@ -1,6 +1,7 @@
 pub mod channel_msg;
 pub mod client_msg;
 pub mod connection_msg;
+pub mod errors;
 pub mod get_pubkey;
 mod identity;
 pub mod packet_msg;
