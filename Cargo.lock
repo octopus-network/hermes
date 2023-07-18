@@ -4946,6 +4946,7 @@ dependencies = [
 name = "tendermint-vp-sdk"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "candid 0.9.1",
  "garcon",
  "ic-agent",
@@ -4953,6 +4954,7 @@ dependencies = [
  "ring",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
 ]
 
