@@ -23,7 +23,7 @@ use crate::chain::endpoint::ChainEndpoint;
 use crate::client_state::AnyClientState;
 use crate::error;
 use crate::misbehaviour::MisbehaviourEvidence;
-use ibc_proto::ibc::lightclients::solomachine::v2::Header as RawSmHeader;
+use ibc_proto::ibc::lightclients::solomachine::v3::Header as RawSmHeader;
 use ibc_relayer_types::clients::ics06_solomachine::header::{
     decode_header as sm_decode_header, Header as SolomachineHeader,
 };

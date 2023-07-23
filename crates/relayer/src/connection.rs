@@ -3,6 +3,7 @@ use core::time::Duration;
 use std::thread;
 
 use ibc_proto::google::protobuf::Any;
+use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use serde::Serialize;
 use tracing::{debug, error, info, warn};
 
@@ -22,10 +23,12 @@ use ibc_relayer_types::tx_msg::Msg;
 use crate::chain::counterparty::connection_state_on_destination;
 use crate::chain::handle::ChainHandle;
 use crate::chain::requests::{
-    IncludeProof, PageRequest, QueryConnectionRequest, QueryConnectionsRequest, QueryHeight,
+    IncludeProof, PageRequest, QueryClientStateRequest, QueryConnectionRequest,
+    QueryConnectionsRequest, QueryHeight,
 };
 use crate::chain::tracking::TrackedMsgs;
-use crate::foreign_client::{ForeignClient, HasExpiredOrFrozenError};
+use crate::client_state::AnyClientState;
+use crate::foreign_client::{ForeignClient, ForeignClientError, HasExpiredOrFrozenError};
 use crate::object::Connection as WorkerConnectionObject;
 use crate::util::pretty::{PrettyDuration, PrettyOption};
 use crate::util::retry::{retry_with_index, RetryResult};
@@ -975,9 +978,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             }
         );
         let dst_application_latest_height = || {
-            self.dst_chain()
-                .query_latest_height()
-                .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))
+            query_latest_height_of_chain(&self.dst_chain(), &self.src_chain(), self.src_client_id())
         };
 
         while consensus_height >= dst_application_latest_height()? {
@@ -1002,6 +1003,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .src_connection_id()
             .ok_or_else(ConnectionError::missing_local_connection_id)?;
 
+        info!("build_conn_try for {}", src_connection_id);
+
         let (src_connection, _) = self
             .src_chain()
             .query_connection(
@@ -1012,6 +1015,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                 IncludeProof::No,
             )
             .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
+
+        info!("build_conn_try for src_connection: {:?}", src_connection);
 
         // TODO - check that the src connection is consistent with the try options
 
@@ -1032,10 +1037,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         // Build add send the message(s) for updating client on source
         // TODO - add check if update client is required
-        let src_client_target_height = self
-            .dst_chain()
-            .query_latest_height()
-            .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?;
+        let src_client_target_height = query_latest_height_of_chain(
+            &self.dst_chain(),
+            &self.src_chain(),
+            self.src_client_id(),
+        )?;
+        info!("build_conn_try src_client_target_height: {}", src_client_target_height);
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
 
         let tm =
@@ -1044,10 +1051,11 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
 
-        let query_height = self
-            .src_chain()
-            .query_latest_height()
-            .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
+        let query_height = query_latest_height_of_chain(
+            &self.src_chain(),
+            &self.dst_chain(),
+            self.dst_client_id(),
+        )?;
         let (client_state, proofs) = self
             .src_chain()
             .build_connection_proofs_and_client_state(
@@ -1104,6 +1112,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         };
 
         msgs.push(new_msg.to_any());
+
+        info!("build_conn_try returns: {:?}, {}", msgs, src_client_target_height);
 
         Ok((msgs, src_client_target_height))
     }
@@ -1171,10 +1181,11 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         // Build add **send** the message(s) for updating client on source.
         // TODO - add check if it is required
-        let src_client_target_height = self
-            .dst_chain()
-            .query_latest_height()
-            .map_err(|e| ConnectionError::chain_query(self.dst_chain().id(), e))?;
+        let src_client_target_height = query_latest_height_of_chain(
+            &self.dst_chain(),
+            &self.src_chain(),
+            self.src_client_id(),
+        )?;
 
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
 
@@ -1185,10 +1196,11 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
 
-        let query_height = self
-            .src_chain()
-            .query_latest_height()
-            .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
+        let query_height = query_latest_height_of_chain(
+            &self.src_chain(),
+            &self.dst_chain(),
+            self.dst_client_id(),
+        )?;
 
         let (client_state, proofs) = self
             .src_chain()
@@ -1272,10 +1284,11 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let _expected_dst_connection =
             self.validated_expected_connection(ConnectionMsgType::OpenAck)?;
 
-        let query_height = self
-            .src_chain()
-            .query_latest_height()
-            .map_err(|e| ConnectionError::chain_query(self.src_chain().id(), e))?;
+        let query_height = query_latest_height_of_chain(
+            &self.src_chain(),
+            &self.dst_chain(),
+            self.dst_client_id(),
+        )?;
 
         let (_src_connection, _) = self
             .src_chain()
@@ -1426,5 +1439,53 @@ fn check_destination_connection_state(
         Ok(())
     } else {
         Err(ConnectionError::connection_already_exists(connection_id))
+    }
+}
+
+fn query_latest_height_of_chain(
+    chain: &impl ChainHandle,
+    counterparty_chain: &impl ChainHandle,
+    client_id_on_counterparty_chain: &ClientId,
+) -> Result<Height, ConnectionError> {
+    let (client_state, _) = {
+        counterparty_chain
+            .query_client_state(
+                QueryClientStateRequest {
+                    client_id: client_id_on_counterparty_chain.clone(),
+                    height: QueryHeight::Latest,
+                },
+                IncludeProof::No,
+            )
+            .map_err(|e| {
+                ConnectionError::client_operation(
+                    client_id_on_counterparty_chain.clone(),
+                    counterparty_chain.id(),
+                    ForeignClientError::client_refresh(
+                        client_id_on_counterparty_chain.clone(),
+                        "failed querying client state on dst chain".to_string(),
+                        e,
+                    ),
+                )
+            })?
+    };
+    println!("client_state: {:?}", client_state);
+
+    if client_state.is_frozen() {
+        return Err(ConnectionError::client_operation(
+            client_id_on_counterparty_chain.clone(),
+            counterparty_chain.id(),
+            ForeignClientError::expired_or_frozen(
+                client_id_on_counterparty_chain.clone(),
+                counterparty_chain.id(),
+                "client state reports that client is frozen".into(),
+            ),
+        ));
+    }
+
+    match client_state {
+        AnyClientState::Solomachine(sm_cs) => Ok(sm_cs.latest_height()),
+        _ => chain
+            .query_latest_height()
+            .map_err(|e| ConnectionError::chain_query(chain.id(), e)),
     }
 }

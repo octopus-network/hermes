@@ -1275,7 +1275,7 @@ impl ChainEndpoint for CosmosSdkChain {
         );
         crate::telemetry!(query, self.id(), "query_consensus_state");
 
-        let mut res = self.query(
+        let res = self.query(
             ClientConsensusStatePath {
                 client_id: request.client_id.clone(),
                 epoch: request.consensus_height.revision_number(),
@@ -1285,27 +1285,7 @@ impl ChainEndpoint for CosmosSdkChain {
             matches!(include_proof, IncludeProof::Yes),
         )?;
 
-        let mut height = request.consensus_height.revision_height();
-
-        for i in 0..50 {
-            if !res.value.is_empty() {
-                break;
-            }
-            height = height - 1;
-            println!("ys-debug: try query_consensus_state on {:?}", height);
-            res = self.query(
-                ClientConsensusStatePath {
-                    client_id: request.client_id.clone(),
-                    epoch: request.consensus_height.revision_number(),
-                    height,
-                },
-                request.query_height,
-                matches!(include_proof, IncludeProof::Yes),
-            )?;
-        }
-
         let consensus_state = AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
-        println!("consensus_state: {:?}", consensus_state);
 
         if !matches!(consensus_state, AnyConsensusState::Solomachine(_)) {
             return Err(Error::consensus_state_type_mismatch(
@@ -1490,6 +1470,7 @@ impl ChainEndpoint for CosmosSdkChain {
                 )?;
                 let connection_end =
                     ConnectionEnd::decode_vec(&res.value).map_err(Error::decode)?;
+
                 Ok((
                     connection_end,
                     Some(res.proof.ok_or_else(Error::empty_response_proof)?),
@@ -2167,8 +2148,6 @@ impl ChainEndpoint for CosmosSdkChain {
             client_state,
             now,
         )?;
-        tracing::info!("🎈 target header: {target}");
-        tracing::info!("🎈 supporting header: {supporting:?}");
 
         Ok((target, supporting))
     }

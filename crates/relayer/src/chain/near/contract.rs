@@ -1,5 +1,5 @@
-use crate::chain::near::CONTRACT_ACCOUNT_ID;
 use crate::chain::near::rpc::client::NearRpcClient;
+use crate::chain::near::CONTRACT_ACCOUNT_ID;
 use crate::chain::requests::{
     QueryChannelsRequest, QueryPacketAcknowledgementsRequest, QueryPacketEventDataRequest,
 };
@@ -20,7 +20,7 @@ use ibc_relayer_types::core::ics04_channel::packet::Sequence;
 use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentPrefix;
 use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
 use near_crypto::{InMemorySigner, KeyType};
-use near_primitives::{views::FinalExecutionOutcomeView, types::AccountId};
+use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
 use serde_json::json;
 use tokio::runtime::Runtime as TokioRuntime;
 use tracing::info;

@@ -11,7 +11,6 @@ use bytes::Buf;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
-use std::vec;
 
 pub const NEAR_HEADER_TYPE_URL: &str = "/ibc.lightclients.near.v1.Header";
 
@@ -59,7 +58,7 @@ impl From<Header> for Any {
     fn from(header: Header) -> Self {
         Any {
             type_url: NEAR_CONSENSUS_STATE_TYPE_URL.to_string(),
-            value: vec![],
+            value: header.encode_vec(),
         }
     }
 }

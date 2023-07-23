@@ -216,7 +216,6 @@ pub fn add_key(
             keyring.add_key(key_name, key_pair.clone())?;
             key_pair.into()
         }
-        ChainType::Substrate => todo!(),
         ChainType::Near => todo!(),
     };
 
@@ -254,7 +253,6 @@ pub fn restore_key(
             keyring.add_key(key_name, key_pair.clone())?;
             key_pair.into()
         }
-        ChainType::Substrate => todo!(),
         ChainType::Near => todo!(),
     };
 

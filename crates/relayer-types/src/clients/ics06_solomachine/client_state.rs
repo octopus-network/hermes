@@ -14,8 +14,8 @@ use core::time::Duration;
 use cosmos_sdk_proto::{self, traits::Message};
 use eyre::Result;
 use ibc_proto::google::protobuf::Any;
-use ibc_proto::ibc::lightclients::solomachine::v2::ClientState as RawSmClientState;
-use ibc_proto::ibc::lightclients::solomachine::v2::ConsensusState as RawSmConsesusState;
+use ibc_proto::ibc::lightclients::solomachine::v3::ClientState as RawSmClientState;
+use ibc_proto::ibc::lightclients::solomachine::v3::ConsensusState as RawSmConsesusState;
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +24,6 @@ pub struct ClientState {
     pub sequence: u64,
     pub is_frozen: bool,
     pub consensus_state: ConsensusState,
-    pub allow_update_after_proposal: bool,
 }
 
 impl Ics2ClientState for ClientState {
@@ -78,7 +77,6 @@ impl TryFrom<RawSmClientState> for ClientState {
                 timestamp: cs.timestamp,
                 root: CommitmentRoot::from_bytes(&pk.to_bytes()),
             },
-            allow_update_after_proposal: raw.allow_update_after_proposal,
         })
     }
 }
@@ -93,7 +91,6 @@ impl From<ClientState> for RawSmClientState {
                 diversifier: value.consensus_state.diversifier,
                 timestamp: value.consensus_state.timestamp,
             }),
-            allow_update_after_proposal: value.allow_update_after_proposal,
         }
     }
 }

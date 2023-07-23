@@ -570,13 +570,17 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         })?;
 
         // Build client create message with the data from source chain at latest height.
-        let latest_height = self.src_chain.query_latest_height().map_err(|e| {
-            ForeignClientError::client_create(
-                self.src_chain.id(),
-                "failed while querying src chain for latest height".to_string(),
-                e,
-            )
-        })?;
+        let latest_height = if self.src_chain.config().unwrap().account_prefix.eq("near") {
+            Height::new(0, 1).unwrap()
+        } else {
+            self.src_chain.query_latest_height().map_err(|e| {
+                ForeignClientError::client_create(
+                    self.src_chain.id(),
+                    "failed while querying src chain for latest height".to_string(),
+                    e,
+                )
+            })?
+        };
         info!(
             "Latest height on {} chain: {}",
             self.src_chain.id(),
@@ -764,17 +768,28 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         let consensus_state_timestamp = self.fetch_consensus_state(*height)?.timestamp();
 
-        let current_src_network_time = self
-            .src_chain
-            .query_application_status()
-            .map_err(|e| {
-                ForeignClientError::client_refresh(
-                    self.id().clone(),
-                    "failed querying the application status of source chain".to_string(),
-                    e,
-                )
-            })?
-            .timestamp;
+        let current_src_network_time = match client_state {
+            AnyClientState::Solomachine(sm_cs) => {
+                Timestamp::from_nanoseconds(sm_cs.consensus_state.timestamp).map_err(|e| {
+                    ForeignClientError::client(ClientError::client_specific(format!(
+                        "failed to parse solomachine consensus state timestamp: {}",
+                        e
+                    )))
+                })?
+            }
+            _ => {
+                self.src_chain
+                    .query_application_status()
+                    .map_err(|e| {
+                        ForeignClientError::client_refresh(
+                            self.id().clone(),
+                            "failed querying the application status of source chain".to_string(),
+                            e,
+                        )
+                    })?
+                    .timestamp
+            }
+        };
 
         // Compute the duration of time elapsed since this consensus state was installed
         let elapsed = current_src_network_time
@@ -971,6 +986,11 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         client_state: &AnyClientState,
         header: &AnyHeader,
     ) -> Result<(), ForeignClientError> {
+        match client_state {
+            AnyClientState::Solomachine(_) => return Ok(()),
+            _ => (),
+        };
+
         crate::time!(
             "wait_for_header_validation_delay",
             {
@@ -1079,27 +1099,40 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             }
         );
 
-        let src_application_latest_height = || {
-            self.src_chain().query_latest_height().map_err(|e| {
-                ForeignClientError::client_create(
-                    self.src_chain.id(),
-                    "failed fetching src network latest height with error".to_string(),
-                    e,
-                )
-            })
-        };
+        let (client_state_on_dst, _) = self.validated_client_state()?;
+        match client_state_on_dst {
+            AnyClientState::Solomachine(_) => (),
+            _ => {
+                let src_application_latest_height = || {
+                    self.src_chain().query_latest_height().map_err(|e| {
+                        ForeignClientError::client_create(
+                            self.src_chain.id(),
+                            "failed fetching src network latest height with error".to_string(),
+                            e,
+                        )
+                    })
+                };
 
-        {
-            crate::time!(
-                "wait_and_build_update_client_with_trusted_sleep",
+                info!(
+                    "waiting for src chain {} to reach height {} from {}",
+                    self.src_chain().id(),
+                    target_height,
+                    src_application_latest_height()?
+                );
+
                 {
-                    "src_chain": self.src_chain().id(),
-                    "dst_chain": self.dst_chain().id(),
+                    crate::time!(
+                        "wait_and_build_update_client_with_trusted_sleep",
+                        {
+                            "src_chain": self.src_chain().id(),
+                            "dst_chain": self.dst_chain().id(),
+                        }
+                    );
+                    // Wait for the source network to produce block(s) & reach `target_height`.
+                    while src_application_latest_height()? < target_height {
+                        thread::sleep(Duration::from_millis(100));
+                    }
                 }
-            );
-            // Wait for the source network to produce block(s) & reach `target_height`.
-            while src_application_latest_height()? < target_height {
-                thread::sleep(Duration::from_millis(100));
             }
         }
 
@@ -1248,13 +1281,19 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         trusted_height: Option<Height>,
     ) -> Result<Vec<IbcEvent>, ForeignClientError> {
         let target_height = match target_query_height {
-            QueryHeight::Latest => self.src_chain.query_latest_height().map_err(|e| {
-                ForeignClientError::client_update(
-                    self.src_chain.id(),
-                    "failed while querying src chain ({}) for latest height".to_string(),
-                    e,
-                )
-            })?,
+            QueryHeight::Latest => {
+                let (client_state_on_dst, _) = self.validated_client_state()?;
+                match client_state_on_dst {
+                    AnyClientState::Solomachine(sm_cs) => sm_cs.latest_height(),
+                    _ => self.src_chain.query_latest_height().map_err(|e| {
+                        ForeignClientError::client_update(
+                            self.src_chain.id(),
+                            "failed while querying src chain ({}) for latest height".to_string(),
+                            e,
+                        )
+                    })?,
+                }
+            }
             QueryHeight::Specific(height) => height,
         };
 
@@ -1394,24 +1433,58 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         &self,
         height: Height,
     ) -> Result<AnyConsensusState, ForeignClientError> {
-        let (consensus_state, _) = self
-            .dst_chain
-            .query_consensus_state(
-                QueryConsensusStateRequest {
-                    client_id: self.id.clone(),
-                    consensus_height: height,
-                    query_height: QueryHeight::Latest,
-                },
-                IncludeProof::No,
-            )
-            .map_err(|e| {
-                ForeignClientError::client_consensus_query(
-                    self.id.clone(),
-                    self.dst_chain.id(),
-                    height,
-                    e,
+        // Get the latest client state on destination.
+        let (client_state, _) = {
+            self.dst_chain
+                .query_client_state(
+                    QueryClientStateRequest {
+                        client_id: self.id().clone(),
+                        height: QueryHeight::Latest,
+                    },
+                    IncludeProof::No,
                 )
-            })?;
+                .map_err(|e| {
+                    ForeignClientError::client_refresh(
+                        self.id().clone(),
+                        "failed querying client state on dst chain".to_string(),
+                        e,
+                    )
+                })?
+        };
+        println!("client_state: {:?}", client_state);
+
+        if client_state.is_frozen() {
+            return Err(ForeignClientError::expired_or_frozen(
+                self.id().clone(),
+                self.dst_chain.id(),
+                "client state reports that client is frozen".into(),
+            ));
+        }
+
+        let consensus_state = match client_state {
+            AnyClientState::Solomachine(sm_client_state) => sm_client_state.consensus_state.into(),
+            _ => {
+                let (consensus_state, _) = self
+                    .dst_chain
+                    .query_consensus_state(
+                        QueryConsensusStateRequest {
+                            client_id: self.id.clone(),
+                            consensus_height: height,
+                            query_height: QueryHeight::Latest,
+                        },
+                        IncludeProof::No,
+                    )
+                    .map_err(|e| {
+                        ForeignClientError::client_consensus_query(
+                            self.id.clone(),
+                            self.dst_chain.id(),
+                            height,
+                            e,
+                        )
+                    })?;
+                consensus_state
+            }
+        };
 
         Ok(consensus_state)
     }

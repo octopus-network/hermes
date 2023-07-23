@@ -283,6 +283,8 @@ pub enum IbcEvent {
     AppModule(ModuleEvent),
 
     ChainError(String), // Special event, signifying an error on CheckTx or DeliverTx
+
+    Message(String), // Special event, signifying a message to the relayer
 }
 
 impl Display for IbcEvent {
@@ -322,6 +324,7 @@ impl Display for IbcEvent {
             IbcEvent::AppModule(ev) => write!(f, "AppModule({ev})"),
 
             IbcEvent::ChainError(ev) => write!(f, "ChainError({ev})"),
+            IbcEvent::Message(ev) => write!(f, "Message({ev})"),
         }
     }
 }
@@ -357,7 +360,10 @@ impl TryFrom<IbcEvent> for abci::Event {
             IbcEvent::AppModule(event) => event.try_into()?,
             IbcEvent::NewBlock(_) | IbcEvent::ChainError(_) => {
                 return Err(Error::incorrect_event_type(event.to_string()));
-            }
+            },
+            IbcEvent::Message(_) => {
+                return Err(Error::incorrect_event_type(event.to_string()));
+            },
         })
     }
 }
@@ -398,6 +404,7 @@ impl IbcEvent {
             IbcEvent::DistributeFeePacket(_) => IbcEventType::DistributionFee,
             IbcEvent::AppModule(_) => IbcEventType::AppModule,
             IbcEvent::ChainError(_) => IbcEventType::ChainError,
+            IbcEvent::Message(_) => IbcEventType::Empty,
         }
     }
 

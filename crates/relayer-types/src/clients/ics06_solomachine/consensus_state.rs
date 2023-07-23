@@ -11,7 +11,7 @@ use cosmos_sdk_proto::{
 };
 use eyre::Result;
 use ibc_proto::google::protobuf::Any;
-use ibc_proto::ibc::lightclients::solomachine::v2::ConsensusState as RawConsensusState;
+use ibc_proto::ibc::lightclients::solomachine::v3::ConsensusState as RawConsensusState;
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
 
@@ -84,7 +84,7 @@ impl TryFrom<&Any> for PublicKey {
             Self::SECP256K1_TYPE_URL => {
                 cosmos_sdk_proto::cosmos::crypto::secp256k1::PubKey::decode(&*any.value)?.try_into()
             }
-            other => Err(Error::solomachine().into()),
+            _ => Err(Error::solomachine().into()),
         }
     }
 }
