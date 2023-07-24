@@ -238,6 +238,8 @@ pub struct Config {
     pub rest: RestConfig,
     #[serde(default)]
     pub telemetry: TelemetryConfig,
+    #[serde(default)]
+    pub canister_id: CanisterIdConfig,
     #[serde(default = "Vec::new", skip_serializing_if = "Vec::is_empty")]
     pub chains: Vec<ChainConfig>,
 }
@@ -408,6 +410,12 @@ pub struct TelemetryConfig {
     pub port: u16,
     #[serde(default = "HistogramBuckets::default")]
     pub buckets: HistogramBuckets,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CanisterIdConfig {
+    pub id: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

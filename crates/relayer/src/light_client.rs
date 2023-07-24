@@ -4,11 +4,18 @@ pub mod tendermint;
 use core::ops::Deref;
 
 use ibc_proto::google::protobuf::Any;
+use ibc_proto::ibc::lightclients::solomachine::v2::Header as RawSmHeader;
 use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawTmHeader;
 use ibc_proto::protobuf::Protobuf as ErasedProtobuf;
+use ibc_relayer_types::clients::ics06_solomachine::header::{
+    decode_header as sm_decode_header, Header as SolomachineHeader,
+};
+use ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_HEADER_TYPE_URL;
 use ibc_relayer_types::clients::ics07_tendermint::header::{
     decode_header as tm_decode_header, Header as TendermintHeader, TENDERMINT_HEADER_TYPE_URL,
 };
+use ibc_relayer_types::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
+use ibc_relayer_types::clients::ics12_near::header::{Header as NearHeader, NEAR_HEADER_TYPE_URL};
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
@@ -83,24 +90,32 @@ pub fn decode_header(header_bytes: &[u8]) -> Result<Box<dyn Header>, Error> {
 #[allow(clippy::large_enum_variant)]
 pub enum AnyHeader {
     Tendermint(TendermintHeader),
+    Solomachine(SolomachineHeader),
+    Near(NearHeader),
 }
 
 impl Header for AnyHeader {
     fn client_type(&self) -> ClientType {
         match self {
             Self::Tendermint(header) => header.client_type(),
+            Self::Solomachine(header) => header.client_type(),
+            Self::Near(header) => header.client_type(),
         }
     }
 
     fn height(&self) -> Height {
         match self {
             Self::Tendermint(header) => header.height(),
+            Self::Solomachine(header) => header.height(),
+            Self::Near(header) => header.height(),
         }
     }
 
     fn timestamp(&self) -> Timestamp {
         match self {
             Self::Tendermint(header) => header.timestamp(),
+            Self::Solomachine(header) => header.timestamp(),
+            Self::Near(header) => header.timestamp(),
         }
     }
 }
@@ -117,7 +132,12 @@ impl TryFrom<Any> for AnyHeader {
 
                 Ok(AnyHeader::Tendermint(val))
             }
+            NEAR_HEADER_TYPE_URL => Ok(AnyHeader::Near(NearHeader::default())),
+            SOLOMACHINE_HEADER_TYPE_URL => {
+                let val = sm_decode_header(raw.value.deref())?;
 
+                Ok(AnyHeader::Solomachine(val))
+            }
             _ => Err(Error::unknown_header_type(raw.type_url)),
         }
     }
@@ -130,6 +150,14 @@ impl From<AnyHeader> for Any {
                 type_url: TENDERMINT_HEADER_TYPE_URL.to_string(),
                 value: ErasedProtobuf::<RawTmHeader>::encode_vec(&header),
             },
+            AnyHeader::Near(_header) => Any {
+                type_url: NEAR_CONSENSUS_STATE_TYPE_URL.to_string(),
+                value: vec![],
+            },
+            AnyHeader::Solomachine(header) => Any {
+                type_url: SOLOMACHINE_HEADER_TYPE_URL.to_string(),
+                value: ErasedProtobuf::<RawSmHeader>::encode_vec(&header),
+            },
         }
     }
 }
@@ -137,5 +165,17 @@ impl From<AnyHeader> for Any {
 impl From<TendermintHeader> for AnyHeader {
     fn from(header: TendermintHeader) -> Self {
         Self::Tendermint(header)
+    }
+}
+
+impl From<SolomachineHeader> for AnyHeader {
+    fn from(header: SolomachineHeader) -> Self {
+        Self::Solomachine(header)
+    }
+}
+
+impl From<NearHeader> for AnyHeader {
+    fn from(header: NearHeader) -> Self {
+        Self::Near(header)
     }
 }
