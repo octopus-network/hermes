@@ -134,6 +134,8 @@ id = "naxa5-eyaaa-aaaaa-aacda-cai"
 # Specify the chain ID. Required
 id = 'ibc-0'
 
+counterparty_id = "ibc-1"
+
 # Whether or not this is a CCV consumer chain. Default: false
 # Only specifiy true for CCV consumer chain, but NOT for sovereign chains.
 ccv_consumer_chain = false
@@ -368,6 +370,7 @@ memo_prefix = ''
 
 [[chains]]
 id = 'ibc-1'
+counterparty_id = "ibc-0"
 rpc_addr = 'http://127.0.0.1:26557'
 grpc_addr = 'http://127.0.0.1:9091'
 event_source = { mode = 'push', url = 'ws://127.0.0.1:26557/websocket', batch_delay = '500ms' }

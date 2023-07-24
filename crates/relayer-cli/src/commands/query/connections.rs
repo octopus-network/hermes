@@ -5,7 +5,7 @@ use ibc_relayer::chain::handle::ChainHandle;
 use ibc_relayer::chain::requests::{
     IncludeProof, PageRequest, QueryClientStateRequest, QueryConnectionsRequest, QueryHeight,
 };
-use ibc_relayer_types::core::ics02_client::client_state::ClientState;
+// use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ConnectionId};
 
 use crate::cli_utils::spawn_chain_runtime;
@@ -61,7 +61,7 @@ impl Runnable for QueryConnectionsCmd {
             connections.retain(|connection| {
                 let client_id = connection.end().client_id().to_owned();
                 let chain_height = chain.query_latest_height();
-                let (client_state, _) = chain
+                let (_client_state, _) = chain
                     .query_client_state(
                         QueryClientStateRequest {
                             client_id,

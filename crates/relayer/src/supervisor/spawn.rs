@@ -1,7 +1,7 @@
 use tracing::{error, info};
 
 use ibc_relayer_types::core::{
-    ics02_client::client_state::ClientState, ics03_connection::connection::IdentifiedConnectionEnd,
+    ics03_connection::connection::IdentifiedConnectionEnd,
     ics04_channel::channel::State as ChannelState,
 };
 
@@ -156,7 +156,7 @@ impl<'a, Chain: ChainHandle> SpawnContext<'a, Chain> {
     fn spawn_connection_workers(
         &mut self,
         chain: Chain,
-        client: IdentifiedAnyClientState,
+        _client: IdentifiedAnyClientState,
         connection: IdentifiedConnectionEnd,
     ) -> Result<bool, Error> {
         let config_conn_enabled = self.config.mode.connections.enabled;
