@@ -5,7 +5,7 @@ use itertools::Itertools;
 use tracing::{debug, error, error_span, info, warn};
 
 use ibc_relayer_types::core::{
-    ics02_client::client_state::ClientState,
+    // ics02_client::client_state::ClientState,
     ics03_connection::connection::{IdentifiedConnectionEnd, State as ConnectionState},
     ics04_channel::{
         channel::{IdentifiedChannelEnd, State as ChannelState},
@@ -171,7 +171,7 @@ impl ClientScan {
 
     pub fn counterparty_chain_id(&self, chain: &impl ChainHandle) -> ChainId {
         // self.client.client_state.chain_id()
-        chain.config().unwrap().counterparty_id.clone()
+        chain.config().unwrap().counterparty_id
     }
 }
 
@@ -560,7 +560,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
 
     fn counterparty_connection_state(
         &mut self,
-        client: &IdentifiedAnyClientState,
+        _client: &IdentifiedAnyClientState,
         connection: &IdentifiedConnectionEnd,
     ) -> Result<ConnectionState, Error> {
         let counterparty_chain = self
@@ -859,7 +859,7 @@ fn query_connection<Chain: ChainHandle>(
         .map_err(Error::query)?;
 
     Ok(IdentifiedConnectionEnd {
-        counterparty_chain_id: chain.config().unwrap().counterparty_id.clone(),
+        counterparty_chain_id: chain.config().unwrap().counterparty_id,
         connection_id: connection_id.clone(),
         connection_end,
     })

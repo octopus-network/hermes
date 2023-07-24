@@ -174,13 +174,13 @@ impl From<AnyClientState> for Any {
 }
 
 impl ClientState for AnyClientState {
-    fn chain_id1(&self) -> ChainId {
+    fn chain_id(&self) -> ChainId {
         match self {
-            AnyClientState::Tendermint(tm_state) => tm_state.chain_id1(),
+            AnyClientState::Tendermint(tm_state) => tm_state.chain_id(),
             AnyClientState::Solomachine(sm_state) => sm_state.chain_id(),
 
             #[cfg(test)]
-            AnyClientState::Mock(mock_state) => mock_state.chain_id1(),
+            AnyClientState::Mock(mock_state) => mock_state.chain_id(),
         }
     }
 

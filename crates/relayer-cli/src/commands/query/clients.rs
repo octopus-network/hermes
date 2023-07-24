@@ -4,7 +4,7 @@ use ibc_relayer::chain::handle::ChainHandle;
 use serde::Serialize;
 
 use ibc_relayer::chain::requests::{PageRequest, QueryClientStatesRequest};
-use ibc_relayer_types::core::ics02_client::client_state::ClientState;
+// use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ClientId};
 
 use crate::cli_utils::spawn_chain_runtime;
@@ -96,7 +96,7 @@ impl Runnable for QueryAllClientsCmd {
                         // Filter and omit chain ids
                         let out: Vec<ClientId> = clients
                             .into_iter()
-                            .filter(|cs| chain.config().unwrap().id.eq(&source_chain_id))
+                            .filter(|_cs| chain.config().unwrap().id.eq(&source_chain_id))
                             .map(|cs| cs.client_id)
                             .collect();
                         Output::success(out).exit()

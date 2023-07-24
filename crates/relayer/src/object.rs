@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use ibc_relayer_types::applications::ics29_fee::events::IncentivizedPacket;
 use ibc_relayer_types::core::{
-    ics02_client::{client_state::ClientState, events::UpdateClient},
+    ics02_client::events::UpdateClient,
     ics03_connection::events::Attributes as ConnectionAttributes,
     ics04_channel::events::{
         Attributes, CloseInit, SendPacket, TimeoutPacket, WriteAcknowledgement,
@@ -363,7 +363,7 @@ impl Object {
                 dst_chain.id(),
             ));
         }
-        let src_chain_id = dst_chain.config().unwrap().counterparty_id.clone();
+        let src_chain_id = dst_chain.config().unwrap().counterparty_id;
 
         Ok(Client {
             dst_client_id: e.client_id().clone(),
@@ -394,9 +394,9 @@ impl Object {
         }
 
         Ok(Client {
-            dst_client_id: client.client_id.clone(),
+            dst_client_id: client.client_id,
             dst_chain_id: chain.id(), // The object's destination is the chain hosting the client
-            src_chain_id: chain.config().unwrap().id.clone(),
+            src_chain_id: chain.config().unwrap().id,
         }
         .into())
     }
