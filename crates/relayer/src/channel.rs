@@ -2,9 +2,6 @@ use core::fmt::{Display, Error as FmtError, Formatter};
 use core::time::Duration;
 
 use ibc_proto::google::protobuf::Any;
-use ibc_relayer_types::core::ics02_client::{
-    client_state::ClientState, error::Error as ClientError,
-};
 use serde::Serialize;
 use tracing::{debug, error, info, warn};
 
@@ -28,11 +25,10 @@ use ibc_relayer_types::Height;
 use crate::chain::counterparty::{channel_connection_client, channel_state_on_destination};
 use crate::chain::handle::ChainHandle;
 use crate::chain::requests::{
-    IncludeProof, PageRequest, QueryChannelRequest, QueryClientStateRequest,
-    QueryConnectionChannelsRequest, QueryConnectionRequest, QueryHeight,
+    IncludeProof, PageRequest, QueryChannelRequest, QueryConnectionChannelsRequest,
+    QueryConnectionRequest, QueryHeight,
 };
 use crate::chain::tracking::TrackedMsgs;
-use crate::client_state::AnyClientState;
 use crate::connection::Connection;
 use crate::foreign_client::{ForeignClient, HasExpiredOrFrozenError};
 use crate::object::Channel as WorkerChannelObject;
@@ -1008,12 +1004,20 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             )
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
 
-        let query_height = self.query_latest_height_of_src_chain()?;
+        let query_height = super::foreign_client::solomachine::query_latest_height_of_chain(
+            self.src_chain(),
+            self.dst_chain(),
+            self.dst_client_id(),
+        )
+        .map_err(ChannelError::relayer)?;
 
-        let proofs = self
-            .src_chain()
-            .build_channel_proofs(self.src_port_id(), src_channel_id, query_height)
-            .map_err(ChannelError::channel_proof)?;
+        let proofs = super::foreign_client::solomachine::build_channel_proofs(
+            self.src_chain(),
+            self.src_port_id(),
+            src_channel_id,
+            query_height,
+        )
+        .map_err(ChannelError::channel_proof)?;
 
         // Build message(s) to update client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
@@ -1125,12 +1129,20 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             )
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
 
-        let query_height = self.query_latest_height_of_src_chain()?;
+        let query_height = super::foreign_client::solomachine::query_latest_height_of_chain(
+            self.src_chain(),
+            self.dst_chain(),
+            self.dst_client_id(),
+        )
+        .map_err(ChannelError::relayer)?;
 
-        let proofs = self
-            .src_chain()
-            .build_channel_proofs(self.src_port_id(), src_channel_id, query_height)
-            .map_err(ChannelError::channel_proof)?;
+        let proofs = super::foreign_client::solomachine::build_channel_proofs(
+            self.src_chain(),
+            self.src_port_id(),
+            src_channel_id,
+            query_height,
+        )
+        .map_err(ChannelError::channel_proof)?;
 
         // Build message(s) to update client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
@@ -1230,12 +1242,20 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             )
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
 
-        let query_height = self.query_latest_height_of_src_chain()?;
+        let query_height = super::foreign_client::solomachine::query_latest_height_of_chain(
+            self.src_chain(),
+            self.dst_chain(),
+            self.dst_client_id(),
+        )
+        .map_err(ChannelError::relayer)?;
 
-        let proofs = self
-            .src_chain()
-            .build_channel_proofs(self.src_port_id(), src_channel_id, query_height)
-            .map_err(ChannelError::channel_proof)?;
+        let proofs = super::foreign_client::solomachine::build_channel_proofs(
+            self.src_chain(),
+            self.src_port_id(),
+            src_channel_id,
+            query_height,
+        )
+        .map_err(ChannelError::channel_proof)?;
 
         // Build message(s) to update client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
@@ -1398,12 +1418,20 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             )
             .map_err(|e| ChannelError::query(self.dst_chain().id(), e))?;
 
-        let query_height = self.query_latest_height_of_src_chain()?;
+        let query_height = super::foreign_client::solomachine::query_latest_height_of_chain(
+            self.src_chain(),
+            self.dst_chain(),
+            self.dst_client_id(),
+        )
+        .map_err(ChannelError::relayer)?;
 
-        let proofs = self
-            .src_chain()
-            .build_channel_proofs(self.src_port_id(), src_channel_id, query_height)
-            .map_err(ChannelError::channel_proof)?;
+        let proofs = super::foreign_client::solomachine::build_channel_proofs(
+            self.src_chain(),
+            self.src_port_id(),
+            src_channel_id,
+            query_height,
+        )
+        .map_err(ChannelError::channel_proof)?;
 
         // Build message(s) to update client on destination
         let mut msgs = self.build_update_client_on_dst(proofs.height())?;
@@ -1467,39 +1495,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             a_side: self.a_side.map_chain(mapper_a),
             b_side: self.b_side.map_chain(mapper_b),
             connection_delay: self.connection_delay,
-        }
-    }
-
-    fn query_latest_height_of_src_chain(&self) -> Result<Height, ChannelError> {
-        let (client_state, _) = {
-            self.dst_chain()
-                .query_client_state(
-                    QueryClientStateRequest {
-                        client_id: self.src_client_id().clone(),
-                        height: QueryHeight::Latest,
-                    },
-                    IncludeProof::No,
-                )
-                .map_err(|e| {
-                    ChannelError::client(ClientError::client_not_found(
-                        self.src_client_id().clone(),
-                    ))
-                })?
-        };
-        println!("client_state: {:?}", client_state);
-
-        if client_state.is_frozen() {
-            return Err(ChannelError::client(ClientError::client_frozen(
-                self.src_client_id().clone(),
-            )));
-        }
-
-        match client_state {
-            AnyClientState::Solomachine(sm_cs) => Ok(sm_cs.latest_height()),
-            _ => self
-                .src_chain()
-                .query_latest_height()
-                .map_err(|e| ChannelError::query(self.src_chain().id(), e)),
         }
     }
 }

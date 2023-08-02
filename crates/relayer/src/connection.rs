@@ -2,7 +2,6 @@ use core::fmt::{Display, Error as FmtError, Formatter};
 use core::time::Duration;
 
 use ibc_proto::google::protobuf::Any;
-use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use serde::Serialize;
 use tracing::{debug, error, info, warn};
 
@@ -22,12 +21,10 @@ use ibc_relayer_types::tx_msg::Msg;
 use crate::chain::counterparty::connection_state_on_destination;
 use crate::chain::handle::ChainHandle;
 use crate::chain::requests::{
-    IncludeProof, PageRequest, QueryClientStateRequest, QueryConnectionRequest,
-    QueryConnectionsRequest, QueryHeight,
+    IncludeProof, PageRequest, QueryConnectionRequest, QueryConnectionsRequest, QueryHeight,
 };
 use crate::chain::tracking::TrackedMsgs;
-use crate::client_state::AnyClientState;
-use crate::foreign_client::{ForeignClient, ForeignClientError, HasExpiredOrFrozenError};
+use crate::foreign_client::{ForeignClient, HasExpiredOrFrozenError};
 use crate::object::Connection as WorkerConnectionObject;
 use crate::util::pretty::{PrettyDuration, PrettyOption};
 use crate::util::retry::{retry_with_index, RetryResult};
@@ -1024,11 +1021,13 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         // Build add send the message(s) for updating client on source
         // TODO - add check if update client is required
-        let src_client_target_height = query_latest_height_of_chain(
-            &self.dst_chain(),
-            &self.src_chain(),
-            self.src_client_id(),
-        )?;
+        let src_client_target_height =
+            super::foreign_client::solomachine::query_latest_height_of_chain(
+                &self.dst_chain(),
+                &self.src_chain(),
+                self.src_client_id(),
+            )
+            .map_err(ConnectionError::relayer)?;
         info!(
             "build_conn_try src_client_target_height: {}",
             src_client_target_height
@@ -1041,11 +1040,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
 
-        let query_height = query_latest_height_of_chain(
+        let query_height = super::foreign_client::solomachine::query_latest_height_of_chain(
             &self.src_chain(),
             &self.dst_chain(),
             self.dst_client_id(),
-        )?;
+        )
+        .map_err(ConnectionError::relayer)?;
         let (client_state, proofs) =
             super::foreign_client::solomachine::build_connection_proofs_and_client_state(
                 &self.src_chain(),
@@ -1175,11 +1175,13 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         // Build add **send** the message(s) for updating client on source.
         // TODO - add check if it is required
-        let src_client_target_height = query_latest_height_of_chain(
-            &self.dst_chain(),
-            &self.src_chain(),
-            self.src_client_id(),
-        )?;
+        let src_client_target_height =
+            super::foreign_client::solomachine::query_latest_height_of_chain(
+                &self.dst_chain(),
+                &self.src_chain(),
+                self.src_client_id(),
+            )
+            .map_err(ConnectionError::relayer)?;
 
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
 
@@ -1190,11 +1192,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
 
-        let query_height = query_latest_height_of_chain(
+        let query_height = super::foreign_client::solomachine::query_latest_height_of_chain(
             &self.src_chain(),
             &self.dst_chain(),
             self.dst_client_id(),
-        )?;
+        )
+        .map_err(ConnectionError::relayer)?;
 
         let (client_state, proofs) =
             super::foreign_client::solomachine::build_connection_proofs_and_client_state(
@@ -1279,11 +1282,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
         let _expected_dst_connection =
             self.validated_expected_connection(ConnectionMsgType::OpenAck)?;
 
-        let query_height = query_latest_height_of_chain(
+        let query_height = super::foreign_client::solomachine::query_latest_height_of_chain(
             &self.src_chain(),
             &self.dst_chain(),
             self.dst_client_id(),
-        )?;
+        )
+        .map_err(ConnectionError::relayer)?;
 
         let (_src_connection, _) = self
             .src_chain()
@@ -1435,61 +1439,5 @@ fn check_destination_connection_state(
         Ok(())
     } else {
         Err(ConnectionError::connection_already_exists(connection_id))
-    }
-}
-
-fn get_client_state(
-    chain: &impl ChainHandle,
-    client_id: &ClientId,
-) -> Result<AnyClientState, ConnectionError> {
-    let (client_state, _) = {
-        chain
-            .query_client_state(
-                QueryClientStateRequest {
-                    client_id: client_id.clone(),
-                    height: QueryHeight::Latest,
-                },
-                IncludeProof::No,
-            )
-            .map_err(|e| {
-                ConnectionError::client_operation(
-                    client_id.clone(),
-                    chain.id(),
-                    ForeignClientError::client_refresh(
-                        client_id.clone(),
-                        "failed querying client state on dst chain".to_string(),
-                        e,
-                    ),
-                )
-            })?
-    };
-    println!("client_state: {:?}", client_state);
-
-    if client_state.is_frozen() {
-        return Err(ConnectionError::client_operation(
-            client_id.clone(),
-            chain.id(),
-            ForeignClientError::expired_or_frozen(
-                client_id.clone(),
-                chain.id(),
-                "client state reports that client is frozen".into(),
-            ),
-        ));
-    }
-
-    Ok(client_state)
-}
-
-fn query_latest_height_of_chain(
-    chain: &impl ChainHandle,
-    counterparty_chain: &impl ChainHandle,
-    client_id_on_counterparty_chain: &ClientId,
-) -> Result<Height, ConnectionError> {
-    let client_state = get_client_state(counterparty_chain, client_id_on_counterparty_chain)?;
-    match client_state {
-        AnyClientState::Solomachine(sm_cs) => Ok(sm_cs.latest_height()),
-        _ => chain
-            .query_latest_height()
-            .map_err(|e| ConnectionError::chain_query(chain.id(), e)),
     }
 }

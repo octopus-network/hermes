@@ -3,7 +3,10 @@ use crate::{
     chain::{
         handle::ChainHandle,
         near::CONTRACT_ACCOUNT_ID,
-        requests::{IncludeProof, QueryClientStateRequest, QueryConnectionRequest, QueryHeight},
+        requests::{
+            IncludeProof, QueryChannelRequest, QueryClientStateRequest, QueryConnectionRequest,
+            QueryHeight,
+        },
         ChainType,
     },
     client_state::AnyClientState,
@@ -27,12 +30,12 @@ use ibc_relayer_types::{
         ics06_solomachine::header::{Header as SmHeader, HeaderData as SmHeaderData},
     },
     core::{
-        ics02_client::error::Error as ClientError,
+        ics02_client::{client_state::ClientState, error::Error as ClientError},
         ics03_connection::connection::State,
         ics23_commitment::commitment::{CommitmentProofBytes, CommitmentRoot},
         ics24_host::{
-            identifier::{ClientId, ConnectionId},
-            path::{ClientConsensusStatePath, ClientStatePath, ConnectionsPath},
+            identifier::{ChannelId, ClientId, ConnectionId, PortId},
+            path::{ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, ConnectionsPath},
         },
     },
     proofs::{ConsensusProof, Proofs},
@@ -41,6 +44,52 @@ use ibc_relayer_types::{
 };
 use prost::Message;
 use tracing::{debug, info};
+
+fn get_client_state(
+    chain: &impl ChainHandle,
+    client_id: &ClientId,
+) -> Result<AnyClientState, RelayerError> {
+    let (client_state, _) = {
+        chain
+            .query_client_state(
+                QueryClientStateRequest {
+                    client_id: client_id.clone(),
+                    height: QueryHeight::Latest,
+                },
+                IncludeProof::No,
+            )
+            .map_err(|_| {
+                RelayerError::query(format!(
+                    "clent state for client {} on chain {}",
+                    client_id,
+                    chain.id()
+                ))
+            })?
+    };
+    println!("client_state: {:?}", client_state);
+
+    if client_state.is_frozen() {
+        return Err(RelayerError::light_client_state(
+            ibc_relayer_types::core::ics02_client::error::Error::client_frozen(client_id.clone()),
+        ));
+    }
+
+    Ok(client_state)
+}
+
+pub fn query_latest_height_of_chain(
+    chain: &impl ChainHandle,
+    counterparty_chain: &impl ChainHandle,
+    client_id_on_counterparty_chain: &ClientId,
+) -> Result<Height, RelayerError> {
+    let client_state = get_client_state(counterparty_chain, client_id_on_counterparty_chain)?;
+    match client_state {
+        AnyClientState::Solomachine(sm_cs) => Ok(sm_cs.latest_height()),
+        _ => chain
+            .query_latest_height()
+            .map_err(|_| RelayerError::query(format!("latest height on chain {}", chain.id()))),
+    }
+}
 
 fn get_sm_client_pubkey(chain: &impl ChainHandle) -> PublicKey {
     match chain.get_key() {
@@ -485,4 +534,69 @@ pub fn build_connection_proofs_and_client_state(
         )
         .map_err(RelayerError::malformed_proof)?,
     ))
+}
+
+/// Builds the proof for channel handshake messages.
+pub fn build_channel_proofs(
+    chain: &impl ChainHandle,
+    port_id: &PortId,
+    channel_id: &ChannelId,
+    height: Height,
+) -> Result<Proofs, RelayerError> {
+    // Collect all proofs as required
+    let (channel_end, _maybe_channel_proof) = chain.query_channel(
+        QueryChannelRequest {
+            port_id: port_id.clone(),
+            channel_id: channel_id.clone(),
+            height: QueryHeight::Latest,
+        },
+        IncludeProof::No,
+    )?;
+
+    debug!(
+        "PortId: {}, ChannelId: {}, ChannelStateData: {:?}",
+        port_id, channel_id, channel_end
+    );
+
+    let timestamp_nanos = Timestamp::now().nanoseconds();
+
+    let path = match chain.config().unwrap().r#type {
+        ChainType::CosmosSdk => {
+            let prefix = chain
+                .query_commitment_prefix()
+                .map_err(|_| RelayerError::query("commitment prefix".to_string()))?;
+            let mut path = prefix.into_vec();
+            path.extend(
+                ChannelEndsPath(port_id.clone(), channel_id.clone())
+                    .to_string()
+                    .into_bytes(),
+            );
+            path
+        }
+        ChainType::Near => format!(
+            "/%09{}%2C/channelEnds%2Fports%2F{}%2Fchannels%2F{}",
+            CONTRACT_ACCOUNT_ID, port_id, channel_id
+        )
+        .into_bytes(),
+    };
+    let sig_data = sign_bytes_with_solomachine_pubkey(
+        chain,
+        height.revision_height() + 1,
+        timestamp_nanos,
+        path,
+        channel_end.encode_vec(),
+    );
+
+    let timestamped = TimestampedSignatureData {
+        signature_data: sig_data,
+        timestamp: timestamp_nanos,
+    };
+    let mut channel_proof = Vec::new();
+    Message::encode(&timestamped, &mut channel_proof).unwrap();
+
+    let channel_proof_bytes =
+        CommitmentProofBytes::try_from(channel_proof).map_err(RelayerError::malformed_proof)?;
+
+    Proofs::new(channel_proof_bytes, None, None, None, height.increment())
+        .map_err(RelayerError::malformed_proof)
 }
