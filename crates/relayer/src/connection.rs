@@ -1,6 +1,5 @@
 use core::fmt::{Display, Error as FmtError, Formatter};
 use core::time::Duration;
-use std::thread;
 
 use ibc_proto::google::protobuf::Any;
 use ibc_relayer_types::core::ics02_client::client_state::ClientState;
@@ -184,6 +183,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             ),
         };
 
+        info!("creating connection {}", c);
         c.handshake()?;
 
         Ok(c)
@@ -977,19 +977,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                 "dst_chain": self.dst_chain().id(),
             }
         );
-        let dst_application_latest_height = || {
-            query_latest_height_of_chain(&self.dst_chain(), &self.src_chain(), self.src_client_id())
-        };
-
-        while consensus_height >= dst_application_latest_height()? {
-            warn!(
-                "client consensus proof height too high, \
-                 waiting for destination chain to advance beyond {}",
-                consensus_height
-            );
-
-            thread::sleep(Duration::from_millis(500));
-        }
 
         Ok(())
     }
@@ -1042,7 +1029,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             &self.src_chain(),
             self.src_client_id(),
         )?;
-        info!("build_conn_try src_client_target_height: {}", src_client_target_height);
+        info!(
+            "build_conn_try src_client_target_height: {}",
+            src_client_target_height
+        );
         let client_msgs = self.build_update_client_on_src(src_client_target_height)?;
 
         let tm =
@@ -1056,9 +1046,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             &self.dst_chain(),
             self.dst_client_id(),
         )?;
-        let (client_state, proofs) = self
-            .src_chain()
-            .build_connection_proofs_and_client_state(
+        let (client_state, proofs) =
+            super::foreign_client::solomachine::build_connection_proofs_and_client_state(
+                &self.src_chain(),
+                &self.dst_chain(),
                 ConnectionMsgType::OpenTry,
                 src_connection_id,
                 self.src_client_id(),
@@ -1113,7 +1104,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         msgs.push(new_msg.to_any());
 
-        info!("build_conn_try returns: {:?}, {}", msgs, src_client_target_height);
+        info!(
+            "build_conn_try returns: {:?}, {}",
+            msgs, src_client_target_height
+        );
 
         Ok((msgs, src_client_target_height))
     }
@@ -1202,9 +1196,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             self.dst_client_id(),
         )?;
 
-        let (client_state, proofs) = self
-            .src_chain()
-            .build_connection_proofs_and_client_state(
+        let (client_state, proofs) =
+            super::foreign_client::solomachine::build_connection_proofs_and_client_state(
+                &self.src_chain(),
+                &self.dst_chain(),
                 ConnectionMsgType::OpenAck,
                 src_connection_id,
                 self.src_client_id(),
@@ -1303,9 +1298,10 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         // TODO - check that the src connection is consistent with the confirm options
 
-        let (_, proofs) = self
-            .src_chain()
-            .build_connection_proofs_and_client_state(
+        let (_, proofs) =
+            super::foreign_client::solomachine::build_connection_proofs_and_client_state(
+                &self.src_chain(),
+                &self.dst_chain(),
                 ConnectionMsgType::OpenConfirm,
                 src_connection_id,
                 self.src_client_id(),
@@ -1442,26 +1438,25 @@ fn check_destination_connection_state(
     }
 }
 
-fn query_latest_height_of_chain(
+fn get_client_state(
     chain: &impl ChainHandle,
-    counterparty_chain: &impl ChainHandle,
-    client_id_on_counterparty_chain: &ClientId,
-) -> Result<Height, ConnectionError> {
+    client_id: &ClientId,
+) -> Result<AnyClientState, ConnectionError> {
     let (client_state, _) = {
-        counterparty_chain
+        chain
             .query_client_state(
                 QueryClientStateRequest {
-                    client_id: client_id_on_counterparty_chain.clone(),
+                    client_id: client_id.clone(),
                     height: QueryHeight::Latest,
                 },
                 IncludeProof::No,
             )
             .map_err(|e| {
                 ConnectionError::client_operation(
-                    client_id_on_counterparty_chain.clone(),
-                    counterparty_chain.id(),
+                    client_id.clone(),
+                    chain.id(),
                     ForeignClientError::client_refresh(
-                        client_id_on_counterparty_chain.clone(),
+                        client_id.clone(),
                         "failed querying client state on dst chain".to_string(),
                         e,
                     ),
@@ -1472,16 +1467,25 @@ fn query_latest_height_of_chain(
 
     if client_state.is_frozen() {
         return Err(ConnectionError::client_operation(
-            client_id_on_counterparty_chain.clone(),
-            counterparty_chain.id(),
+            client_id.clone(),
+            chain.id(),
             ForeignClientError::expired_or_frozen(
-                client_id_on_counterparty_chain.clone(),
-                counterparty_chain.id(),
+                client_id.clone(),
+                chain.id(),
                 "client state reports that client is frozen".into(),
             ),
         ));
     }
 
+    Ok(client_state)
+}
+
+fn query_latest_height_of_chain(
+    chain: &impl ChainHandle,
+    counterparty_chain: &impl ChainHandle,
+    client_id_on_counterparty_chain: &ClientId,
+) -> Result<Height, ConnectionError> {
+    let client_state = get_client_state(counterparty_chain, client_id_on_counterparty_chain)?;
     match client_state {
         AnyClientState::Solomachine(sm_cs) => Ok(sm_cs.latest_height()),
         _ => chain

@@ -1275,31 +1275,47 @@ impl ChainEndpoint for CosmosSdkChain {
         );
         crate::telemetry!(query, self.id(), "query_consensus_state");
 
-        let res = self.query(
-            ClientConsensusStatePath {
+        let (client_state, _) = self.query_client_state(
+            QueryClientStateRequest {
                 client_id: request.client_id.clone(),
-                epoch: request.consensus_height.revision_number(),
-                height: request.consensus_height.revision_height(),
+                height: request.query_height,
             },
-            request.query_height,
-            matches!(include_proof, IncludeProof::Yes),
+            include_proof,
         )?;
 
-        let consensus_state = AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
-
-        if !matches!(consensus_state, AnyConsensusState::Solomachine(_)) {
-            return Err(Error::consensus_state_type_mismatch(
-                ClientType::Solomachine,
-                consensus_state.client_type(),
-            ));
-        }
-
-        match include_proof {
-            IncludeProof::Yes => {
-                let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
-                Ok((consensus_state, Some(proof)))
+        match client_state {
+            AnyClientState::Solomachine(sm_cs) => {
+                Ok((AnyConsensusState::Solomachine(sm_cs.consensus_state), None))
             }
-            IncludeProof::No => Ok((consensus_state, None)),
+            _ => {
+                let res = self.query(
+                    ClientConsensusStatePath {
+                        client_id: request.client_id.clone(),
+                        epoch: request.consensus_height.revision_number(),
+                        height: request.consensus_height.revision_height(),
+                    },
+                    request.query_height,
+                    matches!(include_proof, IncludeProof::Yes),
+                )?;
+
+                let consensus_state =
+                    AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
+
+                if !matches!(consensus_state, AnyConsensusState::Solomachine(_)) {
+                    return Err(Error::consensus_state_type_mismatch(
+                        ClientType::Solomachine,
+                        consensus_state.client_type(),
+                    ));
+                }
+
+                match include_proof {
+                    IncludeProof::Yes => {
+                        let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
+                        Ok((consensus_state, Some(proof)))
+                    }
+                    IncludeProof::No => Ok((consensus_state, None)),
+                }
+            }
         }
     }
 

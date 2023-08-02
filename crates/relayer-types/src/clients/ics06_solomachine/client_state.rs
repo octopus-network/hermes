@@ -28,7 +28,8 @@ pub struct ClientState {
 
 impl Ics2ClientState for ClientState {
     fn chain_id(&self) -> ChainId {
-        ChainId::new("ibc".to_string(), 1)
+        let (name, version) = self.consensus_state.diversifier.split_once('-').unwrap();
+        ChainId::new(name.to_string(), version.parse().unwrap())
     }
 
     fn client_type(&self) -> ClientType {

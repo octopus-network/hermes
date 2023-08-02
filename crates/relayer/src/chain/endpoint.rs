@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
 use core::convert::TryFrom;
+use tracing::info;
 
 use tokio::runtime::Runtime as TokioRuntime;
 
@@ -397,6 +398,16 @@ pub trait ChainEndpoint: Sized {
         client_id: &ClientId,
         height: ICSHeight,
     ) -> Result<(Option<AnyClientState>, Proofs), Error> {
+        info!(
+            "[{}] building connection proofs and client state for {:?} message: \
+            connection_id: {}, client_id: {}, height: {}",
+            self.id(),
+            message_type,
+            connection_id,
+            client_id,
+            height
+        );
+
         let (connection_end, maybe_connection_proof) = self.query_connection(
             QueryConnectionRequest {
                 connection_id: connection_id.clone(),
@@ -455,31 +466,36 @@ pub trait ChainEndpoint: Sized {
                         .map_err(Error::malformed_proof)?,
                 );
 
-                let consensus_state_proof = {
-                    let (_, maybe_consensus_state_proof) = self.query_consensus_state(
-                        QueryConsensusStateRequest {
-                            client_id: client_id.clone(),
-                            consensus_height: client_state_value.latest_height(),
-                            query_height: QueryHeight::Specific(height),
-                        },
-                        IncludeProof::Yes,
-                    )?;
+                match &client_state_value {
+                    AnyClientState::Solomachine(_) => (),
+                    _ => {
+                        let consensus_state_proof = {
+                            let (_, maybe_consensus_state_proof) = self.query_consensus_state(
+                                QueryConsensusStateRequest {
+                                    client_id: client_id.clone(),
+                                    consensus_height: client_state_value.latest_height(),
+                                    query_height: QueryHeight::Specific(height),
+                                },
+                                IncludeProof::Yes,
+                            )?;
 
-                    let Some(consensus_state_proof) = maybe_consensus_state_proof else {
-                        return Err(Error::queried_proof_not_found());
-                    };
+                            let Some(consensus_state_proof) = maybe_consensus_state_proof else {
+                                return Err(Error::queried_proof_not_found());
+                            };
 
-                    consensus_state_proof
-                };
+                            consensus_state_proof
+                        };
 
-                consensus_proof = Option::from(
-                    ConsensusProof::new(
-                        CommitmentProofBytes::try_from(consensus_state_proof)
-                            .map_err(Error::malformed_proof)?,
-                        client_state_value.latest_height(),
-                    )
-                    .map_err(Error::consensus_proof)?,
-                );
+                        consensus_proof = Option::from(
+                            ConsensusProof::new(
+                                CommitmentProofBytes::try_from(consensus_state_proof)
+                                    .map_err(Error::malformed_proof)?,
+                                client_state_value.latest_height(),
+                            )
+                            .map_err(Error::consensus_proof)?,
+                        );
+                    }
+                }
 
                 client_state = Some(client_state_value);
             }

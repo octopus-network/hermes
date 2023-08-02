@@ -91,7 +91,6 @@ mod light_client;
 pub mod rpc;
 
 pub const REVISION_NUMBER: u64 = 0;
-pub const CLIENT_DIVERSIFIER: &str = "NEAR";
 pub const CONTRACT_ACCOUNT_ID: &str = "v3.nearibc.testnet";
 pub const SIGNER_ACCOUNT_TESTNET: &str = "my-account.testnet";
 const MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG: u128 = 100_000_000_000_000_000_000_000;
@@ -105,7 +104,7 @@ pub struct NearChain {
     near_ibc_contract: AccountId,
     rt: Arc<TokioRuntime>,
     tx_monitor_cmd: Option<TxMonitorCmd>,
-    signing_key_pair: Option<Secp256k1KeyPair>,
+    sm_signing_key_pair: Option<Secp256k1KeyPair>,
 }
 
 impl NearIbcContract for NearChain {
@@ -210,14 +209,14 @@ impl NearChain {
 
     fn init_signing_key_pair(&mut self) {
         let key_pair = self.get_key().unwrap();
-        self.signing_key_pair = Some(key_pair);
+        self.sm_signing_key_pair = Some(key_pair);
     }
 
     fn get_sm_client_pubkey(&self) -> PublicKey {
         PublicKey(
             tendermint::PublicKey::from_raw_secp256k1(
                 &self
-                    .signing_key_pair
+                    .sm_signing_key_pair
                     .as_ref()
                     .unwrap()
                     .public_key
@@ -231,7 +230,7 @@ impl NearChain {
         let public_key = self.get_sm_client_pubkey();
         SmConsensusState {
             public_key,
-            diversifier: CLIENT_DIVERSIFIER.to_string(),
+            diversifier: self.id().to_string(),
             timestamp: Timestamp::now().nanoseconds(),
             root: CommitmentRoot::from_bytes(&public_key.to_bytes()),
         }
@@ -249,14 +248,14 @@ impl NearChain {
             Data,
         };
 
-        debug!(
+        info!(
             "{}: [sign_bytes_with_solomachine_pubkey] - sequence {:?}, timestamp: {:?}, path: {:?}, data: {:?}",
             self.id(), sequence, timestamp, path, data
         );
         let bytes = SignBytes {
             sequence,
             timestamp,
-            diversifier: CLIENT_DIVERSIFIER.to_string(),
+            diversifier: self.id().to_string(),
             path,
             data,
         };
@@ -268,7 +267,7 @@ impl NearChain {
             buf
         );
 
-        let key_pair = self.signing_key_pair.as_ref().unwrap();
+        let key_pair = self.sm_signing_key_pair.as_ref().unwrap();
         let signature = key_pair.sign(&buf).unwrap();
         debug!(
             "{}: [sign_bytes_with_solomachine_pubkey] - signature: {:?}",
@@ -290,14 +289,11 @@ impl NearChain {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NearLightBlock {}
-
 impl ChainEndpoint for NearChain {
-    type LightBlock = NearLightBlock; // Todo: Import from Near light client //CS
-    type Header = SmHeader; // Todo: Import from Near light client //CS
-    type ConsensusState = SmConsensusState; // Todo: Import from Near light client //CS
-    type ClientState = SmClientState; // Todo: Import from Near light client //CS
+    type LightBlock = SmClientState;
+    type Header = SmHeader;
+    type ConsensusState = SmConsensusState;
+    type ClientState = SmClientState;
     type SigningKeyPair = Secp256k1KeyPair;
     type Time = ibc::core::timestamp::Timestamp;
 
@@ -327,7 +323,7 @@ impl ChainEndpoint for NearChain {
             near_ibc_contract: AccountId::from_str(CONTRACT_ACCOUNT_ID).unwrap(),
             rt,
             tx_monitor_cmd: None,
-            signing_key_pair: None,
+            sm_signing_key_pair: None,
         };
         new_instance.init_signing_key_pair();
         Ok(new_instance)
@@ -467,9 +463,14 @@ impl ChainEndpoint for NearChain {
         &mut self,
         _trusted: ICSHeight,
         _target: ICSHeight,
-        _client_state: &AnyClientState,
+        client_state: &AnyClientState,
     ) -> Result<Self::LightBlock, Error> {
-        Ok(Self::LightBlock {})
+        match client_state {
+            AnyClientState::Solomachine(sm_cs) => Ok(sm_cs.clone()),
+            _ => Err(Error::report_error(
+                "Invalid client state (not solomachine clent state)".to_string(),
+            )),
+        }
     }
 
     /// Given a client update event that includes the header used in a client update,
@@ -1239,7 +1240,7 @@ impl ChainEndpoint for NearChain {
             light_block
         );
 
-        Ok(self.get_sm_consensus_state())
+        Ok(light_block.consensus_state)
     }
 
     fn build_header(
@@ -1265,12 +1266,6 @@ impl ChainEndpoint for NearChain {
             todo!()
         };
         let mut timestamp = cs.consensus_state.timestamp;
-        let mut h: Self::Header = SmHeader {
-            timestamp: 0,
-            signature: vec![],
-            new_public_key: None,
-            new_diversifier: CLIENT_DIVERSIFIER.to_string(),
-        };
         let mut hs: Vec<Self::Header> = Vec::new();
         let start = if trusted_height.revision_height() > cs.sequence {
             trusted_height.revision_height()
@@ -1286,18 +1281,12 @@ impl ChainEndpoint for NearChain {
         for seq in start..end {
             let pk = self.get_sm_client_pubkey();
             debug!("{}: [build_header] - pk: {:?}", self.id(), pk);
-            let duration_since_epoch = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap();
-            let timestamp_nanos = duration_since_epoch
-                // .checked_sub(Duration::from_secs(5))
-                // .unwrap()
-                .as_nanos() as u64; // u128
             let data = SmHeaderData {
                 new_pub_key: Some(pk),
-                new_diversifier: CLIENT_DIVERSIFIER.to_string(),
+                new_diversifier: self.id().to_string(),
             };
-            timestamp = timestamp + 1;
+
+            timestamp += 1;
 
             let sig_data = self.sign_bytes_with_solomachine_pubkey(
                 seq,
@@ -1310,16 +1299,13 @@ impl ChainEndpoint for NearChain {
                 timestamp,
                 signature: sig_data,
                 new_public_key: Some(pk),
-                new_diversifier: CLIENT_DIVERSIFIER.to_string(),
+                new_diversifier: self.id().to_string(),
             };
 
-            if seq == end - 1 {
-                h = header;
-            } else {
-                hs.push(header);
-            }
+            hs.push(header);
         }
 
+        let h = hs.pop().unwrap();
         Ok((h, hs))
     }
 
@@ -1346,6 +1332,8 @@ impl ChainEndpoint for NearChain {
             self.id(), message_type, connection_id, client_id, height
         );
 
+        let sequence = height.revision_height();
+
         let (connection_end, _maybe_connection_proof) = self.query_connection(
             QueryConnectionRequest {
                 connection_id: connection_id.clone(),
@@ -1354,21 +1342,16 @@ impl ChainEndpoint for NearChain {
             IncludeProof::No,
         )?;
 
-        let commitment_prefix = self.get_commitment_prefix().unwrap();
-
         debug!("{}: ConnectionStateData: {:?}", self.id(), connection_end);
 
-        let duration_since_epoch = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap();
-        let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
+        let timestamp_nanos = Timestamp::now().nanoseconds();
 
         let sig_data = self.sign_bytes_with_solomachine_pubkey(
-            height.revision_height() + 1,
+            sequence + 1,
             timestamp_nanos,
             format!(
-                "/{}/connections%2F{}",
-                String::from_utf8(commitment_prefix.clone().into_vec()).unwrap(),
+                "/%09{}%2C/connections%2F{}",
+                CONTRACT_ACCOUNT_ID,
                 connection_id.as_str()
             )
             .as_bytes()
@@ -1417,7 +1400,7 @@ impl ChainEndpoint for NearChain {
 
         match message_type {
             ConnectionMsgType::OpenTry | ConnectionMsgType::OpenAck => {
-                let (client_state_value, _maybe_client_state_proof) = self.query_client_state(
+                let (client_state_value, _) = self.query_client_state(
                     QueryClientStateRequest {
                         client_id: client_id.clone(),
                         height: QueryHeight::Specific(height),
@@ -1427,17 +1410,12 @@ impl ChainEndpoint for NearChain {
 
                 debug!("{}: ClientStateData: {:?}", self.id(), client_state_value);
 
-                // let duration_since_epoch = SystemTime::now()
-                //     .duration_since(SystemTime::UNIX_EPOCH)
-                //     .unwrap();
-                // let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
-
                 let sig_data = self.sign_bytes_with_solomachine_pubkey(
-                    height.revision_height() + 2,
+                    sequence + 2,
                     timestamp_nanos,
                     format!(
-                        "/{}/clients%2F{}%2FclientState",
-                        String::from_utf8(commitment_prefix.clone().into_vec()).unwrap(),
+                        "/%09{}%2C/clients%2F{}%2FclientState",
+                        CONTRACT_ACCOUNT_ID,
                         client_id.as_str()
                     )
                     .as_bytes()
@@ -1461,15 +1439,14 @@ impl ChainEndpoint for NearChain {
                     CommitmentProofBytes::try_from(proof_client).map_err(Error::malformed_proof)?,
                 );
 
-                let (consensus_state_value, maybe_consensus_state_proof) = self
-                    .query_consensus_state(
-                        QueryConsensusStateRequest {
-                            client_id: client_id.clone(),
-                            consensus_height: client_state_value.latest_height(),
-                            query_height: QueryHeight::Specific(height),
-                        },
-                        IncludeProof::No,
-                    )?;
+                let (consensus_state_value, _) = self.query_consensus_state(
+                    QueryConsensusStateRequest {
+                        client_id: client_id.clone(),
+                        consensus_height: client_state_value.latest_height(),
+                        query_height: QueryHeight::Specific(height),
+                    },
+                    IncludeProof::No,
+                )?;
 
                 debug!(
                     "{}: ConsensusStateData: {:?}",
@@ -1477,17 +1454,12 @@ impl ChainEndpoint for NearChain {
                     consensus_state_value
                 );
 
-                // let duration_since_epoch = SystemTime::now()
-                //     .duration_since(SystemTime::UNIX_EPOCH)
-                //     .unwrap();
-                // let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
-
                 let sig_data = self.sign_bytes_with_solomachine_pubkey(
-                    height.revision_height() + 3,
+                    sequence + 3,
                     timestamp_nanos,
                     format!(
-                        "/{}/clients%2F{}%2FconsensusStates%2F0-{}",
-                        String::from_utf8(commitment_prefix.clone().into_vec()).unwrap(),
+                        "/%09{}%2C/clients%2F{}%2FconsensusStates%2F0-{}",
+                        CONTRACT_ACCOUNT_ID,
                         client_id.as_str(),
                         client_state_value
                             .latest_height()

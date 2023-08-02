@@ -43,6 +43,8 @@ use crate::telemetry;
 use crate::util::collate::CollatedIterExt;
 use crate::util::pretty::{PrettyDuration, PrettySlice};
 
+pub mod solomachine;
+
 const MAX_MISBEHAVIOUR_CHECK_DURATION: Duration = Duration::from_secs(120);
 
 const MAX_RETRIES: usize = 5;
@@ -570,68 +572,18 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         })?;
 
         // Build client create message with the data from source chain at latest height.
-        let latest_height = if self.src_chain.config().unwrap().account_prefix.eq("near") {
-            Height::new(0, 1).unwrap()
-        } else {
-            self.src_chain.query_latest_height().map_err(|e| {
-                ForeignClientError::client_create(
-                    self.src_chain.id(),
-                    "failed while querying src chain for latest height".to_string(),
-                    e,
-                )
-            })?
-        };
+        let latest_height = Height::new(0, 1).unwrap();
         info!(
             "Latest height on {} chain: {}",
             self.src_chain.id(),
             latest_height
         );
 
-        // Calculate client state settings from the chain configurations and
-        // optional user overrides.
-        let src_config = self.src_chain.config().map_err(|e| {
-            ForeignClientError::client_create(
-                self.src_chain.id(),
-                "failed while querying the source chain for configuration".to_string(),
-                e,
-            )
-        })?;
-        let dst_config = self.dst_chain.config().map_err(|e| {
-            ForeignClientError::client_create(
-                self.dst_chain.id(),
-                "failed while querying the destination chain for configuration".to_string(),
-                e,
-            )
-        })?;
-        let settings = ClientSettings::for_create_command(options, &src_config, &dst_config);
+        let client_state: AnyClientState =
+            solomachine::build_client_state(&self.src_chain, latest_height)?;
 
-        let client_state: AnyClientState = self
-            .src_chain
-            .build_client_state(latest_height, settings)
-            .map_err(|e| {
-                ForeignClientError::client_create(
-                    self.src_chain.id(),
-                    "failed when building client state".to_string(),
-                    e,
-                )
-            })?;
+        let consensus_state = solomachine::build_consensus_state(&self.src_chain, &client_state)?;
 
-        let consensus_state = self
-            .src_chain
-            .build_consensus_state(
-                client_state.latest_height(),
-                latest_height,
-                client_state.clone(),
-            )
-            .map_err(|e| {
-                ForeignClientError::client_create(
-                    self.src_chain.id(),
-                    "failed while building client consensus state from src chain".to_string(),
-                    e,
-                )
-            })?;
-
-        //TODO Get acct_prefix
         let msg = MsgCreateClient::new(client_state.into(), consensus_state.into(), signer)
             .map_err(ForeignClientError::client)?;
 
@@ -900,6 +852,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             target_height, client_latest_height
         );
 
+        match client_state {
+            AnyClientState::Solomachine(sm_cs) => return Ok(sm_cs.latest_height()),
+            _ => (),
+        }
         if client_latest_height < target_height {
             // If the latest height of the client is already lower than the
             // target height, we can simply use it.
@@ -1198,16 +1154,12 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             return Ok(vec![]);
         }
 
-        let (header, support) = self
-            .src_chain()
-            .build_header(trusted_height, target_height, client_state.clone())
-            .map_err(|e| {
-                ForeignClientError::client_update(
-                    self.dst_chain.id(),
-                    "failed building header with error".to_string(),
-                    e,
-                )
-            })?;
+        let (header, support) = solomachine::build_header(
+            &self.src_chain,
+            trusted_height,
+            target_height,
+            &client_state,
+        )?;
 
         let signer = self.dst_chain().get_signer().map_err(|e| {
             ForeignClientError::client_update(
@@ -1463,27 +1415,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         let consensus_state = match client_state {
             AnyClientState::Solomachine(sm_client_state) => sm_client_state.consensus_state.into(),
-            _ => {
-                let (consensus_state, _) = self
-                    .dst_chain
-                    .query_consensus_state(
-                        QueryConsensusStateRequest {
-                            client_id: self.id.clone(),
-                            consensus_height: height,
-                            query_height: QueryHeight::Latest,
-                        },
-                        IncludeProof::No,
-                    )
-                    .map_err(|e| {
-                        ForeignClientError::client_consensus_query(
-                            self.id.clone(),
-                            self.dst_chain.id(),
-                            height,
-                            e,
-                        )
-                    })?;
-                consensus_state
-            }
+            _ => panic!("Only solomachine client is supported"),
         };
 
         Ok(consensus_state)
@@ -1497,15 +1429,37 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         fields(client = %self)
     )]
     fn fetch_consensus_state_heights(&self) -> Result<Vec<Height>, ForeignClientError> {
-        let mut heights = self
-            .dst_chain
-            .query_consensus_state_heights(QueryConsensusStateHeightsRequest {
-                client_id: self.id.clone(),
-                pagination: Some(PageRequest::all()),
-            })
-            .map_err(|e| {
-                ForeignClientError::client_query(self.id().clone(), self.src_chain.id(), e)
-            })?;
+        let (client_state, _) = {
+            self.dst_chain
+                .query_client_state(
+                    QueryClientStateRequest {
+                        client_id: self.id().clone(),
+                        height: QueryHeight::Latest,
+                    },
+                    IncludeProof::No,
+                )
+                .map_err(|e| {
+                    ForeignClientError::client_refresh(
+                        self.id().clone(),
+                        "failed querying client state on dst chain".to_string(),
+                        e,
+                    )
+                })?
+        };
+        println!("client_state: {:?}", client_state);
+
+        if client_state.is_frozen() {
+            return Err(ForeignClientError::expired_or_frozen(
+                self.id().clone(),
+                self.dst_chain.id(),
+                "client state reports that client is frozen".into(),
+            ));
+        }
+
+        let mut heights = match client_state {
+            AnyClientState::Solomachine(sm_cs) => vec![sm_cs.latest_height()],
+            _ => panic!("Only solomachine client is supported"),
+        };
 
         // This is necessary because the results are sorted in lexicographic order instead of
         // numeric order, and we cannot therefore rely on setting the `reverse = true` in the
