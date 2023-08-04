@@ -1,5 +1,5 @@
-use crate::identity::create_identity;
-use crate::types::*;
+use crate::chain::ic::identity::create_identity;
+use crate::chain::ic::types::*;
 use candid::{Decode, Encode};
 
 async fn query_ic(

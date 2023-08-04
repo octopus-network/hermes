@@ -1,5 +1,5 @@
-use crate::types::SmState;
-use crate::update_ic::{send_msg_for_smstate, send_msg_for_vec};
+use crate::chain::ic::types::SmState;
+use crate::chain::ic::update_ic::{send_msg_for_smstate, send_msg_for_vec};
 use anyhow::Result;
 
 pub async fn create_client(canister_id: &str, is_mainnet: bool, msg: Vec<u8>) -> Result<SmState> {

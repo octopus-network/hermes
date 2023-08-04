@@ -1,6 +1,6 @@
-use crate::errors::Error;
-use crate::identity::create_identity;
-use crate::types::*;
+use crate::chain::ic::errors::Error;
+use crate::chain::ic::identity::create_identity;
+use crate::chain::ic::types::*;
 use anyhow::Result;
 use candid::{Decode, Encode};
 

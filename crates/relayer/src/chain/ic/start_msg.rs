@@ -1,5 +1,5 @@
-use crate::update_ic::call_args_is_string_function;
-use crate::update_ic::send_msg;
+use crate::chain::ic::update_ic::call_args_is_string_function;
+use crate::chain::ic::update_ic::send_msg;
 use anyhow::Result;
 
 pub async fn greet(canister_id: &str, is_mainnet: bool) -> Result<String> {

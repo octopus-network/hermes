@@ -1,5 +1,5 @@
-use crate::types::Proofs;
-use crate::update_ic::send_msg_for_proofs;
+use crate::chain::ic::types::Proofs;
+use crate::chain::ic::update_ic::send_msg_for_proofs;
 use anyhow::Result;
 
 pub async fn recv_packet(canister_id: &str, is_mainnet: bool, msg: Vec<u8>) -> Result<Proofs> {
