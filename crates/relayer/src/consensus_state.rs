@@ -1,6 +1,6 @@
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::client::v1::ConsensusStateWithHeight;
-use ibc_proto::ibc::lightclients::solomachine::v2::ConsensusState as RawSmConsensusState;
+use ibc_proto::ibc::lightclients::solomachine::v3::ConsensusState as RawSmConsensusState;
 use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as RawConsensusState;
 #[cfg(test)]
 use ibc_proto::ibc::mock::ConsensusState as RawMockConsensusState;

@@ -4,7 +4,7 @@ pub mod tendermint;
 use core::ops::Deref;
 
 use ibc_proto::google::protobuf::Any;
-use ibc_proto::ibc::lightclients::solomachine::v2::Header as RawSmHeader;
+use ibc_proto::ibc::lightclients::solomachine::v3::Header as RawSmHeader;
 use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawTmHeader;
 use ibc_proto::protobuf::Protobuf as ErasedProtobuf;
 use ibc_relayer_types::clients::ics06_solomachine::header::{

@@ -640,8 +640,8 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         let res = self
             .dst_chain
-            .send_messages_and_wait_commit(TrackedMsgs::new_single(
-                new_msg.to_any(),
+            .send_messages_to_proxy(TrackedMsgs::new_single(
+                new_msg.clone().to_any(),
                 "create client",
             ))
             .map_err(|e| {
@@ -1256,6 +1256,17 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         let tm = TrackedMsgs::new_static(new_msgs, "update client");
 
+        if self.dst_chain().id().to_string() == "ibc-1" {
+            let events = self.dst_chain().send_messages_to_proxy(tm).map_err(|e| {
+                ForeignClientError::client_update(
+                    self.dst_chain.id(),
+                    "failed sending message to dst chain".to_string(),
+                    e,
+                )
+            })?;
+
+            return Ok(events.into_iter().map(|ev| ev.event).collect());
+        }
         let events = self
             .dst_chain()
             .send_messages_and_wait_commit(tm)

@@ -1043,6 +1043,37 @@ impl ChainEndpoint for CosmosSdkChain {
         runtime.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs))
     }
 
+    fn send_messages_to_proxy(
+        &mut self,
+        tracked_msgs: TrackedMsgs,
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
+        use crate::chain::ic::deliver;
+        use ibc::Any;
+        use prost::Message;
+
+        let runtime = self.rt.clone();
+
+        if self.config.id.as_str() == "ibc-1" {
+            let mut tracked_msgs = tracked_msgs.clone();
+            let mut msgs: Vec<Any> = Vec::new();
+            for msg in tracked_msgs.messages() {
+                let res = runtime
+                    .block_on(deliver(
+                        "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+                        false,
+                        msg.encode_to_vec(),
+                    ))
+                    .unwrap();
+                println!("ys-debug: send_messages_to_proxy: {:?}", res);
+                msgs.push(Any::decode(&res[..]).unwrap());
+            }
+            tracked_msgs.msgs = msgs;
+            return runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs));
+        }
+
+        runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs))
+    }
+
     /// Get the account for the signer
     fn get_signer(&self) -> Result<Signer, Error> {
         // Get the key from key seed file
@@ -1201,6 +1232,8 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryClientStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
+        use crate::chain::ic::query_client_state;
+
         crate::time!(
             "query_client_state",
             {
@@ -1208,6 +1241,28 @@ impl ChainEndpoint for CosmosSdkChain {
             }
         );
         crate::telemetry!(query, self.id(), "query_client_state");
+
+        println!(
+            "ys-debug: query_client_state: chain_id: {:?}, client_id: {:?}",
+            self.id(),
+            request.client_id
+        );
+        if self.config.id.as_str() == "ibc-1" {
+            let runtime = self.rt.clone();
+
+            // let client_id = request.client_id.as_bytes().to_vec();
+            let client_id = "07-tendermint-0".as_bytes().to_vec();
+            let res = runtime
+                .block_on(query_client_state(
+                    "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+                    false,
+                    client_id,
+                ))
+                .unwrap();
+            println!("ys-debug: query_client_state from ic: {:?}", res);
+            let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
+            return Ok((client_state, None));
+        }
 
         let res = self.query(
             ClientStatePath(request.client_id.clone()),
@@ -1306,6 +1361,26 @@ impl ChainEndpoint for CosmosSdkChain {
             }
         );
         crate::telemetry!(query, self.id(), "query_consensus_state");
+        println!(
+            "ys-debug: query_consensus_state: {:?}",
+            request.client_id.to_string()
+        );
+        if request.client_id.to_string().starts_with("06-solomachine") {
+            let res = self.query(
+                ClientStatePath(request.client_id.clone()),
+                request.query_height,
+                matches!(include_proof, IncludeProof::Yes),
+            )?;
+            let client_state = AnyClientState::decode_vec(&res.value).map_err(Error::decode)?;
+            if !matches!(client_state, AnyClientState::Solomachine(_)) {
+                return Err(Error::client_state_type(
+                    client_state.client_type().to_string(),
+                ));
+            }
+            if let AnyClientState::Solomachine(cs) = client_state {
+                return Ok((AnyConsensusState::Solomachine(cs.consensus_state), None));
+            }
+        }
 
         let res = self.query(
             ClientConsensusStatePath {

@@ -10,14 +10,13 @@ use core::fmt::{Error as FmtError, Formatter};
 use cosmos_sdk_proto::{self, traits::Message};
 use eyre::Result;
 use ibc_proto::google::protobuf::Any;
-use ibc_proto::ibc::lightclients::solomachine::v2::Header as RawHeader;
-use ibc_proto::ibc::lightclients::solomachine::v2::HeaderData as RawHeaderData;
+use ibc_proto::ibc::lightclients::solomachine::v3::Header as RawHeader;
+use ibc_proto::ibc::lightclients::solomachine::v3::HeaderData as RawHeaderData;
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Header {
-    pub sequence: u64,
     pub timestamp: u64,
     pub signature: Vec<u8>,
     pub new_public_key: Option<PublicKey>,
@@ -30,7 +29,7 @@ impl crate::core::ics02_client::header::Header for Header {
     }
 
     fn height(&self) -> Height {
-        Height::new(0, self.sequence).unwrap()
+        Height::new(0, 41).unwrap()
     }
 
     fn timestamp(&self) -> Timestamp {
@@ -52,7 +51,6 @@ impl TryFrom<RawHeader> for Header {
     fn try_from(raw: RawHeader) -> Result<Self, Self::Error> {
         let pk: PublicKey = raw.new_public_key.unwrap().try_into().unwrap();
         let header = Self {
-            sequence: raw.sequence,
             timestamp: raw.timestamp,
             signature: raw.signature,
             new_public_key: Some(pk),
@@ -98,7 +96,6 @@ pub fn decode_header<B: Buf>(buf: B) -> Result<Header, Error> {
 impl From<Header> for RawHeader {
     fn from(value: Header) -> Self {
         RawHeader {
-            sequence: value.sequence,
             timestamp: value.timestamp,
             signature: value.signature,
             new_public_key: Some(value.new_public_key.unwrap().to_any().unwrap()),

@@ -125,6 +125,16 @@ impl ChainHandle for BaseChainHandle {
         })
     }
 
+    fn send_messages_to_proxy(
+        &self,
+        tracked_msgs: TrackedMsgs,
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
+        self.send(|reply_to| ChainRequest::SendMessagesToProxy {
+            tracked_msgs,
+            reply_to,
+        })
+    }
+
     fn get_signer(&self) -> Result<Signer, Error> {
         self.send(|reply_to| ChainRequest::Signer { reply_to })
     }

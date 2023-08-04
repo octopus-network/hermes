@@ -470,6 +470,13 @@ impl ChainEndpoint for NearChain {
         Ok(vec![])
     }
 
+    fn send_messages_to_proxy(
+        &mut self,
+        tracked_msgs: TrackedMsgs,
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
+        unimplemented!()
+    }
+
     // Light client
 
     /// Fetch a header from the chain at the given height and verify it.
@@ -1229,7 +1236,6 @@ impl ChainEndpoint for NearChain {
             sequence: height.revision_height(),
             is_frozen: false,
             consensus_state: self.get_sm_consensus_state(),
-            allow_update_after_proposal: false,
         })
     }
 
@@ -1270,7 +1276,6 @@ impl ChainEndpoint for NearChain {
         };
         let mut timestamp = cs.consensus_state.timestamp;
         let mut h: Self::Header = SmHeader {
-            sequence: 0,
             timestamp: 0,
             signature: vec![],
             new_public_key: None,
@@ -1312,7 +1317,6 @@ impl ChainEndpoint for NearChain {
             );
 
             let header = SmHeader {
-                sequence: seq,
                 timestamp,
                 signature: sig_data,
                 new_public_key: Some(pk),

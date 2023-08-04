@@ -106,6 +106,13 @@ impl<Handle: ChainHandle> ChainHandle for CachingChainHandle<Handle> {
         self.inner().send_messages_and_wait_check_tx(tracked_msgs)
     }
 
+    fn send_messages_to_proxy(
+        &self,
+        tracked_msgs: TrackedMsgs,
+    ) -> Result<Vec<IbcEventWithHeight>, Error> {
+        self.inner().send_messages_to_proxy(tracked_msgs)
+    }
+
     fn get_signer(&self) -> Result<Signer, Error> {
         self.inner().get_signer()
     }

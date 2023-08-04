@@ -123,6 +123,11 @@ pub enum ChainRequest {
         reply_to: ReplyTo<Vec<tendermint_rpc::endpoint::broadcast::tx_sync::Response>>,
     },
 
+    SendMessagesToProxy {
+        tracked_msgs: TrackedMsgs,
+        reply_to: ReplyTo<Vec<IbcEventWithHeight>>,
+    },
+
     Config {
         reply_to: ReplyTo<ChainConfig>,
     },
@@ -399,6 +404,11 @@ pub trait ChainHandle: Clone + Display + Send + Sync + Debug + 'static {
         &self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<tendermint_rpc::endpoint::broadcast::tx_sync::Response>, Error>;
+
+    fn send_messages_to_proxy(
+        &self,
+        tracked_msgs: TrackedMsgs,
+    ) -> Result<Vec<IbcEventWithHeight>, Error>;
 
     fn get_signer(&self) -> Result<Signer, Error>;
 
