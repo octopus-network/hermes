@@ -1995,7 +1995,7 @@ dependencies = [
 [[package]]
 name = "ibc"
 version = "0.42.0"
-source = "git+https://github.com/octopus-network/ibc-rs.git?branch=octopus-relayer-v0.42.0#35e6afe45a102a77bfaf9294220d9c9782cdd51e"
+source = "git+https://github.com/octopus-network/ibc-rs.git?branch=v0.42.0-julian#9eaeb3ac7b1f1eac8a1508c974d23c1140bdd2c9"
 dependencies = [
  "bytes",
  "derive_more",
@@ -2042,7 +2042,7 @@ dependencies = [
 [[package]]
 name = "ibc-derive"
 version = "0.1.0"
-source = "git+https://github.com/octopus-network/ibc-rs.git?branch=octopus-relayer-v0.42.0#35e6afe45a102a77bfaf9294220d9c9782cdd51e"
+source = "git+https://github.com/octopus-network/ibc-rs.git?branch=v0.42.0-julian#9eaeb3ac7b1f1eac8a1508c974d23c1140bdd2c9"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -2070,7 +2070,7 @@ dependencies = [
 [[package]]
 name = "ibc-proto"
 version = "0.32.0"
-source = "git+https://github.com/octopus-network/ibc-proto-rs.git?branch=octopus-relayer-v0.32.0#45f37767f7f05df9f0e158987048d62e4b976547"
+source = "git+https://github.com/octopus-network/ibc-proto-rs.git?branch=v0.32.0-julian#ee3864e48bbb772c4beb816bfa9f5c907e937fcb"
 dependencies = [
  "base64 0.21.2",
  "bytes",
@@ -2409,7 +2409,8 @@ checksum = "576c539151d4769fb4d1a0c25c4108dd18facd04c5695b02cf2d226ab4e43aa5"
 [[package]]
 name = "ics23"
 version = "0.10.1"
-source = "git+https://github.com/octopus-network/ics23.git?branch=for-near-ibc-pre2#c2b34d2d1e774066debb675f126568adce7b9dcc"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af9e8f569c5cc88e08b8d076dc207e0748aa1f52d4b84910ec919c8f2bed6ea7"
 dependencies = [
  "anyhow",
  "bytes",

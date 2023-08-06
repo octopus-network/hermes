@@ -4,7 +4,7 @@ pub mod counterparty;
 pub mod endpoint;
 pub mod handle;
 pub mod ic;
-pub mod near;
+// pub mod near;
 pub mod requests;
 pub mod runtime;
 pub mod tracking;

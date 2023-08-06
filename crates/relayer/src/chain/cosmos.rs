@@ -1065,7 +1065,9 @@ impl ChainEndpoint for CosmosSdkChain {
                     ))
                     .unwrap();
                 println!("ys-debug: send_messages_to_proxy: {:?}", res);
-                msgs.push(Any::decode(&res[..]).unwrap());
+                if !res.is_empty() {
+                    msgs.push(Any::decode(&res[..]).unwrap());
+                }
             }
             tracked_msgs.msgs = msgs;
             return runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs));
@@ -1243,11 +1245,12 @@ impl ChainEndpoint for CosmosSdkChain {
         crate::telemetry!(query, self.id(), "query_client_state");
 
         println!(
-            "ys-debug: query_client_state: chain_id: {:?}, client_id: {:?}",
+            "ys-debug: query_client_state: chain_id: {:?}, request: {:?}, include_proof: {:?}",
             self.id(),
-            request.client_id
+            request,
+            include_proof,
         );
-        if self.config.id.as_str() == "ibc-1" {
+        if self.config.id.as_str() == "ibc-1" && matches!(include_proof, IncludeProof::No) {
             let runtime = self.rt.clone();
 
             // let client_id = request.client_id.as_bytes().to_vec();
@@ -1362,8 +1365,10 @@ impl ChainEndpoint for CosmosSdkChain {
         );
         crate::telemetry!(query, self.id(), "query_consensus_state");
         println!(
-            "ys-debug: query_consensus_state: {:?}",
-            request.client_id.to_string()
+            "ys-debug: query_consensus_state: chain_id: {:?}, request: {:?}, include_proof: {:?}",
+            self.id(),
+            request,
+            include_proof,
         );
         if request.client_id.to_string().starts_with("06-solomachine") {
             let res = self.query(
