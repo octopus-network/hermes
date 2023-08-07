@@ -173,14 +173,16 @@ impl TryFrom<RawConsensusState> for ConsensusState {
     type Error = Error;
 
     fn try_from(raw: RawConsensusState) -> Result<Self, Self::Error> {
-        let pk = raw.public_key.unwrap().try_into().unwrap();
+        let public_key = PublicKey::try_from(raw.public_key.ok_or(Error::public_key_is_empty())?)
+            .map_err(Error::public_key_parse_failed)?;
+
         let timestamp =
             Timestamp::from_nanoseconds(raw.timestamp).map_err(Error::parse_timestamp_error)?;
         Ok(Self {
-            public_key: pk,
+            public_key,
             diversifier: raw.diversifier,
             timestamp,
-            root: CommitmentRoot::from_bytes(&pk.to_bytes()),
+            root: CommitmentRoot::from_bytes(&public_key.to_bytes()),
         })
     }
 }

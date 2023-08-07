@@ -18,6 +18,13 @@ define_error! {
         ConsensusStateIsEmpty
             | _ | { "consensus state is empty!"},
 
+        PublicKeyIsEmpty
+            | _ | { "public key is emoty!" },
+
+        PublicKeyParseFailed
+            [ TraceError<eyre::Report> ]
+            | _ | { "public key parse failed" },
+
         InvalidHeight
             [ TraceError<Ics02Error> ]
             | _ | { "invalid ibc height" }
