@@ -19,7 +19,7 @@ pub const SOLOMACHINE_CLIENT_STATE_TYPE_URL: &str = "/ibc.lightclients.solomachi
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientState {
-    pub sequence: u64,
+    pub sequence: Height,
     pub is_frozen: bool,
     pub consensus_state: ConsensusState,
 }
@@ -34,12 +34,12 @@ impl Ics2ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        Height::new(0, self.sequence).unwrap()
+        self.sequence
     }
 
     fn frozen_height(&self) -> Option<Height> {
         if self.is_frozen {
-            Some(Height::new(0, self.sequence).unwrap())
+            Some(self.sequence)
         } else {
             None
         }
@@ -64,12 +64,13 @@ impl TryFrom<RawSmClientState> for ClientState {
     type Error = Error;
 
     fn try_from(raw: RawSmClientState) -> Result<Self, Self::Error> {
+        let sequence = Height::new(0, raw.sequence).map_err(Error::invalid_height)?;
         let consensus_state: ConsensusState = raw
             .consensus_state
             .ok_or(Error::consensus_state_is_empty())?
             .try_into()?;
         Ok(Self {
-            sequence: raw.sequence,
+            sequence,
             is_frozen: raw.is_frozen,
             consensus_state,
         })
@@ -79,7 +80,7 @@ impl TryFrom<RawSmClientState> for ClientState {
 impl From<ClientState> for RawSmClientState {
     fn from(value: ClientState) -> Self {
         Self {
-            sequence: value.sequence,
+            sequence: value.sequence.revision_height(),
             is_frozen: value.is_frozen,
             consensus_state: Some(value.consensus_state.into()),
         }

@@ -16,7 +16,11 @@ define_error! {
             | _ | { "parse timestamp error"},
 
         ConsensusStateIsEmpty
-            | _ | { "consensus state is empty!"}
+            | _ | { "consensus state is empty!"},
+
+        InvalidHeight
+            [ TraceError<Ics02Error> ]
+            | _ | { "invalid ibc height" }
 
     }
 }
