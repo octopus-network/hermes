@@ -6,7 +6,7 @@ use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as RawConsensus
 use ibc_proto::ibc::mock::ConsensusState as RawMockConsensusState;
 use ibc_proto::protobuf::Protobuf;
 use ibc_relayer_types::clients::ics06_solomachine::consensus_state::ConsensusState as SmConsensusState;
-use ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CONSENSUS_STATE_TYPE_URL;
+use ibc_relayer_types::clients::ics06_solomachine::consensus_state::SOLOMACHINE_CONSENSUS_STATE_TYPE_URL;
 use ibc_relayer_types::clients::ics07_tendermint::consensus_state::{
     ConsensusState as TmConsensusState, TENDERMINT_CONSENSUS_STATE_TYPE_URL,
 };
@@ -41,8 +41,8 @@ impl AnyConsensusState {
     pub fn timestamp(&self) -> Timestamp {
         match self {
             Self::Tendermint(cs_state) => cs_state.timestamp.into(),
-            Self::Solomachine(cs_state) => Timestamp::from_nanoseconds(cs_state.timestamp).unwrap(),
-            Self::Near(cs_state) => Timestamp::from_nanoseconds(cs_state.timestamp).unwrap(),
+            Self::Solomachine(cs_state) => cs_state.timestamp,
+            Self::Near(cs_state) => cs_state.timestamp,
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.timestamp(),

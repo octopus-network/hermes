@@ -1,6 +1,5 @@
 use super::consensus_state::PublicKey;
 use super::error::Error;
-use super::SOLOMACHINE_HEADER_TYPE_URL;
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::error::Error as Ics02Error;
 use crate::timestamp::Timestamp;
@@ -14,6 +13,8 @@ use ibc_proto::ibc::lightclients::solomachine::v3::Header as RawHeader;
 use ibc_proto::ibc::lightclients::solomachine::v3::HeaderData as RawHeaderData;
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
+
+pub const SOLOMACHINE_HEADER_TYPE_URL: &str = "/ibc.lightclients.solomachine.v3.Header";
 
 #[derive(Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Header {

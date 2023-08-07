@@ -1,4 +1,5 @@
 use crate::core::ics02_client::error::Error as Ics02Error;
+use crate::timestamp::ParseTimestampError;
 use flex_error::{define_error, TraceError};
 
 define_error! {
@@ -9,6 +10,14 @@ define_error! {
         Decode
             [ TraceError<prost::DecodeError> ]
             | _ | { "decode error" },
+
+        ParseTimestampError
+            [ParseTimestampError]
+            | _ | { "parse timestamp error"},
+
+        ConsensusStateIsEmpty
+            | _ | { "consensus state is empty!"}
+
     }
 }
 

@@ -1,5 +1,4 @@
 use super::error::Error;
-use super::SOLOMACHINE_CONSENSUS_STATE_TYPE_URL;
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::error::Error as Ics02Error;
 use crate::core::ics23_commitment::commitment::CommitmentRoot;
@@ -13,6 +12,9 @@ use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::lightclients::solomachine::v3::ConsensusState as RawConsensusState;
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
+
+pub const SOLOMACHINE_CONSENSUS_STATE_TYPE_URL: &str =
+    "/ibc.lightclients.solomachine.v3.ConsensusState";
 
 #[derive(Copy, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PublicKey(pub tendermint::PublicKey);
@@ -136,12 +138,12 @@ impl From<PublicKey> for tendermint::PublicKey {
 pub struct ConsensusState {
     pub public_key: PublicKey,
     pub diversifier: String,
-    pub timestamp: u64,
+    pub timestamp: Timestamp,
     pub root: CommitmentRoot,
 }
 
 impl ConsensusState {
-    pub fn new(public_key: PublicKey, diversifier: String, timestamp: u64) -> Self {
+    pub fn new(public_key: PublicKey, diversifier: String, timestamp: Timestamp) -> Self {
         Self {
             public_key,
             diversifier,
@@ -161,7 +163,7 @@ impl crate::core::ics02_client::consensus_state::ConsensusState for ConsensusSta
     }
 
     fn timestamp(&self) -> Timestamp {
-        Timestamp::from_nanoseconds(self.timestamp).unwrap()
+        self.timestamp
     }
 }
 
@@ -172,10 +174,12 @@ impl TryFrom<RawConsensusState> for ConsensusState {
 
     fn try_from(raw: RawConsensusState) -> Result<Self, Self::Error> {
         let pk = raw.public_key.unwrap().try_into().unwrap();
+        let timestamp =
+            Timestamp::from_nanoseconds(raw.timestamp).map_err(Error::parse_timestamp_error)?;
         Ok(Self {
             public_key: pk,
             diversifier: raw.diversifier,
-            timestamp: raw.timestamp,
+            timestamp,
             root: CommitmentRoot::from_bytes(&pk.to_bytes()),
         })
     }
@@ -186,7 +190,7 @@ impl From<ConsensusState> for RawConsensusState {
         RawConsensusState {
             public_key: Some(value.public_key.into()),
             diversifier: value.diversifier,
-            timestamp: value.timestamp,
+            timestamp: value.timestamp.nanoseconds(),
         }
     }
 }
