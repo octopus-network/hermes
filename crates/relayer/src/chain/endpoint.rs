@@ -472,14 +472,13 @@ pub trait ChainEndpoint: Sized {
 
                     println!(
                         "ys-debug: consensus state proof: {:?}",
-                        maybe_consensus_state_proof.clone()
+                        maybe_consensus_state_proof
                     );
                     // let Some(consensus_state_proof) = maybe_consensus_state_proof else {
                     //     return Err(Error::queried_proof_not_found());
                     // };
 
-                    let consensus_state_proof = maybe_consensus_state_proof.unwrap_or_default();
-                    consensus_state_proof
+                    maybe_consensus_state_proof.unwrap_or_default()
                 };
 
                 consensus_proof = Option::from(

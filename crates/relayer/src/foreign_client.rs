@@ -640,10 +640,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         let res = self
             .dst_chain
-            .send_messages_to_proxy(TrackedMsgs::new_single(
-                new_msg.clone().to_any(),
-                "create client",
-            ))
+            .send_messages_to_proxy(TrackedMsgs::new_single(new_msg.to_any(), "create client"))
             .map_err(|e| {
                 ForeignClientError::client_create(
                     self.dst_chain.id(),

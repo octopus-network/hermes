@@ -1054,7 +1054,7 @@ impl ChainEndpoint for CosmosSdkChain {
         let runtime = self.rt.clone();
 
         if self.config.id.as_str() == "ibc-1" {
-            let mut tracked_msgs = tracked_msgs.clone();
+            let mut tracked_msgs = tracked_msgs;
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
