@@ -275,19 +275,19 @@ pub trait NearIbcContract {
             .json()
     }
 
-    fn get_packet_commitments(
+    fn get_packet_commitment_sequences(
         &self,
         request: QueryPacketCommitmentsRequest,
     ) -> anyhow::Result<Vec<Sequence>> {
         info!(
-            "NearIbcContract: [get_packet_commitments] - request: {:?}",
+            "NearIbcContract: [get_packet_commitment_sequences] - request: {:?}",
             request
         );
         self.get_rt()
             .block_on(
                 self.get_client().view(
                     self.get_contract_id().clone(),
-                    "get_packet_commitments".to_string(),
+                    "get_packet_commitment_sequences".to_string(),
                     json!({
                         "port_id": request.port_id.to_string(),
                         "channel_id": request.channel_id.to_string()
@@ -296,20 +296,20 @@ pub trait NearIbcContract {
                     .into_bytes(),
                 ),
             )
-            .expect("Failed to get_packet_commitments.")
+            .expect("Failed to get_packet_commitment_sequences.")
             .json()
     }
 
-    fn get_packet_acknowledgements(
+    fn get_packet_acknowledgement_sequences(
         &self,
         request: QueryPacketAcknowledgementsRequest,
     ) -> anyhow::Result<Vec<Sequence>> {
-        info!("NearIbcContract: [get_packet_acknowledgements]");
+        info!("NearIbcContract: [get_packet_acknowledgement_sequences]");
         self.get_rt()
             .block_on(
                 self.get_client().view(
                     self.get_contract_id().clone(),
-                    "get_packet_acknowledgements".to_string(),
+                    "get_packet_acknowledgement_sequences".to_string(),
                     json!({
                         "port_id": request.port_id.to_string(),
                         "channel_id": request.channel_id.to_string()
@@ -318,7 +318,7 @@ pub trait NearIbcContract {
                     .into_bytes(),
                 ),
             )
-            .expect("Failed to get_packet_acknowledgements.")
+            .expect("Failed to get_packet_acknowledgement_sequences.")
             .json()
     }
 

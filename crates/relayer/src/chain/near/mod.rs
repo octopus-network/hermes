@@ -896,8 +896,8 @@ impl ChainEndpoint for NearChain {
         );
 
         let sequences = self
-            .get_packet_commitments(request)
-            .map_err(|_| Error::report_error("get_packet_commitments".to_string()))?;
+            .get_packet_commitment_sequences(request)
+            .map_err(|_| Error::report_error("get_packet_commitment_sequences".to_string()))?;
 
         let latest_height = self
             .get_latest_height()
@@ -1041,8 +1041,8 @@ impl ChainEndpoint for NearChain {
         );
 
         let sequences = self
-            .get_packet_acknowledgements(request)
-            .map_err(|_| Error::report_error("get_packet_acknowledgements".to_string()))?;
+            .get_packet_acknowledgement_sequences(request)
+            .map_err(|_| Error::report_error("get_packet_acknowledgement_sequences".to_string()))?;
 
         let latest_height = self
             .get_latest_height()

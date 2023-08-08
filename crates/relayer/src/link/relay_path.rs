@@ -523,7 +523,13 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             .query_application_status()
             .map_err(|e| LinkError::query(self.src_chain().id(), e))?;
 
-        let dst_latest_height = dst_latest_info.height;
+        let dst_latest_height =
+            super::super::foreign_client::solomachine::query_latest_height_of_chain(
+                self.dst_chain(),
+                self.src_chain(),
+                self.src_client_id(),
+            )
+            .map_err(|e| LinkError::query(self.src_chain().id(), e))?;
 
         // Operational data targeting the source chain (e.g., Timeout packets)
         let mut src_od = OperationalData::new(
@@ -1041,7 +1047,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     ) -> Result<Height, LinkError> {
         info!("sending update_client to client hosted on source chain for height {} (retries left: {})", dst_chain_height, retries_left);
 
-        let src_update = self.build_update_client_on_src(dst_chain_height)?;
+        let src_update = self.build_update_client_on_dst(dst_chain_height)?;
         let tm = TrackedMsgs::new(src_update, tracking_id);
         let src_tx_events = self
             .src_chain()
@@ -1571,7 +1577,13 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             .query_application_status()
             .map_err(|e| LinkError::query(self.src_chain().id(), e))?;
 
-        let dst_current_height = dst_status.height;
+        let dst_current_height =
+            super::super::foreign_client::solomachine::query_latest_height_of_chain(
+                self.dst_chain(),
+                self.src_chain(),
+                self.src_client_id(),
+            )
+            .map_err(|e| LinkError::query(self.src_chain().id(), e))?;
 
         // Intermediary data struct to help better manage the transfer from dst. operational data
         // to source operational data.

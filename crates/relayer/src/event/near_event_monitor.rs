@@ -162,8 +162,8 @@ impl NearEventMonitor {
                 let heights = self.get_ibc_events_heights();
                 let unchecked_heights = heights
                     .iter()
+                    .map(|h| h.revision_height())
                     .filter(|h| !self.checked_heights.contains(h))
-                    .map(|h| *h)
                     .collect::<Vec<u64>>();
                 if unchecked_heights.len() > 0 {
                     let height = unchecked_heights[0];
@@ -190,7 +190,7 @@ impl NearEventMonitor {
         }
     }
 
-    fn get_ibc_events_heights(&self) -> Vec<u64> {
+    fn get_ibc_events_heights(&self) -> Vec<Height> {
         self.get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id().clone(),
