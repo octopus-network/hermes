@@ -470,7 +470,7 @@ impl ChainEndpoint for NearChain {
         Ok(vec![])
     }
 
-    fn send_messages_to_proxy(
+    fn send_messages_and_wait_commit(
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {

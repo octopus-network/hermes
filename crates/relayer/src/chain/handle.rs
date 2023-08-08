@@ -405,11 +405,6 @@ pub trait ChainHandle: Clone + Display + Send + Sync + Debug + 'static {
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<tendermint_rpc::endpoint::broadcast::tx_sync::Response>, Error>;
 
-    fn send_messages_to_proxy(
-        &self,
-        tracked_msgs: TrackedMsgs,
-    ) -> Result<Vec<IbcEventWithHeight>, Error>;
-
     fn get_signer(&self) -> Result<Signer, Error>;
 
     fn config(&self) -> Result<ChainConfig, Error>;

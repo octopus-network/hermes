@@ -1030,7 +1030,28 @@ impl ChainEndpoint for CosmosSdkChain {
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
+        use crate::chain::ic::deliver;
+        use ibc::Any;
+        let canister_id = if self.config.id.as_str() == "ibc-1" {
+            "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+        } else {
+            "be2us-64aaa-aaaaa-qaabq-cai"
+        };
+
         let runtime = self.rt.clone();
+
+        let mut tracked_msgs = tracked_msgs.clone();
+        let mut msgs: Vec<Any> = Vec::new();
+        for msg in tracked_msgs.messages() {
+            let res = runtime
+                .block_on(deliver(canister_id, false, msg.encode_to_vec()))
+                .unwrap();
+            println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
+            if !res.is_empty() {
+                msgs.push(Any::decode(&res[..]).unwrap());
+            }
+        }
+        tracked_msgs.msgs = msgs;
 
         runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs))
     }
@@ -1041,64 +1062,29 @@ impl ChainEndpoint for CosmosSdkChain {
     ) -> Result<Vec<Response>, Error> {
         use crate::chain::ic::deliver;
         use ibc::Any;
-        use prost::Message;
+
+        let canister_id = if self.config.id.as_str() == "ibc-1" {
+            "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+        } else {
+            "be2us-64aaa-aaaaa-qaabq-cai"
+        };
 
         let runtime = self.rt.clone();
 
-        if self.config.id.as_str() == "ibc-1" {
-            let mut tracked_msgs = tracked_msgs.clone();
-            let mut msgs: Vec<Any> = Vec::new();
-            for msg in tracked_msgs.messages() {
-                let res = runtime
-                    .block_on(deliver(
-                        "bkyz2-fmaaa-aaaaa-qaaaq-cai",
-                        false,
-                        msg.encode_to_vec(),
-                    ))
-                    .unwrap();
-                println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
-                if !res.is_empty() {
-                    msgs.push(Any::decode(&res[..]).unwrap());
-                }
+        let mut tracked_msgs = tracked_msgs.clone();
+        let mut msgs: Vec<Any> = Vec::new();
+        for msg in tracked_msgs.messages() {
+            let res = runtime
+                .block_on(deliver(canister_id, false, msg.encode_to_vec()))
+                .unwrap();
+            println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
+            if !res.is_empty() {
+                msgs.push(Any::decode(&res[..]).unwrap());
             }
-            tracked_msgs.msgs = msgs;
-            return runtime.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs));
         }
+        tracked_msgs.msgs = msgs;
 
         runtime.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs))
-    }
-
-    fn send_messages_to_proxy(
-        &mut self,
-        tracked_msgs: TrackedMsgs,
-    ) -> Result<Vec<IbcEventWithHeight>, Error> {
-        use crate::chain::ic::deliver;
-        use ibc::Any;
-        use prost::Message;
-
-        let runtime = self.rt.clone();
-
-        if self.config.id.as_str() == "ibc-1" {
-            let mut tracked_msgs = tracked_msgs.clone();
-            let mut msgs: Vec<Any> = Vec::new();
-            for msg in tracked_msgs.messages() {
-                let res = runtime
-                    .block_on(deliver(
-                        "bkyz2-fmaaa-aaaaa-qaaaq-cai",
-                        false,
-                        msg.encode_to_vec(),
-                    ))
-                    .unwrap();
-                println!("ys-debug: send_messages_to_proxy: {:?}", res);
-                if !res.is_empty() {
-                    msgs.push(Any::decode(&res[..]).unwrap());
-                }
-            }
-            tracked_msgs.msgs = msgs;
-            return runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs));
-        }
-
-        runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs))
     }
 
     /// Get the account for the signer
@@ -1275,17 +1261,19 @@ impl ChainEndpoint for CosmosSdkChain {
             request,
             include_proof,
         );
-        if self.config.id.as_str() == "ibc-1" && matches!(include_proof, IncludeProof::No) {
+        if matches!(include_proof, IncludeProof::No) {
             let runtime = self.rt.clone();
+
+            let canister_id = if self.config.id.as_str() == "ibc-1" {
+                "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+            } else {
+                "be2us-64aaa-aaaaa-qaabq-cai"
+            };
 
             // let client_id = request.client_id.as_bytes().to_vec();
             let client_id = "07-tendermint-0".as_bytes().to_vec();
             let res = runtime
-                .block_on(query_client_state(
-                    "bkyz2-fmaaa-aaaaa-qaaaq-cai",
-                    false,
-                    client_id,
-                ))
+                .block_on(query_client_state(canister_id, false, client_id))
                 .unwrap();
             println!("ys-debug: query_client_state from ic: {:?}", res);
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
@@ -1382,7 +1370,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryConsensusStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
-        use crate::chain::ic::query_consensus_state;
+        // use crate::chain::ic::query_consensus_state;
         crate::time!(
             "query_consensus_state",
             {
