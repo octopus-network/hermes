@@ -12,7 +12,6 @@ use crate::util::task::{spawn_background_task, Next, TaskError, TaskHandle};
 use crate::worker::WorkerCmd;
 
 use crossbeam_channel::Receiver;
-use ibc_relayer_types::core::ics02_client::height::Height;
 use std::time::Duration;
 use tracing::{info, info_span};
 use uuid::Uuid;
@@ -98,12 +97,18 @@ fn handle_cross_chain_query<ChainA: ChainHandle, ChainB: ChainHandle>(
                 )
                 .map_err(|_| TaskError::Fatal(RunError::query()))?;
 
-                let target_height = Height::new(
-                    chain_b_handle.id().version(),
-                    cross_chain_query_responses.get(0).unwrap().height as u64,
-                )
-                .map_err(|_| TaskError::Fatal(RunError::query()))?
-                .increment();
+                let target_height =
+                    super::super::foreign_client::solomachine::query_latest_height_of_chain(
+                        &chain_a_handle,
+                        &chain_b_handle,
+                        connection_end.client_id(),
+                    )
+                    .map_err(|_| TaskError::Fatal(RunError::query()))?;
+                info!(
+                    "Queried target height on {}: {}",
+                    chain_a_handle.id(),
+                    target_height
+                );
 
                 // Push update client msg
                 let mut chain_a_msgs = client_a
