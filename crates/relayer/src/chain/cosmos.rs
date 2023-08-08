@@ -8,6 +8,7 @@ use core::{
 };
 use futures::future::join_all;
 use num_bigint::BigInt;
+use prost::Message;
 use std::{cmp::Ordering, thread};
 
 use tokio::runtime::Runtime as TokioRuntime;
@@ -1038,7 +1039,31 @@ impl ChainEndpoint for CosmosSdkChain {
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<Response>, Error> {
+        use crate::chain::ic::deliver;
+        use ibc::Any;
+        use prost::Message;
+
         let runtime = self.rt.clone();
+
+        if self.config.id.as_str() == "ibc-1" {
+            let mut tracked_msgs = tracked_msgs.clone();
+            let mut msgs: Vec<Any> = Vec::new();
+            for msg in tracked_msgs.messages() {
+                let res = runtime
+                    .block_on(deliver(
+                        "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+                        false,
+                        msg.encode_to_vec(),
+                    ))
+                    .unwrap();
+                println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
+                if !res.is_empty() {
+                    msgs.push(Any::decode(&res[..]).unwrap());
+                }
+            }
+            tracked_msgs.msgs = msgs;
+            return runtime.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs));
+        }
 
         runtime.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs))
     }
@@ -1357,6 +1382,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryConsensusStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
+        use crate::chain::ic::query_consensus_state;
         crate::time!(
             "query_consensus_state",
             {
@@ -1370,6 +1396,23 @@ impl ChainEndpoint for CosmosSdkChain {
             request,
             include_proof,
         );
+        // if self.config.id.as_str() == "ibc-1" {
+        //     let runtime = self.rt.clone();
+
+        //     // let client_id = request.client_id.as_bytes().to_vec();
+        //     let mut buf = vec![];
+        //     request.consensus_height.revision_height().encode(&mut buf).unwrap();
+        //     let res = runtime
+        //         .block_on(query_consensus_state(
+        //             "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+        //             false,
+        //             buf,
+        //         ))
+        //         .unwrap();
+        //     println!("ys-debug: query_client_state from ic: {:?}", res);
+        //     let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
+        //     return Ok((consensus_state, None));
+        // }
         if request.client_id.to_string().starts_with("06-solomachine") {
             let res = self.query(
                 ClientStatePath(request.client_id.clone()),

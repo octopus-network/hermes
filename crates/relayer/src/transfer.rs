@@ -201,7 +201,7 @@ pub fn send_messages<Chain: ChainHandle>(
     msgs: Vec<Any>,
 ) -> Result<Vec<IbcEventWithHeight>, TransferError> {
     let events_with_heights = chain
-        .send_messages_and_wait_commit(TrackedMsgs::new_static(msgs, "ft-transfer"))
+        .send_messages_to_proxy(TrackedMsgs::new_static(msgs, "ft-transfer"))
         .map_err(|e| TransferError::submit(chain.id(), e))?;
 
     // Check if the chain rejected the transaction
