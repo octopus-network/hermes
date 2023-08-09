@@ -64,7 +64,6 @@ use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
 use tendermint_rpc::endpoint::status;
 use tendermint_rpc::{Client, HttpClient, Order};
 
-use crate::account::Balance;
 use crate::chain::client::ClientSettings;
 use crate::chain::cosmos::batch::{
     send_batched_messages_and_wait_check_tx, send_batched_messages_and_wait_commit,
@@ -107,6 +106,7 @@ use crate::misbehaviour::MisbehaviourEvidence;
 use crate::util::pretty::{
     PrettyIdentifiedChannel, PrettyIdentifiedClientState, PrettyIdentifiedConnection,
 };
+use crate::{account::Balance, chain::tracking::TrackingId};
 
 use self::types::app_state::GenesisAppState;
 
@@ -1032,26 +1032,29 @@ impl ChainEndpoint for CosmosSdkChain {
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
         use crate::chain::ic::deliver;
         use ibc::Any;
-        let canister_id = if self.config.id.as_str() == "ibc-1" {
-            "bkyz2-fmaaa-aaaaa-qaaaq-cai"
-        } else {
-            "be2us-64aaa-aaaaa-qaabq-cai"
-        };
 
         let runtime = self.rt.clone();
 
-        let mut tracked_msgs = tracked_msgs.clone();
-        let mut msgs: Vec<Any> = Vec::new();
-        for msg in tracked_msgs.messages() {
-            let res = runtime
-                .block_on(deliver(canister_id, false, msg.encode_to_vec()))
-                .unwrap();
-            println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
-            if !res.is_empty() {
-                msgs.push(Any::decode(&res[..]).unwrap());
+        if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
+            let canister_id = if self.config.id.as_str() == "ibc-1" {
+                "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+            } else {
+                "be2us-64aaa-aaaaa-qaabq-cai"
+            };
+
+            let mut tracked_msgs = tracked_msgs.clone();
+            let mut msgs: Vec<Any> = Vec::new();
+            for msg in tracked_msgs.messages() {
+                let res = runtime
+                    .block_on(deliver(canister_id, false, msg.encode_to_vec()))
+                    .unwrap();
+                println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
+                if !res.is_empty() {
+                    msgs.push(Any::decode(&res[..]).unwrap());
+                }
             }
+            tracked_msgs.msgs = msgs;
         }
-        tracked_msgs.msgs = msgs;
 
         runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs))
     }
@@ -1063,26 +1066,28 @@ impl ChainEndpoint for CosmosSdkChain {
         use crate::chain::ic::deliver;
         use ibc::Any;
 
-        let canister_id = if self.config.id.as_str() == "ibc-1" {
-            "bkyz2-fmaaa-aaaaa-qaaaq-cai"
-        } else {
-            "be2us-64aaa-aaaaa-qaabq-cai"
-        };
-
         let runtime = self.rt.clone();
 
-        let mut tracked_msgs = tracked_msgs.clone();
-        let mut msgs: Vec<Any> = Vec::new();
-        for msg in tracked_msgs.messages() {
-            let res = runtime
-                .block_on(deliver(canister_id, false, msg.encode_to_vec()))
-                .unwrap();
-            println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
-            if !res.is_empty() {
-                msgs.push(Any::decode(&res[..]).unwrap());
+        if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
+            let canister_id = if self.config.id.as_str() == "ibc-1" {
+                "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+            } else {
+                "be2us-64aaa-aaaaa-qaabq-cai"
+            };
+
+            let mut tracked_msgs = tracked_msgs.clone();
+            let mut msgs: Vec<Any> = Vec::new();
+            for msg in tracked_msgs.messages() {
+                let res = runtime
+                    .block_on(deliver(canister_id, false, msg.encode_to_vec()))
+                    .unwrap();
+                println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
+                if !res.is_empty() {
+                    msgs.push(Any::decode(&res[..]).unwrap());
+                }
             }
+            tracked_msgs.msgs = msgs;
         }
-        tracked_msgs.msgs = msgs;
 
         runtime.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs))
     }
