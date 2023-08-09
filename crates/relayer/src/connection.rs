@@ -1053,6 +1053,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                 ConnectionMsgType::OpenTry,
                 src_connection_id,
                 self.src_client_id(),
+                self.dst_client_id(),
                 query_height,
             )
             .map_err(ConnectionError::connection_proof)?;
@@ -1206,6 +1207,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                 ConnectionMsgType::OpenAck,
                 src_connection_id,
                 self.src_client_id(),
+                self.dst_client_id(),
                 query_height,
             )
             .map_err(ConnectionError::connection_proof)?;
@@ -1309,6 +1311,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
                 ConnectionMsgType::OpenConfirm,
                 src_connection_id,
                 self.src_client_id(),
+                self.dst_client_id(),
                 query_height,
             )
             .map_err(ConnectionError::connection_proof)?;

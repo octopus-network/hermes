@@ -290,6 +290,7 @@ pub fn build_connection_proofs_and_client_state(
     message_type: ConnectionMsgType,
     connection_id: &ConnectionId,
     client_id: &ClientId,
+    counter_party_client_id: &ClientId,
     height: Height,
 ) -> Result<(Option<AnyClientState>, Proofs), RelayerError> {
     info!(
@@ -389,7 +390,7 @@ pub fn build_connection_proofs_and_client_state(
         ConnectionMsgType::OpenTry | ConnectionMsgType::OpenAck => {
             let (client_state_value, _) = counterparty_chain.query_client_state(
                 QueryClientStateRequest {
-                    client_id: client_id.clone(),
+                    client_id: counter_party_client_id.clone(),
                     height: QueryHeight::Latest,
                 },
                 IncludeProof::No,
