@@ -1035,6 +1035,7 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let runtime = self.rt.clone();
 
+        let mut tracked_msgs = tracked_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
             let canister_id = if self.config.id.as_str() == "ibc-1" {
                 "bkyz2-fmaaa-aaaaa-qaaaq-cai"
@@ -1042,7 +1043,6 @@ impl ChainEndpoint for CosmosSdkChain {
                 "be2us-64aaa-aaaaa-qaabq-cai"
             };
 
-            let mut tracked_msgs = tracked_msgs.clone();
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
@@ -1068,6 +1068,7 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let runtime = self.rt.clone();
 
+        let mut tracked_msgs = tracked_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
             let canister_id = if self.config.id.as_str() == "ibc-1" {
                 "bkyz2-fmaaa-aaaaa-qaaaq-cai"
@@ -1075,7 +1076,6 @@ impl ChainEndpoint for CosmosSdkChain {
                 "be2us-64aaa-aaaaa-qaabq-cai"
             };
 
-            let mut tracked_msgs = tracked_msgs.clone();
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
