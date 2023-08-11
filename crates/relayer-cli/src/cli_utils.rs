@@ -174,17 +174,17 @@ pub fn check_can_send_on_channel<Chain: ChainHandle>(
     let src_chian_id = src_chain.config().unwrap().id;
 
     // Check that this client is verifying headers for the destination chain.
-    if &src_chian_id != dst_chain_id {
-        return Err(eyre!(
-            "the requested port/channel ('{}'/'{}') provides a path from chain '{}' to \
-             chain '{}' (not to the destination chain '{}'). Bailing due to mismatching arguments.",
-            src_port_id,
-            src_channel_id,
-            src_chain.id(),
-            src_chian_id,
-            dst_chain_id
-        ));
-    }
+    // if &src_chian_id != dst_chain_id {
+    //     return Err(eyre!(
+    //         "the requested port/channel ('{}'/'{}') provides a path from chain '{}' to \
+    //          chain '{}' (not to the destination chain '{}'). Bailing due to mismatching arguments.",
+    //         src_port_id,
+    //         src_channel_id,
+    //         src_chain.id(),
+    //         src_chian_id,
+    //         dst_chain_id
+    //     ));
+    // }
 
     Ok(())
 }

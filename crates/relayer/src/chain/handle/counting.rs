@@ -130,14 +130,6 @@ impl<Handle: ChainHandle> ChainHandle for CountingChainHandle<Handle> {
         self.inner().send_messages_and_wait_check_tx(tracked_msgs)
     }
 
-    fn send_messages_to_proxy(
-        &self,
-        tracked_msgs: TrackedMsgs,
-    ) -> Result<Vec<IbcEventWithHeight>, Error> {
-        self.inc_metric("send_messages_to_proxy");
-        self.inner().send_messages_to_proxy(tracked_msgs)
-    }
-
     fn get_signer(&self) -> Result<Signer, Error> {
         self.inc_metric("get_signer");
         self.inner().get_signer()

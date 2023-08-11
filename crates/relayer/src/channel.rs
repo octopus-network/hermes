@@ -1064,7 +1064,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         let events = self
             .dst_chain()
-            .send_messages_to_proxy(tm)
+            .send_messages_and_wait_commit(tm)
             .map_err(|e| ChannelError::submit(self.dst_chain().id(), e))?;
 
         // Find the relevant event for channel open try
@@ -1272,7 +1272,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             let tm = TrackedMsgs::new_static(dst_msgs, "ChannelOpenConfirm");
             let events = channel
                 .dst_chain()
-                .send_messages_to_proxy(tm)
+                .send_messages_and_wait_commit(tm)
                 .map_err(|e| ChannelError::submit(channel.dst_chain().id(), e))?;
 
             // Find the relevant event for channel open confirm

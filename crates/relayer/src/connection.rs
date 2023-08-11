@@ -1083,7 +1083,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         let events = self
             .dst_chain()
-            .send_messages_to_proxy(tm)
+            .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.dst_chain().id(), e))?;
 
         // Find the relevant event for connection try transaction
@@ -1146,7 +1146,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
             TrackedMsgs::new_static(client_msgs, "update client on source for ConnectionOpenAck");
 
         self.src_chain()
-            .send_messages_to_proxy(tm)
+            .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.src_chain().id(), e))?;
 
         let query_height = self
@@ -1286,7 +1286,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Connection<ChainA, ChainB> {
 
         let events = self
             .dst_chain()
-            .send_messages_to_proxy(tm)
+            .send_messages_and_wait_commit(tm)
             .map_err(|e| ConnectionError::submit(self.dst_chain().id(), e))?;
 
         // Find the relevant event for connection confirm

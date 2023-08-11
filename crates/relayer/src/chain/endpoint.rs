@@ -153,11 +153,6 @@ pub trait ChainEndpoint: Sized {
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<TxResponse>, Error>;
 
-    fn send_messages_to_proxy(
-        &mut self,
-        tracked_msgs: TrackedMsgs,
-    ) -> Result<Vec<IbcEventWithHeight>, Error>;
-
     /// Fetch a header from the chain at the given height and verify it.
     fn verify_header(
         &mut self,

@@ -171,7 +171,7 @@ where
                         },
 
                         ChainRequest::SendMessagesToProxy { tracked_msgs, reply_to } => {
-                            self.send_messages_to_proxy(tracked_msgs, reply_to)?
+                            self.send_messages_and_wait_commit(tracked_msgs, reply_to)?
                         },
 
                         ChainRequest::Signer { reply_to } => {
@@ -386,15 +386,6 @@ where
         reply_to: ReplyTo<Vec<tendermint_rpc::endpoint::broadcast::tx_sync::Response>>,
     ) -> Result<(), Error> {
         let result = self.chain.send_messages_and_wait_check_tx(tracked_msgs);
-        reply_to.send(result).map_err(Error::send)
-    }
-
-    fn send_messages_to_proxy(
-        &mut self,
-        tracked_msgs: TrackedMsgs,
-        reply_to: ReplyTo<Vec<IbcEventWithHeight>>,
-    ) -> Result<(), Error> {
-        let result = self.chain.send_messages_to_proxy(tracked_msgs);
         reply_to.send(result).map_err(Error::send)
     }
 

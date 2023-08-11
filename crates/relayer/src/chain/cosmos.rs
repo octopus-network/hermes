@@ -8,6 +8,7 @@ use core::{
 };
 use futures::future::join_all;
 use num_bigint::BigInt;
+use prost::Message;
 use std::{cmp::Ordering, thread};
 
 use tokio::runtime::Runtime as TokioRuntime;
@@ -63,7 +64,6 @@ use tendermint_rpc::endpoint::broadcast::tx_sync::Response;
 use tendermint_rpc::endpoint::status;
 use tendermint_rpc::{Client, HttpClient, Order};
 
-use crate::account::Balance;
 use crate::chain::client::ClientSettings;
 use crate::chain::cosmos::batch::{
     send_batched_messages_and_wait_check_tx, send_batched_messages_and_wait_commit,
@@ -106,6 +106,7 @@ use crate::misbehaviour::MisbehaviourEvidence;
 use crate::util::pretty::{
     PrettyIdentifiedChannel, PrettyIdentifiedClientState, PrettyIdentifiedConnection,
 };
+use crate::{account::Balance, chain::tracking::TrackingId};
 
 use self::types::app_state::GenesisAppState;
 
@@ -1029,7 +1030,31 @@ impl ChainEndpoint for CosmosSdkChain {
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
+        use crate::chain::ic::deliver;
+        use ibc::Any;
+
         let runtime = self.rt.clone();
+
+        let mut tracked_msgs = tracked_msgs.clone();
+        if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
+            let canister_id = if self.config.id.as_str() == "ibc-1" {
+                "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+            } else {
+                "be2us-64aaa-aaaaa-qaabq-cai"
+            };
+
+            let mut msgs: Vec<Any> = Vec::new();
+            for msg in tracked_msgs.messages() {
+                let res = runtime
+                    .block_on(deliver(canister_id, false, msg.encode_to_vec()))
+                    .unwrap();
+                println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
+                if !res.is_empty() {
+                    msgs.push(Any::decode(&res[..]).unwrap());
+                }
+            }
+            tracked_msgs.msgs = msgs;
+        }
 
         runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs))
     }
@@ -1038,42 +1063,33 @@ impl ChainEndpoint for CosmosSdkChain {
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<Response>, Error> {
-        let runtime = self.rt.clone();
-
-        runtime.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs))
-    }
-
-    fn send_messages_to_proxy(
-        &mut self,
-        tracked_msgs: TrackedMsgs,
-    ) -> Result<Vec<IbcEventWithHeight>, Error> {
         use crate::chain::ic::deliver;
         use ibc::Any;
-        use prost::Message;
 
         let runtime = self.rt.clone();
 
-        if self.config.id.as_str() == "ibc-1" {
-            let mut tracked_msgs = tracked_msgs;
+        let mut tracked_msgs = tracked_msgs.clone();
+        if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
+            let canister_id = if self.config.id.as_str() == "ibc-1" {
+                "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+            } else {
+                "be2us-64aaa-aaaaa-qaabq-cai"
+            };
+
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
-                    .block_on(deliver(
-                        "bkyz2-fmaaa-aaaaa-qaaaq-cai",
-                        false,
-                        msg.encode_to_vec(),
-                    ))
+                    .block_on(deliver(canister_id, false, msg.encode_to_vec()))
                     .unwrap();
-                println!("ys-debug: send_messages_to_proxy: {:?}", res);
+                println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
                 if !res.is_empty() {
                     msgs.push(Any::decode(&res[..]).unwrap());
                 }
             }
             tracked_msgs.msgs = msgs;
-            return runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs));
         }
 
-        runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs))
+        runtime.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs))
     }
 
     /// Get the account for the signer
@@ -1250,17 +1266,19 @@ impl ChainEndpoint for CosmosSdkChain {
             request,
             include_proof,
         );
-        if self.config.id.as_str() == "ibc-1" && matches!(include_proof, IncludeProof::No) {
+        if matches!(include_proof, IncludeProof::No) {
             let runtime = self.rt.clone();
+
+            let canister_id = if self.config.id.as_str() == "ibc-1" {
+                "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+            } else {
+                "be2us-64aaa-aaaaa-qaabq-cai"
+            };
 
             // let client_id = request.client_id.as_bytes().to_vec();
             let client_id = "07-tendermint-0".as_bytes().to_vec();
             let res = runtime
-                .block_on(query_client_state(
-                    "bkyz2-fmaaa-aaaaa-qaaaq-cai",
-                    false,
-                    client_id,
-                ))
+                .block_on(query_client_state(canister_id, false, client_id))
                 .unwrap();
             println!("ys-debug: query_client_state from ic: {:?}", res);
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
@@ -1357,6 +1375,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryConsensusStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
+        // use crate::chain::ic::query_consensus_state;
         crate::time!(
             "query_consensus_state",
             {
@@ -1370,6 +1389,23 @@ impl ChainEndpoint for CosmosSdkChain {
             request,
             include_proof,
         );
+        // if self.config.id.as_str() == "ibc-1" {
+        //     let runtime = self.rt.clone();
+
+        //     // let client_id = request.client_id.as_bytes().to_vec();
+        //     let mut buf = vec![];
+        //     request.consensus_height.revision_height().encode(&mut buf).unwrap();
+        //     let res = runtime
+        //         .block_on(query_consensus_state(
+        //             "bkyz2-fmaaa-aaaaa-qaaaq-cai",
+        //             false,
+        //             buf,
+        //         ))
+        //         .unwrap();
+        //     println!("ys-debug: query_client_state from ic: {:?}", res);
+        //     let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
+        //     return Ok((consensus_state, None));
+        // }
         if request.client_id.to_string().starts_with("06-solomachine") {
             let res = self.query(
                 ClientStatePath(request.client_id.clone()),
