@@ -21,7 +21,7 @@ use ibc_relayer_types::core::ics02_client::trust_threshold::TrustThreshold;
 
 use ibc_proto::ibc::lightclients::solomachine::v3::ClientState as SmRawClientState;
 use ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState as SmClientState;
-use ibc_relayer_types::clients::ics06_solomachine::SOLOMACHINE_CLIENT_STATE_TYPE_URL;
+use ibc_relayer_types::clients::ics06_solomachine::client_state::SOLOMACHINE_CLIENT_STATE_TYPE_URL;
 use ibc_relayer_types::core::ics24_host::error::ValidationError;
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ClientId};
 #[cfg(test)]
