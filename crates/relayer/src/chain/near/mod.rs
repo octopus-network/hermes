@@ -242,7 +242,7 @@ impl NearChain {
         SmConsensusState {
             public_key,
             diversifier: CLIENT_DIVERSIFIER.to_string(),
-            timestamp: 9999,
+            timestamp: Timestamp::from_nanoseconds(9999).unwrap(),
             root: CommitmentRoot::from_bytes(&public_key.to_bytes()),
         }
     }
@@ -468,13 +468,6 @@ impl ChainEndpoint for NearChain {
         }
 
         Ok(vec![])
-    }
-
-    fn send_messages_and_wait_commit(
-        &mut self,
-        tracked_msgs: TrackedMsgs,
-    ) -> Result<Vec<IbcEventWithHeight>, Error> {
-        unimplemented!()
     }
 
     // Light client
@@ -1233,7 +1226,7 @@ impl ChainEndpoint for NearChain {
         );
 
         Ok(SmClientState {
-            sequence: height.revision_height(),
+            sequence: Height::new(0, height.revision_height()).unwrap(),
             is_frozen: false,
             consensus_state: self.get_sm_consensus_state(),
         })
@@ -1276,21 +1269,21 @@ impl ChainEndpoint for NearChain {
         };
         let mut timestamp = cs.consensus_state.timestamp;
         let mut h: Self::Header = SmHeader {
-            timestamp: 0,
+            timestamp: Timestamp::from_nanoseconds(0).unwrap(),
             signature: vec![],
-            new_public_key: None,
+            new_public_key: self.get_sm_client_pubkey(),
             new_diversifier: CLIENT_DIVERSIFIER.to_string(),
         };
         let mut hs: Vec<Self::Header> = Vec::new();
-        let start = if trusted_height.revision_height() > cs.sequence {
+        let start = if trusted_height.revision_height() > cs.sequence.revision_height() {
             trusted_height.revision_height()
         } else {
-            cs.sequence
+            cs.sequence.revision_height()
         };
-        let end = if target_height.revision_height() > cs.sequence {
+        let end = if target_height.revision_height() > cs.sequence.revision_height() {
             target_height.revision_height()
         } else {
-            cs.sequence + 1
+            cs.sequence.revision_height() + 1
         };
 
         for seq in start..end {
@@ -1304,14 +1297,14 @@ impl ChainEndpoint for NearChain {
                 // .unwrap()
                 .as_nanos() as u64; // u128
             let data = SmHeaderData {
-                new_pub_key: Some(pk),
+                new_pub_key: pk,
                 new_diversifier: CLIENT_DIVERSIFIER.to_string(),
             };
-            timestamp += 1;
+            timestamp = Timestamp::from_nanoseconds(timestamp.nanoseconds() + 1).unwrap();
 
             let sig_data = self.sign_bytes_with_solomachine_pubkey(
                 seq,
-                timestamp,
+                timestamp.nanoseconds(),
                 DataType::Header.into(),
                 data.encode_vec(),
             );
@@ -1319,7 +1312,7 @@ impl ChainEndpoint for NearChain {
             let header = SmHeader {
                 timestamp,
                 signature: sig_data,
-                new_public_key: Some(pk),
+                new_public_key: pk,
                 new_diversifier: CLIENT_DIVERSIFIER.to_string(),
             };
 

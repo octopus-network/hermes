@@ -54,7 +54,9 @@ impl TryFrom<RawMsgUpdateClient> for MsgUpdateClient {
                 .client_id
                 .parse()
                 .map_err(Error::invalid_msg_update_client_id)?,
-            header: raw.header.ok_or_else(Error::missing_client_message)?,
+            header: raw
+                .client_message
+                .ok_or_else(Error::missing_client_message)?,
             signer: raw.signer.parse().map_err(Error::signer)?,
         })
     }
@@ -64,7 +66,7 @@ impl From<MsgUpdateClient> for RawMsgUpdateClient {
     fn from(ics_msg: MsgUpdateClient) -> Self {
         RawMsgUpdateClient {
             client_id: ics_msg.client_id.to_string(),
-            header: Some(ics_msg.header),
+            client_message: Some(ics_msg.header),
             signer: ics_msg.signer.to_string(),
         }
     }
