@@ -91,13 +91,6 @@ where
         self.value().subscribe()
     }
 
-    fn send_messages_to_proxy(
-        &self,
-        tracked_msgs: TrackedMsgs,
-    ) -> Result<Vec<IbcEventWithHeight>, Error> {
-        self.value().send_messages_to_proxy(tracked_msgs)
-    }
-
     fn send_messages_and_wait_commit(
         &self,
         tracked_msgs: TrackedMsgs,

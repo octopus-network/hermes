@@ -123,16 +123,14 @@ port = 3001
 # [1000, 3900, 6800, 9700, 12600, 15500, 18400, 21300, 24200, 27100, 30000]
 # latency_confirmed = { start = 1000, end = 30000, buckets = 10 }
 
-[canister_id]
-# Specify the canister ID of the IBC-bridge canister on the source chain.
-id = "naxa5-eyaaa-aaaaa-aacda-cai"
-
 # A chains section includes parameters related to a chain and the full node to which
 # the relayer can send transactions and queries.
 [[chains]]
 
 # Specify the chain ID. Required
 id = 'ibc-0'
+
+canister_id = "be2us-64aaa-aaaaa-qaabq-cai"
 
 counterparty_id = "ibc-1"
 
@@ -371,6 +369,7 @@ memo_prefix = ''
 [[chains]]
 id = 'ibc-1'
 counterparty_id = "ibc-0"
+canister_id = "bkyz2-fmaaa-aaaaa-qaaaq-cai"
 rpc_addr = 'http://127.0.0.1:26557'
 grpc_addr = 'http://127.0.0.1:9091'
 event_source = { mode = 'push', url = 'ws://127.0.0.1:26557/websocket', batch_delay = '500ms' }
