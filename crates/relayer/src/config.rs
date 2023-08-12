@@ -238,8 +238,6 @@ pub struct Config {
     pub rest: RestConfig,
     #[serde(default)]
     pub telemetry: TelemetryConfig,
-    #[serde(default)]
-    pub canister_id: CanisterIdConfig,
     #[serde(default = "Vec::new", skip_serializing_if = "Vec::is_empty")]
     pub chains: Vec<ChainConfig>,
 }
@@ -412,12 +410,6 @@ pub struct TelemetryConfig {
     pub buckets: HistogramBuckets,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct CanisterIdConfig {
-    pub id: String,
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct HistogramBuckets {
     #[serde(default = "default::latency_submitted")]
@@ -560,11 +552,39 @@ pub enum EventSourceMode {
     },
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[serde(from = "String", into = "String")]
+pub struct CanisterIdConfig {
+    pub id: String,
+}
+
+impl FromStr for CanisterIdConfig {
+    type Err = String;
+
+    fn from_str(id: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from(id.to_string()))
+    }
+}
+
+impl From<CanisterIdConfig> for String {
+    fn from(value: CanisterIdConfig) -> Self {
+        value.id
+    }
+}
+
+impl From<String> for CanisterIdConfig {
+    fn from(value: String) -> Self {
+        Self { id: value }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ChainConfig {
     /// The chain's network identifier
     pub id: ChainId,
+
+    pub canister_id: CanisterIdConfig,
 
     /// The Counterparty chain's network identifier
     pub counterparty_id: ChainId,

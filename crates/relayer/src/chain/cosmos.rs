@@ -1037,12 +1037,7 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let mut tracked_msgs = tracked_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let canister_id = if self.config.id.as_str() == "ibc-1" {
-                "bkyz2-fmaaa-aaaaa-qaaaq-cai"
-            } else {
-                "be2us-64aaa-aaaaa-qaabq-cai"
-            };
-
+            let canister_id = self.config.canister_id.id.as_str();
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
@@ -1070,11 +1065,7 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let mut tracked_msgs = tracked_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let canister_id = if self.config.id.as_str() == "ibc-1" {
-                "bkyz2-fmaaa-aaaaa-qaaaq-cai"
-            } else {
-                "be2us-64aaa-aaaaa-qaabq-cai"
-            };
+            let canister_id = self.config.canister_id.id.as_str();
 
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
@@ -1269,11 +1260,7 @@ impl ChainEndpoint for CosmosSdkChain {
         if matches!(include_proof, IncludeProof::No) {
             let runtime = self.rt.clone();
 
-            let canister_id = if self.config.id.as_str() == "ibc-1" {
-                "bkyz2-fmaaa-aaaaa-qaaaq-cai"
-            } else {
-                "be2us-64aaa-aaaaa-qaabq-cai"
-            };
+            let canister_id = self.config.canister_id.id.as_str();
 
             // let client_id = request.client_id.as_bytes().to_vec();
             let client_id = "07-tendermint-0".as_bytes().to_vec();

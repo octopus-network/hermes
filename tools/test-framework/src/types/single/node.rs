@@ -9,6 +9,7 @@ use eyre::Report as Error;
 use ibc_relayer::chain::ChainType;
 use ibc_relayer::config;
 use ibc_relayer::config::gas_multiplier::GasMultiplier;
+use ibc_relayer::config::CanisterIdConfig;
 use ibc_relayer::keyring::Store;
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
 use std::sync::{Arc, RwLock};
@@ -136,6 +137,7 @@ impl FullNode {
 
         Ok(config::ChainConfig {
             id: self.chain_driver.chain_id.clone(),
+            canister_id: CanisterIdConfig::default(),
             counterparty_id: ChainId::default(),
             r#type: ChainType::CosmosSdk,
             rpc_addr: Url::from_str(&self.chain_driver.rpc_address())?,

@@ -20,6 +20,7 @@ use ibc_chain_registry::querier::*;
 use ibc_relayer::config::filter::{FilterPattern, PacketFilter};
 use ibc_relayer::config::gas_multiplier::GasMultiplier;
 use ibc_relayer::config::types::{MaxMsgNum, MaxTxSize, Memo};
+use ibc_relayer::config::CanisterIdConfig;
 use ibc_relayer::config::{default, AddressType, ChainConfig, EventSourceMode, GasPrice};
 use ibc_relayer::keyring::Store;
 
@@ -123,6 +124,7 @@ where
 
     Ok(ChainConfig {
         id: chain_data.chain_id,
+        canister_id: CanisterIdConfig::default(),
         counterparty_id: ChainId::default(), // todo(davirain)
         r#type: default::chain_type(),
         rpc_addr: rpc_data.rpc_address,
