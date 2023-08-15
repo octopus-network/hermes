@@ -6,6 +6,7 @@ use crate::core::ics02_client::height::Height;
 use crate::core::ics24_host::identifier::ChainId;
 use bytes::Buf;
 use ibc_proto::google::protobuf::Any;
+use ibc_proto::ibc::lightclients::near::v1::ClientState as RawClientState;
 use ibc_proto::protobuf::Protobuf;
 use serde::{Deserialize, Serialize};
 use std::prelude::rust_2015::ToString;
@@ -60,6 +61,38 @@ impl Ics2ClientState for ClientState {
         _upgrade_options: &dyn UpgradeOptions,
         _chain_id: ChainId,
     ) {
+    }
+}
+
+impl Protobuf<RawClientState> for ClientState {}
+impl TryFrom<RawClientState> for ClientState {
+    type Error = Error;
+
+    fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
+        Ok(Self {
+            chain_id: ChainId::new("ibc".to_string(), 1),
+            trusting_period: raw.trusting_period.unwrap().nanos as u64,
+            latest_height: raw.latest_height.unwrap().revision_height,
+            latest_timestamp: raw.latest_timestamp,
+            frozen_height: raw.frozen_height.map(|h| h.revision_height),
+            upgrade_commitment_prefix: raw.upgrade_commitment_prefix,
+            upgrade_key: raw.upgrade_key,
+        })
+    }
+}
+
+impl From<ClientState> for RawClientState {
+    fn from(value: ClientState) -> Self {
+        RawClientState {
+            trusting_period: Some(Duration::from_nanos(value.trusting_period).into()),
+            frozen_height: value
+                .frozen_height
+                .map(|h| Height::new(1, h).unwrap().into()),
+            latest_height: Some(Height::new(1, value.latest_height).unwrap().into()),
+            latest_timestamp: value.latest_timestamp,
+            upgrade_commitment_prefix: value.upgrade_commitment_prefix,
+            upgrade_key: value.upgrade_key,
+        }
     }
 }
 

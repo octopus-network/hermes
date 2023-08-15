@@ -9,9 +9,3 @@ pub(crate) enum VecResult {
     Ok(Vec<u8>),
     Err(String),
 }
-
-#[derive(CandidType, Deserialize, Debug)]
-pub(crate) enum U64Result {
-    Ok(u64),
-    Err(String),
-}

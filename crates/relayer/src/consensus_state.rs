@@ -1,5 +1,6 @@
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::core::client::v1::ConsensusStateWithHeight;
+use ibc_proto::ibc::lightclients::near::v1::ConsensusState as RawNearConsensusState;
 use ibc_proto::ibc::lightclients::solomachine::v3::ConsensusState as RawSmConsensusState;
 use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as RawConsensusState;
 #[cfg(test)]
@@ -10,6 +11,7 @@ use ibc_relayer_types::clients::ics06_solomachine::consensus_state::SOLOMACHINE_
 use ibc_relayer_types::clients::ics07_tendermint::consensus_state::{
     ConsensusState as TmConsensusState, TENDERMINT_CONSENSUS_STATE_TYPE_URL,
 };
+use ibc_relayer_types::clients::ics12_near::consensus_state::ConsensusState as NearConsensusState;
 use ibc_relayer_types::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::consensus_state::{
@@ -31,7 +33,7 @@ use serde::{Deserialize, Serialize};
 pub enum AnyConsensusState {
     Tendermint(TmConsensusState),
     Solomachine(SmConsensusState),
-    Near(SmConsensusState),
+    Near(NearConsensusState),
 
     #[cfg(test)]
     Mock(MockConsensusState),
@@ -42,7 +44,7 @@ impl AnyConsensusState {
         match self {
             Self::Tendermint(cs_state) => cs_state.timestamp.into(),
             Self::Solomachine(cs_state) => cs_state.timestamp,
-            Self::Near(cs_state) => cs_state.timestamp,
+            Self::Near(cs_state) => cs_state.timestamp(),
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.timestamp(),
@@ -79,7 +81,7 @@ impl TryFrom<Any> for AnyConsensusState {
                     .map_err(Error::decode_raw_client_state)?,
             )),
             NEAR_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Near(
-                Protobuf::<RawSmConsensusState>::decode_vec(&value.value)
+                Protobuf::<RawNearConsensusState>::decode_vec(&value.value)
                     .map_err(Error::decode_raw_client_state)?,
             )),
 
@@ -107,7 +109,7 @@ impl From<AnyConsensusState> for Any {
             },
             AnyConsensusState::Near(value) => Any {
                 type_url: NEAR_CONSENSUS_STATE_TYPE_URL.to_string(),
-                value: Protobuf::<RawSmConsensusState>::encode_vec(&value),
+                value: Protobuf::<RawNearConsensusState>::encode_vec(&value),
             },
             #[cfg(test)]
             AnyConsensusState::Mock(value) => Any {
@@ -134,6 +136,12 @@ impl From<TmConsensusState> for AnyConsensusState {
 impl From<SmConsensusState> for AnyConsensusState {
     fn from(cs: SmConsensusState) -> Self {
         Self::Solomachine(cs)
+    }
+}
+
+impl From<NearConsensusState> for AnyConsensusState {
+    fn from(cs: NearConsensusState) -> Self {
+        Self::Near(cs)
     }
 }
 

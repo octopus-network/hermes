@@ -123,11 +123,6 @@ pub enum ChainRequest {
         reply_to: ReplyTo<Vec<tendermint_rpc::endpoint::broadcast::tx_sync::Response>>,
     },
 
-    SendMessagesToProxy {
-        tracked_msgs: TrackedMsgs,
-        reply_to: ReplyTo<Vec<IbcEventWithHeight>>,
-    },
-
     Config {
         reply_to: ReplyTo<ChainConfig>,
     },

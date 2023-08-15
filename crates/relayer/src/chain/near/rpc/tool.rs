@@ -407,6 +407,10 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
             })
         }
         IbcEvent::Message(message_event) => {
+            println!(
+                "ys-debug: module_attribute: {:?}",
+                message_event.module_attribute()
+            );
             HermesIbcEvent::AppModule(ibc_relayer_types::events::ModuleEvent {
                 kind: "message".to_string(),
                 module_name: ModuleId::new(message_event.module_attribute().into()).unwrap(),

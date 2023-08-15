@@ -46,10 +46,13 @@ use ibc_proto::{
     },
     protobuf::Protobuf,
 };
+use ibc_relayer_types::clients::ics12_near::{
+    client_state::ClientState as NearClientState,
+    consensus_state::ConsensusState as NearConsensusState, header::Header as NearHeader,
+};
 use ibc_relayer_types::{
     applications::ics31_icq::response::CrossChainQueryResponse,
     clients::{
-        ics06_solomachine::client_state::ClientState as SmClientState,
         ics06_solomachine::consensus_state::{ConsensusState as SmConsensusState, PublicKey},
         ics06_solomachine::header::{Header as SmHeader, HeaderData as SmHeaderData},
     },
@@ -96,7 +99,7 @@ pub mod rpc;
 pub const REVISION_NUMBER: u64 = 0;
 pub const CLIENT_DIVERSIFIER: &str = "NEAR";
 pub const CONTRACT_ACCOUNT_ID: &str = "v3.nearibc.testnet";
-pub const SIGNER_ACCOUNT_TESTNET: &str = "my-account.testnet";
+pub const SIGNER_ACCOUNT_TESTNET: &str = "juliansun.testnet";
 const MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG: u128 = 100_000_000_000_000_000_000_000;
 
 /// A struct used to start a Near chain instance in relayer
@@ -305,9 +308,9 @@ pub struct NearLightBlock {}
 
 impl ChainEndpoint for NearChain {
     type LightBlock = NearLightBlock; // Todo: Import from Near light client //CS
-    type Header = SmHeader; // Todo: Import from Near light client //CS
-    type ConsensusState = SmConsensusState; // Todo: Import from Near light client //CS
-    type ClientState = SmClientState; // Todo: Import from Near light client //CS
+    type Header = NearHeader;
+    type ConsensusState = NearConsensusState;
+    type ClientState = NearClientState;
     type SigningKeyPair = Secp256k1KeyPair;
     type Time = ibc::core::timestamp::Timestamp;
 
@@ -381,11 +384,34 @@ impl ChainEndpoint for NearChain {
             proto_msgs
         );
 
-        let result = match proto_msgs.tracking_id {
+        use crate::chain::ic::deliver;
+        use ibc::Any;
+
+        let runtime = self.rt.clone();
+
+        let mut tracked_msgs = proto_msgs.clone();
+        if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
+            let canister_id = self.config.canister_id.id.as_str();
+            let mut msgs: Vec<Any> = Vec::new();
+            for msg in tracked_msgs.messages() {
+                let res = runtime
+                    .block_on(deliver(canister_id, false, msg.encode_to_vec()))
+                    .unwrap();
+                println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
+                if !res.is_empty() {
+                    msgs.push(Any::decode(&res[..]).unwrap());
+                }
+            }
+            tracked_msgs.msgs = msgs;
+        }
+
+        let result = match tracked_msgs.tracking_id {
             TrackingId::Uuid(_) => {
-                let result = self.deliver(proto_msgs.messages().to_vec()).map_err(|e| {
-                    Error::report_error(format!("deliever error ({:?})", e.to_string()))
-                })?;
+                let result = self
+                    .deliver(tracked_msgs.messages().to_vec())
+                    .map_err(|e| {
+                        Error::report_error(format!("deliever error ({:?})", e.to_string()))
+                    })?;
                 // result.transaction_outcome
                 debug!(
                     "{}: [send_messages_and_wait_commit] - extrics_hash: {:?}",
@@ -399,9 +425,11 @@ impl ChainEndpoint for NearChain {
                     todo!() // wait for near-ibc ics20
                 }
                 _ => {
-                    let result = self.deliver(proto_msgs.messages().to_vec()).map_err(|e| {
-                        Error::report_error(format!("deliever error ({:?})", e.to_string()))
-                    })?;
+                    let result = self
+                        .deliver(tracked_msgs.messages().to_vec())
+                        .map_err(|e| {
+                            Error::report_error(format!("deliever error ({:?})", e.to_string()))
+                        })?;
 
                     debug!(
                         "{}: [send_messages_and_wait_commit] - extrics_hash: {:?}",
@@ -430,11 +458,34 @@ impl ChainEndpoint for NearChain {
             proto_msgs
         );
 
-        match proto_msgs.tracking_id {
+        use crate::chain::ic::deliver;
+        use ibc::Any;
+
+        let runtime = self.rt.clone();
+
+        let mut tracked_msgs = proto_msgs.clone();
+        if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
+            let canister_id = self.config.canister_id.id.as_str();
+            let mut msgs: Vec<Any> = Vec::new();
+            for msg in tracked_msgs.messages() {
+                let res = runtime
+                    .block_on(deliver(canister_id, false, msg.encode_to_vec()))
+                    .unwrap();
+                println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
+                if !res.is_empty() {
+                    msgs.push(Any::decode(&res[..]).unwrap());
+                }
+            }
+            tracked_msgs.msgs = msgs;
+        }
+
+        match tracked_msgs.tracking_id {
             TrackingId::Uuid(_) => {
-                let result = self.deliver(proto_msgs.messages().to_vec()).map_err(|e| {
-                    Error::report_error(format!("deliever error ({:?})", e.to_string()))
-                })?;
+                let result = self
+                    .deliver(tracked_msgs.messages().to_vec())
+                    .map_err(|e| {
+                        Error::report_error(format!("deliever error ({:?})", e.to_string()))
+                    })?;
                 debug!(
                     "{}: [send_messages_and_wait_commit] - extrics_hash: {:?}",
                     self.id(),
@@ -444,7 +495,7 @@ impl ChainEndpoint for NearChain {
             TrackingId::Static(value) => match value {
                 "ft-transfer" => {
                     let result = self
-                        .raw_transfer(proto_msgs.messages().to_vec())
+                        .raw_transfer(tracked_msgs.messages().to_vec())
                         .map_err(|_| Error::report_error("ics20_transfer".to_string()))?;
 
                     debug!(
@@ -454,9 +505,11 @@ impl ChainEndpoint for NearChain {
                     );
                 }
                 _ => {
-                    let result = self.deliver(proto_msgs.messages().to_vec()).map_err(|e| {
-                        Error::report_error(format!("deliever error ({:?})", e.to_string()))
-                    })?;
+                    let result = self
+                        .deliver(tracked_msgs.messages().to_vec())
+                        .map_err(|e| {
+                            Error::report_error(format!("deliever error ({:?})", e.to_string()))
+                        })?;
                     debug!(
                         "{}: [send_messages_and_wait_commit] - extrics_hash: {:?}",
                         self.id(),
@@ -1210,7 +1263,8 @@ impl ChainEndpoint for NearChain {
             request
         );
 
-        Ok(self.get_sm_consensus_state())
+        // Ok(self.get_sm_consensus_state())
+        todo!()
     }
 
     fn build_client_state(
@@ -1225,11 +1279,20 @@ impl ChainEndpoint for NearChain {
             dst_config
         );
 
-        Ok(SmClientState {
-            sequence: Height::new(0, height.revision_height()).unwrap(),
-            is_frozen: false,
-            consensus_state: self.get_sm_consensus_state(),
-        })
+        let ClientSettings::Tendermint(settings) = dst_config;
+        let trusting_period = settings.trusting_period.unwrap_or_default();
+
+        let client_state = NearClientState {
+            chain_id: self.id().clone(),
+            trusting_period: trusting_period.as_nanos() as u64,
+            latest_height: height.revision_height(),
+            latest_timestamp: 100,
+            frozen_height: None,
+            upgrade_commitment_prefix: vec![],
+            upgrade_key: vec![],
+        };
+
+        Ok(client_state)
     }
 
     fn build_consensus_state(
@@ -1241,8 +1304,13 @@ impl ChainEndpoint for NearChain {
             self.id(),
             light_block
         );
+        let consensus_state = NearConsensusState {
+            current_bps: vec![],
+            header: Default::default(),
+            commitment_root: CommitmentRoot::from(vec![]),
+        };
 
-        Ok(self.get_sm_consensus_state())
+        Ok(consensus_state)
     }
 
     fn build_header(
@@ -1258,72 +1326,73 @@ impl ChainEndpoint for NearChain {
             target_height,
             client_state
         );
+        todo!()
 
-        if trusted_height.revision_height() >= target_height.revision_height() {
-            return Err(Error::ics02(ClientError::invalid_height()));
-        }
-        let cs = if let AnyClientState::Solomachine(cs) = client_state {
-            cs
-        } else {
-            todo!()
-        };
-        let mut timestamp = cs.consensus_state.timestamp;
-        let mut h: Self::Header = SmHeader {
-            timestamp: Timestamp::from_nanoseconds(0).unwrap(),
-            signature: vec![],
-            new_public_key: self.get_sm_client_pubkey(),
-            new_diversifier: CLIENT_DIVERSIFIER.to_string(),
-        };
-        let mut hs: Vec<Self::Header> = Vec::new();
-        let start = if trusted_height.revision_height() > cs.sequence.revision_height() {
-            trusted_height.revision_height()
-        } else {
-            cs.sequence.revision_height()
-        };
-        let end = if target_height.revision_height() > cs.sequence.revision_height() {
-            target_height.revision_height()
-        } else {
-            cs.sequence.revision_height() + 1
-        };
+        // if trusted_height.revision_height() >= target_height.revision_height() {
+        //     return Err(Error::ics02(ClientError::invalid_height()));
+        // }
+        // let cs = if let AnyClientState::Solomachine(cs) = client_state {
+        //     cs
+        // } else {
+        //     todo!()
+        // };
+        // let mut timestamp = cs.consensus_state.timestamp;
+        // let mut h: Self::Header = SmHeader {
+        //     timestamp: Timestamp::from_nanoseconds(0).unwrap(),
+        //     signature: vec![],
+        //     new_public_key: self.get_sm_client_pubkey(),
+        //     new_diversifier: CLIENT_DIVERSIFIER.to_string(),
+        // };
+        // let mut hs: Vec<Self::Header> = Vec::new();
+        // let start = if trusted_height.revision_height() > cs.sequence.revision_height() {
+        //     trusted_height.revision_height()
+        // } else {
+        //     cs.sequence.revision_height()
+        // };
+        // let end = if target_height.revision_height() > cs.sequence.revision_height() {
+        //     target_height.revision_height()
+        // } else {
+        //     cs.sequence.revision_height() + 1
+        // };
 
-        for seq in start..end {
-            let pk = self.get_sm_client_pubkey();
-            debug!("{}: [build_header] - pk: {:?}", self.id(), pk);
-            let duration_since_epoch = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap();
-            let _timestamp_nanos = duration_since_epoch
-                // .checked_sub(Duration::from_secs(5))
-                // .unwrap()
-                .as_nanos() as u64; // u128
-            let data = SmHeaderData {
-                new_pub_key: pk,
-                new_diversifier: CLIENT_DIVERSIFIER.to_string(),
-            };
-            timestamp = Timestamp::from_nanoseconds(timestamp.nanoseconds() + 1).unwrap();
+        // for seq in start..end {
+        //     let pk = self.get_sm_client_pubkey();
+        //     debug!("{}: [build_header] - pk: {:?}", self.id(), pk);
+        //     let duration_since_epoch = SystemTime::now()
+        //         .duration_since(SystemTime::UNIX_EPOCH)
+        //         .unwrap();
+        //     let _timestamp_nanos = duration_since_epoch
+        //         // .checked_sub(Duration::from_secs(5))
+        //         // .unwrap()
+        //         .as_nanos() as u64; // u128
+        //     let data = SmHeaderData {
+        //         new_pub_key: pk,
+        //         new_diversifier: CLIENT_DIVERSIFIER.to_string(),
+        //     };
+        //     timestamp = Timestamp::from_nanoseconds(timestamp.nanoseconds() + 1).unwrap();
 
-            let sig_data = self.sign_bytes_with_solomachine_pubkey(
-                seq,
-                timestamp.nanoseconds(),
-                DataType::Header.into(),
-                data.encode_vec(),
-            );
+        //     let sig_data = self.sign_bytes_with_solomachine_pubkey(
+        //         seq,
+        //         timestamp.nanoseconds(),
+        //         DataType::Header.into(),
+        //         data.encode_vec(),
+        //     );
 
-            let header = SmHeader {
-                timestamp,
-                signature: sig_data,
-                new_public_key: pk,
-                new_diversifier: CLIENT_DIVERSIFIER.to_string(),
-            };
+        //     let header = SmHeader {
+        //         timestamp,
+        //         signature: sig_data,
+        //         new_public_key: pk,
+        //         new_diversifier: CLIENT_DIVERSIFIER.to_string(),
+        //     };
 
-            if seq == end - 1 {
-                h = header;
-            } else {
-                hs.push(header);
-            }
-        }
+        //     if seq == end - 1 {
+        //         h = header;
+        //     } else {
+        //         hs.push(header);
+        //     }
+        // }
 
-        Ok((h, hs))
+        // Ok((h, hs))
     }
 
     fn maybe_register_counterparty_payee(

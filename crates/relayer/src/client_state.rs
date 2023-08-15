@@ -19,9 +19,12 @@ use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error;
 use ibc_relayer_types::core::ics02_client::trust_threshold::TrustThreshold;
 
+use ibc_proto::ibc::lightclients::near::v1::ClientState as RawNearClientState;
 use ibc_proto::ibc::lightclients::solomachine::v3::ClientState as SmRawClientState;
 use ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState as SmClientState;
 use ibc_relayer_types::clients::ics06_solomachine::client_state::SOLOMACHINE_CLIENT_STATE_TYPE_URL;
+use ibc_relayer_types::clients::ics12_near::client_state::ClientState as NearClientState;
+use ibc_relayer_types::clients::ics12_near::client_state::NEAR_CLIENT_STATE_TYPE_URL;
 use ibc_relayer_types::core::ics24_host::error::ValidationError;
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ClientId};
 #[cfg(test)]
@@ -56,6 +59,7 @@ impl UpgradeOptions for AnyUpgradeOptions {}
 pub enum AnyClientState {
     Tendermint(TmClientState),
     Solomachine(SmClientState),
+    Near(NearClientState),
 
     #[cfg(test)]
     Mock(MockClientState),
@@ -66,6 +70,7 @@ impl AnyClientState {
         match self {
             Self::Tendermint(tm_state) => tm_state.latest_height(),
             Self::Solomachine(sm_state) => sm_state.latest_height(),
+            Self::Near(near_state) => near_state.latest_height(),
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.latest_height(),
@@ -76,6 +81,7 @@ impl AnyClientState {
         match self {
             Self::Tendermint(tm_state) => tm_state.frozen_height(),
             Self::Solomachine(sm_state) => sm_state.frozen_height(),
+            Self::Near(near_state) => near_state.frozen_height(),
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.frozen_height(),
@@ -86,6 +92,7 @@ impl AnyClientState {
         match self {
             AnyClientState::Tendermint(state) => Some(state.trust_threshold),
             AnyClientState::Solomachine(_state) => Some(TrustThreshold::TWO_THIRDS),
+            AnyClientState::Near(_state) => Some(TrustThreshold::TWO_THIRDS),
 
             #[cfg(test)]
             AnyClientState::Mock(_) => None,
@@ -96,6 +103,7 @@ impl AnyClientState {
         match self {
             AnyClientState::Tendermint(state) => state.max_clock_drift,
             AnyClientState::Solomachine(_state) => Duration::new(0, 0),
+            AnyClientState::Near(_state) => Duration::new(0, 0),
 
             #[cfg(test)]
             AnyClientState::Mock(_) => Duration::new(0, 0),
@@ -106,6 +114,7 @@ impl AnyClientState {
         match self {
             Self::Tendermint(state) => state.client_type(),
             Self::Solomachine(state) => state.client_type(),
+            Self::Near(state) => state.client_type(),
 
             #[cfg(test)]
             Self::Mock(state) => state.client_type(),
@@ -116,6 +125,7 @@ impl AnyClientState {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.refresh_time(),
             AnyClientState::Solomachine(_sm_state) => None,
+            AnyClientState::Near(_sm_state) => None,
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.refresh_time(),
@@ -141,6 +151,10 @@ impl TryFrom<Any> for AnyClientState {
                 Protobuf::<SmRawClientState>::decode_vec(&raw.value)
                     .map_err(Error::decode_raw_client_state)?,
             )),
+            NEAR_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Near(
+                Protobuf::<RawNearClientState>::decode_vec(&raw.value)
+                    .map_err(Error::decode_raw_client_state)?,
+            )),
 
             #[cfg(test)]
             MOCK_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Mock(
@@ -164,6 +178,10 @@ impl From<AnyClientState> for Any {
                 type_url: SOLOMACHINE_CLIENT_STATE_TYPE_URL.to_string(),
                 value: Protobuf::<SmRawClientState>::encode_vec(&value),
             },
+            AnyClientState::Near(value) => Any {
+                type_url: NEAR_CLIENT_STATE_TYPE_URL.to_string(),
+                value: Protobuf::<RawNearClientState>::encode_vec(&value),
+            },
             #[cfg(test)]
             AnyClientState::Mock(value) => Any {
                 type_url: MOCK_CLIENT_STATE_TYPE_URL.to_string(),
@@ -178,6 +196,7 @@ impl ClientState for AnyClientState {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.chain_id(),
             AnyClientState::Solomachine(sm_state) => sm_state.chain_id(),
+            AnyClientState::Near(near_state) => near_state.chain_id(),
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.chain_id(),
@@ -214,6 +233,7 @@ impl ClientState for AnyClientState {
                 chain_id,
             ),
             AnyClientState::Solomachine(_sm_state) => (),
+            AnyClientState::Near(_near_state) => (),
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => {
                 mock_state.upgrade(upgrade_height, upgrade_options, chain_id)
@@ -225,6 +245,7 @@ impl ClientState for AnyClientState {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.expired(elapsed_since_latest),
             AnyClientState::Solomachine(_sm_state) => false,
+            AnyClientState::Near(_near_state) => false,
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.expired(elapsed_since_latest),
         }
@@ -240,6 +261,12 @@ impl From<TmClientState> for AnyClientState {
 impl From<SmClientState> for AnyClientState {
     fn from(cs: SmClientState) -> Self {
         Self::Solomachine(cs)
+    }
+}
+
+impl From<NearClientState> for AnyClientState {
+    fn from(cs: NearClientState) -> Self {
+        Self::Near(cs)
     }
 }
 
@@ -260,6 +287,8 @@ impl From<&dyn ClientState> for AnyClientState {
         if let Some(cs) = downcast_client_state::<TmClientState>(client_state) {
             AnyClientState::from(cs.clone())
         } else if let Some(cs) = downcast_client_state::<SmClientState>(client_state) {
+            AnyClientState::from(cs.clone())
+        } else if let Some(cs) = downcast_client_state::<NearClientState>(client_state) {
             AnyClientState::from(cs.clone())
         } else {
             unreachable!()

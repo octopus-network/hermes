@@ -170,10 +170,6 @@ where
                             self.send_messages_and_wait_check_tx(tracked_msgs, reply_to)?
                         },
 
-                        ChainRequest::SendMessagesToProxy { tracked_msgs, reply_to } => {
-                            self.send_messages_and_wait_commit(tracked_msgs, reply_to)?
-                        },
-
                         ChainRequest::Signer { reply_to } => {
                             self.get_signer(reply_to)?
                         },

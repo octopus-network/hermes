@@ -2070,7 +2070,7 @@ dependencies = [
 [[package]]
 name = "ibc-proto"
 version = "0.32.0"
-source = "git+https://github.com/octopus-network/ibc-proto-rs.git?branch=octopus-relayer-v0.32.0#45f37767f7f05df9f0e158987048d62e4b976547"
+source = "git+https://github.com/octopus-network/ibc-proto-rs.git?branch=octopus-relauer-v0.32.0-with-ics12-near#08f82132cb6dbead19d2fbcbd4e5c801ceb579ae"
 dependencies = [
  "base64 0.21.2",
  "bytes",
