@@ -803,25 +803,26 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
     }
 
     fn try_refresh(&mut self) -> Result<Option<Vec<IbcEvent>>, ForeignClientError> {
-        let (client_state, elapsed) = self.validated_client_state()?;
+        // let (client_state, elapsed) = self.validated_client_state()?;
 
-        // The refresh_window is the maximum duration
-        // we can backoff between subsequent client updates.
-        let refresh_window = client_state.refresh_period();
+        // // The refresh_window is the maximum duration
+        // // we can backoff between subsequent client updates.
+        // let refresh_window = client_state.refresh_period();
 
-        match (elapsed, refresh_window) {
-            (None, _) | (_, None) => Ok(None),
-            (Some(elapsed), Some(refresh_window)) => {
-                if elapsed > refresh_window {
-                    info!(?elapsed, ?refresh_window, "client needs to be refreshed");
+        // match (elapsed, refresh_window) {
+        //     (None, _) | (_, None) => Ok(None),
+        //     (Some(elapsed), Some(refresh_window)) => {
+        //         if elapsed > refresh_window {
+        //             info!(?elapsed, ?refresh_window, "client needs to be refreshed");
 
-                    self.build_latest_update_client_and_send()
-                        .map_or_else(Err, |ev| Ok(Some(ev)))
-                } else {
-                    Ok(None)
-                }
-            }
-        }
+        //             self.build_latest_update_client_and_send()
+        //                 .map_or_else(Err, |ev| Ok(Some(ev)))
+        //         } else {
+        //             Ok(None)
+        //         }
+        //     }
+        // }
+        Ok(None)
     }
 
     /// Wrapper for build_update_client_with_trusted.

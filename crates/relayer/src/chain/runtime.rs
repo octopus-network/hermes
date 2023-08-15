@@ -682,7 +682,7 @@ where
     }
 
     fn build_packet_proofs(
-        &self,
+        &mut self,
         packet_type: PacketMsgType,
         port_id: PortId,
         channel_id: ChannelId,
@@ -690,9 +690,13 @@ where
         height: Height,
         reply_to: ReplyTo<Proofs>,
     ) -> Result<(), Error> {
-        let result =
-            self.chain
-                .build_packet_proofs(packet_type, port_id, channel_id, sequence, height);
+        let result = self.chain.build_packet_proofs(
+            packet_type,
+            port_id,
+            channel_id,
+            sequence,
+            height,
+        );
 
         reply_to.send(result).map_err(Error::send)
     }

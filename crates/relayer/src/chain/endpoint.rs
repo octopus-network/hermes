@@ -1,5 +1,11 @@
 use alloc::sync::Arc;
 use core::convert::TryFrom;
+use ibc_proto::ibc::lightclients::solomachine::v3::TimestampedSignatureData;
+use ibc_proto::protobuf::Protobuf;
+use ibc_relayer_types::core::ics24_host::path::{
+    AcksPath, ChannelEndsPath, CommitmentsPath, ReceiptsPath, SeqRecvsPath,
+};
+use prost::Message;
 use tracing::info;
 
 use tokio::runtime::Runtime as TokioRuntime;
@@ -47,6 +53,9 @@ use crate::event::IbcEventWithHeight;
 use crate::keyring::{AnySigningKeyPair, KeyRing, SigningKeyPairSized};
 use crate::light_client::AnyHeader;
 use crate::misbehaviour::MisbehaviourEvidence;
+
+use super::near::CONTRACT_ACCOUNT_ID;
+use super::ChainType;
 
 /// The result of a health check.
 #[derive(Debug)]
@@ -545,140 +554,388 @@ pub trait ChainEndpoint: Sized {
 
     /// Builds the proof for packet messages.
     fn build_packet_proofs(
-        &self,
+        &mut self,
         packet_type: PacketMsgType,
         port_id: PortId,
         channel_id: ChannelId,
         sequence: Sequence,
         height: ICSHeight,
     ) -> Result<Proofs, Error> {
-        let (maybe_packet_proof, channel_proof) = match packet_type {
+        info!(
+            "building packet proofs for {:?} on {}: port: {}, channel: {}, sequence: {}, height: {}",
+            packet_type,
+            self.id(),
+            port_id,
+            channel_id,
+            sequence,
+            height
+        );
+        let sm_proof_seq: u64 = height.increment().revision_height().into();
+        let (packet_proof, channel_proof) = match packet_type {
             PacketMsgType::Recv => {
-                let (_, maybe_packet_proof) = self.query_packet_commitment(
+                let (data, _) = self.query_packet_commitment(
                     QueryPacketCommitmentRequest {
-                        port_id,
-                        channel_id,
+                        port_id: port_id.clone(),
+                        channel_id: channel_id.clone(),
                         sequence,
-                        height: QueryHeight::Specific(height),
+                        height: QueryHeight::Latest,
                     },
-                    IncludeProof::Yes,
+                    IncludeProof::No,
                 )?;
-
-                (maybe_packet_proof, None)
+                let path = match self.config().r#type {
+                    ChainType::CosmosSdk => {
+                        let prefix = self
+                            .query_commitment_prefix()
+                            .map_err(|_| Error::query("commitment prefix".to_string()))?;
+                        let mut path = prefix.into_vec();
+                        path.extend(
+                            CommitmentsPath {
+                                port_id: port_id.clone(),
+                                channel_id: channel_id.clone(),
+                                sequence: sequence.clone(),
+                            }
+                            .to_string()
+                            .into_bytes(),
+                        );
+                        path
+                    }
+                    ChainType::Near => {
+                        let path = format!(
+                            "/%09{}%2C/commitments%2Fports%2F{}%2Fchannels%2F{}%2Fsequences%2F{}",
+                            CONTRACT_ACCOUNT_ID, port_id, channel_id, sequence,
+                        )
+                        .into_bytes();
+                        path
+                    }
+                };
+                (
+                    generate_sm_proof(
+                        &self.id().clone(),
+                        &self.get_key().unwrap().into(),
+                        sm_proof_seq,
+                        path,
+                        data,
+                    ),
+                    None,
+                )
             }
             PacketMsgType::Ack => {
-                let (_, maybe_packet_proof) = self.query_packet_acknowledgement(
+                let (data, _) = self.query_packet_acknowledgement(
                     QueryPacketAcknowledgementRequest {
-                        port_id,
-                        channel_id,
+                        port_id: port_id.clone(),
+                        channel_id: channel_id.clone(),
                         sequence,
-                        height: QueryHeight::Specific(height),
+                        height: QueryHeight::Latest,
                     },
-                    IncludeProof::Yes,
+                    IncludeProof::No,
                 )?;
-
-                (maybe_packet_proof, None)
+                let path = match self.config().r#type {
+                    ChainType::CosmosSdk => {
+                        let prefix = self
+                            .query_commitment_prefix()
+                            .map_err(|_| Error::query("commitment prefix".to_string()))?;
+                        let mut path = prefix.into_vec();
+                        path.extend(
+                            AcksPath {
+                                port_id: port_id.clone(),
+                                channel_id: channel_id.clone(),
+                                sequence: sequence.clone(),
+                            }
+                            .to_string()
+                            .into_bytes(),
+                        );
+                        path
+                    }
+                    ChainType::Near => {
+                        let path = format!(
+                            "/%09{}%2C/acks%2Fports%2F{}%2Fchannels%2F{}%2Fsequences%2F{}",
+                            CONTRACT_ACCOUNT_ID, port_id, channel_id, sequence,
+                        )
+                        .into_bytes();
+                        path
+                    }
+                };
+                (
+                    generate_sm_proof(
+                        &self.id().clone(),
+                        &self.get_key().unwrap().into(),
+                        sm_proof_seq,
+                        path,
+                        data,
+                    ),
+                    None,
+                )
             }
             PacketMsgType::TimeoutUnordered => {
-                let (_, maybe_packet_proof) = self.query_packet_receipt(
+                let (data, _) = self.query_packet_receipt(
                     QueryPacketReceiptRequest {
-                        port_id,
-                        channel_id,
+                        port_id: port_id.clone(),
+                        channel_id: channel_id.clone(),
                         sequence,
-                        height: QueryHeight::Specific(height),
+                        height: QueryHeight::Latest,
                     },
-                    IncludeProof::Yes,
+                    IncludeProof::No,
                 )?;
-
-                (maybe_packet_proof, None)
+                let path = match self.config().r#type {
+                    ChainType::CosmosSdk => {
+                        let prefix = self
+                            .query_commitment_prefix()
+                            .map_err(|_| Error::query("commitment prefix".to_string()))?;
+                        let mut path = prefix.into_vec();
+                        path.extend(
+                            ReceiptsPath {
+                                port_id: port_id.clone(),
+                                channel_id: channel_id.clone(),
+                                sequence: sequence.clone(),
+                            }
+                            .to_string()
+                            .into_bytes(),
+                        );
+                        path
+                    }
+                    ChainType::Near => {
+                        let path = format!(
+                            "/%09{}%2C/receipts%2Fports%2F{}%2Fchannels%2F{}%2Fsequences%2F{}",
+                            CONTRACT_ACCOUNT_ID, port_id, channel_id, sequence,
+                        )
+                        .into_bytes();
+                        path
+                    }
+                };
+                (
+                    generate_sm_proof(
+                        &self.id().clone(),
+                        &self.get_key().unwrap().into(),
+                        sm_proof_seq,
+                        path,
+                        data,
+                    ),
+                    None,
+                )
             }
             PacketMsgType::TimeoutOrdered => {
-                let (_, maybe_packet_proof) = self.query_next_sequence_receive(
+                let (next_seq, _) = self.query_next_sequence_receive(
                     QueryNextSequenceReceiveRequest {
-                        port_id,
-                        channel_id,
-                        height: QueryHeight::Specific(height),
+                        port_id: port_id.clone(),
+                        channel_id: channel_id.clone(),
+                        height: QueryHeight::Latest,
                     },
-                    IncludeProof::Yes,
+                    IncludeProof::No,
                 )?;
-
-                (maybe_packet_proof, None)
+                let path = match self.config().r#type {
+                    ChainType::CosmosSdk => {
+                        let prefix = self
+                            .query_commitment_prefix()
+                            .map_err(|_| Error::query("commitment prefix".to_string()))?;
+                        let mut path = prefix.into_vec();
+                        path.extend(
+                            SeqRecvsPath(port_id.clone(), channel_id.clone())
+                                .to_string()
+                                .into_bytes(),
+                        );
+                        path
+                    }
+                    ChainType::Near => {
+                        let path = format!(
+                            "/%09{}%2C/nextSequenceRecv%2Fports%2F{}%2Fchannels%2F{}",
+                            CONTRACT_ACCOUNT_ID, port_id, channel_id,
+                        )
+                        .into_bytes();
+                        path
+                    }
+                };
+                (
+                    generate_sm_proof(
+                        &self.id().clone(),
+                        &self.get_key().unwrap().into(),
+                        sm_proof_seq,
+                        path,
+                        u64::from(next_seq).to_le_bytes().to_vec(),
+                    ),
+                    None,
+                )
             }
             PacketMsgType::TimeoutOnCloseUnordered => {
                 let channel_proof = {
-                    let (_, maybe_channel_proof) = self.query_channel(
+                    let (channel_end, _) = self.query_channel(
                         QueryChannelRequest {
                             port_id: port_id.clone(),
                             channel_id: channel_id.clone(),
-                            height: QueryHeight::Specific(height),
+                            height: QueryHeight::Latest,
                         },
-                        IncludeProof::Yes,
+                        IncludeProof::No,
                     )?;
-
-                    let Some(channel_merkle_proof) = maybe_channel_proof else {
-                        return Err(Error::queried_proof_not_found());
+                    let path = match self.config().r#type {
+                        ChainType::CosmosSdk => {
+                            let prefix = self
+                                .query_commitment_prefix()
+                                .map_err(|_| Error::query("commitment prefix".to_string()))?;
+                            let mut path = prefix.into_vec();
+                            path.extend(
+                                ChannelEndsPath(port_id.clone(), channel_id.clone())
+                                    .to_string()
+                                    .into_bytes(),
+                            );
+                            path
+                        }
+                        ChainType::Near => {
+                            let path = format!(
+                                "/%09{}%2C/channelEnds%2Fports%2F{}%2Fchannels%2F{}",
+                                CONTRACT_ACCOUNT_ID, port_id, channel_id,
+                            )
+                            .into_bytes();
+                            path
+                        }
                     };
-
-                    Some(
-                        CommitmentProofBytes::try_from(channel_merkle_proof)
-                            .map_err(Error::malformed_proof)?,
+                    generate_sm_proof(
+                        &self.id().clone(),
+                        &self.get_key().unwrap().into(),
+                        sm_proof_seq,
+                        path,
+                        channel_end.encode_vec(),
                     )
                 };
 
-                let (_, maybe_packet_proof) = self.query_packet_receipt(
+                let (data, _) = self.query_packet_receipt(
                     QueryPacketReceiptRequest {
-                        port_id,
-                        channel_id,
+                        port_id: port_id.clone(),
+                        channel_id: channel_id.clone(),
                         sequence,
-                        height: QueryHeight::Specific(height),
+                        height: QueryHeight::Latest,
                     },
-                    IncludeProof::Yes,
+                    IncludeProof::No,
                 )?;
+                let path = match self.config().r#type {
+                    ChainType::CosmosSdk => {
+                        let prefix = self
+                            .query_commitment_prefix()
+                            .map_err(|_| Error::query("commitment prefix".to_string()))?;
+                        let mut path = prefix.into_vec();
+                        path.extend(
+                            ReceiptsPath {
+                                port_id: port_id.clone(),
+                                channel_id: channel_id.clone(),
+                                sequence: sequence.clone(),
+                            }
+                            .to_string()
+                            .into_bytes(),
+                        );
+                        path
+                    }
+                    ChainType::Near => {
+                        let path = format!(
+                            "/%09{}%2C/receipts%2Fports%2F{}%2Fchannels%2F{}%2Fsequences%2F{}",
+                            CONTRACT_ACCOUNT_ID, port_id, channel_id, sequence,
+                        )
+                        .into_bytes();
+                        path
+                    }
+                };
 
-                (maybe_packet_proof, channel_proof)
+                (
+                    generate_sm_proof(
+                        &self.id().clone(),
+                        &self.get_key().unwrap().into(),
+                        sm_proof_seq,
+                        path,
+                        data,
+                    ),
+                    Some(channel_proof),
+                )
             }
             PacketMsgType::TimeoutOnCloseOrdered => {
                 let channel_proof = {
-                    let (_, maybe_channel_proof) = self.query_channel(
+                    let (channel_end, _) = self.query_channel(
                         QueryChannelRequest {
                             port_id: port_id.clone(),
                             channel_id: channel_id.clone(),
-                            height: QueryHeight::Specific(height),
+                            height: QueryHeight::Latest,
                         },
-                        IncludeProof::Yes,
+                        IncludeProof::No,
                     )?;
-
-                    let Some(channel_merkle_proof) = maybe_channel_proof else {
-                        return Err(Error::queried_proof_not_found());
+                    let path = match self.config().r#type {
+                        ChainType::CosmosSdk => {
+                            let prefix = self
+                                .query_commitment_prefix()
+                                .map_err(|_| Error::query("commitment prefix".to_string()))?;
+                            let mut path = prefix.into_vec();
+                            path.extend(
+                                ChannelEndsPath(port_id.clone(), channel_id.clone())
+                                    .to_string()
+                                    .into_bytes(),
+                            );
+                            path
+                        }
+                        ChainType::Near => {
+                            let path = format!(
+                                "/%09{}%2C/channelEnds%2Fports%2F{}%2Fchannels%2F{}",
+                                CONTRACT_ACCOUNT_ID, port_id, channel_id,
+                            )
+                            .into_bytes();
+                            path
+                        }
                     };
-
-                    Some(
-                        CommitmentProofBytes::try_from(channel_merkle_proof)
-                            .map_err(Error::malformed_proof)?,
+                    generate_sm_proof(
+                        &self.id().clone(),
+                        &self.get_key().unwrap().into(),
+                        sm_proof_seq,
+                        path,
+                        channel_end.encode_vec(),
                     )
                 };
-                let (_, maybe_packet_proof) = self.query_next_sequence_receive(
+                let (next_seq, _) = self.query_next_sequence_receive(
                     QueryNextSequenceReceiveRequest {
-                        port_id,
-                        channel_id,
-                        height: QueryHeight::Specific(height),
+                        port_id: port_id.clone(),
+                        channel_id: channel_id.clone(),
+                        height: QueryHeight::Latest,
                     },
-                    IncludeProof::Yes,
+                    IncludeProof::No,
                 )?;
-
-                (maybe_packet_proof, channel_proof)
+                let path = match self.config().r#type {
+                    ChainType::CosmosSdk => {
+                        let prefix = self
+                            .query_commitment_prefix()
+                            .map_err(|_| Error::query("commitment prefix".to_string()))?;
+                        let mut path = prefix.into_vec();
+                        path.extend(
+                            SeqRecvsPath(port_id.clone(), channel_id.clone())
+                                .to_string()
+                                .into_bytes(),
+                        );
+                        path
+                    }
+                    ChainType::Near => {
+                        let path = format!(
+                            "/%09{}%2C/nextSequenceRecv%2Fports%2F{}%2Fchannels%2F{}",
+                            CONTRACT_ACCOUNT_ID, port_id, channel_id,
+                        )
+                        .into_bytes();
+                        path
+                    }
+                };
+                (
+                    generate_sm_proof(
+                        &self.id().clone(),
+                        &self.get_key().unwrap().into(),
+                        sm_proof_seq,
+                        path,
+                        u64::from(next_seq).to_le_bytes().to_vec(),
+                    ),
+                    Some(channel_proof),
+                )
             }
-        };
-
-        let Some(packet_proof) = maybe_packet_proof else {
-            return Err(Error::queried_proof_not_found());
         };
 
         let proofs = Proofs::new(
             CommitmentProofBytes::try_from(packet_proof).map_err(Error::malformed_proof)?,
             None,
             None,
-            channel_proof,
+            match channel_proof {
+                Some(proof) => {
+                    Some(CommitmentProofBytes::try_from(proof).map_err(Error::malformed_proof)?)
+                }
+                None => None,
+            },
             height.increment(),
         )
         .map_err(Error::malformed_proof)?;
@@ -702,4 +959,30 @@ pub trait ChainEndpoint: Sized {
         &self,
         request: QueryIncentivizedPacketRequest,
     ) -> Result<QueryIncentivizedPacketResponse, Error>;
+}
+
+fn generate_sm_proof(
+    chain_id: &ChainId,
+    signing_key_pair: &AnySigningKeyPair,
+    sequence: u64,
+    path: Vec<u8>,
+    data: Vec<u8>,
+) -> Vec<u8> {
+    info!("Generating sm proof for {} {}", chain_id, sequence);
+    let timestamp_nanos = Timestamp::now().nanoseconds();
+    let sig_data = super::super::foreign_client::solomachine::sign_bytes(
+        chain_id,
+        signing_key_pair,
+        sequence,
+        timestamp_nanos,
+        path,
+        data,
+    );
+    let timestamped = TimestampedSignatureData {
+        signature_data: sig_data,
+        timestamp: timestamp_nanos,
+    };
+    let mut packet_proof = Vec::new();
+    Message::encode(&timestamped, &mut packet_proof).unwrap();
+    packet_proof
 }

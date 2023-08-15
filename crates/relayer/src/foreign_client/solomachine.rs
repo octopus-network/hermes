@@ -34,7 +34,7 @@ use ibc_relayer_types::{
         ics03_connection::connection::State,
         ics23_commitment::commitment::{CommitmentProofBytes, CommitmentRoot},
         ics24_host::{
-            identifier::{ChannelId, ClientId, ConnectionId, PortId},
+            identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId},
             path::{ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, ConnectionsPath},
         },
     },
@@ -66,7 +66,12 @@ fn get_client_state(
                 ))
             })?
     };
-    println!("client_state: {:?}", client_state);
+    info!(
+        "Client_state of {} on {}: {:?}",
+        client_id,
+        chain.id(),
+        client_state
+    );
 
     if client_state.is_frozen() {
         return Err(RelayerError::light_client_state(
@@ -156,8 +161,9 @@ pub fn build_consensus_state(
     }
 }
 
-fn sign_bytes_with_solomachine_pubkey(
-    chain: &impl ChainHandle,
+pub fn sign_bytes(
+    chain_id: &ChainId,
+    signing_key_pair: &AnySigningKeyPair,
     sequence: u64,
     timestamp: u64,
     path: Vec<u8>,
@@ -170,12 +176,12 @@ fn sign_bytes_with_solomachine_pubkey(
 
     info!(
         "{}: [sign_bytes_with_solomachine_pubkey] - sequence {:?}, timestamp: {:?}, path: {:?}, data: {:?}",
-        chain.id(), sequence, timestamp, path, data
+        chain_id, sequence, timestamp, path, data
     );
     let bytes = SignBytes {
         sequence,
         timestamp,
-        diversifier: chain.id().to_string(),
+        diversifier: chain_id.to_string(),
         path,
         data,
     };
@@ -183,18 +189,16 @@ fn sign_bytes_with_solomachine_pubkey(
     Message::encode(&bytes, &mut buf).unwrap();
     debug!(
         "{}: [sign_bytes_with_solomachine_pubkey] - encoded_bytes: {:?}",
-        chain.id(),
-        buf
+        chain_id, buf
     );
 
-    let key_pair = chain.get_key().unwrap();
-    match key_pair {
+    match signing_key_pair {
         AnySigningKeyPair::Secp256k1(key_pair) => {
             let signature = key_pair.sign(&buf).unwrap();
             info!(
                 "{}: [sign_bytes_with_solomachine_pubkey] - signature: {:?}, \
                 length: {}",
-                chain.id(),
+                chain_id,
                 signature,
                 signature.len()
             );
@@ -206,8 +210,7 @@ fn sign_bytes_with_solomachine_pubkey(
 
             debug!(
                 "{}: [sign_bytes_with_solomachine_pubkey] - sig_data: {:?}",
-                chain.id(),
-                buf
+                chain_id, buf
             );
             buf
         }
@@ -250,6 +253,7 @@ pub fn build_header(
         cs.sequence + 1
     };
 
+    let signing_key_pair = chain.get_key().unwrap();
     for seq in start..end {
         let pk = get_sm_client_pubkey(chain);
         debug!("{}: [build_header] - pk: {:?}", chain.id(), pk);
@@ -260,8 +264,9 @@ pub fn build_header(
 
         timestamp += 1;
 
-        let sig_data = sign_bytes_with_solomachine_pubkey(
-            chain,
+        let sig_data = sign_bytes(
+            &chain.id(),
+            &signing_key_pair,
             seq,
             timestamp,
             "solomachine:header".to_string().as_bytes().to_vec(),
@@ -311,6 +316,7 @@ pub fn build_connection_proofs_and_client_state(
     debug!("{}: ConnectionStateData: {:?}", chain.id(), connection_end);
 
     let timestamp_nanos = Timestamp::now().nanoseconds();
+    let signing_key_pair = chain.get_key().unwrap();
     let sig_data = match chain.config().unwrap().r#type {
         ChainType::CosmosSdk => {
             let prefix = chain
@@ -322,8 +328,9 @@ pub fn build_connection_proofs_and_client_state(
                     .to_string()
                     .into_bytes(),
             );
-            sign_bytes_with_solomachine_pubkey(
-                chain,
+            sign_bytes(
+                &chain.id(),
+                &signing_key_pair,
                 sequence + 1,
                 timestamp_nanos,
                 path,
@@ -337,8 +344,9 @@ pub fn build_connection_proofs_and_client_state(
                 connection_id.as_str()
             )
             .into_bytes();
-            sign_bytes_with_solomachine_pubkey(
-                chain,
+            sign_bytes(
+                &chain.id(),
+                &signing_key_pair,
                 sequence + 1,
                 timestamp_nanos,
                 path,
@@ -397,7 +405,7 @@ pub fn build_connection_proofs_and_client_state(
             )?;
 
             debug!("{}: ClientStateData: {:?}", chain.id(), client_state_value);
-
+            let signing_key_pair = chain.get_key().unwrap();
             let sig_data = match chain.config().unwrap().r#type {
                 ChainType::CosmosSdk => {
                     let prefix = chain
@@ -405,8 +413,9 @@ pub fn build_connection_proofs_and_client_state(
                         .map_err(|_| RelayerError::query("commitment prefix".to_string()))?;
                     let mut path = prefix.into_vec();
                     path.extend(ClientStatePath(client_id.clone()).to_string().into_bytes());
-                    sign_bytes_with_solomachine_pubkey(
-                        chain,
+                    sign_bytes(
+                        &chain.id(),
+                        &signing_key_pair,
                         sequence + 1,
                         timestamp_nanos,
                         path,
@@ -420,8 +429,9 @@ pub fn build_connection_proofs_and_client_state(
                         client_id.as_str()
                     )
                     .into_bytes();
-                    sign_bytes_with_solomachine_pubkey(
-                        chain,
+                    sign_bytes(
+                        &chain.id(),
+                        &signing_key_pair,
                         sequence + 2,
                         timestamp_nanos,
                         path,
@@ -465,8 +475,9 @@ pub fn build_connection_proofs_and_client_state(
                         .to_string()
                         .into_bytes(),
                     );
-                    sign_bytes_with_solomachine_pubkey(
-                        chain,
+                    sign_bytes(
+                        &chain.id(),
+                        &signing_key_pair,
                         sequence + 1,
                         timestamp_nanos,
                         path,
@@ -484,8 +495,9 @@ pub fn build_connection_proofs_and_client_state(
                             .to_string()
                     )
                     .into_bytes();
-                    sign_bytes_with_solomachine_pubkey(
-                        chain,
+                    sign_bytes(
+                        &chain.id(),
+                        &signing_key_pair,
                         sequence + 3,
                         timestamp_nanos,
                         path,
@@ -580,8 +592,10 @@ pub fn build_channel_proofs(
         )
         .into_bytes(),
     };
-    let sig_data = sign_bytes_with_solomachine_pubkey(
-        chain,
+    let signing_key_pair = chain.get_key().unwrap();
+    let sig_data = sign_bytes(
+        &chain.id(),
+        &signing_key_pair,
         height.revision_height() + 1,
         timestamp_nanos,
         path,

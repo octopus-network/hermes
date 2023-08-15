@@ -1,5 +1,6 @@
 use alloc::collections::BTreeMap as HashMap;
 use alloc::collections::VecDeque;
+use ibc_relayer_types::proofs::Proofs;
 use std::ops::Sub;
 use std::time::{Duration, Instant};
 
@@ -42,6 +43,7 @@ use crate::chain::tracking::TrackedMsgs;
 use crate::chain::tracking::TrackingId;
 use crate::channel::error::ChannelError;
 use crate::channel::Channel;
+use crate::error::Error as RelayerError;
 use crate::event::monitor::EventBatch;
 use crate::event::IbcEventWithHeight;
 use crate::foreign_client::{ForeignClient, ForeignClientError};
@@ -515,8 +517,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         let input = events.events();
         let src_height = match input.get(0) {
             None => return Ok((None, None)),
-            Some(ev) => ev.height,
+            Some(_) => super::super::foreign_client::solomachine::query_latest_height_of_chain(
+                self.src_chain(),
+                self.dst_chain(),
+                self.dst_client_id(),
+            )
+            .map_err(|e| LinkError::query(self.src_chain().id(), e))?,
         };
+        info!(height = ?src_height, "generating operational data: src height");
 
         let dst_latest_info = self
             .dst_chain()
@@ -530,6 +538,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 self.src_client_id(),
             )
             .map_err(|e| LinkError::query(self.src_chain().id(), e))?;
+        info!(height = ?dst_latest_height, "generating operational data: destination chain latest height");
 
         // Operational data targeting the source chain (e.g., Timeout packets)
         let mut src_od = OperationalData::new(
@@ -1205,6 +1214,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     }
 
     fn build_recv_packet(&self, packet: &Packet, height: Height) -> Result<Option<Any>, LinkError> {
+        let sm_height = super::super::foreign_client::solomachine::query_latest_height_of_chain(
+            self.src_chain(),
+            self.dst_chain(),
+            self.dst_client_id(),
+        )
+        .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
         let proofs = self
             .src_chain()
             .build_packet_proofs(
@@ -1212,11 +1227,27 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 &packet.source_port,
                 &packet.source_channel,
                 packet.sequence,
-                height,
+                sm_height,
             )
             .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
-        let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
+        let msg = MsgRecvPacket::new(
+            packet.clone(),
+            Proofs::new(
+                proofs.object_proof().clone(),
+                proofs.client_proof().clone(),
+                proofs.consensus_proof().clone(),
+                proofs.other_proof().clone(),
+                sm_height,
+            )
+            .map_err(|e| {
+                LinkError::packet_proofs_constructor(
+                    self.src_chain().id(),
+                    RelayerError::report_error(format!("{:?}", e)),
+                )
+            })?,
+            self.dst_signer()?,
+        );
 
         trace!(packet = %packet, height = %proofs.height(), "built recv_packet msg");
 
@@ -1230,6 +1261,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     ) -> Result<Option<Any>, LinkError> {
         let packet = event.packet.clone();
 
+        let sm_height = super::super::foreign_client::solomachine::query_latest_height_of_chain(
+            self.src_chain(),
+            self.dst_chain(),
+            self.dst_client_id(),
+        )
+        .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
         let proofs = self
             .src_chain()
             .build_packet_proofs(
@@ -1237,14 +1274,26 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 &packet.destination_port,
                 &packet.destination_channel,
                 packet.sequence,
-                height,
+                sm_height,
             )
             .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
         let msg = MsgAcknowledgement::new(
             packet,
             event.ack.clone().into(),
-            proofs.clone(),
+            Proofs::new(
+                proofs.object_proof().clone(),
+                proofs.client_proof().clone(),
+                proofs.consensus_proof().clone(),
+                proofs.other_proof().clone(),
+                sm_height,
+            )
+            .map_err(|e| {
+                LinkError::packet_proofs_constructor(
+                    self.src_chain().id(),
+                    RelayerError::report_error(format!("{:?}", e)),
+                )
+            })?,
             self.dst_signer()?,
         );
 
@@ -1280,6 +1329,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             (PacketMsgType::TimeoutUnordered, packet.sequence)
         };
 
+        let sm_height = super::super::foreign_client::solomachine::query_latest_height_of_chain(
+            self.dst_chain(),
+            self.src_chain(),
+            self.src_client_id(),
+        )
+        .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
         let proofs = self
             .dst_chain()
             .build_packet_proofs(
@@ -1287,14 +1342,26 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 &packet.destination_port,
                 &packet.destination_channel,
                 next_sequence_received,
-                height,
+                sm_height,
             )
             .map_err(|e| LinkError::packet_proofs_constructor(self.dst_chain().id(), e))?;
 
         let msg = MsgTimeout::new(
             packet.clone(),
             next_sequence_received,
-            proofs.clone(),
+            Proofs::new(
+                proofs.object_proof().clone(),
+                proofs.client_proof().clone(),
+                proofs.consensus_proof().clone(),
+                proofs.other_proof().clone(),
+                sm_height,
+            )
+            .map_err(|e| {
+                LinkError::packet_proofs_constructor(
+                    self.src_chain().id(),
+                    RelayerError::report_error(format!("{:?}", e)),
+                )
+            })?,
             self.src_signer()?,
         );
 
@@ -1329,6 +1396,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             (PacketMsgType::TimeoutOnCloseUnordered, packet.sequence)
         };
 
+        let sm_height = super::super::foreign_client::solomachine::query_latest_height_of_chain(
+            self.dst_chain(),
+            self.src_chain(),
+            self.src_client_id(),
+        )
+        .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
         let proofs = self
             .dst_chain()
             .build_packet_proofs(
@@ -1336,14 +1409,26 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 &packet.destination_port,
                 &packet.destination_channel,
                 next_sequence_received,
-                height,
+                sm_height,
             )
             .map_err(|e| LinkError::packet_proofs_constructor(self.dst_chain().id(), e))?;
 
         let msg = MsgTimeoutOnClose::new(
             packet.clone(),
             packet.sequence,
-            proofs.clone(),
+            Proofs::new(
+                proofs.object_proof().clone(),
+                proofs.client_proof().clone(),
+                proofs.consensus_proof().clone(),
+                proofs.other_proof().clone(),
+                sm_height,
+            )
+            .map_err(|e| {
+                LinkError::packet_proofs_constructor(
+                    self.src_chain().id(),
+                    RelayerError::report_error(format!("{:?}", e)),
+                )
+            })?,
             self.src_signer()?,
         );
 
@@ -1693,7 +1778,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         // instant in the past, i.e. when this client update was first processed (`processed_time`)
         let scheduled_time = if od.conn_delay_needed() {
             debug!("connection delay must be taken into account: updating client");
-            let target_height = od.proofs_height.increment();
+            let target_height = od.proofs_height.clone();
             match od.target {
                 OperationalDataTarget::Source => {
                     let update_height = self.update_client_src(target_height, od.tracking_id)?;
