@@ -1,3 +1,4 @@
+use crate::chain::near::error::NearError;
 use core::str::FromStr;
 use ibc::core::events::IbcEvent;
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
@@ -18,21 +19,24 @@ pub fn into_state_map(state_items: &[StateItem]) -> anyhow::Result<HashMap<Vec<u
     state_items.iter().map(decode).collect()
 }
 
-pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcEvent {
-    match ibc_event {
+pub fn convert_ibc_event_to_hermes_ibc_event(
+    ibc_event: &IbcEvent,
+) -> anyhow::Result<HermesIbcEvent> {
+    let event = match ibc_event {
         IbcEvent::CreateClient(create_client) => {
             use ibc_relayer_types::core::ics02_client::events::Attributes;
 
             HermesIbcEvent::CreateClient(
                 ibc_relayer_types::core::ics02_client::events::CreateClient::from(Attributes {
-                    client_id: ClientId::from_str(create_client.client_id().as_str()).unwrap(),
+                    client_id: ClientId::from_str(create_client.client_id().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     client_type: ClientType::from_str(create_client.client_type().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     consensus_height: Height::new(
                         create_client.consensus_height().revision_number(),
                         create_client.consensus_height().revision_height(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 }),
             )
         }
@@ -41,14 +45,15 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
 
             HermesIbcEvent::UpdateClient(
                 ibc_relayer_types::core::ics02_client::events::UpdateClient::from(Attributes {
-                    client_id: ClientId::from_str(update_client.client_id().as_str()).unwrap(),
+                    client_id: ClientId::from_str(update_client.client_id().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     client_type: ClientType::from_str(update_client.client_type().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     consensus_height: Height::new(
                         update_client.consensus_height().revision_number(),
                         update_client.consensus_height().revision_height(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 }),
             )
         }
@@ -57,14 +62,15 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
 
             HermesIbcEvent::UpgradeClient(
                 ibc_relayer_types::core::ics02_client::events::UpgradeClient::from(Attributes {
-                    client_id: ClientId::from_str(upgrade_client.client_id().as_str()).unwrap(),
+                    client_id: ClientId::from_str(upgrade_client.client_id().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     client_type: ClientType::from_str(upgrade_client.client_type().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     consensus_height: Height::new(
                         upgrade_client.consensus_height().revision_number(),
                         upgrade_client.consensus_height().revision_height(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 }),
             )
         }
@@ -75,11 +81,11 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                 ibc_relayer_types::core::ics02_client::events::ClientMisbehaviour::from(
                     Attributes {
                         client_id: ClientId::from_str(client_misbehaviour.client_id().as_str())
-                            .unwrap(),
+                            .map_err(|e| NearError::CustomError(e.to_string()))?,
                         client_type: ClientType::from_str(
                             client_misbehaviour.client_type().as_str(),
                         )
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                         consensus_height: todo!(), //todo in ibc-rs(latest) have not this variant
                     },
                 ),
@@ -91,17 +97,22 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                 ibc_relayer_types::core::ics03_connection::events::OpenInit::from(Attributes {
                     connection_id: Some(
                         ConnectionId::from_str(open_init_connection.conn_id_on_a().as_str())
-                            .unwrap(),
+                            .map_err(|e| NearError::CustomError(e.to_string()))?,
                     ),
                     client_id: ClientId::from_str(open_init_connection.client_id_on_a().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     counterparty_connection_id: open_init_connection
                         .conn_id_on_b()
-                        .map(|e| ConnectionId::from_str(e.as_str()).unwrap()),
+                        .ok_or(NearError::CustomError(
+                            "counterparty_connection_id is None".to_string(),
+                        ))
+                        .map(|e| ConnectionId::from_str(e.as_str()))
+                        .map_err(|e| NearError::CustomError(e.to_string()))?
+                        .ok(),
                     counterparty_client_id: ClientId::from_str(
                         open_init_connection.client_id_on_b().as_str(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 }),
             )
         }
@@ -111,17 +122,22 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                 ibc_relayer_types::core::ics03_connection::events::OpenTry::from(Attributes {
                     connection_id: Some(
                         ConnectionId::from_str(open_try_connection.conn_id_on_b().as_str())
-                            .unwrap(),
+                            .map_err(|e| NearError::CustomError(e.to_string()))?,
                     ),
                     client_id: ClientId::from_str(open_try_connection.client_id_on_b().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     counterparty_connection_id: open_try_connection
                         .conn_id_on_a()
-                        .map(|e| ConnectionId::from_str(e.as_str()).unwrap()),
+                        .ok_or(NearError::CustomError(
+                            "counterparty_connection_id is None".to_string(),
+                        ))
+                        .map(|e| ConnectionId::from_str(e.as_str()))
+                        .map_err(|e| NearError::CustomError(e.to_string()))?
+                        .ok(),
                     counterparty_client_id: ClientId::from_str(
                         open_try_connection.client_id_on_a().as_str(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 }),
             )
         }
@@ -131,17 +147,22 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                 ibc_relayer_types::core::ics03_connection::events::OpenAck::from(Attributes {
                     connection_id: Some(
                         ConnectionId::from_str(open_ack_connection.conn_id_on_a().as_str())
-                            .unwrap(),
+                            .map_err(|e| NearError::CustomError(e.to_string()))?,
                     ),
                     client_id: ClientId::from_str(open_ack_connection.client_id_on_a().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     counterparty_connection_id: open_ack_connection
                         .conn_id_on_b()
-                        .map(|e| ConnectionId::from_str(e.as_str()).unwrap()),
+                        .ok_or(NearError::CustomError(
+                            "counterparty_connection_id is None".to_string(),
+                        ))
+                        .map(|e| ConnectionId::from_str(e.as_str()))
+                        .map_err(|e| NearError::CustomError(e.to_string()))?
+                        .ok(),
                     counterparty_client_id: ClientId::from_str(
                         open_ack_connection.client_id_on_b().as_str(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 }),
             )
         }
@@ -151,93 +172,111 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                 ibc_relayer_types::core::ics03_connection::events::OpenConfirm::from(Attributes {
                     connection_id: Some(
                         ConnectionId::from_str(open_confirm_connection.conn_id_on_b().as_str())
-                            .unwrap(),
+                            .map_err(|e| NearError::CustomError(e.to_string()))?,
                     ),
                     client_id: ClientId::from_str(
                         open_confirm_connection.client_id_on_b().as_str(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                     counterparty_connection_id: open_confirm_connection
                         .conn_id_on_a()
-                        .map(|e| ConnectionId::from_str(e.as_str()).unwrap()),
+                        .ok_or(NearError::CustomError(
+                            "counterparty_connection_id is None".to_string(),
+                        ))
+                        .map(|e| ConnectionId::from_str(e.as_str()))
+                        .map_err(|e| NearError::CustomError(e.to_string()))?
+                        .ok(),
                     counterparty_client_id: ClientId::from_str(
                         open_confirm_connection.client_id_on_a().as_str(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 }),
             )
         }
         IbcEvent::OpenInitChannel(open_init_channel) => HermesIbcEvent::OpenInitChannel(
             ibc_relayer_types::core::ics04_channel::events::OpenInit {
-                port_id: PortId::from_str(open_init_channel.port_id_on_a().as_str()).unwrap(),
+                port_id: PortId::from_str(open_init_channel.port_id_on_a().as_str())
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 channel_id: Some(
-                    ChannelId::from_str(open_init_channel.chan_id_on_a().as_str()).unwrap(),
+                    ChannelId::from_str(open_init_channel.chan_id_on_a().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                 ),
                 connection_id: ConnectionId::from_str(open_init_channel.conn_id_on_a().as_str())
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 counterparty_port_id: PortId::from_str(open_init_channel.port_id_on_b().as_str())
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 counterparty_channel_id: None,
             },
         ),
         IbcEvent::OpenTryChannel(open_try_channel) => HermesIbcEvent::OpenTryChannel(
             ibc_relayer_types::core::ics04_channel::events::OpenTry {
-                port_id: PortId::from_str(open_try_channel.port_id_on_b().as_str()).unwrap(),
+                port_id: PortId::from_str(open_try_channel.port_id_on_b().as_str())
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 channel_id: Some(
-                    ChannelId::from_str(open_try_channel.chan_id_on_b().as_str()).unwrap(),
+                    ChannelId::from_str(open_try_channel.chan_id_on_b().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                 ),
                 connection_id: ConnectionId::from_str(open_try_channel.conn_id_on_b().as_str())
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 counterparty_port_id: PortId::from_str(open_try_channel.port_id_on_a().as_str())
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 counterparty_channel_id: Some(
-                    ChannelId::from_str(open_try_channel.chan_id_on_a().as_str()).unwrap(),
+                    ChannelId::from_str(open_try_channel.chan_id_on_a().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                 ),
             },
         ),
         IbcEvent::OpenAckChannel(open_ack_channel) => HermesIbcEvent::OpenAckChannel(
             ibc_relayer_types::core::ics04_channel::events::OpenAck {
-                port_id: PortId::from_str(open_ack_channel.port_id_on_a().as_str()).unwrap(),
+                port_id: PortId::from_str(open_ack_channel.port_id_on_a().as_str())
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 channel_id: Some(
-                    ChannelId::from_str(open_ack_channel.chan_id_on_a().as_str()).unwrap(),
+                    ChannelId::from_str(open_ack_channel.chan_id_on_a().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                 ),
                 connection_id: ConnectionId::from_str(open_ack_channel.conn_id_on_a().as_str())
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 counterparty_port_id: PortId::from_str(open_ack_channel.port_id_on_b().as_str())
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 counterparty_channel_id: Some(
-                    ChannelId::from_str(open_ack_channel.chan_id_on_b().as_str()).unwrap(),
+                    ChannelId::from_str(open_ack_channel.chan_id_on_b().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                 ),
             },
         ),
         IbcEvent::OpenConfirmChannel(open_confirm_channel) => HermesIbcEvent::OpenConfirmChannel(
             ibc_relayer_types::core::ics04_channel::events::OpenConfirm {
-                port_id: PortId::from_str(open_confirm_channel.port_id_on_b().as_str()).unwrap(),
+                port_id: PortId::from_str(open_confirm_channel.port_id_on_b().as_str())
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 channel_id: Some(
-                    ChannelId::from_str(open_confirm_channel.chan_id_on_b().as_str()).unwrap(),
+                    ChannelId::from_str(open_confirm_channel.chan_id_on_b().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                 ),
                 connection_id: ConnectionId::from_str(open_confirm_channel.conn_id_on_b().as_str())
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 counterparty_port_id: PortId::from_str(
                     open_confirm_channel.port_id_on_a().as_str(),
                 )
-                .unwrap(),
+                .map_err(|e| NearError::CustomError(e.to_string()))?,
                 counterparty_channel_id: Some(
-                    ChannelId::from_str(open_confirm_channel.chan_id_on_a().as_str()).unwrap(),
+                    ChannelId::from_str(open_confirm_channel.chan_id_on_a().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                 ),
             },
         ),
         IbcEvent::CloseInitChannel(close_init_channel) => HermesIbcEvent::CloseInitChannel(
             ibc_relayer_types::core::ics04_channel::events::CloseInit {
-                port_id: PortId::from_str(close_init_channel.port_id_on_a().as_str()).unwrap(),
+                port_id: PortId::from_str(close_init_channel.port_id_on_a().as_str())
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 channel_id: ChannelId::from_str(close_init_channel.chan_id_on_a().as_str())
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 connection_id: ConnectionId::from_str(close_init_channel.conn_id_on_a().as_str())
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 counterparty_port_id: PortId::from_str(close_init_channel.port_id_on_b().as_str())
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 counterparty_channel_id: Some(
-                    ChannelId::from_str(close_init_channel.chan_id_on_b().as_str()).unwrap(),
+                    ChannelId::from_str(close_init_channel.chan_id_on_b().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                 ),
             },
         ),
@@ -245,20 +284,22 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
             HermesIbcEvent::CloseConfirmChannel(
                 ibc_relayer_types::core::ics04_channel::events::CloseConfirm {
                     channel_id: Some(
-                        ChannelId::from_str(close_confirm_channel.chan_id_on_b().as_str()).unwrap(),
+                        ChannelId::from_str(close_confirm_channel.chan_id_on_b().as_str())
+                            .map_err(|e| NearError::CustomError(e.to_string()))?,
                     ),
                     port_id: PortId::from_str(close_confirm_channel.port_id_on_b().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     connection_id: ConnectionId::from_str(
                         close_confirm_channel.conn_id_on_b().as_str(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                     counterparty_port_id: PortId::from_str(
                         close_confirm_channel.port_id_on_a().as_str(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                     counterparty_channel_id: Some(
-                        ChannelId::from_str(close_confirm_channel.chan_id_on_a().as_str()).unwrap(),
+                        ChannelId::from_str(close_confirm_channel.chan_id_on_a().as_str())
+                            .map_err(|e| NearError::CustomError(e.to_string()))?,
                     ),
                 },
             )
@@ -267,19 +308,20 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
             HermesIbcEvent::SendPacket(ibc_relayer_types::core::ics04_channel::events::SendPacket {
                 packet: Packet {
                     sequence: u64::from(*send_packet.seq_on_a()).into(),
-                    source_port: PortId::from_str(send_packet.port_id_on_a().as_str()).unwrap(),
+                    source_port: PortId::from_str(send_packet.port_id_on_a().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     source_channel: ChannelId::from_str(send_packet.chan_id_on_a().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     destination_port: PortId::from_str(send_packet.port_id_on_b().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     destination_channel: ChannelId::from_str(send_packet.chan_id_on_b().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     data: send_packet.packet_data().to_vec(),
-                    timeout_height: convert_timeout_height(*send_packet.timeout_height_on_b()),
+                    timeout_height: convert_timeout_height(*send_packet.timeout_height_on_b())?,
                     timeout_timestamp: Timestamp::from_nanoseconds(
                         send_packet.timeout_timestamp_on_b().nanoseconds(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 },
             })
         }
@@ -287,21 +329,22 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
             ibc_relayer_types::core::ics04_channel::events::ReceivePacket {
                 packet: Packet {
                     sequence: u64::from(*receive_packet.seq_on_b()).into(),
-                    source_port: PortId::from_str(receive_packet.port_id_on_b().as_str()).unwrap(),
+                    source_port: PortId::from_str(receive_packet.port_id_on_b().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     source_channel: ChannelId::from_str(receive_packet.chan_id_on_b().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     destination_port: PortId::from_str(receive_packet.port_id_on_a().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     destination_channel: ChannelId::from_str(
                         receive_packet.chan_id_on_a().as_str(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                     data: receive_packet.packet_data().to_vec(),
-                    timeout_height: convert_timeout_height(*receive_packet.timeout_height_on_b()),
+                    timeout_height: convert_timeout_height(*receive_packet.timeout_height_on_b())?,
                     timeout_timestamp: Timestamp::from_nanoseconds(
                         receive_packet.timeout_timestamp_on_b().nanoseconds(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 },
             },
         ),
@@ -313,27 +356,27 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                         source_port: PortId::from_str(
                             write_acknowledgement.port_id_on_a().as_str(),
                         )
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                         source_channel: ChannelId::from_str(
                             write_acknowledgement.chan_id_on_a().as_str(),
                         )
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                         destination_port: PortId::from_str(
                             write_acknowledgement.port_id_on_b().as_str(),
                         )
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                         destination_channel: ChannelId::from_str(
                             write_acknowledgement.chan_id_on_b().as_str(),
                         )
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                         data: write_acknowledgement.packet_data().to_vec(),
                         timeout_height: convert_timeout_height(
                             *write_acknowledgement.timeout_height_on_b(),
-                        ),
+                        )?,
                         timeout_timestamp: Timestamp::from_nanoseconds(
                             write_acknowledgement.timeout_timestamp_on_b().nanoseconds(),
                         )
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     },
                     ack: write_acknowledgement.acknowledgement().as_bytes().to_vec(),
                 },
@@ -344,23 +387,23 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                 packet: Packet {
                     sequence: u64::from(*acknowledge_packet.seq_on_a()).into(),
                     source_port: PortId::from_str(acknowledge_packet.port_id_on_a().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     source_channel: ChannelId::from_str(acknowledge_packet.chan_id_on_a().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     destination_port: PortId::from_str(acknowledge_packet.port_id_on_b().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     destination_channel: ChannelId::from_str(
                         acknowledge_packet.chan_id_on_b().as_str(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                     data: vec![],
                     timeout_height: convert_timeout_height(
                         *acknowledge_packet.timeout_height_on_b(),
-                    ),
+                    )?,
                     timeout_timestamp: Timestamp::from_nanoseconds(
                         acknowledge_packet.timeout_timestamp_on_b().nanoseconds(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 },
             },
         ),
@@ -368,21 +411,22 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
             ibc_relayer_types::core::ics04_channel::events::TimeoutPacket {
                 packet: Packet {
                     sequence: u64::from(*timeout_packet.seq_on_a()).into(),
-                    source_port: PortId::from_str(timeout_packet.port_id_on_a().as_str()).unwrap(),
+                    source_port: PortId::from_str(timeout_packet.port_id_on_a().as_str())
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     source_channel: ChannelId::from_str(timeout_packet.chan_id_on_a().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     destination_port: PortId::from_str(timeout_packet.port_id_on_b().as_str())
-                        .unwrap(),
+                        .map_err(|e| NearError::CustomError(e.to_string()))?,
                     destination_channel: ChannelId::from_str(
                         timeout_packet.chan_id_on_b().as_str(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                     data: vec![],
-                    timeout_height: convert_timeout_height(*timeout_packet.timeout_height_on_b()),
+                    timeout_height: convert_timeout_height(*timeout_packet.timeout_height_on_b())?,
                     timeout_timestamp: Timestamp::from_nanoseconds(
                         timeout_packet.timeout_timestamp_on_b().nanoseconds(),
                     )
-                    .unwrap(),
+                    .map_err(|e| NearError::CustomError(e.to_string()))?,
                 },
             },
         ),
@@ -395,7 +439,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                 module_name: ModuleId::from_str(
                     get_name_from_module_event_attributes(&app_module.attributes).as_str(),
                 )
-                .unwrap(),
+                .map_err(|e| NearError::CustomError(format!("{:?}", e)))?,
                 attributes: app_module
                     .attributes
                     .iter()
@@ -413,7 +457,8 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
             );
             HermesIbcEvent::AppModule(ibc_relayer_types::events::ModuleEvent {
                 kind: "message".to_string(),
-                module_name: ModuleId::new(message_event.module_attribute().into()).unwrap(),
+                module_name: ModuleId::new(message_event.module_attribute().into())
+                    .map_err(|e| NearError::CustomError(format!("{:?}", e)))?,
                 attributes: [ModuleEventAttribute {
                     key: "module".to_string(),
                     value: message_event.module_attribute(),
@@ -421,7 +466,9 @@ pub fn convert_ibc_event_to_hermes_ibc_event(ibc_event: &IbcEvent) -> HermesIbcE
                 .to_vec(),
             })
         }
-    }
+    };
+
+    Ok(event)
 }
 
 fn get_name_from_module_event_attributes(
@@ -438,11 +485,12 @@ fn get_name_from_module_event_attributes(
 
 fn convert_timeout_height(
     timeout_height: ibc::core::ics04_channel::timeout::TimeoutHeight,
-) -> TimeoutHeight {
+) -> anyhow::Result<TimeoutHeight> {
     match timeout_height {
-        ibc::core::ics04_channel::timeout::TimeoutHeight::Never => TimeoutHeight::Never,
-        ibc::core::ics04_channel::timeout::TimeoutHeight::At(height) => TimeoutHeight::At(
-            Height::new(height.revision_number(), height.revision_height()).unwrap(),
-        ),
+        ibc::core::ics04_channel::timeout::TimeoutHeight::Never => Ok(TimeoutHeight::Never),
+        ibc::core::ics04_channel::timeout::TimeoutHeight::At(height) => Ok(TimeoutHeight::At(
+            Height::new(height.revision_number(), height.revision_height())
+                .map_err(|e| NearError::CustomError(e.to_string()))?,
+        )),
     }
 }

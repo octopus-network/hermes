@@ -1269,12 +1269,13 @@ impl ChainEndpoint for NearChain {
             .map_err(|_| Error::report_error("get_packet_events".to_string()))?;
         let mut result: Vec<IbcEventWithHeight> = vec![];
         for (height, ibc_events) in original_result {
-            ibc_events.iter().for_each(|ibc_event| {
+            for ibc_event in ibc_events.iter() {
                 result.push(IbcEventWithHeight {
-                    event: convert_ibc_event_to_hermes_ibc_event(ibc_event),
+                    event: convert_ibc_event_to_hermes_ibc_event(ibc_event)
+                        .map_err(|e| Error::custom_error(e.to_string()))?,
                     height,
-                })
-            });
+                });
+            }
         }
         Ok(result)
     }
@@ -1802,7 +1803,8 @@ pub fn collect_ibc_event_by_outcome(
                     )
                     .expect("Failed to parse block_height field.");
                     ibc_events.push(IbcEventWithHeight {
-                        event: convert_ibc_event_to_hermes_ibc_event(&ibc_event),
+                        event: convert_ibc_event_to_hermes_ibc_event(&ibc_event)
+                            .map_err(|e| Error::custom_error(e.to_string()))?,
                         height: Height::new(0, block_height)
                             .map_err(|e| Error::custom_error(e.to_string()))?,
                     })

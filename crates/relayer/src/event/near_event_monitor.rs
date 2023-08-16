@@ -229,7 +229,8 @@ impl NearEventMonitor {
                             .iter()
                             .map(|event| IbcEventWithHeight {
                                 height: *height,
-                                event: convert_ibc_event_to_hermes_ibc_event(event),
+                                event: convert_ibc_event_to_hermes_ibc_event(event)
+                                    .expect("failed to convert ibc event"),
                             })
                             .collect(),
                         chain_id: self.chain_id.clone(),
