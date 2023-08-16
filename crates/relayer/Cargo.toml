@@ -76,6 +76,7 @@ near-crypto = "0.15"
 near-primitives = "0.15"
 near-jsonrpc-client = "0.4.0"
 near-jsonrpc-primitives = "0.15"
+near-account-id = "0.15"
 
 base64 = "0.12.3"
 tokio-retry = "0.3.0"

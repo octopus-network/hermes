@@ -2122,6 +2122,7 @@ dependencies = [
  "ic-cdk",
  "itertools",
  "moka",
+ "near-account-id",
  "near-crypto",
  "near-jsonrpc-client",
  "near-jsonrpc-primitives",

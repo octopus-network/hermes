@@ -93,8 +93,11 @@ use tracing::{debug, info, trace};
 
 pub mod constants;
 pub mod contract;
+pub mod error;
 pub mod light_client;
 pub mod rpc;
+
+use error::NearError;
 
 pub const REVISION_NUMBER: u64 = 0;
 pub const CLIENT_DIVERSIFIER: &str = "NEAR";
@@ -160,9 +163,9 @@ impl NearChain {
             seq
         );
 
-        let _port_id = serde_json::to_string(port_id).unwrap();
-        let _channel_id = serde_json::to_string(channel_id).unwrap();
-        let _seq = serde_json::to_string(seq).unwrap();
+        let _port_id = serde_json::to_string(port_id).map_err(NearError::SerdeJsonError)?;
+        let _channel_id = serde_json::to_string(channel_id).map_err(NearError::SerdeJsonError)?;
+        let _seq = serde_json::to_string(seq).map_err(NearError::SerdeJsonError)?;
 
         // self.block_on(self.client.view(
         //     self.near_ibc_contract.clone(),
@@ -181,9 +184,12 @@ impl NearChain {
         let mut home_dir = dirs::home_dir().expect("Impossible to get your home dir!");
         home_dir.push(format!(
             ".near-credentials/testnet/{}.json",
-            self.get_signer().unwrap().as_ref()
+            self.get_signer()
+                .map_err(NearError::GetSignerFailure)?
+                .as_ref()
         ));
-        let signer = InMemorySigner::from_file(home_dir.as_path()).unwrap();
+        let signer = InMemorySigner::from_file(home_dir.as_path())
+            .map_err(NearError::ParserInMemorySignerFailure)?;
 
         self.block_on(self.client.call(
             &signer,
@@ -197,9 +203,14 @@ impl NearChain {
 
     fn raw_transfer(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
         info!("{}: [raw_transfer] - messages: {:?}", self.id(), messages);
-        let _msg = serde_json::to_string(&messages).unwrap();
+        let _msg = serde_json::to_string(&messages).map_err(NearError::SerdeJsonError)?;
 
-        let signer = InMemorySigner::from_random("bob.testnet".parse().unwrap(), KeyType::ED25519);
+        let signer = InMemorySigner::from_random(
+            "bob.testnet"
+                .parse()
+                .map_err(NearError::ParserNearAccountIdFailure)?,
+            KeyType::ED25519,
+        );
         self.block_on(self.client.call(
             &signer,
             &self.near_ibc_contract,
@@ -337,7 +348,9 @@ impl ChainEndpoint for NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
             config,
             keybase,
-            near_ibc_contract: AccountId::from_str(CONTRACT_ACCOUNT_ID).unwrap(),
+            near_ibc_contract: AccountId::from_str(CONTRACT_ACCOUNT_ID)
+                .map_err(NearError::ParserNearAccountIdFailure)
+                .map_err(|e| Error::custom_error(e.to_string()))?,
             rt,
             tx_monitor_cmd: None,
             signing_key_pair: None,
@@ -364,7 +377,7 @@ impl ChainEndpoint for NearChain {
 
     fn get_signer(&self) -> Result<Signer, Error> {
         trace!("In near: [get signer]");
-        Ok(Signer::from_str(SIGNER_ACCOUNT_TESTNET).unwrap())
+        Signer::from_str(SIGNER_ACCOUNT_TESTNET).map_err(|e| Error::custom_error(e.to_string()))
     }
 
     // versioning
@@ -396,10 +409,12 @@ impl ChainEndpoint for NearChain {
             for msg in tracked_msgs.messages() {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
-                    .unwrap();
+                    .map_err(|e| Error::custom_error(e.to_string()))?;
                 println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
-                    msgs.push(Any::decode(&res[..]).unwrap());
+                    msgs.push(
+                        Any::decode(&res[..]).map_err(|e| Error::custom_error(e.to_string()))?,
+                    );
                 }
             }
             tracked_msgs.msgs = msgs;
@@ -444,8 +459,7 @@ impl ChainEndpoint for NearChain {
             }
         };
 
-        Ok(collect_ibc_event_by_outcome(result))
-        // Ok(ibc_event_with_height)
+        collect_ibc_event_by_outcome(result)
     }
 
     fn send_messages_and_wait_check_tx(
@@ -470,10 +484,12 @@ impl ChainEndpoint for NearChain {
             for msg in tracked_msgs.messages() {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
-                    .unwrap();
+                    .map_err(|e| Error::custom_error(e.to_string()))?;
                 println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
-                    msgs.push(Any::decode(&res[..]).unwrap());
+                    msgs.push(
+                        Any::decode(&res[..]).map_err(|e| Error::custom_error(e.to_string()))?,
+                    );
                 }
             }
             tracked_msgs.msgs = msgs;
@@ -607,17 +623,23 @@ impl ChainEndpoint for NearChain {
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
         info!("{}: [query_clients] - request: {:?}", self.id(), request);
 
-        let result = self
+        let clients = self
             .get_clients(request)
-            .map_err(|_| Error::report_error("get_clients".to_string()))?
-            .iter()
-            .map(|element| IdentifiedAnyClientState {
-                client_id: element.0.clone(),
-                client_state: AnyClientState::decode_vec(element.1.as_ref()).unwrap(),
+            .map_err(|_| Error::report_error("get_clients".to_string()))?;
+
+        let result: Result<Vec<_>, _> = clients
+            .into_iter()
+            .map(|(client_id, client_state_bytes)| {
+                let client_state = AnyClientState::decode_vec(client_state_bytes.as_ref())
+                    .map_err(|e| Error::custom_error(e.to_string()))?;
+                Ok(IdentifiedAnyClientState {
+                    client_id,
+                    client_state,
+                })
             })
             .collect();
 
-        Ok(result)
+        result
     }
 
     fn query_client_state(
@@ -644,7 +666,8 @@ impl ChainEndpoint for NearChain {
         let result = self
             .get_client_state(&client_id)
             .map_err(|_| Error::report_error("query_client_state".to_string()))?;
-        let client_state = AnyClientState::decode_vec(&result).unwrap();
+        let client_state =
+            AnyClientState::decode_vec(&result).map_err(|e| Error::custom_error(e.to_string()))?;
 
         match include_proof {
             IncludeProof::Yes => Ok((client_state, Some(MerkleProof::default()))),
@@ -679,7 +702,8 @@ impl ChainEndpoint for NearChain {
             return Err(Error::report_error("query_client_consensus".to_string()));
         }
 
-        let consensus_state = AnyConsensusState::decode_vec(&result).unwrap();
+        let consensus_state = AnyConsensusState::decode_vec(&result)
+            .map_err(|e| Error::custom_error(e.to_string()))?;
 
         match include_proof {
             IncludeProof::Yes => Ok((consensus_state, Some(MerkleProof::default()))),
@@ -1208,7 +1232,7 @@ impl ChainEndpoint for NearChain {
                             },
                         ),
                     ),
-                    height: Height::new(0, 9).unwrap(),
+                    height: Height::new(0, 9).map_err(|e| Error::custom_error(e.to_string()))?,
                 }];
 
                 Ok(result)
@@ -1237,6 +1261,8 @@ impl ChainEndpoint for NearChain {
             QueryHeight::Specific(value) => QueryHeight::Specific(
                 Height::new(value.revision_number(), value.revision_height() + 10).unwrap(),
             ),
+            // todo(davirain) can improve this error handling
+            // .map_err(|e| Error::custom_error(e.to_string()))
         });
         let original_result = self
             .get_packet_events(request)
@@ -1426,24 +1452,27 @@ impl ChainEndpoint for NearChain {
             IncludeProof::No,
         )?;
 
-        let commitment_prefix = self.get_commitment_prefix().unwrap();
+        let commitment_prefix = self
+            .get_commitment_prefix()
+            .map_err(|e| Error::custom_error(e.to_string()))?;
 
         let mut buf = Vec::new();
         let data = ConnectionStateData {
             path: format!(
                 "/{}/connections%2F{}",
-                String::from_utf8(commitment_prefix.clone().into_vec()).unwrap(),
+                String::from_utf8(commitment_prefix.clone().into_vec())
+                    .map_err(|e| Error::custom_error(e.to_string()))?,
                 connection_id.as_str()
             )
             .into(),
             connection: Some(connection_end.clone().into()),
         };
         debug!("{}: ConnectionStateData: {:?}", self.id(), data);
-        Message::encode(&data, &mut buf).unwrap();
+        Message::encode(&data, &mut buf).map_err(|e| Error::custom_error(e.to_string()))?;
 
         let duration_since_epoch = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap();
+            .map_err(|e| Error::custom_error(e.to_string()))?;
         let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
 
         let sig_data = self.sign_bytes_with_solomachine_pubkey(
@@ -1463,7 +1492,8 @@ impl ChainEndpoint for NearChain {
             timestamped
         );
         let mut proof_init = Vec::new();
-        Message::encode(&timestamped, &mut proof_init).unwrap();
+        Message::encode(&timestamped, &mut proof_init)
+            .map_err(|e| Error::custom_error(e.to_string()))?;
 
         // Check that the connection state is compatible with the message
         match message_type {
@@ -1506,14 +1536,15 @@ impl ChainEndpoint for NearChain {
                 let data = ClientStateData {
                     path: format!(
                         "/{}/clients%2F{}%2FclientState",
-                        String::from_utf8(commitment_prefix.clone().into_vec()).unwrap(),
+                        String::from_utf8(commitment_prefix.clone().into_vec())
+                            .map_err(|e| Error::custom_error(e.to_string()))?,
                         client_id.as_str()
                     )
                     .into(),
                     client_state: Some(client_state_value.clone().into()),
                 };
                 debug!("{}: ClientStateData: {:?}", self.id(), data);
-                Message::encode(&data, &mut buf).unwrap();
+                Message::encode(&data, &mut buf).map_err(|e| Error::custom_error(e.to_string()))?;
 
                 // let duration_since_epoch = SystemTime::now()
                 //     .duration_since(SystemTime::UNIX_EPOCH)
@@ -1537,7 +1568,8 @@ impl ChainEndpoint for NearChain {
                     timestamped
                 );
                 let mut proof_client = Vec::new();
-                Message::encode(&timestamped, &mut proof_client).unwrap();
+                Message::encode(&timestamped, &mut proof_client)
+                    .map_err(|e| Error::custom_error(e.to_string()))?;
 
                 client_proof = Some(
                     CommitmentProofBytes::try_from(proof_client).map_err(Error::malformed_proof)?,
@@ -1557,7 +1589,8 @@ impl ChainEndpoint for NearChain {
                 let data = ConsensusStateData {
                     path: format!(
                         "/{}/clients%2F{}%2FconsensusStates%2F0-{}",
-                        String::from_utf8(commitment_prefix.into_vec()).unwrap(),
+                        String::from_utf8(commitment_prefix.into_vec())
+                            .map_err(|e| Error::custom_error(e.to_string()))?,
                         client_id.as_str(),
                         client_state_value.latest_height().revision_height()
                     )
@@ -1565,7 +1598,7 @@ impl ChainEndpoint for NearChain {
                     consensus_state: Some(consensus_state_value.into()),
                 };
                 debug!("{}: ConsensusStateData: {:?}", self.id(), data);
-                Message::encode(&data, &mut buf).unwrap();
+                Message::encode(&data, &mut buf).map_err(|e| Error::custom_error(e.to_string()))?;
 
                 // let duration_since_epoch = SystemTime::now()
                 //     .duration_since(SystemTime::UNIX_EPOCH)
@@ -1589,7 +1622,8 @@ impl ChainEndpoint for NearChain {
                     timestamped
                 );
                 let mut consensus_state_proof = Vec::new();
-                Message::encode(&timestamped, &mut consensus_state_proof).unwrap();
+                Message::encode(&timestamped, &mut consensus_state_proof)
+                    .map_err(|e| Error::custom_error(e.to_string()))?;
 
                 consensus_proof = Option::from(
                     ConsensusProof::new(
@@ -1646,11 +1680,11 @@ impl ChainEndpoint for NearChain {
             channel: Some(channel.into()),
         };
         println!("ys-debug: ChannelStateData: {:?}", data);
-        Message::encode(&data, &mut buf).unwrap();
+        Message::encode(&data, &mut buf).map_err(|e| Error::custom_error(e.to_string()))?;
 
         let duration_since_epoch = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap();
+            .map_err(|e| Error::custom_error(e.to_string()))?;
         let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
 
         let sig_data = self.sign_bytes_with_solomachine_pubkey(
@@ -1665,7 +1699,8 @@ impl ChainEndpoint for NearChain {
             timestamp: timestamp_nanos,
         };
         let mut channel_proof = Vec::new();
-        Message::encode(&timestamped, &mut channel_proof).unwrap();
+        Message::encode(&timestamped, &mut channel_proof)
+            .map_err(|e| Error::custom_error(e.to_string()))?;
 
         let channel_proof_bytes =
             CommitmentProofBytes::try_from(channel_proof).map_err(Error::malformed_proof)?;
@@ -1746,18 +1781,20 @@ impl NearChain {
     }
 }
 
-pub fn collect_ibc_event_by_outcome(outcome: FinalExecutionOutcomeView) -> Vec<IbcEventWithHeight> {
+pub fn collect_ibc_event_by_outcome(
+    outcome: FinalExecutionOutcomeView,
+) -> Result<Vec<IbcEventWithHeight>, Error> {
     let mut ibc_events = vec![];
     for receipt_outcome in outcome.receipts_outcome {
         for log in receipt_outcome.outcome.logs {
             if log.starts_with("EVENT_JSON:") {
-                // serde_json::value::Value::from_str()
-                // serde_json::to_value()
                 let event = log.replace("EVENT_JSON:", "");
-                let event_value = serde_json::value::Value::from_str(event.as_str()).unwrap();
+                let event_value = serde_json::value::Value::from_str(event.as_str())
+                    .map_err(|e| Error::custom_error(e.to_string()))?;
                 if event_value["standard"].eq("near-ibc") {
                     let ibc_event: ibc::core::events::IbcEvent =
-                        serde_json::from_value(event_value["raw-ibc-event"].clone()).unwrap();
+                        serde_json::from_value(event_value["raw-ibc-event"].clone())
+                            .map_err(|e| Error::custom_error(e.to_string()))?;
                     let block_height = u64::from_str(
                         event_value["block_height"]
                             .as_str()
@@ -1766,11 +1803,12 @@ pub fn collect_ibc_event_by_outcome(outcome: FinalExecutionOutcomeView) -> Vec<I
                     .expect("Failed to parse block_height field.");
                     ibc_events.push(IbcEventWithHeight {
                         event: convert_ibc_event_to_hermes_ibc_event(&ibc_event),
-                        height: Height::new(0, block_height).unwrap(),
+                        height: Height::new(0, block_height)
+                            .map_err(|e| Error::custom_error(e.to_string()))?,
                     })
                 }
             }
         }
     }
-    ibc_events
+    Ok(ibc_events)
 }
