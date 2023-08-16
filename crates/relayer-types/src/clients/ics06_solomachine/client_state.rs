@@ -28,7 +28,11 @@ pub struct ClientState {
 
 impl Ics2ClientState for ClientState {
     fn chain_id(&self) -> ChainId {
-        let (name, version) = self.consensus_state.diversifier.split_once('-').unwrap();
+        let (name, version) = self
+            .consensus_state
+            .diversifier
+            .split_once('-')
+            .unwrap_or((self.consensus_state.diversifier.as_str(), "0"));
         ChainId::new(name.to_string(), version.parse().unwrap())
     }
 
