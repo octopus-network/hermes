@@ -17,7 +17,7 @@ use near_primitives::types::AccountId;
 use serde_json::json;
 use std::str::FromStr;
 use tokio::runtime::Runtime as TokioRuntime;
-use tracing::{error, info, instrument, log::warn};
+use tracing::{error, info, instrument};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
