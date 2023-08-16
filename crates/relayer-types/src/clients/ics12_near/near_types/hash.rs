@@ -37,7 +37,7 @@ impl CryptoHash {
     /// prefer using [`Self::hash_borsh_slice`] instead.
     pub fn hash_borsh<T: BorshSerialize>(value: &T) -> CryptoHash {
         let mut hasher = sha2::Sha256::default();
-        BorshSerialize::serialize(value, &mut hasher).unwrap();
+        BorshSerialize::serialize(value, &mut hasher).expect("borsh serialization failed");
         CryptoHash(hasher.finalize().into())
     }
 }

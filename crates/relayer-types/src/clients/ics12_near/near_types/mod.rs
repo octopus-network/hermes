@@ -59,7 +59,7 @@ impl LightClientBlockLiteView {
                 &CryptoHash(sha256(
                     BlockHeaderInnerLite::from(self.inner_lite.clone())
                         .try_to_vec()
-                        .unwrap()
+                        .expect("Failed to serialize BlockHeaderInnerLiteView")
                         .as_ref(),
                 )),
                 &self.inner_rest_hash,
@@ -134,7 +134,7 @@ impl LightClientBlockView {
                 &CryptoHash(sha256(
                     BlockHeaderInnerLite::from(self.inner_lite.clone())
                         .try_to_vec()
-                        .unwrap()
+                        .expect("Failed to serialize BlockHeaderInnerLiteView")
                         .as_ref(),
                 )),
                 &self.inner_rest_hash,
@@ -151,7 +151,7 @@ impl LightClientBlockView {
         [
             ApprovalInner::Endorsement(self.next_block_hash())
                 .try_to_vec()
-                .unwrap()
+                .expect("Failed to serialize ApprovalInner")
                 .as_ref(),
             (self.inner_lite.height + 2).to_le_bytes().as_ref(),
         ]

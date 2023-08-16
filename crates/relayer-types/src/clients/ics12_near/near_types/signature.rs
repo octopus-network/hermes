@@ -40,7 +40,7 @@ impl Default for Signature {
     fn default() -> Self {
         Signature::ED25519(
             ed25519_dalek::Signature::from_bytes(&[0u8; ed25519_dalek::Signature::BYTE_SIZE])
-                .unwrap(),
+                .expect("faild to create default signature"),
         )
     }
 }

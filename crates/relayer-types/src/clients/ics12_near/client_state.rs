@@ -43,12 +43,13 @@ impl Ics2ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        Height::new(0, self.latest_height + 1).unwrap()
+        Height::new(0, self.latest_height + 1).expect("faild to create ibc height")
     }
 
     fn frozen_height(&self) -> Option<crate::Height> {
-        self.frozen_height
-            .map(|frozen_height| Height::new(0, frozen_height + 1).unwrap())
+        self.frozen_height.map(|frozen_height| {
+            Height::new(0, frozen_height + 1).expect("faild to create ibc height")
+        })
     }
 
     fn expired(&self, _elapsed: Duration) -> bool {
@@ -71,8 +72,14 @@ impl TryFrom<RawClientState> for ClientState {
     fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
         Ok(Self {
             chain_id: ChainId::new("ibc".to_string(), 1),
-            trusting_period: raw.trusting_period.unwrap().nanos as u64,
-            latest_height: raw.latest_height.unwrap().revision_height,
+            trusting_period: raw
+                .trusting_period
+                .ok_or(Error::custom_error("trusting period is empty".into()))?
+                .nanos as u64,
+            latest_height: raw
+                .latest_height
+                .ok_or(Error::custom_error("latest height is empty".into()))?
+                .revision_height,
             latest_timestamp: raw.latest_timestamp,
             frozen_height: raw.frozen_height.map(|h| h.revision_height),
             upgrade_commitment_prefix: raw.upgrade_commitment_prefix,
@@ -85,10 +92,16 @@ impl From<ClientState> for RawClientState {
     fn from(value: ClientState) -> Self {
         RawClientState {
             trusting_period: Some(Duration::from_nanos(value.trusting_period).into()),
-            frozen_height: value
-                .frozen_height
-                .map(|h| Height::new(1, h).unwrap().into()),
-            latest_height: Some(Height::new(1, value.latest_height).unwrap().into()),
+            frozen_height: value.frozen_height.map(|h| {
+                Height::new(1, h)
+                    .expect("failed to create ibc height")
+                    .into()
+            }),
+            latest_height: Some(
+                Height::new(1, value.latest_height)
+                    .expect("failed to create ibc height")
+                    .into(),
+            ),
             latest_timestamp: value.latest_timestamp,
             upgrade_commitment_prefix: value.upgrade_commitment_prefix,
             upgrade_key: value.upgrade_key,

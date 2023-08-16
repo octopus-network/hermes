@@ -57,7 +57,7 @@ impl crate::core::ics02_client::consensus_state::ConsensusState for ConsensusSta
                 .inner_lite
                 .timestamp_nanosec,
         )
-        .unwrap()
+        .expect("failed to create Timestamp")
     }
 }
 
@@ -67,23 +67,27 @@ impl TryFrom<RawConsensusState> for ConsensusState {
     type Error = Error;
 
     fn try_from(raw: RawConsensusState) -> Result<Self, Self::Error> {
-        let h = raw.header.unwrap();
+        let h = raw.header.ok_or(Error::custom_error(
+            "Consensus State header is empty".into(),
+        ))?;
         Ok(Self {
             current_bps: raw
                 .current_bps
                 .iter()
-                .map(|bps| ValidatorStakeView::try_from_slice(&bps.raw_data).unwrap())
-                .collect(),
+                .map(|bps| ValidatorStakeView::try_from_slice(&bps.raw_data))
+                .collect::<Result<Vec<ValidatorStakeView>, _>>()
+                .map_err(|e| Error::custom_error(e.to_string()))?,
             header: Header {
                 light_client_block_view: LightClientBlockView::try_from_slice(
                     &h.light_client_block,
                 )
-                .unwrap(),
+                .map_err(|e| Error::custom_error(e.to_string()))?,
                 prev_state_root_of_chunks: h
                     .prev_state_root_of_chunks
                     .iter()
-                    .map(|c| CryptoHash::try_from(&c.raw_data[..]).unwrap())
-                    .collect(),
+                    .map(|c| CryptoHash::try_from(&c.raw_data[..]))
+                    .collect::<Result<Vec<CryptoHash>, _>>()
+                    .map_err(|e| Error::custom_error(e.to_string()))?,
             },
             commitment_root: CommitmentRoot::from(vec![]),
         })
@@ -97,11 +101,17 @@ impl From<ConsensusState> for RawConsensusState {
                 .current_bps
                 .iter()
                 .map(|bps| RawValidatorStakeView {
-                    raw_data: bps.try_to_vec().unwrap(),
+                    raw_data: bps
+                        .try_to_vec()
+                        .expect("failed serialize to RawValidatorStakeView"),
                 })
                 .collect(),
             header: Some(RawHeader {
-                light_client_block: value.header.light_client_block_view.try_to_vec().unwrap(),
+                light_client_block: value
+                    .header
+                    .light_client_block_view
+                    .try_to_vec()
+                    .expect("failed serialize to light client block"),
                 prev_state_root_of_chunks: value
                     .header
                     .prev_state_root_of_chunks
