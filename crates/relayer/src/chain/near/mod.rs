@@ -233,7 +233,7 @@ impl NearChain {
     }
 
     fn init_signing_key_pair(&mut self) {
-        let key_pair = self.get_key().unwrap();
+        let key_pair = self.get_key().expect("Failed to get key.");
         self.signing_key_pair = Some(key_pair);
     }
 
@@ -243,11 +243,11 @@ impl NearChain {
                 &self
                     .signing_key_pair
                     .as_ref()
-                    .unwrap()
+                    .expect("signing key pair is empty")
                     .public_key
                     .serialize_uncompressed(),
             )
-            .unwrap(),
+            .expect("faild to get tendermint public key"),
         )
     }
 
@@ -256,7 +256,7 @@ impl NearChain {
         SmConsensusState {
             public_key,
             diversifier: CLIENT_DIVERSIFIER.to_string(),
-            timestamp: Timestamp::from_nanoseconds(9999).unwrap(),
+            timestamp: Timestamp::from_nanoseconds(9999).expect("builf timestamp failed"),
             root: CommitmentRoot::from_bytes(&public_key.to_bytes()),
         }
     }
@@ -285,15 +285,18 @@ impl NearChain {
             data,
         };
         let mut buf = Vec::new();
-        Message::encode(&bytes, &mut buf).unwrap();
+        Message::encode(&bytes, &mut buf).expect("encode sign bytes failed");
         debug!(
             "{}: [sign_bytes_with_solomachine_pubkey] - encoded_bytes: {:?}",
             self.id(),
             buf
         );
 
-        let key_pair = self.signing_key_pair.as_ref().unwrap();
-        let signature = key_pair.sign(&buf).unwrap();
+        let key_pair = self
+            .signing_key_pair
+            .as_ref()
+            .expect("signing key pair is empty");
+        let signature = key_pair.sign(&buf).expect("sign failed");
         debug!(
             "{}: [sign_bytes_with_solomachine_pubkey] - signature: {:?}",
             self.id(),
@@ -303,7 +306,7 @@ impl NearChain {
             sum: Some(Sum::Single(Single { mode: 1, signature })),
         };
         buf = Vec::new();
-        Message::encode(&sig, &mut buf).unwrap();
+        Message::encode(&sig, &mut buf).expect("encode sign bytes failed");
 
         debug!(
             "{}: [sign_bytes_with_solomachine_pubkey] - sig_data: {:?}",
