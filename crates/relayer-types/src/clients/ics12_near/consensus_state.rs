@@ -1,6 +1,6 @@
 use crate::clients::ics12_near::header::Header;
 use crate::clients::ics12_near::near_types::signature::PublicKey;
-use crate::clients::ics12_near::near_types::{hash::CryptoHash, LightClientBlockView};
+use crate::clients::ics12_near::near_types::{hash::CryptoHash, LightClientBlock};
 use crate::clients::ics12_near::near_types::{AccountId, Balance};
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::error::Error;
@@ -52,10 +52,7 @@ impl crate::core::ics02_client::consensus_state::ConsensusState for ConsensusSta
 
     fn timestamp(&self) -> Timestamp {
         Timestamp::from_nanoseconds(
-            self.header
-                .light_client_block_view
-                .inner_lite
-                .timestamp_nanosec,
+            self.header.light_client_block.inner_lite.timestamp * 1_000_000_000,
         )
         .unwrap()
     }
@@ -75,10 +72,8 @@ impl TryFrom<RawConsensusState> for ConsensusState {
                 .map(|bps| ValidatorStakeView::try_from_slice(&bps.raw_data).unwrap())
                 .collect(),
             header: Header {
-                light_client_block_view: LightClientBlockView::try_from_slice(
-                    &h.light_client_block,
-                )
-                .unwrap(),
+                light_client_block: LightClientBlock::try_from_slice(&h.light_client_block)
+                    .unwrap(),
                 prev_state_root_of_chunks: h
                     .prev_state_root_of_chunks
                     .iter()
@@ -101,7 +96,7 @@ impl From<ConsensusState> for RawConsensusState {
                 })
                 .collect(),
             header: Some(RawHeader {
-                light_client_block: value.header.light_client_block_view.try_to_vec().unwrap(),
+                light_client_block: value.header.light_client_block.try_to_vec().unwrap(),
                 prev_state_root_of_chunks: value
                     .header
                     .prev_state_root_of_chunks

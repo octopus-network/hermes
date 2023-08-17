@@ -1,6 +1,6 @@
 use crate::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
 use crate::clients::ics12_near::near_types::hash::CryptoHash;
-use crate::clients::ics12_near::near_types::LightClientBlockView;
+use crate::clients::ics12_near::near_types::LightClientBlock;
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::error::Error;
 use crate::timestamp::Timestamp;
@@ -13,7 +13,7 @@ pub const NEAR_HEADER_TYPE_URL: &str = "/ibc.lightclients.near.v1.Header";
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Header {
-    pub light_client_block_view: LightClientBlockView,
+    pub light_client_block: LightClientBlock,
     pub prev_state_root_of_chunks: Vec<CryptoHash>,
 }
 
@@ -23,11 +23,11 @@ impl crate::core::ics02_client::header::Header for Header {
     }
 
     fn height(&self) -> Height {
-        Height::new(0, self.light_client_block_view.inner_lite.height).unwrap()
+        Height::new(0, self.light_client_block.inner_lite.height).unwrap()
     }
 
     fn timestamp(&self) -> Timestamp {
-        Timestamp::from_nanoseconds(self.light_client_block_view.inner_lite.timestamp_nanosec)
+        Timestamp::from_nanoseconds(self.light_client_block.inner_lite.timestamp * 1_000_000_000)
             .unwrap()
     }
 }

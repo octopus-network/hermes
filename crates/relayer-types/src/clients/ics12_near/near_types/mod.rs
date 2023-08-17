@@ -69,10 +69,14 @@ impl LightClientBlockLiteView {
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(
+    BorshSerialize, BorshDeserialize, Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize,
+)]
 pub struct EpochId(pub CryptoHash);
 
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(
+    BorshSerialize, BorshDeserialize, Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize,
+)]
 pub struct BlockHeaderInnerLite {
     /// Height of this block.
     pub height: BlockHeight,
@@ -112,6 +116,18 @@ impl ValidatorStakeView {
             Self::V1(inner) => inner,
         }
     }
+}
+
+#[derive(
+    Serialize, Deserialize, PartialEq, Eq, Clone, Debug, Default, BorshDeserialize, BorshSerialize,
+)]
+pub struct LightClientBlock {
+    pub prev_block_hash: CryptoHash,
+    pub next_block_inner_hash: CryptoHash,
+    pub inner_lite: BlockHeaderInnerLite,
+    pub inner_rest_hash: CryptoHash,
+    pub next_bps: Option<Vec<ValidatorStakeView>>,
+    pub approvals_after_next: Vec<Option<Signature>>,
 }
 
 #[derive(
