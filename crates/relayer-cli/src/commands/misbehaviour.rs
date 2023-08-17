@@ -120,15 +120,14 @@ fn misbehaviour_handling<Chain: ChainHandle>(
         return Err(eyre!("client {} is already frozen", client_id));
     }
 
-    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
-    let counterparty_chain = spawn_chain_runtime_generic::<Chain>(config, &counterparty_chain_id)
+    let counterparty_chain = spawn_chain_runtime_generic::<Chain>(config, &client_state.chain_id())
         .map_err(|e| {
-        eyre!(
-            "could not spawn the chain runtime for {}: {}",
-            counterparty_chain_id,
-            e
-        )
-    })?;
+            eyre!(
+                "could not spawn the chain runtime for {}: {}",
+                client_state.chain_id(),
+                e
+            )
+        })?;
 
     let client = ForeignClient::restore(client_id, chain, counterparty_chain);
     let result = client.detect_misbehaviour_and_submit_evidence(update);

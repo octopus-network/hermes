@@ -156,6 +156,8 @@ impl From<&dyn ConsensusState> for AnyConsensusState {
             AnyConsensusState::from(cs.clone())
         } else if let Some(cs) = downcast_consensus_state::<SmConsensusState>(cs) {
             AnyConsensusState::from(cs.clone())
+        } else if let Some(cs) = downcast_consensus_state::<NearConsensusState>(cs) {
+            AnyConsensusState::from(cs.clone())
         } else {
             unreachable!()
         }

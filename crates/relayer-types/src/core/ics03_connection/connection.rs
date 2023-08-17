@@ -18,31 +18,21 @@ use crate::core::ics03_connection::error::Error;
 use crate::core::ics03_connection::version::Version;
 use crate::core::ics23_commitment::commitment::CommitmentPrefix;
 use crate::core::ics24_host::error::ValidationError;
-use crate::core::ics24_host::identifier::{ChainId, ClientId, ConnectionId};
+use crate::core::ics24_host::identifier::{ClientId, ConnectionId};
 use crate::timestamp::ZERO_DURATION;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IdentifiedConnectionEnd {
-    pub counterparty_chain_id: ChainId,
     pub connection_id: ConnectionId,
     pub connection_end: ConnectionEnd,
 }
 
 impl IdentifiedConnectionEnd {
-    pub fn new(
-        counterparty_chain_id: ChainId,
-        connection_id: ConnectionId,
-        connection_end: ConnectionEnd,
-    ) -> Self {
+    pub fn new(connection_id: ConnectionId, connection_end: ConnectionEnd) -> Self {
         IdentifiedConnectionEnd {
-            counterparty_chain_id,
             connection_id,
             connection_end,
         }
-    }
-
-    pub fn counterparty_chain_id(&self) -> &ChainId {
-        &self.counterparty_chain_id
     }
 
     pub fn id(&self) -> &ConnectionId {
@@ -69,7 +59,6 @@ impl TryFrom<RawIdentifiedConnection> for IdentifiedConnectionEnd {
         };
 
         Ok(IdentifiedConnectionEnd {
-            counterparty_chain_id: ChainId::default(),
             connection_id: value.id.parse().map_err(Error::invalid_identifier)?,
             connection_end: raw_connection_end.try_into()?,
         })

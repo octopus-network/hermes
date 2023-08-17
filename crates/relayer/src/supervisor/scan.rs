@@ -5,7 +5,7 @@ use itertools::Itertools;
 use tracing::{debug, error, error_span, info, warn};
 
 use ibc_relayer_types::core::{
-    // ics02_client::client_state::ClientState,
+    ics02_client::client_state::ClientState,
     ics03_connection::connection::{IdentifiedConnectionEnd, State as ConnectionState},
     ics04_channel::{
         channel::{IdentifiedChannelEnd, State as ChannelState},
@@ -169,9 +169,8 @@ impl ClientScan {
         &self.client.client_id
     }
 
-    pub fn counterparty_chain_id(&self, chain: &impl ChainHandle) -> ChainId {
-        // self.client.client_state.chain_id()
-        chain.config().unwrap().counterparty_id
+    pub fn counterparty_chain_id(&self) -> ChainId {
+        self.client.client_state.chain_id()
     }
 }
 
@@ -361,7 +360,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
                     counterparty_connection_state,
                     client,
                 }) => {
-                    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+                    let counterparty_chain_id = client.client_state.chain_id();
                     if let Some(counterparty_channel) = &counterparty_channel {
                         init_telemetry(
                             &chain.id(),
@@ -416,7 +415,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
                                 init_telemetry(
                                     &chain.id(),
                                     client_scan.id(),
-                                    &client_scan.counterparty_chain_id(chain),
+                                    &client_scan.counterparty_chain_id(),
                                     channel.id(),
                                     &counterparty_channel.channel_id,
                                     channel.port(),
@@ -454,7 +453,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
             return Ok(None);
         }
 
-        let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+        let counterparty_chain_id = client.client_state.chain_id();
         let has_counterparty = self.config.has_chain(&counterparty_chain_id);
 
         if !has_counterparty {
@@ -533,7 +532,7 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
 
         let counterparty_chain = self
             .registry
-            .get_or_spawn(&chain.config().unwrap().counterparty_id)
+            .get_or_spawn(&client.client_state.chain_id())
             .map_err(Error::spawn)?;
 
         let channels = channels
@@ -560,19 +559,19 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
 
     fn counterparty_connection_state(
         &mut self,
-        _client: &IdentifiedAnyClientState,
+        client: &IdentifiedAnyClientState,
         connection: &IdentifiedConnectionEnd,
     ) -> Result<ConnectionState, Error> {
         let counterparty_chain = self
             .registry
-            .get_or_spawn(&connection.counterparty_chain_id)
+            .get_or_spawn(&client.client_state.chain_id())
             .map_err(Error::spawn)?;
 
         let counterparty_state = connection_state_on_destination(connection, &counterparty_chain)
             .map_err(|e| {
             Error::counterparty_connection_state(
                 connection.connection_id.clone(),
-                connection.counterparty_chain_id.clone(),
+                client.client_state.chain_id(),
                 e.to_string(),
             )
         })?;
@@ -703,7 +702,7 @@ fn scan_allowed_channel<Chain: ChainHandle>(
     info!(client = %client_id, "querying client...");
     let client = query_client(chain, client_id)?;
 
-    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+    let counterparty_chain_id = client.client_state.chain_id();
 
     info!(
         client = %client_id,
@@ -859,7 +858,6 @@ fn query_connection<Chain: ChainHandle>(
         .map_err(Error::query)?;
 
     Ok(IdentifiedConnectionEnd {
-        counterparty_chain_id: chain.config().unwrap().counterparty_id,
         connection_id: connection_id.clone(),
         connection_end,
     })

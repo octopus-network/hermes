@@ -234,6 +234,7 @@ impl ClientState for AnyClientState {
             ),
             AnyClientState::Solomachine(_sm_state) => (),
             AnyClientState::Near(_near_state) => (),
+
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => {
                 mock_state.upgrade(upgrade_height, upgrade_options, chain_id)
@@ -246,6 +247,7 @@ impl ClientState for AnyClientState {
             AnyClientState::Tendermint(tm_state) => tm_state.expired(elapsed_since_latest),
             AnyClientState::Solomachine(_sm_state) => false,
             AnyClientState::Near(_near_state) => false,
+
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.expired(elapsed_since_latest),
         }

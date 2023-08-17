@@ -9,7 +9,7 @@ use ibc_relayer::chain::requests::{
 };
 use ibc_relayer::client_state::AnyClientState;
 use ibc_relayer::registry::Registry;
-// use ibc_relayer_types::core::ics02_client::client_state::ClientState;
+use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics03_connection::connection::ConnectionEnd;
 use ibc_relayer_types::core::ics04_channel::channel::{ChannelEnd, State};
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
@@ -183,7 +183,7 @@ fn do_run<Chain: ChainHandle>(cmd: &QueryChannelEndsCmd) -> eyre::Result<()> {
         )
         })?;
 
-    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+    let counterparty_chain_id = client_state.chain_id();
     let counterparty_chain = registry.get_or_spawn(&counterparty_chain_id)?;
     let counterparty_chain_height_query =
         QueryHeight::Specific(counterparty_chain.query_latest_height()?);

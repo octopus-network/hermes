@@ -11,7 +11,7 @@ use ibc_relayer::chain::requests::{
 use ibc_relayer::channel::Channel;
 use ibc_relayer::connection::Connection;
 use ibc_relayer::foreign_client::ForeignClient;
-// use ibc_relayer_types::core::ics02_client::client_state::ClientState;
+use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics03_connection::connection::IdentifiedConnectionEnd;
 use ibc_relayer_types::core::ics04_channel::channel::Ordering;
 use ibc_relayer_types::core::ics04_channel::version::Version;
@@ -237,7 +237,7 @@ impl CreateChannelCommand {
                 },
                 IncludeProof::No,
             )
-            .map(|(_cs, _)| chain_a.config().unwrap().counterparty_id)
+            .map(|(cs, _)| cs.chain_id())
             .unwrap_or_else(exit_with_unrecoverable_error);
 
         // Spawn the runtime for side b.
@@ -247,15 +247,10 @@ impl CreateChannelCommand {
         // Create the foreign client handles.
         let client_a = ForeignClient::find(chain_b.clone(), chain_a.clone(), conn_end.client_id())
             .unwrap_or_else(exit_with_unrecoverable_error);
-        let client_b = ForeignClient::find(
-            chain_a.clone(),
-            chain_b,
-            conn_end.counterparty().client_id(),
-        )
-        .unwrap_or_else(exit_with_unrecoverable_error);
+        let client_b = ForeignClient::find(chain_a, chain_b, conn_end.counterparty().client_id())
+            .unwrap_or_else(exit_with_unrecoverable_error);
 
-        let chain_b = chain_a.config().unwrap().counterparty_id;
-        let identified_end = IdentifiedConnectionEnd::new(chain_b, connection_a.clone(), conn_end);
+        let identified_end = IdentifiedConnectionEnd::new(connection_a.clone(), conn_end);
 
         let connection = Connection::find(client_a, client_b, &identified_end)
             .unwrap_or_else(exit_with_unrecoverable_error);

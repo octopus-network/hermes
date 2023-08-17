@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use ibc_relayer_types::{
     core::{
-        // ics02_client::client_state::ClientState,
+        ics02_client::client_state::ClientState,
         ics03_connection::connection::{
             ConnectionEnd, IdentifiedConnectionEnd, State as ConnectionState,
         },
@@ -49,7 +49,7 @@ pub fn counterparty_chain_from_connection(
         .map_err(Error::relayer)?;
 
     let client_id = connection_end.client_id();
-    let (_client_state, _) = src_chain
+    let (client_state, _) = src_chain
         .query_client_state(
             QueryClientStateRequest {
                 client_id: client_id.clone(),
@@ -61,9 +61,9 @@ pub fn counterparty_chain_from_connection(
 
     trace!(
         chain_id=%src_chain.id(), connection_id=%src_connection_id,
-        "counterparty chain: {}", src_chain.config().unwrap().counterparty_id
+        "counterparty chain: {}", client_state.chain_id()
     );
-    Ok(src_chain.config().unwrap().counterparty_id)
+    Ok(client_state.chain_id())
 }
 
 fn connection_on_destination(
@@ -205,10 +205,8 @@ pub fn channel_connection_client_no_checks(
         )
         .map_err(Error::relayer)?;
 
-    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
     let client = IdentifiedAnyClientState::new(client_id.clone(), client_state);
-    let connection =
-        IdentifiedConnectionEnd::new(counterparty_chain_id, connection_id.clone(), connection_end);
+    let connection = IdentifiedConnectionEnd::new(connection_id.clone(), connection_end);
     let channel = IdentifiedChannelEnd::new(port_id.clone(), channel_id.clone(), channel_end);
 
     Ok(ChannelConnectionClient::new(channel, connection, client))
@@ -245,7 +243,7 @@ pub fn counterparty_chain_from_channel(
     src_port_id: &PortId,
 ) -> Result<ChainId, Error> {
     channel_connection_client(src_chain, src_port_id, src_channel_id)
-        .map(|_| src_chain.config().unwrap().counterparty_id)
+        .map(|c| c.client.client_state.chain_id())
 }
 
 fn fetch_channel_on_destination(

@@ -1,7 +1,7 @@
 use tracing::{error, info};
 
 use ibc_relayer_types::core::{
-    ics03_connection::connection::IdentifiedConnectionEnd,
+    ics02_client::client_state::ClientState, ics03_connection::connection::IdentifiedConnectionEnd,
     ics04_channel::channel::State as ChannelState,
 };
 
@@ -156,14 +156,14 @@ impl<'a, Chain: ChainHandle> SpawnContext<'a, Chain> {
     fn spawn_connection_workers(
         &mut self,
         chain: Chain,
-        _client: IdentifiedAnyClientState,
+        client: IdentifiedAnyClientState,
         connection: IdentifiedConnectionEnd,
     ) -> Result<bool, Error> {
         let config_conn_enabled = self.config.mode.connections.enabled;
 
         let counterparty_chain = self
             .registry
-            .get_or_spawn(&chain.config().unwrap().counterparty_id)
+            .get_or_spawn(&client.client_state.chain_id())
             .map_err(Error::spawn)?;
 
         let conn_state_src = connection.connection_end.state;
@@ -192,7 +192,7 @@ impl<'a, Chain: ChainHandle> SpawnContext<'a, Chain> {
         {
             // create worker for connection handshake that will advance the remote state
             let connection_object = Object::Connection(Connection {
-                dst_chain_id: chain.config().unwrap().counterparty_id,
+                dst_chain_id: client.client_state.chain_id(),
                 src_chain_id: chain.id(),
                 src_connection_id: connection.connection_id,
             });
@@ -226,7 +226,7 @@ impl<'a, Chain: ChainHandle> SpawnContext<'a, Chain> {
 
         let counterparty_chain = self
             .registry
-            .get_or_spawn(&chain.config().unwrap().counterparty_id)
+            .get_or_spawn(&client.client_state.chain_id())
             .map_err(SupervisorError::spawn)?;
 
         let chan_state_src = channel_scan.channel.channel_end.state;
@@ -253,7 +253,7 @@ impl<'a, Chain: ChainHandle> SpawnContext<'a, Chain> {
                 let client_object = Object::Client(Client {
                     dst_client_id: client.client_id.clone(),
                     dst_chain_id: chain.id(),
-                    src_chain_id: chain.config().unwrap().id,
+                    src_chain_id: client.client_state.chain_id(),
                 });
 
                 self.workers
