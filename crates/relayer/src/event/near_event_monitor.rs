@@ -77,7 +77,7 @@ pub struct NearEventMonitor {
 
 impl NearIbcContract for NearEventMonitor {
     fn get_contract_id(&self) -> AccountId {
-        AccountId::from_str(CONTRACT_ACCOUNT_ID).unwrap()
+        AccountId::from_str(CONTRACT_ACCOUNT_ID).expect("construct Near Account Id failed")
     }
 
     fn get_client(&self) -> &NearRpcClient {
@@ -169,8 +169,10 @@ impl NearEventMonitor {
                 if !unchecked_heights.is_empty() {
                     let height = unchecked_heights[0];
                     info!("querying ibc events at height: {}", height);
-                    let event_tx = self.event_tx.as_ref().unwrap();
-                    match self.query_events_at_height(&Height::new(0, height).unwrap()) {
+                    let event_tx = self.event_tx.as_ref().expect("event tx is empty");
+                    match self.query_events_at_height(
+                        &Height::new(0, height).expect("build ibc height failed"),
+                    ) {
                         Ok(batch) => {
                             if !batch.events.is_empty() {
                                 info!("ibc events found at height {}: {:?}", height, batch);
@@ -198,7 +200,10 @@ impl NearEventMonitor {
                 "get_ibc_events_heights".to_string(),
                 json!({}).to_string().into_bytes(),
             ))
-            .map_or_else(|_| vec![], |result| result.json().unwrap())
+            .map_or_else(
+                |_| vec![],
+                |result| result.json().expect("get ibc events height failed"),
+            )
     }
 
     fn query_events_at_height(&self, height: &Height) -> Result<EventBatch> {
@@ -222,7 +227,8 @@ impl NearEventMonitor {
                     })
                 },
                 |result| {
-                    let ibc_events: Vec<ibc::core::events::IbcEvent> = result.json().unwrap();
+                    let ibc_events: Vec<ibc::core::events::IbcEvent> =
+                        result.json().expect("near event to json failed");
                     Ok(EventBatch {
                         height: *height,
                         events: ibc_events

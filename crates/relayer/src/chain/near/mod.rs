@@ -1262,7 +1262,8 @@ impl ChainEndpoint for NearChain {
         request.height = request.height.map(|height| match height {
             QueryHeight::Latest => QueryHeight::Latest,
             QueryHeight::Specific(value) => QueryHeight::Specific(
-                Height::new(value.revision_number(), value.revision_height() + 10).unwrap(),
+                Height::new(value.revision_number(), value.revision_height() + 10)
+                    .expect("failed construct ibc height"),
             ),
             // todo(davirain) can improve this error handling
             // .map_err(|e| Error::custom_error(e.to_string()))

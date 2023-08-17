@@ -19,7 +19,9 @@ pub struct CommitmentRoot {
 
 impl fmt::Debug for CommitmentRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let hex = Hex::upper_case().encode_to_string(&self.bytes).unwrap();
+        let hex = Hex::upper_case()
+            .encode_to_string(&self.bytes)
+            .expect("hex encode failed");
         f.debug_tuple("CommitmentRoot").field(&hex).finish()
     }
 }
@@ -58,7 +60,9 @@ pub struct CommitmentProofBytes {
 
 impl fmt::Debug for CommitmentProofBytes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let hex = Hex::upper_case().encode_to_string(&self.bytes).unwrap();
+        let hex = Hex::upper_case()
+            .encode_to_string(&self.bytes)
+            .expect("hex encode failed");
         f.debug_tuple("CommitmentProof").field(&hex).finish()
     }
 }

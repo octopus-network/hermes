@@ -237,7 +237,12 @@ impl CreateChannelCommand {
                 },
                 IncludeProof::No,
             )
-            .map(|(_cs, _)| chain_a.config().unwrap().counterparty_id)
+            .map(|(_cs, _)| {
+                chain_a
+                    .config()
+                    .expect("faile to get chain a config")
+                    .counterparty_id
+            })
             .unwrap_or_else(exit_with_unrecoverable_error);
 
         // Spawn the runtime for side b.
@@ -254,7 +259,10 @@ impl CreateChannelCommand {
         )
         .unwrap_or_else(exit_with_unrecoverable_error);
 
-        let chain_b = chain_a.config().unwrap().counterparty_id;
+        let chain_b = chain_a
+            .config()
+            .expect("failed to get chain b config")
+            .counterparty_id;
         let identified_end = IdentifiedConnectionEnd::new(chain_b, connection_a.clone(), conn_end);
 
         let connection = Connection::find(client_a, client_b, &identified_end)

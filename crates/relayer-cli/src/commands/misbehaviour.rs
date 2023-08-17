@@ -120,7 +120,10 @@ fn misbehaviour_handling<Chain: ChainHandle>(
         return Err(eyre!("client {} is already frozen", client_id));
     }
 
-    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+    let counterparty_chain_id = chain
+        .config()
+        .map_err(|e| eyre::eyre!(format!("{}", e.to_string())))?
+        .counterparty_id;
     let counterparty_chain = spawn_chain_runtime_generic::<Chain>(config, &counterparty_chain_id)
         .map_err(|e| {
         eyre!(

@@ -61,9 +61,12 @@ pub fn counterparty_chain_from_connection(
 
     trace!(
         chain_id=%src_chain.id(), connection_id=%src_connection_id,
-        "counterparty chain: {}", src_chain.config().unwrap().counterparty_id
+        "counterparty chain: {}", src_chain.config().map_err(|e| Error::custom_error(e.to_string()))?.counterparty_id
     );
-    Ok(src_chain.config().unwrap().counterparty_id)
+    Ok(src_chain
+        .config()
+        .map_err(|e| Error::custom_error(e.to_string()))?
+        .counterparty_id)
 }
 
 fn connection_on_destination(
@@ -205,7 +208,10 @@ pub fn channel_connection_client_no_checks(
         )
         .map_err(Error::relayer)?;
 
-    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+    let counterparty_chain_id = chain
+        .config()
+        .map_err(|e| Error::custom_error(e.to_string()))?
+        .counterparty_id;
     let client = IdentifiedAnyClientState::new(client_id.clone(), client_state);
     let connection =
         IdentifiedConnectionEnd::new(counterparty_chain_id, connection_id.clone(), connection_end);
@@ -244,8 +250,12 @@ pub fn counterparty_chain_from_channel(
     src_channel_id: &ChannelId,
     src_port_id: &PortId,
 ) -> Result<ChainId, Error> {
-    channel_connection_client(src_chain, src_port_id, src_channel_id)
-        .map(|_| src_chain.config().unwrap().counterparty_id)
+    channel_connection_client(src_chain, src_port_id, src_channel_id).map(|_| {
+        src_chain
+            .config()
+            .expect("failed to get src chain config ")
+            .counterparty_id
+    })
 }
 
 fn fetch_channel_on_destination(

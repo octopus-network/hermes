@@ -61,7 +61,9 @@ impl TryFrom<&[u8]> for CryptoHash {
         if bytes.len() != 32 {
             return Err("Wrong size.".to_string());
         }
-        let inner: [u8; 32] = bytes.try_into().unwrap();
+        let inner: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| "convert bytes(&[u8]) to [u8; 32] failed".to_string())?;
         Ok(CryptoHash(inner))
     }
 }

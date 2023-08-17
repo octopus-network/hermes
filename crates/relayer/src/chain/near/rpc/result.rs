@@ -18,7 +18,7 @@ pub struct CallExecution<T> {
 
 impl<T> CallExecution<T> {
     pub fn unwrap(self) -> T {
-        self.into_result().unwrap()
+        self.into_result().expect("unwrap into result failed")
     }
 
     pub fn into_result(self) -> anyhow::Result<T> {

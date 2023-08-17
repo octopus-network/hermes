@@ -81,7 +81,10 @@ impl Runnable for QueryAllClientsCmd {
                                     .into_iter()
                                     .map(|cs| ClientChain {
                                         client_id: cs.client_id,
-                                        chain_id: chain.config().unwrap().id,
+                                        chain_id: chain
+                                            .config()
+                                            .expect("failet to get chain config")
+                                            .id,
                                     })
                                     .collect();
                                 Output::success(out).exit()
@@ -96,7 +99,13 @@ impl Runnable for QueryAllClientsCmd {
                         // Filter and omit chain ids
                         let out: Vec<ClientId> = clients
                             .into_iter()
-                            .filter(|_cs| chain.config().unwrap().id.eq(&source_chain_id))
+                            .filter(|_cs| {
+                                chain
+                                    .config()
+                                    .expect("failet to get chain config")
+                                    .id
+                                    .eq(&source_chain_id)
+                            })
                             .map(|cs| cs.client_id)
                             .collect();
                         Output::success(out).exit()

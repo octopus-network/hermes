@@ -71,7 +71,10 @@ impl Runnable for QueryConnectionsCmd {
                     )
                     .unwrap();
 
-                let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+                let counterparty_chain_id = chain
+                    .config()
+                    .expect("failed to get chain config")
+                    .counterparty_id;
 
                 counterparty_chain_id == counterparty_filter_id
             });

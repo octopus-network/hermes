@@ -191,7 +191,12 @@ impl Runnable for TxUpdateClientCmd {
             },
             IncludeProof::No,
         ) {
-            Ok((_cs, _)) => dst_chain.config().unwrap().counterparty_id,
+            Ok((_cs, _)) => {
+                dst_chain
+                    .config()
+                    .expect("failet to get dst chain config")
+                    .counterparty_id
+            }
             Err(e) => {
                 Output::error(format!(
                     "Query of client '{}' on chain '{}' failed with error: {}",
@@ -284,7 +289,12 @@ impl Runnable for TxUpgradeClientCmd {
             },
             IncludeProof::No,
         ) {
-            Ok((_cs, _)) => host_chain.config().unwrap().counterparty_id,
+            Ok((_cs, _)) => {
+                host_chain
+                    .config()
+                    .expect("failed to get host chain config")
+                    .counterparty_id
+            }
             Err(e) => {
                 Output::error(format!(
                     "Query of client '{}' on chain '{}' failed with error: {}",
@@ -475,7 +485,11 @@ impl TxUpgradeClientsCmd {
             .map_err(Error::relayer)?
             .into_iter()
             .filter_map(|c| {
-                (self.reference_chain_id == reference_chain.config().unwrap().id)
+                (self.reference_chain_id
+                    == reference_chain
+                        .config()
+                        .expect("failed to get reference chain config")
+                        .id)
                     .then_some(c.client_id)
             })
             .map(|id| {

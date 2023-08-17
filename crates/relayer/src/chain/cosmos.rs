@@ -1386,10 +1386,13 @@ impl ChainEndpoint for CosmosSdkChain {
 
             // let client_id = request.client_id.as_bytes().to_vec();
             let mut buf = vec![];
-            request.consensus_height.encode(&mut buf).unwrap();
+            request
+                .consensus_height
+                .encode(&mut buf)
+                .map_err(|e| Error::custom_error(e.to_string()))?;
             let res = runtime
                 .block_on(query_consensus_state(canister_id, false, buf))
-                .unwrap();
+                .map_err(|e| Error::custom_error(e.to_string()))?;
             println!("ys-debug: query_consensus_state from ic: {:?}", res);
             let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
             return Ok((consensus_state, None));

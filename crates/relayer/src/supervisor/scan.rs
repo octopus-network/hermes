@@ -88,7 +88,16 @@ flex_error::define_error! {
                     "failed to query counterparty connection state of connection '{}' on counterparty chain '{}', reason: {}",
                     e.connection_id, e.counterparty_chain_id, e.reason
                 )
-            }
+            },
+
+        CustomError
+            { reason: String }
+            |e| {
+                format_args!(
+                    "custom error: {}",
+                    e.reason
+                )
+            },
     }
 }
 
@@ -171,7 +180,10 @@ impl ClientScan {
 
     pub fn counterparty_chain_id(&self, chain: &impl ChainHandle) -> ChainId {
         // self.client.client_state.chain_id()
-        chain.config().unwrap().counterparty_id
+        chain
+            .config()
+            .expect("failed get chain config")
+            .counterparty_id
     }
 }
 
@@ -361,7 +373,10 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
                     counterparty_connection_state,
                     client,
                 }) => {
-                    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+                    let counterparty_chain_id = chain
+                        .config()
+                        .map_err(|e| Error::custom_error(e.to_string()))?
+                        .counterparty_id;
                     if let Some(counterparty_channel) = &counterparty_channel {
                         init_telemetry(
                             &chain.id(),
@@ -454,7 +469,10 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
             return Ok(None);
         }
 
-        let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+        let counterparty_chain_id = chain
+            .config()
+            .map_err(|e| Error::custom_error(e.to_string()))?
+            .counterparty_id;
         let has_counterparty = self.config.has_chain(&counterparty_chain_id);
 
         if !has_counterparty {
@@ -533,7 +551,12 @@ impl<'a, Chain: ChainHandle> ChainScanner<'a, Chain> {
 
         let counterparty_chain = self
             .registry
-            .get_or_spawn(&chain.config().unwrap().counterparty_id)
+            .get_or_spawn(
+                &chain
+                    .config()
+                    .map_err(|e| Error::custom_error(e.to_string()))?
+                    .counterparty_id,
+            )
             .map_err(Error::spawn)?;
 
         let channels = channels
@@ -859,7 +882,10 @@ fn query_connection<Chain: ChainHandle>(
         .map_err(Error::query)?;
 
     Ok(IdentifiedConnectionEnd {
-        counterparty_chain_id: chain.config().unwrap().counterparty_id,
+        counterparty_chain_id: chain
+            .config()
+            .map_err(|e| Error::custom_error(e.to_string()))?
+            .counterparty_id,
         connection_id: connection_id.clone(),
         connection_end,
     })

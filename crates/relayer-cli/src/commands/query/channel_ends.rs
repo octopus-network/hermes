@@ -183,7 +183,10 @@ fn do_run<Chain: ChainHandle>(cmd: &QueryChannelEndsCmd) -> eyre::Result<()> {
         )
         })?;
 
-    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+    let counterparty_chain_id = chain
+        .config()
+        .map_err(|e| eyre::eyre!("{}", e.to_string()))?
+        .counterparty_id;
     let counterparty_chain = registry.get_or_spawn(&counterparty_chain_id)?;
     let counterparty_chain_height_query =
         QueryHeight::Specific(counterparty_chain.query_latest_height()?);

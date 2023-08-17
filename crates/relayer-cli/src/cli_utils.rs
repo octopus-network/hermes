@@ -93,7 +93,10 @@ pub fn spawn_chain_counterparty<Chain: ChainHandle>(
     let channel_connection_client =
         channel_connection_client(&chain, port_id, channel_id).map_err(Error::supervisor)?;
     let counterparty_chain = {
-        let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+        let counterparty_chain_id = chain
+            .config()
+            .map_err(|e| Error::custom(e.to_string()))?
+            .counterparty_id;
         spawn_chain_runtime_generic::<Chain>(config, &counterparty_chain_id)?
     };
 
@@ -171,7 +174,10 @@ pub fn check_can_send_on_channel<Chain: ChainHandle>(
         src_chain_client_state
     );
 
-    let src_chian_id = src_chain.config().unwrap().id;
+    let src_chian_id = src_chain
+        .config()
+        .map_err(|e| Error::custom(e.to_string()))?
+        .id;
 
     // Check that this client is verifying headers for the destination chain.
     // if &src_chian_id != dst_chain_id {

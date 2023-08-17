@@ -212,7 +212,10 @@ fn query_channel_ends<Chain: ChainHandle>(
         },
         IncludeProof::No,
     )?;
-    let counterparty_chain_id = chain.config().unwrap().counterparty_id;
+    let counterparty_chain_id = chain
+        .config()
+        .map_err(|e| eyre::eyre!("{}", e.to_string()))?
+        .counterparty_id;
 
     let channel_counterparty = channel_end.counterparty().clone();
     let connection_counterparty = connection_end.counterparty().clone();

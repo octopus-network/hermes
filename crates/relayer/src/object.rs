@@ -203,6 +203,12 @@ define_error! {
                 format!("connection_id missing from connection handshake event '{:?}'",
                     e.event)
             },
+
+        CustomError
+            { reason: String}
+            | e | {
+                format!("custom error: {}", e.reason)
+            },
     }
 }
 
@@ -363,7 +369,10 @@ impl Object {
                 dst_chain.id(),
             ));
         }
-        let src_chain_id = dst_chain.config().unwrap().counterparty_id;
+        let src_chain_id = dst_chain
+            .config()
+            .map_err(|e| ObjectError::custom_error(e.to_string()))?
+            .counterparty_id;
 
         Ok(Client {
             dst_client_id: e.client_id().clone(),
@@ -396,7 +405,10 @@ impl Object {
         Ok(Client {
             dst_client_id: client.client_id,
             dst_chain_id: chain.id(), // The object's destination is the chain hosting the client
-            src_chain_id: chain.config().unwrap().id,
+            src_chain_id: chain
+                .config()
+                .map_err(|e| ObjectError::custom_error(e.to_string()))?
+                .id,
         }
         .into())
     }
@@ -443,11 +455,21 @@ impl Object {
             // the channel events while the connection is being established.
             // The channel worker will eventually finish the channel handshake via the retry mechanism.
             channel_connection_client_no_checks(src_chain, port_id, channel_id)
-                .map(|_| src_chain.config().unwrap().counterparty_id)
+                .map(|_| {
+                    src_chain
+                        .config()
+                        .expect("failed to get src chain config")
+                        .counterparty_id
+                })
                 .map_err(ObjectError::supervisor)?
         } else {
             channel_connection_client(src_chain, port_id, channel_id)
-                .map(|_| src_chain.config().unwrap().counterparty_id)
+                .map(|_| {
+                    src_chain
+                        .config()
+                        .expect("failed to get src chain config")
+                        .counterparty_id
+                })
                 .map_err(ObjectError::supervisor)?
         };
 

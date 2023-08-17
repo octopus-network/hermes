@@ -122,19 +122,23 @@ impl Display for ChainId {
 
 impl From<ChainId> for tendermint::chain::Id {
     fn from(id: ChainId) -> Self {
-        tendermint::chain::Id::from_str(id.as_str()).unwrap()
+        tendermint::chain::Id::from_str(id.as_str())
+            .expect("construct tendermint chain id from ChainId failed")
     }
 }
 
 impl From<tendermint::chain::Id> for ChainId {
     fn from(id: tendermint::chain::Id) -> Self {
-        ChainId::from_str(id.as_str()).unwrap()
+        ChainId::from_str(id.as_str()).expect("faild converting tendermint chain id to ChainId")
     }
 }
 
 impl Default for ChainId {
     fn default() -> Self {
-        "defaultChainId".to_string().parse().unwrap()
+        "defaultChainId"
+            .to_string()
+            .parse()
+            .expect("default chain id construct failed")
     }
 }
 
@@ -207,7 +211,7 @@ impl FromStr for ClientId {
 
 impl Default for ClientId {
     fn default() -> Self {
-        Self::new(ClientType::Tendermint, 0).unwrap()
+        Self::new(ClientType::Tendermint, 0).expect("default client id construct failed")
     }
 }
 
@@ -241,7 +245,7 @@ impl ConnectionId {
     /// ```
     pub fn new(counter: u64) -> Self {
         let id = format!("{}-{}", Self::prefix(), counter);
-        Self::from_str(id.as_str()).unwrap()
+        Self::from_str(id.as_str()).expect("never fails because we validate the prefix")
     }
 
     /// Returns the static prefix to be used across all connection identifiers.
@@ -338,7 +342,10 @@ impl AsRef<str> for PortId {
 
 impl Default for PortId {
     fn default() -> Self {
-        "defaultPort".to_string().parse().unwrap()
+        "defaultPort"
+            .to_string()
+            .parse()
+            .expect("default port id construct failed")
     }
 }
 
