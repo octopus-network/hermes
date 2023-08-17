@@ -82,6 +82,8 @@ use ibc_relayer_types::{
     Height, Height as ICSHeight,
 };
 use near_crypto::{InMemorySigner, KeyType};
+use near_primitives::types::BlockId;
+use near_primitives::views::LightClientBlockView;
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
 use prost::Message;
 use semver::Version;
@@ -303,11 +305,8 @@ impl NearChain {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NearLightBlock {}
-
 impl ChainEndpoint for NearChain {
-    type LightBlock = NearLightBlock; // Todo: Import from Near light client //CS
+    type LightBlock = LightClientBlockView;
     type Header = NearHeader;
     type ConsensusState = NearConsensusState;
     type ClientState = NearClientState;
@@ -385,7 +384,6 @@ impl ChainEndpoint for NearChain {
         );
 
         use crate::chain::ic::deliver;
-        use ibc::Any;
 
         let runtime = self.rt.clone();
 
@@ -459,7 +457,6 @@ impl ChainEndpoint for NearChain {
         );
 
         use crate::chain::ic::deliver;
-        use ibc::Any;
 
         let runtime = self.rt.clone();
 
@@ -528,11 +525,34 @@ impl ChainEndpoint for NearChain {
     /// Fetch a header from the chain at the given height and verify it.
     fn verify_header(
         &mut self,
-        _trusted: ICSHeight,
-        _target: ICSHeight,
-        _client_state: &AnyClientState,
+        trusted: ICSHeight,
+        target: ICSHeight,
+        client_state: &AnyClientState,
     ) -> Result<Self::LightBlock, Error> {
-        Ok(Self::LightBlock {})
+        info!(
+            "{}: [verify_header] - trusted: {:?} target: {:?} client_state: {:?}",
+            self.id(),
+            trusted,
+            target,
+            client_state.latest_height()
+        );
+        let block_view = self
+            .block_on(self.client.view_block(Some(BlockId::Height(
+                client_state.latest_height().revision_height(),
+            ))))
+            .unwrap();
+        info!("ys-debug: get block view: {:?}", block_view);
+        let light_client_block_view = self
+            .block_on(
+                self.client.query(
+                    &near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
+                        last_block_hash: block_view.header.hash
+                    },
+                )
+            )
+            .unwrap();
+
+        Ok(light_client_block_view.unwrap())
     }
 
     /// Given a client update event that includes the header used in a client update,
