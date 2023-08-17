@@ -127,12 +127,7 @@ impl Runnable for QueryClientConsensusCmd {
             },
             IncludeProof::No,
         ) {
-            Ok((_cs, _)) => {
-                chain
-                    .config()
-                    .expect("failed to get chain config")
-                    .counterparty_id
-            }
+            Ok((cs, _)) => cs.chain_id(),
             Err(e) => Output::error(format!(
                 "failed while querying client '{}' on chain '{}' with error: {}",
                 self.client_id, self.chain_id, e
@@ -231,12 +226,7 @@ impl Runnable for QueryClientHeaderCmd {
             },
             IncludeProof::No,
         ) {
-            Ok((_cs, _)) => {
-                chain
-                    .config()
-                    .expect("failed to get chain config")
-                    .counterparty_id
-            }
+            Ok((cs, _)) => cs.chain_id(),
             Err(e) => Output::error(format!(
                 "failed while querying client '{}' on chain '{}' with error: {}",
                 self.client_id, self.chain_id, e

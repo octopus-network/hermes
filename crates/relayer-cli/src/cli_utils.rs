@@ -16,7 +16,7 @@ use ibc_relayer::{
     config::Config,
     spawn,
 };
-// use ibc_relayer_types::core::ics02_client::client_state::ClientState;
+use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
 
 use crate::error::Error;
@@ -93,10 +93,7 @@ pub fn spawn_chain_counterparty<Chain: ChainHandle>(
     let channel_connection_client =
         channel_connection_client(&chain, port_id, channel_id).map_err(Error::supervisor)?;
     let counterparty_chain = {
-        let counterparty_chain_id = chain
-            .config()
-            .map_err(|e| Error::custom(e.to_string()))?
-            .counterparty_id;
+        let counterparty_chain_id = channel_connection_client.client.client_state.chain_id();
         spawn_chain_runtime_generic::<Chain>(config, &counterparty_chain_id)?
     };
 
@@ -174,23 +171,18 @@ pub fn check_can_send_on_channel<Chain: ChainHandle>(
         src_chain_client_state
     );
 
-    let src_chian_id = src_chain
-        .config()
-        .map_err(|e| Error::custom(e.to_string()))?
-        .id;
-
     // Check that this client is verifying headers for the destination chain.
-    // if &src_chian_id != dst_chain_id {
-    //     return Err(eyre!(
-    //         "the requested port/channel ('{}'/'{}') provides a path from chain '{}' to \
-    //          chain '{}' (not to the destination chain '{}'). Bailing due to mismatching arguments.",
-    //         src_port_id,
-    //         src_channel_id,
-    //         src_chain.id(),
-    //         src_chian_id,
-    //         dst_chain_id
-    //     ));
-    // }
+    if &src_chain_client_state.chain_id() != dst_chain_id {
+        return Err(eyre!(
+            "the requested port/channel ('{}'/'{}') provides a path from chain '{}' to \
+             chain '{}' (not to the destination chain '{}'). Bailing due to mismatching arguments.",
+            src_port_id,
+            src_channel_id,
+            src_chain.id(),
+            src_chain_client_state.chain_id(),
+            dst_chain_id
+        ));
+    }
 
     Ok(())
 }

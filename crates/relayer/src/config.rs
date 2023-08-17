@@ -586,9 +586,6 @@ pub struct ChainConfig {
 
     pub canister_id: CanisterIdConfig,
 
-    /// The Counterparty chain's network identifier
-    pub counterparty_id: ChainId,
-
     /// The chain type
     #[serde(default = "default::chain_type")]
     pub r#type: ChainType,

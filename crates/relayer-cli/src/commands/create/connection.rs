@@ -7,7 +7,7 @@ use ibc_relayer::chain::handle::ChainHandle;
 use ibc_relayer::chain::requests::{IncludeProof, QueryClientStateRequest, QueryHeight};
 use ibc_relayer::connection::Connection;
 use ibc_relayer::foreign_client::ForeignClient;
-// use ibc_relayer_types::core::ics02_client::client_state::ClientState;
+use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ClientId};
 
 use crate::cli_utils::{spawn_chain_runtime, ChainHandlePair};
@@ -132,12 +132,7 @@ impl CreateConnectionCommand {
             },
             IncludeProof::No,
         ) {
-            Ok((_cs, _)) => {
-                chain_a
-                    .config()
-                    .expect("failed to get chain a config")
-                    .counterparty_id
-            }
+            Ok((cs, _)) => cs.chain_id(),
             Err(e) => Output::error(format!(
                 "failed while querying client '{}' on chain '{}' with error: {}",
                 client_a_id, self.chain_a_id, e

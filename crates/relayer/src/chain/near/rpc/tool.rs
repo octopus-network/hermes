@@ -13,7 +13,9 @@ use std::collections::HashMap;
 
 /// Convert `StateItem`s over to a Map<data_key, value_bytes> representation.
 /// Assumes key and value are base64 encoded, so this also decodes them.
-pub fn into_state_map(state_items: &[StateItem]) -> anyhow::Result<HashMap<Vec<u8>, Vec<u8>>> {
+pub(crate) fn into_state_map(
+    state_items: &[StateItem],
+) -> anyhow::Result<HashMap<Vec<u8>, Vec<u8>>> {
     let decode = |s: &StateItem| Ok((base64::decode(&s.key)?, base64::decode(&s.value)?));
 
     state_items.iter().map(decode).collect()
@@ -76,7 +78,6 @@ pub fn convert_ibc_event_to_hermes_ibc_event(
         }
         IbcEvent::ClientMisbehaviour(client_misbehaviour) => {
             use ibc_relayer_types::core::ics02_client::events::Attributes;
-            #[allow(unreachable_code)]
             HermesIbcEvent::ClientMisbehaviour(
                 ibc_relayer_types::core::ics02_client::events::ClientMisbehaviour::from(
                     Attributes {
@@ -430,7 +431,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(
                 },
             },
         ),
-        IbcEvent::ChannelClosed(_channel_closed) => {
+        IbcEvent::ChannelClosed(channel_closed) => {
             todo!()
         }
         IbcEvent::Module(app_module) => {
@@ -451,20 +452,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(
             })
         }
         IbcEvent::Message(message_event) => {
-            println!(
-                "ys-debug: module_attribute: {:?}",
-                message_event.module_attribute()
-            );
-            HermesIbcEvent::AppModule(ibc_relayer_types::events::ModuleEvent {
-                kind: "message".to_string(),
-                module_name: ModuleId::new(message_event.module_attribute().into())
-                    .map_err(|e| NearError::CustomError(format!("{:?}", e)))?,
-                attributes: [ModuleEventAttribute {
-                    key: "module".to_string(),
-                    value: message_event.module_attribute(),
-                }]
-                .to_vec(),
-            })
+            HermesIbcEvent::Message(message_event.module_attribute())
         }
     };
 

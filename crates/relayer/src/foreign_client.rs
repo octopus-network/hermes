@@ -413,14 +413,12 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             },
             IncludeProof::No,
         ) {
-            Ok((_cs, _)) => {
-                let chain_id = expected_target_chain.id(); // TODO(davirian)
-                if chain_id != expected_target_chain.id() {
-                    // todo(is must equal)
+            Ok((cs, _)) => {
+                if cs.chain_id() != expected_target_chain.id() {
                     Err(ForeignClientError::mismatch_chain_id(
                         client_id.clone(),
                         expected_target_chain.id(),
-                        chain_id,
+                        cs.chain_id(),
                     ))
                 } else {
                     // TODO: Any additional checks?
@@ -641,7 +639,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         let res = self
             .dst_chain
             .send_messages_and_wait_commit(TrackedMsgs::new_single(
-                new_msg.clone().to_any(),
+                new_msg.to_any(),
                 "create client",
             ))
             .map_err(|e| {
@@ -753,11 +751,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         height: &Height,
     ) -> Result<ConsensusStateTrusted, ForeignClientError> {
         // Safety check
-        // todo(davirian)
-        // if client_state.chain_id() != self.src_chain.id() {
-        //     warn!("the chain id in the client state ('{}') is inconsistent with the client's source chain id ('{}')",
-        //     client_state.chain_id(), self.src_chain.id());
-        // }
+        if client_state.chain_id() != self.src_chain.id() {
+            warn!("the chain id in the client state ('{}') is inconsistent with the client's source chain id ('{}')",
+            client_state.chain_id(), self.src_chain.id());
+        }
 
         let consensus_state_timestamp = self.fetch_consensus_state(*height)?.timestamp();
 
@@ -1256,20 +1253,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
 
         let tm = TrackedMsgs::new_static(new_msgs, "update client");
 
-        if self.dst_chain().id().to_string() == "ibc-1" {
-            let events = self
-                .dst_chain()
-                .send_messages_and_wait_commit(tm)
-                .map_err(|e| {
-                    ForeignClientError::client_update(
-                        self.dst_chain.id(),
-                        "failed sending message to dst chain".to_string(),
-                        e,
-                    )
-                })?;
-
-            return Ok(events.into_iter().map(|ev| ev.event).collect());
-        }
         let events = self
             .dst_chain()
             .send_messages_and_wait_commit(tm)

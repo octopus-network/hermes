@@ -29,10 +29,6 @@ port = 3001
 latency_submitted = { start = 5000, end = 10000, buckets = 10 }
 latency_confirmed = { start = 5000, end = 10000, buckets = 10 }
 
-[canister_id]
-# Specify the canister ID of the IBC-bridge canister on the source chain.
-id = "naxa5-eyaaa-aaaaa-aacda-cai"
-
 [[chains]]
 id = 'chain_A'
 rpc_addr = 'http://127.0.0.1:26657'

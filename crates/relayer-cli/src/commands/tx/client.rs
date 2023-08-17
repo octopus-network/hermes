@@ -14,7 +14,7 @@ use ibc_relayer::config::Config;
 use ibc_relayer::event::IbcEventWithHeight;
 use ibc_relayer::foreign_client::{CreateOptions, ForeignClient};
 use ibc_relayer::{chain::handle::ChainHandle, config::GenesisRestart};
-// use ibc_relayer_types::core::ics02_client::client_state::ClientState;
+use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ClientId};
 use ibc_relayer_types::events::IbcEvent;
 use ibc_relayer_types::Height;
@@ -191,12 +191,7 @@ impl Runnable for TxUpdateClientCmd {
             },
             IncludeProof::No,
         ) {
-            Ok((_cs, _)) => {
-                dst_chain
-                    .config()
-                    .expect("failet to get dst chain config")
-                    .counterparty_id
-            }
+            Ok((cs, _)) => cs.chain_id(),
             Err(e) => {
                 Output::error(format!(
                     "Query of client '{}' on chain '{}' failed with error: {}",
@@ -289,12 +284,7 @@ impl Runnable for TxUpgradeClientCmd {
             },
             IncludeProof::No,
         ) {
-            Ok((_cs, _)) => {
-                host_chain
-                    .config()
-                    .expect("failed to get host chain config")
-                    .counterparty_id
-            }
+            Ok((cs, _)) => cs.chain_id(),
             Err(e) => {
                 Output::error(format!(
                     "Query of client '{}' on chain '{}' failed with error: {}",
@@ -485,12 +475,7 @@ impl TxUpgradeClientsCmd {
             .map_err(Error::relayer)?
             .into_iter()
             .filter_map(|c| {
-                (self.reference_chain_id
-                    == reference_chain
-                        .config()
-                        .expect("failed to get reference chain config")
-                        .id)
-                    .then_some(c.client_id)
+                (self.reference_chain_id == c.client_state.chain_id()).then_some(c.client_id)
             })
             .map(|id| {
                 TxUpgradeClientsCmd::upgrade_client(
