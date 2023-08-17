@@ -1366,7 +1366,7 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryConsensusStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
-        // use crate::chain::ic::query_consensus_state;
+        use crate::chain::ic::query_consensus_state;
         crate::time!(
             "query_consensus_state",
             {
@@ -1380,23 +1380,20 @@ impl ChainEndpoint for CosmosSdkChain {
             request,
             include_proof,
         );
-        // if self.config.id.as_str() == "ibc-1" {
-        //     let runtime = self.rt.clone();
+        if matches!(include_proof, IncludeProof::No) {
+            let runtime = self.rt.clone();
+            let canister_id = self.config.canister_id.id.as_str();
 
-        //     // let client_id = request.client_id.as_bytes().to_vec();
-        //     let mut buf = vec![];
-        //     request.consensus_height.revision_height().encode(&mut buf).unwrap();
-        //     let res = runtime
-        //         .block_on(query_consensus_state(
-        //             "bkyz2-fmaaa-aaaaa-qaaaq-cai",
-        //             false,
-        //             buf,
-        //         ))
-        //         .unwrap();
-        //     println!("ys-debug: query_client_state from ic: {:?}", res);
-        //     let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
-        //     return Ok((consensus_state, None));
-        // }
+            // let client_id = request.client_id.as_bytes().to_vec();
+            let mut buf = vec![];
+            request.consensus_height.encode(&mut buf).unwrap();
+            let res = runtime
+                .block_on(query_consensus_state(canister_id, false, buf))
+                .unwrap();
+            println!("ys-debug: query_consensus_state from ic: {:?}", res);
+            let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
+            return Ok((consensus_state, None));
+        }
         if request.client_id.to_string().starts_with("06-solomachine") {
             let res = self.query(
                 ClientStatePath(request.client_id.clone()),

@@ -455,6 +455,14 @@ pub trait ChainEndpoint: Sized {
                         .map_err(Error::malformed_proof)?,
                 );
 
+                let (tm_client_state_value, _) = self.query_client_state(
+                    QueryClientStateRequest {
+                        client_id: client_id.clone(),
+                        height: QueryHeight::Specific(height),
+                    },
+                    IncludeProof::No,
+                )?;
+
                 let consensus_state_proof = {
                     let (_, maybe_consensus_state_proof) = self.query_consensus_state(
                         QueryConsensusStateRequest {
@@ -474,13 +482,14 @@ pub trait ChainEndpoint: Sized {
                     // };
 
                     maybe_consensus_state_proof.unwrap_or_default()
+                    // consensus_state_proof
                 };
 
                 consensus_proof = Option::from(
                     ConsensusProof::new(
                         CommitmentProofBytes::try_from(consensus_state_proof)
                             .map_err(Error::malformed_proof)?,
-                        client_state_value.latest_height(),
+                        tm_client_state_value.latest_height(),
                     )
                     .map_err(Error::consensus_proof)?,
                 );
