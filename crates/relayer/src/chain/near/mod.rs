@@ -1768,10 +1768,13 @@ pub fn collect_ibc_event_by_outcome(outcome: FinalExecutionOutcomeView) -> Vec<I
                             .expect("Failed to get block_height field."),
                     )
                     .expect("Failed to parse block_height field.");
-                    ibc_events.push(IbcEventWithHeight {
-                        event: convert_ibc_event_to_hermes_ibc_event(&ibc_event),
-                        height: Height::new(0, block_height).unwrap(),
-                    })
+                    match ibc_event {
+                        ibc::core::events::IbcEvent::Message(_) => continue,
+                        _ => ibc_events.push(IbcEventWithHeight {
+                            event: convert_ibc_event_to_hermes_ibc_event(&ibc_event),
+                            height: Height::new(0, block_height).unwrap(),
+                        }),
+                    }
                 }
             }
         }
