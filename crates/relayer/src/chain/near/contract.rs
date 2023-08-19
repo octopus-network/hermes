@@ -436,14 +436,16 @@ pub trait NearIbcContract {
 
     fn get_commitment_prefix(&self) -> anyhow::Result<CommitmentPrefix> {
         info!("NearIbcContract: [get_commitment_prefix]");
-        self.get_rt()
+        let prefix = self
+            .get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id(),
                 "get_commitment_prefix".to_string(),
                 json!({}).to_string().into_bytes(),
             ))
             .expect("Failed to get_commitment_prefix.")
-            .json()
+            .result;
+        Ok(CommitmentPrefix::try_from(prefix).unwrap())
     }
 
     fn get_packet_receipt(

@@ -1266,10 +1266,8 @@ impl ChainEndpoint for CosmosSdkChain {
 
             let canister_id = self.config.canister_id.id.as_str();
 
-            // let client_id = request.client_id.as_bytes().to_vec();
-            let client_id = "07-tendermint-0".as_bytes().to_vec();
             let res = runtime
-                .block_on(query_client_state(canister_id, false, client_id))
+                .block_on(query_client_state(canister_id, false, vec![]))
                 .map_err(|e| Error::custom_error(e.to_string()))?;
             println!("ys-debug: query_client_state from ic: {:?}", res);
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;

@@ -1,6 +1,6 @@
 use crate::clients::ics12_near::header::Header;
 use crate::clients::ics12_near::near_types::signature::PublicKey;
-use crate::clients::ics12_near::near_types::{hash::CryptoHash, LightClientBlockView};
+use crate::clients::ics12_near::near_types::{hash::CryptoHash, LightClientBlock};
 use crate::clients::ics12_near::near_types::{AccountId, Balance};
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::error::Error;
@@ -52,10 +52,7 @@ impl crate::core::ics02_client::consensus_state::ConsensusState for ConsensusSta
 
     fn timestamp(&self) -> Timestamp {
         Timestamp::from_nanoseconds(
-            self.header
-                .light_client_block_view
-                .inner_lite
-                .timestamp_nanosec,
+            self.header.light_client_block.inner_lite.timestamp * 1_000_000_000,
         )
         .expect("failed to create Timestamp")
     }
@@ -78,7 +75,7 @@ impl TryFrom<RawConsensusState> for ConsensusState {
                 .collect::<Result<Vec<ValidatorStakeView>, _>>()
                 .map_err(|e| Error::custom_error(e.to_string()))?,
             header: Header {
-                light_client_block_view: LightClientBlockView::try_from_slice(
+                light_client_block: LightClientBlock::try_from_slice(
                     &h.light_client_block,
                 )
                 .map_err(|e| Error::custom_error(e.to_string()))?,
@@ -109,7 +106,7 @@ impl From<ConsensusState> for RawConsensusState {
             header: Some(RawHeader {
                 light_client_block: value
                     .header
-                    .light_client_block_view
+                    .light_client_block
                     .try_to_vec()
                     .expect("failed serialize to light client block"),
                 prev_state_root_of_chunks: value

@@ -37,6 +37,7 @@ use crate::{
 };
 use alloc::{string::String, sync::Arc};
 use anyhow::Result;
+use bitcoin::block;
 use core::{fmt::Debug, future::Future, str::FromStr};
 use ibc_proto::{
     google::protobuf::Any,
@@ -48,12 +49,18 @@ use ibc_proto::{
 };
 use ibc_relayer_types::clients::ics12_near::{
     client_state::ClientState as NearClientState,
-    consensus_state::ConsensusState as NearConsensusState, header::Header as NearHeader,
+    consensus_state::ConsensusState as NearConsensusState,
+    header::Header as NearHeader,
+    near_types::{
+        hash::CryptoHash,
+        signature::{ED25519PublicKey, PublicKey, Signature},
+        BlockHeaderInnerLite, EpochId, LightClientBlock, ValidatorStakeView, ValidatorStakeViewV1,
+    },
 };
 use ibc_relayer_types::{
     applications::ics31_icq::response::CrossChainQueryResponse,
     clients::{
-        ics06_solomachine::consensus_state::{ConsensusState as SmConsensusState, PublicKey},
+        ics06_solomachine::consensus_state::ConsensusState as SmConsensusState,
         ics06_solomachine::header::{Header as SmHeader, HeaderData as SmHeaderData},
     },
     core::ics02_client::events::UpdateClient,
@@ -82,6 +89,7 @@ use ibc_relayer_types::{
     Height, Height as ICSHeight,
 };
 use near_crypto::{InMemorySigner, KeyType};
+use near_primitives::types::BlockId;
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
 use prost::Message;
 use semver::Version;
@@ -237,30 +245,6 @@ impl NearChain {
         self.signing_key_pair = Some(key_pair);
     }
 
-    fn get_sm_client_pubkey(&self) -> PublicKey {
-        PublicKey(
-            tendermint::PublicKey::from_raw_secp256k1(
-                &self
-                    .signing_key_pair
-                    .as_ref()
-                    .expect("signing key pair is empty")
-                    .public_key
-                    .serialize_uncompressed(),
-            )
-            .expect("faild to get tendermint public key"),
-        )
-    }
-
-    fn get_sm_consensus_state(&self) -> SmConsensusState {
-        let public_key = self.get_sm_client_pubkey();
-        SmConsensusState {
-            public_key,
-            diversifier: CLIENT_DIVERSIFIER.to_string(),
-            timestamp: Timestamp::from_nanoseconds(9999).expect("builf timestamp failed"),
-            root: CommitmentRoot::from_bytes(&public_key.to_bytes()),
-        }
-    }
-
     fn sign_bytes_with_solomachine_pubkey(
         &self,
         sequence: u64,
@@ -317,11 +301,8 @@ impl NearChain {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NearLightBlock {}
-
 impl ChainEndpoint for NearChain {
-    type LightBlock = NearLightBlock; // Todo: Import from Near light client //CS
+    type LightBlock = NearHeader;
     type Header = NearHeader;
     type ConsensusState = NearConsensusState;
     type ClientState = NearClientState;
@@ -401,7 +382,6 @@ impl ChainEndpoint for NearChain {
         );
 
         use crate::chain::ic::deliver;
-        use ibc::Any;
 
         let runtime = self.rt.clone();
 
@@ -476,7 +456,6 @@ impl ChainEndpoint for NearChain {
         );
 
         use crate::chain::ic::deliver;
-        use ibc::Any;
 
         let runtime = self.rt.clone();
 
@@ -547,11 +526,36 @@ impl ChainEndpoint for NearChain {
     /// Fetch a header from the chain at the given height and verify it.
     fn verify_header(
         &mut self,
-        _trusted: ICSHeight,
-        _target: ICSHeight,
-        _client_state: &AnyClientState,
+        trusted: ICSHeight,
+        target: ICSHeight,
+        client_state: &AnyClientState,
     ) -> Result<Self::LightBlock, Error> {
-        Ok(Self::LightBlock {})
+        info!(
+            "{}: [verify_header] - trusted: {:?} target: {:?} client_state: {:?}",
+            self.id(),
+            trusted,
+            target,
+            client_state.latest_height()
+        );
+        let block_view = self
+            .block_on(self.client.view_block(Some(BlockId::Height(
+                client_state.latest_height().revision_height() - 50,
+            ))))
+            .unwrap();
+        info!("ys-debug: get block view: {:?}", block_view);
+        let light_client_block_view = self
+            .block_on(
+                self.client.query(
+                    &near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
+                        last_block_hash: block_view.header.hash
+                    },
+                )
+            )
+            .unwrap();
+
+        let header = produce_light_client_block(&light_client_block_view.unwrap(), &block_view);
+
+        Ok(header)
     }
 
     /// Given a client update event that includes the header used in a client update,
@@ -1337,7 +1341,7 @@ impl ChainEndpoint for NearChain {
         );
         let consensus_state = NearConsensusState {
             current_bps: vec![],
-            header: Default::default(),
+            header: light_block,
             commitment_root: CommitmentRoot::from(vec![]),
         };
 
@@ -1806,15 +1810,91 @@ pub fn collect_ibc_event_by_outcome(
                             .expect("Failed to get block_height field."),
                     )
                     .expect("Failed to parse block_height field.");
-                    ibc_events.push(IbcEventWithHeight {
-                        event: convert_ibc_event_to_hermes_ibc_event(&ibc_event)
-                            .map_err(|e| Error::custom_error(e.to_string()))?,
-                        height: Height::new(0, block_height)
-                            .map_err(|e| Error::custom_error(e.to_string()))?,
-                    })
+                    match ibc_event {
+                        ibc::core::events::IbcEvent::Message(_) => continue,
+                        _ => ibc_events.push(IbcEventWithHeight {
+                            event: convert_ibc_event_to_hermes_ibc_event(&ibc_event),
+                            height: Height::new(0, block_height).map_err(|e| Error::custom_error(e.to_string()))?,
+                        }),
+                    }
                 }
             }
         }
     }
     Ok(ibc_events)
+}
+
+/// Produce `BlockHeaderInnerLiteView` by its NEAR version
+pub fn produce_block_header_inner_light(
+    view: &near_primitives::views::BlockHeaderInnerLiteView,
+) -> BlockHeaderInnerLite {
+    BlockHeaderInnerLite {
+        height: view.height,
+        epoch_id: EpochId(CryptoHash(view.epoch_id.0)),
+        next_epoch_id: EpochId(CryptoHash(view.next_epoch_id.0)),
+        prev_state_root: CryptoHash(view.prev_state_root.0),
+        outcome_root: CryptoHash(view.outcome_root.0),
+        timestamp: view.timestamp,
+        next_bp_hash: CryptoHash(view.next_bp_hash.0),
+        block_merkle_root: CryptoHash(view.block_merkle_root.0),
+    }
+}
+
+/// Produce `Header` by NEAR version of `LightClientBlockView` and `BlockView`.
+pub fn produce_light_client_block(
+    view: &near_primitives::views::LightClientBlockView,
+    block_view: &near_primitives::views::BlockView,
+) -> NearHeader {
+    // assert!(
+    //     view.inner_lite.height == block_view.header.height,
+    //     "Not same height of light client block view and block view. view: {}, block_view: {}",view.inner_lite.height, block_view.header.height
+    // );
+    info!(
+        "Not same height of light client block view and block view. view: {}, block_view: {}",
+        view.inner_lite.height, block_view.header.height
+    );
+    NearHeader {
+        light_client_block: LightClientBlock {
+            prev_block_hash: CryptoHash(view.prev_block_hash.0),
+            next_block_inner_hash: CryptoHash(view.next_block_inner_hash.0),
+            inner_lite: produce_block_header_inner_light(&view.inner_lite),
+            inner_rest_hash: CryptoHash(view.inner_rest_hash.0),
+            next_bps: Some(
+                view.next_bps
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .map(|f| match f {
+                        near_primitives::views::validator_stake_view::ValidatorStakeView::V1(v) => {
+                            ValidatorStakeView::V1(ValidatorStakeViewV1 {
+                                account_id: v.account_id.to_string(),
+                                public_key: match &v.public_key {
+                                    near_crypto::PublicKey::ED25519(data) => {
+                                        PublicKey::ED25519(ED25519PublicKey(data.clone().0))
+                                    }
+                                    _ => panic!("Unsupported publickey in next block producers."),
+                                },
+                                stake: v.stake,
+                            })
+                        }
+                    })
+                    .collect(),
+            ),
+            approvals_after_next: view
+                .approvals_after_next
+                .iter()
+                .map(|f| {
+                    f.as_ref().map(|s| match s {
+                        near_crypto::Signature::ED25519(data) => Signature::ED25519(data.clone()),
+                        _ => panic!("Unsupported signature in approvals after next."),
+                    })
+                })
+                .collect(),
+        },
+        prev_state_root_of_chunks: block_view
+            .chunks
+            .iter()
+            .map(|header| CryptoHash(header.prev_state_root.0))
+            .collect(),
+    }
 }
