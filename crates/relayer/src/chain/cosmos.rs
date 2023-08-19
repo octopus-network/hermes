@@ -766,8 +766,8 @@ impl CosmosSdkChain {
         let mut begin_block_events = vec![];
         let mut end_block_events = vec![];
 
-        let tm_height =
-            tendermint::block::Height::try_from(block_height.revision_height()).unwrap();
+        let tm_height = tendermint::block::Height::try_from(block_height.revision_height())
+            .map_err(|e| Error::custom_error(e.to_string()))?;
 
         let response = self
             .block_on(self.rpc_client.block_results(tm_height))
@@ -1042,10 +1042,12 @@ impl ChainEndpoint for CosmosSdkChain {
             for msg in tracked_msgs.messages() {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
-                    .unwrap();
+                    .map_err(|e| Error::custom_error(e.to_string()))?;
                 println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
-                    msgs.push(Any::decode(&res[..]).unwrap());
+                    msgs.push(
+                        Any::decode(&res[..]).map_err(|e| Error::custom_error(e.to_string()))?,
+                    );
                 }
             }
             tracked_msgs.msgs = msgs;
@@ -1071,10 +1073,12 @@ impl ChainEndpoint for CosmosSdkChain {
             for msg in tracked_msgs.messages() {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
-                    .unwrap();
+                    .map_err(|e| Error::custom_error(e.to_string()))?;
                 println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
                 if !res.is_empty() {
-                    msgs.push(Any::decode(&res[..]).unwrap());
+                    msgs.push(
+                        Any::decode(&res[..]).map_err(|e| Error::custom_error(e.to_string()))?,
+                    );
                 }
             }
             tracked_msgs.msgs = msgs;
@@ -1264,7 +1268,7 @@ impl ChainEndpoint for CosmosSdkChain {
 
             let res = runtime
                 .block_on(query_client_state(canister_id, false, vec![]))
-                .unwrap();
+                .map_err(|e| Error::custom_error(e.to_string()))?;
             println!("ys-debug: query_client_state from ic: {:?}", res);
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
             return Ok((client_state, None));
@@ -1380,10 +1384,13 @@ impl ChainEndpoint for CosmosSdkChain {
 
             // let client_id = request.client_id.as_bytes().to_vec();
             let mut buf = vec![];
-            request.consensus_height.encode(&mut buf).unwrap();
+            request
+                .consensus_height
+                .encode(&mut buf)
+                .map_err(|e| Error::custom_error(e.to_string()))?;
             let res = runtime
                 .block_on(query_consensus_state(canister_id, false, buf))
-                .unwrap();
+                .map_err(|e| Error::custom_error(e.to_string()))?;
             println!("ys-debug: query_consensus_state from ic: {:?}", res);
             let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
             return Ok((consensus_state, None));

@@ -58,7 +58,7 @@ pub fn produce_light_client_block(
             next_bps: Some(
                 view.next_bps
                     .as_ref()
-                    .unwrap()
+                    .expect("next_bps is empty")
                     .iter()
                     .map(|f| match f {
                         near_primitives::views::validator_stake_view::ValidatorStakeView::V1(v) => {

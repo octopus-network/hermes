@@ -23,12 +23,13 @@ impl crate::core::ics02_client::header::Header for Header {
     }
 
     fn height(&self) -> Height {
-        Height::new(0, self.light_client_block.inner_lite.height).unwrap()
+        Height::new(0, self.light_client_block.inner_lite.height)
+            .expect("failed to create ibc height")
     }
 
     fn timestamp(&self) -> Timestamp {
         Timestamp::from_nanoseconds(self.light_client_block.inner_lite.timestamp * 1_000_000_000)
-            .unwrap()
+            .expect("failed to create Timestamp")
     }
 }
 

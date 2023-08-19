@@ -602,6 +602,12 @@ define_error! {
                 format_args!("Report Error: ({})", e.error)
             },
 
+        CustomError
+            { error: String }
+            |e| {
+                format_args!("Custom Error: ({})", e.error)
+            },
+
     }
 }
 

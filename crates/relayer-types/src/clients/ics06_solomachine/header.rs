@@ -30,7 +30,7 @@ impl crate::core::ics02_client::header::Header for Header {
     }
 
     fn height(&self) -> Height {
-        Height::new(0, 41).unwrap()
+        Height::new(0, 41).expect("faild to contruct ibc height")
     }
 
     fn timestamp(&self) -> Timestamp {

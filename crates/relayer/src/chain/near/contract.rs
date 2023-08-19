@@ -1,3 +1,4 @@
+use crate::chain::near::error::NearError;
 use crate::chain::near::rpc::client::NearRpcClient;
 use crate::chain::requests::{
     QueryChannelsRequest, QueryPacketAcknowledgementsRequest, QueryPacketEventDataRequest,
@@ -176,7 +177,7 @@ pub trait NearIbcContract {
             "NearIbcContract: [get_consensus_state_with_height] - client_id: {:?}",
             client_id
         );
-        let client_id = serde_json::to_string(client_id).unwrap();
+        let client_id = serde_json::to_string(client_id).map_err(NearError::SerdeJsonError)?;
 
         self.get_rt()
             .block_on(self.get_client().view(
@@ -223,7 +224,7 @@ pub trait NearIbcContract {
     ) -> anyhow::Result<Vec<(ClientId, Vec<u8>)>> {
         info!("NearIbcContract: [get_clients] - request: {:?}", request);
 
-        let request = serde_json::to_string(&request).unwrap();
+        let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
 
         self.get_rt()
             .block_on(self.get_client().view(
@@ -244,7 +245,7 @@ pub trait NearIbcContract {
             request
         );
 
-        let request = serde_json::to_string(&request).unwrap();
+        let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
 
         self.get_rt()
             .block_on(self.get_client().view(
@@ -262,7 +263,7 @@ pub trait NearIbcContract {
     ) -> anyhow::Result<Vec<IdentifiedChannelEnd>> {
         info!("NearIbcContract: [get_channels] - request: {:?}", request);
 
-        let request = serde_json::to_string(&request).unwrap();
+        let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
 
         self.get_rt()
             .block_on(self.get_client().view(
@@ -369,7 +370,12 @@ pub trait NearIbcContract {
     fn deliver(&self, messages: Vec<Any>) -> anyhow::Result<FinalExecutionOutcomeView> {
         info!("NearIbcContract: [deliver] - messages: {:?}", messages);
 
-        let signer = InMemorySigner::from_random("bob.testnet".parse().unwrap(), KeyType::ED25519);
+        let signer = InMemorySigner::from_random(
+            "bob.testnet"
+                .parse()
+                .map_err(NearError::ParserNearAccountIdFailure)?,
+            KeyType::ED25519,
+        );
         self.get_rt().block_on(self.get_client().call(
             &signer,
             &self.get_contract_id(),
@@ -383,7 +389,12 @@ pub trait NearIbcContract {
     fn raw_transfer(&self, msgs: Vec<Any>) -> anyhow::Result<FinalExecutionOutcomeView> {
         info!("NearIbcContract: [raw_transfer] - msgs: {:?}", msgs);
 
-        let signer = InMemorySigner::from_random("bob.testnet".parse().unwrap(), KeyType::ED25519);
+        let signer = InMemorySigner::from_random(
+            "bob.testnet"
+                .parse()
+                .map_err(NearError::ParserNearAccountIdFailure)?,
+            KeyType::ED25519,
+        );
         self.get_rt().block_on(self.get_client().call(
             &signer,
             &self.get_contract_id(),
@@ -561,13 +572,14 @@ pub async fn test123() -> anyhow::Result<()> {
                 .into_bytes(),
         )
         .await
-        .unwrap();
+        .map_err(|e| NearError::CustomError(e.to_string()))?;
 
     // dbg!(&result);
 
-    let result_raw: serde_json::value::Value = result.json().unwrap();
+    let result_raw: serde_json::value::Value = result.json().map_err(NearError::SerdeJsonError)?;
     dbg!(&result_raw);
-    let connection_end: ConnectionEnd = serde_json::from_value(result_raw).unwrap();
+    let connection_end: ConnectionEnd =
+        serde_json::from_value(result_raw).map_err(NearError::SerdeJsonError)?;
     dbg!(&connection_end);
     Ok(())
 }

@@ -61,8 +61,13 @@ impl LightClient {
     ///
     pub fn set_consensus_state(&mut self, height: &Height, consensus_state: ConsensusState) {
         let file_name = format!("{}/{}/{}", self.base_folder, HEAD_DATA_SUB_FOLDER, height);
-        std::fs::write(file_name, consensus_state.try_to_vec().unwrap())
-            .expect("Failed to save light client state to file.");
+        std::fs::write(
+            file_name,
+            consensus_state
+                .try_to_vec()
+                .expect("failed serde consensus state"),
+        )
+        .expect("Failed to save light client state to file.");
     }
     ///
     pub fn remove_oldest_head(&mut self) {
@@ -79,7 +84,7 @@ impl LightClient {
             "{}/failed_head/{}",
             self.base_folder, head.header.light_client_block.inner_lite.height
         );
-        std::fs::write(file_name, head.try_to_vec().unwrap())
+        std::fs::write(file_name, head.try_to_vec().expect("serde failed head"))
             .expect("Failed to save failed light client head to file.");
     }
     ///

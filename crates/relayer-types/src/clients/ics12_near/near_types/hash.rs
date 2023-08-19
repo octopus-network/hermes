@@ -37,7 +37,7 @@ impl CryptoHash {
     /// prefer using [`Self::hash_borsh_slice`] instead.
     pub fn hash_borsh<T: BorshSerialize>(value: &T) -> CryptoHash {
         let mut hasher = sha2::Sha256::default();
-        BorshSerialize::serialize(value, &mut hasher).unwrap();
+        BorshSerialize::serialize(value, &mut hasher).expect("borsh serialization failed");
         CryptoHash(hasher.finalize().into())
     }
 }
@@ -61,7 +61,9 @@ impl TryFrom<&[u8]> for CryptoHash {
         if bytes.len() != 32 {
             return Err("Wrong size.".to_string());
         }
-        let inner: [u8; 32] = bytes.try_into().unwrap();
+        let inner: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| "convert bytes(&[u8]) to [u8; 32] failed".to_string())?;
         Ok(CryptoHash(inner))
     }
 }
