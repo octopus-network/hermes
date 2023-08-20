@@ -463,28 +463,7 @@ pub trait ChainEndpoint: Sized {
                     IncludeProof::No,
                 )?;
 
-                let consensus_state_proof = {
-                    let (_, maybe_consensus_state_proof) = self.query_consensus_state(
-                        QueryConsensusStateRequest {
-                            client_id: client_id.clone(),
-                            consensus_height: client_state_value.latest_height(),
-                            query_height: QueryHeight::Specific(height),
-                        },
-                        IncludeProof::Yes,
-                    )?;
-
-                    println!(
-                        "ys-debug: consensus state proof: {:?}",
-                        maybe_consensus_state_proof
-                    );
-                    // let Some(consensus_state_proof) = maybe_consensus_state_proof else {
-                    //     return Err(Error::queried_proof_not_found());
-                    // };
-
-                    maybe_consensus_state_proof.unwrap_or_default()
-                    // consensus_state_proof
-                };
-
+                let consensus_state_proof = MerkleProof::default();
                 consensus_proof = Option::from(
                     ConsensusProof::new(
                         CommitmentProofBytes::try_from(consensus_state_proof)

@@ -1378,66 +1378,22 @@ impl ChainEndpoint for CosmosSdkChain {
             request,
             include_proof,
         );
-        if matches!(include_proof, IncludeProof::No) {
-            let runtime = self.rt.clone();
-            let canister_id = self.config.canister_id.id.as_str();
+        assert!(matches!(include_proof, IncludeProof::No));
+        assert!(request.client_id.to_string().starts_with("06-solomachine"));
+        let runtime = self.rt.clone();
+        let canister_id = self.config.canister_id.id.as_str();
 
-            // let client_id = request.client_id.as_bytes().to_vec();
-            let mut buf = vec![];
-            request
-                .consensus_height
-                .encode(&mut buf)
-                .map_err(|e| Error::custom_error(e.to_string()))?;
-            let res = runtime
-                .block_on(query_consensus_state(canister_id, false, buf))
-                .map_err(|e| Error::custom_error(e.to_string()))?;
-            println!("ys-debug: query_consensus_state from ic: {:?}", res);
-            let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
-            return Ok((consensus_state, None));
-        }
-        if request.client_id.to_string().starts_with("06-solomachine") {
-            let res = self.query(
-                ClientStatePath(request.client_id.clone()),
-                request.query_height,
-                matches!(include_proof, IncludeProof::Yes),
-            )?;
-            let client_state = AnyClientState::decode_vec(&res.value).map_err(Error::decode)?;
-            if !matches!(client_state, AnyClientState::Solomachine(_)) {
-                return Err(Error::client_state_type(
-                    client_state.client_type().to_string(),
-                ));
-            }
-            if let AnyClientState::Solomachine(cs) = client_state {
-                return Ok((AnyConsensusState::Solomachine(cs.consensus_state), None));
-            }
-        }
-
-        let res = self.query(
-            ClientConsensusStatePath {
-                client_id: request.client_id.clone(),
-                epoch: request.consensus_height.revision_number(),
-                height: request.consensus_height.revision_height(),
-            },
-            request.query_height,
-            matches!(include_proof, IncludeProof::Yes),
-        )?;
-
-        let consensus_state = AnyConsensusState::decode_vec(&res.value).map_err(Error::decode)?;
-
-        if !matches!(consensus_state, AnyConsensusState::Tendermint(_)) {
-            return Err(Error::consensus_state_type_mismatch(
-                ClientType::Tendermint,
-                consensus_state.client_type(),
-            ));
-        }
-
-        match include_proof {
-            IncludeProof::Yes => {
-                let proof = res.proof.ok_or_else(Error::empty_response_proof)?;
-                Ok((consensus_state, Some(proof)))
-            }
-            IncludeProof::No => Ok((consensus_state, None)),
-        }
+        let mut buf = vec![];
+        request
+            .consensus_height
+            .encode(&mut buf)
+            .map_err(|e| Error::custom_error(e.to_string()))?;
+        let res = runtime
+            .block_on(query_consensus_state(canister_id, false, buf))
+            .map_err(|e| Error::custom_error(e.to_string()))?;
+        println!("ys-debug: query_consensus_state from ic: {:?}", res);
+        let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
+        Ok((consensus_state, None))
     }
 
     fn query_client_connections(
