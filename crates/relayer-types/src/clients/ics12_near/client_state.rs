@@ -8,6 +8,7 @@ use bytes::Buf;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::lightclients::near::v1::ClientState as RawClientState;
 use ibc_proto::protobuf::Protobuf;
+use prost::Message;
 use serde::{Deserialize, Serialize};
 use std::prelude::rust_2015::ToString;
 use std::time::Duration;
@@ -111,10 +112,10 @@ impl From<ClientState> for RawClientState {
 impl Protobuf<Any> for ClientState {}
 
 impl From<ClientState> for Any {
-    fn from(_client_state: ClientState) -> Self {
+    fn from(client_state: ClientState) -> Self {
         Any {
-            type_url: NEAR_CONSENSUS_STATE_TYPE_URL.to_string(),
-            value: vec![],
+            type_url: NEAR_CLIENT_STATE_TYPE_URL.to_string(),
+            value: Protobuf::<RawClientState>::encode_vec(&client_state),
         }
     }
 }
@@ -122,16 +123,21 @@ impl From<ClientState> for Any {
 impl TryFrom<Any> for ClientState {
     type Error = Error;
 
-    fn try_from(raw: Any) -> Result<Self, Error> {
+    fn try_from(raw: Any) -> Result<Self, Self::Error> {
+        use bytes::Buf;
         use core::ops::Deref;
 
-        fn decode_header<B: Buf>(_buf: B) -> Result<ClientState, Error> {
-            Ok(ClientState::default())
+        fn decode_client_state<B: Buf>(buf: B) -> Result<ClientState, Error> {
+            RawClientState::decode(buf)
+                .map_err(Error::decode)?
+                .try_into()
         }
 
         match raw.type_url.as_str() {
-            NEAR_CONSENSUS_STATE_TYPE_URL => decode_header(raw.value.deref()).map_err(Into::into),
-            _ => Err(Error::unknown_header_type(raw.type_url)),
+            NEAR_CLIENT_STATE_TYPE_URL => {
+                decode_client_state(raw.value.deref()).map_err(Into::into)
+            }
+            _ => Err(Error::unknown_client_state_type(raw.type_url)),
         }
     }
 }

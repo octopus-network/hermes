@@ -13,6 +13,7 @@ use ibc_proto::ibc::lightclients::near::v1::{
     CryptoHash as RawCryptoHash, Header as RawHeader, ValidatorStakeView as RawValidatorStakeView,
 };
 use ibc_proto::protobuf::Protobuf;
+use prost::Message;
 use serde::{Deserialize, Serialize};
 
 pub const NEAR_CONSENSUS_STATE_TYPE_URL: &str = "/ibc.lightclients.near.v1.ConsensusState";
@@ -127,13 +128,10 @@ impl TryFrom<Any> for ConsensusState {
         use bytes::Buf;
         use core::ops::Deref;
 
-        // todo, this should give corrent value
-        fn decode_consensus_state<B: Buf>(_buf: B) -> Result<ConsensusState, Error> {
-            Ok(ConsensusState {
-                current_bps: vec![],
-                header: Header::default(),
-                commitment_root: CommitmentRoot::from(vec![]),
-            })
+        fn decode_consensus_state<B: Buf>(buf: B) -> Result<ConsensusState, Error> {
+            RawConsensusState::decode(buf)
+                .map_err(Error::decode)?
+                .try_into()
         }
 
         match raw.type_url.as_str() {
@@ -146,10 +144,10 @@ impl TryFrom<Any> for ConsensusState {
 }
 
 impl From<ConsensusState> for Any {
-    fn from(_consensus_state: ConsensusState) -> Self {
+    fn from(consensus_state: ConsensusState) -> Self {
         Any {
             type_url: NEAR_CONSENSUS_STATE_TYPE_URL.to_string(),
-            value: vec![],
+            value: Protobuf::<RawConsensusState>::encode_vec(&consensus_state),
         }
     }
 }

@@ -4,13 +4,15 @@ pub mod tendermint;
 use core::ops::Deref;
 
 use ibc_proto::google::protobuf::Any;
+use ibc_proto::ibc::lightclients::near::v1::Header as RawNearHeader;
 use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawTmHeader;
 use ibc_proto::protobuf::Protobuf as ErasedProtobuf;
 use ibc_relayer_types::clients::ics07_tendermint::header::{
     decode_header as tm_decode_header, Header as TendermintHeader, TENDERMINT_HEADER_TYPE_URL,
 };
-use ibc_relayer_types::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
-use ibc_relayer_types::clients::ics12_near::header::{Header as NearHeader, NEAR_HEADER_TYPE_URL};
+use ibc_relayer_types::clients::ics12_near::header::{
+    decode_header as near_decode_header, Header as NearHeader, NEAR_HEADER_TYPE_URL,
+};
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
 use ibc_relayer_types::core::ics02_client::error::Error;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
@@ -123,7 +125,11 @@ impl TryFrom<Any> for AnyHeader {
 
                 Ok(AnyHeader::Tendermint(val))
             }
-            NEAR_HEADER_TYPE_URL => Ok(AnyHeader::Near(NearHeader::default())),
+            NEAR_HEADER_TYPE_URL => {
+                let val = near_decode_header(raw.value.deref())?;
+
+                Ok(AnyHeader::Near(val))
+            }
 
             _ => Err(Error::unknown_header_type(raw.type_url)),
         }
@@ -137,9 +143,9 @@ impl From<AnyHeader> for Any {
                 type_url: TENDERMINT_HEADER_TYPE_URL.to_string(),
                 value: ErasedProtobuf::<RawTmHeader>::encode_vec(&header),
             },
-            AnyHeader::Near(_header) => Any {
-                type_url: NEAR_CONSENSUS_STATE_TYPE_URL.to_string(),
-                value: vec![],
+            AnyHeader::Near(header) => Any {
+                type_url: NEAR_HEADER_TYPE_URL.to_string(),
+                value: ErasedProtobuf::<RawNearHeader>::encode_vec(&header),
             },
         }
     }

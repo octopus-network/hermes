@@ -1269,7 +1269,6 @@ impl ChainEndpoint for CosmosSdkChain {
             let res = runtime
                 .block_on(query_client_state(canister_id, false, vec![]))
                 .map_err(|e| Error::custom_error(e.to_string()))?;
-            println!("ys-debug: query_client_state from ic: {:?}", res);
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
             return Ok((client_state, None));
         }
@@ -1391,7 +1390,6 @@ impl ChainEndpoint for CosmosSdkChain {
         let res = runtime
             .block_on(query_consensus_state(canister_id, false, buf))
             .map_err(|e| Error::custom_error(e.to_string()))?;
-        println!("ys-debug: query_consensus_state from ic: {:?}", res);
         let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
         Ok((consensus_state, None))
     }

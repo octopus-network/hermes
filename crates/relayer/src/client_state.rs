@@ -103,7 +103,7 @@ impl AnyClientState {
         match self {
             AnyClientState::Tendermint(state) => state.max_clock_drift,
             AnyClientState::Solomachine(_state) => Duration::new(0, 0),
-            AnyClientState::Near(_state) => Duration::new(0, 0),
+            AnyClientState::Near(_state) => Duration::new(6, 0), // TODO: julian
 
             #[cfg(test)]
             AnyClientState::Mock(_) => Duration::new(0, 0),

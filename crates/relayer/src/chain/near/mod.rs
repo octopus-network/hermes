@@ -47,16 +47,6 @@ use ibc_proto::{
     },
     protobuf::Protobuf,
 };
-use ibc_relayer_types::clients::ics12_near::{
-    client_state::ClientState as NearClientState,
-    consensus_state::ConsensusState as NearConsensusState,
-    header::Header as NearHeader,
-    near_types::{
-        hash::CryptoHash,
-        signature::{ED25519PublicKey, PublicKey, Signature},
-        BlockHeaderInnerLite, EpochId, LightClientBlock, ValidatorStakeView, ValidatorStakeViewV1,
-    },
-};
 use ibc_relayer_types::{
     applications::ics31_icq::response::CrossChainQueryResponse,
     clients::{
@@ -88,6 +78,20 @@ use ibc_relayer_types::{
     timestamp::Timestamp,
     Height, Height as ICSHeight,
 };
+use ibc_relayer_types::{
+    clients::ics12_near::{
+        client_state::ClientState as NearClientState,
+        consensus_state::ConsensusState as NearConsensusState,
+        header::Header as NearHeader,
+        near_types::{
+            hash::CryptoHash,
+            signature::{ED25519PublicKey, PublicKey, Signature},
+            BlockHeaderInnerLite, EpochId, LightClientBlock, ValidatorStakeView,
+            ValidatorStakeViewV1,
+        },
+    },
+    core::ics02_client::header::Header,
+};
 use near_crypto::{InMemorySigner, KeyType};
 use near_primitives::types::BlockId;
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
@@ -102,7 +106,7 @@ use tracing::{debug, info, trace};
 pub mod constants;
 pub mod contract;
 pub mod error;
-pub mod light_client;
+// pub mod light_client;
 pub mod rpc;
 
 use error::NearError;
@@ -1361,73 +1365,35 @@ impl ChainEndpoint for NearChain {
             target_height,
             client_state
         );
-        todo!()
 
-        // if trusted_height.revision_height() >= target_height.revision_height() {
-        //     return Err(Error::ics02(ClientError::invalid_height()));
-        // }
-        // let cs = if let AnyClientState::Solomachine(cs) = client_state {
-        //     cs
-        // } else {
-        //     todo!()
-        // };
-        // let mut timestamp = cs.consensus_state.timestamp;
-        // let mut h: Self::Header = SmHeader {
-        //     timestamp: Timestamp::from_nanoseconds(0).unwrap(),
-        //     signature: vec![],
-        //     new_public_key: self.get_sm_client_pubkey(),
-        //     new_diversifier: CLIENT_DIVERSIFIER.to_string(),
-        // };
-        // let mut hs: Vec<Self::Header> = Vec::new();
-        // let start = if trusted_height.revision_height() > cs.sequence.revision_height() {
-        //     trusted_height.revision_height()
-        // } else {
-        //     cs.sequence.revision_height()
-        // };
-        // let end = if target_height.revision_height() > cs.sequence.revision_height() {
-        //     target_height.revision_height()
-        // } else {
-        //     cs.sequence.revision_height() + 1
-        // };
+        let mut headers = Vec::new();
+        let mut height = trusted_height.revision_height();
+        while height < target_height.revision_height() {
+            let block_view = self
+                .block_on(self.client.view_block(Some(BlockId::Height(height))))
+                .unwrap();
+            info!("ys-debug: get block view: {:?}", block_view);
+            let light_client_block_view = self
+            .block_on(
+                self.client.query(
+                    &near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
+                        last_block_hash: block_view.header.hash
+                    },
+                )
+            )
+            .unwrap();
 
-        // for seq in start..end {
-        //     let pk = self.get_sm_client_pubkey();
-        //     debug!("{}: [build_header] - pk: {:?}", self.id(), pk);
-        //     let duration_since_epoch = SystemTime::now()
-        //         .duration_since(SystemTime::UNIX_EPOCH)
-        //         .unwrap();
-        //     let _timestamp_nanos = duration_since_epoch
-        //         // .checked_sub(Duration::from_secs(5))
-        //         // .unwrap()
-        //         .as_nanos() as u64; // u128
-        //     let data = SmHeaderData {
-        //         new_pub_key: pk,
-        //         new_diversifier: CLIENT_DIVERSIFIER.to_string(),
-        //     };
-        //     timestamp = Timestamp::from_nanoseconds(timestamp.nanoseconds() + 1).unwrap();
-
-        //     let sig_data = self.sign_bytes_with_solomachine_pubkey(
-        //         seq,
-        //         timestamp.nanoseconds(),
-        //         DataType::Header.into(),
-        //         data.encode_vec(),
-        //     );
-
-        //     let header = SmHeader {
-        //         timestamp,
-        //         signature: sig_data,
-        //         new_public_key: pk,
-        //         new_diversifier: CLIENT_DIVERSIFIER.to_string(),
-        //     };
-
-        //     if seq == end - 1 {
-        //         h = header;
-        //     } else {
-        //         hs.push(header);
-        //     }
-        // }
-
-        // Ok((h, hs))
+            let header = produce_light_client_block(&light_client_block_view.unwrap(), &block_view);
+            info!("ys-debug: get new header: {:?}", header.height());
+            height = header.height().revision_height();
+            headers.push(header);
+        }
+        if !headers.is_empty() {
+            let h = headers.pop().unwrap();
+            Ok((h, headers))
+        } else {
+            Err(Error::report_error("failed to build header".to_string()))
+        }
     }
 
     fn maybe_register_counterparty_payee(
