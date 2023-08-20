@@ -43,13 +43,12 @@ impl Ics2ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        Height::new(0, self.latest_height + 1).expect("faild to create ibc height")
+        Height::new(1, self.latest_height).expect("faild to create ibc height")
     }
 
     fn frozen_height(&self) -> Option<crate::Height> {
-        self.frozen_height.map(|frozen_height| {
-            Height::new(0, frozen_height + 1).expect("faild to create ibc height")
-        })
+        self.frozen_height
+            .map(|frozen_height| Height::new(1, frozen_height).expect("faild to create ibc height"))
     }
 
     fn expired(&self, _elapsed: Duration) -> bool {
@@ -71,7 +70,7 @@ impl TryFrom<RawClientState> for ClientState {
 
     fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
         Ok(Self {
-            chain_id: ChainId::new("ibc".to_string(), 1),
+            chain_id: ChainId::new("ibc".to_string(), 1), // TODO: julian
             trusting_period: raw
                 .trusting_period
                 .ok_or(Error::custom_error("trusting period is empty".into()))?

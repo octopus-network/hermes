@@ -51,10 +51,8 @@ impl crate::core::ics02_client::consensus_state::ConsensusState for ConsensusSta
     }
 
     fn timestamp(&self) -> Timestamp {
-        Timestamp::from_nanoseconds(
-            self.header.light_client_block.inner_lite.timestamp * 1_000_000_000,
-        )
-        .expect("failed to create Timestamp")
+        Timestamp::from_nanoseconds(self.header.light_client_block.inner_lite.timestamp)
+            .expect("failed to create Timestamp")
     }
 }
 

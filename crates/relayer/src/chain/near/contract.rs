@@ -44,7 +44,7 @@ pub trait NearIbcContract {
             .json()?;
 
         // As we use solomachine client, we set the revision number to 0
-        Ok(Height::new(0, height.revision_height())?)
+        Ok(Height::new(1, height.revision_height())?)
     }
 
     fn get_connection_end(
