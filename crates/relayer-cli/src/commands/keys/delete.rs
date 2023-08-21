@@ -123,7 +123,15 @@ pub fn delete_key(config: &ChainConfig, key_name: &str) -> eyre::Result<()> {
             )?;
             keyring.remove_key(key_name)?;
         }
-        ChainType::Near => todo!(),
+        ChainType::Near => {
+            let mut keyring = KeyRing::new_near_keypair(
+                Store::Test,
+                &config.account_prefix,
+                &config.id,
+                &config.key_store_folder,
+            )?;
+            keyring.remove_key(key_name)?;
+        }
     }
     Ok(())
 }
@@ -142,7 +150,18 @@ pub fn delete_all_keys(config: &ChainConfig) -> eyre::Result<()> {
                 keyring.remove_key(&key_name)?;
             }
         }
-        ChainType::Near => todo!(),
+        ChainType::Near => {
+            let mut keyring = KeyRing::new_near_keypair(
+                Store::Test,
+                &config.account_prefix,
+                &config.id,
+                &config.key_store_folder,
+            )?;
+            let keys = keyring.keys()?;
+            for (key_name, _) in keys {
+                keyring.remove_key(&key_name)?;
+            }
+        }
     }
     Ok(())
 }
