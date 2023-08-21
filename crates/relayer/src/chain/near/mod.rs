@@ -33,7 +33,7 @@ use crate::{
         near_event_monitor::{NearEventMonitor, TxMonitorCmd},
         IbcEventWithHeight,
     },
-    keyring::{KeyRing, Secp256k1KeyPair, SigningKeyPair},
+    keyring::{KeyRing, NearKeyPair, SigningKeyPair},
     misbehaviour::MisbehaviourEvidence,
 };
 use alloc::{string::String, sync::Arc};
@@ -94,7 +94,6 @@ use ibc_relayer_types::{
     },
     core::ics02_client::header::Header,
 };
-use near_crypto::{InMemorySigner, KeyType};
 use near_primitives::types::BlockId;
 use near_primitives::views::ViewStateResult;
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
@@ -130,11 +129,11 @@ pub struct NearChain {
     client: NearRpcClient,
     lcb_client: NearRpcClient,
     config: ChainConfig,
-    keybase: KeyRing<Secp256k1KeyPair>,
+    keybase: KeyRing<NearKeyPair>,
     near_ibc_contract: AccountId,
     rt: Arc<TokioRuntime>,
     tx_monitor_cmd: Option<TxMonitorCmd>,
-    signing_key_pair: Option<Secp256k1KeyPair>,
+    signing_key_pair: Option<NearKeyPair>,
 }
 
 impl NearIbcContract for NearChain {
@@ -201,15 +200,11 @@ impl NearChain {
     fn deliver(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
         info!("{}: [deliver] - messages: {:?}", self.id(), messages);
 
-        let mut home_dir = dirs::home_dir().expect("Impossible to get your home dir!");
-        home_dir.push(format!(
-            ".near-credentials/testnet/{}.json",
-            self.get_signer()
-                .map_err(NearError::GetSignerFailure)?
-                .as_ref()
-        ));
-        let signer = InMemorySigner::from_file(home_dir.as_path())
-            .map_err(NearError::ParserInMemorySignerFailure)?;
+        let signer = self
+            .keybase()
+            .get_key(&self.config.key_name)
+            .map_err(Error::key_base)?
+            .inner();
 
         self.block_on(self.client.call(
             &signer,
@@ -225,12 +220,12 @@ impl NearChain {
         info!("{}: [raw_transfer] - messages: {:?}", self.id(), messages);
         let _msg = serde_json::to_string(&messages).map_err(NearError::SerdeJsonError)?;
 
-        let signer = InMemorySigner::from_random(
-            "bob.testnet"
-                .parse()
-                .map_err(NearError::ParserNearAccountIdFailure)?,
-            KeyType::ED25519,
-        );
+        let signer = self
+            .keybase()
+            .get_key(&self.config.key_name)
+            .map_err(Error::key_base)?
+            .inner();
+
         self.block_on(self.client.call(
             &signer,
             &self.near_ibc_contract,
@@ -318,7 +313,7 @@ impl ChainEndpoint for NearChain {
     type Header = NearHeader;
     type ConsensusState = NearConsensusState;
     type ClientState = NearClientState;
-    type SigningKeyPair = Secp256k1KeyPair;
+    type SigningKeyPair = NearKeyPair;
     type Time = ibc::core::timestamp::Timestamp;
 
     fn id(&self) -> &ChainId {
@@ -374,7 +369,18 @@ impl ChainEndpoint for NearChain {
 
     fn get_signer(&self) -> Result<Signer, Error> {
         trace!("In near: [get signer]");
-        Signer::from_str(SIGNER_ACCOUNT_TESTNET).map_err(|e| Error::custom_error(e.to_string()))
+        // Get the key from key seed file
+        let key_pair = self
+            .keybase()
+            .get_key(&self.config.key_name)
+            .map_err(Error::key_base)?;
+
+        let signer = key_pair
+            .account()
+            .parse()
+            .map_err(|e| Error::ics02(ClientError::signer(e)))?;
+
+        Ok(signer)
     }
 
     // versioning

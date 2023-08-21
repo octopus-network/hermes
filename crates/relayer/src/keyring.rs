@@ -2,6 +2,7 @@ pub mod errors;
 pub use any_signing_key_pair::AnySigningKeyPair;
 pub use ed25519_key_pair::Ed25519KeyPair;
 pub use key_type::KeyType;
+pub use near_keyring::NearKeyPair;
 pub use secp256k1_key_pair::Secp256k1KeyPair;
 pub use signing_key_pair::{SigningKeyPair, SigningKeyPairSized};
 
@@ -9,6 +10,7 @@ mod any_signing_key_pair;
 mod ed25519_key_pair;
 mod key_type;
 mod key_utils;
+mod near_keyring;
 mod pub_key;
 mod secp256k1_key_pair;
 mod signing_key_pair;
@@ -278,6 +280,17 @@ impl KeyRing<Secp256k1KeyPair> {
 
 impl KeyRing<Ed25519KeyPair> {
     pub fn new_ed25519(
+        store: Store,
+        account_prefix: &str,
+        chain_id: &ChainId,
+        ks_folder: &Option<PathBuf>,
+    ) -> Result<Self, Error> {
+        Self::new(store, account_prefix, chain_id, ks_folder)
+    }
+}
+
+impl KeyRing<NearKeyPair> {
+    pub fn new_near_keypair(
         store: Store,
         account_prefix: &str,
         chain_id: &ChainId,
