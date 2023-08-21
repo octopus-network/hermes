@@ -117,7 +117,6 @@ use error::NearError;
 pub const REVISION_NUMBER: u64 = 0;
 pub const CLIENT_DIVERSIFIER: &str = "NEAR";
 pub const CONTRACT_ACCOUNT_ID: &str = "v3.nearibc.testnet";
-pub const SIGNER_ACCOUNT_TESTNET: &str = "juliansun.testnet";
 const MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG: u128 = 100_000_000_000_000_000_000_000;
 
 #[derive(BorshSerialize, BorshDeserialize)]
