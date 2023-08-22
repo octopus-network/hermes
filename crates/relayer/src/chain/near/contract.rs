@@ -574,7 +574,7 @@ pub async fn test123() -> anyhow::Result<()> {
 
     // dbg!(&result);
 
-    let result_raw: serde_json::value::Value = result.json().map_err(NearError::SerdeJsonError)?;
+    let result_raw: serde_json::value::Value = result.json().unwrap();
     dbg!(&result_raw);
     let connection_end: ConnectionEnd =
         serde_json::from_value(result_raw).map_err(NearError::SerdeJsonError)?;
