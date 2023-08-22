@@ -13,8 +13,8 @@ use ibc_relayer::{
     chain::ChainType,
     config::{ChainConfig, Config},
     keyring::{
-        AnySigningKeyPair, Ed25519KeyPair, KeyFile, KeyRing, NearKeyPair, Secp256k1KeyPair,
-        SigningKeyPair, SigningKeyPairSized, Store,
+        AnySigningKeyPair, KeyRing, NearKeyPair, Secp256k1KeyPair, SigningKeyPair,
+        SigningKeyPairSized, Store,
     },
 };
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;

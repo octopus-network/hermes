@@ -38,7 +38,6 @@ use crate::{
 };
 use alloc::{string::String, sync::Arc};
 use anyhow::Result;
-use bitcoin::block;
 use core::{fmt::Debug, future::Future, str::FromStr};
 use ibc_proto::{
     google::protobuf::Any,
@@ -50,10 +49,6 @@ use ibc_proto::{
 };
 use ibc_relayer_types::{
     applications::ics31_icq::response::CrossChainQueryResponse,
-    clients::{
-        ics06_solomachine::consensus_state::ConsensusState as SmConsensusState,
-        ics06_solomachine::header::{Header as SmHeader, HeaderData as SmHeaderData},
-    },
     core::ics02_client::events::UpdateClient,
     core::ics23_commitment::merkle::MerkleProof,
     core::ics24_host::path::{

@@ -1,10 +1,8 @@
-use crate::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
 use crate::core::ics02_client::client_state::{ClientState as Ics2ClientState, UpgradeOptions};
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::error::Error;
 use crate::core::ics02_client::height::Height;
 use crate::core::ics24_host::identifier::ChainId;
-use bytes::Buf;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::lightclients::near::v1::ClientState as RawClientState;
 use ibc_proto::protobuf::Protobuf;
