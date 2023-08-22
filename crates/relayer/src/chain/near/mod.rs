@@ -242,8 +242,7 @@ impl NearChain {
     }
 
     fn init_signing_key_pair(&mut self) {
-        let key_pair = self.get_key().expect("Failed to get key.");
-        self.signing_key_pair = Some(key_pair);
+        self.signing_key_pair = self.get_key().ok();
     }
 
     fn sign_bytes_with_solomachine_pubkey(
@@ -252,7 +251,7 @@ impl NearChain {
         timestamp: u64,
         data_type: i32,
         data: Vec<u8>,
-    ) -> Vec<u8> {
+    ) -> Result<Vec<u8>, Error> {
         use ibc_proto::cosmos::tx::signing::v1beta1::signature_descriptor::{
             data::{Single, Sum},
             Data,
@@ -270,18 +269,22 @@ impl NearChain {
             data,
         };
         let mut buf = Vec::new();
-        Message::encode(&bytes, &mut buf).expect("encode sign bytes failed");
+        Message::encode(&bytes, &mut buf).map_err(|e| Error::custom_error(format!("[Near Chain sign_bytes_with_solomachine_pubkey Encode SignBytes failed] -> Error({})", e)))?;
         debug!(
             "{}: [sign_bytes_with_solomachine_pubkey] - encoded_bytes: {:?}",
             self.id(),
             buf
         );
 
-        let key_pair = self
-            .signing_key_pair
-            .as_ref()
-            .expect("signing key pair is empty");
-        let signature = key_pair.sign(&buf).expect("sign failed");
+        let key_pair = self.signing_key_pair.as_ref().ok_or(Error::custom_error(
+            "[Near Chain sign_bytes_with_solomachine_pubkey key_pair is empty]".to_string(),
+        ))?;
+        let signature = key_pair.sign(&buf).map_err(|e| {
+            Error::custom_error(format!(
+                "[Near Chain sign_bytes_with_solomachine_pubkey sign failed] -> Error({})",
+                e
+            ))
+        })?;
         debug!(
             "{}: [sign_bytes_with_solomachine_pubkey] - signature: {:?}",
             self.id(),
@@ -291,14 +294,14 @@ impl NearChain {
             sum: Some(Sum::Single(Single { mode: 1, signature })),
         };
         buf = Vec::new();
-        Message::encode(&sig, &mut buf).expect("encode sign bytes failed");
+        Message::encode(&sig, &mut buf).map_err(|e| Error::custom_error(format!("[Near Chain sign_bytes_with_solomachine_pubkey Encode ibc_proto::cosmos::tx::signing::v1beta1::signature_descriptor::Data failed] -> Error({})", e)))?;
 
         debug!(
             "{}: [sign_bytes_with_solomachine_pubkey] - sig_data: {:?}",
             self.id(),
             buf
         );
-        buf
+        Ok(buf)
     }
 }
 
