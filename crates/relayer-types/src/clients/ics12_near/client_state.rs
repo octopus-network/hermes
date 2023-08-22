@@ -72,11 +72,11 @@ impl TryFrom<RawClientState> for ClientState {
             chain_id: ChainId::new("ibc".to_string(), 0), // TODO: julian
             trusting_period: raw
                 .trusting_period
-                .ok_or(Error::custom_error("trusting period is empty".into()))?
+                .ok_or(Error::custom_error("[ibc relayer type Convert from Near RawCleintState to ClientState Failed] trusting period is empty".into()))?
                 .nanos as u64,
             latest_height: raw
                 .latest_height
-                .ok_or(Error::custom_error("latest height is empty".into()))?
+                .ok_or(Error::custom_error("[ibc relayer type Convert from Near RawCleintState to ClientState Failed] latest height is empty".into()))?
                 .revision_height,
             latest_timestamp: raw.latest_timestamp,
             frozen_height: raw.frozen_height.map(|h| h.revision_height),

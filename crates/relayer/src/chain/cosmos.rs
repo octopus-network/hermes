@@ -766,7 +766,7 @@ impl CosmosSdkChain {
         let mut end_block_events = vec![];
 
         let tm_height = tendermint::block::Height::try_from(block_height.revision_height())
-            .map_err(|e| Error::custom_error(e.to_string()))?;
+            .map_err(|e| Error::custom_error(format!("[Cosmos Chain query_packet_from_block build tendermint Height failed] -> Error({})", e)))?;
 
         let response = self
             .block_on(self.rpc_client.block_results(tm_height))
@@ -1041,11 +1041,11 @@ impl ChainEndpoint for CosmosSdkChain {
             for msg in tracked_msgs.messages() {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
-                    .map_err(|e| Error::custom_error(e.to_string()))?;
+                    .map_err(|e| Error::custom_error(format!("[Comsos Chain send_messages_and_wait_commit call icp deliver failed] -> Error({})", e)))?;
                 println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
                     msgs.push(
-                        Any::decode(&res[..]).map_err(|e| Error::custom_error(e.to_string()))?,
+                        Any::decode(&res[..]).map_err(|e| Error::custom_error(format!("[Cosmos Chain send_messages_and_wait_commit encode call icp deliver result failed] -> Error({})", e)))?,
                     );
                 }
             }
@@ -1072,11 +1072,11 @@ impl ChainEndpoint for CosmosSdkChain {
             for msg in tracked_msgs.messages() {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
-                    .map_err(|e| Error::custom_error(e.to_string()))?;
+                    .map_err(|e| Error::custom_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?;
                 println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
                 if !res.is_empty() {
                     msgs.push(
-                        Any::decode(&res[..]).map_err(|e| Error::custom_error(e.to_string()))?,
+                        Any::decode(&res[..]).map_err(|e| Error::custom_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?,
                     );
                 }
             }
@@ -1267,7 +1267,7 @@ impl ChainEndpoint for CosmosSdkChain {
 
             let res = runtime
                 .block_on(query_client_state(canister_id, false, vec![]))
-                .map_err(|e| Error::custom_error(e.to_string()))?;
+                .map_err(|e| Error::custom_error(format!("[Cosmos Chain query_client_state call icp query_client_state failed] -> Error({})", e)))?;
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
             return Ok((client_state, None));
         }
@@ -1382,13 +1382,15 @@ impl ChainEndpoint for CosmosSdkChain {
         let canister_id = self.config.canister_id.id.as_str();
 
         let mut buf = vec![];
-        request
-            .consensus_height
-            .encode(&mut buf)
-            .map_err(|e| Error::custom_error(e.to_string()))?;
+        request.consensus_height.encode(&mut buf).map_err(|e| {
+            Error::custom_error(format!(
+                "[Cosmos Chain query_consensus_state encode consensus height failed] -> Error({})",
+                e
+            ))
+        })?;
         let res = runtime
             .block_on(query_consensus_state(canister_id, false, buf))
-            .map_err(|e| Error::custom_error(e.to_string()))?;
+            .map_err(|e| Error::custom_error(format!("[Cosmos Chain query_consensus_state call ibc query_consensus_state] -> Error({})", e)))?;
         let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
         Ok((consensus_state, None))
     }
