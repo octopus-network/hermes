@@ -194,20 +194,23 @@ impl NearChain {
     fn deliver(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
         info!("{}: [deliver] - messages: {:?}", self.id(), messages);
 
+        // get signer for this transaction
         let signer = self
             .keybase()
             .get_key(&self.config.key_name)
             .map_err(Error::key_base)?
             .inner();
 
-        self.block_on(self.client.call(
+        let call_near_smart_contract_deliver = self.client.call(
             &signer,
             &self.near_ibc_contract,
-            "deliver".to_string(),
+            "deliver".into(),
             json!({ "messages": messages }).to_string().into_bytes(),
             300000000000000,
             MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG,
-        ))
+        );
+
+        self.block_on(call_near_smart_contract_deliver)
     }
 
     fn raw_transfer(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
@@ -220,14 +223,16 @@ impl NearChain {
             .map_err(Error::key_base)?
             .inner();
 
-        self.block_on(self.client.call(
+        let call_near_smart_contract_deliver = self.client.call(
             &signer,
             &self.near_ibc_contract,
             "deliver".to_string(),
             json!({ "messages": messages }).to_string().into_bytes(),
             300000000000000,
             1,
-        ))
+        );
+
+        self.block_on(call_near_smart_contract_deliver)
     }
 
     /// Retrieve the storage proof according to storage keys
@@ -622,9 +627,12 @@ impl ChainEndpoint for NearChain {
     fn query_application_status(&self) -> Result<ChainStatus, Error> {
         info!("{}: [query_application_status]", self.id());
 
-        let latest_height = self
-            .get_latest_height()
-            .map_err(|e| Error::report_error(format!("{}", e)))?;
+        let latest_height = self.get_latest_height().map_err(|e| {
+            Error::report_error(format!(
+                "[Near Chain query_application_status call get_latest_height failed] -> Error({})",
+                e
+            ))
+        })?;
 
         Ok(ChainStatus {
             height: latest_height,

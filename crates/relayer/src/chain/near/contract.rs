@@ -39,11 +39,11 @@ pub trait NearIbcContract {
                 self.get_contract_id(),
                 "get_latest_height".to_string(),
                 json!({}).to_string().into_bytes(),
-            ))
-            .expect("Failed to get latest height")
+            ))?
             .json()?;
 
         // As we use solomachine client, we set the revision number to 0
+        // TODO: ibc height reversion number is chainid version
         Ok(Height::new(0, height.revision_height())?)
     }
 
@@ -68,8 +68,7 @@ pub trait NearIbcContract {
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_connection_end")
+            )?
             .json()
 
         // self.get_client().view(
@@ -99,8 +98,7 @@ pub trait NearIbcContract {
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to query_channel_end.")
+            )?
             .json()
     }
 
@@ -120,8 +118,7 @@ pub trait NearIbcContract {
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to query_client_state.")
+            )?
             .json()
     }
 
@@ -139,8 +136,7 @@ pub trait NearIbcContract {
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_client_consensus_heights.")
+            )?
             .json()
     }
 
@@ -164,8 +160,7 @@ pub trait NearIbcContract {
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_client_consensus.")
+            )?
             .json()
     }
 
@@ -184,8 +179,7 @@ pub trait NearIbcContract {
                 self.get_contract_id(),
                 "get_consensus_state_with_height".to_string(),
                 json!({ "client_id": client_id }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_consensus_state_with_height.")
+            ))?
             .json()
     }
 
@@ -213,8 +207,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_unreceipt_packet.")
+            )?
             .json()
     }
 
@@ -231,8 +224,7 @@ pub trait NearIbcContract {
                 self.get_contract_id(),
                 "get_clients".to_string(),
                 json!({ "request": request }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_clients.")
+            ))?
             .json()
     }
 
@@ -252,8 +244,7 @@ pub trait NearIbcContract {
                 self.get_contract_id(),
                 "get_connections".to_string(),
                 json!({ "request": request }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_connections.")
+            ))?
             .json()
     }
 
@@ -270,8 +261,7 @@ pub trait NearIbcContract {
                 self.get_contract_id(),
                 "get_channels".to_string(),
                 json!({ "request": request }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_channels.")
+            ))?
             .json()
     }
 
@@ -295,8 +285,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_packet_commitments.")
+            )?
             .json()
     }
 
@@ -317,8 +306,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_packet_acknowledgements.")
+            )?
             .json()
     }
 
@@ -337,8 +325,7 @@ pub trait NearIbcContract {
                 self.get_contract_id(),
                 "get_client_connections".to_string(),
                 json!({ "client_id": client_id }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_client_connections.")
+            ))?
             .json()
     }
 
@@ -360,8 +347,7 @@ pub trait NearIbcContract {
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_connection_channels.")
+            )?
             .json()
     }
 
@@ -429,8 +415,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_packet_commitment.")
+            )?
             .json()
     }
 
@@ -441,8 +426,7 @@ pub trait NearIbcContract {
                 self.get_contract_id(),
                 "get_commitment_prefix".to_string(),
                 json!({}).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_commitment_prefix.")
+            ))?
             .json()
     }
 
@@ -470,8 +454,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_packet_receipt.")
+            )?
             .json()
     }
 
@@ -497,8 +480,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_next_sequence_receive.")
+            )?
             .json()
     }
 
@@ -526,8 +508,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_packet_acknowledgement.")
+            )?
             .json()
     }
 
@@ -545,8 +526,7 @@ pub trait NearIbcContract {
                 self.get_contract_id(),
                 "get_packet_events".to_string(),
                 json!({ "request": request }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get packet events.")
+            ))?
             .json::<Vec<(Height, Vec<IbcEvent>)>>()
     }
 }
