@@ -336,7 +336,9 @@ impl ChainEndpoint for NearChain {
             keybase,
             near_ibc_contract: AccountId::from_str(CONTRACT_ACCOUNT_ID)
                 .map_err(NearError::ParserNearAccountIdFailure)
-                .map_err(|e| Error::custom_error(e.to_string()))?,
+                .map_err(|e| {
+                    Error::custom_error(format!("[Near Chain bootstartp function] -> Error({})", e))
+                })?,
             rt,
             tx_monitor_cmd: None,
             signing_key_pair: None,
@@ -405,11 +407,11 @@ impl ChainEndpoint for NearChain {
             for msg in tracked_msgs.messages() {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
-                    .map_err(|e| Error::custom_error(e.to_string()))?;
+                    .map_err(|e| Error::custom_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))?;
                 println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
                     msgs.push(
-                        Any::decode(&res[..]).map_err(|e| Error::custom_error(e.to_string()))?,
+                        Any::decode(&res[..]).map_err(|e| Error::custom_error(format!("[Near Chain send_messages_and_wait_commit decode deliver result] -> Error({})", e)))?,
                     );
                 }
             }
@@ -449,11 +451,13 @@ impl ChainEndpoint for NearChain {
             for msg in tracked_msgs.messages() {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
-                    .map_err(|e| Error::custom_error(e.to_string()))?;
+                    .map_err(|e| Error::custom_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))?;
+
                 println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
                     msgs.push(
-                        Any::decode(&res[..]).map_err(|e| Error::custom_error(e.to_string()))?,
+                        Any::decode(&res[..])
+                            .map_err(|e| Error::custom_error(format!("[Near Chain send_messages_and_wait_commit_check_tx decode deliver result] -> Error({})", e)))?,
                     );
                 }
             }
@@ -487,7 +491,6 @@ impl ChainEndpoint for NearChain {
             target,
             client_state.latest_height()
         );
-
         let header = retry_with_index(retry_strategy::default_strategy(), |index| {
             let result = self.block_on(self.client.view_block(Some(BlockId::Height(
                 client_state.latest_height().revision_height(),
@@ -640,7 +643,12 @@ impl ChainEndpoint for NearChain {
             .into_iter()
             .map(|(client_id, client_state_bytes)| {
                 let client_state = AnyClientState::decode_vec(client_state_bytes.as_ref())
-                    .map_err(|e| Error::custom_error(e.to_string()))?;
+                    .map_err(|e| {
+                        Error::custom_error(format!(
+                            "[Near Chain query_cleints decode AnyClientState] -> Error({})",
+                            e
+                        ))
+                    })?;
                 Ok(IdentifiedAnyClientState {
                     client_id,
                     client_state,
@@ -688,8 +696,12 @@ impl ChainEndpoint for NearChain {
         let result = self
             .get_client_state(&client_id)
             .map_err(|_| Error::report_error("query_client_state".to_string()))?;
-        let client_state =
-            AnyClientState::decode_vec(&result).map_err(|e| Error::custom_error(e.to_string()))?;
+        let client_state = AnyClientState::decode_vec(&result).map_err(|e| {
+            Error::custom_error(format!(
+                "[Near Chain query_cleint_state decode AnyClientState] -> Error({})",
+                e
+            ))
+        })?;
 
         match include_proof {
             IncludeProof::Yes => Ok((client_state, Some(MerkleProof::default()))),
@@ -724,7 +736,6 @@ impl ChainEndpoint for NearChain {
             .map_err(|e| Error::custom_error(e.to_string()))?;
         let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
         Ok((consensus_state, None))
-
         // // query_height to amit to search chain height
         // let QueryConsensusStateRequest {
         //     client_id,
@@ -1270,7 +1281,12 @@ impl ChainEndpoint for NearChain {
                             },
                         ),
                     ),
-                    height: Height::new(0, 9).map_err(|e| Error::custom_error(e.to_string()))?,
+                    height: Height::new(0, 9).map_err(|e| {
+                        Error::custom_error(format!(
+                            "[Near Chain query_txs Contruct ibc Height] -> Error({})",
+                            e
+                        ))
+                    })?,
                 }];
 
                 Ok(result)
@@ -1301,7 +1317,6 @@ impl ChainEndpoint for NearChain {
                     .expect("failed construct ibc height"),
             ),
             // todo(davirain) can improve this error handling
-            // .map_err(|e| Error::custom_error(e.to_string()))
         });
         let original_result = self
             .get_packet_events(request)
@@ -1311,7 +1326,7 @@ impl ChainEndpoint for NearChain {
             for ibc_event in ibc_events.iter() {
                 result.push(IbcEventWithHeight {
                     event: convert_ibc_event_to_hermes_ibc_event(ibc_event)
-                        .map_err(|e| Error::custom_error(e.to_string()))?,
+                        .map_err(|e| Error::custom_error(format!("[Near Chain query_packet_events call convert_ibc_event_to_hermes_ibc_event] -> Error({})", e)))?,
                     height,
                 });
             }
@@ -1614,7 +1629,7 @@ impl ChainEndpoint for NearChain {
 
         let commitment_prefix = self
             .get_commitment_prefix()
-            .map_err(|e| Error::custom_error(e.to_string()))?;
+            .map_err(|e| Error::custom_error(format!("[Near Chain build_connection_proofs_and_client_state call get_commitment_prefix] -> Error({})", e)))?;
 
         let proof_init = NearProofs(proofs).try_to_vec().unwrap();
 
@@ -1688,6 +1703,7 @@ impl ChainEndpoint for NearChain {
                 }?;
                 let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
                 let proof_client = NearProofs(proofs).try_to_vec().unwrap();
+
                 client_proof = Some(
                     CommitmentProofBytes::try_from(proof_client).map_err(Error::malformed_proof)?,
                 );
@@ -1915,11 +1931,15 @@ pub fn collect_ibc_event_by_outcome(
             if log.starts_with("EVENT_JSON:") {
                 let event = log.replace("EVENT_JSON:", "");
                 let event_value = serde_json::value::Value::from_str(event.as_str())
-                    .map_err(|e| Error::custom_error(e.to_string()))?;
+                    .map_err(|e| Error::custom_error(format!(
+                        "[Near Chain collect_ibc_event_by_outcome decode near event failed] -> Error({})", e
+                    )))?;
                 if event_value["standard"].eq("near-ibc") {
                     let ibc_event: ibc::core::events::IbcEvent =
                         serde_json::from_value(event_value["raw-ibc-event"].clone())
-                            .map_err(|e| Error::custom_error(e.to_string()))?;
+                            .map_err(|e| Error::custom_error(format!(
+                                "[Near Chain collect_ibc_event_by_outcome decode near event to ibc event failed] -> Error({})", e
+                            )))?;
                     let block_height = u64::from_str(
                         event_value["block_height"]
                             .as_str()
@@ -1930,9 +1950,13 @@ pub fn collect_ibc_event_by_outcome(
                         ibc::core::events::IbcEvent::Message(_) => continue,
                         _ => ibc_events.push(IbcEventWithHeight {
                             event: convert_ibc_event_to_hermes_ibc_event(&ibc_event)
-                                .map_err(|e| Error::custom_error(e.to_string()))?,
+                                .map_err(|e| Error::custom_error(format!(
+                                    "[Near Chain  collect_ibc_event_by_outcome call convert_ibc_event_to_hermes_ibc_event failed] -> Error({})", e
+                                )))?,
                             height: Height::new(0, block_height)
-                                .map_err(|e| Error::custom_error(e.to_string()))?,
+                                .map_err(|e| Error::custom_error(format!(
+                                    "[Near Chain  collect_ibc_event_by_outcome build ibc height failed] -> Error({})", e
+                                )))?,
                         }),
                     }
                 }
