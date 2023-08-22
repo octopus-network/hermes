@@ -561,7 +561,6 @@ impl ChainEndpoint for NearChain {
             return RetryResult::Ok(header);
         })
         .unwrap();
-
         Ok(header)
     }
 
@@ -1398,7 +1397,6 @@ impl ChainEndpoint for NearChain {
             target_height,
             client_state.latest_height()
         );
-
         let trusted_block = self
             .block_on(
                 self.client
@@ -1985,7 +1983,7 @@ pub fn produce_light_client_block(
             next_bps: Some(
                 view.next_bps
                     .as_ref()
-                    .unwrap()
+                    .expect("Failed to get next_bps field.")
                     .iter()
                     .map(|f| match f {
                         near_primitives::views::validator_stake_view::ValidatorStakeView::V1(v) => {

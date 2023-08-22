@@ -41,9 +41,9 @@ impl SigningKeyPair for NearKeyPair {
         unimplemented!()
     }
 
-    // Solana address: base58(pubkey)
+    // Near address account_id
     fn account(&self) -> String {
-        self.0.public_key().to_string()
+        self.0.account_id.as_str().to_string()
     }
 
     fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Error> {
