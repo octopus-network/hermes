@@ -1490,6 +1490,7 @@ impl ChainEndpoint for NearChain {
                         prefix,
                         include_proof: true,
                     },
+
                 },
             ));
 
@@ -1857,7 +1858,9 @@ impl ChainEndpoint for NearChain {
             None => {
                 let tx_monitor_cmd = self.init_event_monitor()?;
                 self.tx_monitor_cmd = Some(tx_monitor_cmd);
-                self.tx_monitor_cmd.as_ref().unwrap()
+                self.tx_monitor_cmd.as_ref().ok_or(Error::custom_error(
+                    "[Near Chain subscribe tx_monitor_cmd is None]".to_string(),
+                ))?
             }
         };
 
