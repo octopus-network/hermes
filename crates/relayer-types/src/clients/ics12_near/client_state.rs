@@ -44,12 +44,12 @@ impl Ics2ClientState for ClientState {
     }
 
     fn latest_height(&self) -> Height {
-        Height::new(1, self.latest_height).expect("faild to create ibc height")
+        Height::new(0, self.latest_height).expect("faild to create ibc height")
     }
 
     fn frozen_height(&self) -> Option<crate::Height> {
         self.frozen_height
-            .map(|frozen_height| Height::new(1, frozen_height).expect("faild to create ibc height"))
+            .map(|frozen_height| Height::new(0, frozen_height).expect("faild to create ibc height"))
     }
 
     fn expired(&self, _elapsed: Duration) -> bool {
@@ -71,7 +71,7 @@ impl TryFrom<RawClientState> for ClientState {
 
     fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
         Ok(Self {
-            chain_id: ChainId::new("ibc".to_string(), 1), // TODO: julian
+            chain_id: ChainId::new("ibc".to_string(), 0), // TODO: julian
             trusting_period: raw
                 .trusting_period
                 .ok_or(Error::custom_error("trusting period is empty".into()))?
@@ -93,12 +93,12 @@ impl From<ClientState> for RawClientState {
         RawClientState {
             trusting_period: Some(Duration::from_nanos(value.trusting_period).into()),
             frozen_height: value.frozen_height.map(|h| {
-                Height::new(1, h)
+                Height::new(0, h)
                     .expect("failed to create ibc height")
                     .into()
             }),
             latest_height: Some(
-                Height::new(1, value.latest_height)
+                Height::new(0, value.latest_height)
                     .expect("failed to create ibc height")
                     .into(),
             ),

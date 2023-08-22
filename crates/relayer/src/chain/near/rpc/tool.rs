@@ -104,12 +104,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(
                         .map_err(|e| NearError::CustomError(e.to_string()))?,
                     counterparty_connection_id: open_init_connection
                         .conn_id_on_b()
-                        .ok_or(NearError::CustomError(
-                            "counterparty_connection_id is None".to_string(),
-                        ))
-                        .map(|e| ConnectionId::from_str(e.as_str()))
-                        .map_err(|e| NearError::CustomError(e.to_string()))?
-                        .ok(),
+                        .map(|id| ConnectionId::from_str(id.as_str()).unwrap()),
                     counterparty_client_id: ClientId::from_str(
                         open_init_connection.client_id_on_b().as_str(),
                     )

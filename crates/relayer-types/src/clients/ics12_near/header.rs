@@ -25,7 +25,7 @@ impl crate::core::ics02_client::header::Header for Header {
     }
 
     fn height(&self) -> Height {
-        Height::new(1, self.light_client_block.inner_lite.height)
+        Height::new(0, self.light_client_block.inner_lite.height)
             .expect("failed to create ibc height") // TODO: julian, see revision number in tm header
     }
 

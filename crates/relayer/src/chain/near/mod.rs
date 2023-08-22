@@ -541,23 +541,55 @@ impl ChainEndpoint for NearChain {
             target,
             client_state.latest_height()
         );
-        let block_view = self
+        let latest_block_view = self
             .block_on(self.client.view_block(Some(BlockId::Height(
-                client_state.latest_height().revision_height() - 50,
+                client_state.latest_height().revision_height(),
             ))))
             .unwrap();
-        info!("ys-debug: get block view: {:?}", block_view);
+        info!(
+            "ys-debug: latest_block_view epoch_id: {:?}, next_epoch_id: {:?}",
+            latest_block_view.header.epoch_id, latest_block_view.header.next_epoch_id
+        );
+        let prev_epoch_block_view = self
+            .block_on(self.client.view_block(Some(BlockId::Height(
+                client_state.latest_height().revision_height() - 43200 - 43200,
+            ))))
+            .unwrap();
+        info!(
+            "ys-debug: prev_epoch_block_view epoch_id: {:?}, next_epoch_id: {:?}",
+            prev_epoch_block_view.header.epoch_id, prev_epoch_block_view.header.next_epoch_id
+        );
         let light_client_block_view = self
             .block_on(
                 self.client.query(
                     &near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
-                        last_block_hash: block_view.header.hash
+                        last_block_hash: prev_epoch_block_view.header.hash
                     },
                 )
             )
+            .unwrap().unwrap();
+        let block_view = self
+            .block_on(self.client.view_block(Some(BlockId::Height(
+                light_client_block_view.inner_lite.height,
+            ))))
             .unwrap();
 
-        let header = produce_light_client_block(&light_client_block_view.unwrap(), &block_view);
+        let header = produce_light_client_block(&light_client_block_view, &block_view);
+        info!(
+            "ys-debug: header epoch_id: {:?}, next_epoch_id: {:?}",
+            header.light_client_block.inner_lite.epoch_id,
+            header.light_client_block.inner_lite.next_epoch_id
+        );
+        assert!(
+            header
+                .light_client_block
+                .inner_lite
+                .next_epoch_id
+                .0
+                 .0
+                .to_vec()
+                == latest_block_view.header.epoch_id.0.to_vec()
+        );
 
         Ok(header)
     }
@@ -658,12 +690,25 @@ impl ChainEndpoint for NearChain {
         request: QueryClientStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
+        use crate::chain::ic::query_client_state;
         info!(
             "{}: [query_client_state] - request: {:?} include_proof: {:?}",
             self.id(),
             request,
             include_proof
         );
+
+        if matches!(include_proof, IncludeProof::No) {
+            let runtime = self.rt.clone();
+
+            let canister_id = self.config.canister_id.id.as_str();
+
+            let res = runtime
+                .block_on(query_client_state(canister_id, false, vec![]))
+                .map_err(|e| Error::custom_error(e.to_string()))?;
+            let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
+            return Ok((client_state, None));
+        }
 
         let QueryClientStateRequest { client_id, height } = request;
 
@@ -691,35 +736,51 @@ impl ChainEndpoint for NearChain {
         request: QueryConsensusStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
+        use crate::chain::ic::query_consensus_state;
         info!(
             "{}: [query_consensus_state] - request: {:?} include_proof: {:?}",
             self.id(),
             request,
             include_proof
         );
+        assert!(matches!(include_proof, IncludeProof::No));
+        assert!(request.client_id.to_string().starts_with("06-solomachine"));
+        let runtime = self.rt.clone();
+        let canister_id = self.config.canister_id.id.as_str();
 
-        // query_height to amit to search chain height
-        let QueryConsensusStateRequest {
-            client_id,
-            consensus_height,
-            query_height: _,
-        } = request;
-
-        let result = self
-            .get_client_consensus(&client_id, &consensus_height)
-            .map_err(|_| Error::report_error("query_client_consensus".to_string()))?;
-
-        if result.is_empty() {
-            return Err(Error::report_error("query_client_consensus".to_string()));
-        }
-
-        let consensus_state = AnyConsensusState::decode_vec(&result)
+        let mut buf = vec![];
+        request
+            .consensus_height
+            .encode(&mut buf)
             .map_err(|e| Error::custom_error(e.to_string()))?;
+        let res = runtime
+            .block_on(query_consensus_state(canister_id, false, buf))
+            .map_err(|e| Error::custom_error(e.to_string()))?;
+        let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
+        Ok((consensus_state, None))
 
-        match include_proof {
-            IncludeProof::Yes => Ok((consensus_state, Some(MerkleProof::default()))),
-            IncludeProof::No => Ok((consensus_state, None)),
-        }
+        // // query_height to amit to search chain height
+        // let QueryConsensusStateRequest {
+        //     client_id,
+        //     consensus_height,
+        //     query_height: _,
+        // } = request;
+
+        // let result = self
+        //     .get_client_consensus(&client_id, &consensus_height)
+        //     .map_err(|_| Error::report_error("query_client_consensus".to_string()))?;
+
+        // if result.is_empty() {
+        //     return Err(Error::report_error("query_client_consensus".to_string()));
+        // }
+
+        // let consensus_state = AnyConsensusState::decode_vec(&result)
+        //     .map_err(|e| Error::custom_error(e.to_string()))?;
+
+        // match include_proof {
+        //     IncludeProof::Yes => Ok((consensus_state, Some(MerkleProof::default()))),
+        //     IncludeProof::No => Ok((consensus_state, None)),
+        // }
     }
 
     // fn query_consensus_states(
@@ -1368,22 +1429,28 @@ impl ChainEndpoint for NearChain {
 
         let mut headers = Vec::new();
         let mut height = trusted_height.revision_height();
-        while height < target_height.revision_height() {
-            let block_view = self
-                .block_on(self.client.view_block(Some(BlockId::Height(height))))
+        while height <= target_height.revision_height() {
+            let bv = self
+                .block_on(self.client.view_block(Some(BlockId::Height(height - 20))))
                 .unwrap();
-            info!("ys-debug: get block view: {:?}", block_view);
+            info!("ys-debug: get block view: {:?}", bv);
             let light_client_block_view = self
             .block_on(
                 self.client.query(
                     &near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
-                        last_block_hash: block_view.header.hash
+                        last_block_hash: bv.header.hash
                     },
                 )
             )
-            .unwrap();
+            .unwrap().unwrap();
 
-            let header = produce_light_client_block(&light_client_block_view.unwrap(), &block_view);
+            let block_view = self
+                .block_on(self.client.view_block(Some(BlockId::Height(
+                    light_client_block_view.inner_lite.height,
+                ))))
+                .unwrap();
+
+            let header = produce_light_client_block(&light_client_block_view, &block_view);
             info!("ys-debug: get new header: {:?}", header.height());
             height = header.height().revision_height();
             headers.push(header);
@@ -1813,13 +1880,11 @@ pub fn produce_light_client_block(
     view: &near_primitives::views::LightClientBlockView,
     block_view: &near_primitives::views::BlockView,
 ) -> NearHeader {
-    // assert!(
-    //     view.inner_lite.height == block_view.header.height,
-    //     "Not same height of light client block view and block view. view: {}, block_view: {}",view.inner_lite.height, block_view.header.height
-    // );
-    info!(
+    assert!(
+        view.inner_lite.height == block_view.header.height,
         "Not same height of light client block view and block view. view: {}, block_view: {}",
-        view.inner_lite.height, block_view.header.height
+        view.inner_lite.height,
+        block_view.header.height
     );
     NearHeader {
         light_client_block: LightClientBlock {
