@@ -2028,7 +2028,7 @@ pub fn produce_light_client_block(
                 .iter()
                 .map(|f| {
                     f.as_ref().map(|s| match s {
-                        near_crypto::Signature::ED25519(data) => Signature::ED25519(data.clone()),
+                        near_crypto::Signature::ED25519(data) => Signature::ED25519(*data),
                         _ => panic!("Unsupported signature in approvals after next."),
                     })
                 })
