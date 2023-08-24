@@ -56,7 +56,8 @@ use ibc_relayer_types::{
     core::ics02_client::events::UpdateClient,
     core::ics23_commitment::merkle::MerkleProof,
     core::ics24_host::path::{
-        AcksPath, ChannelEndsPath, CommitmentsPath, ConnectionsPath, ReceiptsPath, SeqRecvsPath,
+        AcksPath, ChannelEndsPath, ClientStatePath, CommitmentsPath, ConnectionsPath, ReceiptsPath,
+        SeqRecvsPath,
     },
     core::{
         ics02_client::{client_type::ClientType, error::Error as ClientError},
@@ -109,6 +110,7 @@ pub mod error;
 // pub mod light_client;
 pub mod rpc;
 
+use borsh::{BorshDeserialize, BorshSerialize};
 use error::NearError;
 
 pub const REVISION_NUMBER: u64 = 0;
@@ -117,10 +119,14 @@ pub const CONTRACT_ACCOUNT_ID: &str = "v3.nearibc.testnet";
 pub const SIGNER_ACCOUNT_TESTNET: &str = "juliansun.testnet";
 const MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG: u128 = 100_000_000_000_000_000_000_000;
 
+#[derive(BorshSerialize, BorshDeserialize)]
+struct NearProofs(Vec<Vec<u8>>);
+
 /// A struct used to start a Near chain instance in relayer
 #[derive(Debug)]
 pub struct NearChain {
     client: NearRpcClient,
+    archival_client: NearRpcClient,
     config: ChainConfig,
     keybase: KeyRing<Secp256k1KeyPair>,
     near_ibc_contract: AccountId,
@@ -334,6 +340,7 @@ impl ChainEndpoint for NearChain {
         .map_err(Error::key_base)?;
         let mut new_instance = NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
+            archival_client: NearRpcClient::new("https://archival-rpc.testnet.near.org"),
             config,
             keybase,
             near_ibc_contract: AccountId::from_str(CONTRACT_ACCOUNT_ID)
@@ -551,17 +558,18 @@ impl ChainEndpoint for NearChain {
             latest_block_view.header.epoch_id, latest_block_view.header.next_epoch_id
         );
         let prev_epoch_block_view = self
-            .block_on(self.client.view_block(Some(BlockId::Height(
+            .block_on(self.archival_client.view_block(Some(BlockId::Height(
                 client_state.latest_height().revision_height() - 43200 - 43200,
             ))))
             .unwrap();
+        // TODO: handler error: [Block not found: ]
         info!(
             "ys-debug: prev_epoch_block_view epoch_id: {:?}, next_epoch_id: {:?}",
             prev_epoch_block_view.header.epoch_id, prev_epoch_block_view.header.next_epoch_id
         );
         let light_client_block_view = self
             .block_on(
-                self.client.query(
+                self.archival_client.query(
                     &near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
                         last_block_hash: prev_epoch_block_view.header.hash
                     },
@@ -633,8 +641,9 @@ impl ChainEndpoint for NearChain {
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
         info!("{}: [query_commitment_prefix]", self.id());
-        self.get_commitment_prefix()
-            .map_err(|_| Error::report_error("invalid_commitment_prefix".to_string()))
+        let prefix = self
+            .get_commitment_prefix()
+            .map_err(|_| Error::report_error("invalid_commitment_prefix".to_string()))?;
 
         // self.block_on(self.client.view(
         //     self.near_ibc_contract.clone(),
@@ -643,8 +652,8 @@ impl ChainEndpoint for NearChain {
         // )).and_then(|e| e.json())
 
         // TODO - do a real chain query
-        // CommitmentPrefix::try_from(self.config().store_prefix.as_bytes().to_vec())
-        //     .map_err(|_| Error::report_error("invalid_commitment_prefix".to_string()))
+        CommitmentPrefix::try_from(prefix)
+            .map_err(|_| Error::report_error("invalid_commitment_prefix".to_string()))
     }
 
     fn query_application_status(&self) -> Result<ChainStatus, Error> {
@@ -1427,40 +1436,55 @@ impl ChainEndpoint for NearChain {
             client_state
         );
 
-        let mut headers = Vec::new();
-        let mut height = trusted_height.revision_height();
-        while height <= target_height.revision_height() {
-            let bv = self
-                .block_on(self.client.view_block(Some(BlockId::Height(height - 20))))
-                .unwrap();
-            info!("ys-debug: get block view: {:?}", bv);
-            let light_client_block_view = self
+        let trusted_block = self
             .block_on(
-                self.client.query(
+                self.client
+                    .view_block(Some(BlockId::Height(trusted_height.revision_height()))),
+            )
+            .unwrap();
+        info!(
+            "ys-debug: trusted block height: {:?}, epoch: {:?}",
+            trusted_block.header.height, trusted_block.header.epoch_id
+        );
+
+        let target_block = self
+            .block_on(
+                self.client
+                    .view_block(Some(BlockId::Height(target_height.revision_height()))),
+            )
+            .unwrap();
+        info!(
+            "ys-debug: target block height: {:?}, epoch: {:?}",
+            target_block.header.height, target_block.header.epoch_id
+        );
+
+        // TODO: julian, assert!(trusted_block.epoch == target_block.epoch || trusted_block_.next_epoch == target_block.epoch)
+        let light_client_block_view = self
+            .block_on(
+                self.archival_client.query(
                     &near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
-                        last_block_hash: bv.header.hash
+                        last_block_hash: target_block.header.hash
                     },
                 )
             )
             .unwrap().unwrap();
+        // TODO: "missing field `prev_block_hash`
 
-            let block_view = self
-                .block_on(self.client.view_block(Some(BlockId::Height(
-                    light_client_block_view.inner_lite.height,
-                ))))
-                .unwrap();
+        let block_view = self
+            .block_on(self.client.view_block(Some(BlockId::Height(
+                light_client_block_view.inner_lite.height,
+            ))))
+            .unwrap();
 
-            let header = produce_light_client_block(&light_client_block_view, &block_view);
-            info!("ys-debug: get new header: {:?}", header.height());
-            height = header.height().revision_height();
-            headers.push(header);
-        }
-        if !headers.is_empty() {
-            let h = headers.pop().unwrap();
-            Ok((h, headers))
-        } else {
-            Err(Error::report_error("failed to build header".to_string()))
-        }
+        let header = produce_light_client_block(&light_client_block_view, &block_view);
+        info!(
+            "ys-debug: get new header: {:?}, {:?}, {:?}",
+            header.height(),
+            light_client_block_view.inner_lite.height,
+            block_view.header.height
+        );
+
+        Ok((header, vec![]))
     }
 
     fn maybe_register_counterparty_payee(
@@ -1494,48 +1518,39 @@ impl ChainEndpoint for NearChain {
             IncludeProof::No,
         )?;
 
+        let connections_path = ConnectionsPath(connection_id.clone()).to_string();
+
+        let block_reference: near_primitives::types::BlockReference =
+            BlockId::Height(height.revision_height()).into();
+        let prefix = near_primitives::types::StoreKey::from(connections_path.into_bytes());
+
+        let query_response =
+            self.block_on(self.client.query(
+                &near_jsonrpc_client::methods::query::RpcQueryRequest {
+                    block_reference,
+                    request: near_primitives::views::QueryRequest::ViewState {
+                        account_id: AccountId::from_str(CONTRACT_ACCOUNT_ID).unwrap(),
+                        prefix,
+                        include_proof: true,
+                    },
+                },
+            ))
+            .unwrap();
+        println!("ys-debug: view state result: {:?}", query_response);
+
+        let state = match query_response.kind {
+            near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => Ok(state),
+            _ => Err(Error::custom_error(
+                "failed to get connection proof".to_string(),
+            )),
+        }?;
+        let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
+
         let commitment_prefix = self
             .get_commitment_prefix()
             .map_err(|e| Error::custom_error(e.to_string()))?;
 
-        let mut buf = Vec::new();
-        let data = ConnectionStateData {
-            path: format!(
-                "/{}/connections%2F{}",
-                String::from_utf8(commitment_prefix.clone().into_vec())
-                    .map_err(|e| Error::custom_error(e.to_string()))?,
-                connection_id.as_str()
-            )
-            .into(),
-            connection: Some(connection_end.clone().into()),
-        };
-        debug!("{}: ConnectionStateData: {:?}", self.id(), data);
-        Message::encode(&data, &mut buf).map_err(|e| Error::custom_error(e.to_string()))?;
-
-        let duration_since_epoch = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|e| Error::custom_error(e.to_string()))?;
-        let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
-
-        let sig_data = self.sign_bytes_with_solomachine_pubkey(
-            height.revision_height() + 1,
-            timestamp_nanos,
-            DataType::ConnectionState.into(),
-            buf.to_vec(),
-        );
-
-        let timestamped = TimestampedSignatureData {
-            signature_data: sig_data,
-            timestamp: timestamp_nanos,
-        };
-        debug!(
-            "{}: proof_init TimestampedSignatureData: {:?}",
-            self.id(),
-            timestamped
-        );
-        let mut proof_init = Vec::new();
-        Message::encode(&timestamped, &mut proof_init)
-            .map_err(|e| Error::custom_error(e.to_string()))?;
+        let proof_init = NearProofs(proofs).try_to_vec().unwrap();
 
         // Check that the connection state is compatible with the message
         match message_type {
@@ -1571,107 +1586,60 @@ impl ChainEndpoint for NearChain {
                         client_id: client_id.clone(),
                         height: QueryHeight::Specific(height),
                     },
-                    IncludeProof::No,
+                    IncludeProof::Yes,
                 )?;
 
-                let mut buf = Vec::new();
-                let data = ClientStateData {
-                    path: format!(
-                        "/{}/clients%2F{}%2FclientState",
-                        String::from_utf8(commitment_prefix.clone().into_vec())
-                            .map_err(|e| Error::custom_error(e.to_string()))?,
-                        client_id.as_str()
-                    )
-                    .into(),
-                    client_state: Some(client_state_value.clone().into()),
-                };
-                debug!("{}: ClientStateData: {:?}", self.id(), data);
-                Message::encode(&data, &mut buf).map_err(|e| Error::custom_error(e.to_string()))?;
+                let client_state_path = ClientStatePath(client_id.clone()).to_string();
 
-                // let duration_since_epoch = SystemTime::now()
-                //     .duration_since(SystemTime::UNIX_EPOCH)
-                //     .unwrap();
-                // let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
+                let block_reference: near_primitives::types::BlockReference =
+                    BlockId::Height(height.revision_height()).into();
+                let prefix = near_primitives::types::StoreKey::from(client_state_path.into_bytes());
 
-                let sig_data = self.sign_bytes_with_solomachine_pubkey(
-                    height.revision_height() + 2,
-                    timestamp_nanos,
-                    DataType::ClientState.into(),
-                    buf.to_vec(),
+                let query_response = self
+                    .block_on(self.client.query(
+                        &near_jsonrpc_client::methods::query::RpcQueryRequest {
+                            block_reference,
+                            request: near_primitives::views::QueryRequest::ViewState {
+                                account_id: AccountId::from_str(CONTRACT_ACCOUNT_ID).unwrap(),
+                                prefix,
+                                include_proof: true,
+                            },
+                        },
+                    ))
+                    .unwrap();
+                println!(
+                    "ys-debug: client_state_proof view state result: {:?}",
+                    query_response
                 );
 
-                let timestamped = TimestampedSignatureData {
-                    signature_data: sig_data,
-                    timestamp: timestamp_nanos,
-                };
-                debug!(
-                    "{}: client_proof TimestampedSignatureData: {:?}",
-                    self.id(),
-                    timestamped
-                );
-                let mut proof_client = Vec::new();
-                Message::encode(&timestamped, &mut proof_client)
-                    .map_err(|e| Error::custom_error(e.to_string()))?;
-
+                let state = match query_response.kind {
+                    near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
+                        Ok(state)
+                    }
+                    _ => Err(Error::custom_error(
+                        "failed to get connection proof".to_string(),
+                    )),
+                }?;
+                let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
+                let proof_client = NearProofs(proofs).try_to_vec().unwrap();
                 client_proof = Some(
                     CommitmentProofBytes::try_from(proof_client).map_err(Error::malformed_proof)?,
                 );
 
-                let (consensus_state_value, _maybe_consensus_state_proof) = self
-                    .query_consensus_state(
-                        QueryConsensusStateRequest {
-                            client_id: client_id.clone(),
-                            consensus_height: client_state_value.latest_height(),
-                            query_height: QueryHeight::Specific(height),
-                        },
-                        IncludeProof::No,
-                    )?;
+                let (near_client_state_value, _) = self.query_client_state(
+                    QueryClientStateRequest {
+                        client_id: client_id.clone(),
+                        height: QueryHeight::Specific(height),
+                    },
+                    IncludeProof::No,
+                )?;
 
-                let mut buf = Vec::new();
-                let data = ConsensusStateData {
-                    path: format!(
-                        "/{}/clients%2F{}%2FconsensusStates%2F0-{}",
-                        String::from_utf8(commitment_prefix.into_vec())
-                            .map_err(|e| Error::custom_error(e.to_string()))?,
-                        client_id.as_str(),
-                        client_state_value.latest_height().revision_height()
-                    )
-                    .into(),
-                    consensus_state: Some(consensus_state_value.into()),
-                };
-                debug!("{}: ConsensusStateData: {:?}", self.id(), data);
-                Message::encode(&data, &mut buf).map_err(|e| Error::custom_error(e.to_string()))?;
-
-                // let duration_since_epoch = SystemTime::now()
-                //     .duration_since(SystemTime::UNIX_EPOCH)
-                //     .unwrap();
-                // let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
-
-                let sig_data = self.sign_bytes_with_solomachine_pubkey(
-                    height.revision_height() + 3,
-                    timestamp_nanos,
-                    DataType::ConsensusState.into(),
-                    buf.to_vec(),
-                );
-
-                let timestamped = TimestampedSignatureData {
-                    signature_data: sig_data,
-                    timestamp: timestamp_nanos,
-                };
-                debug!(
-                    "{}: consensus_proof TimestampedSignatureData: {:?}",
-                    self.id(),
-                    timestamped
-                );
-                let mut consensus_state_proof = Vec::new();
-                Message::encode(&timestamped, &mut consensus_state_proof)
-                    .map_err(|e| Error::custom_error(e.to_string()))?;
-
+                let consensus_state_proof = MerkleProof::default();
                 consensus_proof = Option::from(
                     ConsensusProof::new(
                         CommitmentProofBytes::try_from(consensus_state_proof)
                             .map_err(Error::malformed_proof)?,
-                        client_state_value.latest_height(),
+                        near_client_state_value.latest_height(),
                     )
                     .map_err(Error::consensus_proof)?,
                 );

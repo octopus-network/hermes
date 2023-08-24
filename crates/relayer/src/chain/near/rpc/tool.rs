@@ -16,7 +16,7 @@ use std::collections::HashMap;
 pub(crate) fn into_state_map(
     state_items: &[StateItem],
 ) -> anyhow::Result<HashMap<Vec<u8>, Vec<u8>>> {
-    let decode = |s: &StateItem| Ok((base64::decode(&s.key)?, base64::decode(&s.value)?));
+    let decode = |s: &StateItem| Ok((base64::decode(&*s.key)?, base64::decode(&*s.value)?));
 
     state_items.iter().map(decode).collect()
 }
