@@ -1422,7 +1422,12 @@ impl ChainEndpoint for NearChain {
                 self.client
                     .view_block(Some(BlockId::Height(trusted_height.revision_height()))),
             )
-            .unwrap();
+            .map_err(|e| {
+                Error::custom_error(format!(
+                    "[Near Chain build_header call trusted_block] -> Error({})",
+                    e
+                ))
+            })?;
         info!(
             "ys-debug: trusted block height: {:?}, epoch: {:?}, next_epoch_id: {:?}",
             trusted_block.header.height,
@@ -1642,7 +1647,9 @@ impl ChainEndpoint for NearChain {
             .get_commitment_prefix()
             .map_err(|e| Error::custom_error(format!("[Near Chain build_connection_proofs_and_client_state call get_commitment_prefix] -> Error({})", e)))?;
 
-        let proof_init = NearProofs(proofs).try_to_vec().unwrap();
+        let proof_init = NearProofs(proofs)
+            .try_to_vec()
+            .map_err(|e| Error::custom_error(format!("[Near Chain build_connection_proofs_and_client_state NearProofs convert to Vec<u8> failed ] -> Error({})", e)))?;
 
         // Check that the connection state is compatible with the message
         match message_type {
@@ -1688,17 +1695,20 @@ impl ChainEndpoint for NearChain {
                 let prefix = near_primitives::types::StoreKey::from(client_state_path.into_bytes());
 
                 let query_response = self
-                    .block_on(self.client.query(
-                        &near_jsonrpc_client::methods::query::RpcQueryRequest {
-                            block_reference,
-                            request: near_primitives::views::QueryRequest::ViewState {
-                                account_id: AccountId::from_str(CONTRACT_ACCOUNT_ID).unwrap(),
-                                prefix,
-                                include_proof: true,
-                            },
-                        },
-                    ))
-                    .unwrap();
+                    .block_on(
+                        self.client
+                            .query(&near_jsonrpc_client::methods::query::RpcQueryRequest {
+                                block_reference,
+                                request: near_primitives::views::QueryRequest::ViewState {
+                                    account_id: AccountId::from_str(CONTRACT_ACCOUNT_ID)
+                                        .expect("never fialed because is all valid"),
+                                    prefix,
+                                    include_proof: true,
+                                },
+                            }),
+                    )
+                    .map_err(|e| Error::custom_error(format!("[Near Chain build_connection_proofs_and_client_state query_response failed] -> Error({})", e)))?;
+
                 println!(
                     "ys-debug: client_state_proof view state result: {:?}",
                     query_response
