@@ -42,8 +42,7 @@ use core::{fmt::Debug, future::Future, str::FromStr};
 use ibc_proto::{
     google::protobuf::Any,
     ibc::lightclients::solomachine::v2::{
-        ChannelStateData, ClientStateData, ConnectionStateData, ConsensusStateData, DataType,
-        SignBytes, TimestampedSignatureData,
+        ChannelStateData, DataType, SignBytes, TimestampedSignatureData,
     },
     protobuf::Protobuf,
 };
@@ -609,19 +608,19 @@ impl ChainEndpoint for NearChain {
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
         info!("{}: [query_commitment_prefix]", self.id());
-        let prefix = self
-            .get_commitment_prefix()
-            .map_err(|_| Error::report_error("invalid_commitment_prefix".to_string()))?;
+        let prefix = self.get_commitment_prefix().map_err(|e| {
+            Error::report_error(format!(
+                "[Near chain query_commitment_prefix get_commitment_prefix failed] -> Error({})",
+                e
+            ))
+        })?;
 
-        // self.block_on(self.client.view(
-        //     self.near_ibc_contract.clone(),
-        //     "get_commitment_prefix".to_string(),
-        //     json!({}).to_string().into_bytes()
-        // )).and_then(|e| e.json())
-
-        // TODO - do a real chain query
-        CommitmentPrefix::try_from(prefix)
-            .map_err(|_| Error::report_error("invalid_commitment_prefix".to_string()))
+        CommitmentPrefix::try_from(prefix).map_err(|e| {
+            Error::report_error(format!(
+                "[Near Chain Convert Vec<u8> to CommitmentPrefix failed] -> Error({})",
+                e
+            ))
+        })
     }
 
     fn query_application_status(&self) -> Result<ChainStatus, Error> {
@@ -1639,7 +1638,7 @@ impl ChainEndpoint for NearChain {
         }?;
         let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
 
-        let commitment_prefix = self
+        let _commitment_prefix = self
             .get_commitment_prefix()
             .map_err(|e| Error::custom_error(format!("[Near Chain build_connection_proofs_and_client_state call get_commitment_prefix] -> Error({})", e)))?;
 

@@ -17,7 +17,6 @@ use ibc_relayer_types::core::ics03_connection::connection::{
 };
 use ibc_relayer_types::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
 use ibc_relayer_types::core::ics04_channel::packet::Sequence;
-use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentPrefix;
 use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
 use near_crypto::{InMemorySigner, KeyType};
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
