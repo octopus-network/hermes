@@ -110,7 +110,6 @@ use error::NearError;
 
 pub const REVISION_NUMBER: u64 = 0;
 pub const CLIENT_DIVERSIFIER: &str = "NEAR";
-pub const CONTRACT_ACCOUNT_ID: &str = "v3.nearibc.testnet";
 const MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG: u128 = 100_000_000_000_000_000_000_000;
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -338,14 +337,11 @@ impl ChainEndpoint for NearChain {
         .map_err(Error::key_base)?;
         let mut new_instance = NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
+
             lcb_client: NearRpcClient::new("https://rpc.testnet.near.org"),
             config,
             keybase,
-            near_ibc_contract: AccountId::from_str(CONTRACT_ACCOUNT_ID)
-                .map_err(NearError::ParserNearAccountIdFailure)
-                .map_err(|e| {
-                    Error::report_error(format!("[Near Chain bootstartp function] -> Error({})", e))
-                })?,
+            near_ibc_contract: config.near_ibc_address.into(),
             rt,
             tx_monitor_cmd: None,
             signing_key_pair: None,
@@ -1701,8 +1697,7 @@ impl ChainEndpoint for NearChain {
                             .query(&near_jsonrpc_client::methods::query::RpcQueryRequest {
                                 block_reference,
                                 request: near_primitives::views::QueryRequest::ViewState {
-                                    account_id: AccountId::from_str(CONTRACT_ACCOUNT_ID)
-                                        .expect("never fialed because is all valid"),
+                                    account_id: self.near_ibc_contract.clone(),
                                     prefix,
                                     include_proof: true,
                                 },
@@ -1935,6 +1930,7 @@ impl NearChain {
 
         let (event_monitor, monitor_tx) = NearEventMonitor::new(
             self.config.id.clone(),
+            self.config.near_ibc_address.clone().into(),
             self.config.rpc_addr.to_string(),
             self.rt.clone(),
         )
