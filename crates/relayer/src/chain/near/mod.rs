@@ -340,7 +340,8 @@ impl ChainEndpoint for NearChain {
         .map_err(Error::key_base)?;
         let mut new_instance = NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
-            archival_client: NearRpcClient::new("https://archival-rpc.testnet.near.org"),
+            // archival_client: NearRpcClient::new("https://archival-rpc.testnet.near.org"),
+            archival_client: NearRpcClient::new("https://rpc.testnet.near.org"),
             config,
             keybase,
             near_ibc_contract: AccountId::from_str(CONTRACT_ACCOUNT_ID)
@@ -1459,6 +1460,7 @@ impl ChainEndpoint for NearChain {
         );
 
         // TODO: julian, assert!(trusted_block.epoch == target_block.epoch || trusted_block_.next_epoch == target_block.epoch)
+        std::thread::sleep(std::time::Duration::from_secs(8));
         let light_client_block_view = self
             .block_on(
                 self.archival_client.query(
@@ -1524,6 +1526,7 @@ impl ChainEndpoint for NearChain {
             BlockId::Height(height.revision_height()).into();
         let prefix = near_primitives::types::StoreKey::from(connections_path.into_bytes());
 
+        std::thread::sleep(std::time::Duration::from_secs(3));
         let query_response =
             self.block_on(self.client.query(
                 &near_jsonrpc_client::methods::query::RpcQueryRequest {
@@ -1536,6 +1539,7 @@ impl ChainEndpoint for NearChain {
                 },
             ))
             .unwrap();
+        // ServerError(HandlerError(UnknownBlock { block_reference: BlockId(Height(135705911)) }))
         println!("ys-debug: view state result: {:?}", query_response);
 
         let state = match query_response.kind {
@@ -1680,37 +1684,75 @@ impl ChainEndpoint for NearChain {
             IncludeProof::No,
         )?;
 
-        let mut buf = Vec::new();
-        let data = ChannelStateData {
-            path: ("/ibc/channelEnds%2Fports%2F".to_string()
-                + port_id.as_str()
-                + "%2Fchannels%2F"
-                + channel_id.as_str())
-            .into(),
-            channel: Some(channel.into()),
-        };
-        println!("ys-debug: ChannelStateData: {:?}", data);
-        Message::encode(&data, &mut buf).map_err(|e| Error::custom_error(e.to_string()))?;
+        let channel_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string();
 
-        let duration_since_epoch = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|e| Error::custom_error(e.to_string()))?;
-        let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
+        let block_reference: near_primitives::types::BlockReference =
+            BlockId::Height(height.revision_height()).into();
+        let prefix = near_primitives::types::StoreKey::from(channel_path.into_bytes());
 
-        let sig_data = self.sign_bytes_with_solomachine_pubkey(
-            height.revision_height() + 1,
-            timestamp_nanos,
-            DataType::ChannelState.into(),
-            buf.to_vec(),
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        let query_response =
+            self.block_on(self.client.query(
+                &near_jsonrpc_client::methods::query::RpcQueryRequest {
+                    block_reference,
+                    request: near_primitives::views::QueryRequest::ViewState {
+                        account_id: AccountId::from_str(CONTRACT_ACCOUNT_ID).unwrap(),
+                        prefix,
+                        include_proof: true,
+                    },
+                },
+            ))
+            .unwrap();
+        // ServerError(HandlerError(UnknownBlock { block_reference: BlockId(Height(135705911)) }))
+        println!(
+            "ys-debug: view state of channel proof: result: {:?}",
+            query_response.block_height
         );
 
-        let timestamped = TimestampedSignatureData {
-            signature_data: sig_data,
-            timestamp: timestamp_nanos,
-        };
-        let mut channel_proof = Vec::new();
-        Message::encode(&timestamped, &mut channel_proof)
+        let state = match query_response.kind {
+            near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => Ok(state),
+            _ => Err(Error::custom_error(
+                "failed to get channel proof".to_string(),
+            )),
+        }?;
+        let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
+
+        let commitment_prefix = self
+            .get_commitment_prefix()
             .map_err(|e| Error::custom_error(e.to_string()))?;
+
+        let channel_proof = NearProofs(proofs).try_to_vec().unwrap();
+        // let mut buf = Vec::new();
+        // let data = ChannelStateData {
+        //     path: ("/ibc/channelEnds%2Fports%2F".to_string()
+        //         + port_id.as_str()
+        //         + "%2Fchannels%2F"
+        //         + channel_id.as_str())
+        //     .into(),
+        //     channel: Some(channel.into()),
+        // };
+        // println!("ys-debug: ChannelStateData: {:?}", data);
+        // Message::encode(&data, &mut buf).map_err(|e| Error::custom_error(e.to_string()))?;
+
+        // let duration_since_epoch = SystemTime::now()
+        //     .duration_since(SystemTime::UNIX_EPOCH)
+        //     .map_err(|e| Error::custom_error(e.to_string()))?;
+        // let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
+
+        // let sig_data = self.sign_bytes_with_solomachine_pubkey(
+        //     height.revision_height() + 1,
+        //     timestamp_nanos,
+        //     DataType::ChannelState.into(),
+        //     buf.to_vec(),
+        // );
+
+        // let timestamped = TimestampedSignatureData {
+        //     signature_data: sig_data,
+        //     timestamp: timestamp_nanos,
+        // };
+        // let mut channel_proof = Vec::new();
+        // Message::encode(&timestamped, &mut channel_proof)
+        //     .map_err(|e| Error::custom_error(e.to_string()))?;
 
         let channel_proof_bytes =
             CommitmentProofBytes::try_from(channel_proof).map_err(Error::malformed_proof)?;
