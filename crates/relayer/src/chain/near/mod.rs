@@ -1,4 +1,5 @@
 use super::client::ClientSettings;
+use crate::util::retry::{retry_with_index, RetryResult};
 use crate::{
     account::Balance,
     chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck},
@@ -95,6 +96,7 @@ use ibc_relayer_types::{
 };
 use near_crypto::{InMemorySigner, KeyType};
 use near_primitives::types::BlockId;
+use near_primitives::views::ViewStateResult;
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
 use prost::Message;
 use semver::Version;
@@ -102,7 +104,7 @@ use serde_json::json;
 use std::{thread, time::SystemTime};
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
-use tracing::{debug, info, trace};
+use tracing::{debug, info, trace, warn};
 
 pub mod constants;
 pub mod contract;
@@ -126,7 +128,7 @@ struct NearProofs(Vec<Vec<u8>>);
 #[derive(Debug)]
 pub struct NearChain {
     client: NearRpcClient,
-    archival_client: NearRpcClient,
+    lcb_client: NearRpcClient,
     config: ChainConfig,
     keybase: KeyRing<Secp256k1KeyPair>,
     near_ibc_contract: AccountId,
@@ -340,8 +342,7 @@ impl ChainEndpoint for NearChain {
         .map_err(Error::key_base)?;
         let mut new_instance = NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
-            // archival_client: NearRpcClient::new("https://archival-rpc.testnet.near.org"),
-            archival_client: NearRpcClient::new("https://rpc.testnet.near.org"),
+            lcb_client: NearRpcClient::new("https://rpc.testnet.near.org"),
             config,
             keybase,
             near_ibc_contract: AccountId::from_str(CONTRACT_ACCOUNT_ID)
@@ -542,63 +543,19 @@ impl ChainEndpoint for NearChain {
         target: ICSHeight,
         client_state: &AnyClientState,
     ) -> Result<Self::LightBlock, Error> {
-        info!(
-            "{}: [verify_header] - trusted: {:?} target: {:?} client_state: {:?}",
-            self.id(),
-            trusted,
-            target,
-            client_state.latest_height()
-        );
-        let latest_block_view = self
-            .block_on(self.client.view_block(Some(BlockId::Height(
-                client_state.latest_height().revision_height(),
-            ))))
-            .unwrap();
-        info!(
-            "ys-debug: latest_block_view epoch_id: {:?}, next_epoch_id: {:?}",
-            latest_block_view.header.epoch_id, latest_block_view.header.next_epoch_id
-        );
-        let prev_epoch_block_view = self
-            .block_on(self.archival_client.view_block(Some(BlockId::Height(
-                client_state.latest_height().revision_height() - 43200 - 43200,
-            ))))
-            .unwrap();
-        // TODO: handler error: [Block not found: ]
-        info!(
-            "ys-debug: prev_epoch_block_view epoch_id: {:?}, next_epoch_id: {:?}",
-            prev_epoch_block_view.header.epoch_id, prev_epoch_block_view.header.next_epoch_id
-        );
-        let light_client_block_view = self
-            .block_on(
-                self.archival_client.query(
-                    &near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
-                        last_block_hash: prev_epoch_block_view.header.hash
-                    },
-                )
+        info!("{}: [verify_header]", self.id(),);
+        let prev_epoch_height = Height::new(
+            client_state.latest_height().revision_number(),
+            client_state.latest_height().revision_height() - 43200 - 43200,
+        )
+        .unwrap();
+        let (header, _headers) = self
+            .build_header(
+                client_state.latest_height(),
+                prev_epoch_height,
+                client_state,
             )
-            .unwrap().unwrap();
-        let block_view = self
-            .block_on(self.client.view_block(Some(BlockId::Height(
-                light_client_block_view.inner_lite.height,
-            ))))
             .unwrap();
-
-        let header = produce_light_client_block(&light_client_block_view, &block_view);
-        info!(
-            "ys-debug: header epoch_id: {:?}, next_epoch_id: {:?}",
-            header.light_client_block.inner_lite.epoch_id,
-            header.light_client_block.inner_lite.next_epoch_id
-        );
-        assert!(
-            header
-                .light_client_block
-                .inner_lite
-                .next_epoch_id
-                .0
-                 .0
-                .to_vec()
-                == latest_block_view.header.epoch_id.0.to_vec()
-        );
 
         Ok(header)
     }
@@ -1434,7 +1391,7 @@ impl ChainEndpoint for NearChain {
             self.id(),
             trusted_height,
             target_height,
-            client_state
+            client_state.latest_height()
         );
 
         let trusted_block = self
@@ -1444,47 +1401,145 @@ impl ChainEndpoint for NearChain {
             )
             .unwrap();
         info!(
-            "ys-debug: trusted block height: {:?}, epoch: {:?}",
-            trusted_block.header.height, trusted_block.header.epoch_id
+            "ys-debug: trusted block height: {:?}, epoch: {:?}, next_epoch_id: {:?}",
+            trusted_block.header.height,
+            trusted_block.header.epoch_id,
+            trusted_block.header.next_epoch_id
         );
 
-        let target_block = self
-            .block_on(
+        // possible error: handler error: [Block not found: ]
+        // handler error: [Block either has never been observed on the node or has been garbage collected: BlockId(Height(135888086))]
+        let target_block = retry_with_index(retry_strategy::default_strategy(), |index| {
+            let result = self.block_on(
                 self.client
                     .view_block(Some(BlockId::Height(target_height.revision_height()))),
-            )
-            .unwrap();
+            );
+
+            match result {
+                Ok(lcb) => RetryResult::Ok(lcb),
+                Err(e) => {
+                    warn!(
+                        "ys-debug: retry get target_block_view(header) with error: {}",
+                        e
+                    );
+                    RetryResult::Retry(())
+                }
+            }
+        })
+        .unwrap();
         info!(
-            "ys-debug: target block height: {:?}, epoch: {:?}",
-            target_block.header.height, target_block.header.epoch_id
+            "ys-debug: target block height: {:?}, epoch: {:?}, next_epoch_id: {:?}",
+            target_block.header.height,
+            target_block.header.epoch_id,
+            target_block.header.next_epoch_id
         );
 
         // TODO: julian, assert!(trusted_block.epoch == target_block.epoch || trusted_block_.next_epoch == target_block.epoch)
-        std::thread::sleep(std::time::Duration::from_secs(8));
-        let light_client_block_view = self
-            .block_on(
-                self.archival_client.query(
-                    &near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
-                        last_block_hash: target_block.header.hash
-                    },
-                )
-            )
-            .unwrap().unwrap();
-        // TODO: "missing field `prev_block_hash`
+        let header = retry_with_index(retry_strategy::default_strategy(), |index| {
+            let result = self.block_on(
+                                     self.lcb_client.query(
+                                         &near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
+                                             last_block_hash: target_block.header.hash
+                                         },
+                                     )
+                                    );
 
-        let block_view = self
-            .block_on(self.client.view_block(Some(BlockId::Height(
-                light_client_block_view.inner_lite.height,
-            ))))
+            let light_client_block_view = match result {
+                Ok(lcb) => lcb,
+                Err(e) => {
+                    warn!(
+                        "ys-debug: retry get next_light_client_block with error: {}",
+                        e
+                    );
+                    return RetryResult::Retry(());
+                }
+            }
             .unwrap();
 
-        let header = produce_light_client_block(&light_client_block_view, &block_view);
-        info!(
-            "ys-debug: get new header: {:?}, {:?}, {:?}",
-            header.height(),
-            light_client_block_view.inner_lite.height,
-            block_view.header.height
-        );
+            let result = self.block_on(self.client.view_block(Some(BlockId::Height(
+                light_client_block_view.inner_lite.height,
+            ))));
+
+            let block_view = match result {
+                Ok(bv) => bv,
+                Err(e) => {
+                    warn!("ys-debug: retry get block_view with error: {}", e);
+                    return RetryResult::Retry(());
+                }
+            };
+
+            let proof_height = light_client_block_view.inner_lite.height - 1;
+
+            let block_reference: near_primitives::types::BlockReference =
+                BlockId::Height(proof_height).into();
+            let prefix = near_primitives::types::StoreKey::from("ibc".as_bytes().to_vec());
+            let result = self.block_on(self.client.query(
+                &near_jsonrpc_client::methods::query::RpcQueryRequest {
+                    block_reference,
+                    request: near_primitives::views::QueryRequest::ViewState {
+                        account_id: AccountId::from_str(CONTRACT_ACCOUNT_ID).unwrap(),
+                        prefix,
+                        include_proof: true,
+                    },
+                },
+            ));
+
+            let query_response = match result {
+                Ok(resp) => resp,
+                Err(e) => {
+                    warn!("ys-debug: retry get proof_block_view with error: {}", e);
+                    return RetryResult::Retry(());
+                }
+            };
+
+            let state = match query_response.kind {
+                near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
+                    Ok::<ViewStateResult, Error>(state)
+                }
+                _ => {
+                    warn!("ys-debug: retry get view_state");
+
+                    return RetryResult::Retry(());
+                }
+            }
+            .unwrap();
+
+            let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
+            let root_hash = CryptoHash::hash_bytes(&proofs[0]);
+
+            if block_view
+                .chunks
+                .iter()
+                .any(|c| c.prev_state_root.0 == root_hash.0)
+            {
+                let header = produce_light_client_block(&light_client_block_view, &block_view);
+                info!(
+                    "ys-debug: new header: {:?}, {:?}, {:?}",
+                    header.height(),
+                    light_client_block_view.inner_lite.height,
+                    block_view.header.height
+                );
+                return RetryResult::Ok(header);
+            } else {
+                warn!(
+                    "ys-debug: retry root_hash {:?} at {:?} does not in the lcb state at {:?}",
+                    root_hash, proof_height, light_client_block_view.inner_lite.height
+                );
+
+                return RetryResult::Retry(());
+            }
+        }).unwrap();
+
+        // assert!(
+        //     header
+        //         .light_client_block
+        //         .inner_lite
+        //         .next_epoch_id
+        //         .0
+        //          .0
+        //         .to_vec()
+        //         == latest_block_view.header.epoch_id.0.to_vec()
+        // );
 
         Ok((header, vec![]))
     }
@@ -1520,15 +1575,14 @@ impl ChainEndpoint for NearChain {
             IncludeProof::No,
         )?;
 
-        let connections_path = ConnectionsPath(connection_id.clone()).to_string();
+        // ServerError(HandlerError(UnknownBlock { block_reference: BlockId(Height(135705911)) }))
+        let query_response = retry_with_index(retry_strategy::default_strategy(), |index| {
+            let connections_path = ConnectionsPath(connection_id.clone()).to_string();
 
-        let block_reference: near_primitives::types::BlockReference =
-            BlockId::Height(height.revision_height()).into();
-        let prefix = near_primitives::types::StoreKey::from(connections_path.into_bytes());
-
-        std::thread::sleep(std::time::Duration::from_secs(3));
-        let query_response =
-            self.block_on(self.client.query(
+            let block_reference: near_primitives::types::BlockReference =
+                BlockId::Height(height.revision_height()).into();
+            let prefix = near_primitives::types::StoreKey::from(connections_path.into_bytes());
+            let result = self.block_on(self.client.query(
                 &near_jsonrpc_client::methods::query::RpcQueryRequest {
                     block_reference,
                     request: near_primitives::views::QueryRequest::ViewState {
@@ -1537,10 +1591,24 @@ impl ChainEndpoint for NearChain {
                         include_proof: true,
                     },
                 },
-            ))
-            .unwrap();
-        // ServerError(HandlerError(UnknownBlock { block_reference: BlockId(Height(135705911)) }))
-        println!("ys-debug: view state result: {:?}", query_response);
+            ));
+
+            match result {
+                Ok(lcb) => RetryResult::Ok(lcb),
+                Err(e) => {
+                    warn!(
+                        "ys-debug: retry get target_block_view(conn) with error: {}",
+                        e
+                    );
+                    RetryResult::Retry(())
+                }
+            }
+        })
+        .unwrap();
+        println!(
+            "ys-debug: view state of connection result: {:?}",
+            query_response.block_height
+        );
 
         let state = match query_response.kind {
             near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => Ok(state),
@@ -1684,15 +1752,14 @@ impl ChainEndpoint for NearChain {
             IncludeProof::No,
         )?;
 
-        let channel_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string();
+        // ServerError(HandlerError(UnknownBlock { block_reference: BlockId(Height(135705911)) }))
+        let query_response = retry_with_index(retry_strategy::default_strategy(), |index| {
+            let channel_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string();
 
-        let block_reference: near_primitives::types::BlockReference =
-            BlockId::Height(height.revision_height()).into();
-        let prefix = near_primitives::types::StoreKey::from(channel_path.into_bytes());
-
-        std::thread::sleep(std::time::Duration::from_secs(3));
-        let query_response =
-            self.block_on(self.client.query(
+            let block_reference: near_primitives::types::BlockReference =
+                BlockId::Height(height.revision_height()).into();
+            let prefix = near_primitives::types::StoreKey::from(channel_path.into_bytes());
+            let result = self.block_on(self.client.query(
                 &near_jsonrpc_client::methods::query::RpcQueryRequest {
                     block_reference,
                     request: near_primitives::views::QueryRequest::ViewState {
@@ -1701,9 +1768,21 @@ impl ChainEndpoint for NearChain {
                         include_proof: true,
                     },
                 },
-            ))
-            .unwrap();
-        // ServerError(HandlerError(UnknownBlock { block_reference: BlockId(Height(135705911)) }))
+            ));
+
+            match result {
+                Ok(lcb) => RetryResult::Ok(lcb),
+                Err(e) => {
+                    warn!(
+                        "ys-debug: retry get target_block_view(chan) with error: {}",
+                        e
+                    );
+                    RetryResult::Retry(())
+                }
+            }
+        })
+        .unwrap();
+
         println!(
             "ys-debug: view state of channel proof: result: {:?}",
             query_response.block_height
@@ -1939,5 +2018,20 @@ pub fn produce_light_client_block(
             .iter()
             .map(|header| CryptoHash(header.prev_state_root.0))
             .collect(),
+    }
+}
+
+mod retry_strategy {
+    use crate::util::retry::clamp_total;
+    use core::time::Duration;
+    use retry::delay::Fibonacci;
+
+    // Default parameters for the retrying mechanism
+    const MAX_DELAY: Duration = Duration::from_secs(10); // 10 seconds
+    const MAX_TOTAL_DELAY: Duration = Duration::from_secs(60); // 1 minutes
+    const INITIAL_DELAY: Duration = Duration::from_secs(2); // 2 seconds
+
+    pub fn default_strategy() -> impl Iterator<Item = Duration> {
+        clamp_total(Fibonacci::from(INITIAL_DELAY), MAX_DELAY, MAX_TOTAL_DELAY)
     }
 }
