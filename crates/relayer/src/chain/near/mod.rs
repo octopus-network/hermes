@@ -490,7 +490,7 @@ impl ChainEndpoint for NearChain {
             target,
             client_state.latest_height()
         );
-        let header = retry_with_index(retry_strategy::default_strategy(), |index| {
+        let header = retry_with_index(retry_strategy::default_strategy(), |_index| {
             let result = self.block_on(self.client.view_block(Some(BlockId::Height(
                 client_state.latest_height().revision_height(),
             ))));
@@ -556,7 +556,12 @@ impl ChainEndpoint for NearChain {
             );
             return RetryResult::Ok(header);
         })
-        .unwrap();
+        .map_err(|e| {
+            Error::report_error(format!(
+                "[Near chain verify_header get header failed] -> Error({:?})",
+                e
+            ))
+        })?;
 
         Ok(header)
     }
@@ -1446,7 +1451,12 @@ impl ChainEndpoint for NearChain {
                 }
             }
         })
-        .unwrap();
+        .map_err(|e| {
+            Error::report_error(format!(
+                "[Near chain build_header get target_block failed] -> Error({:?})",
+                e
+            ))
+        })?;
 
         info!(
             "ys-debug: target block height: {:?}, epoch: {:?}, next_epoch_id: {:?}",
@@ -1725,7 +1735,12 @@ impl ChainEndpoint for NearChain {
                     )),
                 }?;
                 let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
-                let proof_client = NearProofs(proofs).try_to_vec().unwrap();
+                let proof_client = NearProofs(proofs).try_to_vec().map_err(|e| {
+                    Error::report_error(format!(
+                        "[Near chain build_connection_proofs_and_client_state BuildNearProofs failed] -> Error({:?})",
+                        e
+                    ))
+                })?;
 
                 client_proof = Some(
                     CommitmentProofBytes::try_from(proof_client).map_err(Error::malformed_proof)?,
