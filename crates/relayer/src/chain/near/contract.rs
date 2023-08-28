@@ -532,7 +532,7 @@ pub trait NearIbcContract {
 
 #[tokio::test]
 pub async fn test123() -> anyhow::Result<()> {
-    use crate::chain::near::CONTRACT_ACCOUNT_ID;
+    const CONTRACT_ACCOUNT_ID: &str = "v3.nearibc.testnet";
     let client =
         NearRpcClient::new("https://near-testnet.infura.io/v3/4f80a04e6eb2437a9ed20cb874e10d55");
     let connection_id = ConnectionId::new(5);
