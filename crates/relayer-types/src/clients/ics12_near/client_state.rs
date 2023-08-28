@@ -1,10 +1,8 @@
-use crate::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
 use crate::core::ics02_client::client_state::{ClientState as Ics2ClientState, UpgradeOptions};
 use crate::core::ics02_client::client_type::ClientType;
 use crate::core::ics02_client::error::Error;
 use crate::core::ics02_client::height::Height;
 use crate::core::ics24_host::identifier::ChainId;
-use bytes::Buf;
 use ibc_proto::google::protobuf::Any;
 use ibc_proto::ibc::lightclients::near::v1::ClientState as RawClientState;
 use ibc_proto::protobuf::Protobuf;
@@ -74,11 +72,11 @@ impl TryFrom<RawClientState> for ClientState {
             chain_id: ChainId::new("ibc".to_string(), 0), // TODO: julian
             trusting_period: raw
                 .trusting_period
-                .ok_or(Error::custom_error("trusting period is empty".into()))?
+                .ok_or(Error::custom_error("[ibc relayer type Convert from Near RawCleintState to ClientState Failed] trusting period is empty".into()))?
                 .nanos as u64,
             latest_height: raw
                 .latest_height
-                .ok_or(Error::custom_error("latest height is empty".into()))?
+                .ok_or(Error::custom_error("[ibc relayer type Convert from Near RawCleintState to ClientState Failed] latest height is empty".into()))?
                 .revision_height,
             latest_timestamp: raw.latest_timestamp,
             frozen_height: raw.frozen_height.map(|h| h.revision_height),

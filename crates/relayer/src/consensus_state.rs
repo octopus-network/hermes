@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 pub enum AnyConsensusState {
     Tendermint(TmConsensusState),
     Solomachine(SmConsensusState),
-    Near(NearConsensusState),
+    Near(Box<NearConsensusState>),
 
     #[cfg(test)]
     Mock(MockConsensusState),
@@ -80,10 +80,10 @@ impl TryFrom<Any> for AnyConsensusState {
                 Protobuf::<RawSmConsensusState>::decode_vec(&value.value)
                     .map_err(Error::decode_raw_client_state)?,
             )),
-            NEAR_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Near(
+            NEAR_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Near(Box::new(
                 Protobuf::<RawNearConsensusState>::decode_vec(&value.value)
                     .map_err(Error::decode_raw_client_state)?,
-            )),
+            ))),
 
             #[cfg(test)]
             MOCK_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Mock(
@@ -109,7 +109,7 @@ impl From<AnyConsensusState> for Any {
             },
             AnyConsensusState::Near(value) => Any {
                 type_url: NEAR_CONSENSUS_STATE_TYPE_URL.to_string(),
-                value: Protobuf::<RawNearConsensusState>::encode_vec(&value),
+                value: Protobuf::<RawNearConsensusState>::encode_vec(&*value),
             },
             #[cfg(test)]
             AnyConsensusState::Mock(value) => Any {
@@ -141,7 +141,7 @@ impl From<SmConsensusState> for AnyConsensusState {
 
 impl From<NearConsensusState> for AnyConsensusState {
     fn from(cs: NearConsensusState) -> Self {
-        Self::Near(cs)
+        Self::Near(Box::new(cs))
     }
 }
 

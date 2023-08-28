@@ -30,6 +30,7 @@ use ibc_proto::google::protobuf::Any;
 use ibc_relayer_types::core::ics23_commitment::specs::ProofSpecs;
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ChannelId, PortId};
 use ibc_relayer_types::timestamp::ZERO_DURATION;
+use near_primitives::types::AccountId as NearAccountId;
 
 use crate::chain::ChainType;
 use crate::config::gas_multiplier::GasMultiplier;
@@ -152,6 +153,10 @@ pub mod default {
 
     pub fn chain_type() -> ChainType {
         ChainType::CosmosSdk
+    }
+
+    pub fn near_ibc_contract_address() -> NearIbcContractAddress {
+        NearIbcContractAddress::default()
     }
 
     pub fn ccv_consumer_chain() -> bool {
@@ -578,6 +583,56 @@ impl From<String> for CanisterIdConfig {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(from = "String", into = "String")]
+pub struct NearIbcContractAddress {
+    pub account_id: NearAccountId,
+}
+
+impl From<NearIbcContractAddress> for NearAccountId {
+    fn from(value: NearIbcContractAddress) -> Self {
+        value.account_id
+    }
+}
+
+impl From<NearAccountId> for NearIbcContractAddress {
+    fn from(value: NearAccountId) -> Self {
+        Self { account_id: value }
+    }
+}
+
+impl Default for NearIbcContractAddress {
+    fn default() -> Self {
+        Self {
+            account_id: NearAccountId::from_str("v3.nearibc.testnet").expect("never faild"),
+        }
+    }
+}
+
+impl FromStr for NearIbcContractAddress {
+    type Err = String;
+
+    fn from_str(id: &str) -> Result<Self, Self::Err> {
+        Ok(Self {
+            account_id: NearAccountId::from_str(id).map_err(|e| e.to_string())?,
+        })
+    }
+}
+
+impl From<NearIbcContractAddress> for String {
+    fn from(value: NearIbcContractAddress) -> Self {
+        value.account_id.to_string()
+    }
+}
+
+impl From<String> for NearIbcContractAddress {
+    fn from(value: String) -> Self {
+        Self {
+            account_id: NearAccountId::from_str(&value).expect("invalid near account id: {value}"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ChainConfig {
@@ -585,6 +640,10 @@ pub struct ChainConfig {
     pub id: ChainId,
 
     pub canister_id: CanisterIdConfig,
+
+    /// The chain type
+    #[serde(default = "default::near_ibc_contract_address")]
+    pub near_ibc_address: NearIbcContractAddress,
 
     /// The chain type
     #[serde(default = "default::chain_type")]

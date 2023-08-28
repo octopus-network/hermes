@@ -11,6 +11,7 @@ use ibc_relayer_types::timestamp::Timestamp;
 use near_primitives::views::StateItem;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 /// Convert `StateItem`s over to a Map<data_key, value_bytes> representation.
 /// Assumes key and value are base64 encoded, so this also decodes them.
 pub(crate) fn into_state_map(
@@ -76,6 +77,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(
                 }),
             )
         }
+        #[allow(unreachable_code)]
         IbcEvent::ClientMisbehaviour(client_misbehaviour) => {
             use ibc_relayer_types::core::ics02_client::events::Attributes;
             HermesIbcEvent::ClientMisbehaviour(
@@ -104,7 +106,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(
                         .map_err(|e| NearError::CustomError(e.to_string()))?,
                     counterparty_connection_id: open_init_connection
                         .conn_id_on_b()
-                        .map(|id| ConnectionId::from_str(id.as_str()).unwrap()),
+                        .and_then(|id| ConnectionId::from_str(id.as_str()).ok()),
                     counterparty_client_id: ClientId::from_str(
                         open_init_connection.client_id_on_b().as_str(),
                     )
@@ -426,7 +428,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(
                 },
             },
         ),
-        IbcEvent::ChannelClosed(channel_closed) => {
+        IbcEvent::ChannelClosed(_channel_closed) => {
             todo!()
         }
         IbcEvent::Module(app_module) => {

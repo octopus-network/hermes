@@ -64,7 +64,7 @@ impl TryFrom<RawConsensusState> for ConsensusState {
 
     fn try_from(raw: RawConsensusState) -> Result<Self, Self::Error> {
         let h = raw.header.ok_or(Error::custom_error(
-            "Consensus State header is empty".into(),
+            "[ibc relayer type Convert from Near RawConsensusState to ConsensusState Failed] Consensus State header is empty".into(),
         ))?;
         Ok(Self {
             current_bps: raw
@@ -72,16 +72,16 @@ impl TryFrom<RawConsensusState> for ConsensusState {
                 .iter()
                 .map(|bps| ValidatorStakeView::try_from_slice(&bps.raw_data))
                 .collect::<Result<Vec<ValidatorStakeView>, _>>()
-                .map_err(|e| Error::custom_error(e.to_string()))?,
+                .map_err(|e| Error::custom_error(format!("[ibc relayer type Convert from Near RawCleintState to ClientState get ValidatorStakeView Failed] -> Error({})", e)))?,
             header: Header {
                 light_client_block: LightClientBlock::try_from_slice(&h.light_client_block)
-                    .map_err(|e| Error::custom_error(e.to_string()))?,
+                    .map_err(|e| Error::custom_error(format!("[ibc relayer type Convert from Near RawConsensusState to ConsensusState get LightClientBlock Failed] -> Error({})", e)))?,
                 prev_state_root_of_chunks: h
                     .prev_state_root_of_chunks
                     .iter()
                     .map(|c| CryptoHash::try_from(&c.raw_data[..]))
                     .collect::<Result<Vec<CryptoHash>, _>>()
-                    .map_err(|e| Error::custom_error(e.to_string()))?,
+                    .map_err(|e| Error::custom_error(format!("[ibc relayer type Convert from Near RawConsensusState to ConsensusState get CryptoHash Failed] -> Error({})", e)))?,
             },
             commitment_root: CommitmentRoot::from(vec![]),
         })

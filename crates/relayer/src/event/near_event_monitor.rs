@@ -4,7 +4,6 @@ use crate::chain::{
     near::{
         contract::NearIbcContract,
         rpc::{client::NearRpcClient, tool::convert_ibc_event_to_hermes_ibc_event},
-        CONTRACT_ACCOUNT_ID,
     },
     tracking::TrackingId,
 };
@@ -15,7 +14,6 @@ use ibc_relayer_types::{
 };
 use near_primitives::types::AccountId;
 use serde_json::json;
-use std::str::FromStr;
 use tokio::runtime::Runtime as TokioRuntime;
 use tracing::{error, info, instrument};
 
@@ -62,7 +60,10 @@ pub enum Next {
 /// - [`EventType::NewBlock`](tendermint_rpc::query::EventType::NewBlock)
 /// - [`EventType::Tx`](tendermint_rpc::query::EventType::Tx)
 pub struct NearEventMonitor {
+    ///
     chain_id: ChainId,
+    /// near ibc address
+    near_ibc_address: AccountId,
     /// The NEAR rpc client to collect IBC events
     client: NearRpcClient,
     /// Channel where to send EventBatch
@@ -77,7 +78,7 @@ pub struct NearEventMonitor {
 
 impl NearIbcContract for NearEventMonitor {
     fn get_contract_id(&self) -> AccountId {
-        AccountId::from_str(CONTRACT_ACCOUNT_ID).expect("construct Near Account Id failed")
+        self.near_ibc_address.clone()
     }
 
     fn get_client(&self) -> &NearRpcClient {
@@ -99,6 +100,7 @@ impl NearEventMonitor {
     )]
     pub fn new(
         chain_id: ChainId,
+        near_ibc_address: AccountId,
         rpc_addr: String,
         rt: Arc<TokioRuntime>,
     ) -> Result<(Self, TxMonitorCmd)> {
@@ -108,6 +110,7 @@ impl NearEventMonitor {
 
         let monitor = Self {
             rt,
+            near_ibc_address,
             chain_id,
             client,
             event_tx: None,

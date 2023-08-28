@@ -124,6 +124,7 @@ where
     Ok(ChainConfig {
         id: chain_data.chain_id,
         canister_id: CanisterIdConfig::default(),
+        near_ibc_address: ibc_relayer::config::NearIbcContractAddress::default(),
         r#type: default::chain_type(),
         rpc_addr: rpc_data.rpc_address,
         grpc_addr: grpc_address,

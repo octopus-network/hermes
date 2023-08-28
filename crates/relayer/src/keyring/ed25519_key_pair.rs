@@ -104,8 +104,9 @@ impl Ed25519KeyPair {
 
 impl SigningKeyPair for Ed25519KeyPair {
     const KEY_TYPE: KeyType = KeyType::Ed25519;
+    type KeyFile = KeyFile;
 
-    fn from_key_file(key_file: KeyFile, hd_path: &StandardHDPath) -> Result<Self, Error> {
+    fn from_key_file(key_file: Self::KeyFile, hd_path: &StandardHDPath) -> Result<Self, Error> {
         // TODO: Derive this from something in `key_file`
         let address_type = Ed25519AddressType::Solana;
         let key_pair = Self::from_mnemonic_internal(&key_file.mnemonic, hd_path, address_type)?;

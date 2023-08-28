@@ -17,7 +17,6 @@ use ibc_relayer_types::core::ics03_connection::connection::{
 };
 use ibc_relayer_types::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
 use ibc_relayer_types::core::ics04_channel::packet::Sequence;
-use ibc_relayer_types::core::ics23_commitment::commitment::CommitmentPrefix;
 use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
 use near_crypto::{InMemorySigner, KeyType};
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
@@ -37,13 +36,13 @@ pub trait NearIbcContract {
             .get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id(),
-                "get_latest_height".to_string(),
+                "get_latest_height".into(),
                 json!({}).to_string().into_bytes(),
-            ))
-            .expect("Failed to get latest height")
+            ))?
             .json()?;
 
         // As we use solomachine client, we set the revision number to 0
+        // TODO: ibc height reversion number is chainid version
         Ok(Height::new(0, height.revision_height())?)
     }
 
@@ -63,13 +62,12 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_connection_end".to_string(),
+                    "get_connection_end".into(),
                     json!({ "connection_id": connection_id })
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_connection_end")
+            )?
             .json()
 
         // self.get_client().view(
@@ -94,13 +92,12 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_channel_end".to_string(),
+                    "get_channel_end".into(),
                     json!({"port_id": port_id, "channel_id": channel_id})
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to query_channel_end.")
+            )?
             .json()
     }
 
@@ -115,13 +112,12 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_client_state".to_string(),
+                    "get_client_state".into(),
                     json!({"client_id": client_id.clone()})
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to query_client_state.")
+            )?
             .json()
     }
 
@@ -134,13 +130,12 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_client_consensus_heights".to_string(),
+                    "get_client_consensus_heights".into(),
                     json!({"client_id": client_id.clone()})
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_client_consensus_heights.")
+            )?
             .json()
     }
 
@@ -159,13 +154,12 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_client_consensus".to_string(),
+                    "get_client_consensus".into(),
                     json!({"client_id": client_id.clone(), "consensus_height": consensus_height })
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_client_consensus.")
+            )?
             .json()
     }
 
@@ -182,10 +176,9 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id(),
-                "get_consensus_state_with_height".to_string(),
+                "get_consensus_state_with_height".into(),
                 json!({ "client_id": client_id }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_consensus_state_with_height.")
+            ))?
             .json()
     }
 
@@ -204,7 +197,7 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_unreceipt_packet".to_string(),
+                    "get_unreceipt_packet".into(),
                     json!({
                         "port_id": port_id,
                         "channel_id": channel_id,
@@ -213,8 +206,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_unreceipt_packet.")
+            )?
             .json()
     }
 
@@ -229,10 +221,9 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id(),
-                "get_clients".to_string(),
+                "get_clients".into(),
                 json!({ "request": request }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_clients.")
+            ))?
             .json()
     }
 
@@ -250,10 +241,9 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id(),
-                "get_connections".to_string(),
+                "get_connections".into(),
                 json!({ "request": request }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_connections.")
+            ))?
             .json()
     }
 
@@ -268,10 +258,9 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id(),
-                "get_channels".to_string(),
+                "get_channels".into(),
                 json!({ "request": request }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_channels.")
+            ))?
             .json()
     }
 
@@ -287,7 +276,7 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_packet_commitment_sequences".to_string(),
+                    "get_packet_commitment_sequences".into(),
                     json!({
                         "port_id": request.port_id.to_string(),
                         "channel_id": request.channel_id.to_string()
@@ -295,8 +284,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_packet_commitments.")
+            )?
             .json()
     }
 
@@ -309,7 +297,7 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_packet_acknowledgement_sequences".to_string(),
+                    "get_packet_acknowledgement_sequences".into(),
                     json!({
                         "port_id": request.port_id.to_string(),
                         "channel_id": request.channel_id.to_string()
@@ -317,8 +305,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_packet_acknowledgements.")
+            )?
             .json()
     }
 
@@ -335,10 +322,9 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id(),
-                "get_client_connections".to_string(),
+                "get_client_connections".into(),
                 json!({ "client_id": client_id }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_client_connections.")
+            ))?
             .json()
     }
 
@@ -355,13 +341,12 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_connection_channels".to_string(),
+                    "get_connection_channels".into(),
                     json!({ "connection_id": connection_id })
                         .to_string()
                         .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_connection_channels.")
+            )?
             .json()
     }
 
@@ -379,7 +364,7 @@ pub trait NearIbcContract {
         self.get_rt().block_on(self.get_client().call(
             &signer,
             &self.get_contract_id(),
-            "deliver".to_string(),
+            "deliver".into(),
             json!({ "messages": messages }).to_string().into_bytes(),
             300000000000000,
             0,
@@ -398,7 +383,7 @@ pub trait NearIbcContract {
         self.get_rt().block_on(self.get_client().call(
             &signer,
             &self.get_contract_id(),
-            "raw_transfer".to_string(),
+            "raw_transfer".into(),
             json!({ "messages": msgs }).to_string().into_bytes(),
             300000000000000,
             1,
@@ -420,7 +405,7 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_packet_commitment".to_string(),
+                    "get_packet_commitment".into(),
                     json!({
                         "port_id": port_id,
                         "channel_id": channel_id,
@@ -429,8 +414,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_packet_commitment.")
+            )?
             .json()
     }
 
@@ -439,10 +423,9 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id(),
-                "get_commitment_prefix".to_string(),
+                "get_commitment_prefix".into(),
                 json!({}).to_string().into_bytes(),
-            ))
-            .expect("Failed to get_commitment_prefix.")
+            ))?
             .json()
     }
 
@@ -461,7 +444,7 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_packet_receipt".to_string(),
+                    "get_packet_receipt".into(),
                     json!({
                         "port_id": port_id,
                         "channel_id": channel_id,
@@ -470,8 +453,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_packet_receipt.")
+            )?
             .json()
     }
 
@@ -489,7 +471,7 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_next_sequence_receive".to_string(),
+                    "get_next_sequence_receive".into(),
                     json!({
                         "port_id": port_id,
                         "channel_id": channel_id,
@@ -497,8 +479,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_next_sequence_receive.")
+            )?
             .json()
     }
 
@@ -517,7 +498,7 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_packet_acknowledgement".to_string(),
+                    "get_packet_acknowledgement".into(),
                     json!({
                         "port_id": port_id,
                         "channel_id": channel_id,
@@ -526,8 +507,7 @@ pub trait NearIbcContract {
                     .to_string()
                     .into_bytes(),
                 ),
-            )
-            .expect("Failed to get_packet_acknowledgement.")
+            )?
             .json()
     }
 
@@ -543,17 +523,16 @@ pub trait NearIbcContract {
         self.get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id(),
-                "get_packet_events".to_string(),
+                "get_packet_events".into(),
                 json!({ "request": request }).to_string().into_bytes(),
-            ))
-            .expect("Failed to get packet events.")
+            ))?
             .json::<Vec<(Height, Vec<IbcEvent>)>>()
     }
 }
 
 #[tokio::test]
 pub async fn test123() -> anyhow::Result<()> {
-    use crate::chain::near::CONTRACT_ACCOUNT_ID;
+    const CONTRACT_ACCOUNT_ID: &str = "v3.nearibc.testnet";
     let client =
         NearRpcClient::new("https://near-testnet.infura.io/v3/4f80a04e6eb2437a9ed20cb874e10d55");
     let connection_id = ConnectionId::new(5);
@@ -574,7 +553,7 @@ pub async fn test123() -> anyhow::Result<()> {
 
     // dbg!(&result);
 
-    let result_raw: serde_json::value::Value = result.json().map_err(NearError::SerdeJsonError)?;
+    let result_raw: serde_json::value::Value = result.json().unwrap();
     dbg!(&result_raw);
     let connection_end: ConnectionEnd =
         serde_json::from_value(result_raw).map_err(NearError::SerdeJsonError)?;
