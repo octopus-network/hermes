@@ -287,7 +287,7 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_packet_commitments".to_string(),
+                    "get_packet_commitment_sequences".to_string(),
                     json!({
                         "port_id": request.port_id.to_string(),
                         "channel_id": request.channel_id.to_string()
@@ -309,7 +309,7 @@ pub trait NearIbcContract {
             .block_on(
                 self.get_client().view(
                     self.get_contract_id(),
-                    "get_packet_acknowledgements".to_string(),
+                    "get_packet_acknowledgement_sequences".to_string(),
                     json!({
                         "port_id": request.port_id.to_string(),
                         "channel_id": request.channel_id.to_string()

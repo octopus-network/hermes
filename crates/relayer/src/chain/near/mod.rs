@@ -333,7 +333,7 @@ impl ChainEndpoint for NearChain {
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
         info!("{}: [bootstrap]", config.id);
         // Initialize key store and load key
-        let keybase = KeyRing::new(
+        let keybase = KeyRing::new_secp256k1(
             config.key_store_type,
             &config.account_prefix,
             &config.id,
@@ -415,45 +415,15 @@ impl ChainEndpoint for NearChain {
             }
             tracked_msgs.msgs = msgs;
         }
-
-        let result = match tracked_msgs.tracking_id {
-            TrackingId::Uuid(_) => {
-                let result = self
-                    .deliver(tracked_msgs.messages().to_vec())
-                    .map_err(|e| {
-                        Error::report_error(format!("deliever error ({:?})", e.to_string()))
-                    })?;
-                // result.transaction_outcome
-                debug!(
-                    "{}: [send_messages_and_wait_commit] - extrics_hash: {:?}",
-                    self.id(),
-                    result
-                );
-                result
-            }
-            TrackingId::Static(value) => match value {
-                "ft-transfer" => {
-                    todo!() // wait for near-ibc ics20
-                }
-                _ => {
-                    let result = self
-                        .deliver(tracked_msgs.messages().to_vec())
-                        .map_err(|e| {
-                            Error::report_error(format!("deliever error ({:?})", e.to_string()))
-                        })?;
-
-                    debug!(
-                        "{}: [send_messages_and_wait_commit] - extrics_hash: {:?}",
-                        self.id(),
-                        result
-                    );
-                    result
-                }
-            },
-            TrackingId::ClearedUuid(_) => {
-                todo!()
-            }
-        };
+        let result = self
+            .deliver(tracked_msgs.messages().to_vec())
+            .map_err(|e| Error::report_error(format!("deliever error ({:?})", e.to_string())))?;
+        // result.transaction_outcome
+        debug!(
+            "{}: [send_messages_and_wait_commit] - extrics_hash: {:?}",
+            self.id(),
+            result
+        );
 
         collect_ibc_event_by_outcome(result)
     }
@@ -489,47 +459,14 @@ impl ChainEndpoint for NearChain {
             }
             tracked_msgs.msgs = msgs;
         }
-
-        match tracked_msgs.tracking_id {
-            TrackingId::Uuid(_) => {
-                let result = self
-                    .deliver(tracked_msgs.messages().to_vec())
-                    .map_err(|e| {
-                        Error::report_error(format!("deliever error ({:?})", e.to_string()))
-                    })?;
-                debug!(
-                    "{}: [send_messages_and_wait_commit] - extrics_hash: {:?}",
-                    self.id(),
-                    result
-                );
-            }
-            TrackingId::Static(value) => match value {
-                "ft-transfer" => {
-                    let result = self
-                        .raw_transfer(tracked_msgs.messages().to_vec())
-                        .map_err(|_| Error::report_error("ics20_transfer".to_string()))?;
-
-                    debug!(
-                        "{}: [send_messages_and_wait_commit] - extrics_hash: {:?}",
-                        self.id(),
-                        result
-                    );
-                }
-                _ => {
-                    let result = self
-                        .deliver(tracked_msgs.messages().to_vec())
-                        .map_err(|e| {
-                            Error::report_error(format!("deliever error ({:?})", e.to_string()))
-                        })?;
-                    debug!(
-                        "{}: [send_messages_and_wait_commit] - extrics_hash: {:?}",
-                        self.id(),
-                        result
-                    );
-                }
-            },
-            TrackingId::ClearedUuid(_) => {}
-        }
+        let result = self
+            .deliver(tracked_msgs.messages().to_vec())
+            .map_err(|e| Error::report_error(format!("deliever error ({:?})", e.to_string())))?;
+        debug!(
+            "{}: [send_messages_and_wait_check_tx] - extrics_hash: {:?}",
+            self.id(),
+            result
+        );
 
         Ok(vec![])
     }
@@ -543,19 +480,82 @@ impl ChainEndpoint for NearChain {
         target: ICSHeight,
         client_state: &AnyClientState,
     ) -> Result<Self::LightBlock, Error> {
-        info!("{}: [verify_header]", self.id(),);
-        let prev_epoch_height = Height::new(
-            client_state.latest_height().revision_number(),
-            client_state.latest_height().revision_height() - 43200 - 43200,
-        )
-        .unwrap();
-        let (header, _headers) = self
-            .build_header(
-                client_state.latest_height(),
-                prev_epoch_height,
-                client_state,
-            )
+        info!(
+            "{}: [verify_header] - trusted: {:?} target: {:?} client_state: {:?}",
+            self.id(),
+            trusted,
+            target,
+            client_state.latest_height()
+        );
+
+        let header = retry_with_index(retry_strategy::default_strategy(), |index| {
+            let result = self.block_on(self.client.view_block(Some(BlockId::Height(
+                client_state.latest_height().revision_height(),
+            ))));
+
+            let latest_block_view = match result {
+                Ok(bv) => bv,
+                Err(e) => {
+                    warn!("ys-debug: retry get latest_block_view with error: {}", e);
+                    return RetryResult::Retry(());
+                }
+            };
+
+            info!(
+                "ys-debug: latest block height: {:?}, epoch: {:?}, next_epoch_id: {:?}",
+                latest_block_view.header.height,
+                latest_block_view.header.epoch_id,
+                latest_block_view.header.next_epoch_id
+            );
+
+            let result = self.block_on(self.lcb_client.query(&near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
+                last_block_hash: latest_block_view.header.epoch_id
+            }));
+
+            let light_client_block_view = match result {
+                Ok(lcb) => lcb,
+                Err(e) => {
+                    warn!(
+                        "ys-debug: retry get next_light_client_block with error: {}",
+                        e
+                    );
+                    return RetryResult::Retry(());
+                }
+            }
             .unwrap();
+
+            let result = self.block_on(self.client.view_block(Some(BlockId::Height(
+                light_client_block_view.inner_lite.height,
+            ))));
+
+            let block_view = match result {
+                Ok(bv) => bv,
+                Err(e) => {
+                    warn!("ys-debug: retry get block_view with error: {}", e);
+                    return RetryResult::Retry(());
+                }
+            };
+            let header = produce_light_client_block(&light_client_block_view, &block_view);
+            info!(
+                "ys-debug: new header in verify_header: {:?}, {:?}, {:?}",
+                header.height(),
+                light_client_block_view.inner_lite.height,
+                block_view.header.height
+            );
+
+            assert!(
+                header
+                    .light_client_block
+                    .inner_lite
+                    .next_epoch_id
+                    .0
+                     .0
+                    .to_vec()
+                    == latest_block_view.header.epoch_id.0.to_vec()
+            );
+            return RetryResult::Ok(header);
+        })
+        .unwrap();
 
         Ok(header)
     }
@@ -1436,13 +1436,9 @@ impl ChainEndpoint for NearChain {
 
         // TODO: julian, assert!(trusted_block.epoch == target_block.epoch || trusted_block_.next_epoch == target_block.epoch)
         let header = retry_with_index(retry_strategy::default_strategy(), |index| {
-            let result = self.block_on(
-                                     self.lcb_client.query(
-                                         &near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
-                                             last_block_hash: target_block.header.hash
-                                         },
-                                     )
-                                    );
+            let result = self.block_on(self.lcb_client.query(&near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
+                last_block_hash: target_block.header.hash
+            }));
 
             let light_client_block_view = match result {
                 Ok(lcb) => lcb,
@@ -1472,7 +1468,7 @@ impl ChainEndpoint for NearChain {
 
             let block_reference: near_primitives::types::BlockReference =
                 BlockId::Height(proof_height).into();
-            let prefix = near_primitives::types::StoreKey::from("ibc".as_bytes().to_vec());
+            let prefix = near_primitives::types::StoreKey::from("version".as_bytes().to_vec());
             let result = self.block_on(self.client.query(
                 &near_jsonrpc_client::methods::query::RpcQueryRequest {
                     block_reference,
