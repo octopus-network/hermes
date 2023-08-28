@@ -315,7 +315,19 @@ pub fn list_keys(config: &ChainConfig) -> Result<Vec<(String, AnySigningKeyPair)
                 .map(|(key_name, keys)| (key_name, keys.into()))
                 .collect()
         }
-        ChainType::Near => todo!(),
+        ChainType::Near => {
+            let keyring = KeyRing::new_near_keypair(
+                Store::Test,
+                &config.account_prefix,
+                &config.id,
+                &config.key_store_folder,
+            )?;
+            keyring
+                .keys()?
+                .into_iter()
+                .map(|(key_name, keys)| (key_name, keys.into()))
+                .collect()
+        }
     };
     Ok(keys)
 }
