@@ -1042,7 +1042,7 @@ impl ChainEndpoint for CosmosSdkChain {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_commit call icp deliver failed] -> Error({})", e)))?;
-                println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
+                // println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
                     msgs.push(
                         Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Cosmos Chain send_messages_and_wait_commit encode call icp deliver result failed] -> Error({})", e)))?,
@@ -1073,7 +1073,7 @@ impl ChainEndpoint for CosmosSdkChain {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?;
-                println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
+                // println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
                 if !res.is_empty() {
                     msgs.push(
                         Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?,
@@ -1254,12 +1254,12 @@ impl ChainEndpoint for CosmosSdkChain {
         );
         crate::telemetry!(query, self.id(), "query_client_state");
 
-        println!(
-            "ys-debug: query_client_state: chain_id: {:?}, request: {:?}, include_proof: {:?}",
-            self.id(),
-            request,
-            include_proof,
-        );
+        // println!(
+        //     "ys-debug: query_client_state: chain_id: {:?}, request: {:?}, include_proof: {:?}",
+        //     self.id(),
+        //     request,
+        //     include_proof,
+        // );
         if matches!(include_proof, IncludeProof::No) {
             let runtime = self.rt.clone();
 
@@ -1370,12 +1370,12 @@ impl ChainEndpoint for CosmosSdkChain {
             }
         );
         crate::telemetry!(query, self.id(), "query_consensus_state");
-        println!(
-            "ys-debug: query_consensus_state: chain_id: {:?}, request: {:?}, include_proof: {:?}",
-            self.id(),
-            request,
-            include_proof,
-        );
+        // println!(
+        //     "ys-debug: query_consensus_state: chain_id: {:?}, request: {:?}, include_proof: {:?}",
+        //     self.id(),
+        //     request,
+        //     include_proof,
+        // );
         assert!(matches!(include_proof, IncludeProof::No));
         assert!(request.client_id.to_string().starts_with("06-solomachine"));
         let runtime = self.rt.clone();

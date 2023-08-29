@@ -10,6 +10,7 @@ use ibc_relayer_types::events::{IbcEvent as HermesIbcEvent, ModuleEventAttribute
 use ibc_relayer_types::timestamp::Timestamp;
 use near_primitives::views::StateItem;
 use std::collections::HashMap;
+use tracing::warn;
 
 #[allow(dead_code)]
 /// Convert `StateItem`s over to a Map<data_key, value_bytes> representation.
@@ -465,7 +466,8 @@ fn get_name_from_module_event_attributes(
             name = attr.value.clone();
         }
     }
-    name
+    warn!("get_name_from_module_event_attributes: {:?}", name);
+    "transfer".to_string()
 }
 
 fn convert_timeout_height(

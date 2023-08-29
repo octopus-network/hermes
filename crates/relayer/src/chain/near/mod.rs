@@ -39,9 +39,8 @@ use crate::{
 use alloc::{string::String, sync::Arc};
 use anyhow::Result;
 use core::{fmt::Debug, future::Future, str::FromStr};
-use ibc_proto::{
-    google::protobuf::Any, ibc::lightclients::solomachine::v2::SignBytes, protobuf::Protobuf,
-};
+use ibc_proto::{google::protobuf::Any, protobuf::Protobuf};
+use ibc_relayer_types::core::ics04_channel::packet::PacketMsgType;
 use ibc_relayer_types::{
     applications::ics31_icq::response::CrossChainQueryResponse,
     core::ics02_client::events::UpdateClient,
@@ -243,65 +242,6 @@ impl NearChain {
     fn init_signing_key_pair(&mut self) {
         self.signing_key_pair = self.get_key().ok();
     }
-
-    fn _sign_bytes_with_solomachine_pubkey(
-        &self,
-        sequence: u64,
-        timestamp: u64,
-        data_type: i32,
-        data: Vec<u8>,
-    ) -> Result<Vec<u8>, Error> {
-        use ibc_proto::cosmos::tx::signing::v1beta1::signature_descriptor::{
-            data::{Single, Sum},
-            Data,
-        };
-
-        debug!(
-            "{}: [sign_bytes_with_solomachine_pubkey] - sequence {:?}, timestamp: {:?}, data_type: {:?}, data: {:?}",
-            self.id(), sequence, timestamp, data_type, data
-        );
-        let bytes = SignBytes {
-            sequence,
-            timestamp,
-            diversifier: CLIENT_DIVERSIFIER.to_string(),
-            data_type,
-            data,
-        };
-        let mut buf = Vec::new();
-        Message::encode(&bytes, &mut buf).map_err(|e| Error::report_error(format!("[Near Chain sign_bytes_with_solomachine_pubkey Encode SignBytes failed] -> Error({})", e)))?;
-        debug!(
-            "{}: [sign_bytes_with_solomachine_pubkey] - encoded_bytes: {:?}",
-            self.id(),
-            buf
-        );
-
-        let key_pair = self.signing_key_pair.as_ref().ok_or(Error::report_error(
-            "[Near Chain sign_bytes_with_solomachine_pubkey key_pair is empty]".to_string(),
-        ))?;
-        let signature = key_pair.sign(&buf).map_err(|e| {
-            Error::report_error(format!(
-                "[Near Chain sign_bytes_with_solomachine_pubkey sign failed] -> Error({})",
-                e
-            ))
-        })?;
-        debug!(
-            "{}: [sign_bytes_with_solomachine_pubkey] - signature: {:?}",
-            self.id(),
-            signature
-        );
-        let sig = Data {
-            sum: Some(Sum::Single(Single { mode: 1, signature })),
-        };
-        buf = Vec::new();
-        Message::encode(&sig, &mut buf).map_err(|e| Error::report_error(format!("[Near Chain sign_bytes_with_solomachine_pubkey Encode ibc_proto::cosmos::tx::signing::v1beta1::signature_descriptor::Data failed] -> Error({})", e)))?;
-
-        debug!(
-            "{}: [sign_bytes_with_solomachine_pubkey] - sig_data: {:?}",
-            self.id(),
-            buf
-        );
-        Ok(buf)
-    }
 }
 
 impl ChainEndpoint for NearChain {
@@ -407,7 +347,7 @@ impl ChainEndpoint for NearChain {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))?;
-                println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
+                // println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
                     msgs.push(
                         Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit decode deliver result] -> Error({})", e)))?,
@@ -452,7 +392,7 @@ impl ChainEndpoint for NearChain {
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))?;
 
-                println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
+                // println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
                     msgs.push(
                         Any::decode(&res[..])
@@ -584,7 +524,7 @@ impl ChainEndpoint for NearChain {
         _denom: Option<&str>,
     ) -> std::result::Result<Balance, Error> {
         Ok(Balance {
-            amount: String::default(),
+            amount: "0".to_string(),
             denom: String::default(),
         })
     }
@@ -1859,43 +1799,284 @@ impl ChainEndpoint for NearChain {
                 e
             ))
         })?;
-        // let mut buf = Vec::new();
-        // let data = ChannelStateData {
-        //     path: ("/ibc/channelEnds%2Fports%2F".to_string()
-        //         + port_id.as_str()
-        //         + "%2Fchannels%2F"
-        //         + channel_id.as_str())
-        //     .into(),
-        //     channel: Some(channel.into()),
-        // };
-        // println!("ys-debug: ChannelStateData: {:?}", data);
-        // Message::encode(&data, &mut buf).map_err(|e| Error::report_error(e.to_string()))?;
-
-        // let duration_since_epoch = SystemTime::now()
-        //     .duration_since(SystemTime::UNIX_EPOCH)
-        //     .map_err(|e| Error::report_error(e.to_string()))?;
-        // let timestamp_nanos = duration_since_epoch.as_nanos() as u64; // u128
-
-        // let sig_data = self.sign_bytes_with_solomachine_pubkey(
-        //     height.revision_height() + 1,
-        //     timestamp_nanos,
-        //     DataType::ChannelState.into(),
-        //     buf.to_vec(),
-        // );
-
-        // let timestamped = TimestampedSignatureData {
-        //     signature_data: sig_data,
-        //     timestamp: timestamp_nanos,
-        // };
-        // let mut channel_proof = Vec::new();
-        // Message::encode(&timestamped, &mut channel_proof)
-        //     .map_err(|e| Error::report_error(e.to_string()))?;
 
         let channel_proof_bytes =
             CommitmentProofBytes::try_from(channel_proof).map_err(Error::malformed_proof)?;
 
         Proofs::new(channel_proof_bytes, None, None, None, height.increment())
             .map_err(Error::malformed_proof)
+    }
+
+    /// Builds the proof for packet messages.
+    fn build_packet_proofs(
+        &self,
+        packet_type: PacketMsgType,
+        port_id: PortId,
+        channel_id: ChannelId,
+        sequence: Sequence,
+        height: ICSHeight,
+    ) -> Result<Proofs, Error> {
+        let (maybe_packet_proof, channel_proof) = match packet_type {
+            PacketMsgType::Recv => {
+                let (_, maybe_packet_proof) = self.query_packet_commitment(
+                    QueryPacketCommitmentRequest {
+                        port_id: port_id.clone(),
+                        channel_id: channel_id.clone(),
+                        sequence,
+                        height: QueryHeight::Specific(height),
+                    },
+                    IncludeProof::No,
+                )?;
+
+                let query_response = retry_with_index(retry_strategy::default_strategy(), |_index| {
+                    let packet_commitments_path = CommitmentsPath {
+                        port_id: port_id.clone(),
+                        channel_id: channel_id.clone(),
+                        sequence,
+                    }
+                    .to_string();
+
+                    let block_reference: near_primitives::types::BlockReference =
+                        BlockId::Height(height.revision_height()).into();
+                    let prefix =
+                        near_primitives::types::StoreKey::from(packet_commitments_path.into_bytes());
+                    let result = self.block_on(self.client.query(
+                        &near_jsonrpc_client::methods::query::RpcQueryRequest {
+                            block_reference,
+                            request: near_primitives::views::QueryRequest::ViewState {
+                                account_id: self.near_ibc_contract.clone(),
+                                prefix,
+                                include_proof: true,
+                            },
+                        },
+                    ));
+
+                    match result {
+                        Ok(lcb) => RetryResult::Ok(lcb),
+                        Err(e) => {
+                            warn!(
+                                "ys-debug: retry get target_block_view(pkt) with error: {}",
+                                e
+                            );
+                            RetryResult::Retry(())
+                        }
+                    }
+                })
+                .map_err(|e| {
+                    Error::report_error(format!(
+                        "[Near chain build_packet_proofs get query_response failed ] -> Error({:?})",
+                        e
+                    ))
+                })?;
+
+                println!(
+                    "ys-debug: view state of packet proof: result: {:?}",
+                    query_response.block_height
+                );
+
+                let state = match query_response.kind {
+                    near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
+                        Ok(state)
+                    }
+                    _ => Err(Error::report_error(
+                        "failed to get packet proof".to_string(),
+                    )),
+                }?;
+                let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
+
+                let packet_proof = NearProofs(proofs).try_to_vec().map_err(|e| {
+                    Error::report_error(format!(
+                        "[Near chain build_channel_proofs Build NearProofs failed] -> Error({:?})",
+                        e
+                    ))
+                })?;
+
+                (Some(packet_proof), None)
+            }
+            PacketMsgType::Ack => {
+                let (_, maybe_packet_proof) = self.query_packet_acknowledgement(
+                    QueryPacketAcknowledgementRequest {
+                        port_id: port_id.clone(),
+                        channel_id: channel_id.clone(),
+                        sequence,
+                        height: QueryHeight::Specific(height),
+                    },
+                    IncludeProof::No,
+                )?;
+
+                let query_response =
+                    retry_with_index(retry_strategy::default_strategy(), |_index| {
+                        let packet_commitments_path = AcksPath {
+                            port_id: port_id.clone(),
+                            channel_id: channel_id.clone(),
+                            sequence,
+                        }
+                        .to_string();
+
+                        let block_reference: near_primitives::types::BlockReference =
+                            BlockId::Height(height.revision_height()).into();
+                        let prefix = near_primitives::types::StoreKey::from(
+                            packet_commitments_path.into_bytes(),
+                        );
+                        let result = self.block_on(self.client.query(
+                            &near_jsonrpc_client::methods::query::RpcQueryRequest {
+                                block_reference,
+                                request: near_primitives::views::QueryRequest::ViewState {
+                                    account_id: self.near_ibc_contract.clone(),
+                                    prefix,
+                                    include_proof: true,
+                                },
+                            },
+                        ));
+
+                        match result {
+                            Ok(lcb) => RetryResult::Ok(lcb),
+                            Err(e) => {
+                                warn!(
+                                    "ys-debug: retry get target_block_view(pkt) with error: {}",
+                                    e
+                                );
+                                RetryResult::Retry(())
+                            }
+                        }
+                    })
+                    .map_err(|e| {
+                        Error::report_error(format!( "[Near chain build_packet_proofs get query_response failed ] -> Error({:?})", e))
+                    })?;
+
+                println!(
+                    "ys-debug: view state of packet proof: result: {:?}",
+                    query_response.block_height
+                );
+
+                let state = match query_response.kind {
+                    near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
+                        Ok(state)
+                    }
+                    _ => Err(Error::report_error(
+                        "failed to get packet proof".to_string(),
+                    )),
+                }?;
+                let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
+
+                let packet_proof = NearProofs(proofs).try_to_vec().map_err(|e| {
+                    Error::report_error(format!(
+                        "[Near chain build_channel_proofs Build NearProofs failed] -> Error({:?})",
+                        e
+                    ))
+                })?;
+
+                (Some(packet_proof), None)
+            }
+            PacketMsgType::TimeoutUnordered => {
+                let (_, maybe_packet_proof) = self.query_packet_receipt(
+                    QueryPacketReceiptRequest {
+                        port_id: port_id.clone(),
+                        channel_id: channel_id.clone(),
+                        sequence,
+                        height: QueryHeight::Specific(height),
+                    },
+                    IncludeProof::Yes,
+                )?;
+
+                // (maybe_packet_proof, None)
+                (None, None)
+            }
+            PacketMsgType::TimeoutOrdered => {
+                let (_, maybe_packet_proof) = self.query_next_sequence_receive(
+                    QueryNextSequenceReceiveRequest {
+                        port_id,
+                        channel_id,
+                        height: QueryHeight::Specific(height),
+                    },
+                    IncludeProof::Yes,
+                )?;
+
+                // (maybe_packet_proof, None)
+                (None, None)
+            }
+            PacketMsgType::TimeoutOnCloseUnordered => {
+                let channel_proof = {
+                    let (_, maybe_channel_proof) = self.query_channel(
+                        QueryChannelRequest {
+                            port_id: port_id.clone(),
+                            channel_id: channel_id.clone(),
+                            height: QueryHeight::Specific(height),
+                        },
+                        IncludeProof::Yes,
+                    )?;
+
+                    let Some(channel_merkle_proof) = maybe_channel_proof else {
+                        return Err(Error::queried_proof_not_found());
+                    };
+
+                    Some(
+                        CommitmentProofBytes::try_from(channel_merkle_proof)
+                            .map_err(Error::malformed_proof)?,
+                    )
+                };
+
+                let (_, maybe_packet_proof) = self.query_packet_receipt(
+                    QueryPacketReceiptRequest {
+                        port_id,
+                        channel_id,
+                        sequence,
+                        height: QueryHeight::Specific(height),
+                    },
+                    IncludeProof::Yes,
+                )?;
+
+                // (maybe_packet_proof, channel_proof)
+                (None, None)
+            }
+            PacketMsgType::TimeoutOnCloseOrdered => {
+                let channel_proof = {
+                    let (_, maybe_channel_proof) = self.query_channel(
+                        QueryChannelRequest {
+                            port_id: port_id.clone(),
+                            channel_id: channel_id.clone(),
+                            height: QueryHeight::Specific(height),
+                        },
+                        IncludeProof::Yes,
+                    )?;
+
+                    let Some(channel_merkle_proof) = maybe_channel_proof else {
+                        return Err(Error::queried_proof_not_found());
+                    };
+
+                    Some(
+                        CommitmentProofBytes::try_from(channel_merkle_proof)
+                            .map_err(Error::malformed_proof)?,
+                    )
+                };
+                let (_, maybe_packet_proof) = self.query_next_sequence_receive(
+                    QueryNextSequenceReceiveRequest {
+                        port_id,
+                        channel_id,
+                        height: QueryHeight::Specific(height),
+                    },
+                    IncludeProof::Yes,
+                )?;
+
+                // (maybe_packet_proof, channel_proof)
+                (None, None)
+            }
+        };
+
+        let Some(packet_proof) = maybe_packet_proof else {
+            return Err(Error::queried_proof_not_found());
+        };
+
+        let proofs = Proofs::new(
+            CommitmentProofBytes::try_from(packet_proof).map_err(Error::malformed_proof)?,
+            None,
+            None,
+            channel_proof,
+            height.increment(),
+        )
+        .map_err(Error::malformed_proof)?;
+
+        Ok(proofs)
     }
 
     fn subscribe(&mut self) -> std::result::Result<Subscription, Error> {

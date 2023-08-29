@@ -9,13 +9,14 @@ use crate::chain::{
 };
 use alloc::sync::Arc;
 use crossbeam_channel as channel;
+use ibc_relayer_types::events::IbcEvent;
 use ibc_relayer_types::{
     core::ics02_client::height::Height, core::ics24_host::identifier::ChainId,
 };
 use near_primitives::types::AccountId;
 use serde_json::json;
 use tokio::runtime::Runtime as TokioRuntime;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -165,20 +166,33 @@ impl NearEventMonitor {
                 let heights = self.get_ibc_events_heights();
                 let unchecked_heights = heights
                     .iter()
+                    .map(|h| h.revision_height())
                     .filter(|h| !self.checked_heights.contains(h))
-                    .copied()
-                    .collect::<Vec<_>>();
-
-                if !unchecked_heights.is_empty() {
+                    .collect::<Vec<u64>>();
+                if unchecked_heights.len() > 0 {
                     let height = unchecked_heights[0];
-                    info!("querying ibc events at height: {}", height);
-                    let event_tx = self.event_tx.as_ref().expect("event tx is empty");
-                    match self.query_events_at_height(
-                        &Height::new(0, height).expect("build ibc height failed"),
-                    ) {
+                    warn!("querying ibc events at height: {:?}", unchecked_heights);
+                    let event_tx = self.event_tx.as_ref().unwrap();
+                    match self.query_events_at_height(&Height::new(0, height).unwrap()) {
                         Ok(batch) => {
-                            if !batch.events.is_empty() {
-                                info!("ibc events found at height {}: {:?}", height, batch);
+                            if batch.events.len() > 0 {
+                                let filtered_events: Vec<IbcEventWithHeight> = batch
+                                    .clone()
+                                    .events
+                                    .into_iter()
+                                    .filter(|e| {
+                                        matches!(
+                                            e.event,
+                                            IbcEvent::CloseInitChannel(_)
+                                                | IbcEvent::TimeoutPacket(_)
+                                                | IbcEvent::SendPacket(_)
+                                                | IbcEvent::AcknowledgePacket(_)
+                                        )
+                                    })
+                                    .collect();
+                                warn!("ibc events found at height {}: {:?}", height, batch);
+                                let mut batch = batch.clone();
+                                batch.events = filtered_events;
                                 if let Err(e) = event_tx.send(Arc::new(Ok(batch))) {
                                     error!("failed to send event batch: {}", e);
                                 }
@@ -196,7 +210,7 @@ impl NearEventMonitor {
         }
     }
 
-    fn get_ibc_events_heights(&self) -> Vec<u64> {
+    fn get_ibc_events_heights(&self) -> Vec<Height> {
         self.get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id(),
@@ -211,15 +225,11 @@ impl NearEventMonitor {
 
     fn query_events_at_height(&self, height: &Height) -> Result<EventBatch> {
         self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_ibc_events_at".to_string(),
-                    json!({ "height": height.revision_height() })
-                        .to_string()
-                        .into_bytes(),
-                ),
-            )
+            .block_on(self.get_client().view(
+                self.get_contract_id(),
+                "get_ibc_events_at".to_string(),
+                json!({ "height": height }).to_string().into_bytes(),
+            ))
             .map_or_else(
                 |_| {
                     Ok(EventBatch {
@@ -230,6 +240,7 @@ impl NearEventMonitor {
                     })
                 },
                 |result| {
+                    warn!("ys-debug event: {:?}", result);
                     let ibc_events: Vec<ibc::core::events::IbcEvent> =
                         result.json().expect("near event to json failed");
                     Ok(EventBatch {
