@@ -345,7 +345,7 @@ impl ChainEndpoint for NearChain {
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
-                    .block_on(deliver(canister_id, false, msg.encode_to_vec()))
+                    .block_on(deliver(canister_id, false, msg.encode_to_vec(), &self.config.canister_pem))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))?;
                 // println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
@@ -389,7 +389,7 @@ impl ChainEndpoint for NearChain {
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
-                    .block_on(deliver(canister_id, false, msg.encode_to_vec()))
+                    .block_on(deliver(canister_id, false, msg.encode_to_vec(),&self.config.canister_pem))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))?;
 
                 // println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
@@ -494,7 +494,7 @@ impl ChainEndpoint for NearChain {
                     .to_vec()
                     == latest_block_view.header.epoch_id.0.to_vec()
             );
-            return RetryResult::Ok(header);
+            RetryResult::Ok(header)
         })
         .map_err(|e| {
             Error::report_error(format!(
@@ -1487,14 +1487,14 @@ impl ChainEndpoint for NearChain {
                     light_client_block_view.inner_lite.height,
                     block_view.header.height
                 );
-                return RetryResult::Ok(header);
+                RetryResult::Ok(header)
             } else {
                 warn!(
                     "ys-debug: retry root_hash {:?} at {:?} does not in the lcb state at {:?}",
                     root_hash, proof_height, light_client_block_view.inner_lite.height
                 );
 
-                return RetryResult::Retry(());
+                RetryResult::Retry(())
             }
         }).map_err(|e| {
             Error::report_error(format!(
@@ -1818,7 +1818,7 @@ impl ChainEndpoint for NearChain {
     ) -> Result<Proofs, Error> {
         let (maybe_packet_proof, channel_proof) = match packet_type {
             PacketMsgType::Recv => {
-                let (_, maybe_packet_proof) = self.query_packet_commitment(
+                let (_, _maybe_packet_proof) = self.query_packet_commitment(
                     QueryPacketCommitmentRequest {
                         port_id: port_id.clone(),
                         channel_id: channel_id.clone(),
@@ -1894,7 +1894,7 @@ impl ChainEndpoint for NearChain {
                 (Some(packet_proof), None)
             }
             PacketMsgType::Ack => {
-                let (_, maybe_packet_proof) = self.query_packet_acknowledgement(
+                let (_, _maybe_packet_proof) = self.query_packet_acknowledgement(
                     QueryPacketAcknowledgementRequest {
                         port_id: port_id.clone(),
                         channel_id: channel_id.clone(),
@@ -1969,7 +1969,7 @@ impl ChainEndpoint for NearChain {
                 (Some(packet_proof), None)
             }
             PacketMsgType::TimeoutUnordered => {
-                let (_, maybe_packet_proof) = self.query_packet_receipt(
+                let (_, _maybe_packet_proof) = self.query_packet_receipt(
                     QueryPacketReceiptRequest {
                         port_id: port_id.clone(),
                         channel_id: channel_id.clone(),
@@ -1983,7 +1983,7 @@ impl ChainEndpoint for NearChain {
                 (None, None)
             }
             PacketMsgType::TimeoutOrdered => {
-                let (_, maybe_packet_proof) = self.query_next_sequence_receive(
+                let (_, _maybe_packet_proof) = self.query_next_sequence_receive(
                     QueryNextSequenceReceiveRequest {
                         port_id,
                         channel_id,
@@ -1996,7 +1996,7 @@ impl ChainEndpoint for NearChain {
                 (None, None)
             }
             PacketMsgType::TimeoutOnCloseUnordered => {
-                let channel_proof = {
+                let _channel_proof = {
                     let (_, maybe_channel_proof) = self.query_channel(
                         QueryChannelRequest {
                             port_id: port_id.clone(),
@@ -2016,7 +2016,7 @@ impl ChainEndpoint for NearChain {
                     )
                 };
 
-                let (_, maybe_packet_proof) = self.query_packet_receipt(
+                let (_, _maybe_packet_proof) = self.query_packet_receipt(
                     QueryPacketReceiptRequest {
                         port_id,
                         channel_id,
@@ -2030,7 +2030,7 @@ impl ChainEndpoint for NearChain {
                 (None, None)
             }
             PacketMsgType::TimeoutOnCloseOrdered => {
-                let channel_proof = {
+                let _channel_proof = {
                     let (_, maybe_channel_proof) = self.query_channel(
                         QueryChannelRequest {
                             port_id: port_id.clone(),
@@ -2049,7 +2049,7 @@ impl ChainEndpoint for NearChain {
                             .map_err(Error::malformed_proof)?,
                     )
                 };
-                let (_, maybe_packet_proof) = self.query_next_sequence_receive(
+                let (_, _maybe_packet_proof) = self.query_next_sequence_receive(
                     QueryNextSequenceReceiveRequest {
                         port_id,
                         channel_id,

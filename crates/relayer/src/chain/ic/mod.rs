@@ -2,6 +2,8 @@ pub mod errors;
 mod identity;
 mod types;
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 
 use crate::chain::ic::errors::Error;
@@ -46,11 +48,12 @@ async fn update_ic(
     method_name: &str,
     args: Vec<u8>,
     is_mainnet: bool,
+    pem_file: &PathBuf,
 ) -> Result<Vec<u8>> {
     let url = if is_mainnet { MAIN_NET } else { LOCAL_NET };
     let agent = ic_agent::Agent::builder()
         .with_url(url)
-        .with_identity(create_identity())
+        .with_identity(create_identity(pem_file)?)
         .build()
         .map_err(Error::AgentError)?;
 
@@ -79,10 +82,15 @@ async fn update_ic(
     }
 }
 
-pub async fn deliver(canister_id: &str, is_mainnet: bool, msg: Vec<u8>) -> Result<Vec<u8>> {
+pub async fn deliver(
+    canister_id: &str,
+    is_mainnet: bool,
+    msg: Vec<u8>,
+    pem_file: &PathBuf,
+) -> Result<Vec<u8>> {
     let method_name = "deliver";
     let args = msg;
-    update_ic(canister_id, method_name, args, is_mainnet).await
+    update_ic(canister_id, method_name, args, is_mainnet, pem_file).await
 }
 
 pub async fn query_client_state(

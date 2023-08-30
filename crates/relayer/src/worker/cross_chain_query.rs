@@ -14,7 +14,7 @@ use crate::worker::WorkerCmd;
 use crossbeam_channel::Receiver;
 use ibc_relayer_types::core::ics02_client::height::Height;
 use std::time::Duration;
-use tracing::{info, info_span, warn};
+use tracing::{info, info_span};
 use uuid::Uuid;
 
 impl TryFrom<&IbcEventWithHeight> for CrossChainQueryRequest {

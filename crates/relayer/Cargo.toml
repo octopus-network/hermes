@@ -89,7 +89,7 @@ near-light-client = { git = "https://github.com/octopus-network/near-light-clien
 candid = "0.9.1"
 ic-cdk = "0.9.2"
 ring = "0.16.20"
-ic-agent = "0.24.1"
+ic-agent = { version = "0.24.1", features = ["pem"] }
 
 [dependencies.byte-unit]
 version = "4.0.19"
