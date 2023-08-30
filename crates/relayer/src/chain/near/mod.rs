@@ -105,7 +105,7 @@ use error::NearError;
 
 pub const REVISION_NUMBER: u64 = 0;
 pub const CLIENT_DIVERSIFIER: &str = "NEAR";
-const MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG: u128 = 100_000_000_000_000_000_000_000;
+const MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG: u128 = 50_000_000_000_000_000_000_000;
 
 #[derive(BorshSerialize, BorshDeserialize)]
 struct NearProofs(Vec<Vec<u8>>);
@@ -200,7 +200,7 @@ impl NearChain {
             "deliver".into(),
             json!({ "messages": messages }).to_string().into_bytes(),
             300000000000000,
-            MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG,
+            MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG * messages.len() as u128,
         );
 
         self.block_on(call_near_smart_contract_deliver)
@@ -329,7 +329,7 @@ impl ChainEndpoint for NearChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
-        info!(
+        warn!(
             "{}: [send_messages_and_wait_commit] - proto_msgs: {:?}",
             self.id(),
             proto_msgs
@@ -373,7 +373,7 @@ impl ChainEndpoint for NearChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<TxResponse>, Error> {
-        info!(
+        warn!(
             "{}: [send_messages_and_wait_check_tx] - proto_msgs: {:?}",
             self.id(),
             proto_msgs

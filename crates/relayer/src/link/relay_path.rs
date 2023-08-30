@@ -1436,13 +1436,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         dst_info: &ChainStatus,
         height: Height,
     ) -> Result<(Option<Vec<Any>>, Option<Any>), LinkError> {
-        Ok((self.build_recv_packet(&event.packet, height)?, None))
-        // let timeout = self.build_timeout_from_send_packet_event(event, dst_info)?;
-        // if timeout.is_some() {
-        //     Ok((None, timeout))
-        // } else {
-        //     Ok((self.build_recv_packet(&event.packet, height)?, None))
-        // }
+        let timeout = self.build_timeout_from_send_packet_event(event, dst_info)?;
+        if timeout.is_some() {
+            Ok((None, timeout))
+        } else {
+            Ok((self.build_recv_packet(&event.packet, height)?, None))
+        }
     }
 
     /// Drives the relaying of elapsed operational data items meant for

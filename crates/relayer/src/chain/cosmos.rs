@@ -1042,7 +1042,7 @@ impl ChainEndpoint for CosmosSdkChain {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_commit call icp deliver failed] -> Error({})", e)))?;
-                // println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
+                println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
                     msgs.push(
                         Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Cosmos Chain send_messages_and_wait_commit encode call icp deliver result failed] -> Error({})", e)))?,
@@ -1073,7 +1073,7 @@ impl ChainEndpoint for CosmosSdkChain {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec()))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?;
-                // println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
+                println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
                 if !res.is_empty() {
                     msgs.push(
                         Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?,
