@@ -1020,7 +1020,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         if self.src_chain().config().unwrap().r#type == ChainType::Near {
             msgs = self.build_update_client_on_dst(query_height)?;
-            assert!(msgs.len() > 0);
+            assert!(!msgs.is_empty());
             let msg_update_client = msgs.last().unwrap();
             let domain_msg = MsgUpdateClient::decode_vec(&msg_update_client.value).unwrap();
             let near_header = AnyHeader::try_from(domain_msg.client_message).unwrap();
@@ -1161,7 +1161,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         if self.src_chain().config().unwrap().r#type == ChainType::Near {
             msgs = self.build_update_client_on_dst(query_height)?;
-            assert!(msgs.len() > 0);
+            assert!(!msgs.is_empty());
             let msg_update_client = msgs.last().unwrap();
             let domain_msg = MsgUpdateClient::decode_vec(&msg_update_client.value).unwrap();
             let near_header = AnyHeader::try_from(domain_msg.client_message).unwrap();
@@ -1290,7 +1290,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
 
         if self.src_chain().config().unwrap().r#type == ChainType::Near {
             msgs = self.build_update_client_on_dst(query_height)?;
-            assert!(msgs.len() > 0);
+            assert!(!msgs.is_empty());
             let msg_update_client = msgs.last().unwrap();
             let domain_msg = MsgUpdateClient::decode_vec(&msg_update_client.value).unwrap();
             let near_header = AnyHeader::try_from(domain_msg.client_message).unwrap();

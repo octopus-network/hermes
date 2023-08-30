@@ -169,13 +169,13 @@ impl NearEventMonitor {
                     .map(|h| h.revision_height())
                     .filter(|h| !self.checked_heights.contains(h))
                     .collect::<Vec<u64>>();
-                if unchecked_heights.len() > 0 {
+                if !unchecked_heights.is_empty() {
                     let height = unchecked_heights[0];
                     warn!("querying ibc events at height: {:?}", unchecked_heights);
                     let event_tx = self.event_tx.as_ref().unwrap();
                     match self.query_events_at_height(&Height::new(0, height).unwrap()) {
                         Ok(batch) => {
-                            if batch.events.len() > 0 {
+                            if !batch.events.is_empty() {
                                 let filtered_events: Vec<IbcEventWithHeight> = batch
                                     .clone()
                                     .events
