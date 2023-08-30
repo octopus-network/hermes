@@ -463,11 +463,9 @@ pub trait ChainEndpoint: Sized {
                     IncludeProof::No,
                 )?;
 
-                let consensus_state_proof = MerkleProof::default();
                 consensus_proof = Option::from(
                     ConsensusProof::new(
-                        CommitmentProofBytes::try_from(consensus_state_proof)
-                            .map_err(Error::malformed_proof)?,
+                        CommitmentProofBytes::try_from(vec![1]).map_err(Error::malformed_proof)?,
                         tm_client_state_value.latest_height(),
                     )
                     .map_err(Error::consensus_proof)?,

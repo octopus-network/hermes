@@ -97,7 +97,6 @@ use tracing::{debug, info, trace, warn};
 pub mod constants;
 pub mod contract;
 pub mod error;
-// pub mod light_client;
 pub mod rpc;
 
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -226,17 +225,6 @@ impl NearChain {
         );
 
         self.block_on(call_near_smart_contract_deliver)
-    }
-
-    /// Retrieve the storage proof according to storage keys
-    /// And convert the proof to IBC compatible type
-    fn generate_storage_proof<'a>(
-        &self,
-        _storage_entry: impl IntoIterator<Item = &'a [u8]>,
-        _height: &Height,
-        _storage_name: &str,
-    ) -> Result<MerkleProof, Error> {
-        Ok(MerkleProof::default())
     }
 
     fn init_signing_key_pair(&mut self) {
@@ -650,10 +638,7 @@ impl ChainEndpoint for NearChain {
             ))
         })?;
 
-        match include_proof {
-            IncludeProof::Yes => Ok((client_state, Some(MerkleProof::default()))),
-            IncludeProof::No => Ok((client_state, None)),
-        }
+        Ok((client_state, None))
     }
 
     fn query_consensus_state(
@@ -823,31 +808,7 @@ impl ChainEndpoint for NearChain {
         // update ConnectionsPath key
         let _connections_path = ConnectionsPath(connection_id).to_string();
 
-        Ok((connection_end, Some(MerkleProof::default())))
-
-        // match include_proof {
-        //     IncludeProof::Yes => {
-        //         let query_height = match height {
-        //             QueryHeight::Latest => {
-        //                 let height = self
-        //                     .get_latest_height()
-        //                     .map_err(|_| Error::report_error("query_latest_height".to_string()))?;
-        //                 height
-        //             }
-        //             QueryHeight::Specific(value) => value,
-        //         };
-        //
-        //         Ok((
-        //             connection_end,
-        //             Some(self.generate_storage_proof(
-        //                     vec![connections_path.as_bytes()],
-        //                 &query_height,
-        //                 "Connections",
-        //             )?),
-        //         ))
-        //     }
-        //     IncludeProof::No => Ok((connection_end, None)),
-        // }
+        Ok((connection_end, None))
     }
 
     fn query_connection_channels(
@@ -905,19 +866,7 @@ impl ChainEndpoint for NearChain {
         // use channel_end path as key
         let _channel_end_path = ChannelEndsPath(port_id, channel_id).to_string();
 
-        match include_proof {
-            IncludeProof::Yes => {
-                let _query_height = match height {
-                    QueryHeight::Latest => self
-                        .get_latest_height()
-                        .map_err(|_| Error::report_error("query_latest_height".to_string()))?,
-                    QueryHeight::Specific(value) => value,
-                };
-
-                Ok((channel_end, Some(MerkleProof::default())))
-            }
-            IncludeProof::No => Ok((channel_end, None)),
-        }
+        Ok((channel_end, None))
     }
 
     fn query_channel_client_state(
@@ -956,18 +905,7 @@ impl ChainEndpoint for NearChain {
         }
         .to_string();
 
-        match include_proof {
-            IncludeProof::Yes => {
-                let _query_height = match height {
-                    QueryHeight::Latest => self
-                        .get_latest_height()
-                        .map_err(|_| Error::report_error("query_latest_height".to_string()))?,
-                    QueryHeight::Specific(value) => value,
-                };
-                Ok((packet_commit, Some(MerkleProof::default())))
-            }
-            IncludeProof::No => Ok((packet_commit, None)),
-        }
+        Ok((packet_commit, None))
     }
 
     fn query_packet_commitments(
@@ -1014,25 +952,7 @@ impl ChainEndpoint for NearChain {
         }
         .to_string();
 
-        match include_proof {
-            IncludeProof::Yes => {
-                let query_height = match height {
-                    QueryHeight::Latest => self
-                        .get_latest_height()
-                        .map_err(|_| Error::report_error("query_latest_height".to_string()))?,
-                    QueryHeight::Specific(value) => value,
-                };
-                Ok((
-                    packet_receipt,
-                    Some(self.generate_storage_proof(
-                        vec![packet_receipt_path.as_bytes()],
-                        &query_height,
-                        "PacketReceipt",
-                    )?),
-                ))
-            }
-            IncludeProof::No => Ok((packet_receipt, None)),
-        }
+        Ok((packet_receipt, None))
     }
 
     fn query_unreceived_packets(
@@ -1088,25 +1008,7 @@ impl ChainEndpoint for NearChain {
         }
         .to_string();
 
-        match include_proof {
-            IncludeProof::Yes => {
-                let query_height = match height {
-                    QueryHeight::Latest => self
-                        .get_latest_height()
-                        .map_err(|_| Error::report_error("query_latest_height".to_string()))?,
-                    QueryHeight::Specific(value) => value,
-                };
-                Ok((
-                    packet_acknowledgement,
-                    Some(self.generate_storage_proof(
-                        vec![packet_acknowledgement_path.as_bytes()],
-                        &query_height,
-                        "Acknowledgements",
-                    )?),
-                ))
-            }
-            IncludeProof::No => Ok((packet_acknowledgement, None)),
-        }
+        Ok((packet_acknowledgement, None))
     }
 
     fn query_packet_acknowledgements(
@@ -1188,25 +1090,7 @@ impl ChainEndpoint for NearChain {
 
         let next_sequence_receive_path = SeqRecvsPath(port_id, channel_id).to_string();
 
-        match include_proof {
-            IncludeProof::Yes => {
-                let query_height = match height {
-                    QueryHeight::Latest => self
-                        .get_latest_height()
-                        .map_err(|_| Error::report_error("query_latest_height".to_string()))?,
-                    QueryHeight::Specific(value) => value,
-                };
-                Ok((
-                    next_sequence_receive,
-                    Some(self.generate_storage_proof(
-                        vec![next_sequence_receive_path.as_bytes()],
-                        &query_height,
-                        "NextSequenceRecv",
-                    )?),
-                ))
-            }
-            IncludeProof::No => Ok((next_sequence_receive, None)),
-        }
+        Ok((next_sequence_receive, None))
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
@@ -1694,11 +1578,9 @@ impl ChainEndpoint for NearChain {
                     IncludeProof::No,
                 )?;
 
-                let consensus_state_proof = MerkleProof::default();
                 consensus_proof = Option::from(
                     ConsensusProof::new(
-                        CommitmentProofBytes::try_from(consensus_state_proof)
-                            .map_err(Error::malformed_proof)?,
+                        CommitmentProofBytes::try_from(vec![1]).map_err(Error::malformed_proof)?,
                         near_client_state_value.latest_height(),
                     )
                     .map_err(Error::consensus_proof)?,

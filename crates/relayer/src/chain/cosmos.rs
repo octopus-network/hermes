@@ -45,8 +45,8 @@ use ibc_relayer_types::core::ics24_host::identifier::{
     ChainId, ChannelId, ClientId, ConnectionId, PortId,
 };
 use ibc_relayer_types::core::ics24_host::path::{
-    AcksPath, ChannelEndsPath, ClientStatePath, CommitmentsPath, ConnectionsPath, ReceiptsPath,
-    SeqRecvsPath,
+    AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
+    ConnectionsPath, ReceiptsPath, SeqRecvsPath,
 };
 use ibc_relayer_types::core::ics24_host::{
     ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH,
@@ -765,8 +765,8 @@ impl CosmosSdkChain {
         let mut begin_block_events = vec![];
         let mut end_block_events = vec![];
 
-        let tm_height = tendermint::block::Height::try_from(block_height.revision_height())
-            .map_err(|e| Error::report_error(format!("[Cosmos Chain query_packet_from_block build tendermint Height failed] -> Error({})", e)))?;
+        let tm_height =
+            tendermint::block::Height::try_from(block_height.revision_height()).unwrap();
 
         let response = self
             .block_on(self.rpc_client.block_results(tm_height))

@@ -319,7 +319,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     }
 
     pub fn build_update_client_on_dst(&self, height: Height) -> Result<Vec<Any>, LinkError> {
-        warn!("ys-debug: build_update_client_on_dst {:?}", height);
         let client = self.restore_dst_client();
         client
             .wait_and_build_update_client(height)
@@ -327,7 +326,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     }
 
     pub fn build_update_client_on_src(&self, height: Height) -> Result<Vec<Any>, LinkError> {
-        warn!("ys-debug: build_update_client_on_src {:?}", height);
         let client = self.restore_src_client();
         client
             .wait_and_build_update_client(height)
@@ -1175,9 +1173,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             unreceived_acknowledgements(self.dst_chain(), self.src_chain(), &self.path_id)
                 .map_err(LinkError::supervisor)?;
 
-        let Some((sequences, src_response_height)) = sequences_and_height else {
-            return Ok(());
-        };
+        let Some((sequences, src_response_height)) = sequences_and_height else { return Ok(()) };
 
         let query_height = opt_query_height.unwrap_or(src_response_height);
 
@@ -1228,56 +1224,54 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             msgs = self.build_update_client_on_dst(height)?;
             assert!(!msgs.is_empty());
             let msg_update_client = msgs.last().ok_or(LinkError::custom_error(
-                "[in connection: build_recv_packet msgs.last() is none]".into()
+                "[in connection: build_recv_packet msgs.last() is none]".into(),
             ))?;
-            let domain_msg =
-                MsgUpdateClient::decode_vec(&msg_update_client.value).map_err(|e| {
-                    LinkError::custom_error(format!(
-                        "[in packet: build_recv_packet decode MsgUpdateClient failed] -> Error({})",
-                        e
-                    ))
-                })?;
-            let near_header = AnyHeader::try_from(domain_msg.client_message).map_err(|e| {
+            let domain_msg = MsgUpdateClient::decode_vec(&msg_update_client.value).map_err(|e| {
                 LinkError::custom_error(format!(
-                    "[in packet: build_recv_packet decode ClientMessage to AnyHeader failed] -> Error({})",
+                    "[in packet: build_recv_packet decode MsgUpdateClient failed] -> Error({})",
                     e
                 ))
             })?;
+            let near_header = AnyHeader::try_from(domain_msg.client_message).map_err(|e| {
+                    LinkError::custom_error(format!(
+                        "[in packet: build_recv_packet decode ClientMessage to AnyHeader failed] -> Error({})",
+                        e
+                    ))
+                })?;
             let proof_height = near_header.height();
             warn!("ys-debug: new header for recv_packet: {:?}", proof_height);
 
-        let proofs = self
-            .src_chain()
-            .build_packet_proofs(
-                PacketMsgType::Recv,
-                &packet.source_port,
-                &packet.source_channel,
-                packet.sequence,
-                    proof_height.decrement().map_err(|e| {
-                        LinkError::custom_error(format!("[in packet: build_recv_packet proof_height.decrement() failed] -> Error({})", e))
-                    })?,
-            )
-            .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
+            let proofs = self
+                .src_chain()
+                .build_packet_proofs(
+                    PacketMsgType::Recv,
+                    &packet.source_port,
+                    &packet.source_channel,
+                    packet.sequence,
+                        proof_height.decrement().map_err(|e| {
+                            LinkError::custom_error(format!("[in packet: build_recv_packet proof_height.decrement() failed] -> Error({})", e))
+                        })?,
+                )
+                .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
-        let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
-        msgs.push(msg.to_any());
+            let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
+            msgs.push(msg.to_any());
 
         } else {
+            let proofs = self
+                .src_chain()
+                .build_packet_proofs(
+                    PacketMsgType::Recv,
+                    &packet.source_port,
+                    &packet.source_channel,
+                    packet.sequence,
+                    height,
+                )
+                .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
-        let proofs = self
-            .src_chain()
-            .build_packet_proofs(
-                PacketMsgType::Recv,
-                &packet.source_port,
-                &packet.source_channel,
-                packet.sequence,
-                height,
-            )
-            .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
-
-        let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
-        msgs.push(msg.to_any());
-        trace!(packet = %packet, height = %proofs.height(), "built recv_packet msg");
+            let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
+            msgs.push(msg.to_any());
+            trace!(packet = %packet, height = %proofs.height(), "built recv_packet msg");
         }
 
         Ok(Some(msgs))

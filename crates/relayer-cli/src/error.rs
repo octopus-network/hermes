@@ -119,12 +119,5 @@ define_error! {
         KeyRing
             [ KeyRingError ]
             |_| { "keyring error" },
-
-        Custom
-            { reason: String }
-            | e | {
-                format_args!("custom error: {0}",
-                    e.reason)
-            },
     }
 }

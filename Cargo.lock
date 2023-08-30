@@ -1352,15 +1352,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dirs"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30baa043103c9d0c2a57cf537cc2f35623889dc0d405e6c3cccfadbc81c71309"
-dependencies = [
- "dirs-sys",
-]
-
-[[package]]
 name = "dirs-next"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1368,17 +1359,6 @@ checksum = "b98cf8ebf19c3d1b223e151f99a4f9f0690dca41414773390fc824184ac833e1"
 dependencies = [
  "cfg-if 1.0.0",
  "dirs-sys-next",
-]
-
-[[package]]
-name = "dirs-sys"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b1d1d91c932ef41c0f2663aa8b0ca0342d444d842c06914aa0a7e352d0bada6"
-dependencies = [
- "libc",
- "redox_users",
- "winapi",
 ]
 
 [[package]]
@@ -1494,12 +1474,6 @@ name = "either"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fcaabb2fef8c910e7f4c7ce9f67a1283a1715879a7c230ca9d6d1ae31f16d91"
-
-[[package]]
-name = "elastic-array"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d63720ea2bc2e1b79f7aa044d9dc0b825f9ccb6930b32120f8fb9e873aa84bc"
 
 [[package]]
 name = "elliptic-curve"
@@ -2345,10 +2319,8 @@ dependencies = [
  "byte-unit",
  "bytes",
  "candid 0.9.3",
- "chrono",
  "crossbeam-channel 0.5.8",
  "digest 0.10.7",
- "dirs",
  "dirs-next",
  "ed25519 1.5.3",
  "ed25519-dalek",
@@ -2374,7 +2346,6 @@ dependencies = [
  "near-crypto",
  "near-jsonrpc-client",
  "near-jsonrpc-primitives",
- "near-light-client",
  "near-primitives",
  "num-bigint 0.4.3",
  "num-rational 0.4.1",
@@ -3164,19 +3135,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "near-light-client"
-version = "0.1.0"
-source = "git+https://github.com/octopus-network/near-light-client-rs#d8305a98f558d3066f05635f249196ddc05c5409"
-dependencies = [
- "borsh 0.9.3",
- "bs58 0.4.0",
- "byteorder",
- "ed25519-dalek",
- "elastic-array",
- "sha2 0.10.7",
 ]
 
 [[package]]
