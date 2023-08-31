@@ -8,7 +8,12 @@ pub(crate) fn create_identity(pem_file: &PathBuf) -> Result<Secp256k1Identity, P
 
 #[test]
 fn test_create_identity() {
-    let pem_file = PathBuf::from("/Users/davirain/.config/dfx/identity/default/identity.pem");
-    let ret = create_identity(&pem_file);
+    let name = "default";
+    let home_dir = dirs::home_dir().expect("Failed to get home directory");
+    let pem_file_path = home_dir.join(std::path::Path::new(&format!(
+        ".config/dfx/identity/{}/identity.pem",
+        name
+    )));
+    let ret = create_identity(&pem_file_path);
     println!("ret = {:?}", ret);
 }
