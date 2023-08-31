@@ -1,10 +1,6 @@
-pub(crate) fn create_identity() -> impl ic_agent::Identity {
-    let rng = ring::rand::SystemRandom::new();
-    let key_pair = ring::signature::Ed25519KeyPair::generate_pkcs8(&rng)
-        .expect("Could not generate a key pair.");
+use ic_agent::identity::PemError;
+use std::path::PathBuf;
 
-    ic_agent::identity::BasicIdentity::from_key_pair(
-        ring::signature::Ed25519KeyPair::from_pkcs8(key_pair.as_ref())
-            .expect("Could not read the key pair."),
-    )
+pub(crate) fn create_identity(pem_file: &PathBuf) -> Result<impl ic_agent::Identity, PemError> {
+    ic_agent::identity::BasicIdentity::from_pem_file(pem_file)
 }
