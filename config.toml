@@ -138,6 +138,7 @@ canister_pem = "$HOME/.config/dfx/identity/default/identity.pem"
 near_ibc_address = "v3.near-ibc.near"
 
 type = "near"
+
 # Whether or not this is a CCV consumer chain. Default: false
 # Only specifiy true for CCV consumer chain, but NOT for sovereign chains.
 ccv_consumer_chain = false

@@ -27,12 +27,13 @@ async fn query_ic(
         agent.fetch_root_key().await?;
     }
 
-    let canister_id = ic_cdk::export::Principal::from_text(canister_id)?;
+    let canister_id = candid::Principal::from_text(canister_id)?;
 
-    let mut query_builder =
+    let query_builder =
         ic_agent::agent::QueryBuilder::new(&agent, canister_id, method_name.to_string());
 
-    let query_builder_with_args = query_builder.with_arg(&Encode!(&args)?);
+    let args: Vec<u8> = Encode!(&args)?;
+    let query_builder_with_args = query_builder.with_arg(&*args);
 
     let response = query_builder_with_args.call().await?;
     let result = Decode!(response.as_slice(), VecResult)?;
@@ -61,12 +62,13 @@ async fn update_ic(
         agent.fetch_root_key().await?;
     }
 
-    let canister_id = ic_cdk::export::Principal::from_text(canister_id)?;
+    let canister_id = candid::Principal::from_text(canister_id)?;
 
-    let mut update_builder =
+    let update_builder =
         ic_agent::agent::UpdateBuilder::new(&agent, canister_id, method_name.to_string());
 
-    let update_builder_with_args = update_builder.with_arg(&Encode!(&args)?);
+    let args: Vec<u8> = Encode!(&args)?;
+    let update_builder_with_args = update_builder.with_arg(&*args);
 
     // let waiter = garcon::Delay::builder()
     //     .throttle(std::time::Duration::from_millis(500))
