@@ -186,45 +186,40 @@ impl NearChain {
     fn deliver(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
         info!("{}: [deliver] - messages: {:?}", self.id(), messages);
 
-        // get signer for this transaction
-        let signer = self
-            .keybase()
-            .get_key(&self.config.key_name)
-            .map_err(Error::key_base)?
-            .inner();
+        retry_with_index(retry_strategy::default_strategy(), |_index| {
+            // get signer for this transaction
+            let signer = self
+                .keybase()
+                .get_key(&self.config.key_name).unwrap()
+                .inner();
 
-        let call_near_smart_contract_deliver = self.client.call(
-            &signer,
-            &self.near_ibc_contract,
-            "deliver".into(),
-            json!({ "messages": messages }).to_string().into_bytes(),
-            300000000000000,
-            MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG * messages.len() as u128,
-        );
+            let call_near_smart_contract_deliver = self.client.call(
+                &signer,
+                &self.near_ibc_contract,
+                "deliver".into(),
+                json!({ "messages": messages }).to_string().into_bytes(),
+                300000000000000,
+                MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG * messages.len() as u128,
+            );
+            let result = self.block_on(call_near_smart_contract_deliver);
 
-        self.block_on(call_near_smart_contract_deliver)
-    }
-
-    fn _raw_transfer(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
-        info!("{}: [raw_transfer] - messages: {:?}", self.id(), messages);
-        let _msg = serde_json::to_string(&messages).map_err(NearError::SerdeJsonError)?;
-
-        let signer = self
-            .keybase()
-            .get_key(&self.config.key_name)
-            .map_err(Error::key_base)?
-            .inner();
-
-        let call_near_smart_contract_deliver = self.client.call(
-            &signer,
-            &self.near_ibc_contract,
-            "deliver".to_string(),
-            json!({ "messages": messages }).to_string().into_bytes(),
-            300000000000000,
-            1,
-        );
-
-        self.block_on(call_near_smart_contract_deliver)
+            match result {
+                Ok(outcome) => RetryResult::Ok(outcome),
+                Err(e) => {
+                    warn!(
+                        "ys-debug: retry deliver with error: {}",
+                        e
+                    );
+                    RetryResult::Retry(())
+                }
+            }
+        })
+        .map_err(|e| {
+            Error::report_error(format!(
+                "[Near chain deliver() failed] -> Error({:?})",
+                e
+            )).into()
+        })
     }
 
     fn init_signing_key_pair(&mut self) {

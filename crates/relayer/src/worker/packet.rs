@@ -408,9 +408,9 @@ fn handle_execute_schedule<ChainA: ChainHandle, ChainB: ChainHandle>(
     _path: &Packet,
     resubmit: Resubmit,
 ) -> Result<(), TaskError<RunError>> {
-    // link.a_to_b
-    //     .refresh_schedule()
-    //     .map_err(handle_link_error_in_task)?;
+    link.a_to_b
+        .refresh_schedule()
+        .map_err(handle_link_error_in_task)?;
 
     link.a_to_b.execute_schedule().map_err(|e| {
         if e.is_expired_or_frozen_error() {
