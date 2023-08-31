@@ -569,7 +569,7 @@ impl CosmosSdkChain {
         ))?;
 
         // TODO - Verify response proof, if requested.
-        // if prove {}
+        if prove {}
 
         Ok(response)
     }
@@ -1040,7 +1040,7 @@ impl ChainEndpoint for CosmosSdkChain {
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
-                    .block_on(deliver(canister_id, false, msg.encode_to_vec(), &self.config.canister_pem))
+                    .block_on(deliver(canister_id, false, msg.encode_to_vec()))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_commit call icp deliver failed] -> Error({})", e)))?;
                 println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
                 if !res.is_empty() {
@@ -1071,7 +1071,7 @@ impl ChainEndpoint for CosmosSdkChain {
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
-                    .block_on(deliver(canister_id, false, msg.encode_to_vec(), &self.config.canister_pem))
+                    .block_on(deliver(canister_id, false, msg.encode_to_vec()))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?;
                 println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
                 if !res.is_empty() {

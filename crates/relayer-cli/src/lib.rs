@@ -19,7 +19,6 @@
     unused_lifetimes,
     unused_qualifications
 )]
-#![allow(clippy::redundant_closure_call)]
 #![allow(deprecated)]
 
 extern crate alloc;
