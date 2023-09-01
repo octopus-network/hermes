@@ -184,13 +184,14 @@ impl NearChain {
     /// The function to submit IBC request to a Near chain
     /// This function handles most of the IBC reqeusts to Near, except the MMR root update
     fn deliver(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
-        info!("{}: [deliver] - messages: {:?}", self.id(), messages);
+        trace!("[deliver] - messages: {:?}", messages);
 
         retry_with_index(retry_strategy::default_strategy(), |_index| {
             // get signer for this transaction
             let signer = self
                 .keybase()
-                .get_key(&self.config.key_name).unwrap()
+                .get_key(&self.config.key_name)
+                .unwrap()
                 .inner();
 
             let call_near_smart_contract_deliver = self.client.call(
@@ -206,19 +207,13 @@ impl NearChain {
             match result {
                 Ok(outcome) => RetryResult::Ok(outcome),
                 Err(e) => {
-                    warn!(
-                        "ys-debug: retry deliver with error: {}",
-                        e
-                    );
+                    warn!("ys-debug: retry deliver with error: {}", e);
                     RetryResult::Retry(())
                 }
             }
         })
         .map_err(|e| {
-            Error::report_error(format!(
-                "[Near chain deliver() failed] -> Error({:?})",
-                e
-            )).into()
+            Error::report_error(format!("[Near chain deliver() failed] -> Error({:?})", e)).into()
         })
     }
 
@@ -312,10 +307,14 @@ impl ChainEndpoint for NearChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
-        warn!(
-            "{}: [send_messages_and_wait_commit] - proto_msgs: {:?}",
-            self.id(),
+        info!(
+            "[near - send_messages_and_wait_commit] - proto_msgs: {:?}, tracking_id: {:?}",
             proto_msgs
+                .msgs
+                .iter()
+                .map(|msg| msg.type_url.clone())
+                .collect::<Vec<_>>(),
+            proto_msgs.tracking_id
         );
 
         use crate::chain::ic::deliver;
@@ -330,7 +329,7 @@ impl ChainEndpoint for NearChain {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec(), &self.config.canister_pem))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))?;
-                // println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
+                assert!(!res.is_empty());
                 if !res.is_empty() {
                     msgs.push(
                         Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit decode deliver result] -> Error({})", e)))?,
@@ -338,14 +337,20 @@ impl ChainEndpoint for NearChain {
                 }
             }
             tracked_msgs.msgs = msgs;
+            info!(
+                "[near - send_messages_and_wait_commit] - got proto_msgs from ic: {:?}",
+                tracked_msgs
+                    .msgs
+                    .iter()
+                    .map(|msg| msg.type_url.clone())
+                    .collect::<Vec<_>>()
+            );
         }
         let result = self
             .deliver(tracked_msgs.messages().to_vec())
             .map_err(|e| Error::report_error(format!("deliever error ({:?})", e.to_string())))?;
-        // result.transaction_outcome
         debug!(
-            "{}: [send_messages_and_wait_commit] - extrics_hash: {:?}",
-            self.id(),
+            "[send_messages_and_wait_commit] - extrics_hash: {:?}",
             result
         );
 
@@ -356,10 +361,14 @@ impl ChainEndpoint for NearChain {
         &mut self,
         proto_msgs: TrackedMsgs,
     ) -> Result<Vec<TxResponse>, Error> {
-        warn!(
-            "{}: [send_messages_and_wait_check_tx] - proto_msgs: {:?}",
-            self.id(),
+        info!(
+            "[near - send_messages_and_wait_check_tx] - proto_msgs: {:?}, tracking_id: {:?}",
             proto_msgs
+                .msgs
+                .iter()
+                .map(|msg| msg.type_url.clone())
+                .collect::<Vec<_>>(),
+            proto_msgs.tracking_id
         );
 
         use crate::chain::ic::deliver;
@@ -375,7 +384,7 @@ impl ChainEndpoint for NearChain {
                     .block_on(deliver(canister_id, false, msg.encode_to_vec(),&self.config.canister_pem))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))?;
 
-                // println!("ys-debug: near send_messages_and_wait_commit: {:?}", res);
+                assert!(!res.is_empty());
                 if !res.is_empty() {
                     msgs.push(
                         Any::decode(&res[..])
@@ -384,13 +393,20 @@ impl ChainEndpoint for NearChain {
                 }
             }
             tracked_msgs.msgs = msgs;
+            info!(
+                "[near - send_messages_and_wait_check_tx] - got proto_msgs from ic: {:?}",
+                tracked_msgs
+                    .msgs
+                    .iter()
+                    .map(|msg| msg.type_url.clone())
+                    .collect::<Vec<_>>()
+            );
         }
         let result = self
             .deliver(tracked_msgs.messages().to_vec())
             .map_err(|e| Error::report_error(format!("deliever error ({:?})", e.to_string())))?;
         debug!(
-            "{}: [send_messages_and_wait_check_tx] - extrics_hash: {:?}",
-            self.id(),
+            "[send_messages_and_wait_check_tx] - extrics_hash: {:?}",
             result
         );
 
@@ -527,7 +543,7 @@ impl ChainEndpoint for NearChain {
     }
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
-        info!("{}: [query_commitment_prefix]", self.id());
+        trace!("[query_commitment_prefix]");
         let prefix = self.get_commitment_prefix().map_err(|e| {
             Error::report_error(format!(
                 "[Near chain query_commitment_prefix get_commitment_prefix failed] -> Error({})",
@@ -544,7 +560,7 @@ impl ChainEndpoint for NearChain {
     }
 
     fn query_application_status(&self) -> Result<ChainStatus, Error> {
-        info!("{}: [query_application_status]", self.id());
+        trace!("[query_application_status]");
 
         let latest_height = self.get_latest_height().map_err(|e| {
             Error::report_error(format!(
@@ -595,9 +611,8 @@ impl ChainEndpoint for NearChain {
         include_proof: IncludeProof,
     ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
         use crate::chain::ic::query_client_state;
-        info!(
-            "{}: [query_client_state] - request: {:?} include_proof: {:?}",
-            self.id(),
+        trace!(
+            "[query_client_state] - request: {:?}, include_proof: {:?}",
             request,
             include_proof
         );
@@ -642,9 +657,8 @@ impl ChainEndpoint for NearChain {
         include_proof: IncludeProof,
     ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
         use crate::chain::ic::query_consensus_state;
-        info!(
-            "{}: [query_consensus_state] - request: {:?} include_proof: {:?}",
-            self.id(),
+        trace!(
+            "[query_consensus_state] - request: {:?}, include_proof: {:?}",
             request,
             include_proof
         );
@@ -784,9 +798,8 @@ impl ChainEndpoint for NearChain {
         request: QueryConnectionRequest,
         include_proof: IncludeProof,
     ) -> Result<(ConnectionEnd, Option<MerkleProof>), Error> {
-        info!(
-            "{}: [query_connection] - request: {:?} include_proof: {:?}",
-            self.id(),
+        trace!(
+            "[query_connection] - request: {:?}, include_proof: {:?}",
             request,
             include_proof
         );
@@ -841,9 +854,8 @@ impl ChainEndpoint for NearChain {
         request: QueryChannelRequest,
         include_proof: IncludeProof,
     ) -> Result<(ChannelEnd, Option<MerkleProof>), Error> {
-        info!(
-            "{}: [query_channel] - request: {:?} include_proof: {:?}",
-            self.id(),
+        trace!(
+            "[query_channel] - request: {:?}, include_proof: {:?}",
             request,
             include_proof
         );
@@ -1180,10 +1192,8 @@ impl ChainEndpoint for NearChain {
         dst_config: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
         info!(
-            "{}: [build_client_state] - height: {:?} dst_config: {:?}",
-            self.id(),
-            height,
-            dst_config
+            "[build_client_state] - height: {:?} dst_config: {:?}",
+            height, dst_config
         );
 
         let ClientSettings::Tendermint(settings) = dst_config;
@@ -1207,9 +1217,11 @@ impl ChainEndpoint for NearChain {
         light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
         info!(
-            "{}: [build_consensus_state] - light_block: {:?}",
-            self.id(),
-            light_block
+            "[build_consensus_state] - light_block: height: {:?}, timestamp: {:?}, epoch_id: {:?}, next_epoch_id: {:?}",
+            light_block.light_client_block.inner_lite.height,
+            light_block.light_client_block.inner_lite.timestamp,
+            light_block.light_client_block.inner_lite.epoch_id,
+            light_block.light_client_block.inner_lite.next_epoch_id,
         );
         let consensus_state = NearConsensusState {
             current_bps: vec![],
@@ -1539,11 +1551,6 @@ impl ChainEndpoint for NearChain {
                             }),
                     )
                     .map_err(|e| Error::report_error(format!("[Near Chain build_connection_proofs_and_client_state query_response failed] -> Error({})", e)))?;
-
-                println!(
-                    "ys-debug: client_state_proof view state result: {:?}",
-                    query_response
-                );
 
                 let state = match query_response.kind {
                     near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {

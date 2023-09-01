@@ -10,7 +10,6 @@ use crate::chain::requests::{
 use crate::consensus_state::AnyConsensusState;
 use alloc::sync::Arc;
 use ibc::core::events::IbcEvent;
-use ibc_proto::google::protobuf::Any;
 use ibc_relayer_types::core::ics02_client::height::Height;
 use ibc_relayer_types::core::ics03_connection::connection::{
     ConnectionEnd, IdentifiedConnectionEnd,
@@ -18,11 +17,10 @@ use ibc_relayer_types::core::ics03_connection::connection::{
 use ibc_relayer_types::core::ics04_channel::channel::{ChannelEnd, IdentifiedChannelEnd};
 use ibc_relayer_types::core::ics04_channel::packet::Sequence;
 use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
-use near_crypto::{InMemorySigner, KeyType};
-use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
+use near_primitives::types::AccountId;
 use serde_json::json;
 use tokio::runtime::Runtime as TokioRuntime;
-use tracing::info;
+use tracing::trace;
 
 pub trait NearIbcContract {
     fn get_contract_id(&self) -> AccountId;
@@ -30,7 +28,7 @@ pub trait NearIbcContract {
     fn get_rt(&self) -> &Arc<TokioRuntime>;
 
     fn get_latest_height(&self) -> anyhow::Result<Height> {
-        info!("NearIbcContract: [get_latest_height]");
+        trace!("NearIbcContract: [get_latest_height]");
 
         let height: Height = self
             .get_rt()
@@ -50,7 +48,7 @@ pub trait NearIbcContract {
         &self,
         connection_identifier: &ConnectionId,
     ) -> anyhow::Result<ConnectionEnd> {
-        info!(
+        trace!(
             "NearIbcContract: [get_connection_end] - connection_identifier: {:?}",
             connection_identifier
         );
@@ -83,9 +81,10 @@ pub trait NearIbcContract {
         port_id: &PortId,
         channel_id: &ChannelId,
     ) -> anyhow::Result<ChannelEnd> {
-        info!(
+        trace!(
             "NearIbcContract: [query_channel_end] - port_id: {:?} channel_id: {:?}",
-            port_id, channel_id
+            port_id,
+            channel_id
         );
 
         self.get_rt()
@@ -103,7 +102,7 @@ pub trait NearIbcContract {
 
     /// get client_state by client_id
     fn get_client_state(&self, client_id: &ClientId) -> anyhow::Result<Vec<u8>> {
-        info!(
+        trace!(
             "NearIbcContract: [get_client_state] - client_id: {:?}",
             client_id
         );
@@ -122,7 +121,7 @@ pub trait NearIbcContract {
     }
 
     fn get_client_consensus_heights(&self, client_id: &ClientId) -> anyhow::Result<Vec<Height>> {
-        info!(
+        trace!(
             "NearIbcContract: [get_client_consensus_heights] - client_id: {:?}",
             client_id,
         );
@@ -146,9 +145,10 @@ pub trait NearIbcContract {
         client_id: &ClientId,
         consensus_height: &Height,
     ) -> anyhow::Result<Vec<u8>> {
-        info!(
+        trace!(
             "NearIbcContract: [get_client_consensus] - client_id: {:?} consensus_height: {:?}",
-            client_id, consensus_height
+            client_id,
+            consensus_height
         );
         self.get_rt()
             .block_on(
@@ -167,7 +167,7 @@ pub trait NearIbcContract {
         &self,
         client_id: &ClientId,
     ) -> anyhow::Result<Vec<(Height, AnyConsensusState)>> {
-        info!(
+        trace!(
             "NearIbcContract: [get_consensus_state_with_height] - client_id: {:?}",
             client_id
         );
@@ -188,8 +188,8 @@ pub trait NearIbcContract {
         channel_id: &ChannelId,
         sequences: &[Sequence],
     ) -> anyhow::Result<Vec<u64>> {
-        info!(
-            "NearIbcContract: [get_unreceipt_packet] - port_id: {:?} channel_id: {:?} sequence: {:?}",
+        trace!(
+            "NearIbcContract: [get_unreceipt_packet] - port_id: {:?} channel_id: {:?} sequences: {:?}",
             port_id, channel_id, sequences
         );
 
@@ -214,7 +214,7 @@ pub trait NearIbcContract {
         &self,
         request: QueryClientStatesRequest,
     ) -> anyhow::Result<Vec<(ClientId, Vec<u8>)>> {
-        info!("NearIbcContract: [get_clients] - request: {:?}", request);
+        trace!("NearIbcContract: [get_clients] - request: {:?}", request);
 
         let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
 
@@ -231,7 +231,7 @@ pub trait NearIbcContract {
         &self,
         request: QueryConnectionsRequest,
     ) -> anyhow::Result<Vec<IdentifiedConnectionEnd>> {
-        info!(
+        trace!(
             "NearIbcContract: [get_connections] - request: {:?}",
             request
         );
@@ -251,7 +251,7 @@ pub trait NearIbcContract {
         &self,
         request: QueryChannelsRequest,
     ) -> anyhow::Result<Vec<IdentifiedChannelEnd>> {
-        info!("NearIbcContract: [get_channels] - request: {:?}", request);
+        trace!("NearIbcContract: [get_channels] - request: {:?}", request);
 
         let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
 
@@ -268,7 +268,7 @@ pub trait NearIbcContract {
         &self,
         request: QueryPacketCommitmentsRequest,
     ) -> anyhow::Result<Vec<Sequence>> {
-        info!(
+        trace!(
             "NearIbcContract: [get_packet_commitments] - request: {:?}",
             request
         );
@@ -292,7 +292,7 @@ pub trait NearIbcContract {
         &self,
         request: QueryPacketAcknowledgementsRequest,
     ) -> anyhow::Result<Vec<Sequence>> {
-        info!("NearIbcContract: [get_packet_acknowledgements]");
+        trace!("NearIbcContract: [get_packet_acknowledgements]");
         self.get_rt()
             .block_on(
                 self.get_client().view(
@@ -315,7 +315,7 @@ pub trait NearIbcContract {
         request: &QueryClientConnectionsRequest,
     ) -> anyhow::Result<Vec<ConnectionId>> {
         let client_id = request.client_id.to_string();
-        info!(
+        trace!(
             "NearIbcContract: [get_client_connections] - client_id: {:?}",
             client_id
         );
@@ -332,7 +332,7 @@ pub trait NearIbcContract {
         &self,
         connection_id: &ConnectionId,
     ) -> anyhow::Result<Vec<IdentifiedChannelEnd>> {
-        info!(
+        trace!(
             "NearIbcContract: [get_connection_channels] - connection_id: {:?}",
             connection_id
         );
@@ -350,53 +350,13 @@ pub trait NearIbcContract {
             .json()
     }
 
-    /// The function to submit IBC request to a Near chain
-    /// This function handles most of the IBC reqeusts to Near, except the MMR root update
-    fn deliver(&self, messages: Vec<Any>) -> anyhow::Result<FinalExecutionOutcomeView> {
-        info!("NearIbcContract: [deliver] - messages: {:?}", messages);
-
-        let signer = InMemorySigner::from_random(
-            "bob.testnet"
-                .parse()
-                .map_err(NearError::ParserNearAccountIdFailure)?,
-            KeyType::ED25519,
-        );
-        self.get_rt().block_on(self.get_client().call(
-            &signer,
-            &self.get_contract_id(),
-            "deliver".into(),
-            json!({ "messages": messages }).to_string().into_bytes(),
-            300000000000000,
-            0,
-        ))
-    }
-
-    fn raw_transfer(&self, msgs: Vec<Any>) -> anyhow::Result<FinalExecutionOutcomeView> {
-        info!("NearIbcContract: [raw_transfer] - msgs: {:?}", msgs);
-
-        let signer = InMemorySigner::from_random(
-            "bob.testnet"
-                .parse()
-                .map_err(NearError::ParserNearAccountIdFailure)?,
-            KeyType::ED25519,
-        );
-        self.get_rt().block_on(self.get_client().call(
-            &signer,
-            &self.get_contract_id(),
-            "raw_transfer".into(),
-            json!({ "messages": msgs }).to_string().into_bytes(),
-            300000000000000,
-            1,
-        ))
-    }
-
     fn get_packet_commitment(
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
     ) -> anyhow::Result<Vec<u8>> {
-        info!(
+        trace!(
             "NearIbcContract: [get_packet_commitment] - port_id: {:?}, channel_id: {:?}, sequence: {:?}",
             port_id, channel_id, sequence
         );
@@ -419,7 +379,7 @@ pub trait NearIbcContract {
     }
 
     fn get_commitment_prefix(&self) -> anyhow::Result<Vec<u8>> {
-        info!("NearIbcContract: [get_commitment_prefix]");
+        trace!("NearIbcContract: [get_commitment_prefix]");
         self.get_rt()
             .block_on(self.get_client().view(
                 self.get_contract_id(),
@@ -435,7 +395,7 @@ pub trait NearIbcContract {
         channel_id: &ChannelId,
         sequence: &Sequence,
     ) -> anyhow::Result<Vec<u8>> {
-        info!(
+        trace!(
             "NearIbcContract: [get_packet_receipt] - port_id: {:?}, channel_id: {:?}, sequence: {:?}",
             port_id, channel_id, sequence
         );
@@ -462,9 +422,10 @@ pub trait NearIbcContract {
         port_id: &PortId,
         channel_id: &ChannelId,
     ) -> anyhow::Result<Sequence> {
-        info!(
+        trace!(
             "NearIbcContract: [get_next_sequence_receive] - port_id: {:?}, channel_id: {:?}",
-            port_id, channel_id,
+            port_id,
+            channel_id,
         );
 
         self.get_rt()
@@ -489,7 +450,7 @@ pub trait NearIbcContract {
         channel_id: &ChannelId,
         sequence: &Sequence,
     ) -> anyhow::Result<Vec<u8>> {
-        info!(
+        trace!(
             "NearIbcContract: [get_packet_acknowledgement] - port_id: {:?}, channel_id: {:?}, sequence: {:?}",
             port_id, channel_id, sequence
         );
@@ -515,7 +476,7 @@ pub trait NearIbcContract {
         &self,
         request: QueryPacketEventDataRequest,
     ) -> anyhow::Result<Vec<(Height, Vec<IbcEvent>)>> {
-        info!(
+        trace!(
             "NearIbcContract: [get_packet_events] - request: {:?}",
             request
         );

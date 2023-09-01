@@ -1029,6 +1029,15 @@ impl ChainEndpoint for CosmosSdkChain {
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
+        info!(
+            "[cosmos - send_messages_and_wait_commit] - tracked_msgs: {:?}, tracking_id: {:?}",
+            tracked_msgs
+                .msgs
+                .iter()
+                .map(|msg| msg.type_url.clone())
+                .collect::<Vec<_>>(),
+            tracked_msgs.tracking_id
+        );
         use crate::chain::ic::deliver;
         use ibc::Any;
 
@@ -1042,7 +1051,7 @@ impl ChainEndpoint for CosmosSdkChain {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec(), &self.config.canister_pem))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_commit call icp deliver failed] -> Error({})", e)))?;
-                println!("ys-debug: send_messages_and_wait_commit: {:?}", res);
+                assert!(!res.is_empty());
                 if !res.is_empty() {
                     msgs.push(
                         Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Cosmos Chain send_messages_and_wait_commit encode call icp deliver result failed] -> Error({})", e)))?,
@@ -1050,6 +1059,14 @@ impl ChainEndpoint for CosmosSdkChain {
                 }
             }
             tracked_msgs.msgs = msgs;
+            info!(
+                "[cosmos - send_messages_and_wait_commit] - got proto_msgs from ic: {:?}",
+                tracked_msgs
+                    .msgs
+                    .iter()
+                    .map(|msg| msg.type_url.clone())
+                    .collect::<Vec<_>>()
+            );
         }
 
         runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs))
@@ -1059,6 +1076,15 @@ impl ChainEndpoint for CosmosSdkChain {
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<Response>, Error> {
+        info!(
+            "[cosmos - send_messages_and_wait_check_tx] - tracked_msgs: {:?}, tracking_id: {:?}",
+            tracked_msgs
+                .msgs
+                .iter()
+                .map(|msg| msg.type_url.clone())
+                .collect::<Vec<_>>(),
+            tracked_msgs.tracking_id
+        );
         use crate::chain::ic::deliver;
         use ibc::Any;
 
@@ -1073,7 +1099,7 @@ impl ChainEndpoint for CosmosSdkChain {
                 let res = runtime
                     .block_on(deliver(canister_id, false, msg.encode_to_vec(), &self.config.canister_pem))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?;
-                println!("ys-debug: send_messages_and_wait_check_tx: {:?}", res);
+                assert!(!res.is_empty());
                 if !res.is_empty() {
                     msgs.push(
                         Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?,
@@ -1081,6 +1107,14 @@ impl ChainEndpoint for CosmosSdkChain {
                 }
             }
             tracked_msgs.msgs = msgs;
+            info!(
+                "[cosmos - send_messages_and_wait_check_tx] - got proto_msgs from ic: {:?}",
+                tracked_msgs
+                    .msgs
+                    .iter()
+                    .map(|msg| msg.type_url.clone())
+                    .collect::<Vec<_>>()
+            );
         }
 
         runtime.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs))

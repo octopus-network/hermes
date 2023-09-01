@@ -240,7 +240,6 @@ impl NearEventMonitor {
                     })
                 },
                 |result| {
-                    warn!("ys-debug event: {:?}", result);
                     let ibc_events: Vec<ibc::core::events::IbcEvent> =
                         result.json().expect("near event to json failed");
                     Ok(EventBatch {
