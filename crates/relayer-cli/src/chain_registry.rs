@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::marker::Send;
+use std::path::PathBuf;
 
 use futures::future::join_all;
 use http::Uri;
@@ -124,6 +125,7 @@ where
     Ok(ChainConfig {
         id: chain_data.chain_id,
         canister_id: CanisterIdConfig::default(),
+        canister_pem: PathBuf::new(),
         near_ibc_address: ibc_relayer::config::NearIbcContractAddress::default(),
         r#type: default::chain_type(),
         rpc_addr: rpc_data.rpc_address,

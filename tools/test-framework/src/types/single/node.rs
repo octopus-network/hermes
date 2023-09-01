@@ -13,6 +13,7 @@ use ibc_relayer::config::CanisterIdConfig;
 use ibc_relayer::config::NearIbcContractAddress;
 use ibc_relayer::keyring::Store;
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use tendermint_rpc::Url;
 use tendermint_rpc::WebSocketClientUrl;
@@ -138,6 +139,7 @@ impl FullNode {
 
         Ok(config::ChainConfig {
             id: self.chain_driver.chain_id.clone(),
+            canister_pem: PathBuf::new(),
             near_ibc_address: NearIbcContractAddress::default(),
             canister_id: CanisterIdConfig::default(),
             r#type: ChainType::CosmosSdk,
