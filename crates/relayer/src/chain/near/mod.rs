@@ -1,4 +1,5 @@
 use super::client::ClientSettings;
+use super::ic::VpClient;
 use crate::util::retry::{retry_with_index, RetryResult};
 use crate::{
     account::Balance,
@@ -94,7 +95,6 @@ use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
 use prost::Message;
 use semver::Version;
 use serde_json::json;
-use std::path::PathBuf;
 use std::thread;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
@@ -119,6 +119,7 @@ struct NearProofs(Vec<Vec<u8>>);
 pub struct NearChain {
     client: NearRpcClient,
     lcb_client: NearRpcClient,
+    vp_client: VpClient,
     config: ChainConfig,
     keybase: KeyRing<NearKeyPair>,
     near_ibc_contract: AccountId,
@@ -148,14 +149,6 @@ impl NearChain {
 
     pub fn canister_id(&self) -> &str {
         &self.config.canister_id.id
-    }
-
-    pub fn canister_pem_file_path(&self) -> &PathBuf {
-        &self.config.canister_pem
-    }
-
-    pub fn canister_endpoint(&self) -> &str {
-        &self.config.ic_endpoint
     }
 
     /// Subscribe Events
@@ -245,9 +238,18 @@ impl ChainEndpoint for NearChain {
             &config.key_store_folder,
         )
         .map_err(Error::key_base)?;
+        let vp_client = rt
+            .block_on(VpClient::new(&config.ic_endpoint, &config.canister_pem))
+            .map_err(|e| {
+                Error::report_error(format!(
+                    "[near chain bootstrap build VpClientFailed] -> Error({:?})",
+                    e
+                ))
+            })?;
         let mut new_instance = NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
             lcb_client: NearRpcClient::new("https://rpc.testnet.near.org"),
+            vp_client,
             config: config.clone(),
             keybase,
             near_ibc_contract: config.near_ibc_address.into(),
@@ -312,19 +314,15 @@ impl ChainEndpoint for NearChain {
             proto_msgs.tracking_id
         );
 
-        use crate::chain::ic::deliver;
-
         let mut tracked_msgs = proto_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
             let msgs_result: Result<Vec<_>, _> = tracked_msgs
                 .messages()
                 .iter()
                 .map(|msg| {
-                    self.block_on(deliver(
+                    self.block_on(self.vp_client.deliver(
                         self.canister_id(),
-                        self.canister_endpoint(),
                         msg.encode_to_vec(),
-                        self.canister_pem_file_path(),
                     ))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))
                 })
@@ -384,19 +382,15 @@ impl ChainEndpoint for NearChain {
             proto_msgs.tracking_id
         );
 
-        use crate::chain::ic::deliver;
-
         let mut tracked_msgs = proto_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
             let msgs_result: Result<Vec<_>, _> = tracked_msgs
                 .messages()
                 .iter()
                 .map(|msg| {
-                    self.block_on(deliver(
+                    self.block_on(self.vp_client.deliver(
                         self.canister_id(),
-                        self.canister_endpoint(),
                         msg.encode_to_vec(),
-                        self.canister_pem_file_path(),
                     ))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))
                 })
@@ -648,7 +642,6 @@ impl ChainEndpoint for NearChain {
         request: QueryClientStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
-        use crate::chain::ic::query_client_state;
         trace!(
             "[query_client_state] - request: {:?}, include_proof: {:?}",
             request,
@@ -657,11 +650,10 @@ impl ChainEndpoint for NearChain {
 
         if matches!(include_proof, IncludeProof::No) {
             let res = self
-                .block_on(query_client_state(
-                    self.canister_id(),
-                    self.canister_endpoint(),
-                    vec![],
-                ))
+                .block_on(
+                    self.vp_client
+                        .query_client_state(self.canister_id(), vec![]),
+                )
                 .map_err(|e| Error::report_error(e.to_string()))?;
 
             return Ok((
@@ -699,7 +691,6 @@ impl ChainEndpoint for NearChain {
         request: QueryConsensusStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
-        use crate::chain::ic::query_consensus_state;
         trace!(
             "[query_consensus_state] - request: {:?}, include_proof: {:?}",
             request,
@@ -714,11 +705,10 @@ impl ChainEndpoint for NearChain {
             .encode(&mut buf)
             .map_err(|e| Error::report_error(e.to_string()))?;
         let res = self
-            .block_on(query_consensus_state(
-                self.canister_id(),
-                self.canister_endpoint(),
-                buf,
-            ))
+            .block_on(
+                self.vp_client
+                    .query_consensus_state(self.canister_id(), buf),
+            )
             .map_err(|e| Error::report_error(e.to_string()))?;
 
         Ok((
