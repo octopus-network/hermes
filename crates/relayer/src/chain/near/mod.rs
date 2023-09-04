@@ -1082,7 +1082,7 @@ impl ChainEndpoint for NearChain {
                 // Todo: the client event below is mock
                 // replace it with real client event replied from a near chain
                 // todo(davirian)
-                let result: Vec<IbcEventWithHeight> = vec![IbcEventWithHeight {
+                Ok(vec![IbcEventWithHeight {
                     event: IbcEvent::UpdateClient(
                         ibc_relayer_types::core::ics02_client::events::UpdateClient::from(
                             Attributes {
@@ -1098,13 +1098,11 @@ impl ChainEndpoint for NearChain {
                             e
                         ))
                     })?,
-                }];
-
-                Ok(result)
+                }])
             }
 
             QueryTxRequest::Transaction(_tx) => {
-                // Todo: https://github.com/octopus-network/ibc-rs/issues/9
+                // Todo: https://github.com/octopus-network/ibc-rs/issues/98
                 Ok(vec![])
             }
         }
