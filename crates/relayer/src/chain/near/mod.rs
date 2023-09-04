@@ -1104,9 +1104,8 @@ impl ChainEndpoint for NearChain {
             }
 
             QueryTxRequest::Transaction(_tx) => {
-                // Todo: https://github.com/octopus-network/ibc-rs/issues/98
-                let result: Vec<IbcEventWithHeight> = vec![];
-                Ok(result)
+                // Todo: https://github.com/octopus-network/ibc-rs/issues/9
+                Ok(vec![])
             }
         }
     }
