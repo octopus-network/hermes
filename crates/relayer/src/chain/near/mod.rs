@@ -38,7 +38,7 @@ use crate::{
 };
 use alloc::{string::String, sync::Arc};
 use anyhow::Result;
-use core::{fmt::Debug, future::Future, str::FromStr};
+use core::{fmt::Debug, str::FromStr};
 use ibc_proto::{google::protobuf::Any, protobuf::Protobuf};
 use ibc_relayer_types::core::ics04_channel::packet::PacketMsgType;
 use ibc_relayer_types::{
@@ -89,6 +89,7 @@ use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
 use prost::Message;
 use semver::Version;
 use serde_json::json;
+use std::path::PathBuf;
 use std::thread;
 use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
@@ -100,7 +101,6 @@ pub mod error;
 pub mod rpc;
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use error::NearError;
 
 pub const REVISION_NUMBER: u64 = 0;
 pub const CLIENT_DIVERSIFIER: &str = "NEAR";
@@ -141,9 +141,12 @@ impl NearChain {
         &self.config
     }
 
-    /// Run a future to completion on the Tokio runtime.
-    fn block_on<F: Future>(&self, f: F) -> F::Output {
-        self.rt.block_on(f)
+    pub fn canister_id(&self) -> &str {
+        &self.config.canister_id.id
+    }
+
+    pub fn canister_pem_file_path(&self) -> &PathBuf {
+        &self.config.canister_pem
     }
 
     /// Subscribe Events
@@ -151,34 +154,6 @@ impl NearChain {
     pub fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>> {
         info!("{}: [subscribe_ibc_events]", self.id());
         todo!() //Bob
-    }
-
-    /// get packet receipt by port_id, channel_id and sequence
-    fn _get_packet_receipt(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        seq: &Sequence,
-    ) -> Result<Receipt> {
-        info!(
-            "{}: [get_packet_receipt] - port_id: {}, channel_id: {}, seq: {}",
-            self.id(),
-            port_id,
-            channel_id,
-            seq
-        );
-
-        let _port_id = serde_json::to_string(port_id).map_err(NearError::SerdeJsonError)?;
-        let _channel_id = serde_json::to_string(channel_id).map_err(NearError::SerdeJsonError)?;
-        let _seq = serde_json::to_string(seq).map_err(NearError::SerdeJsonError)?;
-
-        // self.block_on(self.client.view(
-        //     self.near_ibc_contract.clone(),
-        //     "get_packet_receipt".to_string(),
-        //     json!({"port_id": port_id, "channel_id": channel_id, "seq": seq}).to_string().into_bytes()
-        // )).expect("Failed to get_packet_receipt.").json()
-
-        todo!() // todo the receipt can't deserialize
     }
 
     /// The function to submit IBC request to a Near chain
@@ -228,7 +203,7 @@ impl ChainEndpoint for NearChain {
     type ConsensusState = NearConsensusState;
     type ClientState = NearClientState;
     type SigningKeyPair = NearKeyPair;
-    type Time = ibc::core::timestamp::Timestamp;
+    type Time = Timestamp;
 
     fn id(&self) -> &ChainId {
         &self.config().id
@@ -251,7 +226,6 @@ impl ChainEndpoint for NearChain {
         .map_err(Error::key_base)?;
         let mut new_instance = NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
-
             lcb_client: NearRpcClient::new("https://rpc.testnet.near.org"),
             config: config.clone(),
             keybase,
@@ -319,15 +293,12 @@ impl ChainEndpoint for NearChain {
 
         use crate::chain::ic::deliver;
 
-        let runtime = self.rt.clone();
-
         let mut tracked_msgs = proto_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let canister_id = self.config.canister_id.id.as_str();
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
-                let res = runtime
-                    .block_on(deliver(canister_id, &self.config.ic_endpoint, msg.encode_to_vec(), &self.config.canister_pem))
+                let res = self
+                    .block_on(deliver(self.canister_id(), false, msg.encode_to_vec(), &self.canister_pem_file_path()))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))?;
                 assert!(!res.is_empty());
                 if !res.is_empty() {
@@ -373,26 +344,40 @@ impl ChainEndpoint for NearChain {
 
         use crate::chain::ic::deliver;
 
-        let runtime = self.rt.clone();
-
         let mut tracked_msgs = proto_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let canister_id = self.config.canister_id.id.as_str();
-            let mut msgs: Vec<Any> = Vec::new();
-            for msg in tracked_msgs.messages() {
-                let res = runtime
-                    .block_on(deliver(canister_id, &self.config.ic_endpoint, msg.encode_to_vec(),&self.config.canister_pem))
-                    .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))?;
+            let msgs_result: Result<Vec<_>, _> = tracked_msgs
+                .messages()
+                .iter()
+                .map(|msg| {
+                    self.block_on(deliver(
+                        self.canister_id(),
+                        false,
+                        msg.encode_to_vec(),
+                        &self.canister_pem_file_path(),
+                    ))
+                    .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))
+                })
+                .filter_map(|res| {
+                    res.ok().and_then(|r| {
+                        if r.is_empty() {
+                            None
+                        } else {
+                            Some(r)
+                        }
+                    })
+                })
+                .map(|res| {
+                    Any::decode(&res[..])
+                        .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx decode deliver result] -> Error({})", e)))
+                })
+                .collect();
 
-                assert!(!res.is_empty());
-                if !res.is_empty() {
-                    msgs.push(
-                        Any::decode(&res[..])
-                            .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx decode deliver result] -> Error({})", e)))?,
-                    );
-                }
+            match msgs_result {
+                Ok(msgs) => tracked_msgs.msgs = msgs,
+                Err(e) => return Err(e),
             }
-            tracked_msgs.msgs = msgs;
+
             info!(
                 "[near - send_messages_and_wait_check_tx] - got proto_msgs from ic: {:?}",
                 tracked_msgs
@@ -402,9 +387,11 @@ impl ChainEndpoint for NearChain {
                     .collect::<Vec<_>>()
             );
         }
+
         let result = self
             .deliver(tracked_msgs.messages().to_vec())
-            .map_err(|e| Error::report_error(format!("deliever error ({:?})", e.to_string())))?;
+            .map_err(|e| Error::report_error(format!("deliver error ({:?})", e.to_string())))?;
+
         debug!(
             "[send_messages_and_wait_check_tx] - extrics_hash: {:?}",
             result
@@ -618,16 +605,8 @@ impl ChainEndpoint for NearChain {
         );
 
         if matches!(include_proof, IncludeProof::No) {
-            let runtime = self.rt.clone();
-
-            let canister_id = self.config.canister_id.id.as_str();
-
-            let res = runtime
-                .block_on(query_client_state(
-                    canister_id,
-                    &self.config.ic_endpoint,
-                    vec![],
-                ))
+            let res = self
+                .block_on(query_client_state(self.canister_id(), false, vec![]))
                 .map_err(|e| Error::report_error(e.to_string()))?;
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
             return Ok((client_state, None));
@@ -668,20 +647,14 @@ impl ChainEndpoint for NearChain {
         );
         assert!(matches!(include_proof, IncludeProof::No));
         assert!(request.client_id.to_string().starts_with("06-solomachine"));
-        let runtime = self.rt.clone();
-        let canister_id = self.config.canister_id.id.as_str();
 
         let mut buf = vec![];
         request
             .consensus_height
             .encode(&mut buf)
             .map_err(|e| Error::report_error(e.to_string()))?;
-        let res = runtime
-            .block_on(query_consensus_state(
-                canister_id,
-                &self.config.ic_endpoint,
-                buf,
-            ))
+        let res = self
+            .block_on(query_consensus_state(self.canister_id(), false, buf))
             .map_err(|e| Error::report_error(e.to_string()))?;
         let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
         Ok((consensus_state, None))
@@ -980,15 +953,11 @@ impl ChainEndpoint for NearChain {
             request
         );
 
-        let port_id = PortId::from_str(request.port_id.as_str())
-            .map_err(|_| Error::report_error("identifier".to_string()))?;
-        let channel_id = ChannelId::from_str(request.channel_id.as_str())
-            .map_err(|_| Error::report_error("identifier".to_string()))?;
-        let sequences = request
-            .packet_commitment_sequences
-            .into_iter()
-            .map(Sequence::from)
-            .collect::<Vec<_>>();
+        let QueryUnreceivedPacketsRequest {
+            port_id,
+            channel_id,
+            packet_commitment_sequences: sequences,
+        } = request;
 
         let result = self
             .get_unreceipt_packet(&port_id, &channel_id, &sequences)
@@ -1057,15 +1026,11 @@ impl ChainEndpoint for NearChain {
             request
         );
 
-        let port_id = PortId::from_str(request.port_id.as_str())
-            .map_err(|_| Error::report_error("identifier".to_string()))?;
-        let channel_id = ChannelId::from_str(request.channel_id.as_str())
-            .map_err(|_| Error::report_error("identifier".to_string()))?;
-        let sequences = request
-            .packet_ack_sequences
-            .into_iter()
-            .map(Sequence::from)
-            .collect::<Vec<_>>();
+        let QueryUnreceivedAcksRequest {
+            port_id,
+            channel_id,
+            packet_ack_sequences: sequences,
+        } = request;
 
         let mut unreceived_seqs = vec![];
 
