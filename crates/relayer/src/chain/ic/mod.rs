@@ -18,6 +18,8 @@ pub struct VpClient {
 }
 
 impl VpClient {
+    const LOCAL_NET: &str = "http://localhost:4943";
+
     pub async fn new(ic_endpoint_url: &str, pem_file: &PathBuf) -> Result<Self> {
         let agent = Agent::builder()
             .with_url(ic_endpoint_url)
@@ -25,7 +27,7 @@ impl VpClient {
             .build()
             .map_err(Error::AgentError)?;
 
-        if ic_endpoint_url == LOCAL_NET {
+        if ic_endpoint_url == Self::LOCAL_NET {
             agent.fetch_root_key().await?;
         }
 
