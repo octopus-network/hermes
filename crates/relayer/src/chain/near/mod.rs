@@ -85,6 +85,7 @@ use ibc_relayer_types::{
 use near_jsonrpc_client::{methods, MethodCallResult};
 use near_primitives::types::BlockId;
 use near_primitives::views::BlockView;
+use near_primitives::views::LightClientBlockView;
 use near_primitives::views::ViewStateResult;
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
 use prost::Message;
@@ -2084,7 +2085,7 @@ pub fn produce_block_header_inner_light(
 
 /// Produce `Header` by NEAR version of `LightClientBlockView` and `BlockView`.
 pub fn produce_light_client_block(
-    view: &near_primitives::views::LightClientBlockView,
+    view: &LightClientBlockView,
     block_view: &BlockView,
 ) -> Result<NearHeader, Error> {
     assert!(
