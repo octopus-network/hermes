@@ -485,25 +485,33 @@ impl ChainEndpoint for NearChain {
                     return RetryResult::Retry(());
                 }
             };
-            let header = produce_light_client_block(&light_client_block_view, &block_view);
-            info!(
-                "ys-debug: new header in verify_header: {:?}, {:?}, {:?}",
-                header.height(),
-                light_client_block_view.inner_lite.height,
-                block_view.header.height
-            );
+            let header_result = produce_light_client_block(&light_client_block_view, &block_view);
+            match header_result {
+                Ok(header) => {
+                    info!(
+                        "ys-debug: new header in verify_header: {:?}, {:?}, {:?}",
+                        header.height(),
+                        light_client_block_view.inner_lite.height,
+                        block_view.header.height
+                    );
+                    assert!(
+                        header
+                            .light_client_block
+                            .inner_lite
+                            .next_epoch_id
+                            .0
+                             .0
+                            .to_vec()
+                            == latest_block_view.header.epoch_id.0.to_vec()
+                    );
+                    RetryResult::Ok(header)
+                },
+                Err(e) => {
+                    warn!("produce_light_client_block have provlem {:?}", e);
 
-            assert!(
-                header
-                    .light_client_block
-                    .inner_lite
-                    .next_epoch_id
-                    .0
-                     .0
-                    .to_vec()
-                    == latest_block_view.header.epoch_id.0.to_vec()
-            );
-            RetryResult::Ok(header)
+                    retry::OperationResult::Retry(())
+                }
+            }
         })
         .map_err(|e| {
             Error::report_error(format!(
@@ -1339,14 +1347,24 @@ impl ChainEndpoint for NearChain {
                 .iter()
                 .any(|c| c.prev_state_root.0 == root_hash.0)
             {
-                let header = produce_light_client_block(&light_client_block_view, &block_view);
-                info!(
-                    "ys-debug: new header: {:?}, {:?}, {:?}",
-                    header.height(),
-                    light_client_block_view.inner_lite.height,
-                    block_view.header.height
-                );
-                RetryResult::Ok(header)
+                let header_result = produce_light_client_block(&light_client_block_view, &block_view);
+                match header_result {
+                    Ok(header) => {
+                        info!(
+                            "ys-debug: new header: {:?}, {:?}, {:?}",
+                            header.height(),
+                            light_client_block_view.inner_lite.height,
+                            block_view.header.height
+                        );
+
+                        retry::OperationResult::Ok(header)
+                    },
+                    Err(e) => {
+                        warn!("produce_light_client_block have provlem {:?}", e);
+
+                        retry::OperationResult::Retry(())
+                    }
+                }
             } else {
                 warn!(
                     "ys-debug: retry root_hash {:?} at {:?} does not in the lcb state at {:?}",
@@ -2018,7 +2036,7 @@ pub fn collect_ibc_event_by_outcome(
                     .map_err(|e| Error::report_error(format!(
                         "[Near Chain collect_ibc_event_by_outcome decode near event failed] -> Error({})", e
                     )))?;
-                if event_value["standard"].eq("near-ibc") {
+                if "near-ibc" == event_value["standard"] {
                     let ibc_event: ibc::core::events::IbcEvent =
                         serde_json::from_value(event_value["raw-ibc-event"].clone())
                             .map_err(|e| Error::report_error(format!(
@@ -2027,9 +2045,13 @@ pub fn collect_ibc_event_by_outcome(
                     let block_height = u64::from_str(
                         event_value["block_height"]
                             .as_str()
-                            .expect("Failed to get block_height field."),
+                            .ok_or(Error::report_error(
+                                "[Near Chain collect_ibc_event_by_outcome Failed to get block_height field. failed]".to_string()
+                            ))?
                     )
-                    .expect("Failed to parse block_height field.");
+                    .map_err(|e| Error::report_error(format!(
+                        "[Near Chain collect_ibc_event_by_outcome decode block_height failed] -> Error({})", e
+                    )))?;
                     match ibc_event {
                         ibc::core::events::IbcEvent::Message(_) => continue,
                         _ => ibc_events.push(IbcEventWithHeight {
@@ -2070,14 +2092,14 @@ pub fn produce_block_header_inner_light(
 pub fn produce_light_client_block(
     view: &near_primitives::views::LightClientBlockView,
     block_view: &near_primitives::views::BlockView,
-) -> NearHeader {
+) -> Result<NearHeader, Error> {
     assert!(
         view.inner_lite.height == block_view.header.height,
         "Not same height of light client block view and block view. view: {}, block_view: {}",
         view.inner_lite.height,
         block_view.header.height
     );
-    NearHeader {
+    Ok(NearHeader {
         light_client_block: LightClientBlock {
             prev_block_hash: CryptoHash(view.prev_block_hash.0),
             next_block_inner_hash: CryptoHash(view.next_block_inner_hash.0),
@@ -2086,7 +2108,9 @@ pub fn produce_light_client_block(
             next_bps: Some(
                 view.next_bps
                     .as_ref()
-                    .expect("Failed to get next_bps field.")
+                    .ok_or(Error::report_error(
+                        "Failed to get next_bps, because net bps is none".to_string(),
+                    ))?
                     .iter()
                     .map(|f| match f {
                         near_primitives::views::validator_stake_view::ValidatorStakeView::V1(v) => {
@@ -2120,7 +2144,7 @@ pub fn produce_light_client_block(
             .iter()
             .map(|header| CryptoHash(header.prev_state_root.0))
             .collect(),
-    }
+    })
 }
 
 mod retry_strategy {
