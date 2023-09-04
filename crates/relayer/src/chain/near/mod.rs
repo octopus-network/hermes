@@ -82,7 +82,9 @@ use ibc_relayer_types::{
     },
     core::ics02_client::header::Header,
 };
+use near_jsonrpc_client::{methods, MethodCallResult};
 use near_primitives::types::BlockId;
+use near_primitives::views::BlockView;
 use near_primitives::views::ViewStateResult;
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
 use prost::Message;
@@ -196,6 +198,19 @@ impl NearChain {
 
     fn init_signing_key_pair(&mut self) {
         self.signing_key_pair = self.get_key().ok();
+    }
+
+    fn view_block(&self, block_id: Option<BlockId>) -> Result<BlockView> {
+        self.block_on(self.client.view_block(block_id))
+    }
+
+    fn query<M>(&self, method: &M) -> MethodCallResult<M::Response, M::Error>
+    where
+        M: methods::RpcMethod + Debug,
+        M::Response: Debug,
+        M::Error: Debug,
+    {
+        self.block_on(self.lcb_client.query(method))
     }
 }
 
@@ -440,9 +455,9 @@ impl ChainEndpoint for NearChain {
             client_state.latest_height()
         );
         let header = retry_with_index(retry_strategy::default_strategy(), |_| {
-            let result = self.block_on(self.client.view_block(Some(BlockId::Height(
+            let result = self.view_block(Some(BlockId::Height(
                 client_state.latest_height().revision_height(),
-            ))));
+            )));
 
             let latest_block_view = match result {
                 Ok(bv) => bv,
@@ -459,9 +474,9 @@ impl ChainEndpoint for NearChain {
                 latest_block_view.header.next_epoch_id
             );
 
-            let result = self.block_on(self.lcb_client.query(&near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
+            let result = self.query(&near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
                 last_block_hash: latest_block_view.header.epoch_id
-            }));
+            });
 
             let light_client_block_view = match result {
                 Ok(lcb) => lcb,
@@ -474,9 +489,9 @@ impl ChainEndpoint for NearChain {
                 }
             }.expect("[Near Chain verify_header function light_client_block is empty]");
 
-            let result = self.block_on(self.client.view_block(Some(BlockId::Height(
+            let result = self.view_block(Some(BlockId::Height(
                 light_client_block_view.inner_lite.height,
-            ))));
+            )));
 
             let block_view = match result {
                 Ok(bv) => bv,
@@ -1213,10 +1228,7 @@ impl ChainEndpoint for NearChain {
             client_state.latest_height()
         );
         let trusted_block = self
-            .block_on(
-                self.client
-                    .view_block(Some(BlockId::Height(trusted_height.revision_height()))),
-            )
+            .view_block(Some(BlockId::Height(trusted_height.revision_height())))
             .map_err(|e| {
                 Error::report_error(format!(
                     "[Near Chain build_header call trusted_block] -> Error({})",
@@ -1233,11 +1245,7 @@ impl ChainEndpoint for NearChain {
         // possible error: handler error: [Block not found: ]
         // handler error: [Block either has never been observed on the node or has been garbage collected: BlockId(Height(135888086))]
         let target_block = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let result = self.block_on(
-                self.client
-                    .view_block(Some(BlockId::Height(target_height.revision_height()))),
-            );
-
+            let result = self.view_block(Some(BlockId::Height(target_height.revision_height())));
             match result {
                 Ok(lcb) => RetryResult::Ok(lcb),
                 Err(e) => {
@@ -1265,9 +1273,9 @@ impl ChainEndpoint for NearChain {
 
         // TODO: julian, assert!(trusted_block.epoch == target_block.epoch || trusted_block_.next_epoch == target_block.epoch)
         let header = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let result = self.block_on(self.lcb_client.query(&near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
+            let result = self.query(&near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
                 last_block_hash: target_block.header.hash
-            }));
+            });
 
             let light_client_block_view = match result {
                 Ok(lcb) => lcb,
@@ -1281,9 +1289,9 @@ impl ChainEndpoint for NearChain {
             }
             .expect("[Near Chain build_header call light_client_block_view failed is empty]");
 
-            let result = self.block_on(self.client.view_block(Some(BlockId::Height(
+            let result = self.view_block(Some(BlockId::Height(
                 light_client_block_view.inner_lite.height,
-            ))));
+            )));
 
             let block_view = match result {
                 Ok(bv) => bv,
@@ -1298,7 +1306,7 @@ impl ChainEndpoint for NearChain {
             let block_reference: near_primitives::types::BlockReference =
                 BlockId::Height(proof_height).into();
             let prefix = near_primitives::types::StoreKey::from("version".as_bytes().to_vec());
-            let result = self.block_on(self.client.query(
+            let result = self.query(
                 &near_jsonrpc_client::methods::query::RpcQueryRequest {
                     block_reference,
                     request: near_primitives::views::QueryRequest::ViewState {
@@ -1308,7 +1316,7 @@ impl ChainEndpoint for NearChain {
                     },
 
                 },
-            ));
+            );
 
             let query_response = match result {
                 Ok(resp) => resp,
@@ -1423,7 +1431,7 @@ impl ChainEndpoint for NearChain {
             let block_reference: near_primitives::types::BlockReference =
                 BlockId::Height(height.revision_height()).into();
             let prefix = near_primitives::types::StoreKey::from(connections_path.into_bytes());
-            let result = self.block_on(self.client.query(
+            let result = self.query(
                 &near_jsonrpc_client::methods::query::RpcQueryRequest {
                     block_reference,
                     request: near_primitives::views::QueryRequest::ViewState {
@@ -1432,7 +1440,7 @@ impl ChainEndpoint for NearChain {
                         include_proof: true,
                     },
                 },
-            ));
+            );
 
             match result {
                 Ok(lcb) => RetryResult::Ok(lcb),
@@ -1516,17 +1524,14 @@ impl ChainEndpoint for NearChain {
                 let prefix = near_primitives::types::StoreKey::from(client_state_path.into_bytes());
 
                 let query_response = self
-                    .block_on(
-                        self.client
-                            .query(&near_jsonrpc_client::methods::query::RpcQueryRequest {
-                                block_reference,
-                                request: near_primitives::views::QueryRequest::ViewState {
-                                    account_id: self.near_ibc_contract.clone(),
-                                    prefix,
-                                    include_proof: true,
-                                },
-                            }),
-                    )
+                    .query(&near_jsonrpc_client::methods::query::RpcQueryRequest {
+                        block_reference,
+                        request: near_primitives::views::QueryRequest::ViewState {
+                            account_id: self.near_ibc_contract.clone(),
+                            prefix,
+                            include_proof: true,
+                        },
+                    })
                     .map_err(|e| Error::report_error(format!("[Near Chain build_connection_proofs_and_client_state query_response failed] -> Error({})", e)))?;
 
                 let state = match query_response.kind {
@@ -1608,16 +1613,14 @@ impl ChainEndpoint for NearChain {
             let block_reference: near_primitives::types::BlockReference =
                 BlockId::Height(height.revision_height()).into();
             let prefix = near_primitives::types::StoreKey::from(channel_path.into_bytes());
-            let result = self.block_on(self.client.query(
-                &near_jsonrpc_client::methods::query::RpcQueryRequest {
-                    block_reference,
-                    request: near_primitives::views::QueryRequest::ViewState {
-                        account_id: self.near_ibc_contract.clone(),
-                        prefix,
-                        include_proof: true,
-                    },
+            let result = self.query(&near_jsonrpc_client::methods::query::RpcQueryRequest {
+                block_reference,
+                request: near_primitives::views::QueryRequest::ViewState {
+                    account_id: self.near_ibc_contract.clone(),
+                    prefix,
+                    include_proof: true,
                 },
-            ));
+            });
 
             match result {
                 Ok(lcb) => RetryResult::Ok(lcb),
@@ -1701,7 +1704,7 @@ impl ChainEndpoint for NearChain {
                         BlockId::Height(height.revision_height()).into();
                     let prefix =
                         near_primitives::types::StoreKey::from(packet_commitments_path.into_bytes());
-                    let result = self.block_on(self.client.query(
+                    let result = self.query(
                         &near_jsonrpc_client::methods::query::RpcQueryRequest {
                             block_reference,
                             request: near_primitives::views::QueryRequest::ViewState {
@@ -1710,7 +1713,7 @@ impl ChainEndpoint for NearChain {
                                 include_proof: true,
                             },
                         },
-                    ));
+                    );
 
                     match result {
                         Ok(lcb) => RetryResult::Ok(lcb),
@@ -1779,7 +1782,7 @@ impl ChainEndpoint for NearChain {
                         let prefix = near_primitives::types::StoreKey::from(
                             packet_commitments_path.into_bytes(),
                         );
-                        let result = self.block_on(self.client.query(
+                        let result = self.query(
                             &near_jsonrpc_client::methods::query::RpcQueryRequest {
                                 block_reference,
                                 request: near_primitives::views::QueryRequest::ViewState {
@@ -1788,7 +1791,7 @@ impl ChainEndpoint for NearChain {
                                     include_proof: true,
                                 },
                             },
-                        ));
+                        );
 
                         match result {
                             Ok(lcb) => RetryResult::Ok(lcb),
@@ -2082,7 +2085,7 @@ pub fn produce_block_header_inner_light(
 /// Produce `Header` by NEAR version of `LightClientBlockView` and `BlockView`.
 pub fn produce_light_client_block(
     view: &near_primitives::views::LightClientBlockView,
-    block_view: &near_primitives::views::BlockView,
+    block_view: &BlockView,
 ) -> Result<NearHeader, Error> {
     assert!(
         view.inner_lite.height == block_view.header.height,
