@@ -139,6 +139,7 @@ impl FullNode {
 
         Ok(config::ChainConfig {
             id: self.chain_driver.chain_id.clone(),
+            ic_endpoint: String::new(),
             canister_pem: PathBuf::new(),
             near_ibc_address: NearIbcContractAddress::default(),
             canister_id: CanisterIdConfig::default(),
