@@ -124,6 +124,7 @@ serial_test = "2.0.0"
 env_logger = "0.10.0"
 tracing-subscriber = { version = "0.3.14", features = ["fmt", "env-filter", "json"] }
 test-log = { version = "0.2.10", features = ["trace"] }
+dirs = "5.0.1"
 
 # Needed for generating (synthetic) light blocks.
 tendermint-testgen = { version = "0.32.0" }

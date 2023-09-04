@@ -45,8 +45,8 @@ use ibc_relayer_types::core::ics24_host::identifier::{
     ChainId, ChannelId, ClientId, ConnectionId, PortId,
 };
 use ibc_relayer_types::core::ics24_host::path::{
-    AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
-    ConnectionsPath, ReceiptsPath, SeqRecvsPath,
+    AcksPath, ChannelEndsPath, ClientStatePath, CommitmentsPath, ConnectionsPath, ReceiptsPath,
+    SeqRecvsPath,
 };
 use ibc_relayer_types::core::ics24_host::{
     ClientUpgradePath, Path, IBC_QUERY_PATH, SDK_UPGRADE_QUERY_PATH,
@@ -1049,7 +1049,7 @@ impl ChainEndpoint for CosmosSdkChain {
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
-                    .block_on(deliver(canister_id, false, msg.encode_to_vec(), &self.config.canister_pem))
+                    .block_on(deliver(canister_id, &self.config.ic_endpoint, msg.encode_to_vec(), &self.config.canister_pem))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_commit call icp deliver failed] -> Error({})", e)))?;
                 assert!(!res.is_empty());
                 if !res.is_empty() {
@@ -1097,7 +1097,7 @@ impl ChainEndpoint for CosmosSdkChain {
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
-                    .block_on(deliver(canister_id, false, msg.encode_to_vec(), &self.config.canister_pem))
+                    .block_on(deliver(canister_id, &self.config.ic_endpoint, msg.encode_to_vec(), &self.config.canister_pem))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?;
                 assert!(!res.is_empty());
                 if !res.is_empty() {
@@ -1300,7 +1300,7 @@ impl ChainEndpoint for CosmosSdkChain {
             let canister_id = self.config.canister_id.id.as_str();
 
             let res = runtime
-                .block_on(query_client_state(canister_id, false, vec![]))
+                .block_on(query_client_state(canister_id, &self.config.ic_endpoint, vec![]))
                 .map_err(|e| Error::report_error(format!("[Cosmos Chain query_client_state call icp query_client_state failed] -> Error({})", e)))?;
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
             return Ok((client_state, None));
@@ -1423,7 +1423,7 @@ impl ChainEndpoint for CosmosSdkChain {
             ))
         })?;
         let res = runtime
-            .block_on(query_consensus_state(canister_id, false, buf))
+            .block_on(query_consensus_state(canister_id, &self.config.ic_endpoint, buf))
             .map_err(|e| Error::report_error(format!("[Cosmos Chain query_consensus_state call ibc query_consensus_state] -> Error({})", e)))?;
         let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
         Ok((consensus_state, None))
