@@ -327,7 +327,7 @@ impl ChainEndpoint for NearChain {
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
-                    .block_on(deliver(canister_id, false, msg.encode_to_vec(), &self.config.canister_pem))
+                    .block_on(deliver(canister_id, &self.config.ic_endpoint, msg.encode_to_vec(), &self.config.canister_pem))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))?;
                 assert!(!res.is_empty());
                 if !res.is_empty() {
@@ -381,7 +381,7 @@ impl ChainEndpoint for NearChain {
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
-                    .block_on(deliver(canister_id, false, msg.encode_to_vec(),&self.config.canister_pem))
+                    .block_on(deliver(canister_id, &self.config.ic_endpoint, msg.encode_to_vec(),&self.config.canister_pem))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))?;
 
                 assert!(!res.is_empty());
@@ -623,7 +623,11 @@ impl ChainEndpoint for NearChain {
             let canister_id = self.config.canister_id.id.as_str();
 
             let res = runtime
-                .block_on(query_client_state(canister_id, false, vec![]))
+                .block_on(query_client_state(
+                    canister_id,
+                    &self.config.ic_endpoint,
+                    vec![],
+                ))
                 .map_err(|e| Error::report_error(e.to_string()))?;
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
             return Ok((client_state, None));
@@ -673,7 +677,11 @@ impl ChainEndpoint for NearChain {
             .encode(&mut buf)
             .map_err(|e| Error::report_error(e.to_string()))?;
         let res = runtime
-            .block_on(query_consensus_state(canister_id, false, buf))
+            .block_on(query_consensus_state(
+                canister_id,
+                &self.config.ic_endpoint,
+                buf,
+            ))
             .map_err(|e| Error::report_error(e.to_string()))?;
         let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
         Ok((consensus_state, None))
@@ -863,7 +871,7 @@ impl ChainEndpoint for NearChain {
         let QueryChannelRequest {
             port_id,
             channel_id,
-            height,
+            height: _,
         } = request;
 
         let channel_end = self
@@ -892,13 +900,13 @@ impl ChainEndpoint for NearChain {
     fn query_packet_commitment(
         &self,
         request: QueryPacketCommitmentRequest,
-        include_proof: IncludeProof,
+        _include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
         let QueryPacketCommitmentRequest {
             port_id,
             channel_id,
             sequence,
-            height,
+            height: _,
         } = request;
 
         let packet_commit = self
@@ -939,20 +947,20 @@ impl ChainEndpoint for NearChain {
     fn query_packet_receipt(
         &self,
         request: QueryPacketReceiptRequest,
-        include_proof: IncludeProof,
+        _include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
         let QueryPacketReceiptRequest {
             port_id,
             channel_id,
             sequence,
-            height,
+            height: _,
         } = request;
 
         let packet_receipt = self
             .get_packet_receipt(&port_id, &channel_id, &sequence)
             .map_err(|_| Error::report_error("query_packet_receipt".to_string()))?;
 
-        let packet_receipt_path = ReceiptsPath {
+        let _packet_receipt_path = ReceiptsPath {
             port_id,
             channel_id,
             sequence,
@@ -995,20 +1003,20 @@ impl ChainEndpoint for NearChain {
     fn query_packet_acknowledgement(
         &self,
         request: QueryPacketAcknowledgementRequest,
-        include_proof: IncludeProof,
+        _include_proof: IncludeProof,
     ) -> Result<(Vec<u8>, Option<MerkleProof>), Error> {
         let QueryPacketAcknowledgementRequest {
             port_id,
             channel_id,
             sequence,
-            height,
+            height: _,
         } = request;
 
         let packet_acknowledgement = self
             .get_packet_acknowledgement(&port_id, &channel_id, &sequence)
             .map_err(|_| Error::report_error("query_packet_acknowledgement".to_string()))?;
 
-        let packet_acknowledgement_path = AcksPath {
+        let _packet_acknowledgement_path = AcksPath {
             port_id,
             channel_id,
             sequence,
@@ -1077,7 +1085,7 @@ impl ChainEndpoint for NearChain {
     fn query_next_sequence_receive(
         &self,
         request: QueryNextSequenceReceiveRequest,
-        include_proof: IncludeProof,
+        _include_proof: IncludeProof,
     ) -> Result<(Sequence, Option<MerkleProof>), Error> {
         info!(
             "{}: [query_next_sequence_receive] - request: {:?}",
@@ -1088,14 +1096,14 @@ impl ChainEndpoint for NearChain {
         let QueryNextSequenceReceiveRequest {
             port_id,
             channel_id,
-            height,
+            height: _,
         } = request;
 
         let next_sequence_receive = self
             .get_next_sequence_receive(&port_id, &channel_id)
             .map_err(|_| Error::report_error("query_next_sequence_receive".to_string()))?;
 
-        let next_sequence_receive_path = SeqRecvsPath(port_id, channel_id).to_string();
+        let _next_sequence_receive_path = SeqRecvsPath(port_id, channel_id).to_string();
 
         Ok((next_sequence_receive, None))
     }

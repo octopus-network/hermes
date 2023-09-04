@@ -159,6 +159,9 @@ pub mod default {
         NearIbcContractAddress::default()
     }
 
+    pub fn default_ic_enpoint() -> String {
+        "http://localhost:4943".to_string()
+    }
     pub fn ccv_consumer_chain() -> bool {
         false
     }
@@ -642,6 +645,9 @@ pub struct ChainConfig {
     pub canister_id: CanisterIdConfig,
 
     pub canister_pem: PathBuf,
+
+    #[serde(default = "default::default_ic_enpoint")]
+    pub ic_endpoint: String,
 
     /// The chain type
     #[serde(default = "default::near_ibc_contract_address")]
