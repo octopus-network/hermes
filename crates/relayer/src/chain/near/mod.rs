@@ -164,7 +164,7 @@ impl NearChain {
     fn deliver(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
         trace!("[deliver] - messages: {:?}", messages);
 
-        retry_with_index(retry_strategy::default_strategy(), |_index| {
+        retry_with_index(retry_strategy::default_strategy(), |_| {
             // get signer for this transaction
             let signer = self
                 .keybase()
@@ -180,9 +180,8 @@ impl NearChain {
                 300000000000000,
                 MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG * messages.len() as u128,
             );
-            let result = self.block_on(call_near_smart_contract_deliver);
 
-            match result {
+            match self.block_on(call_near_smart_contract_deliver) {
                 Ok(outcome) => RetryResult::Ok(outcome),
                 Err(e) => {
                     warn!("ys-debug: retry deliver with error: {}", e);
@@ -343,8 +342,9 @@ impl ChainEndpoint for NearChain {
         let result = self
             .deliver(tracked_msgs.messages().to_vec())
             .map_err(|e| Error::report_error(format!("deliever error ({:?})", e.to_string())))?;
+
         debug!(
-            "[send_messages_and_wait_commit] - extrics_hash: {:?}",
+            "[send_messages_and_wait_commit] - deliver result {:?}",
             result
         );
 
@@ -416,7 +416,7 @@ impl ChainEndpoint for NearChain {
             .map_err(|e| Error::report_error(format!("deliver error ({:?})", e.to_string())))?;
 
         debug!(
-            "[send_messages_and_wait_check_tx] - extrics_hash: {:?}",
+            "[send_messages_and_wait_check_tx] - deliver result: {:?}",
             result
         );
 
@@ -439,7 +439,7 @@ impl ChainEndpoint for NearChain {
             target,
             client_state.latest_height()
         );
-        let header = retry_with_index(retry_strategy::default_strategy(), |_index| {
+        let header = retry_with_index(retry_strategy::default_strategy(), |_| {
             let result = self.block_on(self.client.view_block(Some(BlockId::Height(
                 client_state.latest_height().revision_height(),
             ))));
@@ -799,11 +799,8 @@ impl ChainEndpoint for NearChain {
             request
         );
 
-        let result = self
-            .get_connections(request)
-            .map_err(|_| Error::report_error("get_connections".to_string()))?;
-
-        Ok(result)
+        self.get_connections(request)
+            .map_err(|_| Error::report_error("get_connections".to_string()))
     }
 
     fn query_client_connections(
