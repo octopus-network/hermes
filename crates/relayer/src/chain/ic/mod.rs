@@ -35,12 +35,8 @@ async fn query_ic(
     let query_builder_with_args = query_builder.with_arg(&*args);
 
     let response = query_builder_with_args.call().await?;
-    let result = Decode!(response.as_slice(), VecResult)?;
 
-    match result {
-        VecResult::Ok(value) => Ok(value),
-        VecResult::Err(e) => Err(anyhow::anyhow!(e)),
-    }
+    Decode!(response.as_slice(), VecResult)?.transder_anyhow()
 }
 
 async fn update_ic(
@@ -68,18 +64,9 @@ async fn update_ic(
     let args: Vec<u8> = Encode!(&args)?;
     let update_builder_with_args = update_builder.with_arg(&*args);
 
-    // let waiter = garcon::Delay::builder()
-    //     .throttle(std::time::Duration::from_millis(500))
-    //     .timeout(std::time::Duration::from_secs(60 * 5))
-    //     .build();
-
     let response = update_builder_with_args.call_and_wait().await?;
-    let result = Decode!(response.as_slice(), VecResult)?;
 
-    match result {
-        VecResult::Ok(value) => Ok(value),
-        VecResult::Err(e) => Err(anyhow::anyhow!(e)),
-    }
+    Decode!(response.as_slice(), VecResult)?.transder_anyhow()
 }
 
 pub async fn deliver(
@@ -88,9 +75,7 @@ pub async fn deliver(
     msg: Vec<u8>,
     pem_file: &PathBuf,
 ) -> Result<Vec<u8>> {
-    let method_name = "deliver";
-    let args = msg;
-    update_ic(canister_id, method_name, args, ic_endpoint_url, pem_file).await
+    update_ic(canister_id, "deliver", msg, is_mainnet, pem_file).await
 }
 
 pub async fn query_client_state(
@@ -98,9 +83,7 @@ pub async fn query_client_state(
     ic_endpoint_url: &str,
     msg: Vec<u8>,
 ) -> Result<Vec<u8>> {
-    let method_name = "query_client_state";
-    let args = msg;
-    query_ic(canister_id, method_name, args, ic_endpoint_url).await
+    query_ic(canister_id, "query_client_state", msg, is_mainnet).await
 }
 
 pub async fn query_consensus_state(
@@ -108,7 +91,5 @@ pub async fn query_consensus_state(
     ic_endpoint_url: &str,
     msg: Vec<u8>,
 ) -> Result<Vec<u8>> {
-    let method_name = "query_consensus_state";
-    let args = msg;
-    query_ic(canister_id, method_name, args, ic_endpoint_url).await
+    query_ic(canister_id, "query_consensus_state", msg, is_mainnet).await
 }
