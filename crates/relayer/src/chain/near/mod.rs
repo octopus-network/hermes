@@ -46,8 +46,7 @@ use ibc_relayer_types::{
     core::ics02_client::events::UpdateClient,
     core::ics23_commitment::merkle::MerkleProof,
     core::ics24_host::path::{
-        AcksPath, ChannelEndsPath, ClientStatePath, CommitmentsPath, ConnectionsPath, ReceiptsPath,
-        SeqRecvsPath,
+        AcksPath, ChannelEndsPath, ClientStatePath, CommitmentsPath, ConnectionsPath,
     },
     core::{
         ics02_client::{client_type::ClientType, error::Error as ClientError},
@@ -299,19 +298,38 @@ impl ChainEndpoint for NearChain {
 
         let mut tracked_msgs = proto_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let mut msgs: Vec<Any> = Vec::new();
-            for msg in tracked_msgs.messages() {
-                let res = self
-                    .block_on(deliver(self.canister_id(), self.canister_endpoint(), msg.encode_to_vec(), &self.canister_pem_file_path()))
-                    .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))?;
-                assert!(!res.is_empty());
-                if !res.is_empty() {
-                    msgs.push(
-                        Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit decode deliver result] -> Error({})", e)))?,
-                    );
-                }
+            let msgs_result: Result<Vec<_>, _> = tracked_msgs
+                .messages()
+                .iter()
+                .map(|msg| {
+                    self.block_on(deliver(
+                        self.canister_id(),
+                        self.canister_endpoint(),
+                        msg.encode_to_vec(),
+                        self.canister_pem_file_path(),
+                    ))
+                    .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))
+                })
+                .filter_map(|res| {
+                    res.ok().and_then(|r| {
+                        if r.is_empty() {
+                            None
+                        } else {
+                            Some(r)
+                        }
+                    })
+                })
+                .map(|res| {
+                    Any::decode(&res[..])
+                        .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit decode deliver result] -> Error({})", e)))
+                })
+                .collect();
+
+            match msgs_result {
+                Ok(msgs) => tracked_msgs.msgs = msgs,
+                Err(e) => return Err(e),
             }
-            tracked_msgs.msgs = msgs;
+
             info!(
                 "[near - send_messages_and_wait_commit] - got proto_msgs from ic: {:?}",
                 tracked_msgs
@@ -321,6 +339,7 @@ impl ChainEndpoint for NearChain {
                     .collect::<Vec<_>>()
             );
         }
+
         let result = self
             .deliver(tracked_msgs.messages().to_vec())
             .map_err(|e| Error::report_error(format!("deliever error ({:?})", e.to_string())))?;
@@ -358,7 +377,7 @@ impl ChainEndpoint for NearChain {
                         self.canister_id(),
                         self.canister_endpoint(),
                         msg.encode_to_vec(),
-                        &self.canister_pem_file_path(),
+                        self.canister_pem_file_path(),
                     ))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))
                 })
@@ -616,8 +635,11 @@ impl ChainEndpoint for NearChain {
                     vec![],
                 ))
                 .map_err(|e| Error::report_error(e.to_string()))?;
-            let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
-            return Ok((client_state, None));
+
+            return Ok((
+                AnyClientState::decode_vec(&res).map_err(Error::decode)?,
+                None,
+            ));
         }
 
         let QueryClientStateRequest { client_id, height } = request;
@@ -632,14 +654,16 @@ impl ChainEndpoint for NearChain {
         let result = self
             .get_client_state(&client_id)
             .map_err(|_| Error::report_error("query_client_state".to_string()))?;
-        let client_state = AnyClientState::decode_vec(&result).map_err(|e| {
-            Error::report_error(format!(
-                "[Near Chain query_cleint_state decode AnyClientState] -> Error({})",
-                e
-            ))
-        })?;
 
-        Ok((client_state, None))
+        Ok((
+            AnyClientState::decode_vec(&result).map_err(|e| {
+                Error::report_error(format!(
+                    "[Near Chain query_cleint_state decode AnyClientState] -> Error({})",
+                    e
+                ))
+            })?,
+            None,
+        ))
     }
 
     fn query_consensus_state(
@@ -668,8 +692,11 @@ impl ChainEndpoint for NearChain {
                 buf,
             ))
             .map_err(|e| Error::report_error(e.to_string()))?;
-        let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
-        Ok((consensus_state, None))
+
+        Ok((
+            AnyConsensusState::decode_vec(&res).map_err(Error::decode)?,
+            None,
+        ))
         // // query_height to amit to search chain height
         // let QueryConsensusStateRequest {
         //     client_id,
@@ -780,10 +807,9 @@ impl ChainEndpoint for NearChain {
             self.id(),
             request
         );
-        let result = self
-            .get_client_connections(&request)
-            .map_err(|_| Error::report_error("get_client_connections".to_string()))?;
-        Ok(result)
+
+        self.get_client_connections(&request)
+            .map_err(|_| Error::report_error("get_client_connections".to_string()))
     }
 
     fn query_connection(
@@ -802,14 +828,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let connection_end = self
-            .get_connection_end(&connection_id)
-            .map_err(|_| Error::report_error("query_connection_end".to_string()))?;
-
-        // update ConnectionsPath key
-        let _connections_path = ConnectionsPath(connection_id).to_string();
-
-        Ok((connection_end, None))
+        Ok((
+            self.get_connection_end(&connection_id)
+                .map_err(|_| Error::report_error("query_connection_end".to_string()))?,
+            None,
+        ))
     }
 
     fn query_connection_channels(
@@ -822,11 +845,8 @@ impl ChainEndpoint for NearChain {
             request
         );
 
-        let result = self
-            .get_connection_channels(&request.connection_id)
-            .map_err(|_| Error::report_error("get_connection_channels".to_string()))?;
-
-        Ok(result)
+        self.get_connection_channels(&request.connection_id)
+            .map_err(|_| Error::report_error("get_connection_channels".to_string()))
     }
 
     fn query_channels(
@@ -835,11 +855,8 @@ impl ChainEndpoint for NearChain {
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         info!("{}: [query_channels] - request: {:?}", self.id(), request);
 
-        let result = self
-            .get_channels(request)
-            .map_err(|_| Error::report_error("get_channels".to_string()))?;
-
-        Ok(result)
+        self.get_channels(request)
+            .map_err(|_| Error::report_error("get_channels".to_string()))
     }
 
     fn query_channel(
@@ -859,14 +876,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let channel_end = self
-            .get_channel_end(&port_id, &channel_id)
-            .map_err(|_| Error::report_error("query_channel_end".to_string()))?;
-
-        // use channel_end path as key
-        let _channel_end_path = ChannelEndsPath(port_id, channel_id).to_string();
-
-        Ok((channel_end, None))
+        Ok((
+            self.get_channel_end(&port_id, &channel_id)
+                .map_err(|_| Error::report_error("query_channel_end".to_string()))?,
+            None,
+        ))
     }
 
     fn query_channel_client_state(
@@ -894,18 +908,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let packet_commit = self
-            .get_packet_commitment(&port_id, &channel_id, &sequence)
-            .map_err(|_| Error::report_error("query_packet_commitment".to_string()))?;
-
-        let _packet_commits_path = CommitmentsPath {
-            port_id,
-            channel_id,
-            sequence,
-        }
-        .to_string();
-
-        Ok((packet_commit, None))
+        Ok((
+            self.get_packet_commitment(&port_id, &channel_id, &sequence)
+                .map_err(|_| Error::report_error("query_packet_commitment".to_string()))?,
+            None,
+        ))
     }
 
     fn query_packet_commitments(
@@ -918,15 +925,12 @@ impl ChainEndpoint for NearChain {
             request
         );
 
-        let sequences = self
-            .get_packet_commitments(request)
-            .map_err(|_| Error::report_error("get_packet_commitments".to_string()))?;
-
-        let latest_height = self
-            .get_latest_height()
-            .map_err(|_| Error::report_error("get_latest_height_error".to_string()))?;
-
-        Ok((sequences, latest_height))
+        Ok((
+            self.get_packet_commitments(request)
+                .map_err(|_| Error::report_error("get_packet_commitments".to_string()))?,
+            self.get_latest_height()
+                .map_err(|_| Error::report_error("get_latest_height_error".to_string()))?,
+        ))
     }
 
     fn query_packet_receipt(
@@ -941,18 +945,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let packet_receipt = self
-            .get_packet_receipt(&port_id, &channel_id, &sequence)
-            .map_err(|_| Error::report_error("query_packet_receipt".to_string()))?;
-
-        let _packet_receipt_path = ReceiptsPath {
-            port_id,
-            channel_id,
-            sequence,
-        }
-        .to_string();
-
-        Ok((packet_receipt, None))
+        Ok((
+            self.get_packet_receipt(&port_id, &channel_id, &sequence)
+                .map_err(|_| Error::report_error("query_packet_receipt".to_string()))?,
+            None,
+        ))
     }
 
     fn query_unreceived_packets(
@@ -971,14 +968,12 @@ impl ChainEndpoint for NearChain {
             packet_commitment_sequences: sequences,
         } = request;
 
-        let result = self
+        Ok(self
             .get_unreceipt_packet(&port_id, &channel_id, &sequences)
             .map_err(|_| Error::report_error("get_unreceipt_packet".to_string()))?
             .into_iter()
             .map(Sequence::from)
-            .collect();
-
-        Ok(result)
+            .collect())
     }
 
     fn query_packet_acknowledgement(
@@ -993,18 +988,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let packet_acknowledgement = self
-            .get_packet_acknowledgement(&port_id, &channel_id, &sequence)
-            .map_err(|_| Error::report_error("query_packet_acknowledgement".to_string()))?;
-
-        let _packet_acknowledgement_path = AcksPath {
-            port_id,
-            channel_id,
-            sequence,
-        }
-        .to_string();
-
-        Ok((packet_acknowledgement, None))
+        Ok((
+            self.get_packet_acknowledgement(&port_id, &channel_id, &sequence)
+                .map_err(|_| Error::report_error("query_packet_acknowledgement".to_string()))?,
+            None,
+        ))
     }
 
     fn query_packet_acknowledgements(
@@ -1076,13 +1064,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let next_sequence_receive = self
-            .get_next_sequence_receive(&port_id, &channel_id)
-            .map_err(|_| Error::report_error("query_next_sequence_receive".to_string()))?;
-
-        let _next_sequence_receive_path = SeqRecvsPath(port_id, channel_id).to_string();
-
-        Ok((next_sequence_receive, None))
+        Ok((
+            self.get_next_sequence_receive(&port_id, &channel_id)
+                .map_err(|_| Error::report_error("query_next_sequence_receive".to_string()))?,
+            None,
+        ))
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
@@ -1184,7 +1170,7 @@ impl ChainEndpoint for NearChain {
         let ClientSettings::Tendermint(settings) = dst_config;
         let trusting_period = settings.trusting_period.unwrap_or_default();
 
-        let client_state = NearClientState {
+        Ok(NearClientState {
             chain_id: self.id().clone(),
             trusting_period: trusting_period.as_nanos() as u64,
             latest_height: height.revision_height(),
@@ -1192,9 +1178,7 @@ impl ChainEndpoint for NearChain {
             frozen_height: None,
             upgrade_commitment_prefix: vec![],
             upgrade_key: vec![],
-        };
-
-        Ok(client_state)
+        })
     }
 
     fn build_consensus_state(
@@ -1208,13 +1192,12 @@ impl ChainEndpoint for NearChain {
             light_block.light_client_block.inner_lite.epoch_id,
             light_block.light_client_block.inner_lite.next_epoch_id,
         );
-        let consensus_state = NearConsensusState {
+
+        Ok(NearConsensusState {
             current_bps: vec![],
             header: light_block,
             commitment_root: CommitmentRoot::from(vec![]),
-        };
-
-        Ok(consensus_state)
+        })
     }
 
     fn build_header(
