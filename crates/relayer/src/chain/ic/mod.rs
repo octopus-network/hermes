@@ -2,14 +2,15 @@ pub mod errors;
 mod identity;
 mod types;
 
-use std::path::PathBuf;
-
-use anyhow::Result;
-
 use crate::chain::ic::errors::Error;
 use crate::chain::ic::identity::create_identity;
 use crate::chain::ic::types::*;
+use anyhow::Result;
+use candid::Principal;
 use candid::{Decode, Encode};
+use ic_agent::agent::{QueryBuilder, UpdateBuilder};
+use ic_agent::Agent;
+use std::path::PathBuf;
 
 async fn query_ic(
     canister_id: &str,
@@ -26,15 +27,12 @@ async fn query_ic(
         agent.fetch_root_key().await?;
     }
 
-    let canister_id = candid::Principal::from_text(canister_id)?;
+    let canister_id = Principal::from_text(canister_id)?;
 
-    let query_builder =
-        ic_agent::agent::QueryBuilder::new(&agent, canister_id, method_name.to_string());
-
-    let args: Vec<u8> = Encode!(&args)?;
-    let query_builder_with_args = query_builder.with_arg(&*args);
-
-    let response = query_builder_with_args.call().await?;
+    let response = QueryBuilder::new(&agent, canister_id, method_name.into())
+        .with_arg(Encode!(&args)?)
+        .call()
+        .await?;
 
     Decode!(response.as_slice(), VecResult)?.transder_anyhow()
 }
@@ -56,15 +54,12 @@ async fn update_ic(
         agent.fetch_root_key().await?;
     }
 
-    let canister_id = candid::Principal::from_text(canister_id)?;
+    let canister_id = Principal::from_text(canister_id)?;
 
-    let update_builder =
-        ic_agent::agent::UpdateBuilder::new(&agent, canister_id, method_name.to_string());
-
-    let args: Vec<u8> = Encode!(&args)?;
-    let update_builder_with_args = update_builder.with_arg(&*args);
-
-    let response = update_builder_with_args.call_and_wait().await?;
+    let response = UpdateBuilder::new(&agent, canister_id, method_name.into())
+        .with_arg(Encode!(&args)?)
+        .call_and_wait()
+        .await?;
 
     Decode!(response.as_slice(), VecResult)?.transder_anyhow()
 }
