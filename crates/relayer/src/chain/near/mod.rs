@@ -1037,17 +1037,14 @@ impl ChainEndpoint for NearChain {
             packet_ack_sequences: sequences,
         } = request;
 
-        let mut unreceived_seqs = vec![];
-
-        for seq in sequences {
-            let cmt = self.get_packet_commitment(&port_id, &channel_id, &seq);
-
-            // if packet commitment still exists on the original sending chain, then packet ack is unreceived
-            // since processing the ack will delete the packet commitment
-            if cmt.is_ok() {
-                unreceived_seqs.push(seq);
-            }
-        }
+        let unreceived_seqs: Vec<_> = sequences
+            .iter()
+            .filter(|&&seq| {
+                self.get_packet_commitment(&port_id, &channel_id, &seq)
+                    .is_ok()
+            })
+            .cloned()
+            .collect();
 
         Ok(unreceived_seqs)
     }
