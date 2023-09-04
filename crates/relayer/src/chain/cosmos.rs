@@ -902,7 +902,7 @@ impl ChainEndpoint for CosmosSdkChain {
             .block_on(VpClient::new(&config.ic_endpoint, &config.canister_pem))
             .map_err(|e| {
                 Error::report_error(format!(
-                    "[near chain bootstrap build VpClientFailed] -> Error({:?})",
+                    "[cosmos chain bootstrap build VpClientFailed] -> Error({:?})",
                     e
                 ))
             })?;
