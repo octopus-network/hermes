@@ -18,7 +18,7 @@ async fn query_ic(
     args: Vec<u8>,
     ic_endpoint_url: &str,
 ) -> Result<Vec<u8>> {
-    let agent = ic_agent::Agent::builder()
+    let agent = Agent::builder()
         .with_url(ic_endpoint_url)
         .build()
         .map_err(Error::AgentError)?;
@@ -44,7 +44,7 @@ async fn update_ic(
     ic_endpoint_url: &str,
     pem_file: &PathBuf,
 ) -> Result<Vec<u8>> {
-    let agent = ic_agent::Agent::builder()
+    let agent = Agent::builder()
         .with_url(ic_endpoint_url)
         .with_identity(create_identity(pem_file)?)
         .build()
@@ -70,7 +70,7 @@ pub async fn deliver(
     msg: Vec<u8>,
     pem_file: &PathBuf,
 ) -> Result<Vec<u8>> {
-    update_ic(canister_id, "deliver", msg, is_mainnet, pem_file).await
+    update_ic(canister_id, "deliver", msg, ic_endpoint_url, pem_file).await
 }
 
 pub async fn query_client_state(
@@ -78,7 +78,7 @@ pub async fn query_client_state(
     ic_endpoint_url: &str,
     msg: Vec<u8>,
 ) -> Result<Vec<u8>> {
-    query_ic(canister_id, "query_client_state", msg, is_mainnet).await
+    query_ic(canister_id, "query_client_state", msg, ic_endpoint_url).await
 }
 
 pub async fn query_consensus_state(
@@ -86,5 +86,5 @@ pub async fn query_consensus_state(
     ic_endpoint_url: &str,
     msg: Vec<u8>,
 ) -> Result<Vec<u8>> {
-    query_ic(canister_id, "query_consensus_state", msg, is_mainnet).await
+    query_ic(canister_id, "query_consensus_state", msg, ic_endpoint_url).await
 }

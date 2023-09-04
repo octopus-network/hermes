@@ -54,7 +54,7 @@ use ibc_relayer_types::{
         ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd},
         ics04_channel::{
             channel::{ChannelEnd, IdentifiedChannelEnd},
-            packet::{Receipt, Sequence},
+            packet::Sequence,
         },
         ics23_commitment::commitment::CommitmentPrefix,
         ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId},
@@ -147,6 +147,10 @@ impl NearChain {
 
     pub fn canister_pem_file_path(&self) -> &PathBuf {
         &self.config.canister_pem
+    }
+
+    pub fn canister_endpoint(&self) -> &str {
+        &self.config.ic_endpoint
     }
 
     /// Subscribe Events
@@ -298,7 +302,7 @@ impl ChainEndpoint for NearChain {
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = self
-                    .block_on(deliver(self.canister_id(), false, msg.encode_to_vec(), &self.canister_pem_file_path()))
+                    .block_on(deliver(self.canister_id(), self.canister_endpoint(), msg.encode_to_vec(), &self.canister_pem_file_path()))
                     .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))?;
                 assert!(!res.is_empty());
                 if !res.is_empty() {
@@ -352,7 +356,7 @@ impl ChainEndpoint for NearChain {
                 .map(|msg| {
                     self.block_on(deliver(
                         self.canister_id(),
-                        false,
+                        self.canister_endpoint(),
                         msg.encode_to_vec(),
                         &self.canister_pem_file_path(),
                     ))
@@ -606,7 +610,11 @@ impl ChainEndpoint for NearChain {
 
         if matches!(include_proof, IncludeProof::No) {
             let res = self
-                .block_on(query_client_state(self.canister_id(), false, vec![]))
+                .block_on(query_client_state(
+                    self.canister_id(),
+                    self.canister_endpoint(),
+                    vec![],
+                ))
                 .map_err(|e| Error::report_error(e.to_string()))?;
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
             return Ok((client_state, None));
@@ -654,7 +662,11 @@ impl ChainEndpoint for NearChain {
             .encode(&mut buf)
             .map_err(|e| Error::report_error(e.to_string()))?;
         let res = self
-            .block_on(query_consensus_state(self.canister_id(), false, buf))
+            .block_on(query_consensus_state(
+                self.canister_id(),
+                self.canister_endpoint(),
+                buf,
+            ))
             .map_err(|e| Error::report_error(e.to_string()))?;
         let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
         Ok((consensus_state, None))
