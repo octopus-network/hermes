@@ -47,7 +47,7 @@ impl VpClient {
             .call()
             .await?;
 
-        Decode!(response.as_slice(), VecResult)?.transder_anyhow()
+        Decode!(response.as_slice(), VecResult)?.transfer_anyhow()
     }
 
     async fn update_ic(
@@ -63,7 +63,7 @@ impl VpClient {
             .call_and_wait()
             .await?;
 
-        Decode!(response.as_slice(), VecResult)?.transder_anyhow()
+        Decode!(response.as_slice(), VecResult)?.transfer_anyhow()
     }
 
     pub async fn query_client_state(&self, canister_id: &str, msg: Vec<u8>) -> Result<Vec<u8>> {
