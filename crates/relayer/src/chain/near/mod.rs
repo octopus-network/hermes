@@ -82,7 +82,10 @@ use ibc_relayer_types::{
     },
     core::ics02_client::header::Header,
 };
+use near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest;
+use near_jsonrpc_client::methods::query::RpcQueryRequest;
 use near_jsonrpc_client::{methods, MethodCallResult};
+use near_jsonrpc_primitives::types::query::QueryResponseKind;
 use near_primitives::types::BlockId;
 use near_primitives::views::BlockView;
 use near_primitives::views::LightClientBlockView;
@@ -475,8 +478,8 @@ impl ChainEndpoint for NearChain {
                 latest_block_view.header.next_epoch_id
             );
 
-            let result = self.query(&near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
-                last_block_hash: latest_block_view.header.epoch_id
+            let result = self.query(&RpcLightClientNextBlockRequest {
+                last_block_hash: latest_block_view.header.epoch_id,
             });
 
             let light_client_block_view = match result {
@@ -488,7 +491,8 @@ impl ChainEndpoint for NearChain {
                     );
                     return RetryResult::Retry(());
                 }
-            }.expect("[Near Chain verify_header function light_client_block is empty]");
+            }
+            .expect("[Near Chain verify_header function light_client_block is empty]");
 
             let result = self.view_block(Some(BlockId::Height(
                 light_client_block_view.inner_lite.height,
@@ -521,7 +525,7 @@ impl ChainEndpoint for NearChain {
                             == latest_block_view.header.epoch_id.0.to_vec()
                     );
                     RetryResult::Ok(header)
-                },
+                }
                 Err(e) => {
                     warn!("produce_light_client_block have provlem {:?}", e);
 
@@ -1274,8 +1278,8 @@ impl ChainEndpoint for NearChain {
 
         // TODO: julian, assert!(trusted_block.epoch == target_block.epoch || trusted_block_.next_epoch == target_block.epoch)
         let header = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let result = self.query(&near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
-                last_block_hash: target_block.header.hash
+            let result = self.query(&RpcLightClientNextBlockRequest {
+                last_block_hash: target_block.header.hash,
             });
 
             let light_client_block_view = match result {
@@ -1307,17 +1311,14 @@ impl ChainEndpoint for NearChain {
             let block_reference: near_primitives::types::BlockReference =
                 BlockId::Height(proof_height).into();
             let prefix = near_primitives::types::StoreKey::from("version".as_bytes().to_vec());
-            let result = self.query(
-                &near_jsonrpc_client::methods::query::RpcQueryRequest {
-                    block_reference,
-                    request: near_primitives::views::QueryRequest::ViewState {
-                        account_id: self.near_ibc_contract.clone(),
-                        prefix,
-                        include_proof: true,
-                    },
-
+            let result = self.query(&RpcQueryRequest {
+                block_reference,
+                request: near_primitives::views::QueryRequest::ViewState {
+                    account_id: self.near_ibc_contract.clone(),
+                    prefix,
+                    include_proof: true,
                 },
-            );
+            });
 
             let query_response = match result {
                 Ok(resp) => resp,
@@ -1328,9 +1329,7 @@ impl ChainEndpoint for NearChain {
             };
 
             let state = match query_response.kind {
-                near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
-                    Ok::<ViewStateResult, Error>(state)
-                }
+                QueryResponseKind::ViewState(state) => Ok::<ViewStateResult, Error>(state),
                 _ => {
                     warn!("ys-debug: retry get view_state");
 
@@ -1347,7 +1346,8 @@ impl ChainEndpoint for NearChain {
                 .iter()
                 .any(|c| c.prev_state_root.0 == root_hash.0)
             {
-                let header_result = produce_light_client_block(&light_client_block_view, &block_view);
+                let header_result =
+                    produce_light_client_block(&light_client_block_view, &block_view);
                 match header_result {
                     Ok(header) => {
                         info!(
@@ -1358,7 +1358,7 @@ impl ChainEndpoint for NearChain {
                         );
 
                         retry::OperationResult::Ok(header)
-                    },
+                    }
                     Err(e) => {
                         warn!("produce_light_client_block have provlem {:?}", e);
 
@@ -1373,7 +1373,8 @@ impl ChainEndpoint for NearChain {
 
                 RetryResult::Retry(())
             }
-        }).map_err(|e| {
+        })
+        .map_err(|e| {
             Error::report_error(format!(
                 "[Near chain build_header call header failed] -> Error({:?})",
                 e
@@ -1433,7 +1434,7 @@ impl ChainEndpoint for NearChain {
                 BlockId::Height(height.revision_height()).into();
             let prefix = near_primitives::types::StoreKey::from(connections_path.into_bytes());
             let result = self.query(
-                &near_jsonrpc_client::methods::query::RpcQueryRequest {
+                &RpcQueryRequest {
                     block_reference,
                     request: near_primitives::views::QueryRequest::ViewState {
                         account_id: self.near_ibc_contract.clone(),
@@ -1466,7 +1467,7 @@ impl ChainEndpoint for NearChain {
         );
 
         let state = match query_response.kind {
-            near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => Ok(state),
+            QueryResponseKind::ViewState(state) => Ok(state),
             _ => Err(Error::report_error(
                 "failed to get connection proof".to_string(),
             )),
@@ -1525,7 +1526,7 @@ impl ChainEndpoint for NearChain {
                 let prefix = near_primitives::types::StoreKey::from(client_state_path.into_bytes());
 
                 let query_response = self
-                    .query(&near_jsonrpc_client::methods::query::RpcQueryRequest {
+                    .query(&RpcQueryRequest {
                         block_reference,
                         request: near_primitives::views::QueryRequest::ViewState {
                             account_id: self.near_ibc_contract.clone(),
@@ -1536,9 +1537,7 @@ impl ChainEndpoint for NearChain {
                     .map_err(|e| Error::report_error(format!("[Near Chain build_connection_proofs_and_client_state query_response failed] -> Error({})", e)))?;
 
                 let state = match query_response.kind {
-                    near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
-                        Ok(state)
-                    }
+                    QueryResponseKind::ViewState(state) => Ok(state),
                     _ => Err(Error::report_error(
                         "failed to get connection proof".to_string(),
                     )),
@@ -1614,7 +1613,7 @@ impl ChainEndpoint for NearChain {
             let block_reference: near_primitives::types::BlockReference =
                 BlockId::Height(height.revision_height()).into();
             let prefix = near_primitives::types::StoreKey::from(channel_path.into_bytes());
-            let result = self.query(&near_jsonrpc_client::methods::query::RpcQueryRequest {
+            let result = self.query(&RpcQueryRequest {
                 block_reference,
                 request: near_primitives::views::QueryRequest::ViewState {
                     account_id: self.near_ibc_contract.clone(),
@@ -1647,7 +1646,7 @@ impl ChainEndpoint for NearChain {
         );
 
         let state = match query_response.kind {
-            near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => Ok(state),
+            QueryResponseKind::ViewState(state) => Ok(state),
             _ => Err(Error::report_error(
                 "failed to get channel proof".to_string(),
             )),
@@ -1706,7 +1705,7 @@ impl ChainEndpoint for NearChain {
                     let prefix =
                         near_primitives::types::StoreKey::from(packet_commitments_path.into_bytes());
                     let result = self.query(
-                        &near_jsonrpc_client::methods::query::RpcQueryRequest {
+                        &RpcQueryRequest {
                             block_reference,
                             request: near_primitives::views::QueryRequest::ViewState {
                                 account_id: self.near_ibc_contract.clone(),
@@ -1740,9 +1739,7 @@ impl ChainEndpoint for NearChain {
                 );
 
                 let state = match query_response.kind {
-                    near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
-                        Ok(state)
-                    }
+                    QueryResponseKind::ViewState(state) => Ok(state),
                     _ => Err(Error::report_error(
                         "failed to get packet proof".to_string(),
                     )),
@@ -1784,7 +1781,7 @@ impl ChainEndpoint for NearChain {
                             packet_commitments_path.into_bytes(),
                         );
                         let result = self.query(
-                            &near_jsonrpc_client::methods::query::RpcQueryRequest {
+                            &RpcQueryRequest {
                                 block_reference,
                                 request: near_primitives::views::QueryRequest::ViewState {
                                     account_id: self.near_ibc_contract.clone(),
@@ -1815,9 +1812,7 @@ impl ChainEndpoint for NearChain {
                 );
 
                 let state = match query_response.kind {
-                    near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
-                        Ok(state)
-                    }
+                    QueryResponseKind::ViewState(state) => Ok(state),
                     _ => Err(Error::report_error(
                         "failed to get packet proof".to_string(),
                     )),
