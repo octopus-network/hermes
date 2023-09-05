@@ -69,7 +69,7 @@ impl TryFrom<RawClientState> for ClientState {
 
     fn try_from(raw: RawClientState) -> Result<Self, Self::Error> {
         Ok(Self {
-            chain_id: ChainId::new("ibc".to_string(), 0), // TODO: julian
+            chain_id: ChainId::new("near".to_string(), 0), // TODO: julian
             trusting_period: raw
                 .trusting_period
                 .ok_or(Error::custom_error("[ibc relayer type Convert from Near RawCleintState to ClientState Failed] trusting period is empty".into()))?
