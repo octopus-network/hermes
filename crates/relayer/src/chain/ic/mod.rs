@@ -8,6 +8,7 @@ use crate::chain::ic::types::*;
 use anyhow::Result;
 use candid::Principal;
 use candid::{Decode, Encode};
+use core::ops::Deref;
 use ic_agent::agent::{QueryBuilder, UpdateBuilder};
 use ic_agent::Agent;
 use std::path::PathBuf;
@@ -19,6 +20,8 @@ pub struct VpClient {
 
 impl VpClient {
     const LOCAL_NET: &str = "http://localhost:4943";
+    #[allow(dead_code)]
+    const MAIN_NET: &str = "https://ic0.app";
 
     pub async fn new(ic_endpoint_url: &str, pem_file: &PathBuf) -> Result<Self> {
         let agent = Agent::builder()
@@ -79,8 +82,6 @@ impl VpClient {
         self.update_ic(canister_id, "deliver", msg).await
     }
 }
-
-use core::ops::Deref;
 
 impl Deref for VpClient {
     type Target = Agent;
