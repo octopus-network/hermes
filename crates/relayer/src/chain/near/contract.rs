@@ -362,6 +362,16 @@ pub trait NearIbcContract {
         .json()
     }
 
+    fn get_contract_version(&self) -> anyhow::Result<Vec<u8>> {
+        trace!("NearIbcContract: [get_contract_version]");
+        self.view(
+            self.get_contract_id(),
+            "version".into(),
+            json!({}).to_string().into_bytes(),
+        )?
+        .json()
+    }
+
     fn get_packet_receipt(
         &self,
         port_id: &PortId,

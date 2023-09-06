@@ -177,7 +177,7 @@ impl NearChain {
                 &self.near_ibc_contract,
                 "deliver".into(),
                 json!({ "messages": messages }).to_string().into_bytes(),
-                300000000000000,
+                DEFAULT_NEAR_CALL_GAS,
                 MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG * messages.len() as u128,
             );
 
@@ -305,8 +305,27 @@ impl ChainEndpoint for NearChain {
 
     // versioning
     fn ibc_version(&self) -> Result<Option<Version>, Error> {
-        // todo(bob)
-        Ok(None)
+        trace!("[query_commitment_prefix]");
+        let version = self.get_contract_version().map_err(|e| {
+            Error::report_error(format!("[Near chain ibc_version failed] -> Error({})", e))
+        })?;
+        let str_version = String::from_utf8(version).map_err(|e| {
+            Error::report_error(format!(
+                "[Near chain parse ibc version failed] -> Error({})",
+                e
+            ))
+        })?;
+
+        let version = Version::parse(&str_version)
+            .map_err(|e| {
+                Error::report_error(format!(
+                    "[Near chain parse ibc version failed] -> Error({})",
+                    e
+                ))
+            })
+            .ok();
+
+        Ok(version)
     }
 
     // send transactions
