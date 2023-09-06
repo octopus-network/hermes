@@ -1,5 +1,6 @@
 use super::client::ClientSettings;
 use super::ic::VpClient;
+use crate::chain::near::constants::*;
 use crate::util::retry::{retry_with_index, RetryResult};
 use crate::{
     account::Balance,
@@ -39,6 +40,7 @@ use crate::{
 };
 use alloc::{string::String, sync::Arc};
 use anyhow::Result;
+use borsh::{BorshDeserialize, BorshSerialize};
 use core::{fmt::Debug, str::FromStr};
 use ibc_proto::{google::protobuf::Any, protobuf::Protobuf};
 use ibc_relayer_types::core::ics04_channel::packet::PacketMsgType;
@@ -104,12 +106,6 @@ pub mod constants;
 pub mod contract;
 pub mod error;
 pub mod rpc;
-
-use borsh::{BorshDeserialize, BorshSerialize};
-
-pub const REVISION_NUMBER: u64 = 0;
-pub const CLIENT_DIVERSIFIER: &str = "NEAR";
-const MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG: u128 = 50_000_000_000_000_000_000_000;
 
 #[derive(BorshSerialize, BorshDeserialize)]
 struct NearProofs(Vec<Vec<u8>>);
