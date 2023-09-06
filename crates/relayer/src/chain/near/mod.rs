@@ -91,9 +91,12 @@ use near_jsonrpc_client::methods::query::RpcQueryRequest;
 use near_jsonrpc_client::{methods, MethodCallResult};
 use near_jsonrpc_primitives::types::query::QueryResponseKind;
 use near_primitives::types::BlockId;
+use near_primitives::types::BlockReference;
+use near_primitives::types::StoreKey;
 use near_primitives::views::validator_stake_view::ValidatorStakeView as NearValidatorStakeView;
 use near_primitives::views::BlockView;
 use near_primitives::views::LightClientBlockView;
+use near_primitives::views::QueryRequest;
 use near_primitives::views::ViewStateResult;
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
 use prost::Message;
@@ -1100,15 +1103,11 @@ impl ChainEndpoint for NearChain {
                 // replace it with real client event replied from a near chain
                 // todo(davirian)
                 Ok(vec![IbcEventWithHeight {
-                    event: IbcRelayerTypeEvent::UpdateClient(
-                        ibc_relayer_types::core::ics02_client::events::UpdateClient::from(
-                            Attributes {
-                                client_id: request.client_id,
-                                client_type: ClientType::Near,
-                                consensus_height: request.consensus_height,
-                            },
-                        ),
-                    ),
+                    event: IbcRelayerTypeEvent::UpdateClient(UpdateClient::from(Attributes {
+                        client_id: request.client_id,
+                        client_type: ClientType::Near,
+                        consensus_height: request.consensus_height,
+                    })),
                     height: Height::new(0, 9).map_err(|e| {
                         Error::report_error(format!(
                             "[Near Chain query_txs Contruct ibc Height] -> Error({})",
@@ -1305,12 +1304,11 @@ impl ChainEndpoint for NearChain {
 
             let proof_height = light_client_block_view.inner_lite.height - 1;
 
-            let block_reference: near_primitives::types::BlockReference =
-                BlockId::Height(proof_height).into();
-            let prefix = near_primitives::types::StoreKey::from("version".as_bytes().to_vec());
+            let block_reference: BlockReference = BlockId::Height(proof_height).into();
+            let prefix = StoreKey::from("version".as_bytes().to_vec());
             let result = self.query(&RpcQueryRequest {
                 block_reference,
-                request: near_primitives::views::QueryRequest::ViewState {
+                request: QueryRequest::ViewState {
                     account_id: self.near_ibc_contract.clone(),
                     prefix,
                     include_proof: true,
@@ -1427,13 +1425,13 @@ impl ChainEndpoint for NearChain {
         let query_response = retry_with_index(retry_strategy::default_strategy(), |_index| {
             let connections_path = ConnectionsPath(connection_id.clone()).to_string();
 
-            let block_reference: near_primitives::types::BlockReference =
+            let block_reference: BlockReference =
                 BlockId::Height(height.revision_height()).into();
-            let prefix = near_primitives::types::StoreKey::from(connections_path.into_bytes());
+            let prefix = StoreKey::from(connections_path.into_bytes());
             let result = self.query(
                 &RpcQueryRequest {
                     block_reference,
-                    request: near_primitives::views::QueryRequest::ViewState {
+                    request: QueryRequest::ViewState {
                         account_id: self.near_ibc_contract.clone(),
                         prefix,
                         include_proof: true,
@@ -1518,14 +1516,14 @@ impl ChainEndpoint for NearChain {
 
                 let client_state_path = ClientStatePath(client_id.clone()).to_string();
 
-                let block_reference: near_primitives::types::BlockReference =
+                let block_reference: BlockReference =
                     BlockId::Height(height.revision_height()).into();
-                let prefix = near_primitives::types::StoreKey::from(client_state_path.into_bytes());
+                let prefix = StoreKey::from(client_state_path.into_bytes());
 
                 let query_response = self
                     .query(&RpcQueryRequest {
                         block_reference,
-                        request: near_primitives::views::QueryRequest::ViewState {
+                        request: QueryRequest::ViewState {
                             account_id: self.near_ibc_contract.clone(),
                             prefix,
                             include_proof: true,
@@ -1607,12 +1605,11 @@ impl ChainEndpoint for NearChain {
         let query_response = retry_with_index(retry_strategy::default_strategy(), |_index| {
             let channel_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string();
 
-            let block_reference: near_primitives::types::BlockReference =
-                BlockId::Height(height.revision_height()).into();
-            let prefix = near_primitives::types::StoreKey::from(channel_path.into_bytes());
+            let block_reference: BlockReference = BlockId::Height(height.revision_height()).into();
+            let prefix = StoreKey::from(channel_path.into_bytes());
             let result = self.query(&RpcQueryRequest {
                 block_reference,
-                request: near_primitives::views::QueryRequest::ViewState {
+                request: QueryRequest::ViewState {
                     account_id: self.near_ibc_contract.clone(),
                     prefix,
                     include_proof: true,
@@ -1697,14 +1694,14 @@ impl ChainEndpoint for NearChain {
                     }
                     .to_string();
 
-                    let block_reference: near_primitives::types::BlockReference =
+                    let block_reference: BlockReference =
                         BlockId::Height(height.revision_height()).into();
                     let prefix =
-                        near_primitives::types::StoreKey::from(packet_commitments_path.into_bytes());
+                        StoreKey::from(packet_commitments_path.into_bytes());
                     let result = self.query(
                         &RpcQueryRequest {
                             block_reference,
-                            request: near_primitives::views::QueryRequest::ViewState {
+                            request: QueryRequest::ViewState {
                                 account_id: self.near_ibc_contract.clone(),
                                 prefix,
                                 include_proof: true,
@@ -1772,15 +1769,15 @@ impl ChainEndpoint for NearChain {
                         }
                         .to_string();
 
-                        let block_reference: near_primitives::types::BlockReference =
+                        let block_reference: BlockReference =
                             BlockId::Height(height.revision_height()).into();
-                        let prefix = near_primitives::types::StoreKey::from(
+                        let prefix = StoreKey::from(
                             packet_commitments_path.into_bytes(),
                         );
                         let result = self.query(
                             &RpcQueryRequest {
                                 block_reference,
-                                request: near_primitives::views::QueryRequest::ViewState {
+                                request: QueryRequest::ViewState {
                                     account_id: self.near_ibc_contract.clone(),
                                     prefix,
                                     include_proof: true,
