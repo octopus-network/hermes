@@ -42,6 +42,7 @@ use alloc::{string::String, sync::Arc};
 use anyhow::Result;
 use borsh::{BorshDeserialize, BorshSerialize};
 use core::{fmt::Debug, str::FromStr};
+use ibc::core::events::IbcEvent;
 use ibc_proto::{google::protobuf::Any, protobuf::Protobuf};
 use ibc_relayer_types::core::ics04_channel::packet::PacketMsgType;
 use ibc_relayer_types::{
@@ -65,7 +66,7 @@ use ibc_relayer_types::{
         ics03_connection::connection::State,
         ics23_commitment::commitment::{CommitmentProofBytes, CommitmentRoot},
     },
-    events::IbcEvent,
+    events::IbcEvent as IbcRelayerTypeEvent,
     proofs::{ConsensusProof, Proofs},
     signer::Signer,
     timestamp::Timestamp,
@@ -90,6 +91,7 @@ use near_jsonrpc_client::methods::query::RpcQueryRequest;
 use near_jsonrpc_client::{methods, MethodCallResult};
 use near_jsonrpc_primitives::types::query::QueryResponseKind;
 use near_primitives::types::BlockId;
+use near_primitives::views::validator_stake_view::ValidatorStakeView as NearValidatorStakeView;
 use near_primitives::views::BlockView;
 use near_primitives::views::LightClientBlockView;
 use near_primitives::views::ViewStateResult;
@@ -149,7 +151,7 @@ impl NearChain {
 
     /// Subscribe Events
     /// todo near don't have events subscription
-    pub fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>> {
+    pub fn subscribe_ibc_events(&self) -> Result<Vec<IbcRelayerTypeEvent>> {
         info!("{}: [subscribe_ibc_events]", self.id());
         todo!() //Bob
     }
@@ -1098,7 +1100,7 @@ impl ChainEndpoint for NearChain {
                 // replace it with real client event replied from a near chain
                 // todo(davirian)
                 Ok(vec![IbcEventWithHeight {
-                    event: IbcEvent::UpdateClient(
+                    event: IbcRelayerTypeEvent::UpdateClient(
                         ibc_relayer_types::core::ics02_client::events::UpdateClient::from(
                             Attributes {
                                 client_id: request.client_id,
@@ -2022,7 +2024,7 @@ pub fn collect_ibc_event_by_outcome(
                         "[Near Chain collect_ibc_event_by_outcome decode near event failed] -> Error({})", e
                     )))?;
                 if "near-ibc" == event_value["standard"] {
-                    let ibc_event: ibc::core::events::IbcEvent =
+                    let ibc_event: IbcEvent =
                         serde_json::from_value(event_value["raw-ibc-event"].clone())
                             .map_err(|e| Error::report_error(format!(
                                 "[Near Chain collect_ibc_event_by_outcome decode near event to ibc event failed] -> Error({})", e
@@ -2038,7 +2040,7 @@ pub fn collect_ibc_event_by_outcome(
                         "[Near Chain collect_ibc_event_by_outcome decode block_height failed] -> Error({})", e
                     )))?;
                     match ibc_event {
-                        ibc::core::events::IbcEvent::Message(_) => continue,
+                        IbcEvent::Message(_) => continue,
                         _ => ibc_events.push(IbcEventWithHeight {
                             event: convert_ibc_event_to_hermes_ibc_event(&ibc_event)
                                 .map_err(|e| Error::report_error(format!(
@@ -2098,7 +2100,7 @@ pub fn produce_light_client_block(
                     ))?
                     .iter()
                     .map(|f| match f {
-                        near_primitives::views::validator_stake_view::ValidatorStakeView::V1(v) => {
+                        NearValidatorStakeView::V1(v) => {
                             ValidatorStakeView::V1(ValidatorStakeViewV1 {
                                 account_id: v.account_id.to_string(),
                                 public_key: match &v.public_key {
