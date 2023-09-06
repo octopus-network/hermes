@@ -203,6 +203,15 @@ impl NearChain {
         M::Response: Debug,
         M::Error: Debug,
     {
+        self.block_on(self.client.query(method))
+    }
+
+    fn query_by_lcb_client<M>(&self, method: &M) -> MethodCallResult<M::Response, M::Error>
+    where
+        M: methods::RpcMethod + Debug,
+        M::Response: Debug,
+        M::Error: Debug,
+    {
         self.block_on(self.lcb_client.query(method))
     }
 }
@@ -468,7 +477,7 @@ impl ChainEndpoint for NearChain {
                 latest_block_view.header.next_epoch_id
             );
 
-            let result = self.query(&RpcLightClientNextBlockRequest {
+            let result = self.query_by_lcb_client(&RpcLightClientNextBlockRequest {
                 last_block_hash: latest_block_view.header.epoch_id,
             });
 
@@ -1264,7 +1273,7 @@ impl ChainEndpoint for NearChain {
 
         // TODO: julian, assert!(trusted_block.epoch == target_block.epoch || trusted_block_.next_epoch == target_block.epoch)
         let header = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let result = self.query(&RpcLightClientNextBlockRequest {
+            let result = self.query_by_lcb_client(&RpcLightClientNextBlockRequest {
                 last_block_hash: target_block.header.hash,
             });
 
