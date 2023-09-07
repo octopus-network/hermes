@@ -165,7 +165,7 @@ pub trait NearIbcContract {
             "NearIbcContract: [get_consensus_state_with_height] - client_id: {:?}",
             client_id
         );
-        let client_id = serde_json::to_string(client_id).map_err(NearError::SerdeJsonError)?;
+        let client_id = serde_json::to_string(client_id).map_err(NearError::serde_json_error)?;
 
         self.view(
             self.get_contract_id(),
@@ -206,7 +206,7 @@ pub trait NearIbcContract {
     ) -> anyhow::Result<Vec<(ClientId, Vec<u8>)>> {
         trace!("NearIbcContract: [get_clients] - request: {:?}", request);
 
-        let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
+        let request = serde_json::to_string(&request).map_err(NearError::serde_json_error)?;
 
         self.view(
             self.get_contract_id(),
@@ -225,7 +225,7 @@ pub trait NearIbcContract {
             request
         );
 
-        let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
+        let request = serde_json::to_string(&request).map_err(NearError::serde_json_error)?;
 
         self.view(
             self.get_contract_id(),
@@ -241,7 +241,7 @@ pub trait NearIbcContract {
     ) -> anyhow::Result<Vec<IdentifiedChannelEnd>> {
         trace!("NearIbcContract: [get_channels] - request: {:?}", request);
 
-        let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
+        let request = serde_json::to_string(&request).map_err(NearError::serde_json_error)?;
 
         self.view(
             self.get_contract_id(),
@@ -483,14 +483,14 @@ pub async fn test123() -> anyhow::Result<()> {
                 .into_bytes(),
         )
         .await
-        .map_err(|e| NearError::CustomError(e.to_string()))?;
+        .map_err(|e| NearError::custom_error(e.to_string()))?;
 
     // dbg!(&result);
 
     let result_raw: serde_json::value::Value = result.json().unwrap();
     dbg!(&result_raw);
     let connection_end: ConnectionEnd =
-        serde_json::from_value(result_raw).map_err(NearError::SerdeJsonError)?;
+        serde_json::from_value(result_raw).map_err(NearError::serde_json_error)?;
     dbg!(&connection_end);
     Ok(())
 }
