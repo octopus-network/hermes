@@ -2,113 +2,90 @@ pub mod errors;
 mod identity;
 mod types;
 
-use std::path::PathBuf;
-
-use anyhow::Result;
-
 use crate::chain::ic::errors::Error;
 use crate::chain::ic::identity::create_identity;
 use crate::chain::ic::types::*;
+use anyhow::Result;
+use candid::Principal;
 use candid::{Decode, Encode};
+use core::ops::Deref;
+use ic_agent::agent::{QueryBuilder, UpdateBuilder};
+use ic_agent::Agent;
+use std::path::PathBuf;
 
-async fn query_ic(
-    canister_id: &str,
-    method_name: &str,
-    args: Vec<u8>,
-    ic_endpoint_url: &str,
-) -> Result<Vec<u8>> {
-    let agent = ic_agent::Agent::builder()
-        .with_url(ic_endpoint_url)
-        .build()
-        .map_err(Error::AgentError)?;
+#[derive(Debug)]
+pub struct VpClient {
+    pub agent: Agent,
+}
 
-    if ic_endpoint_url == LOCAL_NET {
-        agent.fetch_root_key().await?;
+impl VpClient {
+    const LOCAL_NET: &str = "http://localhost:4943";
+    #[allow(dead_code)]
+    const MAIN_NET: &str = "https://ic0.app";
+
+    pub async fn new(ic_endpoint_url: &str, pem_file: &PathBuf) -> Result<Self> {
+        let agent = Agent::builder()
+            .with_url(ic_endpoint_url)
+            .with_identity(create_identity(pem_file)?)
+            .build()
+            .map_err(Error::AgentError)?;
+
+        if ic_endpoint_url == Self::LOCAL_NET {
+            agent.fetch_root_key().await?;
+        }
+
+        Ok(VpClient { agent })
     }
 
-    let canister_id = candid::Principal::from_text(canister_id)?;
+    async fn query_ic(
+        &self,
+        canister_id: &str,
+        method_name: &str,
+        args: Vec<u8>,
+    ) -> Result<Vec<u8>> {
+        let canister_id = Principal::from_text(canister_id)?;
 
-    let query_builder =
-        ic_agent::agent::QueryBuilder::new(&agent, canister_id, method_name.to_string());
+        let response = QueryBuilder::new(&self.agent, canister_id, method_name.into())
+            .with_arg(Encode!(&args)?)
+            .call()
+            .await?;
 
-    let args: Vec<u8> = Encode!(&args)?;
-    let query_builder_with_args = query_builder.with_arg(&*args);
+        Decode!(response.as_slice(), VecResult)?.transfer_anyhow()
+    }
 
-    let response = query_builder_with_args.call().await?;
-    let result = Decode!(response.as_slice(), VecResult)?;
+    async fn update_ic(
+        &self,
+        canister_id: &str,
+        method_name: &str,
+        args: Vec<u8>,
+    ) -> Result<Vec<u8>> {
+        let canister_id = Principal::from_text(canister_id)?;
 
-    match result {
-        VecResult::Ok(value) => Ok(value),
-        VecResult::Err(e) => Err(anyhow::anyhow!(e)),
+        let response = UpdateBuilder::new(&self.agent, canister_id, method_name.into())
+            .with_arg(Encode!(&args)?)
+            .call_and_wait()
+            .await?;
+
+        Decode!(response.as_slice(), VecResult)?.transfer_anyhow()
+    }
+
+    pub async fn query_client_state(&self, canister_id: &str, msg: Vec<u8>) -> Result<Vec<u8>> {
+        self.query_ic(canister_id, "query_client_state", msg).await
+    }
+
+    pub async fn query_consensus_state(&self, canister_id: &str, msg: Vec<u8>) -> Result<Vec<u8>> {
+        self.query_ic(canister_id, "query_consensus_state", msg)
+            .await
+    }
+
+    pub async fn deliver(&self, canister_id: &str, msg: Vec<u8>) -> Result<Vec<u8>> {
+        self.update_ic(canister_id, "deliver", msg).await
     }
 }
 
-async fn update_ic(
-    canister_id: &str,
-    method_name: &str,
-    args: Vec<u8>,
-    ic_endpoint_url: &str,
-    pem_file: &PathBuf,
-) -> Result<Vec<u8>> {
-    let agent = ic_agent::Agent::builder()
-        .with_url(ic_endpoint_url)
-        .with_identity(create_identity(pem_file)?)
-        .build()
-        .map_err(Error::AgentError)?;
-
-    if ic_endpoint_url == LOCAL_NET {
-        agent.fetch_root_key().await?;
+impl Deref for VpClient {
+    type Target = Agent;
+    fn deref(&self) -> &Agent {
+        &self.agent
     }
-
-    let canister_id = candid::Principal::from_text(canister_id)?;
-
-    let update_builder =
-        ic_agent::agent::UpdateBuilder::new(&agent, canister_id, method_name.to_string());
-
-    let args: Vec<u8> = Encode!(&args)?;
-    let update_builder_with_args = update_builder.with_arg(&*args);
-
-    // let waiter = garcon::Delay::builder()
-    //     .throttle(std::time::Duration::from_millis(500))
-    //     .timeout(std::time::Duration::from_secs(60 * 5))
-    //     .build();
-
-    let response = update_builder_with_args.call_and_wait().await?;
-    let result = Decode!(response.as_slice(), VecResult)?;
-
-    match result {
-        VecResult::Ok(value) => Ok(value),
-        VecResult::Err(e) => Err(anyhow::anyhow!(e)),
-    }
-}
-
-pub async fn deliver(
-    canister_id: &str,
-    ic_endpoint_url: &str,
-    msg: Vec<u8>,
-    pem_file: &PathBuf,
-) -> Result<Vec<u8>> {
-    let method_name = "deliver";
-    let args = msg;
-    update_ic(canister_id, method_name, args, ic_endpoint_url, pem_file).await
-}
-
-pub async fn query_client_state(
-    canister_id: &str,
-    ic_endpoint_url: &str,
-    msg: Vec<u8>,
-) -> Result<Vec<u8>> {
-    let method_name = "query_client_state";
-    let args = msg;
-    query_ic(canister_id, method_name, args, ic_endpoint_url).await
-}
-
-pub async fn query_consensus_state(
-    canister_id: &str,
-    ic_endpoint_url: &str,
-    msg: Vec<u8>,
-) -> Result<Vec<u8>> {
-    let method_name = "query_consensus_state";
-    let args = msg;
-    query_ic(canister_id, method_name, args, ic_endpoint_url).await
 }

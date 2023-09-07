@@ -1,5 +1,6 @@
 use crate::chain::near::error::NearError;
 use crate::chain::near::rpc::client::NearRpcClient;
+use crate::chain::near::rpc::result::ViewResultDetails;
 use crate::chain::requests::{
     QueryChannelsRequest, QueryPacketAcknowledgementsRequest, QueryPacketEventDataRequest,
 };
@@ -9,6 +10,7 @@ use crate::chain::requests::{
 };
 use crate::consensus_state::AnyConsensusState;
 use alloc::sync::Arc;
+use core::future::Future;
 use ibc::core::events::IbcEvent;
 use ibc_relayer_types::core::ics02_client::height::Height;
 use ibc_relayer_types::core::ics03_connection::connection::{
@@ -27,16 +29,29 @@ pub trait NearIbcContract {
     fn get_client(&self) -> &NearRpcClient;
     fn get_rt(&self) -> &Arc<TokioRuntime>;
 
+    /// Run a future to completion on the Tokio runtime.
+    fn block_on<F: Future>(&self, f: F) -> F::Output {
+        self.get_rt().block_on(f)
+    }
+
+    fn view(
+        &self,
+        contract_id: AccountId,
+        method_name: String,
+        args: Vec<u8>,
+    ) -> anyhow::Result<ViewResultDetails> {
+        self.block_on(self.get_client().view(contract_id, method_name, args))
+    }
+
     fn get_latest_height(&self) -> anyhow::Result<Height> {
         trace!("NearIbcContract: [get_latest_height]");
 
         let height: Height = self
-            .get_rt()
-            .block_on(self.get_client().view(
+            .view(
                 self.get_contract_id(),
                 "get_latest_height".into(),
                 json!({}).to_string().into_bytes(),
-            ))?
+            )?
             .json()?;
 
         // As we use solomachine client, we set the revision number to 0
@@ -56,23 +71,14 @@ pub trait NearIbcContract {
         let connection_id = connection_identifier.to_string();
         // thread::sleep(Duration::from_secs(5));
 
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_connection_end".into(),
-                    json!({ "connection_id": connection_id })
-                        .to_string()
-                        .into_bytes(),
-                ),
-            )?
-            .json()
-
-        // self.get_client().view(
-        //     self.get_contract_id().clone(),
-        //     "query_connection_end".to_string(),
-        //     json!({"connection_id": connection_id}).to_string().into_bytes()
-        // ).await.expect("Failed to query_connection_end").json()
+        self.view(
+            self.get_contract_id(),
+            "get_connection_end".into(),
+            json!({ "connection_id": connection_id })
+                .to_string()
+                .into_bytes(),
+        )?
+        .json()
     }
 
     /// get channelEnd  by port_identifier, and channel_identifier
@@ -87,17 +93,14 @@ pub trait NearIbcContract {
             channel_id
         );
 
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_channel_end".into(),
-                    json!({"port_id": port_id, "channel_id": channel_id})
-                        .to_string()
-                        .into_bytes(),
-                ),
-            )?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_channel_end".into(),
+            json!({"port_id": port_id, "channel_id": channel_id})
+                .to_string()
+                .into_bytes(),
+        )?
+        .json()
     }
 
     /// get client_state by client_id
@@ -107,17 +110,14 @@ pub trait NearIbcContract {
             client_id
         );
 
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_client_state".into(),
-                    json!({"client_id": client_id.clone()})
-                        .to_string()
-                        .into_bytes(),
-                ),
-            )?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_client_state".into(),
+            json!({"client_id": client_id.clone()})
+                .to_string()
+                .into_bytes(),
+        )?
+        .json()
     }
 
     fn get_client_consensus_heights(&self, client_id: &ClientId) -> anyhow::Result<Vec<Height>> {
@@ -125,17 +125,14 @@ pub trait NearIbcContract {
             "NearIbcContract: [get_client_consensus_heights] - client_id: {:?}",
             client_id,
         );
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_client_consensus_heights".into(),
-                    json!({"client_id": client_id.clone()})
-                        .to_string()
-                        .into_bytes(),
-                ),
-            )?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_client_consensus_heights".into(),
+            json!({"client_id": client_id.clone()})
+                .to_string()
+                .into_bytes(),
+        )?
+        .json()
     }
 
     /// Performs a query to retrieve the consensus state for a specified height
@@ -150,17 +147,14 @@ pub trait NearIbcContract {
             client_id,
             consensus_height
         );
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_client_consensus".into(),
-                    json!({"client_id": client_id.clone(), "consensus_height": consensus_height })
-                        .to_string()
-                        .into_bytes(),
-                ),
-            )?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_client_consensus".into(),
+            json!({"client_id": client_id.clone(), "consensus_height": consensus_height })
+                .to_string()
+                .into_bytes(),
+        )?
+        .json()
     }
 
     fn get_consensus_state_with_height(
@@ -173,13 +167,12 @@ pub trait NearIbcContract {
         );
         let client_id = serde_json::to_string(client_id).map_err(NearError::SerdeJsonError)?;
 
-        self.get_rt()
-            .block_on(self.get_client().view(
-                self.get_contract_id(),
-                "get_consensus_state_with_height".into(),
-                json!({ "client_id": client_id }).to_string().into_bytes(),
-            ))?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_consensus_state_with_height".into(),
+            json!({ "client_id": client_id }).to_string().into_bytes(),
+        )?
+        .json()
     }
 
     fn get_unreceipt_packet(
@@ -193,21 +186,18 @@ pub trait NearIbcContract {
             port_id, channel_id, sequences
         );
 
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_unreceipt_packet".into(),
-                    json!({
-                        "port_id": port_id,
-                        "channel_id": channel_id,
-                        "sequences": sequences
-                    })
-                    .to_string()
-                    .into_bytes(),
-                ),
-            )?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_unreceipt_packet".into(),
+            json!({
+                "port_id": port_id,
+                "channel_id": channel_id,
+                "sequences": sequences
+            })
+            .to_string()
+            .into_bytes(),
+        )?
+        .json()
     }
 
     fn get_clients(
@@ -218,13 +208,12 @@ pub trait NearIbcContract {
 
         let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
 
-        self.get_rt()
-            .block_on(self.get_client().view(
-                self.get_contract_id(),
-                "get_clients".into(),
-                json!({ "request": request }).to_string().into_bytes(),
-            ))?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_clients".into(),
+            json!({ "request": request }).to_string().into_bytes(),
+        )?
+        .json()
     }
 
     fn get_connections(
@@ -238,13 +227,12 @@ pub trait NearIbcContract {
 
         let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
 
-        self.get_rt()
-            .block_on(self.get_client().view(
-                self.get_contract_id(),
-                "get_connections".into(),
-                json!({ "request": request }).to_string().into_bytes(),
-            ))?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_connections".into(),
+            json!({ "request": request }).to_string().into_bytes(),
+        )?
+        .json()
     }
 
     fn get_channels(
@@ -255,13 +243,12 @@ pub trait NearIbcContract {
 
         let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
 
-        self.get_rt()
-            .block_on(self.get_client().view(
-                self.get_contract_id(),
-                "get_channels".into(),
-                json!({ "request": request }).to_string().into_bytes(),
-            ))?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_channels".into(),
+            json!({ "request": request }).to_string().into_bytes(),
+        )?
+        .json()
     }
 
     fn get_packet_commitments(
@@ -272,20 +259,17 @@ pub trait NearIbcContract {
             "NearIbcContract: [get_packet_commitments] - request: {:?}",
             request
         );
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_packet_commitment_sequences".into(),
-                    json!({
-                        "port_id": request.port_id.to_string(),
-                        "channel_id": request.channel_id.to_string()
-                    })
-                    .to_string()
-                    .into_bytes(),
-                ),
-            )?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_packet_commitment_sequences".into(),
+            json!({
+                "port_id": request.port_id.to_string(),
+                "channel_id": request.channel_id.to_string()
+            })
+            .to_string()
+            .into_bytes(),
+        )?
+        .json()
     }
 
     fn get_packet_acknowledgements(
@@ -293,20 +277,17 @@ pub trait NearIbcContract {
         request: QueryPacketAcknowledgementsRequest,
     ) -> anyhow::Result<Vec<Sequence>> {
         trace!("NearIbcContract: [get_packet_acknowledgements]");
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_packet_acknowledgement_sequences".into(),
-                    json!({
-                        "port_id": request.port_id.to_string(),
-                        "channel_id": request.channel_id.to_string()
-                    })
-                    .to_string()
-                    .into_bytes(),
-                ),
-            )?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_packet_acknowledgement_sequences".into(),
+            json!({
+                "port_id": request.port_id.to_string(),
+                "channel_id": request.channel_id.to_string()
+            })
+            .to_string()
+            .into_bytes(),
+        )?
+        .json()
     }
 
     /// get connection_identifier vector by client_identifier
@@ -319,13 +300,12 @@ pub trait NearIbcContract {
             "NearIbcContract: [get_client_connections] - client_id: {:?}",
             client_id
         );
-        self.get_rt()
-            .block_on(self.get_client().view(
-                self.get_contract_id(),
-                "get_client_connections".into(),
-                json!({ "client_id": client_id }).to_string().into_bytes(),
-            ))?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_client_connections".into(),
+            json!({ "client_id": client_id }).to_string().into_bytes(),
+        )?
+        .json()
     }
 
     fn get_connection_channels(
@@ -336,18 +316,15 @@ pub trait NearIbcContract {
             "NearIbcContract: [get_connection_channels] - connection_id: {:?}",
             connection_id
         );
-        let connection_id = connection_id.to_string();
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_connection_channels".into(),
-                    json!({ "connection_id": connection_id })
-                        .to_string()
-                        .into_bytes(),
-                ),
-            )?
-            .json()
+
+        self.view(
+            self.get_contract_id(),
+            "get_connection_channels".into(),
+            json!({ "connection_id": connection_id.to_string() })
+                .to_string()
+                .into_bytes(),
+        )?
+        .json()
     }
 
     fn get_packet_commitment(
@@ -361,32 +338,38 @@ pub trait NearIbcContract {
             port_id, channel_id, sequence
         );
 
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_packet_commitment".into(),
-                    json!({
-                        "port_id": port_id,
-                        "channel_id": channel_id,
-                       "sequence": sequence
-                    })
-                    .to_string()
-                    .into_bytes(),
-                ),
-            )?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_packet_commitment".into(),
+            json!({
+                "port_id": port_id,
+                "channel_id": channel_id,
+               "sequence": sequence
+            })
+            .to_string()
+            .into_bytes(),
+        )?
+        .json()
     }
 
     fn get_commitment_prefix(&self) -> anyhow::Result<Vec<u8>> {
         trace!("NearIbcContract: [get_commitment_prefix]");
-        self.get_rt()
-            .block_on(self.get_client().view(
-                self.get_contract_id(),
-                "get_commitment_prefix".into(),
-                json!({}).to_string().into_bytes(),
-            ))?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_commitment_prefix".into(),
+            json!({}).to_string().into_bytes(),
+        )?
+        .json()
+    }
+
+    fn get_contract_version(&self) -> anyhow::Result<Vec<u8>> {
+        trace!("NearIbcContract: [get_contract_version]");
+        self.view(
+            self.get_contract_id(),
+            "version".into(),
+            json!({}).to_string().into_bytes(),
+        )?
+        .json()
     }
 
     fn get_packet_receipt(
@@ -400,21 +383,18 @@ pub trait NearIbcContract {
             port_id, channel_id, sequence
         );
 
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_packet_receipt".into(),
-                    json!({
-                        "port_id": port_id,
-                        "channel_id": channel_id,
-                        "sequence": sequence
-                    })
-                    .to_string()
-                    .into_bytes(),
-                ),
-            )?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_packet_receipt".into(),
+            json!({
+                "port_id": port_id,
+                "channel_id": channel_id,
+                "sequence": sequence
+            })
+            .to_string()
+            .into_bytes(),
+        )?
+        .json()
     }
 
     fn get_next_sequence_receive(
@@ -428,20 +408,17 @@ pub trait NearIbcContract {
             channel_id,
         );
 
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_next_sequence_receive".into(),
-                    json!({
-                        "port_id": port_id,
-                        "channel_id": channel_id,
-                    })
-                    .to_string()
-                    .into_bytes(),
-                ),
-            )?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_next_sequence_receive".into(),
+            json!({
+                "port_id": port_id,
+                "channel_id": channel_id,
+            })
+            .to_string()
+            .into_bytes(),
+        )?
+        .json()
     }
 
     fn get_packet_acknowledgement(
@@ -455,21 +432,18 @@ pub trait NearIbcContract {
             port_id, channel_id, sequence
         );
 
-        self.get_rt()
-            .block_on(
-                self.get_client().view(
-                    self.get_contract_id(),
-                    "get_packet_acknowledgement".into(),
-                    json!({
-                        "port_id": port_id,
-                        "channel_id": channel_id,
-                        "sequence": sequence
-                    })
-                    .to_string()
-                    .into_bytes(),
-                ),
-            )?
-            .json()
+        self.view(
+            self.get_contract_id(),
+            "get_packet_acknowledgement".into(),
+            json!({
+                "port_id": port_id,
+                "channel_id": channel_id,
+                "sequence": sequence
+            })
+            .to_string()
+            .into_bytes(),
+        )?
+        .json()
     }
 
     fn get_packet_events(
@@ -481,13 +455,12 @@ pub trait NearIbcContract {
             request
         );
 
-        self.get_rt()
-            .block_on(self.get_client().view(
-                self.get_contract_id(),
-                "get_packet_events".into(),
-                json!({ "request": request }).to_string().into_bytes(),
-            ))?
-            .json::<Vec<(Height, Vec<IbcEvent>)>>()
+        self.view(
+            self.get_contract_id(),
+            "get_packet_events".into(),
+            json!({ "request": request }).to_string().into_bytes(),
+        )?
+        .json::<Vec<(Height, Vec<IbcEvent>)>>()
     }
 }
 

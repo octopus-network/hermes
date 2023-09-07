@@ -1,4 +1,6 @@
 use super::client::ClientSettings;
+use super::ic::VpClient;
+use crate::chain::near::constants::*;
 use crate::util::retry::{retry_with_index, RetryResult};
 use crate::{
     account::Balance,
@@ -38,7 +40,9 @@ use crate::{
 };
 use alloc::{string::String, sync::Arc};
 use anyhow::Result;
-use core::{fmt::Debug, future::Future, str::FromStr};
+use borsh::{BorshDeserialize, BorshSerialize};
+use core::{fmt::Debug, str::FromStr};
+use ibc::core::events::IbcEvent;
 use ibc_proto::{google::protobuf::Any, protobuf::Protobuf};
 use ibc_relayer_types::core::ics04_channel::packet::PacketMsgType;
 use ibc_relayer_types::{
@@ -46,15 +50,14 @@ use ibc_relayer_types::{
     core::ics02_client::events::UpdateClient,
     core::ics23_commitment::merkle::MerkleProof,
     core::ics24_host::path::{
-        AcksPath, ChannelEndsPath, ClientStatePath, CommitmentsPath, ConnectionsPath, ReceiptsPath,
-        SeqRecvsPath,
+        AcksPath, ChannelEndsPath, ClientStatePath, CommitmentsPath, ConnectionsPath,
     },
     core::{
         ics02_client::{client_type::ClientType, error::Error as ClientError},
         ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd},
         ics04_channel::{
             channel::{ChannelEnd, IdentifiedChannelEnd},
-            packet::{Receipt, Sequence},
+            packet::Sequence,
         },
         ics23_commitment::commitment::CommitmentPrefix,
         ics24_host::identifier::{ChainId, ChannelId, ClientId, ConnectionId, PortId},
@@ -63,7 +66,7 @@ use ibc_relayer_types::{
         ics03_connection::connection::State,
         ics23_commitment::commitment::{CommitmentProofBytes, CommitmentRoot},
     },
-    events::IbcEvent,
+    events::IbcEvent as IbcRelayerTypeEvent,
     proofs::{ConsensusProof, Proofs},
     signer::Signer,
     timestamp::Timestamp,
@@ -83,7 +86,17 @@ use ibc_relayer_types::{
     },
     core::ics02_client::header::Header,
 };
+use near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest;
+use near_jsonrpc_client::methods::query::RpcQueryRequest;
+use near_jsonrpc_client::{methods, MethodCallResult};
+use near_jsonrpc_primitives::types::query::QueryResponseKind;
 use near_primitives::types::BlockId;
+use near_primitives::types::BlockReference;
+use near_primitives::types::StoreKey;
+use near_primitives::views::validator_stake_view::ValidatorStakeView as NearValidatorStakeView;
+use near_primitives::views::BlockView;
+use near_primitives::views::LightClientBlockView;
+use near_primitives::views::QueryRequest;
 use near_primitives::views::ViewStateResult;
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
 use prost::Message;
@@ -99,13 +112,6 @@ pub mod contract;
 pub mod error;
 pub mod rpc;
 
-use borsh::{BorshDeserialize, BorshSerialize};
-use error::NearError;
-
-pub const REVISION_NUMBER: u64 = 0;
-pub const CLIENT_DIVERSIFIER: &str = "NEAR";
-const MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG: u128 = 50_000_000_000_000_000_000_000;
-
 #[derive(BorshSerialize, BorshDeserialize)]
 struct NearProofs(Vec<Vec<u8>>);
 
@@ -114,6 +120,7 @@ struct NearProofs(Vec<Vec<u8>>);
 pub struct NearChain {
     client: NearRpcClient,
     lcb_client: NearRpcClient,
+    vp_client: VpClient,
     config: ChainConfig,
     keybase: KeyRing<NearKeyPair>,
     near_ibc_contract: AccountId,
@@ -141,44 +148,15 @@ impl NearChain {
         &self.config
     }
 
-    /// Run a future to completion on the Tokio runtime.
-    fn block_on<F: Future>(&self, f: F) -> F::Output {
-        self.rt.block_on(f)
+    pub fn canister_id(&self) -> &str {
+        &self.config.canister_id.id
     }
 
     /// Subscribe Events
     /// todo near don't have events subscription
-    pub fn subscribe_ibc_events(&self) -> Result<Vec<IbcEvent>> {
+    pub fn subscribe_ibc_events(&self) -> Result<Vec<IbcRelayerTypeEvent>> {
         info!("{}: [subscribe_ibc_events]", self.id());
         todo!() //Bob
-    }
-
-    /// get packet receipt by port_id, channel_id and sequence
-    fn _get_packet_receipt(
-        &self,
-        port_id: &PortId,
-        channel_id: &ChannelId,
-        seq: &Sequence,
-    ) -> Result<Receipt> {
-        info!(
-            "{}: [get_packet_receipt] - port_id: {}, channel_id: {}, seq: {}",
-            self.id(),
-            port_id,
-            channel_id,
-            seq
-        );
-
-        let _port_id = serde_json::to_string(port_id).map_err(NearError::SerdeJsonError)?;
-        let _channel_id = serde_json::to_string(channel_id).map_err(NearError::SerdeJsonError)?;
-        let _seq = serde_json::to_string(seq).map_err(NearError::SerdeJsonError)?;
-
-        // self.block_on(self.client.view(
-        //     self.near_ibc_contract.clone(),
-        //     "get_packet_receipt".to_string(),
-        //     json!({"port_id": port_id, "channel_id": channel_id, "seq": seq}).to_string().into_bytes()
-        // )).expect("Failed to get_packet_receipt.").json()
-
-        todo!() // todo the receipt can't deserialize
     }
 
     /// The function to submit IBC request to a Near chain
@@ -186,7 +164,7 @@ impl NearChain {
     fn deliver(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
         trace!("[deliver] - messages: {:?}", messages);
 
-        retry_with_index(retry_strategy::default_strategy(), |_index| {
+        retry_with_index(retry_strategy::default_strategy(), |_| {
             // get signer for this transaction
             let signer = self
                 .keybase()
@@ -199,12 +177,11 @@ impl NearChain {
                 &self.near_ibc_contract,
                 "deliver".into(),
                 json!({ "messages": messages }).to_string().into_bytes(),
-                300000000000000,
+                DEFAULT_NEAR_CALL_GAS,
                 MINIMUM_ATTACHED_NEAR_FOR_DELEVER_MSG * messages.len() as u128,
             );
-            let result = self.block_on(call_near_smart_contract_deliver);
 
-            match result {
+            match self.block_on(call_near_smart_contract_deliver) {
                 Ok(outcome) => RetryResult::Ok(outcome),
                 Err(e) => {
                     warn!("ys-debug: retry deliver with error: {}", e);
@@ -220,6 +197,28 @@ impl NearChain {
     fn init_signing_key_pair(&mut self) {
         self.signing_key_pair = self.get_key().ok();
     }
+
+    fn view_block(&self, block_id: Option<BlockId>) -> Result<BlockView> {
+        self.block_on(self.client.view_block(block_id))
+    }
+
+    fn query<M>(&self, method: &M) -> MethodCallResult<M::Response, M::Error>
+    where
+        M: methods::RpcMethod + Debug,
+        M::Response: Debug,
+        M::Error: Debug,
+    {
+        self.block_on(self.client.query(method))
+    }
+
+    fn query_by_lcb_client<M>(&self, method: &M) -> MethodCallResult<M::Response, M::Error>
+    where
+        M: methods::RpcMethod + Debug,
+        M::Response: Debug,
+        M::Error: Debug,
+    {
+        self.block_on(self.lcb_client.query(method))
+    }
 }
 
 impl ChainEndpoint for NearChain {
@@ -228,7 +227,7 @@ impl ChainEndpoint for NearChain {
     type ConsensusState = NearConsensusState;
     type ClientState = NearClientState;
     type SigningKeyPair = NearKeyPair;
-    type Time = ibc::core::timestamp::Timestamp;
+    type Time = Timestamp;
 
     fn id(&self) -> &ChainId {
         &self.config().id
@@ -249,10 +248,18 @@ impl ChainEndpoint for NearChain {
             &config.key_store_folder,
         )
         .map_err(Error::key_base)?;
+        let vp_client = rt
+            .block_on(VpClient::new(&config.ic_endpoint, &config.canister_pem))
+            .map_err(|e| {
+                Error::report_error(format!(
+                    "[near chain bootstrap build VpClientFailed] -> Error({:?})",
+                    e
+                ))
+            })?;
         let mut new_instance = NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
-
             lcb_client: NearRpcClient::new("https://rpc.testnet.near.org"),
+            vp_client,
             config: config.clone(),
             keybase,
             near_ibc_contract: config.near_ibc_address.into(),
@@ -298,8 +305,27 @@ impl ChainEndpoint for NearChain {
 
     // versioning
     fn ibc_version(&self) -> Result<Option<Version>, Error> {
-        // todo(bob)
-        Ok(None)
+        trace!("[query_commitment_prefix]");
+        let version = self.get_contract_version().map_err(|e| {
+            Error::report_error(format!("[Near chain ibc_version failed] -> Error({})", e))
+        })?;
+        let str_version = String::from_utf8(version).map_err(|e| {
+            Error::report_error(format!(
+                "[Near chain parse ibc version failed] -> Error({})",
+                e
+            ))
+        })?;
+
+        let version = Version::parse(&str_version)
+            .map_err(|e| {
+                Error::report_error(format!(
+                    "[Near chain parse ibc version failed] -> Error({})",
+                    e
+                ))
+            })
+            .ok();
+
+        Ok(version)
     }
 
     // send transactions
@@ -317,26 +343,38 @@ impl ChainEndpoint for NearChain {
             proto_msgs.tracking_id
         );
 
-        use crate::chain::ic::deliver;
-
-        let runtime = self.rt.clone();
-
         let mut tracked_msgs = proto_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let canister_id = self.config.canister_id.id.as_str();
-            let mut msgs: Vec<Any> = Vec::new();
-            for msg in tracked_msgs.messages() {
-                let res = runtime
-                    .block_on(deliver(canister_id, &self.config.ic_endpoint, msg.encode_to_vec(), &self.config.canister_pem))
-                    .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))?;
-                assert!(!res.is_empty());
-                if !res.is_empty() {
-                    msgs.push(
-                        Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit decode deliver result] -> Error({})", e)))?,
-                    );
-                }
+            let msgs_result: Result<Vec<_>, _> = tracked_msgs
+                .messages()
+                .iter()
+                .map(|msg| {
+                    self.block_on(self.vp_client.deliver(
+                        self.canister_id(),
+                        msg.encode_to_vec(),
+                    ))
+                    .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))
+                })
+                .filter_map(|res| {
+                    res.ok().and_then(|r| {
+                        if r.is_empty() {
+                            None
+                        } else {
+                            Some(r)
+                        }
+                    })
+                })
+                .map(|res| {
+                    Any::decode(&res[..])
+                        .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit decode deliver result] -> Error({})", e)))
+                })
+                .collect();
+
+            match msgs_result {
+                Ok(msgs) => tracked_msgs.msgs = msgs,
+                Err(e) => return Err(e),
             }
-            tracked_msgs.msgs = msgs;
+
             info!(
                 "[near - send_messages_and_wait_commit] - got proto_msgs from ic: {:?}",
                 tracked_msgs
@@ -346,11 +384,13 @@ impl ChainEndpoint for NearChain {
                     .collect::<Vec<_>>()
             );
         }
+
         let result = self
             .deliver(tracked_msgs.messages().to_vec())
             .map_err(|e| Error::report_error(format!("deliever error ({:?})", e.to_string())))?;
+
         debug!(
-            "[send_messages_and_wait_commit] - extrics_hash: {:?}",
+            "[send_messages_and_wait_commit] - deliver result {:?}",
             result
         );
 
@@ -371,28 +411,38 @@ impl ChainEndpoint for NearChain {
             proto_msgs.tracking_id
         );
 
-        use crate::chain::ic::deliver;
-
-        let runtime = self.rt.clone();
-
         let mut tracked_msgs = proto_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let canister_id = self.config.canister_id.id.as_str();
-            let mut msgs: Vec<Any> = Vec::new();
-            for msg in tracked_msgs.messages() {
-                let res = runtime
-                    .block_on(deliver(canister_id, &self.config.ic_endpoint, msg.encode_to_vec(),&self.config.canister_pem))
-                    .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))?;
+            let msgs_result: Result<Vec<_>, _> = tracked_msgs
+                .messages()
+                .iter()
+                .map(|msg| {
+                    self.block_on(self.vp_client.deliver(
+                        self.canister_id(),
+                        msg.encode_to_vec(),
+                    ))
+                    .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))
+                })
+                .filter_map(|res| {
+                    res.ok().and_then(|r| {
+                        if r.is_empty() {
+                            None
+                        } else {
+                            Some(r)
+                        }
+                    })
+                })
+                .map(|res| {
+                    Any::decode(&res[..])
+                        .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx decode deliver result] -> Error({})", e)))
+                })
+                .collect();
 
-                assert!(!res.is_empty());
-                if !res.is_empty() {
-                    msgs.push(
-                        Any::decode(&res[..])
-                            .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx decode deliver result] -> Error({})", e)))?,
-                    );
-                }
+            match msgs_result {
+                Ok(msgs) => tracked_msgs.msgs = msgs,
+                Err(e) => return Err(e),
             }
-            tracked_msgs.msgs = msgs;
+
             info!(
                 "[near - send_messages_and_wait_check_tx] - got proto_msgs from ic: {:?}",
                 tracked_msgs
@@ -402,11 +452,13 @@ impl ChainEndpoint for NearChain {
                     .collect::<Vec<_>>()
             );
         }
+
         let result = self
             .deliver(tracked_msgs.messages().to_vec())
-            .map_err(|e| Error::report_error(format!("deliever error ({:?})", e.to_string())))?;
+            .map_err(|e| Error::report_error(format!("deliver error ({:?})", e.to_string())))?;
+
         debug!(
-            "[send_messages_and_wait_check_tx] - extrics_hash: {:?}",
+            "[send_messages_and_wait_check_tx] - deliver result: {:?}",
             result
         );
 
@@ -429,10 +481,10 @@ impl ChainEndpoint for NearChain {
             target,
             client_state.latest_height()
         );
-        let header = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let result = self.block_on(self.client.view_block(Some(BlockId::Height(
+        let header = retry_with_index(retry_strategy::default_strategy(), |_| {
+            let result = self.view_block(Some(BlockId::Height(
                 client_state.latest_height().revision_height(),
-            ))));
+            )));
 
             let latest_block_view = match result {
                 Ok(bv) => bv,
@@ -449,9 +501,9 @@ impl ChainEndpoint for NearChain {
                 latest_block_view.header.next_epoch_id
             );
 
-            let result = self.block_on(self.lcb_client.query(&near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
-                last_block_hash: latest_block_view.header.epoch_id
-            }));
+            let result = self.query_by_lcb_client(&RpcLightClientNextBlockRequest {
+                last_block_hash: latest_block_view.header.epoch_id,
+            });
 
             let light_client_block_view = match result {
                 Ok(lcb) => lcb,
@@ -462,11 +514,12 @@ impl ChainEndpoint for NearChain {
                     );
                     return RetryResult::Retry(());
                 }
-            }.expect("[Near Chain verify_header function light_client_block is empty]");
+            }
+            .expect("[Near Chain verify_header function light_client_block is empty]");
 
-            let result = self.block_on(self.client.view_block(Some(BlockId::Height(
+            let result = self.view_block(Some(BlockId::Height(
                 light_client_block_view.inner_lite.height,
-            ))));
+            )));
 
             let block_view = match result {
                 Ok(bv) => bv,
@@ -475,25 +528,33 @@ impl ChainEndpoint for NearChain {
                     return RetryResult::Retry(());
                 }
             };
-            let header = produce_light_client_block(&light_client_block_view, &block_view);
-            info!(
-                "ys-debug: new header in verify_header: {:?}, {:?}, {:?}",
-                header.height(),
-                light_client_block_view.inner_lite.height,
-                block_view.header.height
-            );
+            let header_result = produce_light_client_block(&light_client_block_view, &block_view);
+            match header_result {
+                Ok(header) => {
+                    info!(
+                        "ys-debug: new header in verify_header: {:?}, {:?}, {:?}",
+                        header.height(),
+                        light_client_block_view.inner_lite.height,
+                        block_view.header.height
+                    );
+                    assert!(
+                        header
+                            .light_client_block
+                            .inner_lite
+                            .next_epoch_id
+                            .0
+                             .0
+                            .to_vec()
+                            == latest_block_view.header.epoch_id.0.to_vec()
+                    );
+                    RetryResult::Ok(header)
+                }
+                Err(e) => {
+                    warn!("produce_light_client_block have provlem {:?}", e);
 
-            assert!(
-                header
-                    .light_client_block
-                    .inner_lite
-                    .next_epoch_id
-                    .0
-                     .0
-                    .to_vec()
-                    == latest_block_view.header.epoch_id.0.to_vec()
-            );
-            RetryResult::Ok(header)
+                    retry::OperationResult::Retry(())
+                }
+            }
         })
         .map_err(|e| {
             Error::report_error(format!(
@@ -610,7 +671,6 @@ impl ChainEndpoint for NearChain {
         request: QueryClientStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
-        use crate::chain::ic::query_client_state;
         trace!(
             "[query_client_state] - request: {:?}, include_proof: {:?}",
             request,
@@ -618,19 +678,17 @@ impl ChainEndpoint for NearChain {
         );
 
         if matches!(include_proof, IncludeProof::No) {
-            let runtime = self.rt.clone();
-
-            let canister_id = self.config.canister_id.id.as_str();
-
-            let res = runtime
-                .block_on(query_client_state(
-                    canister_id,
-                    &self.config.ic_endpoint,
-                    vec![],
-                ))
+            let res = self
+                .block_on(
+                    self.vp_client
+                        .query_client_state(self.canister_id(), vec![]),
+                )
                 .map_err(|e| Error::report_error(e.to_string()))?;
-            let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
-            return Ok((client_state, None));
+
+            return Ok((
+                AnyClientState::decode_vec(&res).map_err(Error::decode)?,
+                None,
+            ));
         }
 
         let QueryClientStateRequest { client_id, height } = request;
@@ -645,14 +703,16 @@ impl ChainEndpoint for NearChain {
         let result = self
             .get_client_state(&client_id)
             .map_err(|_| Error::report_error("query_client_state".to_string()))?;
-        let client_state = AnyClientState::decode_vec(&result).map_err(|e| {
-            Error::report_error(format!(
-                "[Near Chain query_cleint_state decode AnyClientState] -> Error({})",
-                e
-            ))
-        })?;
 
-        Ok((client_state, None))
+        Ok((
+            AnyClientState::decode_vec(&result).map_err(|e| {
+                Error::report_error(format!(
+                    "[Near Chain query_cleint_state decode AnyClientState] -> Error({})",
+                    e
+                ))
+            })?,
+            None,
+        ))
     }
 
     fn query_consensus_state(
@@ -660,7 +720,6 @@ impl ChainEndpoint for NearChain {
         request: QueryConsensusStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
-        use crate::chain::ic::query_consensus_state;
         trace!(
             "[query_consensus_state] - request: {:?}, include_proof: {:?}",
             request,
@@ -668,23 +727,23 @@ impl ChainEndpoint for NearChain {
         );
         assert!(matches!(include_proof, IncludeProof::No));
         assert!(request.client_id.to_string().starts_with("06-solomachine"));
-        let runtime = self.rt.clone();
-        let canister_id = self.config.canister_id.id.as_str();
 
         let mut buf = vec![];
         request
             .consensus_height
             .encode(&mut buf)
             .map_err(|e| Error::report_error(e.to_string()))?;
-        let res = runtime
-            .block_on(query_consensus_state(
-                canister_id,
-                &self.config.ic_endpoint,
-                buf,
-            ))
+        let res = self
+            .block_on(
+                self.vp_client
+                    .query_consensus_state(self.canister_id(), buf),
+            )
             .map_err(|e| Error::report_error(e.to_string()))?;
-        let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
-        Ok((consensus_state, None))
+
+        Ok((
+            AnyConsensusState::decode_vec(&res).map_err(Error::decode)?,
+            None,
+        ))
         // // query_height to amit to search chain height
         // let QueryConsensusStateRequest {
         //     client_id,
@@ -779,11 +838,8 @@ impl ChainEndpoint for NearChain {
             request
         );
 
-        let result = self
-            .get_connections(request)
-            .map_err(|_| Error::report_error("get_connections".to_string()))?;
-
-        Ok(result)
+        self.get_connections(request)
+            .map_err(|_| Error::report_error("get_connections".to_string()))
     }
 
     fn query_client_connections(
@@ -795,10 +851,9 @@ impl ChainEndpoint for NearChain {
             self.id(),
             request
         );
-        let result = self
-            .get_client_connections(&request)
-            .map_err(|_| Error::report_error("get_client_connections".to_string()))?;
-        Ok(result)
+
+        self.get_client_connections(&request)
+            .map_err(|_| Error::report_error("get_client_connections".to_string()))
     }
 
     fn query_connection(
@@ -817,14 +872,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let connection_end = self
-            .get_connection_end(&connection_id)
-            .map_err(|_| Error::report_error("query_connection_end".to_string()))?;
-
-        // update ConnectionsPath key
-        let _connections_path = ConnectionsPath(connection_id).to_string();
-
-        Ok((connection_end, None))
+        Ok((
+            self.get_connection_end(&connection_id)
+                .map_err(|_| Error::report_error("query_connection_end".to_string()))?,
+            None,
+        ))
     }
 
     fn query_connection_channels(
@@ -837,11 +889,8 @@ impl ChainEndpoint for NearChain {
             request
         );
 
-        let result = self
-            .get_connection_channels(&request.connection_id)
-            .map_err(|_| Error::report_error("get_connection_channels".to_string()))?;
-
-        Ok(result)
+        self.get_connection_channels(&request.connection_id)
+            .map_err(|_| Error::report_error("get_connection_channels".to_string()))
     }
 
     fn query_channels(
@@ -850,11 +899,8 @@ impl ChainEndpoint for NearChain {
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
         info!("{}: [query_channels] - request: {:?}", self.id(), request);
 
-        let result = self
-            .get_channels(request)
-            .map_err(|_| Error::report_error("get_channels".to_string()))?;
-
-        Ok(result)
+        self.get_channels(request)
+            .map_err(|_| Error::report_error("get_channels".to_string()))
     }
 
     fn query_channel(
@@ -874,14 +920,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let channel_end = self
-            .get_channel_end(&port_id, &channel_id)
-            .map_err(|_| Error::report_error("query_channel_end".to_string()))?;
-
-        // use channel_end path as key
-        let _channel_end_path = ChannelEndsPath(port_id, channel_id).to_string();
-
-        Ok((channel_end, None))
+        Ok((
+            self.get_channel_end(&port_id, &channel_id)
+                .map_err(|_| Error::report_error("query_channel_end".to_string()))?,
+            None,
+        ))
     }
 
     fn query_channel_client_state(
@@ -909,18 +952,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let packet_commit = self
-            .get_packet_commitment(&port_id, &channel_id, &sequence)
-            .map_err(|_| Error::report_error("query_packet_commitment".to_string()))?;
-
-        let _packet_commits_path = CommitmentsPath {
-            port_id,
-            channel_id,
-            sequence,
-        }
-        .to_string();
-
-        Ok((packet_commit, None))
+        Ok((
+            self.get_packet_commitment(&port_id, &channel_id, &sequence)
+                .map_err(|_| Error::report_error("query_packet_commitment".to_string()))?,
+            None,
+        ))
     }
 
     fn query_packet_commitments(
@@ -933,15 +969,12 @@ impl ChainEndpoint for NearChain {
             request
         );
 
-        let sequences = self
-            .get_packet_commitments(request)
-            .map_err(|_| Error::report_error("get_packet_commitments".to_string()))?;
-
-        let latest_height = self
-            .get_latest_height()
-            .map_err(|_| Error::report_error("get_latest_height_error".to_string()))?;
-
-        Ok((sequences, latest_height))
+        Ok((
+            self.get_packet_commitments(request)
+                .map_err(|_| Error::report_error("get_packet_commitments".to_string()))?,
+            self.get_latest_height()
+                .map_err(|_| Error::report_error("get_latest_height_error".to_string()))?,
+        ))
     }
 
     fn query_packet_receipt(
@@ -956,18 +989,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let packet_receipt = self
-            .get_packet_receipt(&port_id, &channel_id, &sequence)
-            .map_err(|_| Error::report_error("query_packet_receipt".to_string()))?;
-
-        let _packet_receipt_path = ReceiptsPath {
-            port_id,
-            channel_id,
-            sequence,
-        }
-        .to_string();
-
-        Ok((packet_receipt, None))
+        Ok((
+            self.get_packet_receipt(&port_id, &channel_id, &sequence)
+                .map_err(|_| Error::report_error("query_packet_receipt".to_string()))?,
+            None,
+        ))
     }
 
     fn query_unreceived_packets(
@@ -980,24 +1006,18 @@ impl ChainEndpoint for NearChain {
             request
         );
 
-        let port_id = PortId::from_str(request.port_id.as_str())
-            .map_err(|_| Error::report_error("identifier".to_string()))?;
-        let channel_id = ChannelId::from_str(request.channel_id.as_str())
-            .map_err(|_| Error::report_error("identifier".to_string()))?;
-        let sequences = request
-            .packet_commitment_sequences
-            .into_iter()
-            .map(Sequence::from)
-            .collect::<Vec<_>>();
+        let QueryUnreceivedPacketsRequest {
+            port_id,
+            channel_id,
+            packet_commitment_sequences: sequences,
+        } = request;
 
-        let result = self
+        Ok(self
             .get_unreceipt_packet(&port_id, &channel_id, &sequences)
             .map_err(|_| Error::report_error("get_unreceipt_packet".to_string()))?
             .into_iter()
             .map(Sequence::from)
-            .collect();
-
-        Ok(result)
+            .collect())
     }
 
     fn query_packet_acknowledgement(
@@ -1012,18 +1032,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let packet_acknowledgement = self
-            .get_packet_acknowledgement(&port_id, &channel_id, &sequence)
-            .map_err(|_| Error::report_error("query_packet_acknowledgement".to_string()))?;
-
-        let _packet_acknowledgement_path = AcksPath {
-            port_id,
-            channel_id,
-            sequence,
-        }
-        .to_string();
-
-        Ok((packet_acknowledgement, None))
+        Ok((
+            self.get_packet_acknowledgement(&port_id, &channel_id, &sequence)
+                .map_err(|_| Error::report_error("query_packet_acknowledgement".to_string()))?,
+            None,
+        ))
     }
 
     fn query_packet_acknowledgements(
@@ -1057,27 +1070,20 @@ impl ChainEndpoint for NearChain {
             request
         );
 
-        let port_id = PortId::from_str(request.port_id.as_str())
-            .map_err(|_| Error::report_error("identifier".to_string()))?;
-        let channel_id = ChannelId::from_str(request.channel_id.as_str())
-            .map_err(|_| Error::report_error("identifier".to_string()))?;
-        let sequences = request
-            .packet_ack_sequences
-            .into_iter()
-            .map(Sequence::from)
-            .collect::<Vec<_>>();
+        let QueryUnreceivedAcksRequest {
+            port_id,
+            channel_id,
+            packet_ack_sequences: sequences,
+        } = request;
 
-        let mut unreceived_seqs = vec![];
-
-        for seq in sequences {
-            let cmt = self.get_packet_commitment(&port_id, &channel_id, &seq);
-
-            // if packet commitment still exists on the original sending chain, then packet ack is unreceived
-            // since processing the ack will delete the packet commitment
-            if cmt.is_ok() {
-                unreceived_seqs.push(seq);
-            }
-        }
+        let unreceived_seqs: Vec<_> = sequences
+            .iter()
+            .filter(|&&seq| {
+                self.get_packet_commitment(&port_id, &channel_id, &seq)
+                    .is_ok()
+            })
+            .cloned()
+            .collect();
 
         Ok(unreceived_seqs)
     }
@@ -1099,13 +1105,11 @@ impl ChainEndpoint for NearChain {
             height: _,
         } = request;
 
-        let next_sequence_receive = self
-            .get_next_sequence_receive(&port_id, &channel_id)
-            .map_err(|_| Error::report_error("query_next_sequence_receive".to_string()))?;
-
-        let _next_sequence_receive_path = SeqRecvsPath(port_id, channel_id).to_string();
-
-        Ok((next_sequence_receive, None))
+        Ok((
+            self.get_next_sequence_receive(&port_id, &channel_id)
+                .map_err(|_| Error::report_error("query_next_sequence_receive".to_string()))?,
+            None,
+        ))
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
@@ -1117,31 +1121,24 @@ impl ChainEndpoint for NearChain {
                 // Todo: the client event below is mock
                 // replace it with real client event replied from a near chain
                 // todo(davirian)
-                let result: Vec<IbcEventWithHeight> = vec![IbcEventWithHeight {
-                    event: IbcEvent::UpdateClient(
-                        ibc_relayer_types::core::ics02_client::events::UpdateClient::from(
-                            Attributes {
-                                client_id: request.client_id,
-                                client_type: ClientType::Near,
-                                consensus_height: request.consensus_height,
-                            },
-                        ),
-                    ),
+                Ok(vec![IbcEventWithHeight {
+                    event: IbcRelayerTypeEvent::UpdateClient(UpdateClient::from(Attributes {
+                        client_id: request.client_id,
+                        client_type: ClientType::Near,
+                        consensus_height: request.consensus_height,
+                    })),
                     height: Height::new(0, 9).map_err(|e| {
                         Error::report_error(format!(
                             "[Near Chain query_txs Contruct ibc Height] -> Error({})",
                             e
                         ))
                     })?,
-                }];
-
-                Ok(result)
+                }])
             }
 
             QueryTxRequest::Transaction(_tx) => {
                 // Todo: https://github.com/octopus-network/ibc-rs/issues/98
-                let result: Vec<IbcEventWithHeight> = vec![];
-                Ok(result)
+                Ok(vec![])
             }
         }
     }
@@ -1207,7 +1204,7 @@ impl ChainEndpoint for NearChain {
         let ClientSettings::Tendermint(settings) = dst_config;
         let trusting_period = settings.trusting_period.unwrap_or_default();
 
-        let client_state = NearClientState {
+        Ok(NearClientState {
             chain_id: self.id().clone(),
             trusting_period: trusting_period.as_nanos() as u64,
             latest_height: height.revision_height(),
@@ -1215,9 +1212,7 @@ impl ChainEndpoint for NearChain {
             frozen_height: None,
             upgrade_commitment_prefix: vec![],
             upgrade_key: vec![],
-        };
-
-        Ok(client_state)
+        })
     }
 
     fn build_consensus_state(
@@ -1231,13 +1226,12 @@ impl ChainEndpoint for NearChain {
             light_block.light_client_block.inner_lite.epoch_id,
             light_block.light_client_block.inner_lite.next_epoch_id,
         );
-        let consensus_state = NearConsensusState {
+
+        Ok(NearConsensusState {
             current_bps: vec![],
             header: light_block,
             commitment_root: CommitmentRoot::from(vec![]),
-        };
-
-        Ok(consensus_state)
+        })
     }
 
     fn build_header(
@@ -1254,10 +1248,7 @@ impl ChainEndpoint for NearChain {
             client_state.latest_height()
         );
         let trusted_block = self
-            .block_on(
-                self.client
-                    .view_block(Some(BlockId::Height(trusted_height.revision_height()))),
-            )
+            .view_block(Some(BlockId::Height(trusted_height.revision_height())))
             .map_err(|e| {
                 Error::report_error(format!(
                     "[Near Chain build_header call trusted_block] -> Error({})",
@@ -1274,11 +1265,7 @@ impl ChainEndpoint for NearChain {
         // possible error: handler error: [Block not found: ]
         // handler error: [Block either has never been observed on the node or has been garbage collected: BlockId(Height(135888086))]
         let target_block = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let result = self.block_on(
-                self.client
-                    .view_block(Some(BlockId::Height(target_height.revision_height()))),
-            );
-
+            let result = self.view_block(Some(BlockId::Height(target_height.revision_height())));
             match result {
                 Ok(lcb) => RetryResult::Ok(lcb),
                 Err(e) => {
@@ -1306,9 +1293,9 @@ impl ChainEndpoint for NearChain {
 
         // TODO: julian, assert!(trusted_block.epoch == target_block.epoch || trusted_block_.next_epoch == target_block.epoch)
         let header = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let result = self.block_on(self.lcb_client.query(&near_jsonrpc_client::methods::next_light_client_block::RpcLightClientNextBlockRequest {
-                last_block_hash: target_block.header.hash
-            }));
+            let result = self.query_by_lcb_client(&RpcLightClientNextBlockRequest {
+                last_block_hash: target_block.header.hash,
+            });
 
             let light_client_block_view = match result {
                 Ok(lcb) => lcb,
@@ -1322,9 +1309,9 @@ impl ChainEndpoint for NearChain {
             }
             .expect("[Near Chain build_header call light_client_block_view failed is empty]");
 
-            let result = self.block_on(self.client.view_block(Some(BlockId::Height(
+            let result = self.view_block(Some(BlockId::Height(
                 light_client_block_view.inner_lite.height,
-            ))));
+            )));
 
             let block_view = match result {
                 Ok(bv) => bv,
@@ -1336,20 +1323,16 @@ impl ChainEndpoint for NearChain {
 
             let proof_height = light_client_block_view.inner_lite.height - 1;
 
-            let block_reference: near_primitives::types::BlockReference =
-                BlockId::Height(proof_height).into();
-            let prefix = near_primitives::types::StoreKey::from("version".as_bytes().to_vec());
-            let result = self.block_on(self.client.query(
-                &near_jsonrpc_client::methods::query::RpcQueryRequest {
-                    block_reference,
-                    request: near_primitives::views::QueryRequest::ViewState {
-                        account_id: self.near_ibc_contract.clone(),
-                        prefix,
-                        include_proof: true,
-                    },
-
+            let block_reference: BlockReference = BlockId::Height(proof_height).into();
+            let prefix = StoreKey::from("version".as_bytes().to_vec());
+            let result = self.query(&RpcQueryRequest {
+                block_reference,
+                request: QueryRequest::ViewState {
+                    account_id: self.near_ibc_contract.clone(),
+                    prefix,
+                    include_proof: true,
                 },
-            ));
+            });
 
             let query_response = match result {
                 Ok(resp) => resp,
@@ -1360,9 +1343,7 @@ impl ChainEndpoint for NearChain {
             };
 
             let state = match query_response.kind {
-                near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
-                    Ok::<ViewStateResult, Error>(state)
-                }
+                QueryResponseKind::ViewState(state) => Ok::<ViewStateResult, Error>(state),
                 _ => {
                     warn!("ys-debug: retry get view_state");
 
@@ -1379,14 +1360,25 @@ impl ChainEndpoint for NearChain {
                 .iter()
                 .any(|c| c.prev_state_root.0 == root_hash.0)
             {
-                let header = produce_light_client_block(&light_client_block_view, &block_view);
-                info!(
-                    "ys-debug: new header: {:?}, {:?}, {:?}",
-                    header.height(),
-                    light_client_block_view.inner_lite.height,
-                    block_view.header.height
-                );
-                RetryResult::Ok(header)
+                let header_result =
+                    produce_light_client_block(&light_client_block_view, &block_view);
+                match header_result {
+                    Ok(header) => {
+                        info!(
+                            "ys-debug: new header: {:?}, {:?}, {:?}",
+                            header.height(),
+                            light_client_block_view.inner_lite.height,
+                            block_view.header.height
+                        );
+
+                        retry::OperationResult::Ok(header)
+                    }
+                    Err(e) => {
+                        warn!("produce_light_client_block have provlem {:?}", e);
+
+                        retry::OperationResult::Retry(())
+                    }
+                }
             } else {
                 warn!(
                     "ys-debug: retry root_hash {:?} at {:?} does not in the lcb state at {:?}",
@@ -1395,7 +1387,8 @@ impl ChainEndpoint for NearChain {
 
                 RetryResult::Retry(())
             }
-        }).map_err(|e| {
+        })
+        .map_err(|e| {
             Error::report_error(format!(
                 "[Near chain build_header call header failed] -> Error({:?})",
                 e
@@ -1451,19 +1444,19 @@ impl ChainEndpoint for NearChain {
         let query_response = retry_with_index(retry_strategy::default_strategy(), |_index| {
             let connections_path = ConnectionsPath(connection_id.clone()).to_string();
 
-            let block_reference: near_primitives::types::BlockReference =
+            let block_reference: BlockReference =
                 BlockId::Height(height.revision_height()).into();
-            let prefix = near_primitives::types::StoreKey::from(connections_path.into_bytes());
-            let result = self.block_on(self.client.query(
-                &near_jsonrpc_client::methods::query::RpcQueryRequest {
+            let prefix = StoreKey::from(connections_path.into_bytes());
+            let result = self.query(
+                &RpcQueryRequest {
                     block_reference,
-                    request: near_primitives::views::QueryRequest::ViewState {
+                    request: QueryRequest::ViewState {
                         account_id: self.near_ibc_contract.clone(),
                         prefix,
                         include_proof: true,
                     },
                 },
-            ));
+            );
 
             match result {
                 Ok(lcb) => RetryResult::Ok(lcb),
@@ -1488,7 +1481,7 @@ impl ChainEndpoint for NearChain {
         );
 
         let state = match query_response.kind {
-            near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => Ok(state),
+            QueryResponseKind::ViewState(state) => Ok(state),
             _ => Err(Error::report_error(
                 "failed to get connection proof".to_string(),
             )),
@@ -1542,28 +1535,23 @@ impl ChainEndpoint for NearChain {
 
                 let client_state_path = ClientStatePath(client_id.clone()).to_string();
 
-                let block_reference: near_primitives::types::BlockReference =
+                let block_reference: BlockReference =
                     BlockId::Height(height.revision_height()).into();
-                let prefix = near_primitives::types::StoreKey::from(client_state_path.into_bytes());
+                let prefix = StoreKey::from(client_state_path.into_bytes());
 
                 let query_response = self
-                    .block_on(
-                        self.client
-                            .query(&near_jsonrpc_client::methods::query::RpcQueryRequest {
-                                block_reference,
-                                request: near_primitives::views::QueryRequest::ViewState {
-                                    account_id: self.near_ibc_contract.clone(),
-                                    prefix,
-                                    include_proof: true,
-                                },
-                            }),
-                    )
+                    .query(&RpcQueryRequest {
+                        block_reference,
+                        request: QueryRequest::ViewState {
+                            account_id: self.near_ibc_contract.clone(),
+                            prefix,
+                            include_proof: true,
+                        },
+                    })
                     .map_err(|e| Error::report_error(format!("[Near Chain build_connection_proofs_and_client_state query_response failed] -> Error({})", e)))?;
 
                 let state = match query_response.kind {
-                    near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
-                        Ok(state)
-                    }
+                    QueryResponseKind::ViewState(state) => Ok(state),
                     _ => Err(Error::report_error(
                         "failed to get connection proof".to_string(),
                     )),
@@ -1636,19 +1624,16 @@ impl ChainEndpoint for NearChain {
         let query_response = retry_with_index(retry_strategy::default_strategy(), |_index| {
             let channel_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string();
 
-            let block_reference: near_primitives::types::BlockReference =
-                BlockId::Height(height.revision_height()).into();
-            let prefix = near_primitives::types::StoreKey::from(channel_path.into_bytes());
-            let result = self.block_on(self.client.query(
-                &near_jsonrpc_client::methods::query::RpcQueryRequest {
-                    block_reference,
-                    request: near_primitives::views::QueryRequest::ViewState {
-                        account_id: self.near_ibc_contract.clone(),
-                        prefix,
-                        include_proof: true,
-                    },
+            let block_reference: BlockReference = BlockId::Height(height.revision_height()).into();
+            let prefix = StoreKey::from(channel_path.into_bytes());
+            let result = self.query(&RpcQueryRequest {
+                block_reference,
+                request: QueryRequest::ViewState {
+                    account_id: self.near_ibc_contract.clone(),
+                    prefix,
+                    include_proof: true,
                 },
-            ));
+            });
 
             match result {
                 Ok(lcb) => RetryResult::Ok(lcb),
@@ -1674,7 +1659,7 @@ impl ChainEndpoint for NearChain {
         );
 
         let state = match query_response.kind {
-            near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => Ok(state),
+            QueryResponseKind::ViewState(state) => Ok(state),
             _ => Err(Error::report_error(
                 "failed to get channel proof".to_string(),
             )),
@@ -1728,20 +1713,20 @@ impl ChainEndpoint for NearChain {
                     }
                     .to_string();
 
-                    let block_reference: near_primitives::types::BlockReference =
+                    let block_reference: BlockReference =
                         BlockId::Height(height.revision_height()).into();
                     let prefix =
-                        near_primitives::types::StoreKey::from(packet_commitments_path.into_bytes());
-                    let result = self.block_on(self.client.query(
-                        &near_jsonrpc_client::methods::query::RpcQueryRequest {
+                        StoreKey::from(packet_commitments_path.into_bytes());
+                    let result = self.query(
+                        &RpcQueryRequest {
                             block_reference,
-                            request: near_primitives::views::QueryRequest::ViewState {
+                            request: QueryRequest::ViewState {
                                 account_id: self.near_ibc_contract.clone(),
                                 prefix,
                                 include_proof: true,
                             },
                         },
-                    ));
+                    );
 
                     match result {
                         Ok(lcb) => RetryResult::Ok(lcb),
@@ -1767,9 +1752,7 @@ impl ChainEndpoint for NearChain {
                 );
 
                 let state = match query_response.kind {
-                    near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
-                        Ok(state)
-                    }
+                    QueryResponseKind::ViewState(state) => Ok(state),
                     _ => Err(Error::report_error(
                         "failed to get packet proof".to_string(),
                     )),
@@ -1805,21 +1788,21 @@ impl ChainEndpoint for NearChain {
                         }
                         .to_string();
 
-                        let block_reference: near_primitives::types::BlockReference =
+                        let block_reference: BlockReference =
                             BlockId::Height(height.revision_height()).into();
-                        let prefix = near_primitives::types::StoreKey::from(
+                        let prefix = StoreKey::from(
                             packet_commitments_path.into_bytes(),
                         );
-                        let result = self.block_on(self.client.query(
-                            &near_jsonrpc_client::methods::query::RpcQueryRequest {
+                        let result = self.query(
+                            &RpcQueryRequest {
                                 block_reference,
-                                request: near_primitives::views::QueryRequest::ViewState {
+                                request: QueryRequest::ViewState {
                                     account_id: self.near_ibc_contract.clone(),
                                     prefix,
                                     include_proof: true,
                                 },
                             },
-                        ));
+                        );
 
                         match result {
                             Ok(lcb) => RetryResult::Ok(lcb),
@@ -1842,9 +1825,7 @@ impl ChainEndpoint for NearChain {
                 );
 
                 let state = match query_response.kind {
-                    near_jsonrpc_primitives::types::query::QueryResponseKind::ViewState(state) => {
-                        Ok(state)
-                    }
+                    QueryResponseKind::ViewState(state) => Ok(state),
                     _ => Err(Error::report_error(
                         "failed to get packet proof".to_string(),
                     )),
@@ -2058,8 +2039,8 @@ pub fn collect_ibc_event_by_outcome(
                     .map_err(|e| Error::report_error(format!(
                         "[Near Chain collect_ibc_event_by_outcome decode near event failed] -> Error({})", e
                     )))?;
-                if event_value["standard"].eq("near-ibc") {
-                    let ibc_event: ibc::core::events::IbcEvent =
+                if "near-ibc" == event_value["standard"] {
+                    let ibc_event: IbcEvent =
                         serde_json::from_value(event_value["raw-ibc-event"].clone())
                             .map_err(|e| Error::report_error(format!(
                                 "[Near Chain collect_ibc_event_by_outcome decode near event to ibc event failed] -> Error({})", e
@@ -2067,11 +2048,15 @@ pub fn collect_ibc_event_by_outcome(
                     let block_height = u64::from_str(
                         event_value["block_height"]
                             .as_str()
-                            .expect("Failed to get block_height field."),
+                            .ok_or(Error::report_error(
+                                "[Near Chain collect_ibc_event_by_outcome Failed to get block_height field. failed]".to_string()
+                            ))?
                     )
-                    .expect("Failed to parse block_height field.");
+                    .map_err(|e| Error::report_error(format!(
+                        "[Near Chain collect_ibc_event_by_outcome decode block_height failed] -> Error({})", e
+                    )))?;
                     match ibc_event {
-                        ibc::core::events::IbcEvent::Message(_) => continue,
+                        IbcEvent::Message(_) => continue,
                         _ => ibc_events.push(IbcEventWithHeight {
                             event: convert_ibc_event_to_hermes_ibc_event(&ibc_event)
                                 .map_err(|e| Error::report_error(format!(
@@ -2108,16 +2093,16 @@ pub fn produce_block_header_inner_light(
 
 /// Produce `Header` by NEAR version of `LightClientBlockView` and `BlockView`.
 pub fn produce_light_client_block(
-    view: &near_primitives::views::LightClientBlockView,
-    block_view: &near_primitives::views::BlockView,
-) -> NearHeader {
+    view: &LightClientBlockView,
+    block_view: &BlockView,
+) -> Result<NearHeader, Error> {
     assert!(
         view.inner_lite.height == block_view.header.height,
         "Not same height of light client block view and block view. view: {}, block_view: {}",
         view.inner_lite.height,
         block_view.header.height
     );
-    NearHeader {
+    Ok(NearHeader {
         light_client_block: LightClientBlock {
             prev_block_hash: CryptoHash(view.prev_block_hash.0),
             next_block_inner_hash: CryptoHash(view.next_block_inner_hash.0),
@@ -2126,10 +2111,12 @@ pub fn produce_light_client_block(
             next_bps: Some(
                 view.next_bps
                     .as_ref()
-                    .expect("Failed to get next_bps field.")
+                    .ok_or(Error::report_error(
+                        "Failed to get next_bps, because net bps is none".to_string(),
+                    ))?
                     .iter()
                     .map(|f| match f {
-                        near_primitives::views::validator_stake_view::ValidatorStakeView::V1(v) => {
+                        NearValidatorStakeView::V1(v) => {
                             ValidatorStakeView::V1(ValidatorStakeViewV1 {
                                 account_id: v.account_id.to_string(),
                                 public_key: match &v.public_key {
@@ -2160,7 +2147,7 @@ pub fn produce_light_client_block(
             .iter()
             .map(|header| CryptoHash(header.prev_state_root.0))
             .collect(),
-    }
+    })
 }
 
 mod retry_strategy {

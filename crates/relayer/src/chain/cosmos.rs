@@ -1,3 +1,4 @@
+use super::ic::VpClient;
 use alloc::sync::Arc;
 use bytes::{Buf, Bytes};
 use core::{
@@ -143,6 +144,7 @@ pub struct CosmosSdkChain {
     config: ChainConfig,
     tx_config: TxConfig,
     rpc_client: HttpClient,
+    vp_client: VpClient,
     compat_mode: CompatMode,
     grpc_addr: Uri,
     light_client: TmLightClient,
@@ -896,11 +898,20 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let tx_config = TxConfig::try_from(&config)?;
 
+        let vp_client = rt
+            .block_on(VpClient::new(&config.ic_endpoint, &config.canister_pem))
+            .map_err(|e| {
+                Error::report_error(format!(
+                    "[cosmos chain bootstrap build VpClientFailed] -> Error({:?})",
+                    e
+                ))
+            })?;
         // Retrieve the version specification of this chain
 
         let chain = Self {
             config,
             rpc_client,
+            vp_client,
             compat_mode,
             grpc_addr,
             light_client,
@@ -1038,7 +1049,6 @@ impl ChainEndpoint for CosmosSdkChain {
                 .collect::<Vec<_>>(),
             tracked_msgs.tracking_id
         );
-        use crate::chain::ic::deliver;
         use ibc::Any;
 
         let runtime = self.rt.clone();
@@ -1049,7 +1059,7 @@ impl ChainEndpoint for CosmosSdkChain {
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
-                    .block_on(deliver(canister_id, &self.config.ic_endpoint, msg.encode_to_vec(), &self.config.canister_pem))
+                    .block_on(self.vp_client.deliver(canister_id, msg.encode_to_vec()))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_commit call icp deliver failed] -> Error({})", e)))?;
                 assert!(!res.is_empty());
                 if !res.is_empty() {
@@ -1085,7 +1095,6 @@ impl ChainEndpoint for CosmosSdkChain {
                 .collect::<Vec<_>>(),
             tracked_msgs.tracking_id
         );
-        use crate::chain::ic::deliver;
         use ibc::Any;
 
         let runtime = self.rt.clone();
@@ -1097,7 +1106,7 @@ impl ChainEndpoint for CosmosSdkChain {
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
                 let res = runtime
-                    .block_on(deliver(canister_id, &self.config.ic_endpoint, msg.encode_to_vec(), &self.config.canister_pem))
+                    .block_on(self.vp_client.deliver(canister_id, msg.encode_to_vec()))
                     .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?;
                 assert!(!res.is_empty());
                 if !res.is_empty() {
@@ -1278,8 +1287,6 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryClientStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyClientState, Option<MerkleProof>), Error> {
-        use crate::chain::ic::query_client_state;
-
         crate::time!(
             "query_client_state",
             {
@@ -1288,19 +1295,13 @@ impl ChainEndpoint for CosmosSdkChain {
         );
         crate::telemetry!(query, self.id(), "query_client_state");
 
-        // println!(
-        //     "ys-debug: query_client_state: chain_id: {:?}, request: {:?}, include_proof: {:?}",
-        //     self.id(),
-        //     request,
-        //     include_proof,
-        // );
         if matches!(include_proof, IncludeProof::No) {
             let runtime = self.rt.clone();
 
             let canister_id = self.config.canister_id.id.as_str();
 
             let res = runtime
-                .block_on(query_client_state(canister_id, &self.config.ic_endpoint, vec![]))
+                .block_on(self.vp_client.query_client_state(canister_id, vec![]))
                 .map_err(|e| Error::report_error(format!("[Cosmos Chain query_client_state call icp query_client_state failed] -> Error({})", e)))?;
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
             return Ok((client_state, None));
@@ -1396,7 +1397,6 @@ impl ChainEndpoint for CosmosSdkChain {
         request: QueryConsensusStateRequest,
         include_proof: IncludeProof,
     ) -> Result<(AnyConsensusState, Option<MerkleProof>), Error> {
-        use crate::chain::ic::query_consensus_state;
         crate::time!(
             "query_consensus_state",
             {
@@ -1423,7 +1423,7 @@ impl ChainEndpoint for CosmosSdkChain {
             ))
         })?;
         let res = runtime
-            .block_on(query_consensus_state(canister_id, &self.config.ic_endpoint, buf))
+            .block_on(self.vp_client.query_consensus_state(canister_id,buf))
             .map_err(|e| Error::report_error(format!("[Cosmos Chain query_consensus_state call ibc query_consensus_state] -> Error({})", e)))?;
         let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
         Ok((consensus_state, None))
