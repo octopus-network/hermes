@@ -189,9 +189,7 @@ impl NearChain {
                 }
             }
         })
-        .map_err(|e| {
-            Error::report_error(format!("[Near chain deliver() failed] -> Error({:?})", e)).into()
-        })
+        .map_err(|_| Error::report_error("[Near chain deliver failed]".to_string()).into())
     }
 
     fn init_signing_key_pair(&mut self) {
