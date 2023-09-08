@@ -254,9 +254,14 @@ impl ChainEndpoint for NearChain {
                     e
                 ))
             })?;
+        let lcb_client_rpc_url = if config.rpc_addr.to_string().contains("testnet") {
+            NEAR_TESTNET_RPC_URL
+        } else {
+            NEAR_MAINNET_RPC_URL
+        };
         let mut new_instance = NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
-            lcb_client: NearRpcClient::new("https://rpc.testnet.near.org"),
+            lcb_client: NearRpcClient::new(lcb_client_rpc_url),
             vp_client,
             config: config.clone(),
             keybase,
