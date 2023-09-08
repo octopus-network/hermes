@@ -51,6 +51,20 @@ define_error! {
         DeliverError
             |_| { "near chain Deliver failed" },
 
+        VpDeliverError
+            [ TraceError<VpError>]
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("call vp deliver error, \n{}", caller)
+            },
+
+        DecodeVpDeliverResultFailed
+            [ TraceError<prost::DecodeError>]
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("decode vp deliver result failed, \n{}", caller)
+            },
+
         BuildVpClientError
             | _ | { "near chain bootstrap build VpClientFailed" },
 

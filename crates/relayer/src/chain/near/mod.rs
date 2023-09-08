@@ -186,7 +186,8 @@ impl NearChain {
             match self.block_on(call_near_smart_contract_deliver) {
                 Ok(outcome) => RetryResult::Ok(outcome),
                 Err(e) => {
-                    warn!("ys-debug: retry deliver with error: {}", e);
+                    let position = std::panic::Location::caller();
+                    warn!("retry deliver with error: {} \n{}", e, position);
                     RetryResult::Retry(())
                 }
             }
@@ -240,7 +241,7 @@ impl ChainEndpoint for NearChain {
 
     // todo init NearChain
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
-        info!("{}: [bootstrap]", config.id);
+        info!("[bootstrap] : {}", config.id);
         // Initialize key store and load key
         let keybase = KeyRing::new_near_keypair(
             config.key_store_type,
@@ -290,7 +291,7 @@ impl ChainEndpoint for NearChain {
     }
 
     fn get_signer(&self) -> Result<Signer, Error> {
-        trace!("In near: [get signer]");
+        trace!("[get signer]");
         // Get the key from key seed file
         let key_pair = self
             .keybase()
@@ -351,24 +352,20 @@ impl ChainEndpoint for NearChain {
                 .messages()
                 .iter()
                 .map(|msg| {
-                    self.block_on(self.vp_client.deliver(
-                        self.canister_id(),
-                        msg.encode_to_vec(),
-                    ))
-                    .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit call ic deliver] -> Error({})", e)))
+                    self.block_on(
+                        self.vp_client
+                            .deliver(self.canister_id(), msg.encode_to_vec()),
+                    )
+                    .map_err(|e| Error::near_chain_error(NearError::vp_deliver_error(e)))
                 })
                 .filter_map(|res| {
-                    res.ok().and_then(|r| {
-                        if r.is_empty() {
-                            None
-                        } else {
-                            Some(r)
-                        }
-                    })
+                    res.ok()
+                        .and_then(|r| if r.is_empty() { None } else { Some(r) })
                 })
                 .map(|res| {
-                    Any::decode(&res[..])
-                        .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit decode deliver result] -> Error({})", e)))
+                    Any::decode(&res[..]).map_err(|e| {
+                        Error::near_chain_error(NearError::decode_vp_deliver_result_failed(e))
+                    })
                 })
                 .collect();
 
@@ -387,9 +384,7 @@ impl ChainEndpoint for NearChain {
             );
         }
 
-        let result = self
-            .deliver(tracked_msgs.messages().to_vec())
-            .map_err(|e| Error::report_error(format!("deliever error ({:?})", e.to_string())))?;
+        let result = self.deliver(tracked_msgs.messages().to_vec())?;
 
         debug!(
             "[send_messages_and_wait_commit] - deliver result {:?}",
@@ -419,24 +414,20 @@ impl ChainEndpoint for NearChain {
                 .messages()
                 .iter()
                 .map(|msg| {
-                    self.block_on(self.vp_client.deliver(
-                        self.canister_id(),
-                        msg.encode_to_vec(),
-                    ))
-                    .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx call ic deliver] -> Error({})", e)))
+                    self.block_on(
+                        self.vp_client
+                            .deliver(self.canister_id(), msg.encode_to_vec()),
+                    )
+                    .map_err(|e| Error::near_chain_error(NearError::vp_deliver_error(e)))
                 })
                 .filter_map(|res| {
-                    res.ok().and_then(|r| {
-                        if r.is_empty() {
-                            None
-                        } else {
-                            Some(r)
-                        }
-                    })
+                    res.ok()
+                        .and_then(|r| if r.is_empty() { None } else { Some(r) })
                 })
                 .map(|res| {
-                    Any::decode(&res[..])
-                        .map_err(|e| Error::report_error(format!("[Near Chain send_messages_and_wait_commit_check_tx decode deliver result] -> Error({})", e)))
+                    Any::decode(&res[..]).map_err(|e| {
+                        Error::near_chain_error(NearError::decode_vp_deliver_result_failed(e))
+                    })
                 })
                 .collect();
 
@@ -455,9 +446,7 @@ impl ChainEndpoint for NearChain {
             );
         }
 
-        let result = self
-            .deliver(tracked_msgs.messages().to_vec())
-            .map_err(|e| Error::report_error(format!("deliver error ({:?})", e.to_string())))?;
+        let result = self.deliver(tracked_msgs.messages().to_vec())?;
 
         debug!(
             "[send_messages_and_wait_check_tx] - deliver result: {:?}",
