@@ -1,5 +1,6 @@
 use crate::chain::ic::errors::VpError;
 use flex_error::{define_error, TraceError};
+use ibc_relayer_types::core::ics02_client::error::Error as Ics02Error;
 use near_jsonrpc_client::errors::JsonRpcError;
 use near_jsonrpc_primitives::types::blocks::RpcBlockError;
 use near_jsonrpc_primitives::types::query::RpcQueryError;
@@ -48,8 +49,12 @@ define_error! {
         BuildVpClientError
             | _ | { "near chain bootstrap build VpClientFailed" },
 
+        BuildIbcHeightError
+            [ TraceError<Ics02Error>]
+            | _ | { "build ibc height failed" },
+
         VpError
-            [ TraceError<VpError>]
+            [ TraceError<VpError> ]
             | _ | { "vp error" },
     }
 }

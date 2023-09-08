@@ -130,6 +130,8 @@ pub struct NearChain {
 }
 
 impl NearIbcContract for NearChain {
+    type Error = NearError;
+
     fn get_contract_id(&self) -> AccountId {
         self.near_ibc_contract.clone()
     }
@@ -249,7 +251,7 @@ impl ChainEndpoint for NearChain {
         .map_err(Error::key_base)?;
         let vp_client = rt
             .block_on(VpClient::new(&config.ic_endpoint, &config.canister_pem))
-            .map_err(Error::near_chain_error(NearError::vp_error))?;
+            .map_err(|e| Error::near_chain_error(NearError::vp_error(e)))?;
 
         let lcb_client_rpc_url = if config.rpc_addr.to_string().contains("testnet") {
             NEAR_TESTNET_RPC_URL

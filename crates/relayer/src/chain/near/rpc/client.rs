@@ -165,7 +165,7 @@ impl NearRpcClient {
         contract_id: AccountId,
         method_name: String,
         args: Vec<u8>,
-    ) -> anyhow::Result<ViewResultDetails> {
+    ) -> Result<ViewResultDetails, NearError> {
         let query_resp = self
             .query(&RpcQueryRequest {
                 block_reference: Finality::None.into(), // Optimisitic query
@@ -175,11 +175,12 @@ impl NearRpcClient {
                     args: args.into(),
                 },
             })
-            .await?;
+            .await
+            .map_err(NearError::rpc_query_error)?;
 
         match query_resp.kind {
             QueryResponseKind::CallResult(result) => Ok(result.into()),
-            _ => anyhow::bail!(ERR_INVALID_VARIANT),
+            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
         }
     }
 

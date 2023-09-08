@@ -8,6 +8,8 @@ use near_primitives::views::{
     FinalExecutionStatus,
 };
 
+use crate::chain::near::error::NearError;
+
 /// Struct to hold a type we want to return along w/ the execution result view.
 /// This view has extra info about the execution, such as gas usage and whether
 /// the transaction failed to be processed on the chain.
@@ -207,8 +209,8 @@ impl ViewResultDetails {
     /// execution result of this call. This conversion can fail if the structure of
     /// the internal state does not meet up with [`serde::de::DeserializeOwned`]'s
     /// requirements.
-    pub fn json<T: serde::de::DeserializeOwned>(&self) -> anyhow::Result<T> {
-        serde_json::from_slice(&self.result).map_err(Into::into)
+    pub fn json<T: serde::de::DeserializeOwned>(&self) -> Result<T, NearError> {
+        serde_json::from_slice(&self.result).map_err(NearError::serde_json_error)
     }
 
     /// Deserialize an instance of type `T` from bytes sourced from this view call's
