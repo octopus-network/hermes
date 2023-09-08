@@ -249,12 +249,8 @@ impl ChainEndpoint for NearChain {
         .map_err(Error::key_base)?;
         let vp_client = rt
             .block_on(VpClient::new(&config.ic_endpoint, &config.canister_pem))
-            .map_err(|e| {
-                Error::report_error(format!(
-                    "[near chain bootstrap build VpClientFailed] -> Error({:?})",
-                    e
-                ))
-            })?;
+            .map_err(Error::near_chain_error(NearError::vp_error))?;
+
         let lcb_client_rpc_url = if config.rpc_addr.to_string().contains("testnet") {
             NEAR_TESTNET_RPC_URL
         } else {

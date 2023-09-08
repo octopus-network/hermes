@@ -1,3 +1,4 @@
+use crate::chain::ic::errors::VpError;
 use flex_error::{define_error, TraceError};
 use near_jsonrpc_client::errors::JsonRpcError;
 use near_jsonrpc_primitives::types::blocks::RpcBlockError;
@@ -46,5 +47,9 @@ define_error! {
 
         BuildVpClientError
             | _ | { "near chain bootstrap build VpClientFailed" },
+
+        VpError
+            [ TraceError<VpError>]
+            | _ | { "vp error" },
     }
 }
