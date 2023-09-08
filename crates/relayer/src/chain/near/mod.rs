@@ -376,7 +376,7 @@ impl ChainEndpoint for NearChain {
             }
 
             info!(
-                "[near - send_messages_and_wait_commit] - got proto_msgs from ic: {:?}",
+                "[near - sgot proto_msgs from ic: {:?}",
                 tracked_msgs
                     .msgs
                     .iter()
@@ -388,8 +388,9 @@ impl ChainEndpoint for NearChain {
         let result = self.deliver(tracked_msgs.messages().to_vec())?;
 
         debug!(
-            "[send_messages_and_wait_commit] - deliver result {:?}",
-            result
+            "deliver result {:?} \n{}",
+            result,
+            std::panic::Location::caller()
         );
 
         collect_ibc_event_by_outcome(result)
