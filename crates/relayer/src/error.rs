@@ -604,7 +604,8 @@ define_error! {
         ReportError
             { error: String }
             |e| {
-                format_args!("Report Error: ({})", e.error)
+                let caller = std::panic::Location::caller();
+                format!("Report Error: ({}) \n{}", e.error, caller)
             },
 
     }

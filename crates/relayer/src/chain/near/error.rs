@@ -1,4 +1,5 @@
 use crate::chain::ic::errors::VpError;
+use core::num::ParseIntError;
 use flex_error::{define_error, TraceError};
 use ibc_relayer_types::core::ics02_client::error::Error as Ics02Error;
 use near_jsonrpc_client::errors::JsonRpcError;
@@ -95,6 +96,13 @@ define_error! {
             | _ | {
                 let caller = std::panic::Location::caller();
                 format!("next bps empty \n{}", caller)
+            },
+
+        ParseIntError
+            [ TraceError<ParseIntError> ]
+            |_ | {
+                let caller = std::panic::Location::caller();
+                format!("parse int error \n{}", caller)
             },
     }
 }

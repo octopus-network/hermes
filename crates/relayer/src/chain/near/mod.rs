@@ -309,9 +309,10 @@ impl ChainEndpoint for NearChain {
     // versioning
     fn ibc_version(&self) -> Result<Option<Version>, Error> {
         trace!("[query_commitment_prefix]");
-        let version = self.get_contract_version().map_err(|e| {
-            Error::report_error(format!("[Near chain ibc_version failed] -> Error({})", e))
-        })?;
+        let version = self
+            .get_contract_version()
+            .map_err(Error::near_chain_error)?;
+
         let str_version = String::from_utf8(version).map_err(|e| {
             Error::report_error(format!(
                 "[Near chain parse ibc version failed] -> Error({})",
@@ -437,7 +438,7 @@ impl ChainEndpoint for NearChain {
             }
 
             info!(
-                "[near - send_messages_and_wait_check_tx] - got proto_msgs from ic: {:?}",
+                "got proto_msgs from ic: {:?}",
                 tracked_msgs
                     .msgs
                     .iter()
@@ -449,8 +450,9 @@ impl ChainEndpoint for NearChain {
         let result = self.deliver(tracked_msgs.messages().to_vec())?;
 
         debug!(
-            "[send_messages_and_wait_check_tx] - deliver result: {:?}",
-            result
+            "deliver result: {:?} \n{}",
+            result,
+            std::panic::Location::caller()
         );
 
         Ok(vec![])
@@ -480,7 +482,8 @@ impl ChainEndpoint for NearChain {
             let latest_block_view = match result {
                 Ok(bv) => bv,
                 Err(e) => {
-                    warn!("ys-debug: retry get latest_block_view with error: {}", e);
+                    let caller = std::panic::Location::caller();
+                    warn!("retry get latest_block_view with error: {} \n{}", e, caller);
                     return RetryResult::Retry(());
                 }
             };
@@ -499,9 +502,10 @@ impl ChainEndpoint for NearChain {
             let light_client_block_view = match result {
                 Ok(lcb) => lcb,
                 Err(e) => {
+                    let caller = std::panic::Location::caller();
                     warn!(
-                        "ys-debug: retry get next_light_client_block with error: {}",
-                        e
+                        "retry get next_light_client_block with error: {} \n{}",
+                        e, caller
                     );
                     return RetryResult::Retry(());
                 }
@@ -515,7 +519,11 @@ impl ChainEndpoint for NearChain {
             let block_view = match result {
                 Ok(bv) => bv,
                 Err(e) => {
-                    warn!("ys-debug: retry get block_view with error: {}", e);
+                    warn!(
+                        "retry get block_view with error: {} \n{}",
+                        e,
+                        std::panic::Location::caller()
+                    );
                     return RetryResult::Retry(());
                 }
             };
@@ -523,10 +531,11 @@ impl ChainEndpoint for NearChain {
             match header_result {
                 Ok(header) => {
                     info!(
-                        "ys-debug: new header in verify_header: {:?}, {:?}, {:?}",
+                        "new header in verify_header: {:?}, {:?}, {:?} \n{}",
                         header.height(),
                         light_client_block_view.inner_lite.height,
-                        block_view.header.height
+                        block_view.header.height,
+                        std::panic::Location::caller()
                     );
                     assert!(
                         header
@@ -541,7 +550,11 @@ impl ChainEndpoint for NearChain {
                     RetryResult::Ok(header)
                 }
                 Err(e) => {
-                    warn!("produce_light_client_block have provlem {:?}", e);
+                    warn!(
+                        "produce_light_client_block have provlem {:?} \n{}",
+                        e,
+                        std::panic::Location::caller()
+                    );
 
                     retry::OperationResult::Retry(())
                 }
@@ -596,12 +609,9 @@ impl ChainEndpoint for NearChain {
 
     fn query_commitment_prefix(&self) -> Result<CommitmentPrefix, Error> {
         trace!("[query_commitment_prefix]");
-        let prefix = self.get_commitment_prefix().map_err(|e| {
-            Error::report_error(format!(
-                "[Near chain query_commitment_prefix get_commitment_prefix failed] -> Error({})",
-                e
-            ))
-        })?;
+        let prefix = self
+            .get_commitment_prefix()
+            .map_err(Error::near_chain_error)?;
 
         CommitmentPrefix::try_from(prefix).map_err(|e| {
             Error::report_error(format!(
@@ -1098,7 +1108,7 @@ impl ChainEndpoint for NearChain {
 
         Ok((
             self.get_next_sequence_receive(&port_id, &channel_id)
-                .map_err(|_| Error::report_error("query_next_sequence_receive".to_string()))?,
+                .map_err(Error::near_chain_error)?,
             None,
         ))
     }
@@ -1157,7 +1167,7 @@ impl ChainEndpoint for NearChain {
             for ibc_event in ibc_events.iter() {
                 result.push(IbcEventWithHeight {
                     event: convert_ibc_event_to_hermes_ibc_event(ibc_event)
-                        .map_err(|e| Error::report_error(format!("[Near Chain query_packet_events call convert_ibc_event_to_hermes_ibc_event] -> Error({})", e)))?,
+                        .map_err(|e| Error::near_chain_error(e))?,
                     height,
                 });
             }
@@ -1257,9 +1267,10 @@ impl ChainEndpoint for NearChain {
             match result {
                 Ok(lcb) => RetryResult::Ok(lcb),
                 Err(e) => {
+                    let caller = std::panic::Location::caller();
                     warn!(
-                        "ys-debug: retry get target_block_view(header) with error: {}",
-                        e
+                        "retry get target_block_view(header) with error: {} \n{}",
+                        e, caller
                     );
                     RetryResult::Retry(())
                 }
@@ -1288,9 +1299,10 @@ impl ChainEndpoint for NearChain {
             let light_client_block_view = match result {
                 Ok(lcb) => lcb,
                 Err(e) => {
+                    let caller = std::panic::Location::caller();
                     warn!(
-                        "ys-debug: retry get next_light_client_block with error: {}",
-                        e
+                        "retry get next_light_client_block with error: {} \n{}",
+                        e, caller
                     );
                     return RetryResult::Retry(());
                 }
@@ -1304,7 +1316,8 @@ impl ChainEndpoint for NearChain {
             let block_view = match result {
                 Ok(bv) => bv,
                 Err(e) => {
-                    warn!("ys-debug: retry get block_view with error: {}", e);
+                    let caller = std::panic::Location::caller();
+                    warn!("retry get block_view with error: {} \n{}", e, caller);
                     return RetryResult::Retry(());
                 }
             };
@@ -1325,7 +1338,8 @@ impl ChainEndpoint for NearChain {
             let query_response = match result {
                 Ok(resp) => resp,
                 Err(e) => {
-                    warn!("ys-debug: retry get proof_block_view with error: {}", e);
+                    let caller = std::panic::Location::caller();
+                    warn!("retry get proof_block_view with error: {} \n{}", e, caller);
                     return RetryResult::Retry(());
                 }
             };
@@ -1333,7 +1347,8 @@ impl ChainEndpoint for NearChain {
             let state = match query_response.kind {
                 QueryResponseKind::ViewState(state) => Ok::<ViewStateResult, Error>(state),
                 _ => {
-                    warn!("ys-debug: retry get view_state");
+                    let caller = std::panic::Location::caller();
+                    warn!("retry get view_state \n{}", caller);
 
                     return RetryResult::Retry(());
                 }
@@ -1352,25 +1367,32 @@ impl ChainEndpoint for NearChain {
                     produce_light_client_block(&light_client_block_view, &block_view);
                 match header_result {
                     Ok(header) => {
+                        let caller = std::panic::Location::caller();
                         info!(
-                            "ys-debug: new header: {:?}, {:?}, {:?}",
+                            "new header: {:?}, {:?}, {:?} \n{}",
                             header.height(),
                             light_client_block_view.inner_lite.height,
-                            block_view.header.height
+                            block_view.header.height,
+                            caller
                         );
 
                         retry::OperationResult::Ok(header)
                     }
                     Err(e) => {
-                        warn!("produce_light_client_block have provlem {:?}", e);
+                        let caller = std::panic::Location::caller();
+                        warn!(
+                            "produce_light_client_block have provlem {:?} \n{}",
+                            e, caller
+                        );
 
                         retry::OperationResult::Retry(())
                     }
                 }
             } else {
+                let caller = std::panic::Location::caller();
                 warn!(
-                    "ys-debug: retry root_hash {:?} at {:?} does not in the lcb state at {:?}",
-                    root_hash, proof_height, light_client_block_view.inner_lite.height
+                    "retry root_hash {:?} at {:?} does not in the lcb state at {:?} \n{}",
+                    root_hash, proof_height, light_client_block_view.inner_lite.height, caller
                 );
 
                 RetryResult::Retry(())
@@ -1432,36 +1454,33 @@ impl ChainEndpoint for NearChain {
         let query_response = retry_with_index(retry_strategy::default_strategy(), |_index| {
             let connections_path = ConnectionsPath(connection_id.clone()).to_string();
 
-            let block_reference: BlockReference =
-                BlockId::Height(height.revision_height()).into();
+            let block_reference: BlockReference = BlockId::Height(height.revision_height()).into();
             let prefix = StoreKey::from(connections_path.into_bytes());
-            let result = self.query(
-                &RpcQueryRequest {
-                    block_reference,
-                    request: QueryRequest::ViewState {
-                        account_id: self.near_ibc_contract.clone(),
-                        prefix,
-                        include_proof: true,
-                    },
+            let result = self.query(&RpcQueryRequest {
+                block_reference,
+                request: QueryRequest::ViewState {
+                    account_id: self.near_ibc_contract.clone(),
+                    prefix,
+                    include_proof: true,
                 },
-            );
+            });
 
             match result {
                 Ok(lcb) => RetryResult::Ok(lcb),
                 Err(e) => {
+                    let caller = std::panic::Location::caller();
                     warn!(
-                        "ys-debug: retry get target_block_view(conn) with error: {}",
-                        e
+                        "retry get target_block_view(conn) with error: {} \n{}",
+                        e, caller
                     );
                     RetryResult::Retry(())
                 }
             }
         })
-        .map_err(|e| {
-            Error::report_error(format!(
-                "[Near chain build_connection_proofs_and_client_state get query_response failed ] -> Error({:?})",
-                e
-            ))
+        .map_err(|_| {
+            Error::report_error(
+                "build_connection_proofs_and_client_state get query_response failed".to_string(),
+            )
         })?;
         println!(
             "ys-debug: view state of connection result: {:?}",
@@ -1626,19 +1645,17 @@ impl ChainEndpoint for NearChain {
             match result {
                 Ok(lcb) => RetryResult::Ok(lcb),
                 Err(e) => {
+                    let caller = std::panic::Location::caller();
                     warn!(
-                        "ys-debug: retry get target_block_view(chan) with error: {}",
-                        e
+                        "retry get target_block_view(chan) with error: {} \n{}",
+                        e, caller
                     );
                     RetryResult::Retry(())
                 }
             }
         })
-        .map_err(|e| {
-            Error::report_error(format!(
-                "[Near chain build_channel_proofs get query_response failed ] -> Error({:?})",
-                e
-            ))
+        .map_err(|_| {
+            Error::report_error("build_channel_proofs get query_response failed".to_string())
         })?;
 
         println!(
@@ -1693,46 +1710,44 @@ impl ChainEndpoint for NearChain {
                     IncludeProof::No,
                 )?;
 
-                let query_response = retry_with_index(retry_strategy::default_strategy(), |_index| {
-                    let packet_commitments_path = CommitmentsPath {
-                        port_id: port_id.clone(),
-                        channel_id: channel_id.clone(),
-                        sequence,
-                    }
-                    .to_string();
+                let query_response =
+                    retry_with_index(retry_strategy::default_strategy(), |_index| {
+                        let packet_commitments_path = CommitmentsPath {
+                            port_id: port_id.clone(),
+                            channel_id: channel_id.clone(),
+                            sequence,
+                        }
+                        .to_string();
 
-                    let block_reference: BlockReference =
-                        BlockId::Height(height.revision_height()).into();
-                    let prefix =
-                        StoreKey::from(packet_commitments_path.into_bytes());
-                    let result = self.query(
-                        &RpcQueryRequest {
+                        let block_reference: BlockReference =
+                            BlockId::Height(height.revision_height()).into();
+                        let prefix = StoreKey::from(packet_commitments_path.into_bytes());
+                        let result = self.query(&RpcQueryRequest {
                             block_reference,
                             request: QueryRequest::ViewState {
                                 account_id: self.near_ibc_contract.clone(),
                                 prefix,
                                 include_proof: true,
                             },
-                        },
-                    );
+                        });
 
-                    match result {
-                        Ok(lcb) => RetryResult::Ok(lcb),
-                        Err(e) => {
-                            warn!(
-                                "ys-debug: retry get target_block_view(pkt) with error: {}",
-                                e
-                            );
-                            RetryResult::Retry(())
+                        match result {
+                            Ok(lcb) => RetryResult::Ok(lcb),
+                            Err(e) => {
+                                let caller = std::panic::Location::caller();
+                                warn!(
+                                    "retry get target_block_view(pkt) with error: {} \n{}",
+                                    e, caller
+                                );
+                                RetryResult::Retry(())
+                            }
                         }
-                    }
-                })
-                .map_err(|e| {
-                    Error::report_error(format!(
-                        "[Near chain build_packet_proofs get query_response failed ] -> Error({:?})",
-                        e
-                    ))
-                })?;
+                    })
+                    .map_err(|_| {
+                        Error::report_error(
+                            "build_packet_proofs get query_response failed".to_string(),
+                        )
+                    })?;
 
                 println!(
                     "ys-debug: view state of packet proof: result: {:?}",
@@ -1778,33 +1793,32 @@ impl ChainEndpoint for NearChain {
 
                         let block_reference: BlockReference =
                             BlockId::Height(height.revision_height()).into();
-                        let prefix = StoreKey::from(
-                            packet_commitments_path.into_bytes(),
-                        );
-                        let result = self.query(
-                            &RpcQueryRequest {
-                                block_reference,
-                                request: QueryRequest::ViewState {
-                                    account_id: self.near_ibc_contract.clone(),
-                                    prefix,
-                                    include_proof: true,
-                                },
+                        let prefix = StoreKey::from(packet_commitments_path.into_bytes());
+                        let result = self.query(&RpcQueryRequest {
+                            block_reference,
+                            request: QueryRequest::ViewState {
+                                account_id: self.near_ibc_contract.clone(),
+                                prefix,
+                                include_proof: true,
                             },
-                        );
+                        });
 
                         match result {
                             Ok(lcb) => RetryResult::Ok(lcb),
                             Err(e) => {
+                                let caller = std::panic::Location::caller();
                                 warn!(
-                                    "ys-debug: retry get target_block_view(pkt) with error: {}",
-                                    e
+                                    "retry get target_block_view(pkt) with error: {} \n {}",
+                                    e, caller
                                 );
                                 RetryResult::Retry(())
                             }
                         }
                     })
-                    .map_err(|e| {
-                        Error::report_error(format!( "[Near chain build_packet_proofs get query_response failed ] -> Error({:?})", e))
+                    .map_err(|_| {
+                        Error::report_error(
+                            "build_packet_proofs get query_response failed".to_string(),
+                        )
                     })?;
 
                 println!(
@@ -1968,7 +1982,7 @@ impl ChainEndpoint for NearChain {
 
         let result = self
             .get_client_consensus_heights(&request.client_id)
-            .map_err(|_| Error::report_error("query_consensus_state_heights".to_string()))?;
+            .map_err(Error::near_chain_error)?;
 
         info!(
             "{}: [query_consensus_state_heights] - result: {:?} ",
@@ -2022,15 +2036,11 @@ pub fn collect_ibc_event_by_outcome(
             if log.starts_with("EVENT_JSON:") {
                 let event = log.replace("EVENT_JSON:", "");
                 let event_value = serde_json::value::Value::from_str(event.as_str())
-                    .map_err(|e| Error::report_error(format!(
-                        "[Near Chain collect_ibc_event_by_outcome decode near event failed] -> Error({})", e
-                    )))?;
+                    .map_err(|e| Error::near_chain_error(NearError::serde_json_error(e)))?;
                 if "near-ibc" == event_value["standard"] {
                     let ibc_event: IbcEvent =
                         serde_json::from_value(event_value["raw-ibc-event"].clone())
-                            .map_err(|e| Error::report_error(format!(
-                                "[Near Chain collect_ibc_event_by_outcome decode near event to ibc event failed] -> Error({})", e
-                            )))?;
+                            .map_err(|e| Error::near_chain_error(NearError::serde_json_error(e)))?;
                     let block_height = u64::from_str(
                         event_value["block_height"]
                             .as_str()
@@ -2038,18 +2048,16 @@ pub fn collect_ibc_event_by_outcome(
                                 "[Near Chain collect_ibc_event_by_outcome Failed to get block_height field. failed]".to_string()
                             ))?
                     )
-                    .map_err(|e| Error::report_error(format!(
-                        "[Near Chain collect_ibc_event_by_outcome decode block_height failed] -> Error({})", e
-                    )))?;
+                    .map_err(|e| Error::near_chain_error(NearError::parse_int_error(e)))?;
+
                     match ibc_event {
                         IbcEvent::Message(_) => continue,
                         _ => ibc_events.push(IbcEventWithHeight {
                             event: convert_ibc_event_to_hermes_ibc_event(&ibc_event)
-                                .map_err(|e| Error::report_error(format!(
-                                    "[Near Chain  collect_ibc_event_by_outcome call convert_ibc_event_to_hermes_ibc_event failed] -> Error({})", e
-                                )))?,
-                            height: Height::new(0, block_height).map_err(|e| Error::near_chain_error(NearError::build_ibc_height_error(e)))?,
-
+                                .map_err(Error::near_chain_error)?,
+                            height: Height::new(0, block_height).map_err(|e| {
+                                Error::near_chain_error(NearError::build_ibc_height_error(e))
+                            })?,
                         }),
                     }
                 }
