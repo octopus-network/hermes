@@ -1119,10 +1119,7 @@ impl ChainEndpoint for NearChain {
                         consensus_height: request.consensus_height,
                     })),
                     height: Height::new(0, 9).map_err(|e| {
-                        Error::report_error(format!(
-                            "[Near Chain query_txs Contruct ibc Height] -> Error({})",
-                            e
-                        ))
+                        Error::near_chain_error(NearError::build_ibc_height_error(e))
                     })?,
                 }])
             }
@@ -2051,10 +2048,8 @@ pub fn collect_ibc_event_by_outcome(
                                 .map_err(|e| Error::report_error(format!(
                                     "[Near Chain  collect_ibc_event_by_outcome call convert_ibc_event_to_hermes_ibc_event failed] -> Error({})", e
                                 )))?,
-                            height: Height::new(0, block_height)
-                                .map_err(|e| Error::report_error(format!(
-                                    "[Near Chain  collect_ibc_event_by_outcome build ibc height failed] -> Error({})", e
-                                )))?,
+                            height: Height::new(0, block_height).map_err(|e| Error::near_chain_error(NearError::build_ibc_height_error(e)))?,
+
                         }),
                     }
                 }
@@ -2100,9 +2095,7 @@ pub fn produce_light_client_block(
             next_bps: Some(
                 view.next_bps
                     .as_ref()
-                    .ok_or(Error::report_error(
-                        "Failed to get next_bps, because net bps is none".to_string(),
-                    ))?
+                    .ok_or(Error::near_chain_error(NearError::next_bps_empty()))?
                     .iter()
                     .map(|f| match f {
                         NearValidatorStakeView::V1(v) => {

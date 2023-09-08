@@ -901,9 +901,10 @@ impl ChainEndpoint for CosmosSdkChain {
         let vp_client = rt
             .block_on(VpClient::new(&config.ic_endpoint, &config.canister_pem))
             .map_err(|e| {
+                let position = std::panic::Location::caller();
                 Error::report_error(format!(
-                    "[cosmos chain bootstrap build VpClientFailed] -> Error({:?})",
-                    e
+                    "build vp client failed Error({:?}) \n{}",
+                    e, position
                 ))
             })?;
         // Retrieve the version specification of this chain

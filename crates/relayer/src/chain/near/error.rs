@@ -9,47 +9,53 @@ use near_jsonrpc_primitives::types::transactions::RpcTransactionError;
 
 define_error! {
     NearError {
-        InvalidAccountId
-            |_| { "Invalid account ID" },
-
-        GetSignerFailure
-            [ TraceError<crate::error::Error> ]
-            |_| { "get signer failure" },
-
-        ParserInMemorySignerFailure
-            [ TraceError<std::io::Error> ]
-            |_| { "Parser InMemorySigner failure" },
-
-        ParserNearAccountIdFailure
-            [ TraceError<near_account_id::ParseAccountError> ]
-            |_| { "Parser Near Account Id failure" },
-
         SerdeJsonError
             [ TraceError<serde_json::Error>]
-            |_| { "serde json failure" },
+            |_| {
+                let caller = std::panic::Location::caller();
+                format!("serde json failure \n{}", caller)
+            },
 
         CustomError
             { reason: String }
-            |e| { format!("Custom error: {}", e.reason) },
+            |e| {
+                let caller = std::panic::Location::caller();
+                format!("Custom error: {} \n{}", e.reason, caller)
+            },
 
         RpcQueryError
             [ TraceError<JsonRpcError<RpcQueryError>> ]
-            | _ | { "near rpc query error"},
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("near rpc query error \n{}", caller)
+            },
 
         RpcTransactionError
             [ TraceError<JsonRpcError<RpcTransactionError>>]
-            | _ | { "near rpc transaction error"},
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("near rpc transaction error \n{}", caller)
+            },
 
         RpcBlockError
             [ TraceError<JsonRpcError<RpcBlockError>>]
-            | _ | { "near rpc block error" },
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("near rpc block error \n{}", caller)
+            },
 
         RpcStateChangesError
             [ TraceError<JsonRpcError<RpcStateChangesError>>]
-            | _ | { "near rpc state changes error" },
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("near rpc state changes error \n{}", caller)
+            },
 
         DeliverError
-            |_| { "near chain Deliver failed" },
+            |_| {
+                let caller = std::panic::Location::caller();
+                format!("near chain Deliver failed \n{}", caller)
+            },
 
         VpDeliverError
             [ TraceError<VpError>]
@@ -66,14 +72,29 @@ define_error! {
             },
 
         BuildVpClientError
-            | _ | { "near chain bootstrap build VpClientFailed" },
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("near chain bootstrap build VpClientFailed \n{}", caller)
+            },
 
         BuildIbcHeightError
             [ TraceError<Ics02Error>]
-            | _ | { "build ibc height failed" },
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("build ibc height failed \n{}", caller)
+            },
 
         VpError
             [ TraceError<VpError> ]
-            | _ | { "vp error" },
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("vp error \n{}", caller)
+            },
+
+        NextBpsEmpty
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("next bps empty \n{}", caller)
+            },
     }
 }

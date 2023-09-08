@@ -25,7 +25,7 @@ pub(crate) fn into_state_map(
 
 pub fn convert_ibc_event_to_hermes_ibc_event(
     ibc_event: &IbcEvent,
-) -> anyhow::Result<HermesIbcEvent> {
+) -> Result<HermesIbcEvent, NearError> {
     let event = match ibc_event {
         IbcEvent::CreateClient(create_client) => {
             use ibc_relayer_types::core::ics02_client::events::Attributes;
@@ -472,12 +472,12 @@ fn get_name_from_module_event_attributes(
 
 fn convert_timeout_height(
     timeout_height: ibc::core::ics04_channel::timeout::TimeoutHeight,
-) -> anyhow::Result<TimeoutHeight> {
+) -> Result<TimeoutHeight, NearError> {
     match timeout_height {
         ibc::core::ics04_channel::timeout::TimeoutHeight::Never => Ok(TimeoutHeight::Never),
         ibc::core::ics04_channel::timeout::TimeoutHeight::At(height) => Ok(TimeoutHeight::At(
             Height::new(height.revision_number(), height.revision_height())
-                .map_err(|e| NearError::custom_error(e.to_string()))?,
+                .map_err(NearError::build_ibc_height_error)?,
         )),
     }
 }
