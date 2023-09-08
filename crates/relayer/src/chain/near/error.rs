@@ -7,6 +7,7 @@ use near_jsonrpc_primitives::types::blocks::RpcBlockError;
 use near_jsonrpc_primitives::types::changes::RpcStateChangesError;
 use near_jsonrpc_primitives::types::query::RpcQueryError;
 use near_jsonrpc_primitives::types::transactions::RpcTransactionError;
+use std::string::FromUtf8Error;
 
 define_error! {
     NearError {
@@ -110,6 +111,13 @@ define_error! {
             | _ | {
                 let caller = std::panic::Location::caller();
                 format!("decode string error \n{}", caller)
+            },
+
+        BuildNearProofsFailed
+            [ TraceError<std::io::Error>]
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("build near proofs failed \n{}", caller)
             }
     }
 }

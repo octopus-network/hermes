@@ -320,20 +320,11 @@ impl ChainEndpoint for NearChain {
             .get_contract_version()
             .map_err(Error::near_chain_error)?;
 
-        let str_version = String::from_utf8(version).map_err(|e| {
-            Error::report_error(format!(
-                "[Near chain parse ibc version failed] -> Error({})",
-                e
-            ))
-        })?;
+        let str_version = String::from_utf8(version)
+            .map_err(|e| Error::near_chain_error(NearError::decode_string_error(e)))?;
 
         let version = Version::parse(&str_version)
-            .map_err(|e| {
-                Error::report_error(format!(
-                    "[Near chain parse ibc version failed] -> Error({})",
-                    e
-                ))
-            })
+            .map_err(|e| Error::report_error(e.to_string()))
             .ok();
 
         Ok(version)
@@ -503,10 +494,11 @@ impl ChainEndpoint for NearChain {
             };
 
             info!(
-                "ys-debug: latest block height: {:?}, epoch: {:?}, next_epoch_id: {:?}",
+                "latest block height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
                 latest_block_view.header.height,
                 latest_block_view.header.epoch_id,
-                latest_block_view.header.next_epoch_id
+                latest_block_view.header.next_epoch_id,
+                std::panic::Location::caller()
             );
 
             let result = self.query_by_lcb_client(&RpcLightClientNextBlockRequest {
@@ -574,12 +566,7 @@ impl ChainEndpoint for NearChain {
                 }
             }
         })
-        .map_err(|_| {
-            Error::report_error(format!(
-                "verify_header get header failed \n{}",
-                std::panic::Location::caller()
-            ))
-        })?;
+        .map_err(|_| Error::report_error("verify_header get header failed".to_string()))?;
 
         Ok(header)
     }
@@ -629,9 +616,8 @@ impl ChainEndpoint for NearChain {
 
         CommitmentPrefix::try_from(prefix).map_err(|e| {
             Error::report_error(format!(
-                "Convert Vec<u8> to CommitmentPrefix failed Error({}) \n{}",
+                "Convert Vec<u8> to CommitmentPrefix failed Error({})",
                 e,
-                std::panic::Location::caller()
             ))
         })
     }
@@ -664,10 +650,7 @@ impl ChainEndpoint for NearChain {
             .map(|(client_id, client_state_bytes)| {
                 let client_state = AnyClientState::decode_vec(client_state_bytes.as_ref())
                     .map_err(|e| {
-                        Error::report_error(format!(
-                            "[Near Chain query_cleints decode AnyClientState] -> Error({})",
-                            e
-                        ))
+                        Error::report_error(format!("decode to AnyClientState Failed Error({})", e))
                     })?;
                 Ok(IdentifiedAnyClientState {
                     client_id,
@@ -718,10 +701,7 @@ impl ChainEndpoint for NearChain {
 
         Ok((
             AnyClientState::decode_vec(&result).map_err(|e| {
-                Error::report_error(format!(
-                    "[Near Chain query_cleint_state decode AnyClientState] -> Error({})",
-                    e
-                ))
+                Error::report_error(format!("decode to AnyClientState failed Error({})", e))
             })?,
             None,
         ))
@@ -1279,21 +1259,16 @@ impl ChainEndpoint for NearChain {
             match result {
                 Ok(lcb) => RetryResult::Ok(lcb),
                 Err(e) => {
-                    let caller = std::panic::Location::caller();
                     warn!(
                         "retry get target_block_view(header) with error: {} \n{}",
-                        e, caller
+                        e,
+                        std::panic::Location::caller()
                     );
                     RetryResult::Retry(())
                 }
             }
         })
-        .map_err(|e| {
-            Error::report_error(format!(
-                "[Near chain build_header get target_block failed] -> Error({:?})",
-                e
-            ))
-        })?;
+        .map_err(|_| Error::report_error("build_header get target_block failed".to_string()))?;
 
         info!(
             "target block height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
@@ -1312,10 +1287,10 @@ impl ChainEndpoint for NearChain {
             let light_client_block_view = match result {
                 Ok(lcb) => lcb,
                 Err(e) => {
-                    let caller = std::panic::Location::caller();
                     warn!(
                         "retry get next_light_client_block with error: {} \n{}",
-                        e, caller
+                        e,
+                        std::panic::Location::caller()
                     );
                     return RetryResult::Retry(());
                 }
@@ -1417,12 +1392,7 @@ impl ChainEndpoint for NearChain {
                 RetryResult::Retry(())
             }
         })
-        .map_err(|e| {
-            Error::report_error(format!(
-                "[Near chain build_header call header failed] -> Error({:?})",
-                e
-            ))
-        })?;
+        .map_err(|_| Error::report_error("build_header call header failed".to_string()))?;
 
         // assert!(
         //     header
@@ -1505,6 +1475,7 @@ impl ChainEndpoint for NearChain {
                 "build_connection_proofs_and_client_state get query_response failed".to_string(),
             )
         })?;
+
         println!(
             "view state of connection result: {:?} \n{}",
             query_response.block_height,
@@ -1521,11 +1492,11 @@ impl ChainEndpoint for NearChain {
 
         let _commitment_prefix = self
             .get_commitment_prefix()
-            .map_err(|e| Error::report_error(format!("[Near Chain build_connection_proofs_and_client_state call get_commitment_prefix] -> Error({})", e)))?;
+            .map_err(Error::near_chain_error)?;
 
         let proof_init = NearProofs(proofs)
             .try_to_vec()
-            .map_err(|e| Error::report_error(format!("[Near Chain build_connection_proofs_and_client_state NearProofs convert to Vec<u8> failed ] -> Error({})", e)))?;
+            .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))?;
 
         // Check that the connection state is compatible with the message
         match message_type {
@@ -1579,7 +1550,7 @@ impl ChainEndpoint for NearChain {
                             include_proof: true,
                         },
                     })
-                    .map_err(|e| Error::report_error(format!("[Near Chain build_connection_proofs_and_client_state query_response failed] -> Error({})", e)))?;
+                    .map_err(|e| Error::near_chain_error(NearError::rpc_query_error(e)))?;
 
                 let state = match query_response.kind {
                     QueryResponseKind::ViewState(state) => Ok(state),
@@ -1588,12 +1559,9 @@ impl ChainEndpoint for NearChain {
                     )),
                 }?;
                 let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
-                let proof_client = NearProofs(proofs).try_to_vec().map_err(|e| {
-                    Error::report_error(format!(
-                        "[Near chain build_connection_proofs_and_client_state BuildNearProofs failed] -> Error({:?})",
-                        e
-                    ))
-                })?;
+                let proof_client = NearProofs(proofs)
+                    .try_to_vec()
+                    .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))?;
 
                 client_proof = Some(
                     CommitmentProofBytes::try_from(proof_client).map_err(Error::malformed_proof)?,
@@ -1700,12 +1668,9 @@ impl ChainEndpoint for NearChain {
             .get_commitment_prefix()
             .map_err(|e| Error::report_error(e.to_string()))?;
 
-        let channel_proof = NearProofs(proofs).try_to_vec().map_err(|e| {
-            Error::report_error(format!(
-                "[Near chain build_channel_proofs Build NearProofs failed] -> Error({:?})",
-                e
-            ))
-        })?;
+        let channel_proof = NearProofs(proofs)
+            .try_to_vec()
+            .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))?;
 
         let channel_proof_bytes =
             CommitmentProofBytes::try_from(channel_proof).map_err(Error::malformed_proof)?;
@@ -1759,10 +1724,10 @@ impl ChainEndpoint for NearChain {
                         match result {
                             Ok(lcb) => RetryResult::Ok(lcb),
                             Err(e) => {
-                                let caller = std::panic::Location::caller();
                                 warn!(
                                     "retry get target_block_view(pkt) with error: {} \n{}",
-                                    e, caller
+                                    e,
+                                    std::panic::Location::caller()
                                 );
                                 RetryResult::Retry(())
                             }
@@ -1788,12 +1753,9 @@ impl ChainEndpoint for NearChain {
                 }?;
                 let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
 
-                let packet_proof = NearProofs(proofs).try_to_vec().map_err(|e| {
-                    Error::report_error(format!(
-                        "[Near chain build_channel_proofs Build NearProofs failed] -> Error({:?})",
-                        e
-                    ))
-                })?;
+                let packet_proof = NearProofs(proofs)
+                    .try_to_vec()
+                    .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))?;
 
                 (Some(packet_proof), None)
             }
@@ -1861,12 +1823,9 @@ impl ChainEndpoint for NearChain {
                 }?;
                 let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
 
-                let packet_proof = NearProofs(proofs).try_to_vec().map_err(|e| {
-                    Error::report_error(format!(
-                        "[Near chain build_channel_proofs Build NearProofs failed] -> Error({:?})",
-                        e
-                    ))
-                })?;
+                let packet_proof = NearProofs(proofs)
+                    .try_to_vec()
+                    .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))?;
 
                 (Some(packet_proof), None)
             }
@@ -1989,7 +1948,7 @@ impl ChainEndpoint for NearChain {
                 let tx_monitor_cmd = self.init_event_monitor()?;
                 self.tx_monitor_cmd = Some(tx_monitor_cmd);
                 self.tx_monitor_cmd.as_ref().ok_or(Error::report_error(
-                    "[Near Chain subscribe tx_monitor_cmd is None]".to_string(),
+                    "subscribe tx_monitor_cmd is None".to_string(),
                 ))?
             }
         };
@@ -2064,13 +2023,9 @@ pub fn collect_ibc_event_by_outcome(
                     let ibc_event: IbcEvent =
                         serde_json::from_value(event_value["raw-ibc-event"].clone())
                             .map_err(|e| Error::near_chain_error(NearError::serde_json_error(e)))?;
-                    let block_height = u64::from_str(
-                        event_value["block_height"]
-                            .as_str()
-                            .ok_or(Error::report_error(
-                                "[Near Chain collect_ibc_event_by_outcome Failed to get block_height field. failed]".to_string()
-                            ))?
-                    )
+                    let block_height = u64::from_str(event_value["block_height"].as_str().ok_or(
+                        Error::report_error("Failed to get block_height field".to_string()),
+                    )?)
                     .map_err(|e| Error::near_chain_error(NearError::parse_int_error(e)))?;
 
                     match ibc_event {

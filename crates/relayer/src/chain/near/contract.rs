@@ -270,7 +270,11 @@ pub trait NearIbcContract {
         &self,
         request: QueryChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Self::Error> {
-        trace!("request: {:?}", request, std::panic::Location::caller());
+        trace!(
+            "request: {:?} \n{}",
+            request,
+            std::panic::Location::caller()
+        );
 
         let request = serde_json::to_string(&request).map_err(NearError::serde_json_error)?;
 
