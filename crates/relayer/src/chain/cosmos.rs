@@ -1042,13 +1042,14 @@ impl ChainEndpoint for CosmosSdkChain {
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
         info!(
-            "[cosmos - send_messages_and_wait_commit] - tracked_msgs: {:?}, tracking_id: {:?}",
+            "tracked_msgs: {:?}, tracking_id: {:?}, \n{}",
             tracked_msgs
                 .msgs
                 .iter()
                 .map(|msg| msg.type_url.clone())
                 .collect::<Vec<_>>(),
-            tracked_msgs.tracking_id
+            tracked_msgs.tracking_id,
+            std::panic::Location::caller()
         );
         use ibc::Any;
 
@@ -1079,12 +1080,13 @@ impl ChainEndpoint for CosmosSdkChain {
             }
             tracked_msgs.msgs = msgs;
             info!(
-                "[cosmos - send_messages_and_wait_commit] - got proto_msgs from ic: {:?}",
+                "got proto_msgs from ic: {:?} \n{}",
                 tracked_msgs
                     .msgs
                     .iter()
                     .map(|msg| msg.type_url.clone())
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>(),
+                std::panic::Location::caller()
             );
         }
 
@@ -1097,13 +1099,14 @@ impl ChainEndpoint for CosmosSdkChain {
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<Response>, Error> {
         info!(
-            "[cosmos - send_messages_and_wait_check_tx] - tracked_msgs: {:?}, tracking_id: {:?}",
+            "tracked_msgs: {:?}, tracking_id: {:?} \n{}",
             tracked_msgs
                 .msgs
                 .iter()
                 .map(|msg| msg.type_url.clone())
                 .collect::<Vec<_>>(),
-            tracked_msgs.tracking_id
+            tracked_msgs.tracking_id,
+            std::panic::Location::caller()
         );
         use ibc::Any;
 
@@ -1135,12 +1138,13 @@ impl ChainEndpoint for CosmosSdkChain {
             }
             tracked_msgs.msgs = msgs;
             info!(
-                "[cosmos - send_messages_and_wait_check_tx] - got proto_msgs from ic: {:?}",
+                "got proto_msgs from ic: {:?} \n{}",
                 tracked_msgs
                     .msgs
                     .iter()
                     .map(|msg| msg.type_url.clone())
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>(),
+                std::panic::Location::caller()
             );
         }
 
