@@ -104,5 +104,12 @@ define_error! {
                 let caller = std::panic::Location::caller();
                 format!("parse int error \n{}", caller)
             },
+
+        DecodeStringError
+            [ TraceError<FromUtf8Error> ]
+            | _ | {
+                let caller = std::panic::Location::caller();
+                format!("decode string error \n{}", caller)
+            }
     }
 }

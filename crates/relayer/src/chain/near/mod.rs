@@ -164,7 +164,11 @@ impl NearChain {
     /// The function to submit IBC request to a Near chain
     /// This function handles most of the IBC reqeusts to Near, except the MMR root update
     fn deliver(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView, Error> {
-        trace!("[deliver] - messages: {:?}", messages);
+        trace!(
+            "messages: {:?} \n{}",
+            messages,
+            std::panic::Location::caller()
+        );
 
         retry_with_index(retry_strategy::default_strategy(), |_| {
             // get signer for this transaction
@@ -186,8 +190,11 @@ impl NearChain {
             match self.block_on(call_near_smart_contract_deliver) {
                 Ok(outcome) => RetryResult::Ok(outcome),
                 Err(e) => {
-                    let position = std::panic::Location::caller();
-                    warn!("retry deliver with error: {} \n{}", e, position);
+                    warn!(
+                        "retry deliver with error: {} \n{}",
+                        e,
+                        std::panic::Location::caller()
+                    );
                     RetryResult::Retry(())
                 }
             }
