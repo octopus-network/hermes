@@ -1,6 +1,7 @@
 use super::client::ClientSettings;
 use super::ic::VpClient;
 use crate::chain::near::constants::*;
+use crate::chain::near::error::NearError;
 use crate::util::retry::{retry_with_index, RetryResult};
 use crate::{
     account::Balance,
@@ -39,7 +40,6 @@ use crate::{
     misbehaviour::MisbehaviourEvidence,
 };
 use alloc::{string::String, sync::Arc};
-use anyhow::Result;
 use borsh::{BorshDeserialize, BorshSerialize};
 use core::{fmt::Debug, str::FromStr};
 use ibc::core::events::IbcEvent;
@@ -154,14 +154,14 @@ impl NearChain {
 
     /// Subscribe Events
     /// todo near don't have events subscription
-    pub fn subscribe_ibc_events(&self) -> Result<Vec<IbcRelayerTypeEvent>> {
+    pub fn subscribe_ibc_events(&self) -> Result<Vec<IbcRelayerTypeEvent>, Error> {
         info!("{}: [subscribe_ibc_events]", self.id());
         todo!() //Bob
     }
 
     /// The function to submit IBC request to a Near chain
     /// This function handles most of the IBC reqeusts to Near, except the MMR root update
-    fn deliver(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView> {
+    fn deliver(&self, messages: Vec<Any>) -> Result<FinalExecutionOutcomeView, Error> {
         trace!("[deliver] - messages: {:?}", messages);
 
         retry_with_index(retry_strategy::default_strategy(), |_| {
@@ -189,15 +189,16 @@ impl NearChain {
                 }
             }
         })
-        .map_err(|_| Error::report_error("[Near chain deliver failed]".to_string()).into())
+        .map_err(|_| Error::near_chain_error(NearError::deliver_error()))
     }
 
     fn init_signing_key_pair(&mut self) {
         self.signing_key_pair = self.get_key().ok();
     }
 
-    fn view_block(&self, block_id: Option<BlockId>) -> Result<BlockView> {
+    fn view_block(&self, block_id: Option<BlockId>) -> Result<BlockView, Error> {
         self.block_on(self.client.view_block(block_id))
+            .map_err(Error::near_chain_error)
     }
 
     fn query<M>(&self, method: &M) -> MethodCallResult<M::Response, M::Error>
@@ -585,7 +586,7 @@ impl ChainEndpoint for NearChain {
         &self,
         _key_name: Option<&str>,
         _denom: Option<&str>,
-    ) -> std::result::Result<Balance, Error> {
+    ) -> Result<Balance, Error> {
         Ok(Balance {
             amount: "0".to_string(),
             denom: String::default(),
@@ -596,7 +597,7 @@ impl ChainEndpoint for NearChain {
         todo!()
     }
 
-    fn query_denom_trace(&self, _hash: String) -> std::result::Result<DenomTrace, Error> {
+    fn query_denom_trace(&self, _hash: String) -> Result<DenomTrace, Error> {
         // todo(daviarin) add mock denom trace
         Ok(DenomTrace {
             /// The chain of port/channel identifiers used for tracing the source of the coin.
@@ -1955,7 +1956,7 @@ impl ChainEndpoint for NearChain {
         Ok(proofs)
     }
 
-    fn subscribe(&mut self) -> std::result::Result<Subscription, Error> {
+    fn subscribe(&mut self) -> Result<Subscription, Error> {
         info!("subscribing to events...");
         let tx_monitor_cmd = match &self.tx_monitor_cmd {
             Some(tx_monitor_cmd) => tx_monitor_cmd,
@@ -1968,14 +1969,13 @@ impl ChainEndpoint for NearChain {
             }
         };
 
-        let subscription = tx_monitor_cmd.subscribe().map_err(Error::event_monitor)?;
-        Ok(subscription)
+        tx_monitor_cmd.subscribe().map_err(Error::event_monitor)
     }
 
     fn query_consensus_state_heights(
         &self,
         request: QueryConsensusStateHeightsRequest,
-    ) -> std::result::Result<Vec<Height>, Error> {
+    ) -> Result<Vec<Height>, Error> {
         info!(
             "{}: [query_consensus_state_heights] - request: {:?} ",
             self.id(),
@@ -1998,15 +1998,14 @@ impl ChainEndpoint for NearChain {
     fn cross_chain_query(
         &self,
         _requests: Vec<CrossChainQueryRequest>,
-    ) -> std::result::Result<Vec<CrossChainQueryResponse>, Error> {
+    ) -> Result<Vec<CrossChainQueryResponse>, Error> {
         todo!()
     }
 
     fn query_incentivized_packet(
         &self,
         _request: ibc_proto::ibc::apps::fee::v1::QueryIncentivizedPacketRequest,
-    ) -> std::result::Result<ibc_proto::ibc::apps::fee::v1::QueryIncentivizedPacketResponse, Error>
-    {
+    ) -> Result<ibc_proto::ibc::apps::fee::v1::QueryIncentivizedPacketResponse, Error> {
         todo!()
     }
 }

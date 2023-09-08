@@ -1,4 +1,8 @@
 use flex_error::{define_error, TraceError};
+use near_jsonrpc_client::errors::JsonRpcError;
+use near_jsonrpc_primitives::types::blocks::RpcBlockError;
+use near_jsonrpc_primitives::types::query::RpcQueryError;
+use near_jsonrpc_primitives::types::transactions::RpcTransactionError;
 
 define_error! {
     NearError {
@@ -24,5 +28,20 @@ define_error! {
         CustomError
             { reason: String }
             |e| { format!("Custom error: {}", e.reason) },
+
+        RpcQueryError
+            [ TraceError<JsonRpcError<RpcQueryError>> ]
+            | _ | { "near rpc query error"},
+
+        RpcTransactionError
+            [ TraceError<JsonRpcError<RpcTransactionError>>]
+            | _ | { "near rpc transaction error"},
+
+        RpcBlockError
+            [ TraceError<JsonRpcError<RpcBlockError>>]
+            | _ | { "near rpc block error" },
+
+        DeliverError
+            |_| { "near chain Deliver failed" },
     }
 }
