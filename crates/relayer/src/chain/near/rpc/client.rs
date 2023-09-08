@@ -189,7 +189,7 @@ impl NearRpcClient {
         contract_id: AccountId,
         prefix: Option<&[u8]>,
         block_id: Option<BlockId>,
-    ) -> anyhow::Result<near_primitives::views::ViewStateResult> {
+    ) -> Result<near_primitives::views::ViewStateResult, NearError> {
         let block_reference = block_id
             .map(Into::into)
             .unwrap_or_else(|| Finality::None.into());
@@ -203,11 +203,12 @@ impl NearRpcClient {
                     include_proof: false,
                 },
             })
-            .await?;
+            .await
+            .map_err(NearError::rpc_query_error)?;
 
         match query_resp.kind {
-            QueryResponseKind::ViewState(state) => anyhow::Ok(state),
-            _ => anyhow::bail!(ERR_INVALID_VARIANT),
+            QueryResponseKind::ViewState(state) => Ok(state),
+            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
         }
     }
 
@@ -215,7 +216,7 @@ impl NearRpcClient {
         &self,
         contract_id: AccountId,
         block_id: Option<BlockId>,
-    ) -> anyhow::Result<Vec<StateChangeWithCauseView>> {
+    ) -> Result<Vec<StateChangeWithCauseView>, NearError> {
         let block_reference = block_id
             .map(Into::into)
             .unwrap_or_else(|| Finality::None.into());
@@ -227,7 +228,8 @@ impl NearRpcClient {
                     account_ids: [contract_id].into(),
                 },
             })
-            .await?;
+            .await
+            .map_err(NearError::rpc_state_changes_error)?;
 
         Ok(query_resp.changes)
     }
@@ -236,7 +238,7 @@ impl NearRpcClient {
         &self,
         account_id: AccountId,
         block_id: Option<BlockId>,
-    ) -> anyhow::Result<AccountView> {
+    ) -> Result<AccountView, NearError> {
         let block_reference = block_id
             .map(Into::into)
             .unwrap_or_else(|| Finality::None.into());
@@ -246,11 +248,12 @@ impl NearRpcClient {
                 block_reference,
                 request: QueryRequest::ViewAccount { account_id },
             })
-            .await?;
+            .await
+            .map_err(NearError::rpc_query_error)?;
 
         match query_resp.kind {
             QueryResponseKind::ViewAccount(account) => Ok(account),
-            _ => anyhow::bail!(ERR_INVALID_VARIANT),
+            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
         }
     }
 
@@ -258,7 +261,7 @@ impl NearRpcClient {
         &self,
         account_id: AccountId,
         block_id: Option<BlockId>,
-    ) -> anyhow::Result<ContractCodeView> {
+    ) -> Result<ContractCodeView, NearError> {
         let block_reference = block_id
             .map(Into::into)
             .unwrap_or_else(|| Finality::None.into());
@@ -268,11 +271,12 @@ impl NearRpcClient {
                 block_reference,
                 request: QueryRequest::ViewCode { account_id },
             })
-            .await?;
+            .await
+            .map_err(NearError::rpc_query_error)?;
 
         match query_resp.kind {
             QueryResponseKind::ViewCode(code) => Ok(code),
-            _ => anyhow::bail!(ERR_INVALID_VARIANT),
+            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
         }
     }
 
@@ -292,12 +296,10 @@ impl NearRpcClient {
     pub async fn view_tx(
         &self,
         transaction_info: TransactionInfo,
-    ) -> anyhow::Result<FinalExecutionOutcomeView> {
-        let tx_view = self
-            .query(&methods::tx::RpcTransactionStatusRequest { transaction_info })
-            .await?;
-
-        Ok(tx_view)
+    ) -> Result<FinalExecutionOutcomeView, NearError> {
+        self.query(&methods::tx::RpcTransactionStatusRequest { transaction_info })
+            .await
+            .map_err(NearError::rpc_transaction_error)
     }
 
     pub async fn deploy(
