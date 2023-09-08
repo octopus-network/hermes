@@ -43,5 +43,8 @@ define_error! {
 
         DeliverError
             |_| { "near chain Deliver failed" },
+
+        BuildVpClientError
+            | _ | { "near chain bootstrap build VpClientFailed" },
     }
 }

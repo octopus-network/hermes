@@ -1,3 +1,4 @@
+use crate::chain::ic::errors::VpError;
 use candid::CandidType;
 use ic_cdk::export::serde::Deserialize;
 
@@ -8,10 +9,10 @@ pub(crate) enum VecResult {
 }
 
 impl VecResult {
-    pub fn transfer_anyhow(self) -> anyhow::Result<Vec<u8>> {
+    pub fn transfer_anyhow(self) -> Result<Vec<u8>, VpError> {
         match self {
             VecResult::Ok(value) => Ok(value),
-            VecResult::Err(e) => Err(anyhow::anyhow!(e)),
+            VecResult::Err(e) => Err(VpError::custom_error(e)),
         }
     }
 }
