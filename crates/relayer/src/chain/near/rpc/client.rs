@@ -3,6 +3,7 @@ use std::ops::Mul;
 use std::time::Duration;
 
 use crate::chain::near::constants::ONE_TERA_GAS;
+use crate::chain::near::error::NearError;
 use crate::chain::near::rpc::result::ViewResultDetails;
 use near_crypto::{InMemorySigner, PublicKey, Signer};
 use near_jsonrpc_client::errors::JsonRpcError;
@@ -132,7 +133,7 @@ impl NearRpcClient {
         signer: &InMemorySigner,
         receiver_id: &AccountId,
         action: Action,
-    ) -> anyhow::Result<FinalExecutionOutcomeView> {
+    ) -> Result<FinalExecutionOutcomeView, NearError> {
         send_batch_tx_and_retry(self, signer, receiver_id, vec![action]).await
     }
 
@@ -144,7 +145,7 @@ impl NearRpcClient {
         args: Vec<u8>,
         gas: Gas,
         deposit: Balance,
-    ) -> anyhow::Result<FinalExecutionOutcomeView> {
+    ) -> Result<FinalExecutionOutcomeView, NearError> {
         self.send_tx_and_retry(
             signer,
             contract_id,
@@ -164,7 +165,7 @@ impl NearRpcClient {
         contract_id: AccountId,
         method_name: String,
         args: Vec<u8>,
-    ) -> anyhow::Result<ViewResultDetails> {
+    ) -> Result<ViewResultDetails, NearError> {
         let query_resp = self
             .query(&RpcQueryRequest {
                 block_reference: Finality::None.into(), // Optimisitic query
@@ -174,11 +175,12 @@ impl NearRpcClient {
                     args: args.into(),
                 },
             })
-            .await?;
+            .await
+            .map_err(NearError::rpc_query_error)?;
 
         match query_resp.kind {
             QueryResponseKind::CallResult(result) => Ok(result.into()),
-            _ => anyhow::bail!(ERR_INVALID_VARIANT),
+            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
         }
     }
 
@@ -187,7 +189,7 @@ impl NearRpcClient {
         contract_id: AccountId,
         prefix: Option<&[u8]>,
         block_id: Option<BlockId>,
-    ) -> anyhow::Result<near_primitives::views::ViewStateResult> {
+    ) -> Result<near_primitives::views::ViewStateResult, NearError> {
         let block_reference = block_id
             .map(Into::into)
             .unwrap_or_else(|| Finality::None.into());
@@ -201,11 +203,12 @@ impl NearRpcClient {
                     include_proof: false,
                 },
             })
-            .await?;
+            .await
+            .map_err(NearError::rpc_query_error)?;
 
         match query_resp.kind {
-            QueryResponseKind::ViewState(state) => anyhow::Ok(state),
-            _ => anyhow::bail!(ERR_INVALID_VARIANT),
+            QueryResponseKind::ViewState(state) => Ok(state),
+            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
         }
     }
 
@@ -213,7 +216,7 @@ impl NearRpcClient {
         &self,
         contract_id: AccountId,
         block_id: Option<BlockId>,
-    ) -> anyhow::Result<Vec<StateChangeWithCauseView>> {
+    ) -> Result<Vec<StateChangeWithCauseView>, NearError> {
         let block_reference = block_id
             .map(Into::into)
             .unwrap_or_else(|| Finality::None.into());
@@ -225,7 +228,8 @@ impl NearRpcClient {
                     account_ids: [contract_id].into(),
                 },
             })
-            .await?;
+            .await
+            .map_err(NearError::rpc_state_changes_error)?;
 
         Ok(query_resp.changes)
     }
@@ -234,7 +238,7 @@ impl NearRpcClient {
         &self,
         account_id: AccountId,
         block_id: Option<BlockId>,
-    ) -> anyhow::Result<AccountView> {
+    ) -> Result<AccountView, NearError> {
         let block_reference = block_id
             .map(Into::into)
             .unwrap_or_else(|| Finality::None.into());
@@ -244,11 +248,12 @@ impl NearRpcClient {
                 block_reference,
                 request: QueryRequest::ViewAccount { account_id },
             })
-            .await?;
+            .await
+            .map_err(NearError::rpc_query_error)?;
 
         match query_resp.kind {
             QueryResponseKind::ViewAccount(account) => Ok(account),
-            _ => anyhow::bail!(ERR_INVALID_VARIANT),
+            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
         }
     }
 
@@ -256,7 +261,7 @@ impl NearRpcClient {
         &self,
         account_id: AccountId,
         block_id: Option<BlockId>,
-    ) -> anyhow::Result<ContractCodeView> {
+    ) -> Result<ContractCodeView, NearError> {
         let block_reference = block_id
             .map(Into::into)
             .unwrap_or_else(|| Finality::None.into());
@@ -266,22 +271,24 @@ impl NearRpcClient {
                 block_reference,
                 request: QueryRequest::ViewCode { account_id },
             })
-            .await?;
+            .await
+            .map_err(NearError::rpc_query_error)?;
 
         match query_resp.kind {
             QueryResponseKind::ViewCode(code) => Ok(code),
-            _ => anyhow::bail!(ERR_INVALID_VARIANT),
+            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
         }
     }
 
-    pub async fn view_block(&self, block_id: Option<BlockId>) -> anyhow::Result<BlockView> {
+    pub async fn view_block(&self, block_id: Option<BlockId>) -> Result<BlockView, NearError> {
         let block_reference = block_id
             .map(Into::into)
             .unwrap_or_else(|| Finality::None.into());
 
         let block_view = self
             .query(&methods::block::RpcBlockRequest { block_reference })
-            .await?;
+            .await
+            .map_err(NearError::rpc_block_error)?;
 
         Ok(block_view)
     }
@@ -289,19 +296,17 @@ impl NearRpcClient {
     pub async fn view_tx(
         &self,
         transaction_info: TransactionInfo,
-    ) -> anyhow::Result<FinalExecutionOutcomeView> {
-        let tx_view = self
-            .query(&methods::tx::RpcTransactionStatusRequest { transaction_info })
-            .await?;
-
-        Ok(tx_view)
+    ) -> Result<FinalExecutionOutcomeView, NearError> {
+        self.query(&methods::tx::RpcTransactionStatusRequest { transaction_info })
+            .await
+            .map_err(NearError::rpc_transaction_error)
     }
 
     pub async fn deploy(
         &self,
         signer: &InMemorySigner,
         wasm: Vec<u8>,
-    ) -> anyhow::Result<FinalExecutionOutcomeView> {
+    ) -> Result<FinalExecutionOutcomeView, NearError> {
         self.send_tx_and_retry(
             signer,
             &signer.account_id,
@@ -316,7 +321,7 @@ impl NearRpcClient {
         wasm: Vec<u8>,
         method_name: String,
         args: Vec<u8>,
-    ) -> anyhow::Result<FinalExecutionOutcomeView> {
+    ) -> Result<FinalExecutionOutcomeView, NearError> {
         send_batch_tx_and_retry(
             self,
             signer,
@@ -341,7 +346,7 @@ impl NearRpcClient {
         signer: &InMemorySigner,
         receiver_id: &AccountId,
         amount_yocto: Balance,
-    ) -> anyhow::Result<FinalExecutionOutcomeView> {
+    ) -> Result<FinalExecutionOutcomeView, NearError> {
         self.send_tx_and_retry(
             signer,
             receiver_id,
@@ -359,7 +364,7 @@ impl NearRpcClient {
         new_account_id: &AccountId,
         new_account_pk: PublicKey,
         amount: Balance,
-    ) -> anyhow::Result<FinalExecutionOutcomeView> {
+    ) -> Result<FinalExecutionOutcomeView, NearError> {
         send_batch_tx_and_retry(
             self,
             signer,
@@ -387,7 +392,7 @@ impl NearRpcClient {
         new_account_pk: PublicKey,
         amount: Balance,
         code: Vec<u8>,
-    ) -> anyhow::Result<FinalExecutionOutcomeView> {
+    ) -> Result<FinalExecutionOutcomeView, NearError> {
         send_batch_tx_and_retry(
             self,
             signer,
@@ -415,7 +420,7 @@ impl NearRpcClient {
         signer: &InMemorySigner,
         account_id: &AccountId,
         beneficiary_id: &AccountId,
-    ) -> anyhow::Result<FinalExecutionOutcomeView> {
+    ) -> Result<FinalExecutionOutcomeView, NearError> {
         let beneficiary_id = beneficiary_id.to_owned();
         self.send_tx_and_retry(
             signer,
@@ -465,7 +470,7 @@ pub async fn access_key(
     client: &NearRpcClient,
     account_id: AccountId,
     public_key: PublicKey,
-) -> anyhow::Result<(AccessKeyView, CryptoHash)> {
+) -> Result<(AccessKeyView, CryptoHash), NearError> {
     let query_resp = client
         .query(&RpcQueryRequest {
             block_reference: Finality::None.into(),
@@ -474,11 +479,14 @@ pub async fn access_key(
                 public_key,
             },
         })
-        .await?;
+        .await
+        .map_err(NearError::rpc_query_error)?;
 
     match query_resp.kind {
         QueryResponseKind::AccessKey(access_key) => Ok((access_key, query_resp.block_hash)),
-        _ => Err(anyhow::anyhow!("Could not retrieve access key")),
+        _ => Err(NearError::custom_error(
+            "Could not retrieve access key".to_string(),
+        )),
     }
 }
 
@@ -497,22 +505,22 @@ where
 pub async fn send_tx(
     client: &NearRpcClient,
     tx: SignedTransaction,
-) -> anyhow::Result<FinalExecutionOutcomeView> {
+) -> Result<FinalExecutionOutcomeView, NearError> {
     client
         .query_broadcast_tx(&methods::broadcast_tx_commit::RpcBroadcastTxCommitRequest {
             signed_transaction: tx,
         })
         .await
-        .map_err(|e| anyhow::anyhow!(e))
+        .map_err(NearError::rpc_transaction_error)
 }
 
 pub async fn send_tx_and_retry<T, F>(
     client: &NearRpcClient,
     task: F,
-) -> anyhow::Result<FinalExecutionOutcomeView>
+) -> Result<FinalExecutionOutcomeView, NearError>
 where
     F: Fn() -> T,
-    T: core::future::Future<Output = anyhow::Result<SignedTransaction>>,
+    T: core::future::Future<Output = Result<SignedTransaction, NearError>>,
 {
     retry(|| async { send_tx(client, task().await?).await }).await
 }
@@ -522,7 +530,7 @@ pub async fn send_batch_tx_and_retry(
     signer: &InMemorySigner,
     receiver_id: &AccountId,
     actions: Vec<Action>,
-) -> anyhow::Result<FinalExecutionOutcomeView> {
+) -> Result<FinalExecutionOutcomeView, NearError> {
     send_tx_and_retry(client, || async {
         let (AccessKeyView { nonce, .. }, block_hash) =
             access_key(client, signer.account_id.clone(), signer.public_key()).await?;

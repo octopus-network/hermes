@@ -2,6 +2,7 @@
 
 use core::time::Duration;
 
+use crate::chain::near::error::NearError;
 use flex_error::{define_error, DisplayOnly, TraceError};
 use http::uri::InvalidUri;
 use humantime::format_duration;
@@ -596,10 +597,15 @@ define_error! {
             [ event::error::Error ]
             |_| { "event monitor error" },
 
+        NearChainError
+            [ DisplayOnly<NearError> ]
+            | _ | { "near chain error" },
+
         ReportError
             { error: String }
             |e| {
-                format_args!("Report Error: ({})", e.error)
+                let caller = std::panic::Location::caller();
+                format!("Report Error: ({}) \n{}", e.error, caller)
             },
 
     }

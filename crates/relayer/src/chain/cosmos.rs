@@ -901,9 +901,10 @@ impl ChainEndpoint for CosmosSdkChain {
         let vp_client = rt
             .block_on(VpClient::new(&config.ic_endpoint, &config.canister_pem))
             .map_err(|e| {
+                let position = std::panic::Location::caller();
                 Error::report_error(format!(
-                    "[cosmos chain bootstrap build VpClientFailed] -> Error({:?})",
-                    e
+                    "build vp client failed Error({:?}) \n{}",
+                    e, position
                 ))
             })?;
         // Retrieve the version specification of this chain
@@ -1041,45 +1042,56 @@ impl ChainEndpoint for CosmosSdkChain {
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
         info!(
-            "[cosmos - send_messages_and_wait_commit] - tracked_msgs: {:?}, tracking_id: {:?}",
+            "tracked_msgs: {:?}, tracking_id: {:?}, \n{}",
             tracked_msgs
                 .msgs
                 .iter()
                 .map(|msg| msg.type_url.clone())
                 .collect::<Vec<_>>(),
-            tracked_msgs.tracking_id
+            tracked_msgs.tracking_id,
+            std::panic::Location::caller()
         );
         use ibc::Any;
-
-        let runtime = self.rt.clone();
 
         let mut tracked_msgs = tracked_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
             let canister_id = self.config.canister_id.id.as_str();
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
-                let res = runtime
+                let res = self
                     .block_on(self.vp_client.deliver(canister_id, msg.encode_to_vec()))
-                    .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_commit call icp deliver failed] -> Error({})", e)))?;
+                    .map_err(|e| {
+                        let position = std::panic::Location::caller();
+                        Error::report_error(format!(
+                            "call vp deliver failed Error({}) \n{}",
+                            e, position
+                        ))
+                    })?;
                 assert!(!res.is_empty());
                 if !res.is_empty() {
-                    msgs.push(
-                        Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Cosmos Chain send_messages_and_wait_commit encode call icp deliver result failed] -> Error({})", e)))?,
-                    );
+                    msgs.push(Any::decode(&res[..]).map_err(|e| {
+                        let position = std::panic::Location::caller();
+                        Error::report_error(format!(
+                            "decode call vp deliver result failed Error({}) \n{}",
+                            e, position
+                        ))
+                    })?);
                 }
             }
             tracked_msgs.msgs = msgs;
             info!(
-                "[cosmos - send_messages_and_wait_commit] - got proto_msgs from ic: {:?}",
+                "got proto_msgs from ic: {:?} \n{}",
                 tracked_msgs
                     .msgs
                     .iter()
                     .map(|msg| msg.type_url.clone())
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>(),
+                std::panic::Location::caller()
             );
         }
 
-        runtime.block_on(self.do_send_messages_and_wait_commit(tracked_msgs))
+        let rt = self.rt.clone();
+        rt.block_on(self.do_send_messages_and_wait_commit(tracked_msgs))
     }
 
     fn send_messages_and_wait_check_tx(
@@ -1087,17 +1099,16 @@ impl ChainEndpoint for CosmosSdkChain {
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<Response>, Error> {
         info!(
-            "[cosmos - send_messages_and_wait_check_tx] - tracked_msgs: {:?}, tracking_id: {:?}",
+            "tracked_msgs: {:?}, tracking_id: {:?} \n{}",
             tracked_msgs
                 .msgs
                 .iter()
                 .map(|msg| msg.type_url.clone())
                 .collect::<Vec<_>>(),
-            tracked_msgs.tracking_id
+            tracked_msgs.tracking_id,
+            std::panic::Location::caller()
         );
         use ibc::Any;
-
-        let runtime = self.rt.clone();
 
         let mut tracked_msgs = tracked_msgs.clone();
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
@@ -1105,28 +1116,40 @@ impl ChainEndpoint for CosmosSdkChain {
 
             let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
-                let res = runtime
+                let res = self
                     .block_on(self.vp_client.deliver(canister_id, msg.encode_to_vec()))
-                    .map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?;
+                    .map_err(|e| {
+                        let position = std::panic::Location::caller();
+                        Error::report_error(format!(
+                            "call icp deliver failed Error({}) \n{}",
+                            e, position
+                        ))
+                    })?;
                 assert!(!res.is_empty());
                 if !res.is_empty() {
-                    msgs.push(
-                        Any::decode(&res[..]).map_err(|e| Error::report_error(format!("[Comsos Chain send_messages_and_wait_check_tx call icp deliver failed] -> Error({})", e)))?,
-                    );
+                    msgs.push(Any::decode(&res[..]).map_err(|e| {
+                        let position = std::panic::Location::caller();
+                        Error::report_error(format!(
+                            "deliver result decode failed Error({}) \n{}",
+                            e, position
+                        ))
+                    })?);
                 }
             }
             tracked_msgs.msgs = msgs;
             info!(
-                "[cosmos - send_messages_and_wait_check_tx] - got proto_msgs from ic: {:?}",
+                "got proto_msgs from ic: {:?} \n{}",
                 tracked_msgs
                     .msgs
                     .iter()
                     .map(|msg| msg.type_url.clone())
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>(),
+                std::panic::Location::caller()
             );
         }
 
-        runtime.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs))
+        let rt = self.rt.clone();
+        rt.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs))
     }
 
     /// Get the account for the signer
@@ -1296,13 +1319,17 @@ impl ChainEndpoint for CosmosSdkChain {
         crate::telemetry!(query, self.id(), "query_client_state");
 
         if matches!(include_proof, IncludeProof::No) {
-            let runtime = self.rt.clone();
-
             let canister_id = self.config.canister_id.id.as_str();
 
-            let res = runtime
+            let res = self
                 .block_on(self.vp_client.query_client_state(canister_id, vec![]))
-                .map_err(|e| Error::report_error(format!("[Cosmos Chain query_client_state call icp query_client_state failed] -> Error({})", e)))?;
+                .map_err(|e| {
+                    let position = std::panic::Location::caller();
+                    Error::report_error(format!(
+                        "vp call query_client_state failed  Error({}) \n{}",
+                        e, position
+                    ))
+                })?;
             let client_state = AnyClientState::decode_vec(&res).map_err(Error::decode)?;
             return Ok((client_state, None));
         }
@@ -1404,27 +1431,26 @@ impl ChainEndpoint for CosmosSdkChain {
             }
         );
         crate::telemetry!(query, self.id(), "query_consensus_state");
-        // println!(
-        //     "ys-debug: query_consensus_state: chain_id: {:?}, request: {:?}, include_proof: {:?}",
-        //     self.id(),
-        //     request,
-        //     include_proof,
-        // );
+
         assert!(matches!(include_proof, IncludeProof::No));
         assert!(request.client_id.to_string().starts_with("06-solomachine"));
-        let runtime = self.rt.clone();
+
         let canister_id = self.config.canister_id.id.as_str();
 
         let mut buf = vec![];
         request.consensus_height.encode(&mut buf).map_err(|e| {
-            Error::report_error(format!(
-                "[Cosmos Chain query_consensus_state encode consensus height failed] -> Error({})",
-                e
-            ))
+            let position = std::panic::Location::caller();
+            Error::report_error(format!("encode height failed Error({}) \n{}", e, position))
         })?;
-        let res = runtime
-            .block_on(self.vp_client.query_consensus_state(canister_id,buf))
-            .map_err(|e| Error::report_error(format!("[Cosmos Chain query_consensus_state call ibc query_consensus_state] -> Error({})", e)))?;
+        let res = self
+            .block_on(self.vp_client.query_consensus_state(canister_id, buf))
+            .map_err(|e| {
+                let position = std::panic::Location::caller();
+                Error::report_error(format!(
+                    "vp call query_consensus_state failed Error({}) \n{}",
+                    e, position
+                ))
+            })?;
         let consensus_state = AnyConsensusState::decode_vec(&res).map_err(Error::decode)?;
         Ok((consensus_state, None))
     }

@@ -3,6 +3,7 @@ use crate::chain::{
     handle::Subscription,
     near::{
         contract::NearIbcContract,
+        error::NearError,
         rpc::{client::NearRpcClient, tool::convert_ibc_event_to_hermes_ibc_event},
     },
     tracking::TrackingId,
@@ -78,6 +79,8 @@ pub struct NearEventMonitor {
 }
 
 impl NearIbcContract for NearEventMonitor {
+    type Error = NearError;
+
     fn get_contract_id(&self) -> AccountId {
         self.near_ibc_address.clone()
     }

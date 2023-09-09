@@ -21,10 +21,13 @@ use ibc_relayer_types::core::ics04_channel::packet::Sequence;
 use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, ClientId, ConnectionId, PortId};
 use near_primitives::types::AccountId;
 use serde_json::json;
+use std::fmt::{Debug, Display};
 use tokio::runtime::Runtime as TokioRuntime;
 use tracing::trace;
 
 pub trait NearIbcContract {
+    type Error: Send + Sync + 'static + Debug + Display + From<NearError>;
+
     fn get_contract_id(&self) -> AccountId;
     fn get_client(&self) -> &NearRpcClient;
     fn get_rt(&self) -> &Arc<TokioRuntime>;
@@ -39,11 +42,12 @@ pub trait NearIbcContract {
         contract_id: AccountId,
         method_name: String,
         args: Vec<u8>,
-    ) -> anyhow::Result<ViewResultDetails> {
+    ) -> Result<ViewResultDetails, Self::Error> {
         self.block_on(self.get_client().view(contract_id, method_name, args))
+            .map_err(Into::into)
     }
 
-    fn get_latest_height(&self) -> anyhow::Result<Height> {
+    fn get_latest_height(&self) -> Result<Height, Self::Error> {
         trace!("NearIbcContract: [get_latest_height]");
 
         let height: Height = self
@@ -56,20 +60,22 @@ pub trait NearIbcContract {
 
         // As we use solomachine client, we set the revision number to 0
         // TODO: ibc height reversion number is chainid version
-        Ok(Height::new(0, height.revision_height())?)
+        Height::new(0, height.revision_height())
+            .map_err(NearError::build_ibc_height_error)
+            .map_err(Into::into)
     }
 
     fn get_connection_end(
         &self,
         connection_identifier: &ConnectionId,
-    ) -> anyhow::Result<ConnectionEnd> {
+    ) -> Result<ConnectionEnd, Self::Error> {
         trace!(
-            "NearIbcContract: [get_connection_end] - connection_identifier: {:?}",
-            connection_identifier
+            "connection_identifier: {:?} \n{}",
+            connection_identifier,
+            std::panic::Location::caller()
         );
 
         let connection_id = connection_identifier.to_string();
-        // thread::sleep(Duration::from_secs(5));
 
         self.view(
             self.get_contract_id(),
@@ -79,6 +85,7 @@ pub trait NearIbcContract {
                 .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     /// get channelEnd  by port_identifier, and channel_identifier
@@ -86,11 +93,12 @@ pub trait NearIbcContract {
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
-    ) -> anyhow::Result<ChannelEnd> {
+    ) -> Result<ChannelEnd, Self::Error> {
         trace!(
-            "NearIbcContract: [query_channel_end] - port_id: {:?} channel_id: {:?}",
+            "port_id: {:?} channel_id: {:?} \n{}",
             port_id,
-            channel_id
+            channel_id,
+            std::panic::Location::caller()
         );
 
         self.view(
@@ -101,13 +109,15 @@ pub trait NearIbcContract {
                 .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     /// get client_state by client_id
-    fn get_client_state(&self, client_id: &ClientId) -> anyhow::Result<Vec<u8>> {
+    fn get_client_state(&self, client_id: &ClientId) -> Result<Vec<u8>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_client_state] - client_id: {:?}",
-            client_id
+            "client_id: {:?} \n{}",
+            client_id,
+            std::panic::Location::caller()
         );
 
         self.view(
@@ -118,12 +128,17 @@ pub trait NearIbcContract {
                 .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
-    fn get_client_consensus_heights(&self, client_id: &ClientId) -> anyhow::Result<Vec<Height>> {
+    fn get_client_consensus_heights(
+        &self,
+        client_id: &ClientId,
+    ) -> Result<Vec<Height>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_client_consensus_heights] - client_id: {:?}",
+            "client_id: {:?} \n{}",
             client_id,
+            std::panic::Location::caller()
         );
         self.view(
             self.get_contract_id(),
@@ -133,6 +148,7 @@ pub trait NearIbcContract {
                 .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     /// Performs a query to retrieve the consensus state for a specified height
@@ -141,11 +157,12 @@ pub trait NearIbcContract {
         &self,
         client_id: &ClientId,
         consensus_height: &Height,
-    ) -> anyhow::Result<Vec<u8>> {
+    ) -> Result<Vec<u8>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_client_consensus] - client_id: {:?} consensus_height: {:?}",
+            "client_id: {:?} consensus_height: {:?} \n{}",
             client_id,
-            consensus_height
+            consensus_height,
+            std::panic::Location::caller()
         );
         self.view(
             self.get_contract_id(),
@@ -155,17 +172,19 @@ pub trait NearIbcContract {
                 .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_consensus_state_with_height(
         &self,
         client_id: &ClientId,
-    ) -> anyhow::Result<Vec<(Height, AnyConsensusState)>> {
+    ) -> Result<Vec<(Height, AnyConsensusState)>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_consensus_state_with_height] - client_id: {:?}",
-            client_id
+            "client_id: {:?} \n{}",
+            client_id,
+            std::panic::Location::caller()
         );
-        let client_id = serde_json::to_string(client_id).map_err(NearError::SerdeJsonError)?;
+        let client_id = serde_json::to_string(client_id).map_err(NearError::serde_json_error)?;
 
         self.view(
             self.get_contract_id(),
@@ -173,6 +192,7 @@ pub trait NearIbcContract {
             json!({ "client_id": client_id }).to_string().into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_unreceipt_packet(
@@ -180,10 +200,13 @@ pub trait NearIbcContract {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequences: &[Sequence],
-    ) -> anyhow::Result<Vec<u64>> {
+    ) -> Result<Vec<u64>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_unreceipt_packet] - port_id: {:?} channel_id: {:?} sequences: {:?}",
-            port_id, channel_id, sequences
+            "port_id: {:?} channel_id: {:?} sequences: {:?} \n{}",
+            port_id,
+            channel_id,
+            sequences,
+            std::panic::Location::caller()
         );
 
         self.view(
@@ -198,15 +221,20 @@ pub trait NearIbcContract {
             .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_clients(
         &self,
         request: QueryClientStatesRequest,
-    ) -> anyhow::Result<Vec<(ClientId, Vec<u8>)>> {
-        trace!("NearIbcContract: [get_clients] - request: {:?}", request);
+    ) -> Result<Vec<(ClientId, Vec<u8>)>, Self::Error> {
+        trace!(
+            "request: {:?} \n{}",
+            request,
+            std::panic::Location::caller()
+        );
 
-        let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
+        let request = serde_json::to_string(&request).map_err(NearError::serde_json_error)?;
 
         self.view(
             self.get_contract_id(),
@@ -214,18 +242,20 @@ pub trait NearIbcContract {
             json!({ "request": request }).to_string().into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_connections(
         &self,
         request: QueryConnectionsRequest,
-    ) -> anyhow::Result<Vec<IdentifiedConnectionEnd>> {
+    ) -> Result<Vec<IdentifiedConnectionEnd>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_connections] - request: {:?}",
-            request
+            "request: {:?} \n{}",
+            request,
+            std::panic::Location::caller()
         );
 
-        let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
+        let request = serde_json::to_string(&request).map_err(NearError::serde_json_error)?;
 
         self.view(
             self.get_contract_id(),
@@ -233,15 +263,20 @@ pub trait NearIbcContract {
             json!({ "request": request }).to_string().into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_channels(
         &self,
         request: QueryChannelsRequest,
-    ) -> anyhow::Result<Vec<IdentifiedChannelEnd>> {
-        trace!("NearIbcContract: [get_channels] - request: {:?}", request);
+    ) -> Result<Vec<IdentifiedChannelEnd>, Self::Error> {
+        trace!(
+            "request: {:?} \n{}",
+            request,
+            std::panic::Location::caller()
+        );
 
-        let request = serde_json::to_string(&request).map_err(NearError::SerdeJsonError)?;
+        let request = serde_json::to_string(&request).map_err(NearError::serde_json_error)?;
 
         self.view(
             self.get_contract_id(),
@@ -249,15 +284,17 @@ pub trait NearIbcContract {
             json!({ "request": request }).to_string().into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_packet_commitments(
         &self,
         request: QueryPacketCommitmentsRequest,
-    ) -> anyhow::Result<Vec<Sequence>> {
+    ) -> Result<Vec<Sequence>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_packet_commitments] - request: {:?}",
-            request
+            "request: {:?} \n{}",
+            request,
+            std::panic::Location::caller()
         );
         self.view(
             self.get_contract_id(),
@@ -270,13 +307,15 @@ pub trait NearIbcContract {
             .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_packet_acknowledgements(
         &self,
         request: QueryPacketAcknowledgementsRequest,
-    ) -> anyhow::Result<Vec<Sequence>> {
+    ) -> Result<Vec<Sequence>, Self::Error> {
         trace!("NearIbcContract: [get_packet_acknowledgements]");
+
         self.view(
             self.get_contract_id(),
             "get_packet_acknowledgement_sequences".into(),
@@ -288,17 +327,19 @@ pub trait NearIbcContract {
             .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     /// get connection_identifier vector by client_identifier
     fn get_client_connections(
         &self,
         request: &QueryClientConnectionsRequest,
-    ) -> anyhow::Result<Vec<ConnectionId>> {
+    ) -> Result<Vec<ConnectionId>, Self::Error> {
         let client_id = request.client_id.to_string();
         trace!(
-            "NearIbcContract: [get_client_connections] - client_id: {:?}",
-            client_id
+            "client_id: {:?} \n{}",
+            client_id,
+            std::panic::Location::caller()
         );
         self.view(
             self.get_contract_id(),
@@ -306,15 +347,17 @@ pub trait NearIbcContract {
             json!({ "client_id": client_id }).to_string().into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_connection_channels(
         &self,
         connection_id: &ConnectionId,
-    ) -> anyhow::Result<Vec<IdentifiedChannelEnd>> {
+    ) -> Result<Vec<IdentifiedChannelEnd>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_connection_channels] - connection_id: {:?}",
-            connection_id
+            "connection_id: {:?} \n{}",
+            connection_id,
+            std::panic::Location::caller()
         );
 
         self.view(
@@ -325,6 +368,7 @@ pub trait NearIbcContract {
                 .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_packet_commitment(
@@ -332,10 +376,13 @@ pub trait NearIbcContract {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> anyhow::Result<Vec<u8>> {
+    ) -> Result<Vec<u8>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_packet_commitment] - port_id: {:?}, channel_id: {:?}, sequence: {:?}",
-            port_id, channel_id, sequence
+            "port_id: {:?}, channel_id: {:?}, sequence: {:?} \n{}",
+            port_id,
+            channel_id,
+            sequence,
+            std::panic::Location::caller()
         );
 
         self.view(
@@ -350,9 +397,10 @@ pub trait NearIbcContract {
             .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
-    fn get_commitment_prefix(&self) -> anyhow::Result<Vec<u8>> {
+    fn get_commitment_prefix(&self) -> Result<Vec<u8>, Self::Error> {
         trace!("NearIbcContract: [get_commitment_prefix]");
         self.view(
             self.get_contract_id(),
@@ -360,16 +408,19 @@ pub trait NearIbcContract {
             json!({}).to_string().into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
-    fn get_contract_version(&self) -> anyhow::Result<Vec<u8>> {
+    fn get_contract_version(&self) -> Result<Vec<u8>, Self::Error> {
         trace!("NearIbcContract: [get_contract_version]");
+
         self.view(
             self.get_contract_id(),
             "version".into(),
             json!({}).to_string().into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_packet_receipt(
@@ -377,10 +428,13 @@ pub trait NearIbcContract {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> anyhow::Result<Vec<u8>> {
+    ) -> Result<Vec<u8>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_packet_receipt] - port_id: {:?}, channel_id: {:?}, sequence: {:?}",
-            port_id, channel_id, sequence
+            "port_id: {:?}, channel_id: {:?}, sequence: {:?} \n{}",
+            port_id,
+            channel_id,
+            sequence,
+            std::panic::Location::caller()
         );
 
         self.view(
@@ -395,17 +449,19 @@ pub trait NearIbcContract {
             .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_next_sequence_receive(
         &self,
         port_id: &PortId,
         channel_id: &ChannelId,
-    ) -> anyhow::Result<Sequence> {
+    ) -> Result<Sequence, Self::Error> {
         trace!(
-            "NearIbcContract: [get_next_sequence_receive] - port_id: {:?}, channel_id: {:?}",
+            "port_id: {:?}, channel_id: {:?} \n{}",
             port_id,
             channel_id,
+            std::panic::Location::caller()
         );
 
         self.view(
@@ -419,6 +475,7 @@ pub trait NearIbcContract {
             .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_packet_acknowledgement(
@@ -426,10 +483,13 @@ pub trait NearIbcContract {
         port_id: &PortId,
         channel_id: &ChannelId,
         sequence: &Sequence,
-    ) -> anyhow::Result<Vec<u8>> {
+    ) -> Result<Vec<u8>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_packet_acknowledgement] - port_id: {:?}, channel_id: {:?}, sequence: {:?}",
-            port_id, channel_id, sequence
+            "port_id: {:?}, channel_id: {:?}, sequence: {:?} \n{}",
+            port_id,
+            channel_id,
+            sequence,
+            std::panic::Location::caller()
         );
 
         self.view(
@@ -444,15 +504,17 @@ pub trait NearIbcContract {
             .into_bytes(),
         )?
         .json()
+        .map_err(Into::into)
     }
 
     fn get_packet_events(
         &self,
         request: QueryPacketEventDataRequest,
-    ) -> anyhow::Result<Vec<(Height, Vec<IbcEvent>)>> {
+    ) -> Result<Vec<(Height, Vec<IbcEvent>)>, Self::Error> {
         trace!(
-            "NearIbcContract: [get_packet_events] - request: {:?}",
-            request
+            "request: {:?} \n{}",
+            request,
+            std::panic::Location::caller()
         );
 
         self.view(
@@ -461,6 +523,7 @@ pub trait NearIbcContract {
             json!({ "request": request }).to_string().into_bytes(),
         )?
         .json::<Vec<(Height, Vec<IbcEvent>)>>()
+        .map_err(Into::into)
     }
 }
 
@@ -483,14 +546,12 @@ pub async fn test123() -> anyhow::Result<()> {
                 .into_bytes(),
         )
         .await
-        .map_err(|e| NearError::CustomError(e.to_string()))?;
-
-    // dbg!(&result);
+        .map_err(|e| NearError::custom_error(e.to_string()))?;
 
     let result_raw: serde_json::value::Value = result.json().unwrap();
     dbg!(&result_raw);
     let connection_end: ConnectionEnd =
-        serde_json::from_value(result_raw).map_err(NearError::SerdeJsonError)?;
+        serde_json::from_value(result_raw).map_err(NearError::serde_json_error)?;
     dbg!(&connection_end);
     Ok(())
 }
