@@ -1,5 +1,4 @@
 use super::client::ClientSettings;
-use super::ic::VpClient;
 use crate::chain::near::constants::*;
 use crate::chain::near::error::NearError;
 use crate::util::retry::{retry_with_index, RetryResult};
@@ -120,7 +119,6 @@ struct NearProofs(Vec<Vec<u8>>);
 pub struct NearChain {
     client: NearRpcClient,
     lcb_client: NearRpcClient,
-    vp_client: VpClient,
     config: ChainConfig,
     keybase: KeyRing<NearKeyPair>,
     near_ibc_contract: AccountId,
@@ -257,9 +255,6 @@ impl ChainEndpoint for NearChain {
             &config.key_store_folder,
         )
         .map_err(Error::key_base)?;
-        let vp_client = rt
-            .block_on(VpClient::new(&config.ic_endpoint, &config.canister_pem))
-            .map_err(|e| Error::near_chain_error(NearError::vp_error(e)))?;
 
         let lcb_client_rpc_url = if config.rpc_addr.to_string().contains("testnet") {
             NEAR_TESTNET_RPC_URL
@@ -269,7 +264,6 @@ impl ChainEndpoint for NearChain {
         let mut new_instance = NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
             lcb_client: NearRpcClient::new(lcb_client_rpc_url),
-            vp_client,
             config: config.clone(),
             keybase,
             near_ibc_contract: config.near_ibc_address.into(),
@@ -346,46 +340,7 @@ impl ChainEndpoint for NearChain {
             std::panic::Location::caller()
         );
 
-        let mut tracked_msgs = proto_msgs.clone();
-        if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let msgs_result: Result<Vec<_>, _> = tracked_msgs
-                .messages()
-                .iter()
-                .map(|msg| {
-                    self.block_on(
-                        self.vp_client
-                            .deliver(self.canister_id(), msg.encode_to_vec()),
-                    )
-                    .map_err(|e| Error::near_chain_error(NearError::vp_deliver_error(e)))
-                })
-                .filter_map(|res| {
-                    res.ok()
-                        .and_then(|r| if r.is_empty() { None } else { Some(r) })
-                })
-                .map(|res| {
-                    Any::decode(&res[..]).map_err(|e| {
-                        Error::near_chain_error(NearError::decode_vp_deliver_result_failed(e))
-                    })
-                })
-                .collect();
-
-            match msgs_result {
-                Ok(msgs) => tracked_msgs.msgs = msgs,
-                Err(e) => return Err(e),
-            }
-
-            info!(
-                "got proto_msgs from ic: {:?} \n{}",
-                tracked_msgs
-                    .msgs
-                    .iter()
-                    .map(|msg| msg.type_url.clone())
-                    .collect::<Vec<_>>(),
-                std::panic::Location::caller()
-            );
-        }
-
-        let result = self.deliver(tracked_msgs.messages().to_vec())?;
+        let result = self.deliver(proto_msgs.messages().to_vec())?;
 
         debug!(
             "deliver result {:?} \n{}",
@@ -411,45 +366,7 @@ impl ChainEndpoint for NearChain {
             std::panic::Location::caller()
         );
 
-        let mut tracked_msgs = proto_msgs.clone();
-        if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let msgs_result: Result<Vec<_>, _> = tracked_msgs
-                .messages()
-                .iter()
-                .map(|msg| {
-                    self.block_on(
-                        self.vp_client
-                            .deliver(self.canister_id(), msg.encode_to_vec()),
-                    )
-                    .map_err(|e| Error::near_chain_error(NearError::vp_deliver_error(e)))
-                })
-                .filter_map(|res| {
-                    res.ok()
-                        .and_then(|r| if r.is_empty() { None } else { Some(r) })
-                })
-                .map(|res| {
-                    Any::decode(&res[..]).map_err(|e| {
-                        Error::near_chain_error(NearError::decode_vp_deliver_result_failed(e))
-                    })
-                })
-                .collect();
-
-            match msgs_result {
-                Ok(msgs) => tracked_msgs.msgs = msgs,
-                Err(e) => return Err(e),
-            }
-
-            info!(
-                "got proto_msgs from ic: {:?}",
-                tracked_msgs
-                    .msgs
-                    .iter()
-                    .map(|msg| msg.type_url.clone())
-                    .collect::<Vec<_>>()
-            );
-        }
-
-        let result = self.deliver(tracked_msgs.messages().to_vec())?;
+        let result = self.deliver(proto_msgs.messages().to_vec())?;
 
         debug!(
             "deliver result: {:?} \n{}",
@@ -674,20 +591,6 @@ impl ChainEndpoint for NearChain {
             std::panic::Location::caller()
         );
 
-        if matches!(include_proof, IncludeProof::No) {
-            let res = self
-                .block_on(
-                    self.vp_client
-                        .query_client_state(self.canister_id(), vec![]),
-                )
-                .map_err(|e| Error::report_error(e.to_string()))?;
-
-            return Ok((
-                AnyClientState::decode_vec(&res).map_err(Error::decode)?,
-                None,
-            ));
-        }
-
         let QueryClientStateRequest { client_id, height } = request;
 
         let _query_height = match height {
@@ -718,47 +621,28 @@ impl ChainEndpoint for NearChain {
             include_proof,
             std::panic::Location::caller()
         );
-        assert!(matches!(include_proof, IncludeProof::No));
-        assert!(request.client_id.to_string().starts_with("06-solomachine"));
+        // query_height to amit to search chain height
+        let QueryConsensusStateRequest {
+            client_id,
+            consensus_height,
+            query_height: _,
+        } = request;
 
-        let mut buf = vec![];
-        request
-            .consensus_height
-            .encode(&mut buf)
+        let result = self
+            .get_client_consensus(&client_id, &consensus_height)
+            .map_err(|_| Error::report_error("query_client_consensus".to_string()))?;
+
+        if result.is_empty() {
+            return Err(Error::report_error("query_client_consensus".to_string()));
+        }
+
+        let consensus_state = AnyConsensusState::decode_vec(&result)
             .map_err(|e| Error::report_error(e.to_string()))?;
-        let res = self
-            .block_on(
-                self.vp_client
-                    .query_consensus_state(self.canister_id(), buf),
-            )
-            .map_err(|e| Error::report_error(e.to_string()))?;
 
-        Ok((
-            AnyConsensusState::decode_vec(&res).map_err(Error::decode)?,
-            None,
-        ))
-        // // query_height to amit to search chain height
-        // let QueryConsensusStateRequest {
-        //     client_id,
-        //     consensus_height,
-        //     query_height: _,
-        // } = request;
-
-        // let result = self
-        //     .get_client_consensus(&client_id, &consensus_height)
-        //     .map_err(|_| Error::report_error("query_client_consensus".to_string()))?;
-
-        // if result.is_empty() {
-        //     return Err(Error::report_error("query_client_consensus".to_string()));
-        // }
-
-        // let consensus_state = AnyConsensusState::decode_vec(&result)
-        //     .map_err(|e| Error::report_error(e.to_string()))?;
-
-        // match include_proof {
-        //     IncludeProof::Yes => Ok((consensus_state, Some(MerkleProof::default()))),
-        //     IncludeProof::No => Ok((consensus_state, None)),
-        // }
+        match include_proof {
+            IncludeProof::Yes => Ok((consensus_state, None)),
+            IncludeProof::No => Ok((consensus_state, None)),
+        }
     }
 
     // fn query_consensus_states(
@@ -1567,18 +1451,24 @@ impl ChainEndpoint for NearChain {
                     CommitmentProofBytes::try_from(proof_client).map_err(Error::malformed_proof)?,
                 );
 
-                let (near_client_state_value, _) = self.query_client_state(
-                    QueryClientStateRequest {
-                        client_id: client_id.clone(),
-                        height: QueryHeight::Specific(height),
-                    },
-                    IncludeProof::No,
-                )?;
+                let (consensus_state_value, _maybe_consensus_state_proof) = self
+                    .query_consensus_state(
+                        QueryConsensusStateRequest {
+                            client_id: client_id.clone(),
+                            consensus_height: client_state_value.latest_height(),
+                            query_height: QueryHeight::Specific(height),
+                        },
+                        IncludeProof::No,
+                    )?;
 
+                let any: Any = consensus_state_value.into();
+                let consensus_state = any.encode_to_vec();
+                // julian: the bytes actually stored in the consensus_proof is the consensus state
                 consensus_proof = Option::from(
                     ConsensusProof::new(
-                        CommitmentProofBytes::try_from(vec![1]).map_err(Error::malformed_proof)?,
-                        near_client_state_value.latest_height(),
+                        CommitmentProofBytes::try_from(consensus_state)
+                            .map_err(Error::malformed_proof)?,
+                        client_state_value.latest_height(),
                     )
                     .map_err(Error::consensus_proof)?,
                 );
