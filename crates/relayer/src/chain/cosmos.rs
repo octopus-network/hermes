@@ -898,23 +898,12 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let tx_config = TxConfig::try_from(&config)?;
 
-        let canister_pem_path = if config.canister_pem.starts_with("~/") {
-            use std::path::PathBuf;
-            let tmp = config
-                .canister_pem
-                .to_str()
-                .ok_or(Error::report_error(
-                    "Canister pem path is empty".to_string(),
-                ))?
-                .trim_start_matches("~/")
-                .to_string();
-            let home_dir = dirs::home_dir().ok_or(Error::report_error(
-                "Failed to get home directory".to_string(),
-            ))?;
-            let canister_pem = home_dir.join(tmp).to_string_lossy().to_string();
-            PathBuf::from(canister_pem)
-        } else {
+        let canister_pem_path = if config.canister_pem.is_absolute() {
             config.canister_pem.clone()
+        } else {
+            let current_dir =
+                std::env::current_dir().map_err(|e| Error::report_error(e.to_string()))?;
+            current_dir.join(config.canister_pem.clone())
         };
 
         let vp_client = rt
