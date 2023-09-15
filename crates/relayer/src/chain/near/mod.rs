@@ -246,7 +246,7 @@ impl ChainEndpoint for NearChain {
 
     // todo init NearChain
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
-        info!("[bootstrap] : {}", config.id);
+        trace!("[bootstrap] : {}", config.id);
         // Initialize key store and load key
         let keybase = KeyRing::new_near_keypair(
             config.key_store_type,
@@ -386,8 +386,8 @@ impl ChainEndpoint for NearChain {
         target: ICSHeight,
         client_state: &AnyClientState,
     ) -> Result<Self::LightBlock, Error> {
-        info!(
-            "trusted: {:?} target: {:?} client_state: {:?} \n{}",
+        trace!(
+            "build_consensus_state on:\ntrusted: {:?} target: {:?} client_state: {:?} \n{}",
             trusted,
             target,
             client_state.latest_height(),
@@ -410,7 +410,7 @@ impl ChainEndpoint for NearChain {
                 }
             };
 
-            info!(
+            trace!(
                 "latest block height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
                 latest_block_view.header.height,
                 latest_block_view.header.epoch_id,
@@ -453,7 +453,7 @@ impl ChainEndpoint for NearChain {
             let header_result = produce_light_client_block(&light_client_block_view, &block_view);
             match header_result {
                 Ok(header) => {
-                    info!(
+                    trace!(
                         "new header in verify_header: {:?}, {:?}, {:?} \n{}",
                         header.height(),
                         light_client_block_view.inner_lite.height,
@@ -1071,7 +1071,7 @@ impl ChainEndpoint for NearChain {
         height: ICSHeight,
         dst_config: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
-        info!(
+        trace!(
             "height: {:?} dst_config: {:?} \n{}",
             height,
             dst_config,
@@ -1096,7 +1096,7 @@ impl ChainEndpoint for NearChain {
         &self,
         light_block: Self::LightBlock,
     ) -> Result<Self::ConsensusState, Error> {
-        info!(
+        trace!(
             "height: {:?}, timestamp: {:?}, epoch_id: {:?}, next_epoch_id: {:?} \n{}",
             light_block.light_client_block.inner_lite.height,
             light_block.light_client_block.inner_lite.timestamp,
@@ -1118,7 +1118,7 @@ impl ChainEndpoint for NearChain {
         target_height: ICSHeight,
         client_state: &AnyClientState,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
-        info!(
+        trace!(
             "trusted_height: {:?} target_height: {:?} client_state: {:?} \n{}",
             trusted_height,
             target_height,
@@ -1128,7 +1128,7 @@ impl ChainEndpoint for NearChain {
         let trusted_block =
             self.view_block(Some(BlockId::Height(trusted_height.revision_height())))?;
 
-        info!(
+        trace!(
             "trusted block height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
             trusted_block.header.height,
             trusted_block.header.epoch_id,
@@ -1154,7 +1154,7 @@ impl ChainEndpoint for NearChain {
         })
         .map_err(|_| Error::report_error("build_header get target_block failed".to_string()))?;
 
-        info!(
+        trace!(
             "target block height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
             target_block.header.height,
             target_block.header.epoch_id,
@@ -1244,7 +1244,7 @@ impl ChainEndpoint for NearChain {
                     produce_light_client_block(&light_client_block_view, &block_view);
                 match header_result {
                     Ok(header) => {
-                        info!(
+                        trace!(
                             "new header: {:?}, {:?}, {:?} \n{}",
                             header.height(),
                             light_client_block_view.inner_lite.height,
@@ -1310,7 +1310,7 @@ impl ChainEndpoint for NearChain {
         client_id: &ClientId,
         height: ICSHeight,
     ) -> Result<(Option<AnyClientState>, Proofs), Error> {
-        info!(
+        trace!(
             "message_type: {:?} connection_id: {:?} client_id: {:?} height: {:?} \n{}",
             message_type,
             connection_id,
@@ -1360,7 +1360,7 @@ impl ChainEndpoint for NearChain {
             )
         })?;
 
-        println!(
+        trace!(
             "view state of connection result: {:?} \n{}",
             query_response.block_height,
             std::panic::Location::caller()
@@ -1540,7 +1540,7 @@ impl ChainEndpoint for NearChain {
             Error::report_error("build_channel_proofs get query_response failed".to_string())
         })?;
 
-        println!(
+        trace!(
             "view state of channel proof: result: {:?} \n{}",
             query_response.block_height,
             std::panic::Location::caller()
