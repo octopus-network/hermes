@@ -155,6 +155,14 @@ pub mod default {
         ChainType::CosmosSdk
     }
 
+    pub fn default_canister_id() -> CanisterIdConfig {
+        CanisterIdConfig::default()
+    }
+
+    pub fn default_canister_pem_path() -> PathBuf {
+        PathBuf::from(".config/dfx/identity/default/identity.pem")
+    }
+
     pub fn near_ibc_contract_address() -> NearIbcContractAddress {
         NearIbcContractAddress::default()
     }
@@ -642,8 +650,10 @@ pub struct ChainConfig {
     /// The chain's network identifier
     pub id: ChainId,
 
+    #[serde(default = "default::default_canister_id")]
     pub canister_id: CanisterIdConfig,
 
+    #[serde(default = "default::default_canister_pem_path")]
     pub canister_pem: PathBuf,
 
     #[serde(default = "default::default_ic_endpoint")]

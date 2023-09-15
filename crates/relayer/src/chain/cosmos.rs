@@ -898,8 +898,16 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let tx_config = TxConfig::try_from(&config)?;
 
+        let canister_pem_path = if config.canister_pem.is_absolute() {
+            config.canister_pem.clone()
+        } else {
+            let current_dir =
+                std::env::current_dir().map_err(|e| Error::report_error(e.to_string()))?;
+            current_dir.join(config.canister_pem.clone())
+        };
+
         let vp_client = rt
-            .block_on(VpClient::new(&config.ic_endpoint, &config.canister_pem))
+            .block_on(VpClient::new(&config.ic_endpoint, &canister_pem_path))
             .map_err(|e| {
                 let position = std::panic::Location::caller();
                 Error::report_error(format!(
