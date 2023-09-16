@@ -226,6 +226,129 @@ impl NearChain {
     {
         self.block_on(self.lcb_client.query(method))
     }
+
+    fn next_light_client_block(
+        &self,
+        last_block_hash: near_primitives::hash::CryptoHash,
+        test_proof: bool,
+    ) -> Result<NearHeader, retry::Error<()>> {
+        let header = retry_with_index(retry_strategy::default_strategy(), |_index| {
+            let result =
+                self.query_by_lcb_client(&RpcLightClientNextBlockRequest { last_block_hash });
+
+            let light_client_block_view = match result {
+                Ok(lcb) => lcb,
+                Err(e) => {
+                    warn!(
+                        "retry get next_light_client_block with error: {} \n{}",
+                        e,
+                        std::panic::Location::caller()
+                    );
+                    return RetryResult::Retry(());
+                }
+            }
+            .expect(
+                "[Near Chain next_light_client_block call light_client_block_view failed is empty]",
+            );
+
+            let result = self.view_block(Some(BlockId::Height(
+                light_client_block_view.inner_lite.height,
+            )));
+
+            let block_view = match result {
+                Ok(bv) => bv,
+                Err(e) => {
+                    warn!(
+                        "retry get block_view with error: {} \n{}",
+                        e,
+                        std::panic::Location::caller()
+                    );
+                    return RetryResult::Retry(());
+                }
+            };
+
+            if test_proof {
+                let proof_height = light_client_block_view.inner_lite.height - 1;
+
+                let block_reference: BlockReference = BlockId::Height(proof_height).into();
+                let prefix = StoreKey::from("version".as_bytes().to_vec());
+                let result = self.query(&RpcQueryRequest {
+                    block_reference,
+                    request: QueryRequest::ViewState {
+                        account_id: self.near_ibc_contract.clone(),
+                        prefix,
+                        include_proof: true,
+                    },
+                });
+
+                let query_response = match result {
+                    Ok(resp) => resp,
+                    Err(e) => {
+                        warn!(
+                            "retry get proof_block_view with error: {} \n{}",
+                            e,
+                            std::panic::Location::caller()
+                        );
+                        return RetryResult::Retry(());
+                    }
+                };
+
+                let state = match query_response.kind {
+                    QueryResponseKind::ViewState(state) => Ok::<ViewStateResult, Error>(state),
+                    _ => {
+                        warn!("retry get view_state \n{}", std::panic::Location::caller());
+
+                        return RetryResult::Retry(());
+                    }
+                }
+                .expect("[Near chain build_header call state failed]");
+
+                let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
+                let root_hash = CryptoHash::hash_bytes(&proofs[0]);
+
+                if !block_view
+                    .chunks
+                    .iter()
+                    .any(|c| c.prev_state_root.0 == root_hash.0)
+                {
+                    warn!(
+                        "retry root_hash {:?} at {:?} does not in the lcb state at {:?} \n{}",
+                        root_hash,
+                        proof_height,
+                        light_client_block_view.inner_lite.height,
+                        std::panic::Location::caller()
+                    );
+
+                    return RetryResult::Retry(());
+                }
+            }
+
+            let header_result = produce_light_client_block(&light_client_block_view, &block_view);
+            match header_result {
+                Ok(header) => {
+                    warn!(
+                        "new header: {:?}, {:?}, {:?} \n{}",
+                        header.height(),
+                        light_client_block_view.inner_lite.height,
+                        block_view.header.height,
+                        std::panic::Location::caller()
+                    );
+
+                    retry::OperationResult::Ok(header)
+                }
+                Err(e) => {
+                    warn!(
+                        "retry produce_light_client_block has problem {:?} \n{}",
+                        e,
+                        std::panic::Location::caller()
+                    );
+
+                    retry::OperationResult::Retry(())
+                }
+            }
+        });
+        header
+    }
 }
 
 impl ChainEndpoint for NearChain {
@@ -393,13 +516,13 @@ impl ChainEndpoint for NearChain {
             client_state.latest_height(),
             std::panic::Location::caller()
         );
-        let header = retry_with_index(retry_strategy::default_strategy(), |_| {
+        let latest_block_view = retry_with_index(retry_strategy::default_strategy(), |_| {
             let result = self.view_block(Some(BlockId::Height(
                 client_state.latest_height().revision_height(),
             )));
 
-            let latest_block_view = match result {
-                Ok(bv) => bv,
+            match result {
+                Ok(bv) => RetryResult::Ok(bv),
                 Err(e) => {
                     warn!(
                         "retry get latest_block_view with error: {} \n{}",
@@ -408,83 +531,34 @@ impl ChainEndpoint for NearChain {
                     );
                     return RetryResult::Retry(());
                 }
-            };
-
-            trace!(
-                "latest block height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
-                latest_block_view.header.height,
-                latest_block_view.header.epoch_id,
-                latest_block_view.header.next_epoch_id,
-                std::panic::Location::caller()
-            );
-
-            let result = self.query_by_lcb_client(&RpcLightClientNextBlockRequest {
-                last_block_hash: latest_block_view.header.epoch_id,
-            });
-
-            let light_client_block_view = match result {
-                Ok(lcb) => lcb,
-                Err(e) => {
-                    warn!(
-                        "retry get next_light_client_block with error: {} \n{}",
-                        e,
-                        std::panic::Location::caller()
-                    );
-                    return RetryResult::Retry(());
-                }
-            }
-            .expect("[Near Chain verify_header function light_client_block is empty]");
-
-            let result = self.view_block(Some(BlockId::Height(
-                light_client_block_view.inner_lite.height,
-            )));
-
-            let block_view = match result {
-                Ok(bv) => bv,
-                Err(e) => {
-                    warn!(
-                        "retry get block_view with error: {} \n{}",
-                        e,
-                        std::panic::Location::caller()
-                    );
-                    return RetryResult::Retry(());
-                }
-            };
-            let header_result = produce_light_client_block(&light_client_block_view, &block_view);
-            match header_result {
-                Ok(header) => {
-                    trace!(
-                        "new header in verify_header: {:?}, {:?}, {:?} \n{}",
-                        header.height(),
-                        light_client_block_view.inner_lite.height,
-                        block_view.header.height,
-                        std::panic::Location::caller()
-                    );
-                    assert!(
-                        header
-                            .light_client_block
-                            .inner_lite
-                            .next_epoch_id
-                            .0
-                             .0
-                            .to_vec()
-                            == latest_block_view.header.epoch_id.0.to_vec()
-                    );
-                    RetryResult::Ok(header)
-                }
-                Err(e) => {
-                    warn!(
-                        "produce_light_client_block have provlem {:?} \n{}",
-                        e,
-                        std::panic::Location::caller()
-                    );
-
-                    retry::OperationResult::Retry(())
-                }
             }
         })
-        .map_err(|_| Error::report_error("verify_header get header failed".to_string()))?;
+        .map_err(|_| {
+            Error::report_error("verify_header get latest_block_view failed".to_string())
+        })?;
 
+        trace!(
+            "latest block height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
+            latest_block_view.header.height,
+            latest_block_view.header.epoch_id,
+            latest_block_view.header.next_epoch_id,
+            std::panic::Location::caller()
+        );
+
+        let header = self
+            .next_light_client_block(latest_block_view.header.epoch_id, false)
+            .map_err(|_| Error::report_error("verify_header call header failed".to_string()))?;
+
+        assert!(
+            header
+                .light_client_block
+                .inner_lite
+                .next_epoch_id
+                .0
+                 .0
+                .to_vec()
+                == latest_block_view.header.epoch_id.0.to_vec()
+        );
         Ok(header)
     }
 
@@ -1163,131 +1237,9 @@ impl ChainEndpoint for NearChain {
         );
 
         // TODO: julian, assert!(trusted_block.epoch == target_block.epoch || trusted_block_.next_epoch == target_block.epoch)
-        let header = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let result = self.query_by_lcb_client(&RpcLightClientNextBlockRequest {
-                last_block_hash: target_block.header.hash,
-            });
-
-            let light_client_block_view = match result {
-                Ok(lcb) => lcb,
-                Err(e) => {
-                    warn!(
-                        "retry get next_light_client_block with error: {} \n{}",
-                        e,
-                        std::panic::Location::caller()
-                    );
-                    return RetryResult::Retry(());
-                }
-            }
-            .expect("[Near Chain build_header call light_client_block_view failed is empty]");
-
-            let result = self.view_block(Some(BlockId::Height(
-                light_client_block_view.inner_lite.height,
-            )));
-
-            let block_view = match result {
-                Ok(bv) => bv,
-                Err(e) => {
-                    warn!(
-                        "retry get block_view with error: {} \n{}",
-                        e,
-                        std::panic::Location::caller()
-                    );
-                    return RetryResult::Retry(());
-                }
-            };
-
-            let proof_height = light_client_block_view.inner_lite.height - 1;
-
-            let block_reference: BlockReference = BlockId::Height(proof_height).into();
-            let prefix = StoreKey::from("version".as_bytes().to_vec());
-            let result = self.query(&RpcQueryRequest {
-                block_reference,
-                request: QueryRequest::ViewState {
-                    account_id: self.near_ibc_contract.clone(),
-                    prefix,
-                    include_proof: true,
-                },
-            });
-
-            let query_response = match result {
-                Ok(resp) => resp,
-                Err(e) => {
-                    warn!(
-                        "retry get proof_block_view with error: {} \n{}",
-                        e,
-                        std::panic::Location::caller()
-                    );
-                    return RetryResult::Retry(());
-                }
-            };
-
-            let state = match query_response.kind {
-                QueryResponseKind::ViewState(state) => Ok::<ViewStateResult, Error>(state),
-                _ => {
-                    warn!("retry get view_state \n{}", std::panic::Location::caller());
-
-                    return RetryResult::Retry(());
-                }
-            }
-            .expect("[Near chain build_header call state failed]");
-
-            let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
-            let root_hash = CryptoHash::hash_bytes(&proofs[0]);
-
-            if block_view
-                .chunks
-                .iter()
-                .any(|c| c.prev_state_root.0 == root_hash.0)
-            {
-                let header_result =
-                    produce_light_client_block(&light_client_block_view, &block_view);
-                match header_result {
-                    Ok(header) => {
-                        trace!(
-                            "new header: {:?}, {:?}, {:?} \n{}",
-                            header.height(),
-                            light_client_block_view.inner_lite.height,
-                            block_view.header.height,
-                            std::panic::Location::caller()
-                        );
-
-                        retry::OperationResult::Ok(header)
-                    }
-                    Err(e) => {
-                        warn!(
-                            "produce_light_client_block have provlem {:?} \n{}",
-                            e,
-                            std::panic::Location::caller()
-                        );
-
-                        retry::OperationResult::Retry(())
-                    }
-                }
-            } else {
-                warn!(
-                    "retry root_hash {:?} at {:?} does not in the lcb state at {:?} \n{}",
-                    root_hash,
-                    proof_height,
-                    light_client_block_view.inner_lite.height,
-                    std::panic::Location::caller()
-                );
-
-                RetryResult::Retry(())
-            }
-        })
-        .map_err(|_| Error::report_error("build_header call header failed".to_string()))?;
-
-        // assert!(
-        //     header
-        //         .light_client_block
-        //         .inner_lite
-        //         .next_epoch_id
-        //         .0
-        //          .0
-        //         .to_vec()
-        //         == latest_block_view.header.epoch_id.0.to_vec()
-        // );
+        let header = self
+            .next_light_client_block(target_block.header.hash, true)
+            .map_err(|_| Error::report_error("build_header call header failed".to_string()))?;
 
         Ok((header, vec![]))
     }
