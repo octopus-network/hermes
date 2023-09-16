@@ -327,10 +327,8 @@ impl NearChain {
             match header_result {
                 Ok(header) => {
                     warn!(
-                        "new header: {:?}, {:?}, {:?} \n{}",
+                        "new header: {:?}\n{}",
                         header.height(),
-                        light_client_block_view.inner_lite.height,
-                        block_view.header.height,
                         std::panic::Location::caller()
                     );
 
@@ -1192,17 +1190,31 @@ impl ChainEndpoint for NearChain {
         target_height: ICSHeight,
         client_state: &AnyClientState,
     ) -> Result<(Self::Header, Vec<Self::Header>), Error> {
-        trace!(
+        warn!(
             "trusted_height: {:?} target_height: {:?} client_state: {:?} \n{}",
             trusted_height,
             target_height,
             client_state.latest_height(),
             std::panic::Location::caller()
         );
-        let trusted_block =
-            self.view_block(Some(BlockId::Height(trusted_height.revision_height())))?;
 
-        trace!(
+        let trusted_block = retry_with_index(retry_strategy::default_strategy(), |_index| {
+            let result = self.view_block(Some(BlockId::Height(trusted_height.revision_height())));
+            match result {
+                Ok(bv) => RetryResult::Ok(bv),
+                Err(e) => {
+                    warn!(
+                        "retry get trusted_block_view(header) with error: {} \n{}",
+                        e,
+                        std::panic::Location::caller()
+                    );
+                    RetryResult::Retry(())
+                }
+            }
+        })
+        .map_err(|_| Error::report_error("build_header get trusted_block failed".to_string()))?;
+
+        warn!(
             "trusted block height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
             trusted_block.header.height,
             trusted_block.header.epoch_id,
@@ -1210,12 +1222,10 @@ impl ChainEndpoint for NearChain {
             std::panic::Location::caller()
         );
 
-        // possible error: handler error: [Block not found: ]
-        // handler error: [Block either has never been observed on the node or has been garbage collected: BlockId(Height(135888086))]
         let target_block = retry_with_index(retry_strategy::default_strategy(), |_index| {
             let result = self.view_block(Some(BlockId::Height(target_height.revision_height())));
             match result {
-                Ok(lcb) => RetryResult::Ok(lcb),
+                Ok(bv) => RetryResult::Ok(bv),
                 Err(e) => {
                     warn!(
                         "retry get target_block_view(header) with error: {} \n{}",
@@ -1228,7 +1238,7 @@ impl ChainEndpoint for NearChain {
         })
         .map_err(|_| Error::report_error("build_header get target_block failed".to_string()))?;
 
-        trace!(
+        warn!(
             "target block height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
             target_block.header.height,
             target_block.header.epoch_id,
@@ -1236,12 +1246,40 @@ impl ChainEndpoint for NearChain {
             std::panic::Location::caller()
         );
 
-        // TODO: julian, assert!(trusted_block.epoch == target_block.epoch || trusted_block_.next_epoch == target_block.epoch)
         let header = self
             .next_light_client_block(target_block.header.hash, true)
             .map_err(|_| Error::report_error("build_header call header failed".to_string()))?;
 
-        Ok((header, vec![]))
+        warn!(
+            "new header height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
+            header.light_client_block.inner_lite.height,
+            header.light_client_block.inner_lite.epoch_id,
+            header.light_client_block.inner_lite.next_epoch_id,
+            std::panic::Location::caller()
+        );
+
+        let mut epoch_id = header.light_client_block.inner_lite.epoch_id.clone();
+        let mut hs = Vec::new();
+        while epoch_id.0 .0 != trusted_block.header.epoch_id.0
+            && epoch_id.0 .0 != trusted_block.header.next_epoch_id.0
+        {
+            let hash = near_primitives::hash::CryptoHash(epoch_id.0 .0);
+            let h = self
+                .next_light_client_block(hash, false)
+                .map_err(|_| Error::report_error("build_header call header failed".to_string()))?;
+
+            hs.insert(0, h.clone());
+            warn!(
+                "new support header height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
+                h.light_client_block.inner_lite.height,
+                h.light_client_block.inner_lite.epoch_id,
+                h.light_client_block.inner_lite.next_epoch_id,
+                std::panic::Location::caller()
+            );
+            epoch_id = h.light_client_block.inner_lite.epoch_id;
+        }
+
+        Ok((header, hs))
     }
 
     fn maybe_register_counterparty_payee(
