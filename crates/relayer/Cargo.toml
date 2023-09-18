@@ -127,4 +127,4 @@ test-log = { version = "0.2.10", features = ["trace"] }
 dirs = "5.0.1"
 
 # Needed for generating (synthetic) light blocks.
-tendermint-testgen = { version = "0.32.0" }
+tendermint-testgen = { version = "0.33.1" }
