@@ -933,6 +933,7 @@ dependencies = [
  "anstream",
  "anstyle",
  "clap_lex 0.5.1",
+ "once_cell",
  "strsim",
 ]
 
@@ -2431,7 +2432,7 @@ name = "ibc-relayer-cli"
 version = "1.6.0"
 dependencies = [
  "abscissa_core",
- "clap 3.2.25",
+ "clap 4.4.1",
  "clap_complete",
  "color-eyre",
  "console",
