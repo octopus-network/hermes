@@ -1329,8 +1329,18 @@ impl ChainEndpoint for CosmosSdkChain {
         if matches!(include_proof, IncludeProof::No) {
             let canister_id = self.config.canister_id.id.as_str();
 
+            let serialized_request = serde_json::to_vec(&request).map_err(|e| {
+                let position = std::panic::Location::caller();
+                Error::report_error(format!(
+                    "encode query_client_state request failed Error({}) \n{}",
+                    e, position
+                ))
+            })?;
             let res = self
-                .block_on(self.vp_client.query_client_state(canister_id, vec![]))
+                .block_on(
+                    self.vp_client
+                        .query_client_state(canister_id, serialized_request),
+                )
                 .map_err(|e| {
                     let position = std::panic::Location::caller();
                     Error::report_error(format!(
@@ -1445,13 +1455,19 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let canister_id = self.config.canister_id.id.as_str();
 
-        let mut buf = vec![];
-        request.consensus_height.encode(&mut buf).map_err(|e| {
+        let serialized_request = serde_json::to_vec(&request).map_err(|e| {
             let position = std::panic::Location::caller();
-            Error::report_error(format!("encode height failed Error({}) \n{}", e, position))
+            Error::report_error(format!(
+                "encode query_consensus_state request failed Error({}) \n{}",
+                e, position
+            ))
         })?;
+
         let res = self
-            .block_on(self.vp_client.query_consensus_state(canister_id, buf))
+            .block_on(
+                self.vp_client
+                    .query_consensus_state(canister_id, serialized_request),
+            )
             .map_err(|e| {
                 let position = std::panic::Location::caller();
                 Error::report_error(format!(
