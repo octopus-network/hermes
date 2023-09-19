@@ -106,15 +106,31 @@ impl ChainBuilder {
         let grpc_web_port = random_unused_tcp_port();
         let p2p_port = random_unused_tcp_port();
         let pprof_port = random_unused_tcp_port();
+        // todo (this two filed use fixed)
+        //  const LOCAL_NET: &str = "http://localhost:4943";
+        // bkyz2-fmaaa-aaaaa-qaaaq-cai
+        let canister_id = "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string();
+        let ic_endpoint = 4943;
+        let home_dir = dirs::home_dir().expect("Failed to get home directory");
+        let pem_file_path = home_dir
+            .join(std::path::Path::new(
+                &".config/dfx/identity/default/identity.pem".to_string(),
+            ))
+            .to_str()
+            .unwrap()
+            .to_string();
 
         let home_path = format!("{}/{}", self.base_store_dir, chain_id);
 
         let driver = ChainDriver::create(
             chain_type,
             self.command_paths[chain_number].clone(),
+            pem_file_path,
+            canister_id,
             chain_id,
             home_path,
             self.account_prefixes[account_number].clone(),
+            ic_endpoint,
             rpc_port,
             grpc_port,
             grpc_web_port,

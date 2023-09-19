@@ -2546,6 +2546,7 @@ version = "0.25.0"
 dependencies = [
  "color-eyre",
  "crossbeam-channel 0.5.8",
+ "dirs",
  "eyre",
  "flex-error",
  "hdpath",

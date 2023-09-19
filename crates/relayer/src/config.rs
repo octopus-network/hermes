@@ -568,7 +568,7 @@ pub enum EventSourceMode {
     },
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(from = "String", into = "String")]
 pub struct CanisterIdConfig {
     pub id: String,
@@ -594,6 +594,14 @@ impl From<String> for CanisterIdConfig {
     }
 }
 
+impl Default for CanisterIdConfig {
+    fn default() -> Self {
+        Self {
+            id: "rrkah-fqaaa-aaaaa-aaaaq-cai".to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(from = "String", into = "String")]
 pub struct NearIbcContractAddress {
@@ -615,7 +623,7 @@ impl From<NearAccountId> for NearIbcContractAddress {
 impl Default for NearIbcContractAddress {
     fn default() -> Self {
         Self {
-            account_id: NearAccountId::from_str("v3.nearibc.testnet").expect("never faild"),
+            account_id: NearAccountId::from_str("v5.nearibc.testnet").expect("never faild"),
         }
     }
 }

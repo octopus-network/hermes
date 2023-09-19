@@ -58,6 +58,18 @@ pub struct ChainDriver {
     */
     pub command_path: String,
 
+    pub canister_id: String,
+
+    /**
+        This canister pem is canister pem path
+    */
+    pub canister_pem: String,
+
+    /**
+        This is ic endpoint port
+    */
+    pub ic_endpoint: u16,
+
     /**
        The ID of the chain.
     */
@@ -111,9 +123,12 @@ impl ChainDriver {
     pub fn create(
         chain_type: ChainType,
         command_path: String,
+        canister_pem: String,
+        canister_id: String,
         chain_id: ChainId,
         home_path: String,
         account_prefix: String,
+        ic_endpoint: u16,
         rpc_port: u16,
         grpc_port: u16,
         grpc_web_port: u16,
@@ -131,9 +146,12 @@ impl ChainDriver {
         Ok(Self {
             chain_type,
             command_path,
+            canister_id,
+            canister_pem,
             chain_id,
             home_path,
             account_prefix,
+            ic_endpoint,
             rpc_port,
             grpc_port,
             grpc_web_port,
@@ -147,6 +165,10 @@ impl ChainDriver {
     /// Returns the full URL for the RPC address.
     pub fn rpc_address(&self) -> String {
         format!("http://localhost:{}", self.rpc_port)
+    }
+
+    pub fn ic_endpoint(&self) -> String {
+        format!("http://localhost:{}", self.ic_endpoint)
     }
 
     /// Returns the full URL for the WebSocket address.

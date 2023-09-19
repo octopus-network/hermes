@@ -41,6 +41,7 @@ pub fn init_test() -> Result<TestConfig, Error> {
         env::var("CHAIN_COMMAND_PATHS").unwrap_or_else(|_| "gaiad".to_string());
 
     let chain_command_paths = parse_chain_command_paths(chain_command_path);
+    dbg!(&chain_command_paths);
 
     let base_chain_store_dir = env::var("CHAIN_STORE_DIR").unwrap_or_else(|_| "data".to_string());
 

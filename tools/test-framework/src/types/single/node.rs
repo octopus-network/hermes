@@ -13,7 +13,7 @@ use ibc_relayer::config::CanisterIdConfig;
 use ibc_relayer::config::NearIbcContractAddress;
 use ibc_relayer::keyring::Store;
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
-use std::path::PathBuf;
+// use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use tendermint_rpc::Url;
 use tendermint_rpc::WebSocketClientUrl;
@@ -137,14 +137,27 @@ impl FullNode {
             .display()
             .to_string();
 
+        let (rpc_url, ct) = match self.chain_driver.chain_type {
+            TestedChainType::Near => {
+                let url = Url::from_str(
+                    "https://near-testnet.infura.io/v3/272532ecf0b64d7782a03db0cbcf3c30",
+                )?;
+                (url, ChainType::Near)
+            }
+            _ => {
+                let url = Url::from_str(&self.chain_driver.rpc_address())?;
+                (url, ChainType::CosmosSdk)
+            }
+        };
+
         Ok(config::ChainConfig {
             id: self.chain_driver.chain_id.clone(),
-            ic_endpoint: String::new(),
-            canister_pem: PathBuf::new(),
+            ic_endpoint: self.chain_driver.ic_endpoint(),
+            canister_pem: self.chain_driver.canister_pem.clone().into(),
             near_ibc_address: NearIbcContractAddress::default(),
-            canister_id: CanisterIdConfig::default(),
-            r#type: ChainType::CosmosSdk,
-            rpc_addr: Url::from_str(&self.chain_driver.rpc_address())?,
+            canister_id: CanisterIdConfig::from(self.chain_driver.canister_id.clone()),
+            r#type: ct,
+            rpc_addr: rpc_url,
             grpc_addr: Url::from_str(&self.chain_driver.grpc_address())?,
             event_source: config::EventSourceMode::Push {
                 url: WebSocketClientUrl::from_str(&self.chain_driver.websocket_address())?,
