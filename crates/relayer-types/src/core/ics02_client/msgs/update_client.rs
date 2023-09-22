@@ -54,9 +54,7 @@ impl TryFrom<RawMsgUpdateClient> for MsgUpdateClient {
                 .client_id
                 .parse()
                 .map_err(Error::invalid_msg_update_client_id)?,
-            header: raw
-                .client_message
-                .ok_or_else(Error::missing_client_message)?,
+            header: raw.client_message.ok_or_else(Error::missing_raw_header)?,
             signer: raw.signer.parse().map_err(Error::signer)?,
         })
     }
