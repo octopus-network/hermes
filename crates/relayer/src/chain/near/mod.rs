@@ -1476,6 +1476,7 @@ impl ChainEndpoint for NearChain {
                 client_proof,
                 consensus_proof,
                 None,
+                None,
                 height.increment(),
             )
             .map_err(Error::malformed_proof)?,
@@ -1555,7 +1556,7 @@ impl ChainEndpoint for NearChain {
         let channel_proof_bytes =
             CommitmentProofBytes::try_from(channel_proof).map_err(Error::malformed_proof)?;
 
-        Proofs::new(channel_proof_bytes, None, None, None, height.increment())
+        Proofs::new(channel_proof_bytes, None, None, None, None, height.increment())
             .map_err(Error::malformed_proof)
     }
 
@@ -1813,6 +1814,7 @@ impl ChainEndpoint for NearChain {
             None,
             None,
             channel_proof,
+            None,
             height.increment(),
         )
         .map_err(Error::malformed_proof)?;
