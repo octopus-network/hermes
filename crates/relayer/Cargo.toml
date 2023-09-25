@@ -78,7 +78,7 @@ near-jsonrpc-client = "0.6.0"
 near-jsonrpc-primitives = "0.17"
 near-account-id = "0.17"
 
-base64 = "0.12.3"
+base64 = "0.21.2"
 tokio-retry = "0.3.0"
 
 borsh = "0.9"
