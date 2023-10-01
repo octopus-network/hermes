@@ -432,6 +432,17 @@ pub struct QueryPacketEventDataRequest {
     pub height: Qualified<QueryHeight>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct QueryPacketEventDataRequest1 {
+    pub event_type: String,
+    pub source_channel_id: ChannelId,
+    pub source_port_id: PortId,
+    pub destination_channel_id: ChannelId,
+    pub destination_port_id: PortId,
+    pub sequences: Vec<Sequence>,
+    pub height: Qualified<QueryHeight>,
+}
+
 /// Refines an inner type by assigning it to refer to either a:
 ///     - range of values (when using variant `SmallerEqual`), or
 ///     - to a specific value (with variant `Equal`).
