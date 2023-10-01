@@ -1477,13 +1477,34 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> Channel<ChainA, ChainB> {
             .query_latest_height()
             .map_err(|e| ChannelError::query(self.src_chain().id(), e))?;
 
-        let proofs = self
-            .src_chain()
-            .build_channel_proofs(self.src_port_id(), src_channel_id, query_height)
-            .map_err(ChannelError::channel_proof)?;
+        let mut msgs: Vec<Any>;
+        let proofs;
 
-        // Build message(s) to update client on destination
-        let mut msgs = self.build_update_client_on_dst(proofs.height())?;
+        if self.src_chain().config().unwrap().r#type == ChainType::Near {
+            msgs = self.build_update_client_on_dst(query_height)?;
+            assert!(!msgs.is_empty());
+            let msg_update_client = msgs.last().unwrap();
+            let domain_msg = MsgUpdateClient::decode_vec(&msg_update_client.value).unwrap();
+            let near_header = AnyHeader::try_from(domain_msg.client_message).unwrap();
+            let proof_height = near_header.height();
+
+            proofs = self
+                .src_chain()
+                .build_channel_proofs(
+                    self.src_port_id(),
+                    src_channel_id,
+                    proof_height.decrement().unwrap(),
+                )
+                .map_err(ChannelError::channel_proof)?;
+        } else {
+            proofs = self
+                .src_chain()
+                .build_channel_proofs(self.src_port_id(), src_channel_id, query_height)
+                .map_err(ChannelError::channel_proof)?;
+
+            // Build message(s) to update client on destination
+            msgs = self.build_update_client_on_dst(proofs.height())?;
+        }
 
         // Get signer
         let signer = self
