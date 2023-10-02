@@ -2352,7 +2352,7 @@ dependencies = [
  "ibc-relayer",
  "ibc-relayer-types",
  "ibc-test-framework",
- "prost 0.11.9",
+ "prost 0.12.1",
  "serde",
  "serde_json",
  "tempfile",
@@ -2424,7 +2424,7 @@ dependencies = [
  "num-bigint 0.4.3",
  "num-rational 0.4.1",
  "once_cell",
- "prost 0.11.9",
+ "prost 0.12.1",
  "regex",
  "retry",
  "ring",
@@ -2535,7 +2535,7 @@ dependencies = [
  "itertools",
  "num-rational 0.4.1",
  "primitive-types 0.12.1",
- "prost 0.11.9",
+ "prost 0.12.1",
  "regex",
  "serde",
  "serde_derive",
@@ -2590,7 +2590,7 @@ dependencies = [
  "ibc-relayer-types",
  "itertools",
  "once_cell",
- "prost 0.11.9",
+ "prost 0.12.1",
  "rand 0.8.5",
  "semver",
  "serde",
@@ -4050,6 +4050,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "prost"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4fdd22f3b9c31b53c060df4a0613a1c7f062d4115a2b984dd15b1858f7e340d"
+dependencies = [
+ "bytes",
+ "prost-derive 0.12.1",
+]
+
+[[package]]
 name = "prost-build"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4093,6 +4103,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "prost-derive"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "265baba7fabd416cf5078179f7d2cbeca4ce7a9041111900675ea7c4cb8a4c32"
+dependencies = [
+ "anyhow",
+ "itertools",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.32",
 ]
 
 [[package]]
