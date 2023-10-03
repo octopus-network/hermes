@@ -12,7 +12,7 @@ use ibc_relayer::foreign_client::{
 };
 use ibc_relayer::keyring::errors::ErrorDetail as KeyringErrorDetail;
 use ibc_relayer::registry::SharedRegistry;
-use ibc_relayer_types::core::ics24_host::identifier::ClientId;
+use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ClientId};
 use std::path::Path;
 use std::time::Duration;
 use std::{fs, thread};
@@ -26,6 +26,7 @@ use crate::types::single::node::FullNode;
 use crate::types::tagged::*;
 use crate::types::wallet::{TestWallets, Wallet};
 use crate::util::random::random_u64_range;
+use core::str::FromStr;
 
 #[derive(Default)]
 pub struct BootstrapClientOptions {
@@ -56,7 +57,7 @@ pub fn bootstrap_chains_with_full_nodes(
 > {
     let mut config = Config::default();
 
-    add_chain_config(&mut config, &node_a, test_config)?;
+    add_near_chain_config(&mut config, &node_a, test_config)?;
     add_chain_config(&mut config, &node_b, test_config)?;
 
     config_modifier(&mut config);
@@ -70,6 +71,8 @@ pub fn bootstrap_chains_with_full_nodes(
     // Pass in unique closure expressions `||{}` as the first argument so that
     // the returned chains are considered different types by Rust.
     // See [`spawn_chain_handle`] for more details.
+    let mut node_a = node_a.clone();
+    node_a.chain_driver.chain_id = ChainId::from_str("near-0").unwrap();
     let handle_a = spawn_chain_handle(|| {}, &registry, &node_a)?;
     let handle_b = spawn_chain_handle(|| {}, &registry, &node_b)?;
 
@@ -195,7 +198,9 @@ pub fn spawn_chain_handle<Seed>(
     let chain_id = &node.chain_driver.chain_id;
     let handle = registry.get_or_spawn(chain_id)?;
 
-    add_keys_to_chain_handle(&handle, &node.wallets)?;
+    if node.chain_driver.chain_id != ChainId::from_str("near-0").unwrap() {
+        add_keys_to_chain_handle(&handle, &node.wallets)?;
+    }
 
     Ok(handle)
 }
@@ -260,6 +265,18 @@ pub fn add_chain_config(
 ) -> Result<(), Error> {
     let chain_config =
         running_node.generate_chain_config(&running_node.chain_driver.chain_type, test_config)?;
+
+    config.chains.push(chain_config);
+    Ok(())
+}
+
+pub fn add_near_chain_config(
+    config: &mut Config,
+    running_node: &FullNode,
+    test_config: &TestConfig,
+) -> Result<(), Error> {
+    let chain_config = running_node
+        .generate_near_chain_config(&running_node.chain_driver.chain_type, test_config)?;
 
     config.chains.push(chain_config);
     Ok(())
