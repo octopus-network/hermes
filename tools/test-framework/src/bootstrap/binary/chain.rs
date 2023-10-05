@@ -79,8 +79,8 @@ pub fn bootstrap_chains_with_full_nodes(
     // Wait for the chain handles to be spawned
     thread::sleep(Duration::from_secs(10));
 
-    pad_client_ids(&handle_a, &handle_b, options.pad_client_id_a_to_b)?;
-    pad_client_ids(&handle_b, &handle_a, options.pad_client_id_b_to_a)?;
+    // pad_client_ids(&handle_a, &handle_b, options.pad_client_id_a_to_b)?;
+    // pad_client_ids(&handle_b, &handle_a, options.pad_client_id_b_to_a)?;
 
     let foreign_clients = bootstrap_foreign_client_pair(&handle_a, &handle_b, options)?;
 

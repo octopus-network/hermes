@@ -18,6 +18,10 @@ use crate::types::single::node::FullNode;
 use crate::types::wallet::{TestWallets, Wallet};
 use crate::util::random::{random_u128_range, random_u32};
 
+use crate::chain::exec::simple_exec;
+use crate::types::process::ChildProcess;
+use std::process::Command;
+
 /**
    Bootstrap a single full node with the provided [`ChainBuilder`] and
    a prefix for the chain ID.
@@ -119,6 +123,108 @@ pub fn bootstrap_single_node(
     let process = chain_driver.start()?;
 
     chain_driver.assert_eventual_wallet_amount(&relayer.address, &initial_coin)?;
+
+    info!(
+        "started new chain {} at with home path {} and RPC address {}.",
+        chain_driver.chain_id,
+        chain_driver.home_path,
+        chain_driver.rpc_address(),
+    );
+
+    info!(
+        "user wallet for chain {} - id: {}, address: {}",
+        chain_driver.chain_id, user1.id.0, user1.address.0,
+    );
+
+    info!(
+        "you can manually interact with the chain using commands starting with:\n{} --home '{}' --node {}",
+        chain_driver.command_path,
+        chain_driver.home_path,
+        chain_driver.rpc_address(),
+    );
+
+    let wallets = TestWallets {
+        validator,
+        relayer,
+        user1,
+        user2,
+    };
+
+    let node = FullNode {
+        chain_driver,
+        denom,
+        wallets,
+        process: Arc::new(RwLock::new(process)),
+    };
+
+    Ok(node)
+}
+
+pub fn bootstrap_near(
+    builder: &ChainBuilder,
+    prefix: &str,
+    use_random_id: bool,
+    config_modifier: impl FnOnce(&mut toml::Value) -> Result<(), Error>,
+    genesis_modifier: impl FnOnce(&mut serde_json::Value) -> Result<(), Error>,
+    chain_number: usize,
+) -> Result<FullNode, Error> {
+    let denom = if use_random_id {
+        Denom::base(&format!("coin{:x}", random_u32()))
+    } else {
+        Denom::base("samoleans")
+    };
+
+    let chain_driver = builder.new_chain(prefix, use_random_id, chain_number)?;
+
+    let validator = add_wallet(&chain_driver, "validator", use_random_id)?;
+    let relayer = add_wallet(&chain_driver, "relayer", use_random_id)?;
+    let user1 = add_wallet(&chain_driver, "user1", use_random_id)?;
+    let user2 = add_wallet(&chain_driver, "user2", use_random_id)?;
+
+    let output = simple_exec(
+        chain_driver.chain_id.as_str(),
+        "mkdir",
+        &[
+            "-p",
+            &format!(
+                "{}/../hermes_keyring/near-0/keyring-test",
+                chain_driver.home_path
+            ),
+        ],
+    )?;
+
+    info!("mkdir: {:?}", output.stdout);
+    let output = simple_exec(
+        chain_driver.chain_id.as_str(),
+        "cp",
+        &[
+            "/home/julian/.near-credentials/testnet/juliansun.testnet.json",
+            &format!(
+                "{}/../hermes_keyring/near-0/keyring-test/relayer.json",
+                chain_driver.home_path
+            ),
+        ],
+    )?;
+
+    info!("add relayer account: {:?}", output.stdout);
+
+    let output = simple_exec(
+        chain_driver.chain_id.as_str(),
+        "sed",
+        &[
+            "-i",
+            "s/private_key/secret_key/",
+            &format!(
+                "{}/../hermes_keyring/near-0/keyring-test/relayer.json",
+                chain_driver.home_path
+            ),
+        ],
+    )?;
+
+    info!("replace private_key with secret_key: {:?}", output.stdout);
+    let child = Command::new("ls").spawn()?;
+
+    let process = ChildProcess::new(child);
 
     info!(
         "started new chain {} at with home path {} and RPC address {}.",

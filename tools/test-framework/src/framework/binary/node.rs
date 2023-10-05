@@ -5,7 +5,7 @@
 
 use toml;
 
-use crate::bootstrap::single::bootstrap_single_node;
+use crate::bootstrap::single::{bootstrap_near, bootstrap_single_node};
 use crate::chain::builder::ChainBuilder;
 use crate::error::Error;
 use crate::framework::base::HasOverrides;
@@ -110,7 +110,7 @@ where
     Overrides: NodeConfigOverride + NodeGenesisOverride,
 {
     fn run(&self, config: &TestConfig, builder: &ChainBuilder) -> Result<(), Error> {
-        let node_a = bootstrap_single_node(
+        let node_a = bootstrap_near(
             builder,
             "1",
             config.bootstrap_with_random_ids,
