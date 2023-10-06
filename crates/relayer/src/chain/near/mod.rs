@@ -696,7 +696,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryClientStatesRequest,
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -865,7 +865,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryClientConnectionsRequest,
     ) -> Result<Vec<ConnectionId>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -987,7 +987,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryPacketCommitmentsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1023,7 +1023,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryUnreceivedPacketsRequest,
     ) -> Result<Vec<Sequence>, Error> {
-        info!(
+        trace!(
             "request: {:?}, \n{}",
             request,
             std::panic::Location::caller()
@@ -1066,7 +1066,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryPacketAcknowledgementsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1085,7 +1085,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryUnreceivedAcksRequest,
     ) -> Result<Vec<Sequence>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1134,7 +1134,7 @@ impl ChainEndpoint for NearChain {
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
-        info!("equest: {:?} \n{}", request, std::panic::Location::caller());
+        trace!("equest: {:?} \n{}", request, std::panic::Location::caller());
 
         match request {
             QueryTxRequest::Client(request) => {
@@ -1632,7 +1632,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryConsensusStateHeightsRequest,
     ) -> Result<Vec<Height>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1642,7 +1642,7 @@ impl ChainEndpoint for NearChain {
             .get_client_consensus_heights(&request.client_id)
             .map_err(Error::near_chain_error)?;
 
-        info!("result: {:?} \n{}", result, std::panic::Location::caller());
+        trace!("result: {:?} \n{}", result, std::panic::Location::caller());
 
         Ok(result)
     }

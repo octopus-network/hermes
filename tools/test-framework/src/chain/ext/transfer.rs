@@ -4,8 +4,10 @@ use ibc_relayer_types::core::ics02_client::height::Height;
 use ibc_relayer_types::core::ics04_channel::packet::Packet;
 use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, PortId};
 
+use crate::chain::chain_type::ChainType;
 use crate::chain::cli::transfer::{local_transfer_token, transfer_from_chain};
 use crate::chain::driver::ChainDriver;
+use crate::chain::exec::simple_exec;
 use crate::chain::tagged::TaggedChainDriverExt;
 use crate::error::Error;
 use crate::ibc::token::TaggedTokenRef;
@@ -13,6 +15,7 @@ use crate::relayer::transfer::{batched_ibc_token_transfer, ibc_token_transfer};
 use crate::types::id::{TaggedChannelIdRef, TaggedPortIdRef};
 use crate::types::tagged::*;
 use crate::types::wallet::{Wallet, WalletAddress};
+use tracing::info;
 
 pub trait ChainTransferMethodsExt<Chain> {
     /**
@@ -82,6 +85,8 @@ pub trait ChainTransferMethodsExt<Chain> {
         token: &TaggedTokenRef<Chain>,
         timeout_height: &Height,
     ) -> Result<(), Error>;
+
+    fn setup_near_ibc_transfer(&self, channel: &ChannelId) -> Result<(), Error>;
 }
 
 impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a ChainDriver> {
@@ -93,18 +98,46 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
         recipient: &MonoTagged<Counterparty, &WalletAddress>,
         token: &TaggedTokenRef<Chain>,
     ) -> Result<Packet, Error> {
-        let rpc_client = self.rpc_client()?;
-        self.value().runtime.block_on(ibc_token_transfer(
-            rpc_client.as_ref(),
-            &self.tx_config(),
-            port_id,
-            channel_id,
-            sender,
-            recipient,
-            token,
-            None,
-            None,
-        ))
+        if self.0.chain_type == ChainType::Near {
+            let res = simple_exec(
+                &self.chain_id().to_string(),
+                "near",
+                &[
+            "call",
+            "oct.beta_oct_relay.testnet",
+            "ft_transfer_call",
+            &format!("{{\"receiver_id\":\"{}.ef.transfer.v5.nearibc.testnet\",\"amount\":\"{}\",\"memo\":null,\"msg\":\"{{\\\"receiver\\\":\\\"{}\\\",\\\"timeout_seconds\\\":\\\"1000\\\"}}\"}}", channel_id.0.as_str(), &format!("{}000000000000000000", token.0.amount.0), recipient.0.as_str()),
+            "--accountId",
+            &sender.0.address.0,
+            "--gas",
+            "200000000000000",
+            "--depositYocto",
+            "1"],
+            )?
+            .stdout;
+            info!(
+                "ft_transfer_call: {:?} channel_id: {:?}, amount: {:?}, recipient: {:?}",
+                res,
+                channel_id.0.as_str(),
+                &format!("{}000000000000000000", token.0.amount.0),
+                recipient.0.as_str()
+            );
+
+            Ok(Packet::default())
+        } else {
+            let rpc_client = self.rpc_client()?;
+            self.value().runtime.block_on(ibc_token_transfer(
+                rpc_client.as_ref(),
+                &self.tx_config(),
+                port_id,
+                channel_id,
+                sender,
+                recipient,
+                token,
+                None,
+                None,
+            ))
+        }
     }
 
     fn ibc_transfer_token_with_memo_and_timeout<Counterparty>(
@@ -196,5 +229,68 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
             &token.value().to_string(),
             &timeout_height_str.to_string(),
         )
+    }
+
+    fn setup_near_ibc_transfer(&self, channel: &ChannelId) -> Result<(), Error> {
+        if self.0.chain_type == ChainType::Near {
+            let res = simple_exec(
+                &self.chain_id().to_string(),
+                "near",
+                &[
+                    "call",
+                    "v5.nearibc.testnet",
+                    "setup_channel_escrow",
+                    &format!("{{\"channel_id\":\"{}\"}}", channel.as_str()),
+                    "--accountId",
+                    "v5.nearibc.testnet",
+                    "--gas",
+                    "300000000000000",
+                    "--amount",
+                    "3.1",
+                ],
+            )?
+            .stdout;
+            info!("setup_channel_escrow: {}", res);
+
+            let res = simple_exec(
+                &self.chain_id().to_string(),
+                "near",
+                &[
+            "call",
+            "v5.nearibc.testnet",
+            "register_asset_for_channel",
+            &format!("{{\"channel_id\":\"{}\",\"trace_path\":\"\",\"base_denom\":\"OCT\",\"token_contract\":\"oct.beta_oct_relay.testnet\"}}", channel.as_str()),
+            "--accountId",
+            "v5.nearibc.testnet",
+            "--gas",
+            "300000000000000",
+            "--amount",
+            "0.1",
+                ],
+            )?
+            .stdout;
+            info!("register_asset_for_channel: {}", res);
+
+            let res = simple_exec(
+                &self.chain_id().to_string(),
+                "near",
+                &[
+            "call",
+            "oct.beta_oct_relay.testnet",
+            "storage_deposit",
+            &format!("{{\"account_id\":\"{}.ef.transfer.v5.nearibc.testnet\",\"registration_only\":false}}", channel.as_str()),
+            "--accountId",
+            "v5.nearibc.testnet",
+            "--gas",
+            "200000000000000",
+            "--amount",
+            "0.00125",
+                ],
+            )?
+            .stdout;
+
+            info!("storage_deposit: {}", res);
+        }
+        Ok(())
     }
 }

@@ -84,20 +84,20 @@ pub fn bootstrap_channel_with_connection<ChainA: ChainHandle, ChainB: ChainHandl
     port_b: &TaggedPortIdRef<ChainB, ChainA>,
     options: BootstrapChannelOptions,
 ) -> Result<ConnectedChannel<ChainA, ChainB>, Error> {
-    pad_channel_id(
-        chain_a,
-        chain_b,
-        &connection,
-        port_a,
-        options.pad_channel_id_a,
-    )?;
-    pad_channel_id(
-        chain_b,
-        chain_a,
-        &connection.clone().flip(),
-        port_b,
-        options.pad_channel_id_b,
-    )?;
+    // pad_channel_id(
+    //     chain_a,
+    //     chain_b,
+    //     &connection,
+    //     port_a,
+    //     options.pad_channel_id_a,
+    // )?;
+    // pad_channel_id(
+    //     chain_b,
+    //     chain_a,
+    //     &connection.clone().flip(),
+    //     port_b,
+    //     options.pad_channel_id_b,
+    // )?;
 
     let channel = Channel::new(
         connection.connection.clone(),

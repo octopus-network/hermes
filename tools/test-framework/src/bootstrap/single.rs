@@ -8,6 +8,7 @@ use toml;
 use tracing::info;
 
 use crate::chain::builder::ChainBuilder;
+use crate::chain::chain_type::ChainType;
 use crate::chain::config;
 use crate::chain::driver::ChainDriver;
 use crate::chain::ext::bootstrap::ChainBootstrapMethodsExt;
@@ -15,8 +16,11 @@ use crate::error::Error;
 use crate::ibc::denom::Denom;
 use crate::ibc::token::Token;
 use crate::types::single::node::FullNode;
-use crate::types::wallet::{TestWallets, Wallet};
+use crate::types::wallet::{TestWallets, Wallet, WalletAddress};
 use crate::util::random::{random_u128_range, random_u32};
+
+use crate::types::process::ChildProcess;
+use std::process::Command;
 
 /**
    Bootstrap a single full node with the provided [`ChainBuilder`] and
@@ -119,6 +123,70 @@ pub fn bootstrap_single_node(
     let process = chain_driver.start()?;
 
     chain_driver.assert_eventual_wallet_amount(&relayer.address, &initial_coin)?;
+
+    info!(
+        "started new chain {} at with home path {} and RPC address {}.",
+        chain_driver.chain_id,
+        chain_driver.home_path,
+        chain_driver.rpc_address(),
+    );
+
+    info!(
+        "user wallet for chain {} - id: {}, address: {}",
+        chain_driver.chain_id, user1.id.0, user1.address.0,
+    );
+
+    info!(
+        "you can manually interact with the chain using commands starting with:\n{} --home '{}' --node {}",
+        chain_driver.command_path,
+        chain_driver.home_path,
+        chain_driver.rpc_address(),
+    );
+
+    let wallets = TestWallets {
+        validator,
+        relayer,
+        user1,
+        user2,
+    };
+
+    let node = FullNode {
+        chain_driver,
+        denom,
+        wallets,
+        process: Arc::new(RwLock::new(process)),
+    };
+
+    Ok(node)
+}
+
+pub fn bootstrap_near(
+    builder: &ChainBuilder,
+    prefix: &str,
+    chain_number: usize,
+) -> Result<FullNode, Error> {
+    let denom = Denom::base("OCT");
+
+    let mut chain_driver = builder.new_chain(prefix, false, chain_number)?;
+    chain_driver.chain_type = ChainType::Near;
+
+    let validator = add_wallet(&chain_driver, "validator", false)?;
+    let mut relayer = add_wallet(&chain_driver, "relayer", false)?;
+    let mut user1 = add_wallet(&chain_driver, "user1", false)?;
+    let mut user2 = add_wallet(&chain_driver, "user2", false)?;
+
+    let relayer_account = chain_driver.near_generate("relayer")?;
+    relayer.address = WalletAddress(relayer_account.clone());
+    info!("generate near account: relayer:{}", relayer_account);
+    let user1_account = chain_driver.near_generate("user1")?;
+    user1.address = WalletAddress(user1_account.clone());
+    info!("generate near account: user1:{}", user1_account);
+    let user2_account = chain_driver.near_generate("user2")?;
+    user2.address = WalletAddress(user2_account.clone());
+    info!("generate near account: user2:{}", user2_account);
+
+    let child = Command::new("ls").spawn()?;
+    let process = ChildProcess::new(child);
 
     info!(
         "started new chain {} at with home path {} and RPC address {}.",

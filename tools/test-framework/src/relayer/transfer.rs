@@ -99,7 +99,7 @@ pub async fn ibc_token_transfer<SrcChain, DstChain>(
         sender,
         recipient,
         token,
-        timeout.unwrap_or(Duration::from_secs(60)),
+        timeout.unwrap_or(Duration::from_secs(600)),
         memo.clone(),
     )?;
 
