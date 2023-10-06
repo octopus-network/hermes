@@ -21,6 +21,7 @@ use crate::relayer::tx::new_tx_config_for_test;
 use crate::types::env::{EnvWriter, ExportEnv};
 use crate::types::wallet::WalletAddress;
 use crate::util::retry::assert_eventually_succeed;
+use tracing::info;
 
 /**
    Number of times (seconds) to try and query a wallet to reach the
@@ -213,6 +214,7 @@ impl ChainDriver {
             Duration::from_secs(1),
             || {
                 let amount: Amount = self.query_balance(wallet, &token.denom)?;
+                info!("checking balance: {:?}:{:?}", wallet, amount);
 
                 if amount == token.amount {
                     Ok(())

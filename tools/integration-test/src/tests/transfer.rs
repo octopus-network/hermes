@@ -48,6 +48,11 @@ impl BinaryChannelTest for IbcTransferTest {
         chains: ConnectedChains<ChainA, ChainB>,
         channel: ConnectedChannel<ChainA, ChainB>,
     ) -> Result<(), Error> {
+        chains
+            .node_a
+            .chain_driver()
+            .setup_near_ibc_transfer(&channel.channel_id_a.0)?;
+
         let denom_a = chains.node_a.denom();
 
         let wallet_a = chains.node_a.wallets().user1().cloned();
@@ -90,12 +95,12 @@ impl BinaryChannelTest for IbcTransferTest {
 
         chains.node_a.chain_driver().assert_eventual_wallet_amount(
             &wallet_a.address(),
-            &(balance_a - a_to_b_amount).as_ref(),
+            &(balance_a - a_to_b_amount * 10u128.pow(18)).as_ref(),
         )?;
 
         chains.node_b.chain_driver().assert_eventual_wallet_amount(
             &wallet_b.address(),
-            &denom_b.with_amount(a_to_b_amount).as_ref(),
+            &denom_b.with_amount(a_to_b_amount * 10u128.pow(18)).as_ref(),
         )?;
 
         info!(
@@ -109,7 +114,7 @@ impl BinaryChannelTest for IbcTransferTest {
             .chain_driver()
             .query_balance(&wallet_c.address(), &denom_a)?;
 
-        let b_to_a_amount = random_u128_range(500, a_to_b_amount);
+        let b_to_a_amount = random_u128_range(1, a_to_b_amount);
 
         info!(
             "Sending IBC transfer from chain {} to chain {} with amount of {}",
@@ -123,17 +128,19 @@ impl BinaryChannelTest for IbcTransferTest {
             &channel.channel_id_b.as_ref(),
             &wallet_b.as_ref(),
             &wallet_c.address(),
-            &denom_b.with_amount(b_to_a_amount).as_ref(),
+            &denom_b.with_amount(b_to_a_amount * 10u128.pow(18)).as_ref(),
         )?;
 
         chains.node_b.chain_driver().assert_eventual_wallet_amount(
             &wallet_b.address(),
-            &denom_b.with_amount(a_to_b_amount - b_to_a_amount).as_ref(),
+            &denom_b
+                .with_amount(a_to_b_amount * 10u128.pow(18) - b_to_a_amount * 10u128.pow(18))
+                .as_ref(),
         )?;
 
         chains.node_a.chain_driver().assert_eventual_wallet_amount(
             &wallet_c.address(),
-            &(balance_c + b_to_a_amount).as_ref(),
+            &(balance_c + b_to_a_amount * 10u128.pow(18)).as_ref(),
         )?;
 
         info!(

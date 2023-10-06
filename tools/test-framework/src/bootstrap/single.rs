@@ -165,7 +165,7 @@ pub fn bootstrap_near(
     prefix: &str,
     chain_number: usize,
 ) -> Result<FullNode, Error> {
-    let denom = Denom::base("oct.beta_oct_relay.testnet");
+    let denom = Denom::base("OCT");
 
     let mut chain_driver = builder.new_chain(prefix, false, chain_number)?;
     chain_driver.chain_type = ChainType::Near;

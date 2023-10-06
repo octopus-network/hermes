@@ -696,7 +696,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryClientStatesRequest,
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -865,7 +865,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryClientConnectionsRequest,
     ) -> Result<Vec<ConnectionId>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -987,7 +987,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryPacketCommitmentsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1023,7 +1023,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryUnreceivedPacketsRequest,
     ) -> Result<Vec<Sequence>, Error> {
-        info!(
+        trace!(
             "request: {:?}, \n{}",
             request,
             std::panic::Location::caller()
@@ -1066,7 +1066,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryPacketAcknowledgementsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1085,7 +1085,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryUnreceivedAcksRequest,
     ) -> Result<Vec<Sequence>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
