@@ -59,7 +59,7 @@ impl BinaryChannelTest for IbcTransferTest {
             .chain_driver()
             .query_balance(&wallet_a.address(), &denom_a)?;
 
-        let a_to_b_amount = random_u128_range(1000, 5000);
+        let a_to_b_amount = random_u128_range(1, 10);
 
         info!(
             "Sending IBC transfer from chain {} to chain {} with amount of {} {}",

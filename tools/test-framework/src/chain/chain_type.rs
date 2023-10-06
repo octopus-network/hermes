@@ -8,7 +8,7 @@ use crate::util::random::{random_u32, random_unused_tcp_port};
 const COSMOS_HD_PATH: &str = "m/44'/118'/0'/0/0";
 const EVMOS_HD_PATH: &str = "m/44'/60'/0'/0/0";
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ChainType {
     Cosmos,
     Evmos,

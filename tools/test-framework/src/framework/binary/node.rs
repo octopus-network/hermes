@@ -110,14 +110,7 @@ where
     Overrides: NodeConfigOverride + NodeGenesisOverride,
 {
     fn run(&self, config: &TestConfig, builder: &ChainBuilder) -> Result<(), Error> {
-        let node_a = bootstrap_near(
-            builder,
-            "1",
-            config.bootstrap_with_random_ids,
-            |config| self.test.get_overrides().modify_node_config(config),
-            |genesis| self.test.get_overrides().modify_genesis_file(genesis),
-            0,
-        )?;
+        let node_a = bootstrap_near(builder, "1", 0)?;
 
         let node_b = bootstrap_single_node(
             builder,

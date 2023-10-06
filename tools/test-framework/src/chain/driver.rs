@@ -13,7 +13,7 @@ use ibc_relayer_types::applications::transfer::amount::Amount;
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
 
 use crate::chain::chain_type::ChainType;
-use crate::chain::cli::query::query_balance;
+use crate::chain::cli::query::{query_balance, query_near_balance};
 use crate::error::Error;
 use crate::ibc::denom::Denom;
 use crate::ibc::token::Token;
@@ -185,13 +185,17 @@ impl ChainDriver {
        Query for the balances for a given wallet address and denomination
     */
     pub fn query_balance(&self, wallet_id: &WalletAddress, denom: &Denom) -> Result<Amount, Error> {
-        query_balance(
-            self.chain_id.as_str(),
-            &self.command_path,
-            &self.rpc_listen_address(),
-            &wallet_id.0,
-            &denom.to_string(),
-        )
+        if self.chain_type == ChainType::Near {
+            query_near_balance(self.chain_id.as_str(), &wallet_id.0)
+        } else {
+            query_balance(
+                self.chain_id.as_str(),
+                &self.command_path,
+                &self.rpc_listen_address(),
+                &wallet_id.0,
+                &denom.to_string(),
+            )
+        }
     }
 
     /**

@@ -8,6 +8,7 @@ use toml;
 use tracing::info;
 
 use crate::chain::builder::ChainBuilder;
+use crate::chain::chain_type::ChainType;
 use crate::chain::config;
 use crate::chain::driver::ChainDriver;
 use crate::chain::ext::bootstrap::ChainBootstrapMethodsExt;
@@ -15,10 +16,9 @@ use crate::error::Error;
 use crate::ibc::denom::Denom;
 use crate::ibc::token::Token;
 use crate::types::single::node::FullNode;
-use crate::types::wallet::{TestWallets, Wallet};
+use crate::types::wallet::{TestWallets, Wallet, WalletAddress};
 use crate::util::random::{random_u128_range, random_u32};
 
-use crate::chain::exec::simple_exec;
 use crate::types::process::ChildProcess;
 use std::process::Command;
 
@@ -163,67 +163,29 @@ pub fn bootstrap_single_node(
 pub fn bootstrap_near(
     builder: &ChainBuilder,
     prefix: &str,
-    use_random_id: bool,
-    config_modifier: impl FnOnce(&mut toml::Value) -> Result<(), Error>,
-    genesis_modifier: impl FnOnce(&mut serde_json::Value) -> Result<(), Error>,
     chain_number: usize,
 ) -> Result<FullNode, Error> {
-    let denom = if use_random_id {
-        Denom::base(&format!("coin{:x}", random_u32()))
-    } else {
-        Denom::base("samoleans")
-    };
+    let denom = Denom::base("oct.beta_oct_relay.testnet");
 
-    let chain_driver = builder.new_chain(prefix, use_random_id, chain_number)?;
+    let mut chain_driver = builder.new_chain(prefix, false, chain_number)?;
+    chain_driver.chain_type = ChainType::Near;
 
-    let validator = add_wallet(&chain_driver, "validator", use_random_id)?;
-    let relayer = add_wallet(&chain_driver, "relayer", use_random_id)?;
-    let user1 = add_wallet(&chain_driver, "user1", use_random_id)?;
-    let user2 = add_wallet(&chain_driver, "user2", use_random_id)?;
+    let validator = add_wallet(&chain_driver, "validator", false)?;
+    let mut relayer = add_wallet(&chain_driver, "relayer", false)?;
+    let mut user1 = add_wallet(&chain_driver, "user1", false)?;
+    let mut user2 = add_wallet(&chain_driver, "user2", false)?;
 
-    let output = simple_exec(
-        chain_driver.chain_id.as_str(),
-        "mkdir",
-        &[
-            "-p",
-            &format!(
-                "{}/../hermes_keyring/near-0/keyring-test",
-                chain_driver.home_path
-            ),
-        ],
-    )?;
+    let relayer_account = chain_driver.near_generate("relayer")?;
+    relayer.address = WalletAddress(relayer_account.clone());
+    info!("generate near account: relayer:{}", relayer_account);
+    let user1_account = chain_driver.near_generate("user1")?;
+    user1.address = WalletAddress(user1_account.clone());
+    info!("generate near account: user1:{}", user1_account);
+    let user2_account = chain_driver.near_generate("user2")?;
+    user2.address = WalletAddress(user2_account.clone());
+    info!("generate near account: user2:{}", user2_account);
 
-    info!("mkdir: {:?}", output.stdout);
-    let output = simple_exec(
-        chain_driver.chain_id.as_str(),
-        "cp",
-        &[
-            "/home/julian/.near-credentials/testnet/juliansun.testnet.json",
-            &format!(
-                "{}/../hermes_keyring/near-0/keyring-test/relayer.json",
-                chain_driver.home_path
-            ),
-        ],
-    )?;
-
-    info!("add relayer account: {:?}", output.stdout);
-
-    let output = simple_exec(
-        chain_driver.chain_id.as_str(),
-        "sed",
-        &[
-            "-i",
-            "s/private_key/secret_key/",
-            &format!(
-                "{}/../hermes_keyring/near-0/keyring-test/relayer.json",
-                chain_driver.home_path
-            ),
-        ],
-    )?;
-
-    info!("replace private_key with secret_key: {:?}", output.stdout);
     let child = Command::new("ls").spawn()?;
-
     let process = ChildProcess::new(child);
 
     info!(
