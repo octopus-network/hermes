@@ -903,7 +903,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryConnectionChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1165,7 +1165,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryPacketEventDataRequest,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()

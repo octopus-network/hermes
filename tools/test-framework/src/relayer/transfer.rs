@@ -20,11 +20,14 @@ use ibc_relayer_types::core::ics04_channel::timeout::TimeoutHeight;
 use ibc_relayer_types::timestamp::Timestamp;
 use tendermint_rpc::HttpClient;
 
+use crate::chain::exec::simple_exec;
 use crate::error::{handle_generic_error, Error};
+use crate::ibc::denom::Denom;
 use crate::ibc::token::TaggedTokenRef;
 use crate::types::id::{TaggedChannelIdRef, TaggedPortIdRef};
 use crate::types::tagged::*;
 use crate::types::wallet::{Wallet, WalletAddress};
+use tracing::info;
 
 pub fn build_transfer_message<SrcChain, DstChain>(
     port_id: &TaggedPortIdRef<'_, SrcChain, DstChain>,
@@ -154,6 +157,84 @@ pub async fn batched_ibc_token_transfer<SrcChain, DstChain>(
         messages,
     )
     .await?;
+
+    Ok(())
+}
+
+pub fn near_ibc_token_transfer<SrcChain, DstChain>(
+    desc: &str,
+    channel_id: &TaggedChannelIdRef<'_, SrcChain, DstChain>,
+    sender: &MonoTagged<SrcChain, &Wallet>,
+    recipient: &MonoTagged<DstChain, &WalletAddress>,
+    token: &TaggedTokenRef<'_, SrcChain>,
+    memo: Option<String>,
+    timeout: Option<Duration>,
+) -> Result<(), Error> {
+    let memo = memo.map_or("null".to_string(), |s| format!("\"{}\"", s));
+    let timeout = timeout.map_or("1000".to_string(), |t| t.as_secs().to_string());
+    match &token.0.denom {
+        Denom::Base(_denom) => {
+            let res = simple_exec(
+                        desc,
+                "near",
+                &[
+                    "call",
+                    "oct.beta_oct_relay.testnet",
+                    "ft_transfer_call",
+                    &format!("{{\"receiver_id\":\"{}.ef.transfer.v5.nearibc.testnet\",\"amount\":\"{}\",\"memo\":{},\"msg\":\"{{\\\"receiver\\\":\\\"{}\\\",\\\"timeout_seconds\\\":\\\"{}\\\"}}\"}}", channel_id.0.as_str(), &format!("{}000000000000000000", token.0.amount.0), memo, recipient.0.as_str(), timeout),
+                    "--accountId",
+                    &sender.0.address.0,
+                    "--gas",
+                    "200000000000000",
+                    "--depositYocto",
+                    "1",
+                ],
+                )?
+                .stdout;
+
+            info!(
+                "ft_transfer_call: {:?} channel_id: {:?}, amount: {:?}, recipient: {:?}",
+                res,
+                channel_id.0.as_str(),
+                &format!("{}000000000000000000", token.0.amount.0),
+                recipient.0.as_str()
+            );
+        }
+        Denom::Ibc {
+            path: _,
+            denom: _,
+            hashed,
+        } => {
+            let token_contract = format!("{}.tf.transfer.v5.nearibc.testnet", hashed);
+
+            let res = simple_exec(
+                desc,
+                "near",
+                &[
+                    "call",
+                    &token_contract,
+                    "request_transfer",
+                    &format!(
+                        "{{\"receiver_id\":\"{}\",\"amount\":\"{}\"}}",
+                        recipient.0.as_str(),
+                        token.0.amount.0
+                    ),
+                    "--accountId",
+                    &sender.0.address.0,
+                    "--gas",
+                    "200000000000000",
+                ],
+            )?
+            .stdout;
+
+            info!(
+                "request_transfer: {:?} amount: {:?}, recipient: {:?}",
+                res,
+                token.0.amount.0,
+                recipient.0.as_str()
+            );
+        }
+    };
 
     Ok(())
 }

@@ -11,9 +11,10 @@ use crate::chain::driver::ChainDriver;
 use crate::chain::exec::simple_exec;
 use crate::chain::tagged::TaggedChainDriverExt;
 use crate::error::Error;
-use crate::ibc::denom::Denom;
 use crate::ibc::token::TaggedTokenRef;
-use crate::relayer::transfer::{batched_ibc_token_transfer, ibc_token_transfer};
+use crate::relayer::transfer::{
+    batched_ibc_token_transfer, ibc_token_transfer, near_ibc_token_transfer,
+};
 use crate::types::id::{TaggedChannelIdRef, TaggedPortIdRef};
 use crate::types::tagged::*;
 use crate::types::wallet::{Wallet, WalletAddress};
@@ -102,70 +103,15 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
         token: &TaggedTokenRef<Chain>,
     ) -> Result<Packet, Error> {
         if self.0.chain_type == ChainType::Near {
-            match &token.0.denom {
-                Denom::Base(_denom) => {
-                    let res = simple_exec(
+            near_ibc_token_transfer(
                 &self.chain_id().to_string(),
-                "near",
-                &[
-                    "call",
-                    "oct.beta_oct_relay.testnet",
-                    "ft_transfer_call",
-                    &format!("{{\"receiver_id\":\"{}.ef.transfer.v5.nearibc.testnet\",\"amount\":\"{}\",\"memo\":null,\"msg\":\"{{\\\"receiver\\\":\\\"{}\\\",\\\"timeout_seconds\\\":\\\"1000\\\"}}\"}}", channel_id.0.as_str(), &format!("{}000000000000000000", token.0.amount.0), recipient.0.as_str()),
-                    "--accountId",
-                    &sender.0.address.0,
-                    "--gas",
-                    "200000000000000",
-                    "--depositYocto",
-                    "1",
-                ],
-                )?
-                .stdout;
-
-                    info!(
-                        "ft_transfer_call: {:?} channel_id: {:?}, amount: {:?}, recipient: {:?}",
-                        res,
-                        channel_id.0.as_str(),
-                        &format!("{}000000000000000000", token.0.amount.0),
-                        recipient.0.as_str()
-                    );
-                }
-                Denom::Ibc {
-                    path: _,
-                    denom: _,
-                    hashed,
-                } => {
-                    let token_contract = format!("{}.tf.transfer.v5.nearibc.testnet", hashed);
-
-                    let res = simple_exec(
-                        &self.chain_id().to_string(),
-                        "near",
-                        &[
-                            "call",
-                            &token_contract,
-                            "request_transfer",
-                            &format!(
-                                "{{\"receiver_id\":\"{}\",\"amount\":\"{}\"}}",
-                                recipient.0.as_str(),
-                                token.0.amount.0
-                            ),
-                            "--accountId",
-                            &sender.0.address.0,
-                            "--gas",
-                            "200000000000000",
-                        ],
-                    )?
-                    .stdout;
-
-                    info!(
-                        "request_transfer: {:?} amount: {:?}, recipient: {:?}",
-                        res,
-                        token.0.amount.0,
-                        recipient.0.as_str()
-                    );
-                }
-            };
-
+                channel_id,
+                sender,
+                recipient,
+                token,
+                None,
+                None,
+            )?;
             Ok(Packet::default())
         } else {
             let rpc_client = self.rpc_client()?;
@@ -193,18 +139,31 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
         memo: Option<String>,
         timeout: Option<Duration>,
     ) -> Result<Packet, Error> {
-        let rpc_client = self.rpc_client()?;
-        self.value().runtime.block_on(ibc_token_transfer(
-            rpc_client.as_ref(),
-            &self.tx_config(),
-            port_id,
-            channel_id,
-            sender,
-            recipient,
-            token,
-            memo,
-            timeout,
-        ))
+        if self.0.chain_type == ChainType::Near {
+            near_ibc_token_transfer(
+                &self.chain_id().to_string(),
+                channel_id,
+                sender,
+                recipient,
+                token,
+                memo,
+                timeout,
+            )?;
+            Ok(Packet::default())
+        } else {
+            let rpc_client = self.rpc_client()?;
+            self.value().runtime.block_on(ibc_token_transfer(
+                rpc_client.as_ref(),
+                &self.tx_config(),
+                port_id,
+                channel_id,
+                sender,
+                recipient,
+                token,
+                memo,
+                timeout,
+            ))
+        }
     }
 
     fn ibc_transfer_token_multiple<Counterparty>(

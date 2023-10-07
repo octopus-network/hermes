@@ -23,6 +23,7 @@ pub mod query_packet;
 pub mod supervisor;
 pub mod tendermint;
 pub mod ternary_transfer;
+pub mod timeout;
 pub mod transfer;
 
 #[cfg(any(doc, feature = "ics29-fee"))]
