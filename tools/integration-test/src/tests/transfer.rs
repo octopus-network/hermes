@@ -197,6 +197,51 @@ impl BinaryChannelTest for IbcTransferTest {
             chains.chain_id_a(),
         );
 
+        let balance_d = chains
+            .node_b
+            .chain_driver()
+            .query_balance(&wallet_d.address(), &chains.node_b.denom())?;
+
+        let a_to_b_amount = random_u128_range(1, b_to_a_amount);
+
+        info!(
+            "Sending IBC transfer from chain {} to chain {} with amount of {}/samoleans",
+            chains.chain_id_a(),
+            chains.chain_id_b(),
+            a_to_b_amount,
+        );
+
+        chains.node_a.chain_driver().ibc_transfer_token(
+            &channel.port_a.as_ref(),
+            &channel.channel_id_a.as_ref(),
+            &wallet_c.as_ref(),
+            &wallet_d.address(),
+            &ibc_denom_a.with_amount(a_to_b_amount).as_ref(),
+        )?;
+
+        info!(
+            "Waiting for user on chain B to receive IBC transferred amount of {}",
+            a_to_b_amount
+        );
+
+        chains.node_a.chain_driver().assert_eventual_wallet_amount(
+            &wallet_c.address(),
+            &ibc_denom_a
+                .with_amount(b_to_a_amount - a_to_b_amount)
+                .as_ref(),
+        )?;
+
+        chains.node_b.chain_driver().assert_eventual_wallet_amount(
+            &wallet_d.address(),
+            &(balance_d + a_to_b_amount).as_ref(),
+        )?;
+
+        info!(
+            "successfully performed reverse IBC transfer from chain {} back to chain {}/samoleans",
+            chains.chain_id_a(),
+            chains.chain_id_b(),
+        );
+
         Ok(())
     }
 }
