@@ -71,8 +71,6 @@ pub fn bootstrap_chains_with_full_nodes(
     // Pass in unique closure expressions `||{}` as the first argument so that
     // the returned chains are considered different types by Rust.
     // See [`spawn_chain_handle`] for more details.
-    let mut node_a = node_a.clone();
-    node_a.chain_driver.chain_id = ChainId::from_str("near-0").unwrap();
     let handle_a = spawn_chain_handle(|| {}, &registry, &node_a)?;
     let handle_b = spawn_chain_handle(|| {}, &registry, &node_b)?;
 

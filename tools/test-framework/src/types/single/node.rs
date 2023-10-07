@@ -136,13 +136,15 @@ impl FullNode {
             .as_path()
             .display()
             .to_string();
+        let home_dir = std::env::var("HOME").unwrap();
 
         Ok(config::ChainConfig {
             id: self.chain_driver.chain_id.clone(),
             ic_endpoint: "http://localhost:4943".to_string(),
-            canister_pem: PathBuf::from_str(
-                "/home/julian/.config/dfx/identity/default/identity.pem",
-            )
+            canister_pem: PathBuf::from_str(&format!(
+                "{}/.config/dfx/identity/default/identity.pem",
+                home_dir
+            ))
             .unwrap(),
             near_ibc_address: NearIbcContractAddress::from_str("v5.nearibc.testnet").unwrap(),
             canister_id: CanisterIdConfig::from_str("bkyz2-fmaaa-aaaaa-qaaaq-cai").unwrap(),
@@ -195,13 +197,15 @@ impl FullNode {
             .as_path()
             .display()
             .to_string();
+        let home_dir = std::env::var("HOME").unwrap();
 
         Ok(config::ChainConfig {
             id: ChainId::from_str("near-0").unwrap(),
             ic_endpoint: "http://localhost:4943".to_string(),
-            canister_pem: PathBuf::from_str(
-                "/home/julian/.config/dfx/identity/default/identity.pem",
-            )
+            canister_pem: PathBuf::from_str(&format!(
+                "{}/.config/dfx/identity/default/identity.pem",
+                home_dir
+            ))
             .unwrap(),
             near_ibc_address: NearIbcContractAddress::from_str("v5.nearibc.testnet").unwrap(),
             canister_id: CanisterIdConfig::from_str("bkyz2-fmaaa-aaaaa-qaaaq-cai").unwrap(),

@@ -187,7 +187,17 @@ impl ChainDriver {
     */
     pub fn query_balance(&self, wallet_id: &WalletAddress, denom: &Denom) -> Result<Amount, Error> {
         if self.chain_type == ChainType::Near {
-            query_near_balance(self.chain_id.as_str(), &wallet_id.0)
+            let token_contract = match denom {
+                Denom::Base(_denom) => "oct.beta_oct_relay.testnet".to_string(),
+                Denom::Ibc {
+                    path: _,
+                    denom: _,
+                    hashed,
+                } => {
+                    format!("{}.tf.transfer.v5.nearibc.testnet", hashed)
+                }
+            };
+            query_near_balance(self.chain_id.as_str(), &token_contract, &wallet_id.0)
         } else {
             query_balance(
                 self.chain_id.as_str(),
@@ -214,7 +224,10 @@ impl ChainDriver {
             Duration::from_secs(1),
             || {
                 let amount: Amount = self.query_balance(wallet, &token.denom)?;
-                info!("checking balance: {:?}:{:?}", wallet, amount);
+                info!(
+                    "checking balance: {:?} {:?}:{:?}",
+                    wallet, token.denom, amount
+                );
 
                 if amount == token.amount {
                     Ok(())

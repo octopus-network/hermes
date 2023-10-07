@@ -45,13 +45,17 @@ pub fn query_balance(
     Ok(amount)
 }
 
-pub fn query_near_balance(chain_id: &str, wallet_id: &str) -> Result<Amount, Error> {
+pub fn query_near_balance(
+    chain_id: &str,
+    token_contract: &str,
+    wallet_id: &str,
+) -> Result<Amount, Error> {
     let res = simple_exec(
         chain_id,
         "near",
         &[
             "view",
-            "oct.beta_oct_relay.testnet",
+            token_contract,
             "ft_balance_of",
             &format!("{{\"account_id\": \"{}\"}}", wallet_id),
         ],

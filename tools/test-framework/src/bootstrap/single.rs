@@ -18,6 +18,8 @@ use crate::ibc::token::Token;
 use crate::types::single::node::FullNode;
 use crate::types::wallet::{TestWallets, Wallet, WalletAddress};
 use crate::util::random::{random_u128_range, random_u32};
+use core::str::FromStr;
+use ibc_relayer_types::core::ics24_host::identifier::ChainId;
 
 use crate::types::process::ChildProcess;
 use std::process::Command;
@@ -169,6 +171,7 @@ pub fn bootstrap_near(
 
     let mut chain_driver = builder.new_chain(prefix, false, chain_number)?;
     chain_driver.chain_type = ChainType::Near;
+    chain_driver.chain_id = ChainId::from_str("near-0").unwrap();
 
     let validator = add_wallet(&chain_driver, "validator", false)?;
     let mut relayer = add_wallet(&chain_driver, "relayer", false)?;

@@ -1,3 +1,4 @@
+use ibc_test_framework::ibc::denom::TaggedDenom;
 use ibc_test_framework::prelude::*;
 use ibc_test_framework::util::random::random_u128_range;
 
@@ -48,16 +49,17 @@ impl BinaryChannelTest for IbcTransferTest {
         chains: ConnectedChains<ChainA, ChainB>,
         channel: ConnectedChannel<ChainA, ChainB>,
     ) -> Result<(), Error> {
-        chains
+        let token_contract = chains
             .node_a
             .chain_driver()
-            .setup_near_ibc_transfer(&channel.channel_id_a.0)?;
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
 
         let denom_a = chains.node_a.denom();
 
         let wallet_a = chains.node_a.wallets().user1().cloned();
         let wallet_b = chains.node_b.wallets().user1().cloned();
         let wallet_c = chains.node_a.wallets().user2().cloned();
+        let wallet_d = chains.node_b.wallets().user2().cloned();
 
         let balance_a = chains
             .node_a
@@ -145,6 +147,52 @@ impl BinaryChannelTest for IbcTransferTest {
 
         info!(
             "successfully performed reverse IBC transfer from chain {} back to chain {}",
+            chains.chain_id_b(),
+            chains.chain_id_a(),
+        );
+
+        let balance_b = chains
+            .node_b
+            .chain_driver()
+            .query_balance(&wallet_b.address(), &chains.node_b.denom())?;
+
+        let b_to_a_amount = random_u128_range(1000, 5000);
+
+        let new_path = format!("{}/{}", "transfer", channel.channel_id_a.as_ref());
+
+        let ibc_denom_a: TaggedDenom<ChainA> = MonoTagged::new(Denom::Ibc {
+            path: new_path,
+            denom: "samoleans".to_string(),
+            hashed: token_contract.to_string(),
+        });
+
+        info!(
+            "Sending IBC transfer from chain {} to chain {} with amount of {}/samoleans",
+            chains.chain_id_b(),
+            chains.chain_id_a(),
+            b_to_a_amount,
+        );
+
+        chains.node_b.chain_driver().ibc_transfer_token(
+            &channel.port_b.as_ref(),
+            &channel.channel_id_b.as_ref(),
+            &wallet_b.as_ref(),
+            &wallet_c.address(),
+            &chains.node_b.denom().with_amount(b_to_a_amount).as_ref(),
+        )?;
+
+        chains.node_b.chain_driver().assert_eventual_wallet_amount(
+            &wallet_b.address(),
+            &(balance_b - b_to_a_amount).as_ref(),
+        )?;
+
+        chains.node_a.chain_driver().assert_eventual_wallet_amount(
+            &wallet_c.address(),
+            &ibc_denom_a.with_amount(b_to_a_amount).as_ref(),
+        )?;
+
+        info!(
+            "successfully performed IBC transfer from chain {} to chain {}/samoleans",
             chains.chain_id_b(),
             chains.chain_id_a(),
         );

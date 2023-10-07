@@ -3,6 +3,7 @@ use core::time::Duration;
 use ibc_relayer_types::core::ics02_client::height::Height;
 use ibc_relayer_types::core::ics04_channel::packet::Packet;
 use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, PortId};
+use itertools::Itertools;
 
 use crate::chain::chain_type::ChainType;
 use crate::chain::cli::transfer::{local_transfer_token, transfer_from_chain};
@@ -15,6 +16,7 @@ use crate::relayer::transfer::{batched_ibc_token_transfer, ibc_token_transfer};
 use crate::types::id::{TaggedChannelIdRef, TaggedPortIdRef};
 use crate::types::tagged::*;
 use crate::types::wallet::{Wallet, WalletAddress};
+use eyre::eyre;
 use tracing::info;
 
 pub trait ChainTransferMethodsExt<Chain> {
@@ -86,7 +88,7 @@ pub trait ChainTransferMethodsExt<Chain> {
         timeout_height: &Height,
     ) -> Result<(), Error>;
 
-    fn setup_near_ibc_transfer(&self, channel: &ChannelId) -> Result<(), Error>;
+    fn setup_ibc_transfer_for_near(&self, channel: &ChannelId) -> Result<String, Error>;
 }
 
 impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a ChainDriver> {
@@ -231,7 +233,7 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
         )
     }
 
-    fn setup_near_ibc_transfer(&self, channel: &ChannelId) -> Result<(), Error> {
+    fn setup_ibc_transfer_for_near(&self, channel: &ChannelId) -> Result<String, Error> {
         if self.0.chain_type == ChainType::Near {
             let res = simple_exec(
                 &self.chain_id().to_string(),
@@ -290,7 +292,56 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
             .stdout;
 
             info!("storage_deposit: {}", res);
+
+            let res = simple_exec(
+                &self.chain_id().to_string(),
+                "near",
+                &[
+            "call",
+            "v5.nearibc.testnet",
+            "setup_wrapped_token",
+            &format!("{{\"trace_path\":\"transfer/{}\",\"base_denom\":\"samoleans\",\"metadata\":{{\"spec\":\"ft-1.0.0\",\"name\":\"samoleans\",\"symbol\":\"samoleans\",\"icon\":\"\",\"reference\":null,\"reference_hash\":null,\"decimals\":6}}}}", channel.as_str()),
+            "--accountId",
+            "v5.nearibc.testnet",
+            "--gas",
+            "300000000000000",
+            "--amount",
+            "3.6",
+                ],
+            )?
+            .stdout;
+
+            info!("setup_wrapped_token: {}", res);
+
+            let res = simple_exec(
+                &self.chain_id().to_string(),
+                "near",
+                &[
+                    "view",
+                    "tf.transfer.v5.nearibc.testnet",
+                    "get_cross_chain_assets",
+                    "''",
+                ],
+            )
+            .unwrap()
+            .stdout;
+
+            info!("get_cross_chain_assets: {}", res);
+            let token_contract: &str = res
+                .split("asset_id")
+                .find(|&s| s.contains(channel.as_str()))
+                .unwrap()
+                .split('\n')
+                .find_or_first(|_| true)
+                .unwrap()
+                .split('\'')
+                .collect::<Vec<&str>>()[1];
+
+            return Ok(token_contract.to_string());
         }
-        Ok(())
+
+        Err(Error::generic(eyre!(
+            "failed to setup_ibc_transfer_for_near"
+        )))
     }
 }
