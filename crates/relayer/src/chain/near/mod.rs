@@ -251,7 +251,7 @@ impl NearChain {
         last_block_hash: near_primitives::hash::CryptoHash,
         test_proof: bool,
     ) -> Result<NearHeader, retry::Error<()>> {
-        let header = retry_with_index(retry_strategy::default_strategy(), |_index| {
+        retry_with_index(retry_strategy::default_strategy(), |_index| {
             let result =
                 self.query_by_lcb_client(&RpcLightClientNextBlockRequest { last_block_hash });
 
@@ -363,8 +363,7 @@ impl NearChain {
                     retry::OperationResult::Retry(())
                 }
             }
-        });
-        header
+        })
     }
 
     fn query_view_state_proof(&self, store_key: String, height: u64) -> Result<Vec<u8>, Error> {
@@ -412,10 +411,9 @@ impl NearChain {
         }?;
         let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
 
-        let proof = NearProofs(proofs)
+        NearProofs(proofs)
             .try_to_vec()
-            .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)));
-        proof
+            .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))
     }
 }
 
@@ -597,7 +595,7 @@ impl ChainEndpoint for NearChain {
                         e,
                         std::panic::Location::caller()
                     );
-                    return RetryResult::Retry(());
+                    RetryResult::Retry(())
                 }
             }
         })
