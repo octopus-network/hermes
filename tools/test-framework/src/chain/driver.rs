@@ -186,26 +186,27 @@ impl ChainDriver {
        Query for the balances for a given wallet address and denomination
     */
     pub fn query_balance(&self, wallet_id: &WalletAddress, denom: &Denom) -> Result<Amount, Error> {
-        if self.chain_type == ChainType::Near {
-            let token_contract = match denom {
-                Denom::Base(_denom) => "oct.beta_oct_relay.testnet".to_string(),
-                Denom::Ibc {
-                    path: _,
-                    denom: _,
-                    hashed,
-                } => {
-                    format!("{}.tf.transfer.v5.nearibc.testnet", hashed)
-                }
-            };
-            query_near_balance(self.chain_id.as_str(), &token_contract, &wallet_id.0)
-        } else {
-            query_balance(
+        match self.chain_type {
+            ChainType::Near => {
+                let token_contract = match denom {
+                    Denom::Base(_denom) => "oct.beta_oct_relay.testnet".to_string(),
+                    Denom::Ibc {
+                        path: _,
+                        denom: _,
+                        hashed,
+                    } => {
+                        format!("{}.tf.transfer.v5.nearibc.testnet", hashed)
+                    }
+                };
+                query_near_balance(self.chain_id.as_str(), &token_contract, &wallet_id.0)
+            }
+            _ => query_balance(
                 self.chain_id.as_str(),
                 &self.command_path,
                 &self.rpc_listen_address(),
                 &wallet_id.0,
                 &denom.to_string(),
-            )
+            ),
         }
     }
 
