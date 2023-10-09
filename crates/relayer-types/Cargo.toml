@@ -45,7 +45,7 @@ regex = "1"
 
 # for ics06 solomachine client
 eyre = "0.6"
-cosmos-sdk-proto = { version = "0.16", default-features = false }
+cosmos-sdk-proto = { version = "0.20", default-features = false }
 
 # for ics12 near client
 ed25519-dalek = {version = "1", features = ["default", "serde"]}
