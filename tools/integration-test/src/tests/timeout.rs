@@ -8,6 +8,11 @@ fn test_ibc_transfer_timeout_cosmos() -> Result<(), Error> {
     run_binary_channel_test(&IbcTransferTimeoutCosmosTest)
 }
 
+#[test]
+fn test_ibc_transfer_timeout_near() -> Result<(), Error> {
+    run_binary_channel_test(&IbcTransferTimeoutNearTest)
+}
+
 pub struct IbcTransferTimeoutCosmosTest;
 
 impl TestOverrides for IbcTransferTimeoutCosmosTest {
@@ -85,6 +90,88 @@ impl BinaryChannelTest for IbcTransferTimeoutCosmosTest {
                 .node_b
                 .chain_driver()
                 .assert_eventual_wallet_amount(&wallet_b.address(), &balance_b.as_ref())?;
+
+            Ok(())
+        })
+    }
+}
+
+pub struct IbcTransferTimeoutNearTest;
+
+impl TestOverrides for IbcTransferTimeoutNearTest {
+    fn should_spawn_supervisor(&self) -> bool {
+        false
+    }
+}
+
+impl BinaryChannelTest for IbcTransferTimeoutNearTest {
+    fn run<ChainA: ChainHandle, ChainB: ChainHandle>(
+        &self,
+        _config: &TestConfig,
+        relayer: RelayerDriver,
+        chains: ConnectedChains<ChainA, ChainB>,
+        channel: ConnectedChannel<ChainA, ChainB>,
+    ) -> Result<(), Error> {
+        chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
+
+        let wallet_a = chains.node_a.wallets().user1().cloned();
+        let wallet_b = chains.node_b.wallets().user1().cloned();
+
+        let denom_a = chains.node_a.denom();
+        let balance_a = chains
+            .node_a
+            .chain_driver()
+            .query_balance(&wallet_a.address(), &denom_a)?;
+
+        let a_to_b_amount = random_u128_range(1, 10);
+
+        info!(
+            "Sending IBC transfer from chain {} to chain {} with amount of {}/samoleans",
+            chains.chain_id_a(),
+            chains.chain_id_b(),
+            a_to_b_amount,
+        );
+
+        chains
+            .node_a
+            .chain_driver()
+            .ibc_transfer_token_with_memo_and_timeout(
+                &channel.port_a.as_ref(),
+                &channel.channel_id_a.as_ref(),
+                &wallet_a.as_ref(),
+                &wallet_b.address(),
+                &denom_a.with_amount(a_to_b_amount).as_ref(),
+                None,
+                Some(Duration::from_secs(5)),
+            )?;
+
+        chains.node_a.chain_driver().assert_eventual_wallet_amount(
+            &wallet_a.address(),
+            &(balance_a.clone() - a_to_b_amount * 10u128.pow(18)).as_ref(),
+        )?;
+
+        let denom_b = derive_ibc_denom(
+            &channel.port_b.as_ref(),
+            &channel.channel_id_b.as_ref(),
+            &denom_a,
+        )?;
+
+        // Sleep to wait for IBC packet to timeout before start relaying
+        thread::sleep(Duration::from_secs(6));
+
+        relayer.with_supervisor(|| {
+            chains.node_b.chain_driver().assert_eventual_wallet_amount(
+                &wallet_b.address(),
+                &denom_b.with_amount(0u128).as_ref(),
+            )?;
+
+            chains
+                .node_a
+                .chain_driver()
+                .assert_eventual_wallet_amount(&wallet_a.address(), &(balance_a).as_ref())?;
 
             Ok(())
         })

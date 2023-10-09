@@ -26,7 +26,7 @@ pub struct ClientState {
 
 impl Ics2ClientState for ClientState {
     fn chain_id(&self) -> ChainId {
-        ChainId::new("ibc".to_string(), 1)
+        ChainId::new("near".to_string(), 0) // TODO
     }
 
     fn client_type(&self) -> ClientType {
