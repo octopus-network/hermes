@@ -338,20 +338,13 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
                     .split("asset_id")
                     .find(|&s| s.contains(channel.as_str()))
                     .unwrap()
-                    .stdout;
-
-                info!("get_cross_chain_assets: {}", res);
-                let token_contract: &str = res
-                    .split("asset_id")
-                    .find(|&s| s.contains(channel.as_str()))
-                    .unwrap()
                     .split('\n')
                     .find_or_first(|_| true)
                     .unwrap()
                     .split('\'')
                     .collect::<Vec<&str>>()[1];
 
-                return Ok(token_contract.to_string());
+                Ok(token_contract.to_string())
             }
 
             _ => Err(Error::generic(eyre!(
