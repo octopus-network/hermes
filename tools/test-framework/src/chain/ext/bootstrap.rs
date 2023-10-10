@@ -369,18 +369,17 @@ impl ChainBootstrapMethodsExt for ChainDriver {
             ],
         )?;
 
-        let _output = simple_exec(
-            self.chain_id.as_str(),
-            "sed",
-            &[
-                "-i",
-                "s/private_key/secret_key/",
-                &format!(
-                    "{}/../hermes_keyring/near-0/keyring-test/{}.json",
-                    self.home_path, prefix
-                ),
-            ],
-        )?;
+        let path_str = format!(
+            "{}/../hermes_keyring/near-0/keyring-test/{}.json",
+            self.home_path, prefix
+        );
+
+        let mut sed_args = vec!["-i", "s/private_key/secret_key/", &path_str];
+
+        #[cfg(target_os = "macos")]
+        sed_args.insert(1, "''");
+
+        let _output = simple_exec(self.chain_id.as_str(), "sed", &sed_args)?;
 
         let _output = simple_exec(
             self.chain_id.as_str(),
