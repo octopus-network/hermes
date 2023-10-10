@@ -19,7 +19,7 @@ use crate::types::id::{TaggedChannelIdRef, TaggedPortIdRef};
 use crate::types::tagged::*;
 use crate::types::wallet::{Wallet, WalletAddress};
 use eyre::eyre;
-use tracing::info;
+use tracing::{info, trace};
 
 pub trait ChainTransferMethodsExt<Chain> {
     /**
@@ -332,6 +332,13 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
                 )
                 .unwrap()
                 .stdout;
+
+                trace!("get_cross_chain_assets: {}", res);
+                let token_contract: &str = res
+                    .split("asset_id")
+                    .find(|&s| s.contains(channel.as_str()))
+                    .unwrap()
+                    .stdout;
 
                 info!("get_cross_chain_assets: {}", res);
                 let token_contract: &str = res
