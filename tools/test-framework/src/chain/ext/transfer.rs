@@ -3,7 +3,6 @@ use core::time::Duration;
 use ibc_relayer_types::core::ics02_client::height::Height;
 use ibc_relayer_types::core::ics04_channel::packet::Packet;
 use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, PortId};
-use itertools::Itertools;
 
 use crate::chain::chain_type::ChainType;
 use crate::chain::cli::transfer::{local_transfer_token, transfer_from_chain};
@@ -19,7 +18,7 @@ use crate::types::id::{TaggedChannelIdRef, TaggedPortIdRef};
 use crate::types::tagged::*;
 use crate::types::wallet::{Wallet, WalletAddress};
 use eyre::eyre;
-use tracing::{info, trace};
+use tracing::info;
 
 pub trait ChainTransferMethodsExt<Chain> {
     /**
@@ -327,19 +326,16 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
                         "view",
                         "tf.transfer.v5.nearibc.testnet",
                         "get_cross_chain_assets",
-                        "''",
+                        &format!("{{\"trace_path\":\"{}/{}\"}}", "transfer", channel.as_str()),
                     ],
                 )
                 .unwrap()
                 .stdout;
 
-                trace!("get_cross_chain_assets: {}", res);
+                info!("get_cross_chain_assets: {}", res);
                 let token_contract: &str = res
-                    .split("asset_id")
-                    .find(|&s| s.contains(channel.as_str()))
-                    .unwrap()
                     .split('\n')
-                    .find_or_first(|_| true)
+                    .find(|&s| s.contains("asset_id"))
                     .unwrap()
                     .split('\'')
                     .collect::<Vec<&str>>()[1];

@@ -3,7 +3,7 @@ use ibc_test_framework::prelude::*;
 use ibc_test_framework::util::random::random_u128_range;
 
 #[test]
-fn test_ibc_transfer() -> Result<(), Error> {
+fn test_ibc_transfers() -> Result<(), Error> {
     run_binary_channel_test(&IbcTransferTest)
 }
 

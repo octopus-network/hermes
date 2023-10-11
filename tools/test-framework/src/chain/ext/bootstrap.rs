@@ -384,7 +384,7 @@ impl ChainBootstrapMethodsExt for ChainDriver {
         let _output = simple_exec(
             self.chain_id.as_str(),
             "near",
-            &["send", "v5.nearibc.testnet", result, "0.5"],
+            &["send", "v5.nearibc.testnet", result, "1"],
         )?;
 
         let _output = simple_exec(
