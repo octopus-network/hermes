@@ -13,7 +13,6 @@ use ibc_relayer::config::CanisterIdConfig;
 use ibc_relayer::config::NearIbcContractAddress;
 use ibc_relayer::keyring::Store;
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
-use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use tendermint_rpc::Url;
 use tendermint_rpc::WebSocketClientUrl;
@@ -136,18 +135,14 @@ impl FullNode {
             .as_path()
             .display()
             .to_string();
-        let home_dir = std::env::var("HOME").unwrap();
 
         Ok(config::ChainConfig {
             id: self.chain_driver.chain_id.clone(),
-            ic_endpoint: "http://localhost:4943".to_string(),
-            canister_pem: PathBuf::from_str(&format!(
-                "{}/.config/dfx/identity/default/identity.pem",
-                home_dir
-            ))
-            .unwrap(),
-            near_ibc_address: NearIbcContractAddress::from_str("v5.nearibc.testnet").unwrap(),
-            canister_id: CanisterIdConfig::from_str("bkyz2-fmaaa-aaaaa-qaaaq-cai").unwrap(),
+            ic_endpoint: test_config.ic_endpoint.clone(),
+            canister_pem: test_config.canister_pem.clone(),
+            near_ibc_address: NearIbcContractAddress::from_str(&test_config.near_ibc_address)
+                .unwrap(),
+            canister_id: CanisterIdConfig::from_str(&test_config.canister_id).unwrap(),
             r#type: ChainType::CosmosSdk,
             rpc_addr: Url::from_str(&self.chain_driver.rpc_address())?,
             grpc_addr: Url::from_str(&self.chain_driver.grpc_address())?,
@@ -197,22 +192,16 @@ impl FullNode {
             .as_path()
             .display()
             .to_string();
-        let home_dir = std::env::var("HOME").unwrap();
 
         Ok(config::ChainConfig {
             id: ChainId::from_str("near-0").unwrap(),
-            ic_endpoint: "http://localhost:4943".to_string(),
-            canister_pem: PathBuf::from_str(&format!(
-                "{}/.config/dfx/identity/default/identity.pem",
-                home_dir
-            ))
-            .unwrap(),
-            near_ibc_address: NearIbcContractAddress::from_str("v5.nearibc.testnet").unwrap(),
-            canister_id: CanisterIdConfig::from_str("bkyz2-fmaaa-aaaaa-qaaaq-cai").unwrap(),
+            ic_endpoint: test_config.ic_endpoint.clone(),
+            canister_pem: test_config.canister_pem.clone(),
+            near_ibc_address: NearIbcContractAddress::from_str(&test_config.near_ibc_address)
+                .unwrap(),
+            canister_id: CanisterIdConfig::from_str(&test_config.canister_id).unwrap(),
             r#type: ChainType::Near,
-            rpc_addr: Url::from_str(
-                "https://near-testnet.infura.io/v3/272532ecf0b64d7782a03db0cbcf3c30",
-            )?,
+            rpc_addr: Url::from_str(&test_config.near_rpc_endpoint)?,
             grpc_addr: Url::from_str(&self.chain_driver.grpc_address())?,
             event_source: config::EventSourceMode::Push {
                 url: WebSocketClientUrl::from_str(&self.chain_driver.websocket_address())?,

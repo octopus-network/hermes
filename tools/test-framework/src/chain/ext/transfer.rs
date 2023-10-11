@@ -102,30 +102,33 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
         recipient: &MonoTagged<Counterparty, &WalletAddress>,
         token: &TaggedTokenRef<Chain>,
     ) -> Result<Packet, Error> {
-        if self.0.chain_type == ChainType::Near {
-            near_ibc_token_transfer(
-                &self.chain_id().to_string(),
-                channel_id,
-                sender,
-                recipient,
-                token,
-                None,
-                None,
-            )?;
-            Ok(Packet::default())
-        } else {
-            let rpc_client = self.rpc_client()?;
-            self.value().runtime.block_on(ibc_token_transfer(
-                rpc_client.as_ref(),
-                &self.tx_config(),
-                port_id,
-                channel_id,
-                sender,
-                recipient,
-                token,
-                None,
-                None,
-            ))
+        match self.0.chain_type {
+            ChainType::Near => {
+                near_ibc_token_transfer(
+                    &self.chain_id().to_string(),
+                    channel_id,
+                    sender,
+                    recipient,
+                    token,
+                    None,
+                    None,
+                )?;
+                Ok(Packet::default())
+            }
+            _ => {
+                let rpc_client = self.rpc_client()?;
+                self.value().runtime.block_on(ibc_token_transfer(
+                    rpc_client.as_ref(),
+                    &self.tx_config(),
+                    port_id,
+                    channel_id,
+                    sender,
+                    recipient,
+                    token,
+                    None,
+                    None,
+                ))
+            }
         }
     }
 
@@ -139,30 +142,33 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
         memo: Option<String>,
         timeout: Option<Duration>,
     ) -> Result<Packet, Error> {
-        if self.0.chain_type == ChainType::Near {
-            near_ibc_token_transfer(
-                &self.chain_id().to_string(),
-                channel_id,
-                sender,
-                recipient,
-                token,
-                memo,
-                timeout,
-            )?;
-            Ok(Packet::default())
-        } else {
-            let rpc_client = self.rpc_client()?;
-            self.value().runtime.block_on(ibc_token_transfer(
-                rpc_client.as_ref(),
-                &self.tx_config(),
-                port_id,
-                channel_id,
-                sender,
-                recipient,
-                token,
-                memo,
-                timeout,
-            ))
+        match self.0.chain_type {
+            ChainType::Near => {
+                near_ibc_token_transfer(
+                    &self.chain_id().to_string(),
+                    channel_id,
+                    sender,
+                    recipient,
+                    token,
+                    memo,
+                    timeout,
+                )?;
+                Ok(Packet::default())
+            }
+            _ => {
+                let rpc_client = self.rpc_client()?;
+                self.value().runtime.block_on(ibc_token_transfer(
+                    rpc_client.as_ref(),
+                    &self.tx_config(),
+                    port_id,
+                    channel_id,
+                    sender,
+                    recipient,
+                    token,
+                    memo,
+                    timeout,
+                ))
+            }
         }
     }
 
@@ -234,27 +240,28 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
     }
 
     fn setup_ibc_transfer_for_near(&self, channel: &ChannelId) -> Result<String, Error> {
-        if self.0.chain_type == ChainType::Near {
-            let res = simple_exec(
-                &self.chain_id().to_string(),
-                "near",
-                &[
-                    "call",
-                    "v5.nearibc.testnet",
-                    "setup_channel_escrow",
-                    &format!("{{\"channel_id\":\"{}\"}}", channel.as_str()),
-                    "--accountId",
-                    "v5.nearibc.testnet",
-                    "--gas",
-                    "300000000000000",
-                    "--amount",
-                    "3.1",
-                ],
-            )?
-            .stdout;
-            info!("setup_channel_escrow: {}", res);
+        match self.0.chain_type {
+            ChainType::Near => {
+                let res = simple_exec(
+                    &self.chain_id().to_string(),
+                    "near",
+                    &[
+                        "call",
+                        "v5.nearibc.testnet",
+                        "setup_channel_escrow",
+                        &format!("{{\"channel_id\":\"{}\"}}", channel.as_str()),
+                        "--accountId",
+                        "v5.nearibc.testnet",
+                        "--gas",
+                        "300000000000000",
+                        "--amount",
+                        "3.1",
+                    ],
+                )?
+                .stdout;
+                info!("setup_channel_escrow: {}", res);
 
-            let res = simple_exec(
+                let res = simple_exec(
                 &self.chain_id().to_string(),
                 "near",
                 &[
@@ -271,9 +278,9 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
                 ],
             )?
             .stdout;
-            info!("register_asset_for_channel: {}", res);
+                info!("register_asset_for_channel: {}", res);
 
-            let res = simple_exec(
+                let res = simple_exec(
                 &self.chain_id().to_string(),
                 "near",
                 &[
@@ -291,9 +298,9 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
             )?
             .stdout;
 
-            info!("storage_deposit: {}", res);
+                info!("storage_deposit: {}", res);
 
-            let res = simple_exec(
+                let res = simple_exec(
                 &self.chain_id().to_string(),
                 "near",
                 &[
@@ -311,37 +318,38 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
             )?
             .stdout;
 
-            info!("setup_wrapped_token: {}", res);
+                info!("setup_wrapped_token: {}", res);
 
-            let res = simple_exec(
-                &self.chain_id().to_string(),
-                "near",
-                &[
-                    "view",
-                    "tf.transfer.v5.nearibc.testnet",
-                    "get_cross_chain_assets",
-                    "''",
-                ],
-            )
-            .unwrap()
-            .stdout;
-
-            trace!("get_cross_chain_assets: {}", res);
-            let token_contract: &str = res
-                .split("asset_id")
-                .find(|&s| s.contains(channel.as_str()))
+                let res = simple_exec(
+                    &self.chain_id().to_string(),
+                    "near",
+                    &[
+                        "view",
+                        "tf.transfer.v5.nearibc.testnet",
+                        "get_cross_chain_assets",
+                        "''",
+                    ],
+                )
                 .unwrap()
-                .split('\n')
-                .find_or_first(|_| true)
-                .unwrap()
-                .split('\'')
-                .collect::<Vec<&str>>()[1];
+                .stdout;
 
-            return Ok(token_contract.to_string());
+                trace!("get_cross_chain_assets: {}", res);
+                let token_contract: &str = res
+                    .split("asset_id")
+                    .find(|&s| s.contains(channel.as_str()))
+                    .unwrap()
+                    .split('\n')
+                    .find_or_first(|_| true)
+                    .unwrap()
+                    .split('\'')
+                    .collect::<Vec<&str>>()[1];
+
+                Ok(token_contract.to_string())
+            }
+
+            _ => Err(Error::generic(eyre!(
+                "failed to setup_ibc_transfer_for_near"
+            ))),
         }
-
-        Err(Error::generic(eyre!(
-            "failed to setup_ibc_transfer_for_near"
-        )))
     }
 }
