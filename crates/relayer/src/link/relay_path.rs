@@ -1218,7 +1218,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             .src_chain()
             .config()
             .map_err(|e| {
-                LinkError::custom_error(format!("[in connection: build_conn_try decode src_chain get config failed] -> Error({})", e))
+                LinkError::custom_error(format!("[in connection: build_recv_packet decode src_chain get config failed] -> Error({})", e))
             })?
             .r#type
             == ChainType::Near
@@ -1250,15 +1250,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                     &packet.source_port,
                     &packet.source_channel,
                     packet.sequence,
-                        proof_height.decrement().map_err(|e| {
-                            LinkError::custom_error(format!("[in packet: build_recv_packet proof_height.decrement() failed] -> Error({})", e))
-                        })?,
+                    proof_height.decrement().map_err(|e| {
+                        LinkError::custom_error(format!("[in packet: build_recv_packet proof_height.decrement() failed] -> Error({})", e))
+                    })?,
                 )
                 .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
             let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
             msgs.push(msg.to_any());
-
         } else {
             let proofs = self
                 .src_chain()
@@ -1286,27 +1285,80 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     ) -> Result<Option<Vec<Any>>, LinkError> {
         let packet = event.packet.clone();
 
-        let proofs = self
+        let mut msgs: Vec<Any> = Vec::new();
+
+        if self
             .src_chain()
-            .build_packet_proofs(
-                PacketMsgType::Ack,
-                &packet.destination_port,
-                &packet.destination_channel,
-                packet.sequence,
-                height,
-            )
-            .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
+            .config()
+            .map_err(|e| {
+                LinkError::custom_error(format!("[in connection: build_ack_from_recv_event decode src_chain get config failed] -> Error({})", e))
+            })?
+            .r#type
+            == ChainType::Near
+        {
+            msgs = self.build_update_client_on_dst(height)?;
+            assert!(!msgs.is_empty());
+            let msg_update_client = msgs.last().ok_or(LinkError::custom_error(
+                "[in connection: build_recv_packet msgs.last() is none]".into(),
+            ))?;
+            let domain_msg = MsgUpdateClient::decode_vec(&msg_update_client.value).map_err(|e| {
+                LinkError::custom_error(format!(
+                    "[in packet: build_ack_from_recv_event decode MsgUpdateClient failed] -> Error({})",
+                    e
+                ))
+            })?;
+            let near_header = AnyHeader::try_from(domain_msg.client_message).map_err(|e| {
+                    LinkError::custom_error(format!(
+                        "[in packet: build_ack_from_recv_event decode ClientMessage to AnyHeader failed] -> Error({})",
+                        e
+                    ))
+                })?;
+            let proof_height = near_header.height();
+            warn!("ys-debug: new header for build_ack_from_recv_event: {:?}", proof_height);
 
-        let msg = MsgAcknowledgement::new(
-            packet,
-            event.ack.clone().into(),
-            proofs.clone(),
-            self.dst_signer()?,
-        );
+            let proofs = self
+                .src_chain()
+                .build_packet_proofs(
+                    PacketMsgType::Ack,
+                    &packet.destination_port,
+                    &packet.destination_channel,
+                    packet.sequence,
+                    proof_height.decrement().map_err(|e| {
+                        LinkError::custom_error(format!("[in packet: build_ack_from_recv_event proof_height.decrement() failed] -> Error({})", e))
+                    })?,
+                )
+                .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
-        trace!(packet = %msg.packet, height = %proofs.height(), "built acknowledgment msg");
+            let msg = MsgAcknowledgement::new(
+                packet,
+                event.ack.clone().into(),
+                proofs.clone(),
+                self.dst_signer()?,
+            );
+            msgs.push(msg.to_any());
+        } else {
+            let proofs = self
+                .src_chain()
+                .build_packet_proofs(
+                    PacketMsgType::Ack,
+                    &packet.destination_port,
+                    &packet.destination_channel,
+                    packet.sequence,
+                    height,
+                )
+                .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
-        Ok(Some(vec![msg.to_any()]))
+            let msg = MsgAcknowledgement::new(
+                packet,
+                event.ack.clone().into(),
+                proofs.clone(),
+                self.dst_signer()?,
+            );
+            trace!(packet = %msg.packet, height = %proofs.height(), "built acknowledgment msg");
+            msgs.push(msg.to_any());
+        }
+
+        Ok(Some(msgs))
     }
 
     fn build_timeout_packet(
