@@ -49,7 +49,7 @@ cosmos-sdk-proto = { version = "0.16", default-features = false }
 
 # for ics12 near client
 ed25519-dalek = {version = "1", features = ["default", "serde"]}
-borsh = "0.9.3"
+borsh = "0.10.3"
 bs58 = "0.4"
 sha2 = { version = "0.10.6", default-features = false }
 ics12-proto = { version = "0.1.2", default-features = false }
