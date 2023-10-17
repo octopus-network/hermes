@@ -1328,7 +1328,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                     &packet.destination_channel,
                     packet.sequence,
                     proof_height.decrement().map_err(|e| {
-                        LinkError::custom_error(format!("[in packet: build_ack_from_recv_event proof_height.decrement() failed] -> Error({})", e))
+                        LinkError::custom_error(format!("[build_ack_from_recv_event proof_height.decrement() failed] -> Error({}) \n {}", e, std::panic::Location::caller()))
                     })?,
                 )
                 .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?
@@ -1384,16 +1384,70 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             (PacketMsgType::TimeoutUnordered, packet.sequence)
         };
 
-        let proofs = self
-            .dst_chain()
-            .build_packet_proofs(
-                packet_type,
-                &packet.destination_port,
-                &packet.destination_channel,
-                next_sequence_received,
-                height,
-            )
-            .map_err(|e| LinkError::packet_proofs_constructor(self.dst_chain().id(), e))?;
+        let proofs = if self
+            .src_chain()
+            .config()
+            .map_err(|e| {
+                LinkError::custom_error(format!(
+                    "[build_timeout_packet decode src_chain get config failed] -> Error({}) \n {}",
+                    e,
+                    std::panic::Location::caller()
+                ))
+            })?
+            .r#type
+            == ChainType::Near
+        {
+            let msgs = self.build_update_client_on_dst(height)?;
+            assert!(!msgs.is_empty());
+            let msg_update_client = msgs.last().ok_or(LinkError::custom_error(format!(
+                "[build_timeout_packet msgs.last() is none] \n{}",
+                std::panic::Location::caller()
+            )))?;
+            let domain_msg =
+                MsgUpdateClient::decode_vec(&msg_update_client.value).map_err(|e| {
+                    LinkError::custom_error(format!(
+                        "[build_timeout_packet decode MsgUpdateClient failed] -> Error({}) \n {}",
+                        e,
+                        std::panic::Location::caller(),
+                    ))
+                })?;
+            let near_header = AnyHeader::try_from(domain_msg.client_message).map_err(|e| {
+                            LinkError::custom_error(format!(
+                                "[build_timeout_packet decode ClientMessage to AnyHeader failed] -> Error({}) \n {}",
+                                e, std::panic::Location::caller(),
+                            ))
+                        })?;
+            let proof_height = near_header.height();
+            warn!(
+                "ys-debug: new header for build_timeout_packet: {:?}",
+                proof_height
+            );
+
+            self.src_chain()
+                .build_packet_proofs(
+                    packet_type,
+                    &packet.destination_port,
+                    &packet.destination_channel,
+                    next_sequence_received,
+                    proof_height.decrement().map_err(|e| {
+                        LinkError::custom_error(format!(
+                            "[build_timeout_packet proof_height.decrement() failed] -> Error({})",
+                            e
+                        ))
+                    })?,
+                )
+                .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?
+        } else {
+            self.dst_chain()
+                .build_packet_proofs(
+                    packet_type,
+                    &packet.destination_port,
+                    &packet.destination_channel,
+                    next_sequence_received,
+                    height,
+                )
+                .map_err(|e| LinkError::packet_proofs_constructor(self.dst_chain().id(), e))?
+        };
 
         let msg = MsgTimeout::new(
             packet.clone(),
@@ -1433,16 +1487,70 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             (PacketMsgType::TimeoutOnCloseUnordered, packet.sequence)
         };
 
-        let proofs = self
-            .dst_chain()
-            .build_packet_proofs(
-                packet_type,
-                &packet.destination_port,
-                &packet.destination_channel,
-                next_sequence_received,
-                height,
-            )
-            .map_err(|e| LinkError::packet_proofs_constructor(self.dst_chain().id(), e))?;
+        let proofs = if self
+            .src_chain()
+            .config()
+            .map_err(|e| {
+                LinkError::custom_error(format!(
+                    "[build_timeout_packet decode src_chain get config failed] -> Error({}) \n {}",
+                    e,
+                    std::panic::Location::caller()
+                ))
+            })?
+            .r#type
+            == ChainType::Near
+        {
+            let msgs = self.build_update_client_on_dst(height)?;
+            assert!(!msgs.is_empty());
+            let msg_update_client = msgs.last().ok_or(LinkError::custom_error(format!(
+                "[build_timeout_packet msgs.last() is none] \n{}",
+                std::panic::Location::caller()
+            )))?;
+            let domain_msg =
+                MsgUpdateClient::decode_vec(&msg_update_client.value).map_err(|e| {
+                    LinkError::custom_error(format!(
+                        "[build_timeout_packet decode MsgUpdateClient failed] -> Error({}) \n {}",
+                        e,
+                        std::panic::Location::caller(),
+                    ))
+                })?;
+            let near_header = AnyHeader::try_from(domain_msg.client_message).map_err(|e| {
+                            LinkError::custom_error(format!(
+                                "[build_timeout_packet decode ClientMessage to AnyHeader failed] -> Error({}) \n {}",
+                                e, std::panic::Location::caller(),
+                            ))
+                        })?;
+            let proof_height = near_header.height();
+            warn!(
+                "ys-debug: new header for build_timeout_packet: {:?}",
+                proof_height
+            );
+
+            self.src_chain()
+                .build_packet_proofs(
+                    packet_type,
+                    &packet.destination_port,
+                    &packet.destination_channel,
+                    next_sequence_received,
+                    proof_height.decrement().map_err(|e| {
+                        LinkError::custom_error(format!(
+                            "[build_timeout_packet proof_height.decrement() failed] -> Error({})",
+                            e
+                        ))
+                    })?,
+                )
+                .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?
+        } else {
+            self.dst_chain()
+                .build_packet_proofs(
+                    packet_type,
+                    &packet.destination_port,
+                    &packet.destination_channel,
+                    next_sequence_received,
+                    height,
+                )
+                .map_err(|e| LinkError::packet_proofs_constructor(self.dst_chain().id(), e))?
+        };
 
         let msg = MsgTimeoutOnClose::new(
             packet.clone(),
