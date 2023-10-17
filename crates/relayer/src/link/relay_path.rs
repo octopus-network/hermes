@@ -1214,53 +1214,58 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     ) -> Result<Option<Vec<Any>>, LinkError> {
         let mut msgs: Vec<Any> = Vec::new();
 
-        if self
+        let proofs = if self
             .src_chain()
             .config()
             .map_err(|e| {
-                LinkError::custom_error(format!("[in connection: build_recv_packet decode src_chain get config failed] -> Error({})", e))
+                LinkError::custom_error(format!(
+                    "[build_recv_packet decode src_chain get config failed] -> Error({}) \n {}",
+                    e,
+                    std::panic::Location::caller()
+                ))
             })?
             .r#type
             == ChainType::Near
         {
             msgs = self.build_update_client_on_dst(height)?;
             assert!(!msgs.is_empty());
-            let msg_update_client = msgs.last().ok_or(LinkError::custom_error(
-                "[in connection: build_recv_packet msgs.last() is none]".into(),
-            ))?;
-            let domain_msg = MsgUpdateClient::decode_vec(&msg_update_client.value).map_err(|e| {
-                LinkError::custom_error(format!(
-                    "[in packet: build_recv_packet decode MsgUpdateClient failed] -> Error({})",
-                    e
-                ))
-            })?;
-            let near_header = AnyHeader::try_from(domain_msg.client_message).map_err(|e| {
+            let msg_update_client = msgs.last().ok_or(LinkError::custom_error(format!(
+                "[build_recv_packet msgs.last() is none] \n {}",
+                std::panic::Location::caller()
+            )))?;
+            let domain_msg =
+                MsgUpdateClient::decode_vec(&msg_update_client.value).map_err(|e| {
                     LinkError::custom_error(format!(
-                        "[in packet: build_recv_packet decode ClientMessage to AnyHeader failed] -> Error({})",
-                        e
+                        "[build_recv_packet decode MsgUpdateClient failed] -> Error({}) \n {}",
+                        e,
+                        std::panic::Location::caller(),
                     ))
                 })?;
+            let near_header = AnyHeader::try_from(domain_msg.client_message).map_err(|e| {
+                LinkError::custom_error(format!(
+                    "[build_recv_packet decode ClientMessage to AnyHeader failed] -> Error({}) \n {}",
+                    e, std::panic::Location::caller()
+                ))
+            })?;
             let proof_height = near_header.height();
             warn!("ys-debug: new header for recv_packet: {:?}", proof_height);
 
-            let proofs = self
-                .src_chain()
+            self.src_chain()
                 .build_packet_proofs(
                     PacketMsgType::Recv,
                     &packet.source_port,
                     &packet.source_channel,
                     packet.sequence,
                     proof_height.decrement().map_err(|e| {
-                        LinkError::custom_error(format!("[in packet: build_recv_packet proof_height.decrement() failed] -> Error({})", e))
+                        LinkError::custom_error(format!(
+                            "[build_recv_packet proof_height.decrement() failed] -> Error({}) \n {}",
+                            e, std::panic::Location::caller()
+                        ))
                     })?,
                 )
-                .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
-
-            let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
-            msgs.push(msg.to_any());
+                .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?
         } else {
-            let proofs = self
-                .src_chain()
+            self.src_chain()
                 .build_packet_proofs(
                     PacketMsgType::Recv,
                     &packet.source_port,
@@ -1268,12 +1273,12 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                     packet.sequence,
                     height,
                 )
-                .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
+                .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?
+        };
 
-            let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
-            msgs.push(msg.to_any());
-            trace!(packet = %packet, height = %proofs.height(), "built recv_packet msg");
-        }
+        let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
+        msgs.push(msg.to_any());
+        trace!(packet = %packet, height = %proofs.height(), "built recv_packet msg");
 
         Ok(Some(msgs))
     }
