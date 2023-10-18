@@ -52,6 +52,7 @@ impl core::str::FromStr for ClientType {
             Self::TENDERMINT_STR => Ok(Self::Tendermint),
             Self::SOLOMACHINE_STR => Ok(Self::Solomachine),
             Self::NEAR_STR => Ok(Self::Near),
+            Self::WASM_STR => Ok(Self::Wasm),
 
             #[cfg(any(test, feature = "mocks"))]
             Self::MOCK_STR => Ok(Self::Mock),
@@ -95,6 +96,16 @@ mod tests {
 
         match client_type {
             Ok(ClientType::Near) => (),
+            _ => panic!("parse failed"),
+        }
+    }
+
+    #[test]
+    fn parse_wasm_client_type() {
+        let client_type = ClientType::from_str("08-near");
+
+        match client_type {
+            Ok(ClientType::Wasm) => (),
             _ => panic!("parse failed"),
         }
     }
