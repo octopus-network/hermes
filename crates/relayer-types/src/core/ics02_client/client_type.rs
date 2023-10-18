@@ -9,6 +9,7 @@ pub enum ClientType {
     Tendermint = 1,
     Solomachine = 2,
     Near = 3,
+    Wasm = 4,
 
     #[cfg(any(test, feature = "mocks"))]
     Mock = 9999,
@@ -18,6 +19,7 @@ impl ClientType {
     const TENDERMINT_STR: &'static str = "07-tendermint";
     const SOLOMACHINE_STR: &'static str = "06-solomachine";
     const NEAR_STR: &'static str = "12-near";
+    const WASM_STR: &'static str = "08-wasm";
 
     #[cfg_attr(not(test), allow(dead_code))]
     const MOCK_STR: &'static str = "9999-mock";
@@ -28,6 +30,7 @@ impl ClientType {
             Self::Tendermint => Self::TENDERMINT_STR,
             Self::Solomachine => Self::SOLOMACHINE_STR,
             Self::Near => Self::NEAR_STR,
+            Self::Wasm => Self::WASM_STR,
 
             #[cfg(any(test, feature = "mocks"))]
             Self::Mock => Self::MOCK_STR,

@@ -10,9 +10,15 @@ use std::time::Instant;
 
 use ibc_proto::google::protobuf::Any;
 use itertools::Itertools;
+use prost::Message;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use flex_error::define_error;
+use ibc_relayer_types::clients::ics08_wasm::header::Header as WasmHeader;
+use ibc_relayer_types::clients::ics08_wasm::{
+    client_state::ClientState as WasmClientState,
+    consensus_state::ConsensusState as WasmConsensusState,
+};
 use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::core::ics02_client::error::Error as ClientError;
 use ibc_relayer_types::core::ics02_client::events::UpdateClient;
@@ -596,7 +602,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         })?;
         let settings = ClientSettings::for_create_command(options, &src_config, &dst_config);
 
-        let client_state: AnyClientState = self
+        let mut client_state: AnyClientState = self
             .src_chain
             .build_client_state(latest_height, settings)
             .map_err(|e| {
@@ -607,7 +613,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                 )
             })?;
 
-        let consensus_state = self
+        let mut consensus_state = self
             .src_chain
             .build_consensus_state(
                 client_state.latest_height(),
@@ -621,6 +627,18 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     e,
                 )
             })?;
+
+        if let AnyConsensusState::Near(near_consensus_state) = consensus_state {
+            client_state = AnyClientState::Wasm(WasmClientState {
+                code_hash: hex::decode("877ddf050f49ce265683c711db664d9dd9f9443e18c89a2d6a1f69090aaf5840").unwrap(),
+                data: Any::from(client_state.clone()).encode_to_vec(),
+                latest_height: client_state.latest_height(),
+            });
+            consensus_state = AnyConsensusState::Wasm(WasmConsensusState {
+                data: Any::from(*near_consensus_state.clone()).encode_to_vec(),
+                root: near_consensus_state.commitment_root,
+            });
+        }
 
         //TODO Get acct_prefix
         let msg = MsgCreateClient::new(client_state.into(), consensus_state.into(), signer)
@@ -1155,7 +1173,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             return Ok(vec![]);
         }
 
-        let (header, support) = self
+        let (mut header, support) = self
             .src_chain()
             .build_header(trusted_height, target_height, client_state.clone())
             .map_err(|e| {
@@ -1165,6 +1183,11 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     e,
                 )
             })?;
+
+        header = match header {
+            AnyHeader::Near(header) => AnyHeader::Wasm(WasmHeader::from(header)),
+            h => h,
+        };
 
         let signer = self.dst_chain().get_signer().map_err(|e| {
             ForeignClientError::client_update(

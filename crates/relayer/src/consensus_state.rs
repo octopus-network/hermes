@@ -10,6 +10,9 @@ use ibc_relayer_types::clients::ics06_solomachine::consensus_state::SOLOMACHINE_
 use ibc_relayer_types::clients::ics07_tendermint::consensus_state::{
     ConsensusState as TmConsensusState, TENDERMINT_CONSENSUS_STATE_TYPE_URL,
 };
+use ibc_relayer_types::clients::ics08_wasm::consensus_state::ConsensusState as WasmConsensusState;
+use ibc_relayer_types::clients::ics08_wasm::consensus_state::WASM_CONSENSUS_STATE_TYPE_URL;
+use ibc_relayer_types::clients::ics08_wasm::proto::wasm::ConsensusState as RawWasmConsensusState;
 use ibc_relayer_types::clients::ics12_near::consensus_state::ConsensusState as NearConsensusState;
 use ibc_relayer_types::clients::ics12_near::consensus_state::NEAR_CONSENSUS_STATE_TYPE_URL;
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
@@ -34,6 +37,7 @@ pub enum AnyConsensusState {
     Tendermint(TmConsensusState),
     Solomachine(SmConsensusState),
     Near(Box<NearConsensusState>),
+    Wasm(WasmConsensusState),
 
     #[cfg(test)]
     Mock(MockConsensusState),
@@ -45,6 +49,7 @@ impl AnyConsensusState {
             Self::Tendermint(cs_state) => cs_state.timestamp.into(),
             Self::Solomachine(cs_state) => cs_state.timestamp,
             Self::Near(cs_state) => cs_state.timestamp(),
+            Self::Wasm(cs_state) => cs_state.timestamp(),
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.timestamp(),
@@ -56,6 +61,7 @@ impl AnyConsensusState {
             AnyConsensusState::Tendermint(_cs) => ClientType::Tendermint,
             AnyConsensusState::Solomachine(_cs) => ClientType::Solomachine,
             AnyConsensusState::Near(_cs) => ClientType::Near,
+            AnyConsensusState::Wasm(_cs) => ClientType::Wasm,
 
             #[cfg(test)]
             AnyConsensusState::Mock(_cs) => ClientType::Mock,
@@ -84,6 +90,10 @@ impl TryFrom<Any> for AnyConsensusState {
                 Protobuf::<RawNearConsensusState>::decode_vec(&value.value)
                     .map_err(Error::decode_raw_client_state)?,
             ))),
+            WASM_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Wasm(
+                Protobuf::<RawWasmConsensusState>::decode_vec(&value.value)
+                    .map_err(Error::decode_raw_client_state)?,
+            )),
 
             #[cfg(test)]
             MOCK_CONSENSUS_STATE_TYPE_URL => Ok(AnyConsensusState::Mock(
@@ -110,6 +120,10 @@ impl From<AnyConsensusState> for Any {
             AnyConsensusState::Near(value) => Any {
                 type_url: NEAR_CONSENSUS_STATE_TYPE_URL.to_string(),
                 value: Protobuf::<RawNearConsensusState>::encode_vec(&*value),
+            },
+            AnyConsensusState::Wasm(value) => Any {
+                type_url: WASM_CONSENSUS_STATE_TYPE_URL.to_string(),
+                value: Protobuf::<RawWasmConsensusState>::encode_vec(&value),
             },
             #[cfg(test)]
             AnyConsensusState::Mock(value) => Any {
@@ -211,6 +225,7 @@ impl ConsensusState for AnyConsensusState {
             Self::Tendermint(cs_state) => cs_state.root(),
             Self::Solomachine(cs_state) => cs_state.root(),
             Self::Near(cs_state) => cs_state.root(),
+            Self::Wasm(cs_state) => cs_state.root(),
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.root(),

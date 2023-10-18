@@ -12,6 +12,7 @@ use ibc_relayer_types::clients::ics07_tendermint::client_state::{
     ClientState as TmClientState, UpgradeOptions as TmUpgradeOptions,
     TENDERMINT_CLIENT_STATE_TYPE_URL,
 };
+use ibc_relayer_types::clients::ics08_wasm::client_state::ClientState as WasmClientState;
 use ibc_relayer_types::core::ics02_client::client_state::{
     downcast_client_state, ClientState, UpgradeOptions,
 };
@@ -22,6 +23,8 @@ use ibc_relayer_types::core::ics02_client::trust_threshold::TrustThreshold;
 use ibc_proto::ibc::lightclients::solomachine::v3::ClientState as SmRawClientState;
 use ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState as SmClientState;
 use ibc_relayer_types::clients::ics06_solomachine::client_state::SOLOMACHINE_CLIENT_STATE_TYPE_URL;
+use ibc_relayer_types::clients::ics08_wasm::client_state::WASM_CLIENT_STATE_TYPE_URL;
+use ibc_relayer_types::clients::ics08_wasm::proto::wasm::ClientState as RawWasmCleintState;
 use ibc_relayer_types::clients::ics12_near::client_state::ClientState as NearClientState;
 use ibc_relayer_types::clients::ics12_near::client_state::NEAR_CLIENT_STATE_TYPE_URL;
 use ibc_relayer_types::core::ics24_host::error::ValidationError;
@@ -60,6 +63,7 @@ pub enum AnyClientState {
     Tendermint(TmClientState),
     Solomachine(SmClientState),
     Near(NearClientState),
+    Wasm(WasmClientState),
 
     #[cfg(test)]
     Mock(MockClientState),
@@ -71,6 +75,7 @@ impl AnyClientState {
             Self::Tendermint(tm_state) => tm_state.latest_height(),
             Self::Solomachine(sm_state) => sm_state.latest_height(),
             Self::Near(near_state) => near_state.latest_height(),
+            Self::Wasm(wm_state) => wm_state.latest_height(),
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.latest_height(),
@@ -82,6 +87,7 @@ impl AnyClientState {
             Self::Tendermint(tm_state) => tm_state.frozen_height(),
             Self::Solomachine(sm_state) => sm_state.frozen_height(),
             Self::Near(near_state) => near_state.frozen_height(),
+            Self::Wasm(wm_state) => wm_state.frozen_height(),
 
             #[cfg(test)]
             Self::Mock(mock_state) => mock_state.frozen_height(),
@@ -93,6 +99,7 @@ impl AnyClientState {
             AnyClientState::Tendermint(state) => Some(state.trust_threshold),
             AnyClientState::Solomachine(_state) => Some(TrustThreshold::TWO_THIRDS),
             AnyClientState::Near(_state) => Some(TrustThreshold::TWO_THIRDS),
+            AnyClientState::Wasm(_state) => Some(TrustThreshold::TWO_THIRDS),
 
             #[cfg(test)]
             AnyClientState::Mock(_) => None,
@@ -104,6 +111,7 @@ impl AnyClientState {
             AnyClientState::Tendermint(state) => state.max_clock_drift,
             AnyClientState::Solomachine(_state) => Duration::new(0, 0),
             AnyClientState::Near(_state) => Duration::new(6, 0), // TODO: julian
+            AnyClientState::Wasm(_state) => Duration::new(6, 0),
 
             #[cfg(test)]
             AnyClientState::Mock(_) => Duration::new(0, 0),
@@ -115,6 +123,7 @@ impl AnyClientState {
             Self::Tendermint(state) => state.client_type(),
             Self::Solomachine(state) => state.client_type(),
             Self::Near(state) => state.client_type(),
+            Self::Wasm(state) => state.client_type(),
 
             #[cfg(test)]
             Self::Mock(state) => state.client_type(),
@@ -126,6 +135,7 @@ impl AnyClientState {
             AnyClientState::Tendermint(tm_state) => tm_state.refresh_time(),
             AnyClientState::Solomachine(_sm_state) => None,
             AnyClientState::Near(_sm_state) => None,
+            AnyClientState::Wasm(_sm_state) => None,
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.refresh_time(),
@@ -155,6 +165,10 @@ impl TryFrom<Any> for AnyClientState {
                 Protobuf::<RawNearClientState>::decode_vec(&raw.value)
                     .map_err(Error::decode_raw_client_state)?,
             )),
+            WASM_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Wasm(
+                Protobuf::<RawWasmCleintState>::decode_vec(&raw.value)
+                    .map_err(Error::decode_raw_client_state)?,
+            )),
 
             #[cfg(test)]
             MOCK_CLIENT_STATE_TYPE_URL => Ok(AnyClientState::Mock(
@@ -182,6 +196,10 @@ impl From<AnyClientState> for Any {
                 type_url: NEAR_CLIENT_STATE_TYPE_URL.to_string(),
                 value: Protobuf::<RawNearClientState>::encode_vec(&value),
             },
+            AnyClientState::Wasm(value) => Any {
+                type_url: WASM_CLIENT_STATE_TYPE_URL.to_string(),
+                value: Protobuf::<RawWasmCleintState>::encode_vec(&value),
+            },
             #[cfg(test)]
             AnyClientState::Mock(value) => Any {
                 type_url: MOCK_CLIENT_STATE_TYPE_URL.to_string(),
@@ -197,6 +215,7 @@ impl ClientState for AnyClientState {
             AnyClientState::Tendermint(tm_state) => tm_state.chain_id(),
             AnyClientState::Solomachine(sm_state) => sm_state.chain_id(),
             AnyClientState::Near(near_state) => near_state.chain_id(),
+            AnyClientState::Wasm(wasm_state) => wasm_state.chain_id(),
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.chain_id(),
@@ -234,6 +253,7 @@ impl ClientState for AnyClientState {
             ),
             AnyClientState::Solomachine(_sm_state) => (),
             AnyClientState::Near(_near_state) => (),
+            AnyClientState::Wasm(_wasm_state) => (),
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => {
@@ -247,6 +267,7 @@ impl ClientState for AnyClientState {
             AnyClientState::Tendermint(tm_state) => tm_state.expired(elapsed_since_latest),
             AnyClientState::Solomachine(_sm_state) => false,
             AnyClientState::Near(_near_state) => false,
+            AnyClientState::Wasm(_wasm_state) => false,
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.expired(elapsed_since_latest),

@@ -9,6 +9,10 @@ use ibc_proto::protobuf::Protobuf as ErasedProtobuf;
 use ibc_relayer_types::clients::ics07_tendermint::header::{
     decode_header as tm_decode_header, Header as TendermintHeader, TENDERMINT_HEADER_TYPE_URL,
 };
+use ibc_relayer_types::clients::ics08_wasm::header::{
+    decode_header as wasm_decode_header, Header as WasmHeader, WASM_HEADER_TYPE_URL,
+};
+use ibc_relayer_types::clients::ics08_wasm::proto::wasm::ClientMessage as RawWasmHeader;
 use ibc_relayer_types::clients::ics12_near::header::{
     decode_header as near_decode_header, Header as NearHeader, NEAR_HEADER_TYPE_URL,
 };
@@ -88,6 +92,7 @@ pub fn decode_header(header_bytes: &[u8]) -> Result<Box<dyn Header>, Error> {
 pub enum AnyHeader {
     Tendermint(TendermintHeader),
     Near(NearHeader),
+    Wasm(WasmHeader),
 }
 
 impl Header for AnyHeader {
@@ -95,6 +100,7 @@ impl Header for AnyHeader {
         match self {
             Self::Tendermint(header) => header.client_type(),
             Self::Near(header) => header.client_type(),
+            Self::Wasm(header) => header.client_type(),
         }
     }
 
@@ -102,6 +108,7 @@ impl Header for AnyHeader {
         match self {
             Self::Tendermint(header) => header.height(),
             Self::Near(header) => header.height(),
+            Self::Wasm(header) => header.height(),
         }
     }
 
@@ -109,6 +116,7 @@ impl Header for AnyHeader {
         match self {
             Self::Tendermint(header) => header.timestamp(),
             Self::Near(header) => header.timestamp(),
+            Self::Wasm(header) => header.timestamp(),
         }
     }
 }
@@ -130,6 +138,11 @@ impl TryFrom<Any> for AnyHeader {
 
                 Ok(AnyHeader::Near(val))
             }
+            WASM_HEADER_TYPE_URL => {
+                let val = wasm_decode_header(raw.value.deref())?;
+
+                Ok(AnyHeader::Wasm(val))
+            }
 
             _ => Err(Error::unknown_header_type(raw.type_url)),
         }
@@ -147,6 +160,10 @@ impl From<AnyHeader> for Any {
                 type_url: NEAR_HEADER_TYPE_URL.to_string(),
                 value: ErasedProtobuf::<RawNearHeader>::encode_vec(&header),
             },
+            AnyHeader::Wasm(header) => Any {
+                type_url: WASM_HEADER_TYPE_URL.to_string(),
+                value: ErasedProtobuf::<RawWasmHeader>::encode_vec(&header),
+            },
         }
     }
 }
@@ -160,5 +177,11 @@ impl From<TendermintHeader> for AnyHeader {
 impl From<NearHeader> for AnyHeader {
     fn from(header: NearHeader) -> Self {
         Self::Near(header)
+    }
+}
+
+impl From<WasmHeader> for AnyHeader {
+    fn from(header: WasmHeader) -> Self {
+        Self::Wasm(header)
     }
 }

@@ -180,6 +180,7 @@ impl ClientId {
             ClientType::Tendermint => ClientType::Tendermint.as_str(),
             ClientType::Solomachine => ClientType::Solomachine.as_str(),
             ClientType::Near => ClientType::Near.as_str(),
+            ClientType::Wasm => ClientType::Wasm.as_str(),
 
             #[cfg(any(test, feature = "mocks"))]
             ClientType::Mock => ClientType::Mock.as_str(),

@@ -49,8 +49,8 @@ use ibc_relayer_types::{
     core::ics02_client::events::UpdateClient,
     core::ics23_commitment::merkle::MerkleProof,
     core::ics24_host::path::{
-        AcksPath, ChannelEndsPath, ClientStatePath, CommitmentsPath, ConnectionsPath, ReceiptsPath,
-        SeqRecvsPath,
+        AcksPath, ChannelEndsPath, ClientConsensusStatePath, ClientStatePath, CommitmentsPath,
+        ConnectionsPath, ReceiptsPath, SeqRecvsPath,
     },
     core::{
         ics02_client::{client_type::ClientType, error::Error as ClientError},
@@ -99,7 +99,6 @@ use near_primitives::views::LightClientBlockView;
 use near_primitives::views::QueryRequest;
 use near_primitives::views::ViewStateResult;
 use near_primitives::{types::AccountId, views::FinalExecutionOutcomeView};
-use prost::Message;
 use semver::Version;
 use serde_json::json;
 use std::thread;
@@ -1438,26 +1437,21 @@ impl ChainEndpoint for NearChain {
                     CommitmentProofBytes::try_from(proof_client).map_err(Error::malformed_proof)?,
                 );
 
-                let (consensus_state_value, _maybe_consensus_state_proof) = self
-                    .query_consensus_state(
-                        QueryConsensusStateRequest {
-                            client_id: client_id.clone(),
-                            consensus_height: client_state_value.latest_height(),
-                            query_height: QueryHeight::Specific(height),
-                        },
-                        IncludeProof::No,
-                    )?;
-
-                let any: Any = consensus_state_value.into();
-                let consensus_state = any.encode_to_vec();
-                // julian: the bytes actually stored in the consensus_proof is the consensus state
-                consensus_proof = Option::from(
+                let consensus_state_path = ClientConsensusStatePath {
+                    client_id: client_id.clone(),
+                    epoch: 0,
+                    height: client_state_value.latest_height().revision_height(),
+                }
+                .to_string();
+                let proof_consensus =
+                    self.query_view_state_proof(consensus_state_path, height.revision_height())?;
+                consensus_proof = Some(
                     ConsensusProof::new(
-                        CommitmentProofBytes::try_from(consensus_state)
+                        CommitmentProofBytes::try_from(proof_consensus)
                             .map_err(Error::malformed_proof)?,
                         client_state_value.latest_height(),
                     )
-                    .map_err(Error::consensus_proof)?,
+                    .unwrap(),
                 );
 
                 client_state = Some(client_state_value);
