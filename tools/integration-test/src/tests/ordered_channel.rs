@@ -49,6 +49,11 @@ impl BinaryChannelTest for OrderedChannelTest {
         chains: ConnectedChains<ChainA, ChainB>,
         channel: ConnectedChannel<ChainA, ChainB>,
     ) -> Result<(), Error> {
+        let _token_contract = chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
+
         let denom_a = chains.node_a.denom();
 
         let wallet_a = chains.node_a.wallets().user1().cloned();
@@ -59,7 +64,7 @@ impl BinaryChannelTest for OrderedChannelTest {
             .chain_driver()
             .query_balance(&wallet_a.address(), &denom_a)?;
 
-        let amount1 = random_u128_range(1000, 5000);
+        let amount1 = random_u128_range(1, 10);
 
         info!(
             "Performing IBC transfer with amount {}, which should be relayed because its an ordered channel",
@@ -79,7 +84,7 @@ impl BinaryChannelTest for OrderedChannelTest {
         relayer.with_supervisor(|| {
             sleep(Duration::from_secs(1));
 
-            let amount2 = random_u128_range(1000, 5000);
+            let amount2 = random_u128_range(1, 10);
 
             info!(
                 "Performing IBC transfer with amount {}, which should be relayed",
@@ -105,13 +110,15 @@ impl BinaryChannelTest for OrderedChannelTest {
             // Wallet on chain A should have both amount deducted.
             chains.node_a.chain_driver().assert_eventual_wallet_amount(
                 &wallet_a.address(),
-                &(balance_a - amount1 - amount2).as_ref(),
+                &(balance_a - amount1 * 10u128.pow(18) - amount2 * 10u128.pow(18)).as_ref(),
             )?;
 
             // Wallet on chain B should receive both IBC transfers
             chains.node_b.chain_driver().assert_eventual_wallet_amount(
                 &wallet_b.address(),
-                &denom_b.with_amount(amount1 + amount2).as_ref(),
+                &denom_b
+                    .with_amount((amount1 + amount2) * 10u128.pow(18))
+                    .as_ref(),
             )?;
 
             Ok(())
