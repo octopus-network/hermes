@@ -21,7 +21,11 @@ impl BinaryChannelTest for IbcDenomTraceTest {
         chains: ConnectedChains<ChainA, ChainB>,
         channel: ConnectedChannel<ChainA, ChainB>,
     ) -> Result<(), Error> {
-        let a_to_b_amount: u64 = 1234;
+        let a_to_b_amount = 1;
+        let _token_contract = chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
 
         let denom_a = chains.node_a.denom();
         let wallet_a = chains.node_a.wallets().user1().cloned();
@@ -53,7 +57,7 @@ impl BinaryChannelTest for IbcDenomTraceTest {
 
         chains.node_a.chain_driver().assert_eventual_wallet_amount(
             &wallet_a.address(),
-            &(balance_a - a_to_b_amount).as_ref(),
+            &(balance_a - a_to_b_amount * 10u128.pow(18)).as_ref(),
         )?;
 
         chains.node_b.chain_driver().assert_eventual_wallet_amount(
