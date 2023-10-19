@@ -1674,6 +1674,7 @@ pub fn collect_ibc_event_by_outcome(
                     let ibc_event: IbcEvent =
                         serde_json::from_value(event_value["raw-ibc-event"].clone())
                             .map_err(|e| Error::near_chain_error(NearError::serde_json_error(e)))?;
+                    debug!("collect_ibc_event_by_outcome ibc event: {:?} ", ibc_event);
                     let block_height = u64::from_str(event_value["block_height"].as_str().ok_or(
                         Error::report_error("Failed to get block_height field".to_string()),
                     )?)

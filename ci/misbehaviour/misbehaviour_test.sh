@@ -31,15 +31,21 @@ sleep 10
 info "Creating forked chain ibc-1-f"
 bash ./create_fork.sh
 
-info "Starting Hermes for ibc-0 and ibc-1"
+CLIENT_ID="$($HERMES --config config.toml query connection end --chain ibc-1 --connection connection-0 | grep 07-tendermint- | cut -d'"' -f 2)"
+echo
+echo "New tendermint client id: $CLIENT_ID"
+
+info "Starting Hermes for ibc-0,ibc-1,near-0"
 $HERMES --config config.toml start > "$HERMES_LOG" 2>&1 &
 HERMES_PID=$!
+echo
+echo "hermes pid: $HERMES_PID"
 
 info "Waiting for Hermes to start"
-sleep 10
+sleep 15
 
-info "Update client on ibc-0 against the forked chain ibc-1-f"
-$HERMES --config config_fork.toml update client --client 07-tendermint-0 --host-chain ibc-0
+info "Update client on near-0 against the forked chain ibc-1-f"
+$HERMES --config config_fork.toml update client --client $CLIENT_ID --host-chain near-0
 
 info "Wait for chain ibc-1 to stop..."
 sleep 5
