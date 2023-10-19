@@ -49,11 +49,15 @@ impl BinaryChannelTest for CleanPacketWorkersTest {
         channel: ConnectedChannel<ChainA, ChainB>,
     ) -> Result<(), Error> {
         let denom_a = chains.node_a.denom();
+        let _token_contract = chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
 
         let wallet_a = chains.node_a.wallets().user1().cloned();
         let wallet_b = chains.node_b.wallets().user1().cloned();
 
-        let amount1 = random_u128_range(1000, 5000);
+        let amount1 = random_u128_range(1, 10);
 
         let supervisor = relayer.spawn_supervisor()?;
 
