@@ -1,6 +1,7 @@
 use super::client::ClientSettings;
 use crate::chain::near::constants::*;
 use crate::chain::near::error::NearError;
+use crate::chain::requests::QueryClientEventRequest;
 use crate::util::retry::{retry_with_index, RetryResult};
 use crate::{
     account::Balance,
@@ -53,7 +54,7 @@ use ibc_relayer_types::{
         SeqRecvsPath,
     },
     core::{
-        ics02_client::{client_type::ClientType, error::Error as ClientError},
+        ics02_client::error::Error as ClientError,
         ics03_connection::connection::{ConnectionEnd, IdentifiedConnectionEnd},
         ics04_channel::{
             channel::{ChannelEnd, IdentifiedChannelEnd},
@@ -1132,24 +1133,81 @@ impl ChainEndpoint for NearChain {
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
-        trace!("equest: {:?} \n{}", request, std::panic::Location::caller());
+        trace!("request: {:?} \n{}", request, std::panic::Location::caller());
 
         match request {
             QueryTxRequest::Client(request) => {
-                use ibc_relayer_types::core::ics02_client::events::Attributes;
-                // Todo: the client event below is mock
-                // replace it with real client event replied from a near chain
-                // todo(davirian)
-                Ok(vec![IbcEventWithHeight {
-                    event: IbcRelayerTypeEvent::UpdateClient(UpdateClient::from(Attributes {
-                        client_id: request.client_id,
-                        client_type: ClientType::Near,
-                        consensus_height: request.consensus_height,
-                    })),
-                    height: Height::new(0, 9).map_err(|e| {
-                        Error::near_chain_error(NearError::build_ibc_height_error(e))
-                    })?,
-                }])
+                // use ibc_relayer_types::core::ics02_client::events::Attributes;
+                // // Todo: the client event below is mock
+                // // replace it with real client event replied from a near chain
+                // // todo(davirian)
+                // Ok(vec![IbcEventWithHeight {
+                //     event: IbcRelayerTypeEvent::UpdateClient(UpdateClient::from(Attributes {
+                //         client_id: request.client_id,
+                //         client_type: ClientType::Near,
+                //         consensus_height: request.consensus_height,
+                //     })),
+                //     height: Height::new(0, 9).map_err(|e| {
+                //         Error::near_chain_error(NearError::build_ibc_height_error(e))
+                //     })?,
+                // }])
+                debug!("near::query_txs request: {:?}", request);
+
+                let QueryClientEventRequest {
+                    query_height,
+                    event_id: _,
+                    client_id,
+                    consensus_height: _,
+                } = request;
+
+                let height = match query_height {
+                    QueryHeight::Latest => {
+                        self.get_latest_height().map_err(Error::near_chain_error)?
+                    }
+                    QueryHeight::Specific(height) => height,
+                };
+
+                let original_result = self
+                    .view(
+                        self.get_contract_id(),
+                        "get_ibc_events_at".to_string(),
+                        json!({ "height": height }).to_string().into_bytes(),
+                    )
+                    .map_err(Error::near_chain_error)?;
+
+                let ibc_events: Vec<IbcEvent> =
+                    original_result.json().map_err(Error::near_chain_error)?;
+
+                // convert and filter event
+                let relayer_ibc_events: Vec<IbcEventWithHeight> = ibc_events
+                    .iter()
+                    .map(|event| IbcEventWithHeight {
+                        height: height,
+                        event: convert_ibc_event_to_hermes_ibc_event(event)
+                            .expect("failed to convert ibc event"),
+                    })
+                    .filter(|e| {
+                        // match e.event {
+                        //     ibc_relayer_types::events::IbcEvent::UpdateClient(uc) => {
+                        //         if uc.client_id().eq(&client_id) {
+                        //             e
+                        //         }
+                        //     }
+                        //     _ => ..,
+                        // }
+                        matches!(
+                            &e.event,
+                            ibc_relayer_types::events::IbcEvent::UpdateClient(uc) if uc.client_id().eq(&client_id)
+                        )
+                    })
+                    .collect();
+
+                debug!(
+                    "near::query_txs relayer_ibc_events: {:?}",
+                    relayer_ibc_events
+                );
+
+                Ok(relayer_ibc_events)
             }
 
             QueryTxRequest::Transaction(_tx) => {

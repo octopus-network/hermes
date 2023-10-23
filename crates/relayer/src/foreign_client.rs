@@ -1508,7 +1508,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             self.fetch_consensus_state_heights()?
         };
 
-        trace!(
+        debug!(
             total = %consensus_state_heights.len(),
             heights = %consensus_state_heights.iter().copied().collated().format(", "),
             "checking misbehaviour for consensus state heights",

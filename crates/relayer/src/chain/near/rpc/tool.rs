@@ -2,6 +2,7 @@ use crate::chain::near::error::NearError;
 use core::str::FromStr;
 use ibc::core::events::IbcEvent;
 use ibc_relayer_types::core::ics02_client::client_type::ClientType;
+use ibc_relayer_types::core::ics02_client::header::Header;
 use ibc_relayer_types::core::ics02_client::height::Height;
 use ibc_relayer_types::core::ics04_channel::packet::Packet;
 use ibc_relayer_types::core::ics04_channel::timeout::TimeoutHeight;
@@ -10,7 +11,7 @@ use ibc_relayer_types::events::{IbcEvent as HermesIbcEvent, ModuleEventAttribute
 use ibc_relayer_types::timestamp::Timestamp;
 use near_primitives::views::StateItem;
 use std::collections::HashMap;
-use tracing::warn;
+use tracing::{debug, warn};
 
 #[allow(dead_code)]
 /// Convert `StateItem`s over to a Map<data_key, value_bytes> representation.
@@ -45,21 +46,47 @@ pub fn convert_ibc_event_to_hermes_ibc_event(
             )
         }
         IbcEvent::UpdateClient(update_client) => {
+            use ibc::Any;
+            use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
+            use ibc_relayer_types::clients::ics07_tendermint::header::Header;
+            use ibc_relayer_types::clients::ics07_tendermint::header::TENDERMINT_HEADER_TYPE_URL;
             use ibc_relayer_types::core::ics02_client::events::Attributes;
+            use prost::Message;
 
-            HermesIbcEvent::UpdateClient(
-                ibc_relayer_types::core::ics02_client::events::UpdateClient::from(Attributes {
-                    client_id: ClientId::from_str(update_client.client_id().as_str())
-                        .map_err(|e| NearError::custom_error(e.to_string()))?,
-                    client_type: ClientType::from_str(update_client.client_type().as_str())
-                        .map_err(|e| NearError::custom_error(e.to_string()))?,
-                    consensus_height: Height::new(
-                        update_client.consensus_height().revision_number(),
-                        update_client.consensus_height().revision_height(),
-                    )
+            let common = Attributes {
+                client_id: ClientId::from_str(update_client.client_id().as_str())
                     .map_err(|e| NearError::custom_error(e.to_string()))?,
-                }),
-            )
+                client_type: ClientType::from_str(update_client.client_type().as_str())
+                    .map_err(|e| NearError::custom_error(e.to_string()))?,
+                consensus_height: Height::new(
+                    update_client.consensus_height().revision_number(),
+                    update_client.consensus_height().revision_height(),
+                )
+                .map_err(|e| NearError::custom_error(e.to_string()))?,
+            };
+
+            let any_header = Any::decode(update_client.header().as_ref())
+                .map_err(|e| NearError::custom_error(e.to_string()))?;
+            debug!(
+                "convert_ibc_event_to_hermes_ibc_event, any_header: {:?}",
+                any_header
+            );
+            let header = if any_header.type_url == TENDERMINT_HEADER_TYPE_URL {
+                let raw_header = RawHeader::decode(&*any_header.value)
+                    .map_err(|e| NearError::custom_error(e.to_string()))?;
+                let tm_header = Header::try_from(raw_header)
+                    .map_err(|e| NearError::custom_error(e.to_string()))?;
+                debug!(
+                    "convert_ibc_event_to_hermes_ibc_event, tendermint header: {:#?}",
+                    tm_header
+                );
+                Some(tm_header.into_box())
+            } else {
+                None
+            };
+
+            let uc = ibc_relayer_types::core::ics02_client::events::UpdateClient { common, header };
+            HermesIbcEvent::UpdateClient(uc)
         }
         IbcEvent::UpgradeClient(upgrade_client) => {
             use ibc_relayer_types::core::ics02_client::events::Attributes;

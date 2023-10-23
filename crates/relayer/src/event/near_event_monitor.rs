@@ -214,6 +214,7 @@ impl NearEventMonitor {
                                                 | IbcEvent::TimeoutPacket(_)
                                                 | IbcEvent::SendPacket(_)
                                                 | IbcEvent::AcknowledgePacket(_)
+                                                | IbcEvent::UpdateClient(_)
                                         )
                                     })
                                     .collect();
