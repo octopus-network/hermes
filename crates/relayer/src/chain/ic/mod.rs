@@ -46,7 +46,10 @@ impl VpClient {
             .with_arg(Encode!(&args).map_err(VpError::decode_ic_type_error)?)
             .call()
             .await
-            .map_err(VpError::agent_error)?;
+            .map_err(|e| {
+                tracing::error!("query_ic: {:?}", e);
+                VpError::agent_error(e)
+            })?;
 
         Decode!(response.as_slice(), Vec<u8>).map_err(|e| {
             tracing::error!("query_ic: {:?}", e);
@@ -66,7 +69,10 @@ impl VpClient {
             .with_arg(Encode!(&args).map_err(VpError::decode_ic_type_error)?)
             .call_and_wait()
             .await
-            .map_err(VpError::agent_error)?;
+            .map_err(|e| {
+                tracing::error!("query_ic: {:?}", e);
+                VpError::agent_error(e)
+            })?;
 
         Decode!(response.as_slice(), Vec<u8>).map_err(|e| {
             tracing::error!("update_ic: {:?}", e);
