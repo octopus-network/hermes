@@ -11,6 +11,7 @@ use ibc_test_framework::ibc::denom::derive_ibc_denom;
 use ibc_test_framework::prelude::*;
 use ibc_test_framework::util::random::{random_string, random_u128_range};
 
+// OK, so this is the test we're going to write:
 #[test]
 fn test_memo() -> Result<(), Error> {
     let memo = Memo::new(random_string()).unwrap();
@@ -45,7 +46,14 @@ impl BinaryChannelTest for MemoTest {
 
         let denom_a = chains.node_a.denom();
 
-        let a_to_b_amount = random_u128_range(1000, 5000);
+        info!("denom_a: {}", denom_a);
+
+        let _token_contract = chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
+
+        let a_to_b_amount = random_u128_range(1, 10);
 
         chains.node_a.chain_driver().ibc_transfer_token(
             &channel.port_a.as_ref(),
@@ -60,6 +68,11 @@ impl BinaryChannelTest for MemoTest {
             &channel.channel_id_b.as_ref(),
             &denom_a,
         )?;
+        info!("denom_b: {}", denom_b);
+        info!(
+            "denom_b with amount: {}",
+            denom_b.with_amount(a_to_b_amount)
+        );
 
         chains.node_b.chain_driver().assert_eventual_wallet_amount(
             &chains.node_b.wallets().user1().address(),

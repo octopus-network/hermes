@@ -64,6 +64,10 @@ impl BinaryChannelTest for ClearPacketTest {
         channel: ConnectedChannel<ChainA, ChainB>,
     ) -> Result<(), Error> {
         let denom_a = chains.node_a.denom();
+        let _token_contract = chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
 
         let wallet_a = chains.node_a.wallets().user1().cloned();
         let wallet_b = chains.node_b.wallets().user1().cloned();
@@ -73,7 +77,7 @@ impl BinaryChannelTest for ClearPacketTest {
             .chain_driver()
             .query_balance(&wallet_a.address(), &denom_a)?;
 
-        let amount1 = denom_a.with_amount(random_u128_range(1000, 5000));
+        let amount1 = denom_a.with_amount(random_u128_range(1, 10));
 
         info!(
             "Performing IBC transfer with amount {}, which should *not* be relayed",
@@ -94,7 +98,7 @@ impl BinaryChannelTest for ClearPacketTest {
         relayer.with_supervisor(|| {
             sleep(Duration::from_secs(1));
 
-            let amount2 = denom_a.with_amount(random_u128_range(1000, 5000));
+            let amount2 = denom_a.with_amount(random_u128_range(1, 10));
 
             info!(
                 "Performing IBC transfer with amount {}, which should be relayed",
@@ -141,6 +145,10 @@ impl BinaryChannelTest for ClearPacketRecoveryTest {
     ) -> Result<(), Error> {
         let denom_a = chains.node_a.denom();
         let denom_b1 = chains.node_b.denom();
+        let _token_contract = chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
 
         let wallet_a = chains.node_a.wallets().user1().cloned();
         let wallet_b = chains.node_b.wallets().user1().cloned();
@@ -154,7 +162,7 @@ impl BinaryChannelTest for ClearPacketRecoveryTest {
             &denom_b1.with_amount(100u64).as_ref(),
         )?;
 
-        let amount1 = random_u128_range(1000, 5000);
+        let amount1 = random_u128_range(1, 10);
 
         chains.node_a.chain_driver().ibc_transfer_token(
             &channel.port_a.as_ref(),
@@ -211,10 +219,15 @@ impl BinaryChannelTest for ClearPacketNoScanTest {
     ) -> Result<(), Error> {
         let denom_a = chains.node_a.denom();
 
+        let _token_contract = chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
+
         let wallet_a = chains.node_a.wallets().user1().cloned();
         let wallet_b = chains.node_b.wallets().user1().cloned();
 
-        let amount1 = random_u128_range(1000, 5000);
+        let amount1 = random_u128_range(1, 10);
 
         let balance_a = chains
             .node_a
