@@ -20,6 +20,8 @@ info() {
     echo "❯ $*"
 }
 
+killall hermes &> /dev/null || true
+
 # --- Main ---
 
 info "Starting chains"
@@ -37,6 +39,7 @@ echo "New tendermint client id: $CLIENT_ID"
 
 info "Starting Hermes for ibc-0,ibc-1,near-0"
 $HERMES --config config.toml start > "$HERMES_LOG" 2>&1 &
+
 HERMES_PID=$!
 echo
 echo "hermes pid: $HERMES_PID"
