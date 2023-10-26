@@ -108,6 +108,7 @@ pub fn convert_ibc_event_to_hermes_ibc_event(
         #[allow(unreachable_code)]
         IbcEvent::ClientMisbehaviour(client_misbehaviour) => {
             use ibc_relayer_types::core::ics02_client::events::Attributes;
+            //TODO: get_client_consensus_heights from near chain
             HermesIbcEvent::ClientMisbehaviour(
                 ibc_relayer_types::core::ics02_client::events::ClientMisbehaviour::from(
                     Attributes {
@@ -117,7 +118,8 @@ pub fn convert_ibc_event_to_hermes_ibc_event(
                             client_misbehaviour.client_type().as_str(),
                         )
                         .map_err(|e| NearError::custom_error(e.to_string()))?,
-                        consensus_height: todo!(), //todo in ibc-rs(latest) have not this variant
+                        consensus_height: Height::new(1, 666)
+                            .map_err(|e| NearError::custom_error(e.to_string()))?,
                     },
                 ),
             )

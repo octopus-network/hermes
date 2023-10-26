@@ -1,4 +1,4 @@
-use tracing::{error, info};
+use tracing::{error, info, debug};
 
 use tendermint::{
     evidence::{Evidence, LightClientAttackEvidence},
@@ -106,6 +106,10 @@ pub fn report_evidence(
     rpc_client: HttpClient,
     attack: LightClientAttackEvidence,
 ) -> Result<Hash, Error> {
+    debug!(
+        "light_client::tendermint::report_evidence attack: {:?}",
+        attack
+    );
     block_on(rpc_client.broadcast_evidence(Evidence::from(attack)))
         .map(|response| response.hash)
         .map_err(|e| Error::rpc_response(e.to_string()))

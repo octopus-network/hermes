@@ -1133,24 +1133,14 @@ impl ChainEndpoint for NearChain {
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
-        trace!("request: {:?} \n{}", request, std::panic::Location::caller());
+        trace!(
+            "request: {:?} \n{}",
+            request,
+            std::panic::Location::caller()
+        );
 
         match request {
             QueryTxRequest::Client(request) => {
-                // use ibc_relayer_types::core::ics02_client::events::Attributes;
-                // // Todo: the client event below is mock
-                // // replace it with real client event replied from a near chain
-                // // todo(davirian)
-                // Ok(vec![IbcEventWithHeight {
-                //     event: IbcRelayerTypeEvent::UpdateClient(UpdateClient::from(Attributes {
-                //         client_id: request.client_id,
-                //         client_type: ClientType::Near,
-                //         consensus_height: request.consensus_height,
-                //     })),
-                //     height: Height::new(0, 9).map_err(|e| {
-                //         Error::near_chain_error(NearError::build_ibc_height_error(e))
-                //     })?,
-                // }])
                 debug!("near::query_txs request: {:?}", request);
 
                 let QueryClientEventRequest {
@@ -1187,14 +1177,6 @@ impl ChainEndpoint for NearChain {
                             .expect("failed to convert ibc event"),
                     })
                     .filter(|e| {
-                        // match e.event {
-                        //     ibc_relayer_types::events::IbcEvent::UpdateClient(uc) => {
-                        //         if uc.client_id().eq(&client_id) {
-                        //             e
-                        //         }
-                        //     }
-                        //     _ => ..,
-                        // }
                         matches!(
                             &e.event,
                             ibc_relayer_types::events::IbcEvent::UpdateClient(uc) if uc.client_id().eq(&client_id)
@@ -1740,6 +1722,10 @@ pub fn collect_ibc_event_by_outcome(
 
                     match ibc_event {
                         IbcEvent::Message(_) => continue,
+                        IbcEvent::ClientMisbehaviour(cm) => {
+                            debug!("near::mod::collect_ibc_event_by_outcome IbcEvent::ClientMisbehaviour(cm): {:?}",cm);
+                            continue;
+                        }
                         _ => ibc_events.push(IbcEventWithHeight {
                             event: convert_ibc_event_to_hermes_ibc_event(&ibc_event)
                                 .map_err(Error::near_chain_error)?,
