@@ -51,7 +51,10 @@ impl VpClient {
             .map_err(VpError::agent_error)?;
 
         Decode!(response.as_slice(), VecResult)
-            .map_err(VpError::decode_ic_type_error)?
+            .map_err(|e| {
+                tracing::error!("query_ic: {:?}", e);
+                VpError::decode_ic_type_error(e)
+            })?
             .transfer_anyhow()
     }
 
@@ -70,7 +73,10 @@ impl VpClient {
             .map_err(VpError::agent_error)?;
 
         Decode!(response.as_slice(), VecResult)
-            .map_err(VpError::decode_ic_type_error)?
+            .map_err(|e| {
+                tracing::error!("update_ic: {:?}", e);
+                VpError::decode_ic_type_error(e)
+            })?
             .transfer_anyhow()
     }
 
