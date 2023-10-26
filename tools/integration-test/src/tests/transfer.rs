@@ -2,6 +2,9 @@ use ibc_test_framework::ibc::denom::TaggedDenom;
 use ibc_test_framework::prelude::*;
 use ibc_test_framework::util::random::random_u128_range;
 
+// report this
+// Expected task to eventually succeeed, but failed after 90 attempts:
+// wallet reach cosmos1pznpav7hle84cq7443fgetdxnuvt9nwnhqxfkk amount 3000000000000000000ibc/93B4B75C6D876BD9168CB4FA8B78D3D9C916FD3100EAF8A6AD3B3093661E8B9E
 #[test]
 fn test_ibc_transfers() -> Result<(), Error> {
     run_binary_channel_test(&IbcTransferTest)
