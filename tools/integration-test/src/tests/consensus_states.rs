@@ -7,6 +7,7 @@ use ibc_relayer::chain::{
 
 use ibc_test_framework::prelude::*;
 
+// ignore
 #[test]
 fn test_consensus_state_heights() -> Result<(), Error> {
     run_binary_chain_test(&ConsensusStateHeights)

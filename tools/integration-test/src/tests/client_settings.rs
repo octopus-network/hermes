@@ -9,6 +9,7 @@ use ibc_relayer_types::clients::ics07_tendermint::client_state::ClientState as T
 
 use ibc_test_framework::prelude::*;
 
+// OK
 /// A test to exercise default foreign client settings.
 #[test]
 fn test_client_defaults() -> Result<(), Error> {
