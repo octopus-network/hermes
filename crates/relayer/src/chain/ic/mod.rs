@@ -18,9 +18,9 @@ pub struct VpClient {
 }
 
 impl VpClient {
-    const LOCAL_NET: &str = "http://localhost:4943";
+    const LOCAL_NET: &'static str = "http://localhost:4943";
     #[allow(dead_code)]
-    const MAIN_NET: &str = "https://ic0.app";
+    const MAIN_NET: &'static str = "https://ic0.app";
 
     pub async fn new(ic_endpoint_url: &str, pem_file: &PathBuf) -> Result<Self, VpError> {
         let agent = Agent::builder()
