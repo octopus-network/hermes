@@ -30,6 +30,10 @@ impl BinaryChannelTest for ConnectionDelayTest {
     ) -> Result<(), Error> {
         relayer.with_supervisor(|| {
             let denom_a = chains.node_a.denom();
+            let _token_contract = chains
+                .node_a
+                .chain_driver()
+                .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
 
             let wallet_a = chains.node_a.wallets().user1().cloned();
             let wallet_b = chains.node_b.wallets().user1().cloned();
@@ -39,7 +43,7 @@ impl BinaryChannelTest for ConnectionDelayTest {
                 .chain_driver()
                 .query_balance(&wallet_a.address(), &denom_a)?;
 
-            let a_to_b_amount = random_u128_range(1000, 5000);
+            let a_to_b_amount = random_u128_range(1, 10);
 
             info!(
                 "Sending IBC transfer from chain {} to chain {} with amount of {} {}",

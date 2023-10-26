@@ -1,6 +1,7 @@
 use ibc_test_framework::ibc::denom::derive_ibc_denom;
 use ibc_test_framework::prelude::*;
 
+// OK, same ibc transfer
 #[test]
 fn test_ibc_denom_trace() -> Result<(), Error> {
     run_binary_channel_test(&IbcDenomTraceTest)

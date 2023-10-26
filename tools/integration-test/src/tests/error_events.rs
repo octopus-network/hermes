@@ -3,6 +3,8 @@ use ibc_relayer_types::events::IbcEvent;
 use ibc_test_framework::prelude::*;
 use ibc_test_framework::relayer::transfer::build_transfer_message;
 
+// no ok,
+// report this error: failed to send event batch: sending on a disconnected channel
 #[test]
 fn test_error_events() -> Result<(), Error> {
     run_binary_channel_test(&ErrorEventsTest)

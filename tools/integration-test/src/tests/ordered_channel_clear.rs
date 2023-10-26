@@ -71,6 +71,11 @@ impl BinaryChannelTest for OrderedChannelClearTest {
     ) -> Result<(), Error> {
         let denom_a = chains.node_a.denom();
 
+        let _token_contract = chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
+
         let wallet_a = chains.node_a.wallets().user1().cloned();
         let wallet_b = chains.node_b.wallets().user1().cloned();
 

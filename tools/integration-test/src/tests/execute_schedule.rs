@@ -41,7 +41,11 @@ impl BinaryChannelTest for ExecuteScheduleTest {
         chains: ConnectedChains<ChainA, ChainB>,
         channel: ConnectedChannel<ChainA, ChainB>,
     ) -> Result<(), Error> {
-        let amount1 = random_u128_range(1000, 5000);
+        let amount1 = random_u128_range(1, 10);
+        let _token_contract = chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
 
         let chain_a_link_opts = LinkParameters {
             src_port_id: channel.port_a.clone().into_value(),

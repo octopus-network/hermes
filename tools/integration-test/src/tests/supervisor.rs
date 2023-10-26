@@ -195,6 +195,11 @@ impl BinaryChannelTest for SupervisorScanTest {
     ) -> Result<(), Error> {
         let denom_a = chains.node_a.denom();
 
+        let _token_contract = chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channels.channel_id_a.0)?;
+
         let denom_b = derive_ibc_denom(
             &channels.port_b.as_ref(),
             &channels.channel_id_b.as_ref(),

@@ -3,6 +3,7 @@ use ibc_relayer::object::ObjectType;
 use ibc_test_framework::relayer::channel::init_channel;
 use ibc_test_framework::{prelude::*, util::random::random_u128_range};
 
+// 0: Expected task to eventually succeeed, but failed after 50 attempts: eventual packet workers
 #[test]
 fn test_clean_packet_workers() -> Result<(), Error> {
     run_binary_channel_test(&CleanPacketWorkersTest)
