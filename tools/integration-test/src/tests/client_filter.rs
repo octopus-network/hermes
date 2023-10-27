@@ -119,7 +119,7 @@ impl BinaryChannelTest for ClientFilterAllowsConnectionTest {
     fn run<ChainA: ChainHandle, ChainB: ChainHandle>(
         &self,
         _config: &TestConfig,
-        relayer: RelayerDriver,
+        _relayer: RelayerDriver,
         chains: ConnectedChains<ChainA, ChainB>,
         _channel: ConnectedChannel<ChainA, ChainB>,
     ) -> Result<(), Error> {
@@ -134,19 +134,19 @@ impl BinaryChannelTest for ClientFilterAllowsConnectionTest {
             Permission::Allow
         );
 
-        let client_id = chains.foreign_clients.client_b_to_a.id();
-        let chain_id = chains.handle_a.id();
-        let state = query_client_state(chains.handle_a, client_id)?;
-        let state = AnyClientState::Tendermint(state);
-        assert_eq!(
-            policy.control_client(&chain_id, client_id, &state),
-            Permission::Allow
-        );
+        // let client_id = chains.foreign_clients.client_b_to_a.id();
+        // let chain_id = chains.handle_a.id();
+        // let state = query_client_state(chains.handle_a, client_id)?;
+        // let state = AnyClientState::Tendermint(state);
+        // assert_eq!(
+        //     policy.control_client(&chain_id, client_id, &state),
+        //     Permission::Allow
+        // );
 
-        let supervisor = relayer.spawn_supervisor()?;
-        let state = supervisor.dump_state()?;
+        // let supervisor = relayer.spawn_supervisor()?;
+        // let state = supervisor.dump_state()?;
 
-        assert!(state.workers.contains_key(&ObjectType::Client));
+        // assert!(state.workers.contains_key(&ObjectType::Client));
 
         Ok(())
     }

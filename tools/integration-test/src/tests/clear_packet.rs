@@ -292,13 +292,15 @@ impl BinaryChannelTest for ClearPacketNoScanTest {
 
             chains.node_a.chain_driver().assert_eventual_wallet_amount(
                 &wallet_a.address(),
-                &(balance_a - amount1 - amount1).as_ref(),
+                &(balance_a - amount1 * 10u128.pow(18) - amount1 * 10u128.pow(18)).as_ref(),
             )?;
 
             // Wait for clear interval to clear packets
             chains.node_b.chain_driver().assert_eventual_wallet_amount(
                 &wallet_b.address(),
-                &denom_b2.with_amount(amount1 + amount1).as_ref(),
+                &denom_b2
+                    .with_amount(amount1 * 10u128.pow(18) + amount1 * 10u128.pow(18))
+                    .as_ref(),
             )?;
 
             Ok(())

@@ -117,6 +117,10 @@ impl BinaryChannelTest for CleanChannelWorkersTest {
         channel: ConnectedChannel<ChainA, ChainB>,
     ) -> Result<(), Error> {
         let supervisor = relayer.spawn_supervisor()?;
+        let _token_contract = chains
+            .node_a
+            .chain_driver()
+            .setup_ibc_transfer_for_near(&channel.channel_id_a.0)?;
 
         // Optimistically send chan-open-init to B, without a connection available yet on A
         init_channel(
