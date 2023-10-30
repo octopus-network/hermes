@@ -196,7 +196,7 @@ impl FullNode {
 
         Ok(config::ChainConfig {
             id: ChainId::from_str("near-0").unwrap(),
-            filter_near_event_height: None,
+            filter_near_event_height: test_config.filter_near_event_height,
             ic_endpoint: test_config.ic_endpoint.clone(),
             canister_pem: test_config.canister_pem.clone(),
             near_ibc_address: NearIbcContractAddress::from_str(&test_config.near_ibc_address)
