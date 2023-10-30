@@ -77,6 +77,7 @@ pub struct NearEventMonitor {
     /// The heights that have already been checked for IBC events.
     checked_heights: Vec<u64>,
     last_block_height: u64,
+    pub filter_near_event_height: Option<u64>,
 }
 
 impl NearIbcContract for NearEventMonitor {
@@ -108,6 +109,7 @@ impl NearEventMonitor {
         near_ibc_address: AccountId,
         rpc_addr: String,
         rt: Arc<TokioRuntime>,
+        filter_near_event_height: Option<u64>,
     ) -> Result<(Self, TxMonitorCmd)> {
         let (tx_cmd, rx_cmd) = channel::unbounded();
 
@@ -122,6 +124,7 @@ impl NearEventMonitor {
             rx_cmd,
             checked_heights: vec![],
             last_block_height: 0,
+            filter_near_event_height,
         };
 
         Ok((monitor, TxMonitorCmd(tx_cmd)))
@@ -190,12 +193,27 @@ impl NearEventMonitor {
                         return Next::Continue;
                     }
                 }
-                let heights = self.get_ibc_events_heights();
-                let unchecked_heights = heights
-                    .iter()
-                    .map(|h| h.revision_height())
-                    .filter(|h| !self.checked_heights.contains(h))
-                    .collect::<Vec<u64>>();
+
+                let unchecked_heights = if let Some(value) = self.filter_near_event_height {
+                    let heights = self.get_ibc_events_heights();
+                    let mut unchecked_heights = heights
+                        .iter()
+                        .map(|h| h.revision_height())
+                        .filter(|h| !self.checked_heights.contains(h))
+                        .collect::<Vec<u64>>();
+                    unchecked_heights.sort();
+                    unchecked_heights.retain(|h| *h >= value);
+                    unchecked_heights
+                } else {
+                    let heights = self.get_ibc_events_heights();
+                    let unchecked_heights = heights
+                        .iter()
+                        .map(|h| h.revision_height())
+                        .filter(|h| !self.checked_heights.contains(h))
+                        .collect::<Vec<u64>>();
+                    unchecked_heights
+                };
+
                 if !unchecked_heights.is_empty() {
                     let height = unchecked_heights[0];
                     warn!("querying ibc events at height: {:?}", unchecked_heights);

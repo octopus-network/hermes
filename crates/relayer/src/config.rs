@@ -665,6 +665,8 @@ pub struct ChainConfig {
     #[serde(default = "default::near_ibc_contract_address")]
     pub near_ibc_address: NearIbcContractAddress,
 
+    pub filter_near_event_height: Option<u64>,
+
     /// The chain type
     #[serde(default = "default::chain_type")]
     pub r#type: ChainType,

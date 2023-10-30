@@ -76,6 +76,7 @@ pub fn init_test() -> Result<TestConfig, Error> {
     let canister_id = "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string();
     let near_rpc_endpoint =
         "https://near-testnet.infura.io/v3/272532ecf0b64d7782a03db0cbcf3c30".to_string();
+    let filter_near_event_height: Option<u64> = Some(142766166); // maybe change
     Ok(TestConfig {
         chain_command_paths,
         chain_store_dir,
@@ -87,6 +88,7 @@ pub fn init_test() -> Result<TestConfig, Error> {
         near_ibc_address,
         canister_id,
         near_rpc_endpoint,
+        filter_near_event_height,
     })
 }
 

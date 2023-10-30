@@ -150,11 +150,13 @@ impl NearChain {
         info!("initializing event monitor");
         crate::time!("init_event_monitor");
 
+        let filter_near_event_height = self.config.filter_near_event_height;
         let (event_monitor, monitor_tx) = NearEventMonitor::new(
             self.config.id.clone(),
             self.config.near_ibc_address.clone().into(),
             self.config.rpc_addr.to_string(),
             self.rt.clone(),
+            filter_near_event_height,
         )
         .map_err(Error::event_monitor)?;
 
