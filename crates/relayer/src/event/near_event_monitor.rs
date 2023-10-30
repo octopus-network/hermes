@@ -195,6 +195,7 @@ impl NearEventMonitor {
                 }
 
                 let unchecked_heights = if let Some(value) = self.filter_near_event_height {
+                    info!("filter near event height: {value}");
                     let heights = self.get_ibc_events_heights();
                     let mut unchecked_heights = heights
                         .iter()
@@ -205,6 +206,7 @@ impl NearEventMonitor {
                     unchecked_heights.retain(|h| *h >= value);
                     unchecked_heights
                 } else {
+                    info!("filter near event height is None");
                     let heights = self.get_ibc_events_heights();
                     let unchecked_heights = heights
                         .iter()

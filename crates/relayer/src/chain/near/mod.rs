@@ -151,6 +151,11 @@ impl NearChain {
         crate::time!("init_event_monitor");
 
         let filter_near_event_height = self.config.filter_near_event_height;
+        info!(
+            "in near chain -> filter_near_event_height: {:?} \n {}",
+            filter_near_event_height,
+            std::panic::Location::caller()
+        );
         let (event_monitor, monitor_tx) = NearEventMonitor::new(
             self.config.id.clone(),
             self.config.near_ibc_address.clone().into(),
