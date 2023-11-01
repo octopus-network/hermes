@@ -374,7 +374,10 @@ impl ChainBootstrapMethodsExt for ChainDriver {
             self.home_path, prefix
         );
 
+        #[cfg(target_os = "macos")]
         let mut sed_args = vec!["-i", "s/private_key/secret_key/", &path_str];
+        #[cfg(target_os = "linux")]
+        let sed_args = vec!["-i", "s/private_key/secret_key/", &path_str];
 
         #[cfg(target_os = "macos")]
         sed_args.insert(1, "''");
