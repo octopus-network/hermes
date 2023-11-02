@@ -1,10 +1,9 @@
 pub mod errors;
 mod identity;
-pub mod types;
 
+use crate::chain::ic::errors::VerificationProxiesError;
 use crate::chain::ic::errors::VpError;
 use crate::chain::ic::identity::create_identity;
-use crate::chain::ic::types::VecResult;
 use candid::Principal;
 use candid::{Decode, Encode};
 use core::ops::Deref;
@@ -53,20 +52,14 @@ impl VpClient {
                 VpError::agent_error(e)
             })?;
 
-        if Decode!(response.as_slice(), VecResult).is_err() {
-            tracing::error!("query_ic: {:?}", response);
-            if let Ok(value) = Decode!(response.as_slice(), String) {
-                Ok(value.into_bytes())
-            } else {
-                Err(VpError::custom_error("decode to string error".to_string()))
-            }
-        } else {
-            Decode!(response.as_slice(), VecResult)
-                .map_err(|e| {
-                    tracing::error!("update_ic: {:?}", e);
-                    VpError::decode_ic_type_error(e)
-                })?
-                .transfer_anyhow()
+        let result = Decode!(
+            response.as_slice(),
+            Result<Vec<u8>, VerificationProxiesError>
+        )
+        .map_err(|e| VpError::custom_error(e.to_string()))?;
+        match result {
+            Ok(value) => Ok(value),
+            Err(e) => Err(VpError::custom_error(e.to_string())),
         }
     }
 
@@ -87,20 +80,14 @@ impl VpClient {
                 VpError::agent_error(e)
             })?;
 
-        if Decode!(response.as_slice(), VecResult).is_err() {
-            tracing::error!("query_ic: {:?}", response);
-            if let Ok(value) = Decode!(response.as_slice(), String) {
-                Ok(value.into_bytes())
-            } else {
-                Err(VpError::custom_error("decode to string error".to_string()))
-            }
-        } else {
-            Decode!(response.as_slice(), VecResult)
-                .map_err(|e| {
-                    tracing::error!("update_ic: {:?}", e);
-                    VpError::decode_ic_type_error(e)
-                })?
-                .transfer_anyhow()
+        let result = Decode!(
+            response.as_slice(),
+            Result<Vec<u8>, VerificationProxiesError>
+        )
+        .map_err(|e| VpError::custom_error(e.to_string()))?;
+        match result {
+            Ok(value) => Ok(value),
+            Err(e) => Err(VpError::custom_error(e.to_string())),
         }
     }
 
