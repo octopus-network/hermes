@@ -2608,9 +2608,9 @@ dependencies = [
 
 [[package]]
 name = "ic-agent"
-version = "0.27.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65c513a595191149b26e562c580616118216b66d8183fe15d87b00794893d2a9"
+checksum = "6d7be96efa1a9a680072c1faa0ce4538f31080b72e8e3ad91e9bf90db0256281"
 dependencies = [
  "backoff",
  "candid 0.9.7",
@@ -2619,6 +2619,7 @@ dependencies = [
  "http",
  "http-body",
  "ic-certification",
+ "ic-transport-types",
  "ic-verify-bls-signature",
  "k256",
  "leb128",
@@ -2670,14 +2671,31 @@ dependencies = [
 
 [[package]]
 name = "ic-certification"
-version = "0.27.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1120544357d4d2f7540dd5290b952c6305afe24c9620d423e2239560adca2535"
+checksum = "a59dc342d11b2067e19d0f146bdec3674de921303ffc762f114d201ebbe0e68a"
 dependencies = [
  "hex",
  "serde",
  "serde_bytes",
  "sha2 0.10.7",
+]
+
+[[package]]
+name = "ic-transport-types"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c97e3c1de364b46489da5ccdfd90a57c70a51b5d9a05a5a4d8945c67b6bdcc2"
+dependencies = [
+ "candid 0.9.7",
+ "hex",
+ "ic-certification",
+ "leb128",
+ "serde",
+ "serde_bytes",
+ "serde_repr",
+ "sha2 0.10.7",
+ "thiserror",
 ]
 
 [[package]]
