@@ -659,9 +659,9 @@ impl ChainEndpoint for NearChain {
     fn query_denom_trace(&self, _hash: String) -> Result<DenomTrace, Error> {
         // todo(daviarin) add mock denom trace
         Ok(DenomTrace {
-            /// The chain of port/channel identifiers used for tracing the source of the coin.
+            // The chain of port/channel identifiers used for tracing the source of the coin.
             path: String::default(),
-            /// The base denomination for that coin
+            // The base denomination for that coin
             base_denom: String::default(),
         })
     }
