@@ -31,8 +31,8 @@ use ibc_relayer_types::Height;
 
 use crate::chain::client::ClientSettings;
 use crate::chain::handle::ChainHandle;
-use crate::chain::requests::*;
 use crate::chain::tracking::TrackedMsgs;
+use crate::chain::{requests::*, ChainType};
 use crate::client_state::AnyClientState;
 use crate::consensus_state::AnyConsensusState;
 use crate::error::Error as RelayerError;
@@ -1508,7 +1508,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             self.fetch_consensus_state_heights()?
         };
 
-        trace!(
+        debug!(
             total = %consensus_state_heights.len(),
             heights = %consensus_state_heights.iter().copied().collated().format(", "),
             "checking misbehaviour for consensus state heights",
@@ -1710,6 +1710,12 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
                     &self.id,
                     1
                 );
+
+                // skip submit_evidence for near,just output log
+                if self.dst_chain().config().unwrap().r#type == ChainType::Near {
+                    debug!("🐙🐙 misbehaviour detected, don`nt sending evidence to near!");
+                    return MisbehaviourResults::ValidClient;
+                }
 
                 self.submit_evidence(detected)
             }

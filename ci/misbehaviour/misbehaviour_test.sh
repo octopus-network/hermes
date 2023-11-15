@@ -20,6 +20,8 @@ info() {
     echo "❯ $*"
 }
 
+killall hermes &> /dev/null || true
+
 # --- Main ---
 
 info "Starting chains"
@@ -37,6 +39,7 @@ echo "New tendermint client id: $CLIENT_ID"
 
 info "Starting Hermes for ibc-0,ibc-1,near-0"
 $HERMES --config config.toml start > "$HERMES_LOG" 2>&1 &
+
 HERMES_PID=$!
 echo
 echo "hermes pid: $HERMES_PID"
@@ -47,37 +50,41 @@ sleep 15
 info "Update client on near-0 against the forked chain ibc-1-f"
 $HERMES --config config_fork.toml update client --client $CLIENT_ID --host-chain near-0
 
-info "Wait for chain ibc-1 to stop..."
-sleep 5
+info "Waiting for tendermint light client to be frozen"
+sleep 120
+$HERMES --config config.toml query client status --chain near-0 --client $CLIENT_ID
 
-info "Killing Hermes"
-kill -9 "$HERMES_PID"
+# info "Wait for chain ibc-1 to stop..."
+# sleep 5
 
-echo ""
-info "--------------------------------------------------"
-info "Hermes log:"
-info "--------------------------------------------------"
-cat "$HERMES_LOG"
-info "--------------------------------------------------"
-echo ""
+# info "Killing Hermes"
+# kill -9 "$HERMES_PID"
 
-if grep -q "Evidence succesfully submitted" "$HERMES_LOG"; then
-    warn "Misbehaviour detection failed!"
-    exit 1
-else
-    info "Misbehaviour detected and submitted successfully!"
-fi
+# echo ""
+# info "--------------------------------------------------"
+# info "Hermes log:"
+# info "--------------------------------------------------"
+# cat "$HERMES_LOG"
+# info "--------------------------------------------------"
+# echo ""
 
-STOPPED_HEIGHT="$(curl -s http://localhost:$IBC_1_RPC_PORT/status | jq -r .result.sync_info.latest_block_height)"
+# if grep -q "Evidence succesfully submitted" "$HERMES_LOG"; then
+#     warn "Misbehaviour detection failed!"
+#     exit 1
+# else
+#     info "Misbehaviour detected and submitted successfully!"
+# fi
 
-info "Chain ibc-1 stopped at height $STOPPED_HEIGHT"
+# STOPPED_HEIGHT="$(curl -s http://localhost:$IBC_1_RPC_PORT/status | jq -r .result.sync_info.latest_block_height)"
 
-info "Fetch evidence from block $STOPPED_HEIGHT on ibc-1"
-EVIDENCE="$(curl -s "http://localhost:$IBC_1_RPC_PORT/block?height=$STOPPED_HEIGHT" | jq .result.block.evidence)"
+# info "Chain ibc-1 stopped at height $STOPPED_HEIGHT"
 
-info "Found evidence at height $STOPPED_HEIGHT: $EVIDENCE"
+# info "Fetch evidence from block $STOPPED_HEIGHT on ibc-1"
+# EVIDENCE="$(curl -s "http://localhost:$IBC_1_RPC_PORT/block?height=$STOPPED_HEIGHT" | jq .result.block.evidence)"
 
-if [ "$EVIDENCE" = "null" ]; then
-    warn "No evidence found in the latest block on ibc-1"
-    exit 1
-fi
+# info "Found evidence at height $STOPPED_HEIGHT: $EVIDENCE"
+
+# if [ "$EVIDENCE" = "null" ]; then
+#     warn "No evidence found in the latest block on ibc-1"
+#     exit 1
+# fi

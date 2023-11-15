@@ -153,6 +153,10 @@ impl super::LightClient<CosmosSdkChain> for LightClient {
                     self.chain_id
                 ))
             })?;
+        debug!(
+            "tendermint::detect_misbehaviour update_header: {:?}",
+            update_header
+        );
 
         let client_state =
             downcast!(client_state => AnyClientState::Tendermint).ok_or_else(|| {
@@ -195,6 +199,10 @@ impl super::LightClient<CosmosSdkChain> for LightClient {
             trusted_block,
             client_state,
             now,
+        );
+        debug!(
+            "tendermint::detect_misbehaviour divergence: {:?}",
+            divergence
         );
 
         match divergence {
