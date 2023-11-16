@@ -28,6 +28,8 @@ use crate::{
     event::IbcEventWithHeight,
     misbehaviour::MisbehaviourEvidence,
 };
+use ic_agent::identity::Secp256k1Identity;
+use ic_agent::Identity;
 
 use alloc::{string::String, sync::Arc};
 use core::future::Future;
@@ -58,6 +60,7 @@ use ibc_relayer_types::{
     timestamp::Timestamp,
     Height, Height as ICSHeight,
 };
+use std::str::FromStr;
 
 use prost::Message;
 use semver::Version;
@@ -84,6 +87,7 @@ pub struct VpChain {
     config: ChainConfig,
     rt: Arc<TokioRuntime>,
     vp_client: VpClient,
+    signer: String,
 }
 
 impl VpChain {
@@ -110,6 +114,25 @@ impl ChainEndpoint for VpChain {
             current_dir.join(config.canister_pem.clone())
         };
 
+        let signer = Secp256k1Identity::from_pem_file(canister_pem_path.clone()).map_err(|e| {
+            let position = std::panic::Location::caller();
+            Error::report_error(format!(
+                "build vp client failed Error({:?}) \n{}",
+                e, position
+            ))
+        })?;
+
+        let sender = signer
+            .sender()
+            .map_err(|e| {
+                let position = std::panic::Location::caller();
+                Error::report_error(format!(
+                    "build vp client failed Error({:?}) \n{}",
+                    e, position
+                ))
+            })?
+            .to_text();
+
         let vp_client = rt
             .block_on(VpClient::new(&config.ic_endpoint, &canister_pem_path))
             .map_err(|e| {
@@ -125,6 +148,7 @@ impl ChainEndpoint for VpChain {
             config: config.clone(),
             vp_client,
             rt,
+            signer: sender,
         };
 
         Ok(chain)
@@ -264,7 +288,7 @@ impl ChainEndpoint for VpChain {
 
     /// Get the account for the signer
     fn get_signer(&self) -> Result<Signer, Error> {
-        Ok(Signer::dummy())
+        Signer::from_str(self.signer.as_str()).map_err(|e| Error::report_error(e.to_string()))
     }
 
     /// Get the chain configuration
