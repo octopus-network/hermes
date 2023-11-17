@@ -257,15 +257,28 @@ impl ChainEndpoint for VpChain {
         }
         assert_eq!(msgs.len(), 1);
         let create_client_msg = msgs.remove(0);
-        let decode_create_client_msg: MsgCreateClient =
-            MsgCreateClient::decode_vec(&create_client_msg.value).map_err(|e| {
+        let domain_msg: MsgCreateClient = MsgCreateClient::decode_vec(&create_client_msg.value)
+            .map_err(|e| {
                 let position = std::panic::Location::caller();
                 Error::report_error(format!(
                     "decode call vp deliver result failed Error({}) \n{}",
                     e, position
                 ))
             })?;
-        println!("decode_create_client_msg: {:?}", decode_create_client_msg);
+
+        let client_state =
+            ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState::try_from(
+                domain_msg.client_state,
+            )
+            .unwrap();
+        println!("new solomachine client state created: {:?}", client_state);
+        let serialized_pub_key =
+            serde_json::to_string(&client_state.consensus_state.public_key.0).unwrap();
+        println!("pubkey: {:?}", serialized_pub_key);
+        println!(
+            "timestamp: {:?}",
+            client_state.consensus_state.timestamp.nanoseconds()
+        );
         // todo: maybe need to check the response from ic
         let create_client_event = CreateClient::from(Attributes {
             client_id: ClientId::new(ClientType::Solomachine, 0).unwrap(),
