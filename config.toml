@@ -403,3 +403,30 @@ max_block_time = '30s'
 trusting_period = '14days'
 trust_threshold = { numerator = '2', denominator = '3' }
 address_type = { derivation = 'cosmos' }
+
+## this config just for create vp client
+[[chains]]
+id = 'nearvp-0'
+canister_id = 'bkyz2-fmaaa-aaaaa-qaaaq-cai'
+canister_pem = "/Users/davirain/.config/dfx/identity/default/identity.pem"
+near_ibc_address = "v5.nearibc.testnet"
+type = "vp"
+rpc_addr = 'https://near-testnet.infura.io/v3/7bea2d8341a64507bd7afb399a81f877'
+grpc_addr = 'http://127.0.0.1:9091'
+event_source = { mode = 'push', url = 'ws://127.0.0.1:26557/websocket', batch_delay = '500ms' }
+rpc_timeout = '10s'
+trusted_node = false
+account_prefix = 'cosmos'
+key_name = 'testkey'
+store_prefix = 'ibc'
+default_gas = 100000
+max_gas = 400000
+gas_price = { price = 0.001, denom = 'stake' }
+gas_multiplier = 1.1
+max_msg_num = 30
+max_tx_size = 2097152
+clock_drift = '5s'
+max_block_time = '30s'
+trusting_period = '14days'
+trust_threshold = { numerator = '2', denominator = '3' }
+address_type = { derivation = 'cosmos' }
