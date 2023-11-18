@@ -555,13 +555,15 @@ impl ChainEndpoint for NearChain {
             std::panic::Location::caller()
         );
 
-        let result = self.deliver(proto_msgs.messages().to_vec())?;
+        for message in proto_msgs.messages().iter() {
+            let result = self.deliver(vec![message.clone()])?;
 
-        debug!(
-            "deliver result: {:?} \n{}",
-            result,
-            std::panic::Location::caller()
-        );
+            debug!(
+                "deliver result: {:?} \n{}",
+                result,
+                std::panic::Location::caller()
+            );
+        }
 
         Ok(vec![])
     }
