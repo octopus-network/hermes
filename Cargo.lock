@@ -2530,7 +2530,7 @@ dependencies = [
  "ibc-relayer-types",
  "moka",
  "once_cell",
- "opentelemetry 0.19.0",
+ "opentelemetry 0.21.0",
  "opentelemetry-prometheus",
  "prometheus",
  "serde",
@@ -3558,6 +3558,22 @@ checksum = "5f4b8347cc26099d3aeee044065ecc3ae11469796b4d65d065a23a584ed92a6f"
 dependencies = [
  "opentelemetry_api",
  "opentelemetry_sdk",
+]
+
+[[package]]
+name = "opentelemetry"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e32339a5dc40459130b3bd269e9892439f55b33e772d2a9d402a789baaf4e8a"
+dependencies = [
+ "futures-core",
+ "futures-sink",
+ "indexmap 2.0.0",
+ "js-sys",
+ "once_cell",
+ "pin-project-lite",
+ "thiserror",
+ "urlencoding",
 ]
 
 [[package]]
