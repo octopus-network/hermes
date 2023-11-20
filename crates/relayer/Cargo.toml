@@ -123,7 +123,7 @@ default-features = false
 ibc-relayer-types = { version = "0.25.0", path = "../relayer-types", features = ["mocks"] }
 serial_test = "2.0.0"
 env_logger = "0.10.0"
-tracing-subscriber = { version = "0.3.14", features = ["fmt", "env-filter", "json"] }
+tracing-subscriber = { version = "0.3.18", features = ["fmt", "env-filter", "json"] }
 test-log = { version = "0.2.10", features = ["trace"] }
 dirs = "5.0.1"
 
