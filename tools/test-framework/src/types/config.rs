@@ -72,4 +72,6 @@ pub struct TestConfig {
     pub canister_id: String,
 
     pub near_rpc_endpoint: String,
+
+    pub filter_near_event_height: Option<u64>,
 }
