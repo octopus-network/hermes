@@ -49,7 +49,8 @@ use ibc_relayer_types::{
     core::ics02_client::events::UpdateClient,
     core::ics23_commitment::merkle::MerkleProof,
     core::ics24_host::path::{
-        AcksPath, ChannelEndsPath, ClientStatePath, CommitmentsPath, ConnectionsPath,
+        AcksPath, ChannelEndsPath, ClientStatePath, CommitmentsPath, ConnectionsPath, ReceiptsPath,
+        SeqRecvsPath,
     },
     core::{
         ics02_client::{client_type::ClientType, error::Error as ClientError},
@@ -106,6 +107,7 @@ use tendermint_rpc::endpoint::broadcast::tx_sync::Response as TxResponse;
 use tokio::runtime::Runtime as TokioRuntime;
 use tracing::{debug, info, trace, warn};
 
+pub mod client;
 pub mod constants;
 pub mod contract;
 pub mod error;
@@ -144,6 +146,23 @@ impl NearIbcContract for NearChain {
 }
 
 impl NearChain {
+    fn init_event_monitor(&self) -> Result<TxMonitorCmd, Error> {
+        info!("initializing event monitor");
+        crate::time!("init_event_monitor");
+
+        let (event_monitor, monitor_tx) = NearEventMonitor::new(
+            self.config.id.clone(),
+            self.config.near_ibc_address.clone().into(),
+            self.config.rpc_addr.to_string(),
+            self.rt.clone(),
+        )
+        .map_err(Error::event_monitor)?;
+
+        thread::spawn(move || event_monitor.run());
+
+        Ok(monitor_tx)
+    }
+
     pub fn config(&self) -> &ChainConfig {
         &self.config
     }
@@ -232,7 +251,7 @@ impl NearChain {
         last_block_hash: near_primitives::hash::CryptoHash,
         test_proof: bool,
     ) -> Result<NearHeader, retry::Error<()>> {
-        let header = retry_with_index(retry_strategy::default_strategy(), |_index| {
+        retry_with_index(retry_strategy::default_strategy(), |_index| {
             let result =
                 self.query_by_lcb_client(&RpcLightClientNextBlockRequest { last_block_hash });
 
@@ -344,8 +363,57 @@ impl NearChain {
                     retry::OperationResult::Retry(())
                 }
             }
-        });
-        header
+        })
+    }
+
+    fn query_view_state_proof(&self, store_key: String, height: u64) -> Result<Vec<u8>, Error> {
+        let query_response = retry_with_index(retry_strategy::default_strategy(), |_index| {
+            let block_reference: BlockReference = BlockId::Height(height).into();
+            let prefix = StoreKey::from(store_key.clone().into_bytes());
+            let result = self.query(&RpcQueryRequest {
+                block_reference,
+                request: QueryRequest::ViewState {
+                    account_id: self.near_ibc_contract.clone(),
+                    prefix,
+                    include_proof: true,
+                },
+            });
+
+            match result {
+                Ok(lcb) => RetryResult::Ok(lcb),
+                Err(e) => {
+                    warn!(
+                        "retry get target_block_view({:?}) with error: {} \n{}",
+                        store_key,
+                        e,
+                        std::panic::Location::caller()
+                    );
+                    RetryResult::Retry(())
+                }
+            }
+        })
+        .map_err(|_| {
+            Error::report_error("query_view_state_proof get query_response failed".to_string())
+        })?;
+
+        trace!(
+            "view state proof({:?}): result: {:?} \n{}",
+            store_key,
+            query_response.block_height,
+            std::panic::Location::caller()
+        );
+
+        let state = match query_response.kind {
+            QueryResponseKind::ViewState(state) => Ok(state),
+            _ => Err(Error::report_error(
+                "failed to get view_state_proof".to_string(),
+            )),
+        }?;
+        let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
+
+        NearProofs(proofs)
+            .try_to_vec()
+            .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))
     }
 }
 
@@ -487,13 +555,15 @@ impl ChainEndpoint for NearChain {
             std::panic::Location::caller()
         );
 
-        let result = self.deliver(proto_msgs.messages().to_vec())?;
+        for message in proto_msgs.messages().iter() {
+            let result = self.deliver(vec![message.clone()])?;
 
-        debug!(
-            "deliver result: {:?} \n{}",
-            result,
-            std::panic::Location::caller()
-        );
+            debug!(
+                "deliver result: {:?} \n{}",
+                result,
+                std::panic::Location::caller()
+            );
+        }
 
         Ok(vec![])
     }
@@ -527,7 +597,7 @@ impl ChainEndpoint for NearChain {
                         e,
                         std::panic::Location::caller()
                     );
-                    return RetryResult::Retry(());
+                    RetryResult::Retry(())
                 }
             }
         })
@@ -590,9 +660,9 @@ impl ChainEndpoint for NearChain {
     fn query_denom_trace(&self, _hash: String) -> Result<DenomTrace, Error> {
         // todo(daviarin) add mock denom trace
         Ok(DenomTrace {
-            /// The chain of port/channel identifiers used for tracing the source of the coin.
+            // The chain of port/channel identifiers used for tracing the source of the coin.
             path: String::default(),
-            /// The base denomination for that coin
+            // The base denomination for that coin
             base_denom: String::default(),
         })
     }
@@ -626,7 +696,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryClientStatesRequest,
     ) -> Result<Vec<IdentifiedAnyClientState>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -795,7 +865,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryClientConnectionsRequest,
     ) -> Result<Vec<ConnectionId>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -833,7 +903,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryConnectionChannelsRequest,
     ) -> Result<Vec<IdentifiedChannelEnd>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -917,7 +987,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryPacketCommitmentsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -953,7 +1023,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryUnreceivedPacketsRequest,
     ) -> Result<Vec<Sequence>, Error> {
-        info!(
+        trace!(
             "request: {:?}, \n{}",
             request,
             std::panic::Location::caller()
@@ -996,7 +1066,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryPacketAcknowledgementsRequest,
     ) -> Result<(Vec<Sequence>, ICSHeight), Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1015,7 +1085,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryUnreceivedAcksRequest,
     ) -> Result<Vec<Sequence>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1064,7 +1134,7 @@ impl ChainEndpoint for NearChain {
     }
 
     fn query_txs(&self, request: QueryTxRequest) -> Result<Vec<IbcEventWithHeight>, Error> {
-        info!("equest: {:?} \n{}", request, std::panic::Location::caller());
+        trace!("equest: {:?} \n{}", request, std::panic::Location::caller());
 
         match request {
             QueryTxRequest::Client(request) => {
@@ -1095,7 +1165,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryPacketEventDataRequest,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1141,16 +1211,19 @@ impl ChainEndpoint for NearChain {
     fn build_client_state(
         &self,
         height: ICSHeight,
-        dst_config: ClientSettings,
+        settings: ClientSettings,
     ) -> Result<Self::ClientState, Error> {
         trace!(
             "height: {:?} dst_config: {:?} \n{}",
             height,
-            dst_config,
+            settings,
             std::panic::Location::caller()
         );
 
-        let ClientSettings::Tendermint(settings) = dst_config;
+        let settings = settings.near_setting().ok_or(Error::report_error(
+            "cosmos client setting is empty".to_string(),
+        ))?;
+
         let trusting_period = settings
             .trusting_period
             .unwrap_or(std::time::Duration::from_secs(14 * 24 * 60 * 60));
@@ -1319,60 +1392,9 @@ impl ChainEndpoint for NearChain {
             IncludeProof::No,
         )?;
 
-        // ServerError(HandlerError(UnknownBlock { block_reference: BlockId(Height(135705911)) }))
-        let query_response = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let connections_path = ConnectionsPath(connection_id.clone()).to_string();
-
-            let block_reference: BlockReference = BlockId::Height(height.revision_height()).into();
-            let prefix = StoreKey::from(connections_path.into_bytes());
-            let result = self.query(&RpcQueryRequest {
-                block_reference,
-                request: QueryRequest::ViewState {
-                    account_id: self.near_ibc_contract.clone(),
-                    prefix,
-                    include_proof: true,
-                },
-            });
-
-            match result {
-                Ok(lcb) => RetryResult::Ok(lcb),
-                Err(e) => {
-                    warn!(
-                        "retry get target_block_view(conn) with error: {} \n{}",
-                        e,
-                        std::panic::Location::caller()
-                    );
-                    RetryResult::Retry(())
-                }
-            }
-        })
-        .map_err(|_| {
-            Error::report_error(
-                "build_connection_proofs_and_client_state get query_response failed".to_string(),
-            )
-        })?;
-
-        trace!(
-            "view state of connection result: {:?} \n{}",
-            query_response.block_height,
-            std::panic::Location::caller()
-        );
-
-        let state = match query_response.kind {
-            QueryResponseKind::ViewState(state) => Ok(state),
-            _ => Err(Error::report_error(
-                "failed to get connection proof".to_string(),
-            )),
-        }?;
-        let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
-
-        let _commitment_prefix = self
-            .get_commitment_prefix()
-            .map_err(Error::near_chain_error)?;
-
-        let proof_init = NearProofs(proofs)
-            .try_to_vec()
-            .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))?;
+        let connections_path = ConnectionsPath(connection_id.clone()).to_string();
+        let connection_proof =
+            self.query_view_state_proof(connections_path, height.revision_height())?;
 
         // Check that the connection state is compatible with the message
         match message_type {
@@ -1412,33 +1434,8 @@ impl ChainEndpoint for NearChain {
                 )?;
 
                 let client_state_path = ClientStatePath(client_id.clone()).to_string();
-
-                let block_reference: BlockReference =
-                    BlockId::Height(height.revision_height()).into();
-                let prefix = StoreKey::from(client_state_path.into_bytes());
-
-                let query_response = self
-                    .query(&RpcQueryRequest {
-                        block_reference,
-                        request: QueryRequest::ViewState {
-                            account_id: self.near_ibc_contract.clone(),
-                            prefix,
-                            include_proof: true,
-                        },
-                    })
-                    .map_err(|e| Error::near_chain_error(NearError::rpc_query_error(e)))?;
-
-                let state = match query_response.kind {
-                    QueryResponseKind::ViewState(state) => Ok(state),
-                    _ => Err(Error::report_error(
-                        "failed to get connection proof".to_string(),
-                    )),
-                }?;
-                let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
-                let proof_client = NearProofs(proofs)
-                    .try_to_vec()
-                    .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))?;
-
+                let proof_client =
+                    self.query_view_state_proof(client_state_path, height.revision_height())?;
                 client_proof = Some(
                     CommitmentProofBytes::try_from(proof_client).map_err(Error::malformed_proof)?,
                 );
@@ -1473,7 +1470,7 @@ impl ChainEndpoint for NearChain {
         Ok((
             client_state,
             Proofs::new(
-                CommitmentProofBytes::try_from(proof_init.to_vec())
+                CommitmentProofBytes::try_from(connection_proof.to_vec())
                     .map_err(Error::malformed_proof)?,
                 client_proof,
                 consensus_proof,
@@ -1492,69 +1489,8 @@ impl ChainEndpoint for NearChain {
         channel_id: &ChannelId,
         height: ICSHeight,
     ) -> Result<Proofs, Error> {
-        // Collect all proofs as required
-        let (_channel, _maybe_channel_proof) = self.query_channel(
-            QueryChannelRequest {
-                port_id: port_id.clone(),
-                channel_id: channel_id.clone(),
-                height: QueryHeight::Specific(height),
-            },
-            IncludeProof::No,
-        )?;
-
-        // ServerError(HandlerError(UnknownBlock { block_reference: BlockId(Height(135705911)) }))
-        let query_response = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let channel_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string();
-
-            let block_reference: BlockReference = BlockId::Height(height.revision_height()).into();
-            let prefix = StoreKey::from(channel_path.into_bytes());
-            let result = self.query(&RpcQueryRequest {
-                block_reference,
-                request: QueryRequest::ViewState {
-                    account_id: self.near_ibc_contract.clone(),
-                    prefix,
-                    include_proof: true,
-                },
-            });
-
-            match result {
-                Ok(lcb) => RetryResult::Ok(lcb),
-                Err(e) => {
-                    warn!(
-                        "retry get target_block_view(chan) with error: {} \n{}",
-                        e,
-                        std::panic::Location::caller()
-                    );
-                    RetryResult::Retry(())
-                }
-            }
-        })
-        .map_err(|_| {
-            Error::report_error("build_channel_proofs get query_response failed".to_string())
-        })?;
-
-        trace!(
-            "view state of channel proof: result: {:?} \n{}",
-            query_response.block_height,
-            std::panic::Location::caller()
-        );
-
-        let state = match query_response.kind {
-            QueryResponseKind::ViewState(state) => Ok(state),
-            _ => Err(Error::report_error(
-                "failed to get channel proof".to_string(),
-            )),
-        }?;
-        let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
-
-        let _commitment_prefix = self
-            .get_commitment_prefix()
-            .map_err(|e| Error::report_error(e.to_string()))?;
-
-        let channel_proof = NearProofs(proofs)
-            .try_to_vec()
-            .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))?;
-
+        let channel_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string();
+        let channel_proof = self.query_view_state_proof(channel_path, height.revision_height())?;
         let channel_proof_bytes =
             CommitmentProofBytes::try_from(channel_proof).map_err(Error::malformed_proof)?;
 
@@ -1580,237 +1516,82 @@ impl ChainEndpoint for NearChain {
     ) -> Result<Proofs, Error> {
         let (maybe_packet_proof, channel_proof) = match packet_type {
             PacketMsgType::Recv => {
-                let (_, _maybe_packet_proof) = self.query_packet_commitment(
-                    QueryPacketCommitmentRequest {
-                        port_id: port_id.clone(),
-                        channel_id: channel_id.clone(),
-                        sequence,
-                        height: QueryHeight::Specific(height),
-                    },
-                    IncludeProof::No,
-                )?;
-
-                let query_response =
-                    retry_with_index(retry_strategy::default_strategy(), |_index| {
-                        let packet_commitments_path = CommitmentsPath {
-                            port_id: port_id.clone(),
-                            channel_id: channel_id.clone(),
-                            sequence,
-                        }
-                        .to_string();
-
-                        let block_reference: BlockReference =
-                            BlockId::Height(height.revision_height()).into();
-                        let prefix = StoreKey::from(packet_commitments_path.into_bytes());
-                        let result = self.query(&RpcQueryRequest {
-                            block_reference,
-                            request: QueryRequest::ViewState {
-                                account_id: self.near_ibc_contract.clone(),
-                                prefix,
-                                include_proof: true,
-                            },
-                        });
-
-                        match result {
-                            Ok(lcb) => RetryResult::Ok(lcb),
-                            Err(e) => {
-                                warn!(
-                                    "retry get target_block_view(pkt) with error: {} \n{}",
-                                    e,
-                                    std::panic::Location::caller()
-                                );
-                                RetryResult::Retry(())
-                            }
-                        }
-                    })
-                    .map_err(|_| {
-                        Error::report_error(
-                            "build_packet_proofs get query_response failed".to_string(),
-                        )
-                    })?;
-
-                println!(
-                    "view state of packet proof: result: {:?} \n{}",
-                    query_response.block_height,
-                    std::panic::Location::caller()
-                );
-
-                let state = match query_response.kind {
-                    QueryResponseKind::ViewState(state) => Ok(state),
-                    _ => Err(Error::report_error(
-                        "failed to get packet proof".to_string(),
-                    )),
-                }?;
-                let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
-
-                let packet_proof = NearProofs(proofs)
-                    .try_to_vec()
-                    .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))?;
+                let packet_commitments_path = CommitmentsPath {
+                    port_id: port_id.clone(),
+                    channel_id: channel_id.clone(),
+                    sequence,
+                }
+                .to_string();
+                let packet_proof =
+                    self.query_view_state_proof(packet_commitments_path, height.revision_height())?;
 
                 (Some(packet_proof), None)
             }
             PacketMsgType::Ack => {
-                let (_, _maybe_packet_proof) = self.query_packet_acknowledgement(
-                    QueryPacketAcknowledgementRequest {
-                        port_id: port_id.clone(),
-                        channel_id: channel_id.clone(),
-                        sequence,
-                        height: QueryHeight::Specific(height),
-                    },
-                    IncludeProof::No,
-                )?;
-
-                let query_response =
-                    retry_with_index(retry_strategy::default_strategy(), |_index| {
-                        let packet_commitments_path = AcksPath {
-                            port_id: port_id.clone(),
-                            channel_id: channel_id.clone(),
-                            sequence,
-                        }
-                        .to_string();
-
-                        let block_reference: BlockReference =
-                            BlockId::Height(height.revision_height()).into();
-                        let prefix = StoreKey::from(packet_commitments_path.into_bytes());
-                        let result = self.query(&RpcQueryRequest {
-                            block_reference,
-                            request: QueryRequest::ViewState {
-                                account_id: self.near_ibc_contract.clone(),
-                                prefix,
-                                include_proof: true,
-                            },
-                        });
-
-                        match result {
-                            Ok(lcb) => RetryResult::Ok(lcb),
-                            Err(e) => {
-                                warn!(
-                                    "retry get target_block_view(pkt) with error: {} \n {}",
-                                    e,
-                                    std::panic::Location::caller()
-                                );
-                                RetryResult::Retry(())
-                            }
-                        }
-                    })
-                    .map_err(|_| {
-                        Error::report_error(
-                            "build_packet_proofs get query_response failed".to_string(),
-                        )
-                    })?;
-
-                println!(
-                    "view state of packet proof: result: {:?} \n{}",
-                    query_response.block_height,
-                    std::panic::Location::caller()
-                );
-
-                let state = match query_response.kind {
-                    QueryResponseKind::ViewState(state) => Ok(state),
-                    _ => Err(Error::report_error(
-                        "failed to get packet proof".to_string(),
-                    )),
-                }?;
-                let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
-
-                let packet_proof = NearProofs(proofs)
-                    .try_to_vec()
-                    .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))?;
+                let packet_commitments_path = AcksPath {
+                    port_id: port_id.clone(),
+                    channel_id: channel_id.clone(),
+                    sequence,
+                }
+                .to_string();
+                let packet_proof =
+                    self.query_view_state_proof(packet_commitments_path, height.revision_height())?;
 
                 (Some(packet_proof), None)
             }
             PacketMsgType::TimeoutUnordered => {
-                let (_, _maybe_packet_proof) = self.query_packet_receipt(
-                    QueryPacketReceiptRequest {
-                        port_id: port_id.clone(),
-                        channel_id: channel_id.clone(),
-                        sequence,
-                        height: QueryHeight::Specific(height),
-                    },
-                    IncludeProof::Yes,
-                )?;
+                let packet_commitments_path = ReceiptsPath {
+                    port_id: port_id.clone(),
+                    channel_id: channel_id.clone(),
+                    sequence,
+                }
+                .to_string();
 
-                // (maybe_packet_proof, None)
-                (None, None)
+                let packet_proof =
+                    self.query_view_state_proof(packet_commitments_path, height.revision_height())?;
+
+                (Some(packet_proof), None)
             }
             PacketMsgType::TimeoutOrdered => {
-                let (_, _maybe_packet_proof) = self.query_next_sequence_receive(
-                    QueryNextSequenceReceiveRequest {
-                        port_id,
-                        channel_id,
-                        height: QueryHeight::Specific(height),
-                    },
-                    IncludeProof::Yes,
-                )?;
+                let packet_commitments_path =
+                    SeqRecvsPath(port_id.clone(), channel_id.clone()).to_string();
 
-                // (maybe_packet_proof, None)
-                (None, None)
+                let packet_proof =
+                    self.query_view_state_proof(packet_commitments_path, height.revision_height())?;
+
+                (Some(packet_proof), None)
             }
             PacketMsgType::TimeoutOnCloseUnordered => {
-                let _channel_proof = {
-                    let (_, maybe_channel_proof) = self.query_channel(
-                        QueryChannelRequest {
-                            port_id: port_id.clone(),
-                            channel_id: channel_id.clone(),
-                            height: QueryHeight::Specific(height),
-                        },
-                        IncludeProof::Yes,
-                    )?;
+                let channel_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string();
+                let channel_proof =
+                    self.query_view_state_proof(channel_path, height.revision_height())?;
+                let channel_proof_bytes = CommitmentProofBytes::try_from(channel_proof)
+                    .map_err(Error::malformed_proof)?;
 
-                    let Some(channel_merkle_proof) = maybe_channel_proof else {
-                        return Err(Error::queried_proof_not_found());
-                    };
+                let packet_commitments_path = AcksPath {
+                    port_id: port_id.clone(),
+                    channel_id: channel_id.clone(),
+                    sequence,
+                }
+                .to_string();
+                let packet_proof =
+                    self.query_view_state_proof(packet_commitments_path, height.revision_height())?;
 
-                    Some(
-                        CommitmentProofBytes::try_from(channel_merkle_proof)
-                            .map_err(Error::malformed_proof)?,
-                    )
-                };
-
-                let (_, _maybe_packet_proof) = self.query_packet_receipt(
-                    QueryPacketReceiptRequest {
-                        port_id,
-                        channel_id,
-                        sequence,
-                        height: QueryHeight::Specific(height),
-                    },
-                    IncludeProof::Yes,
-                )?;
-
-                // (maybe_packet_proof, channel_proof)
-                (None, None)
+                (Some(packet_proof), Some(channel_proof_bytes))
             }
             PacketMsgType::TimeoutOnCloseOrdered => {
-                let _channel_proof = {
-                    let (_, maybe_channel_proof) = self.query_channel(
-                        QueryChannelRequest {
-                            port_id: port_id.clone(),
-                            channel_id: channel_id.clone(),
-                            height: QueryHeight::Specific(height),
-                        },
-                        IncludeProof::Yes,
-                    )?;
+                let channel_path = ChannelEndsPath(port_id.clone(), channel_id.clone()).to_string();
+                let channel_proof =
+                    self.query_view_state_proof(channel_path, height.revision_height())?;
+                let channel_proof_bytes = CommitmentProofBytes::try_from(channel_proof)
+                    .map_err(Error::malformed_proof)?;
 
-                    let Some(channel_merkle_proof) = maybe_channel_proof else {
-                        return Err(Error::queried_proof_not_found());
-                    };
+                let packet_commitments_path =
+                    SeqRecvsPath(port_id.clone(), channel_id.clone()).to_string();
+                let packet_proof =
+                    self.query_view_state_proof(packet_commitments_path, height.revision_height())?;
 
-                    Some(
-                        CommitmentProofBytes::try_from(channel_merkle_proof)
-                            .map_err(Error::malformed_proof)?,
-                    )
-                };
-                let (_, _maybe_packet_proof) = self.query_next_sequence_receive(
-                    QueryNextSequenceReceiveRequest {
-                        port_id,
-                        channel_id,
-                        height: QueryHeight::Specific(height),
-                    },
-                    IncludeProof::Yes,
-                )?;
-
-                // (maybe_packet_proof, channel_proof)
-                (None, None)
+                (Some(packet_proof), Some(channel_proof_bytes))
             }
         };
 
@@ -1851,7 +1632,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryConsensusStateHeightsRequest,
     ) -> Result<Vec<Height>, Error> {
-        info!(
+        trace!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1861,7 +1642,7 @@ impl ChainEndpoint for NearChain {
             .get_client_consensus_heights(&request.client_id)
             .map_err(Error::near_chain_error)?;
 
-        info!("result: {:?} \n{}", result, std::panic::Location::caller());
+        trace!("result: {:?} \n{}", result, std::panic::Location::caller());
 
         Ok(result)
     }
@@ -1881,25 +1662,6 @@ impl ChainEndpoint for NearChain {
     }
 }
 
-impl NearChain {
-    fn init_event_monitor(&self) -> Result<TxMonitorCmd, Error> {
-        info!("initializing event monitor");
-        crate::time!("init_event_monitor");
-
-        let (event_monitor, monitor_tx) = NearEventMonitor::new(
-            self.config.id.clone(),
-            self.config.near_ibc_address.clone().into(),
-            self.config.rpc_addr.to_string(),
-            self.rt.clone(),
-        )
-        .map_err(Error::event_monitor)?;
-
-        thread::spawn(move || event_monitor.run());
-
-        Ok(monitor_tx)
-    }
-}
-
 pub fn collect_ibc_event_by_outcome(
     outcome: FinalExecutionOutcomeView,
 ) -> Result<Vec<IbcEventWithHeight>, Error> {
@@ -1914,6 +1676,7 @@ pub fn collect_ibc_event_by_outcome(
                     let ibc_event: IbcEvent =
                         serde_json::from_value(event_value["raw-ibc-event"].clone())
                             .map_err(|e| Error::near_chain_error(NearError::serde_json_error(e)))?;
+                    debug!("collect_ibc_event_by_outcome ibc event: {:?} ", ibc_event);
                     let block_height = u64::from_str(event_value["block_height"].as_str().ok_or(
                         Error::report_error("Failed to get block_height field".to_string()),
                     )?)

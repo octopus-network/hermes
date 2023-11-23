@@ -10,7 +10,7 @@ use crate::chain::{
 };
 use alloc::sync::Arc;
 use crossbeam_channel as channel;
-use ibc_relayer_types::events::IbcEvent;
+use ibc_relayer_types::{core::ics02_client::events::NewBlock, events::IbcEvent};
 use ibc_relayer_types::{
     core::ics02_client::height::Height, core::ics24_host::identifier::ChainId,
 };
@@ -76,6 +76,7 @@ pub struct NearEventMonitor {
     rt: Arc<TokioRuntime>,
     /// The heights that have already been checked for IBC events.
     checked_heights: Vec<u64>,
+    last_block_height: u64,
 }
 
 impl NearIbcContract for NearEventMonitor {
@@ -120,6 +121,7 @@ impl NearEventMonitor {
             event_tx: None,
             rx_cmd,
             checked_heights: vec![],
+            last_block_height: 0,
         };
 
         Ok((monitor, TxMonitorCmd(tx_cmd)))
@@ -166,6 +168,28 @@ impl NearEventMonitor {
                 }
             }
             if self.event_tx.is_some() {
+                if let Ok(latest_block_height) = self.get_latest_height() {
+                    if self.last_block_height == 0
+                        || latest_block_height.revision_height() % 100 == 0
+                    {
+                        let event_tx = self.event_tx.as_ref().unwrap();
+                        let batch = EventBatch {
+                            chain_id: self.chain_id.clone(),
+                            tracking_id: TrackingId::new_uuid(),
+                            height: latest_block_height,
+                            events: vec![IbcEventWithHeight {
+                                event: IbcEvent::NewBlock(NewBlock::new(latest_block_height)),
+                                height: latest_block_height,
+                            }],
+                        };
+                        info!("ys-debug: Send batch: {:?}", batch);
+                        if let Err(e) = event_tx.send(Arc::new(Ok(batch))) {
+                            error!("failed to send event batch: {}", e);
+                        }
+                        self.last_block_height = latest_block_height.revision_height();
+                        return Next::Continue;
+                    }
+                }
                 let heights = self.get_ibc_events_heights();
                 let unchecked_heights = heights
                     .iter()

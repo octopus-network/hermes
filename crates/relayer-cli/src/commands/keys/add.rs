@@ -200,7 +200,7 @@ pub fn add_key(
     overwrite: bool,
 ) -> eyre::Result<AnySigningKeyPair> {
     let key_pair = match config.r#type {
-        ChainType::CosmosSdk => {
+        ChainType::CosmosSdk | ChainType::Vp => {
             let mut keyring = KeyRing::new_secp256k1(
                 Store::Test,
                 &config.account_prefix,
@@ -251,7 +251,7 @@ pub fn restore_key(
         fs::read_to_string(mnemonic).map_err(|_| eyre!("error reading the mnemonic file"))?;
 
     let key_pair = match config.r#type {
-        ChainType::CosmosSdk => {
+        ChainType::CosmosSdk | ChainType::Vp => {
             let mut keyring = KeyRing::new_secp256k1(
                 Store::Test,
                 &config.account_prefix,

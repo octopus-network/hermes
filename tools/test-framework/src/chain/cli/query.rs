@@ -45,6 +45,29 @@ pub fn query_balance(
     Ok(amount)
 }
 
+pub fn query_near_balance(
+    chain_id: &str,
+    token_contract: &str,
+    wallet_id: &str,
+) -> Result<Amount, Error> {
+    let res = simple_exec(
+        chain_id,
+        "near",
+        &[
+            "view",
+            token_contract,
+            "ft_balance_of",
+            &format!("{{\"account_id\": \"{}\"}}", wallet_id),
+        ],
+    )?
+    .stdout;
+    let last_line = res.trim().split('\n').last().unwrap();
+    let amount =
+        Amount::from_str(&last_line[1..last_line.len() - 1]).map_err(handle_generic_error)?;
+
+    Ok(amount)
+}
+
 /**
     Query for the transactions related to a wallet on `Chain`
     receiving token transfer from others.

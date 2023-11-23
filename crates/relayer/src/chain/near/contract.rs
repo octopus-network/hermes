@@ -3,6 +3,7 @@ use crate::chain::near::rpc::client::NearRpcClient;
 use crate::chain::near::rpc::result::ViewResultDetails;
 use crate::chain::requests::{
     QueryChannelsRequest, QueryPacketAcknowledgementsRequest, QueryPacketEventDataRequest,
+    QueryPacketEventDataRequest1,
 };
 use crate::chain::requests::{
     QueryClientConnectionsRequest, QueryClientStatesRequest, QueryConnectionsRequest,
@@ -517,10 +518,20 @@ pub trait NearIbcContract {
             std::panic::Location::caller()
         );
 
+        let req = QueryPacketEventDataRequest1 {
+            event_type: request.event_id.as_str().to_owned(),
+            source_channel_id: request.source_channel_id,
+            source_port_id: request.source_port_id,
+            destination_channel_id: request.destination_channel_id,
+            destination_port_id: request.destination_port_id,
+            sequences: request.sequences,
+            height: request.height,
+        };
+
         self.view(
             self.get_contract_id(),
             "get_packet_events".into(),
-            json!({ "request": request }).to_string().into_bytes(),
+            json!({ "request": req }).to_string().into_bytes(),
         )?
         .json::<Vec<(Height, Vec<IbcEvent>)>>()
         .map_err(Into::into)

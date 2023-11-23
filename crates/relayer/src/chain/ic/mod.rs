@@ -1,10 +1,9 @@
 pub mod errors;
 mod identity;
-mod types;
 
+use crate::chain::ic::errors::VerificationProxiesError;
 use crate::chain::ic::errors::VpError;
 use crate::chain::ic::identity::create_identity;
-use crate::chain::ic::types::*;
 use candid::Principal;
 use candid::{Decode, Encode};
 use core::ops::Deref;
@@ -18,9 +17,9 @@ pub struct VpClient {
 }
 
 impl VpClient {
-    const LOCAL_NET: &str = "http://localhost:4943";
+    const LOCAL_NET: &'static str = "http://localhost:4943";
     #[allow(dead_code)]
-    const MAIN_NET: &str = "https://ic0.app";
+    const MAIN_NET: &'static str = "https://ic0.app";
 
     pub async fn new(ic_endpoint_url: &str, pem_file: &PathBuf) -> Result<Self, VpError> {
         let agent = Agent::builder()
@@ -48,11 +47,20 @@ impl VpClient {
             .with_arg(Encode!(&args).map_err(VpError::decode_ic_type_error)?)
             .call()
             .await
-            .map_err(VpError::agent_error)?;
+            .map_err(|e| {
+                tracing::error!("query_ic: {:?}", e);
+                VpError::agent_error(e)
+            })?;
 
-        Decode!(response.as_slice(), VecResult)
-            .map_err(VpError::decode_ic_type_error)?
-            .transfer_anyhow()
+        let result = Decode!(
+            response.as_slice(),
+            Result<Vec<u8>, VerificationProxiesError>
+        )
+        .map_err(|e| VpError::custom_error(e.to_string()))?;
+        match result {
+            Ok(value) => Ok(value),
+            Err(e) => Err(VpError::custom_error(e.to_string())),
+        }
     }
 
     async fn update_ic(
@@ -67,11 +75,20 @@ impl VpClient {
             .with_arg(Encode!(&args).map_err(VpError::decode_ic_type_error)?)
             .call_and_wait()
             .await
-            .map_err(VpError::agent_error)?;
+            .map_err(|e| {
+                tracing::error!("query_ic: {:?}", e);
+                VpError::agent_error(e)
+            })?;
 
-        Decode!(response.as_slice(), VecResult)
-            .map_err(VpError::decode_ic_type_error)?
-            .transfer_anyhow()
+        let result = Decode!(
+            response.as_slice(),
+            Result<Vec<u8>, VerificationProxiesError>
+        )
+        .map_err(|e| VpError::custom_error(e.to_string()))?;
+        match result {
+            Ok(value) => Ok(value),
+            Err(e) => Err(VpError::custom_error(e.to_string())),
+        }
     }
 
     pub async fn query_client_state(

@@ -4,15 +4,21 @@ use ibc_relayer_types::core::ics02_client::height::Height;
 use ibc_relayer_types::core::ics04_channel::packet::Packet;
 use ibc_relayer_types::core::ics24_host::identifier::{ChannelId, PortId};
 
+use crate::chain::chain_type::ChainType;
 use crate::chain::cli::transfer::{local_transfer_token, transfer_from_chain};
 use crate::chain::driver::ChainDriver;
+use crate::chain::exec::simple_exec;
 use crate::chain::tagged::TaggedChainDriverExt;
 use crate::error::Error;
 use crate::ibc::token::TaggedTokenRef;
-use crate::relayer::transfer::{batched_ibc_token_transfer, ibc_token_transfer};
+use crate::relayer::transfer::{
+    batched_ibc_token_transfer, ibc_token_transfer, near_ibc_token_transfer,
+};
 use crate::types::id::{TaggedChannelIdRef, TaggedPortIdRef};
 use crate::types::tagged::*;
 use crate::types::wallet::{Wallet, WalletAddress};
+use eyre::eyre;
+use tracing::info;
 
 pub trait ChainTransferMethodsExt<Chain> {
     /**
@@ -82,6 +88,8 @@ pub trait ChainTransferMethodsExt<Chain> {
         token: &TaggedTokenRef<Chain>,
         timeout_height: &Height,
     ) -> Result<(), Error>;
+
+    fn setup_ibc_transfer_for_near(&self, channel: &ChannelId) -> Result<String, Error>;
 }
 
 impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a ChainDriver> {
@@ -93,18 +101,34 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
         recipient: &MonoTagged<Counterparty, &WalletAddress>,
         token: &TaggedTokenRef<Chain>,
     ) -> Result<Packet, Error> {
-        let rpc_client = self.rpc_client()?;
-        self.value().runtime.block_on(ibc_token_transfer(
-            rpc_client.as_ref(),
-            &self.tx_config(),
-            port_id,
-            channel_id,
-            sender,
-            recipient,
-            token,
-            None,
-            None,
-        ))
+        match self.0.chain_type {
+            ChainType::Near => {
+                near_ibc_token_transfer(
+                    &self.chain_id().to_string(),
+                    channel_id,
+                    sender,
+                    recipient,
+                    token,
+                    None,
+                    None,
+                )?;
+                Ok(Packet::default())
+            }
+            _ => {
+                let rpc_client = self.rpc_client()?;
+                self.value().runtime.block_on(ibc_token_transfer(
+                    rpc_client.as_ref(),
+                    &self.tx_config(),
+                    port_id,
+                    channel_id,
+                    sender,
+                    recipient,
+                    token,
+                    None,
+                    None,
+                ))
+            }
+        }
     }
 
     fn ibc_transfer_token_with_memo_and_timeout<Counterparty>(
@@ -117,18 +141,34 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
         memo: Option<String>,
         timeout: Option<Duration>,
     ) -> Result<Packet, Error> {
-        let rpc_client = self.rpc_client()?;
-        self.value().runtime.block_on(ibc_token_transfer(
-            rpc_client.as_ref(),
-            &self.tx_config(),
-            port_id,
-            channel_id,
-            sender,
-            recipient,
-            token,
-            memo,
-            timeout,
-        ))
+        match self.0.chain_type {
+            ChainType::Near => {
+                near_ibc_token_transfer(
+                    &self.chain_id().to_string(),
+                    channel_id,
+                    sender,
+                    recipient,
+                    token,
+                    memo,
+                    timeout,
+                )?;
+                Ok(Packet::default())
+            }
+            _ => {
+                let rpc_client = self.rpc_client()?;
+                self.value().runtime.block_on(ibc_token_transfer(
+                    rpc_client.as_ref(),
+                    &self.tx_config(),
+                    port_id,
+                    channel_id,
+                    sender,
+                    recipient,
+                    token,
+                    memo,
+                    timeout,
+                ))
+            }
+        }
     }
 
     fn ibc_transfer_token_multiple<Counterparty>(
@@ -196,5 +236,116 @@ impl<'a, Chain: Send> ChainTransferMethodsExt<Chain> for MonoTagged<Chain, &'a C
             &token.value().to_string(),
             &timeout_height_str.to_string(),
         )
+    }
+
+    fn setup_ibc_transfer_for_near(&self, channel: &ChannelId) -> Result<String, Error> {
+        match self.0.chain_type {
+            ChainType::Near => {
+                let res = simple_exec(
+                    &self.chain_id().to_string(),
+                    "near",
+                    &[
+                        "call",
+                        "v5.nearibc.testnet",
+                        "setup_channel_escrow",
+                        &format!("{{\"channel_id\":\"{}\"}}", channel.as_str()),
+                        "--accountId",
+                        "v5.nearibc.testnet",
+                        "--gas",
+                        "300000000000000",
+                        "--amount",
+                        "3.1",
+                    ],
+                )?
+                .stdout;
+                info!("setup_channel_escrow: {}", res);
+
+                let res = simple_exec(
+                &self.chain_id().to_string(),
+                "near",
+                &[
+            "call",
+            "v5.nearibc.testnet",
+            "register_asset_for_channel",
+            &format!("{{\"channel_id\":\"{}\",\"trace_path\":\"\",\"base_denom\":\"OCT\",\"token_contract\":\"oct.beta_oct_relay.testnet\"}}", channel.as_str()),
+            "--accountId",
+            "v5.nearibc.testnet",
+            "--gas",
+            "300000000000000",
+            "--amount",
+            "0.1",
+                ],
+            )?
+            .stdout;
+                info!("register_asset_for_channel: {}", res);
+
+                let res = simple_exec(
+                &self.chain_id().to_string(),
+                "near",
+                &[
+            "call",
+            "oct.beta_oct_relay.testnet",
+            "storage_deposit",
+            &format!("{{\"account_id\":\"{}.ef.transfer.v5.nearibc.testnet\",\"registration_only\":false}}", channel.as_str()),
+            "--accountId",
+            "v5.nearibc.testnet",
+            "--gas",
+            "200000000000000",
+            "--amount",
+            "0.00125",
+                ],
+            )?
+            .stdout;
+
+                info!("storage_deposit: {}", res);
+
+                let res = simple_exec(
+                &self.chain_id().to_string(),
+                "near",
+                &[
+            "call",
+            "v5.nearibc.testnet",
+            "setup_wrapped_token",
+            &format!("{{\"trace_path\":\"transfer/{}\",\"base_denom\":\"samoleans\",\"metadata\":{{\"spec\":\"ft-1.0.0\",\"name\":\"samoleans\",\"symbol\":\"samoleans\",\"icon\":\"\",\"reference\":null,\"reference_hash\":null,\"decimals\":6}}}}", channel.as_str()),
+            "--accountId",
+            "v5.nearibc.testnet",
+            "--gas",
+            "300000000000000",
+            "--amount",
+            "3.6",
+                ],
+            )?
+            .stdout;
+
+                info!("setup_wrapped_token: {}", res);
+
+                let res = simple_exec(
+                    &self.chain_id().to_string(),
+                    "near",
+                    &[
+                        "view",
+                        "tf.transfer.v5.nearibc.testnet",
+                        "get_cross_chain_assets",
+                        &format!("{{\"trace_path\":\"{}/{}\"}}", "transfer", channel.as_str()),
+                    ],
+                )
+                .unwrap()
+                .stdout;
+
+                info!("get_cross_chain_assets: {}", res);
+                let token_contract: &str = res
+                    .split('\n')
+                    .find(|&s| s.contains("asset_id"))
+                    .unwrap()
+                    .split('\'')
+                    .collect::<Vec<&str>>()[1];
+
+                Ok(token_contract.to_string())
+            }
+
+            _ => Err(Error::generic(eyre!(
+                "failed to setup_ibc_transfer_for_near"
+            ))),
+        }
     }
 }

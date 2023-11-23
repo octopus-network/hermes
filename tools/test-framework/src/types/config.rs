@@ -58,4 +58,18 @@ pub struct TestConfig {
     pub hang_on_fail: bool,
 
     pub bootstrap_with_random_ids: bool,
+
+    // config for icp rpc endpoint url
+    pub ic_endpoint: String,
+
+    // config for icp canister pem file path
+    pub canister_pem: PathBuf,
+
+    // near ibc smart contract address
+    pub near_ibc_address: String,
+
+    // canister id for near ibc smart contract
+    pub canister_id: String,
+
+    pub near_rpc_endpoint: String,
 }

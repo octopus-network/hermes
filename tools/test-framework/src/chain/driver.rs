@@ -13,7 +13,7 @@ use ibc_relayer_types::applications::transfer::amount::Amount;
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
 
 use crate::chain::chain_type::ChainType;
-use crate::chain::cli::query::query_balance;
+use crate::chain::cli::query::{query_balance, query_near_balance};
 use crate::error::Error;
 use crate::ibc::denom::Denom;
 use crate::ibc::token::Token;
@@ -21,6 +21,7 @@ use crate::relayer::tx::new_tx_config_for_test;
 use crate::types::env::{EnvWriter, ExportEnv};
 use crate::types::wallet::WalletAddress;
 use crate::util::retry::assert_eventually_succeed;
+use tracing::info;
 
 /**
    Number of times (seconds) to try and query a wallet to reach the
@@ -185,13 +186,28 @@ impl ChainDriver {
        Query for the balances for a given wallet address and denomination
     */
     pub fn query_balance(&self, wallet_id: &WalletAddress, denom: &Denom) -> Result<Amount, Error> {
-        query_balance(
-            self.chain_id.as_str(),
-            &self.command_path,
-            &self.rpc_listen_address(),
-            &wallet_id.0,
-            &denom.to_string(),
-        )
+        match self.chain_type {
+            ChainType::Near => {
+                let token_contract = match denom {
+                    Denom::Base(_denom) => "oct.beta_oct_relay.testnet".to_string(),
+                    Denom::Ibc {
+                        path: _,
+                        denom: _,
+                        hashed,
+                    } => {
+                        format!("{}.tf.transfer.v5.nearibc.testnet", hashed)
+                    }
+                };
+                query_near_balance(self.chain_id.as_str(), &token_contract, &wallet_id.0)
+            }
+            _ => query_balance(
+                self.chain_id.as_str(),
+                &self.command_path,
+                &self.rpc_listen_address(),
+                &wallet_id.0,
+                &denom.to_string(),
+            ),
+        }
     }
 
     /**
@@ -209,6 +225,10 @@ impl ChainDriver {
             Duration::from_secs(1),
             || {
                 let amount: Amount = self.query_balance(wallet, &token.denom)?;
+                info!(
+                    "checking balance: {:?} {:?}:{:?}",
+                    wallet, token.denom, amount
+                );
 
                 if amount == token.amount {
                     Ok(())
