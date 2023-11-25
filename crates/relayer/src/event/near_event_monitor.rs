@@ -17,7 +17,7 @@ use ibc_relayer_types::{
 use near_primitives::types::AccountId;
 use serde_json::json;
 use tokio::runtime::Runtime as TokioRuntime;
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument, trace, warn};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -182,7 +182,7 @@ impl NearEventMonitor {
                                 height: latest_block_height,
                             }],
                         };
-                        info!("ys-debug: Send batch: {:?}", batch);
+                        trace!("Send batch: {:?}", batch);
                         if let Err(e) = event_tx.send(Arc::new(Ok(batch))) {
                             error!("failed to send event batch: {}", e);
                         }
