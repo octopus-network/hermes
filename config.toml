@@ -29,6 +29,7 @@ port = 3001
 type = 'near'
 id = 'near-0'
 near_ibc_address = "v8.nearibc.testnet"
+# rpc_addr = 'https://nd-354-497-726.p2pify.com/eedb1960b8b7f8747090aee8583d01f2'
 rpc_addr = 'https://near-testnet.infura.io/v3/272532ecf0b64d7782a03db0cbcf3c30'
 # rpc_addr = 'http://localhost:27030'
 grpc_addr = 'http://localhost:27032'
@@ -46,18 +47,18 @@ trust_threshold = { numerator = '1', denominator = '3' }
 [chains.packet_filter]
 policy = 'allow'
 list = [
-  ['provider', 'channel-16'],
-  ['transfer', 'channel-17'],
+  ['provider', 'channel-18'],
+  ['transfer', 'channel-19'],
 ]
 
 [[chains]]
-id = 'otto_9108-1'
+id = 'otto_9109-1'
 ic_endpoint = "https://ic0.app"
-canister_id = "eodkq-pqaaa-aaaag-qckta-cai"
+canister_id = "pcf3v-6iaaa-aaaag-qcuka-cai"
 canister_pem = ".hermes/keys/ic.pem"
-rpc_addr = 'https://gateway.testnet.octopus.network/rpc/otto/z3zhz1fpda6a92kp'
-grpc_addr = 'https://z3zhz1fpda6a92kp.otto.gateway.testnet.octopus.network'
-event_source = { mode = 'push', url = 'wss://gateway.testnet.octopus.network/rpc/otto/z3zhz1fpda6a92kp/websocket', batch_delay = '500ms' }
+rpc_addr = 'https://gateway.testnet.octopus.network/rpc/otto/ynlx3k98x7w0otke'
+grpc_addr = 'https://ynlx3k98x7w0otke.otto.gateway.testnet.octopus.network'
+event_source = { mode = 'push', url = 'wss://gateway.testnet.octopus.network/rpc/otto/ynlx3k98x7w0otke/websocket', batch_delay = '500ms' }
 address_type = { derivation = 'ethermint', proto_type = { pk_type = '/ethermint.crypto.v1.ethsecp256k1.PubKey' } }
 rpc_timeout = '15s'
 account_prefix = 'otto'
