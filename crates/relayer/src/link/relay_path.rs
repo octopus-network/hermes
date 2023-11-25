@@ -1241,7 +1241,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                     ))
                 })?;
             let proof_height = near_header.height();
-            warn!("ys-debug: new header for recv_packet: {:?}", proof_height);
+            warn!("new header for recv_packet: {:?}", proof_height);
 
             let proofs = self
                 .src_chain()
@@ -1314,7 +1314,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                     ))
                 })?;
             let proof_height = near_header.height();
-            warn!("ys-debug: new header for build_ack_from_recv_event: {:?}", proof_height);
+            warn!("new header for build_ack_from_recv_event: {:?}", proof_height);
 
             let proofs = self
                 .src_chain()
