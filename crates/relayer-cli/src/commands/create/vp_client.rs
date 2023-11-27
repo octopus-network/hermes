@@ -57,6 +57,10 @@ pub struct TxCreateVpClientCmd {
     /// and trusted validator set is sufficient for a commit to be accepted going forward.
     #[clap(long = "trust-threshold", value_name = "TRUST_THRESHOLD", parse(try_from_str = parse_trust_threshold))]
     trust_threshold: Option<TrustThreshold>,
+
+    /// This config just for create vp client, so we can create a specific height vp client
+    #[clap(long = "specific-vp-height", value_name = "SPECIFIC_VP_HEIGHT")]
+    specific_create_vp_client_height: Option<u64>,
 }
 
 /// Sample to run this tx:
@@ -80,16 +84,29 @@ impl Runnable for TxCreateVpClientCmd {
             max_clock_drift: self.clock_drift.map(Into::into),
             trusting_period: self.trusting_period.map(Into::into),
             trust_threshold: self.trust_threshold.map(Into::into),
+            specific_create_vp_client_height: self.specific_create_vp_client_height,
         };
 
-        // Trigger client creation via the "build" interface, so that we obtain the resulting event
-        let res: Result<IbcEventWithHeight, Error> = client
-            .build_create_client_and_send(options)
-            .map_err(Error::foreign_client);
+        if options.specific_create_vp_client_height.is_none() {
+            // Trigger client creation via the "build" interface, so that we obtain the resulting event
+            let res: Result<IbcEventWithHeight, Error> = client
+                .build_create_client_and_send(options)
+                .map_err(Error::foreign_client);
 
-        match res {
-            Ok(receipt) => Output::success(receipt.event).exit(),
-            Err(e) => Output::error(e).exit(),
+            match res {
+                Ok(receipt) => Output::success(receipt.event).exit(),
+                Err(e) => Output::error(e).exit(),
+            }
+        } else {
+            // Trigger client creation via the "build" interface, so that we obtain the resulting event
+            let res = client
+                .build_create_client_and_send_with_update_specific_height(options)
+                .map_err(Error::foreign_client);
+
+            match res {
+                Ok(events) => Output::success(events).exit(),
+                Err(e) => Output::error(e).exit(),
+            }
         }
     }
 }

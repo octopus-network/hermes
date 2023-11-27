@@ -96,6 +96,7 @@ impl Runnable for TxCreateClientCmd {
             max_clock_drift: self.clock_drift.map(Into::into),
             trusting_period: self.trusting_period.map(Into::into),
             trust_threshold: self.trust_threshold.map(Into::into),
+            specific_create_vp_client_height: None,
         };
 
         // Trigger client creation via the "build" interface, so that we obtain the resulting event

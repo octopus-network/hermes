@@ -67,6 +67,7 @@ impl TestOverrides for ClientOptionsTest {
             max_clock_drift: Some(Duration::from_secs(3)),
             trusting_period: Some(Duration::from_secs(120_000)),
             trust_threshold: Some(TrustThreshold::new(13, 23).unwrap()),
+            specific_create_vp_client_height: None,
         }
     }
 
@@ -75,6 +76,7 @@ impl TestOverrides for ClientOptionsTest {
             max_clock_drift: Some(Duration::from_secs(6)),
             trusting_period: Some(Duration::from_secs(340_000)),
             trust_threshold: Some(TrustThreshold::TWO_THIRDS),
+            specific_create_vp_client_height: None,
         }
     }
 }

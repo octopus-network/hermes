@@ -305,11 +305,12 @@ impl HasExpiredOrFrozenError for ForeignClientError {
 ///
 /// Currently, the parameters are specific to the Tendermint-based chains.
 /// A future revision will bring differentiated options for other chain types.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CreateOptions {
     pub max_clock_drift: Option<Duration>,
     pub trusting_period: Option<Duration>,
     pub trust_threshold: Option<TrustThreshold>,
+    pub specific_create_vp_client_height: Option<u64>,
 }
 
 /// Captures the diagnostic of verifying whether a certain
@@ -1767,6 +1768,69 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             dst_chain: map_dst(self.dst_chain),
             src_chain: map_src(self.src_chain),
         }
+    }
+
+    /// Returns the identifier of the newly created client.
+    pub fn build_create_client_and_send_with_update_specific_height(
+        &self,
+        options: CreateOptions,
+    ) -> Result<Vec<IbcEvent>, ForeignClientError> {
+        let new_msg = self.build_create_client(options.clone())?;
+
+        let mut events = self
+            .dst_chain
+            .send_messages_and_wait_commit(TrackedMsgs::new_single(
+                new_msg.to_any(),
+                "create client",
+            ))
+            .map_err(|e| {
+                ForeignClientError::client_create(
+                    self.dst_chain.id(),
+                    "failed sending message to dst chain ".to_string(),
+                    e,
+                )
+            })?;
+
+        // NOTE: reversion number present now is zero(0).
+        let trusted_height = options
+            .specific_create_vp_client_height
+            .map(|v| Height::new(0, v).expect("build ibc height never failed"));
+
+        let target_height = self.src_chain.query_latest_height().map_err(|e| {
+            ForeignClientError::client_update(
+                self.src_chain.id(),
+                "failed while querying src chain ({}) for latest height".to_string(),
+                e,
+            )
+        })?;
+
+        let new_msgs =
+            self.wait_and_build_update_client_with_trusted(target_height, trusted_height)?;
+
+        if new_msgs.is_empty() {
+            return Err(ForeignClientError::client_already_up_to_date(
+                self.id.clone(),
+                self.src_chain.id(),
+                target_height,
+            ));
+        }
+
+        let tm = TrackedMsgs::new_static(new_msgs, "update client");
+
+        let mut events_update =
+            self.dst_chain()
+                .send_messages_and_wait_commit(tm)
+                .map_err(|e| {
+                    ForeignClientError::client_update(
+                        self.dst_chain.id(),
+                        "failed sending message to dst chain".to_string(),
+                        e,
+                    )
+                })?;
+
+        events.append(&mut events_update);
+
+        Ok(events.into_iter().map(|ev| ev.event).collect())
     }
 }
 
