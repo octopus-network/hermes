@@ -55,7 +55,7 @@ sha2 = { version = "0.10.6", default-features = false }
 ics12-proto = { version = "0.1.2", default-features = false }
 
 [dependencies.tendermint]
-version = "0.33.0"
+version = "0.34.0"
 features = ["clock"]
 
 [dependencies.tendermint-proto]
