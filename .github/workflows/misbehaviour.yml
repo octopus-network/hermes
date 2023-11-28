@@ -54,7 +54,7 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
       - name: Use cachix cache
-        uses: cachix/cachix-action@v12
+        uses: cachix/cachix-action@v13
         with:
           name: cosmos
       - name: Install sconfig
