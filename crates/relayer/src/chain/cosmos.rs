@@ -75,7 +75,7 @@ use crate::chain::cosmos::fee::maybe_register_counterparty_payee;
 use crate::chain::cosmos::gas::{calculate_fee, mul_ceil};
 use crate::chain::cosmos::query::account::get_or_fetch_account;
 use crate::chain::cosmos::query::balance::{query_all_balances, query_balance};
-use crate::chain::cosmos::query::consensus_state::query_consensus_state_heights;
+// use crate::chain::cosmos::query::consensus_state::query_consensus_state_heights;
 use crate::chain::cosmos::query::custom::cross_chain_query_via_rpc;
 use crate::chain::cosmos::query::denom_trace::query_denom_trace;
 use crate::chain::cosmos::query::fee::query_incentivized_packet;
@@ -1432,11 +1432,45 @@ impl ChainEndpoint for CosmosSdkChain {
         &self,
         request: QueryConsensusStateHeightsRequest,
     ) -> Result<Vec<ICSHeight>, Error> {
-        self.block_on(query_consensus_state_heights(
-            self.id(),
-            &self.grpc_addr,
-            request,
-        ))
+        crate::time!(
+            "query_consensus_state_heights",
+            {
+                "src_chain": self.config().id.to_string(),
+            }
+        );
+        crate::telemetry!(query, self.id(), "query_consensus_state_heights");
+
+        assert!(request.client_id.to_string().starts_with("06-solomachine"));
+
+        let canister_id = self.config.canister_id.id.as_str();
+
+        let serialized_request = serde_json::to_vec(&request).map_err(|e| {
+            let position = std::panic::Location::caller();
+            Error::report_error(format!(
+                "encode query_consensus_state_heights request failed Error({}) \n{}",
+                e, position
+            ))
+        })?;
+
+        let res = self
+            .block_on(
+                self.vp_client
+                    .query_consensus_state_heights(canister_id, serialized_request),
+            )
+            .map_err(|e| {
+                let position = std::panic::Location::caller();
+                Error::report_error(format!(
+                    "vp call query_consensus_state failed Error({}) \n{}",
+                    e, position
+                ))
+            })?;
+
+        let heights = res
+            .into_iter()
+            .map(|h| ICSHeight::decode_vec(&h).map_err(Error::decode))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(heights)
     }
 
     fn query_consensus_state(
