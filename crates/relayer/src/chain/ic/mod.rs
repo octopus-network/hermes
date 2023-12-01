@@ -108,6 +108,37 @@ impl VpClient {
             .await
     }
 
+    pub async fn query_consensus_state_heights(
+        &self,
+        canister_id: &str,
+        msg: Vec<u8>,
+    ) -> Result<Vec<Vec<u8>>, VpError> {
+        let canister_id = Principal::from_text(canister_id).map_err(VpError::principal_error)?;
+
+        let response = QueryBuilder::new(
+            &self.agent,
+            canister_id,
+            "query_consensus_state_heights".into(),
+        )
+        .with_arg(Encode!(&msg).map_err(VpError::decode_ic_type_error)?)
+        .call()
+        .await
+        .map_err(|e| {
+            tracing::error!("query_ic: {:?}", e);
+            VpError::agent_error(e)
+        })?;
+
+        let result = Decode!(
+            response.as_slice(),
+            Result<Vec<Vec<u8>>, VerificationProxiesError>
+        )
+        .map_err(|e| VpError::custom_error(e.to_string()))?;
+        match result {
+            Ok(value) => Ok(value),
+            Err(e) => Err(VpError::custom_error(e.to_string())),
+        }
+    }
+
     pub async fn deliver(&self, canister_id: &str, msg: Vec<u8>) -> Result<Vec<u8>, VpError> {
         self.update_ic(canister_id, "deliver", msg).await
     }
