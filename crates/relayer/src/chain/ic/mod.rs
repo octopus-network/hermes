@@ -11,7 +11,7 @@ use ic_agent::agent::{QueryBuilder, UpdateBuilder};
 use ic_agent::Agent;
 use std::path::PathBuf;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VpClient {
     pub agent: Agent,
 }

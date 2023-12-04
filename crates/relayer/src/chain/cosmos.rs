@@ -1438,39 +1438,15 @@ impl ChainEndpoint for CosmosSdkChain {
                 "src_chain": self.config().id.to_string(),
             }
         );
+
         crate::telemetry!(query, self.id(), "query_consensus_state_heights");
-
-        assert!(request.client_id.to_string().starts_with("06-solomachine"));
-
         let canister_id = self.config.canister_id.id.as_str();
-
-        let serialized_request = serde_json::to_vec(&request).map_err(|e| {
-            let position = std::panic::Location::caller();
-            Error::report_error(format!(
-                "encode query_consensus_state_heights request failed Error({}) \n{}",
-                e, position
-            ))
-        })?;
-
-        let res = self
-            .block_on(
-                self.vp_client
-                    .query_consensus_state_heights(canister_id, serialized_request),
-            )
-            .map_err(|e| {
-                let position = std::panic::Location::caller();
-                Error::report_error(format!(
-                    "vp call query_consensus_state failed Error({}) \n{}",
-                    e, position
-                ))
-            })?;
-
-        let heights = res
-            .into_iter()
-            .map(|h| ICSHeight::decode_vec(&h).map_err(Error::decode))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(heights)
+        inner_query_consensus_state_heights(
+            self.rt.clone(),
+            self.vp_client.clone(),
+            canister_id,
+            request,
+        )
     }
 
     fn query_consensus_state(
@@ -2548,8 +2524,43 @@ fn do_health_check(chain: &CosmosSdkChain) -> Result<(), Error> {
     Ok(())
 }
 
+fn inner_query_consensus_state_heights(
+    rt: Arc<TokioRuntime>,
+    vp_client: VpClient,
+    canister_id: &str,
+    request: QueryConsensusStateHeightsRequest,
+) -> Result<Vec<ICSHeight>, Error> {
+    assert!(request.client_id.to_string().starts_with("06-solomachine"));
+
+    let serialized_request = serde_json::to_vec(&request).map_err(|e| {
+        let position = std::panic::Location::caller();
+        Error::report_error(format!(
+            "encode query_consensus_state_heights request failed Error({}) \n{}",
+            e, position
+        ))
+    })?;
+
+    let res = rt
+        .block_on(vp_client.query_consensus_state_heights(canister_id, serialized_request))
+        .map_err(|e| {
+            let position = std::panic::Location::caller();
+            Error::report_error(format!(
+                "vp call query_consensus_state failed Error({}) \n{}",
+                e, position
+            ))
+        })?;
+
+    let heights = res
+        .into_iter()
+        .map(|h| ICSHeight::decode_vec(&h).map_err(Error::decode))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(heights)
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
     use ibc_relayer_types::{
         core::{ics02_client::client_type::ClientType, ics24_host::identifier::ClientId},
         mock::client_state::MockClientState,
@@ -2631,5 +2642,28 @@ mod tests {
             client_id_suffix(&clients.last().unwrap().client_id).unwrap(),
             7
         );
+    }
+
+    #[test]
+    fn test_query_consensus_state_with_heights() {
+        let name = "default";
+        let home_dir = dirs::home_dir().expect("Failed to get home directory");
+        let pem_file_path = home_dir.join(std::path::Path::new(&format!(
+            ".config/dfx/identity/{}/identity.pem",
+            name
+        )));
+        let rt = Arc::new(tokio::runtime::Runtime::new().unwrap());
+        let vp_client = rt
+            .block_on(VpClient::new("https://ic0.app", &pem_file_path))
+            .unwrap();
+        let cansiter_id = "pcf3v-6iaaa-aaaag-qcuka-cai";
+
+        let request = QueryConsensusStateHeightsRequest {
+            client_id: ClientId::from_str("06-solomachine-1").unwrap(),
+            pagination: None,
+        };
+
+        let res = inner_query_consensus_state_heights(rt, vp_client, cansiter_id, request);
+        dbg!(res);
     }
 }
