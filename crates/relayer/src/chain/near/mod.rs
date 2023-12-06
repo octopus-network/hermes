@@ -259,7 +259,8 @@ impl NearChain {
                 Ok(lcb) => lcb,
                 Err(e) => {
                     warn!(
-                        "retry get next_light_client_block with error: {} \n{}",
+                        "retry get next_light_client_block({:?}) with error: {} \n{}",
+                        last_block_hash,
                         e,
                         std::panic::Location::caller()
                     );
