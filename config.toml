@@ -29,8 +29,7 @@ port = 3001
 type = 'near'
 id = 'near-0'
 near_ibc_address = "v8.nearibc.testnet"
-# rpc_addr = 'https://nd-354-497-726.p2pify.com/eedb1960b8b7f8747090aee8583d01f2'
-rpc_addr = 'https://near-testnet.infura.io/v3/272532ecf0b64d7782a03db0cbcf3c30'
+rpc_addr = 'https://nd-354-497-726.p2pify.com/eedb1960b8b7f8747090aee8583d01f2'
 # rpc_addr = 'http://localhost:27030'
 grpc_addr = 'http://localhost:27032'
 event_source = { mode = 'push', url = 'ws://localhost:27030/websocket', batch_delay = '500ms' }
