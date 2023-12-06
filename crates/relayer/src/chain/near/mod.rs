@@ -446,7 +446,12 @@ impl ChainEndpoint for NearChain {
         )
         .map_err(Error::key_base)?;
 
-        let lcb_client_rpc_url = if config.rpc_addr.to_string().contains("testnet") {
+        let lcb_client_rpc_url = if config
+            .near_ibc_address
+            .account_id
+            .to_string()
+            .contains("testnet")
+        {
             NEAR_TESTNET_RPC_URL
         } else {
             NEAR_MAINNET_RPC_URL
