@@ -171,13 +171,22 @@ impl OperationalData {
             // Vector may be empty if the client already has the header for the requested height.
             match self.target {
                 OperationalDataTarget::Source => {
-                    relay_path.build_update_client_on_src(update_height)?
-                }
-                OperationalDataTarget::Destination => {
-                    if relay_path.src_chain().config().unwrap().r#type != ChainType::Near {
-                        relay_path.build_update_client_on_dst(update_height)?
+                    info!(
+                        "OperationalDataTarget::Source should skip update {:?} for {:?}",
+                        update_height,
+                        relay_path.src_chain().config().unwrap().r#type
+                    );
+                    if relay_path.src_chain().config().unwrap().r#type == ChainType::Near {
+                        relay_path.build_update_client_on_src(update_height)?
                     } else {
                         vec![]
+                    }
+                }
+                OperationalDataTarget::Destination => {
+                    if relay_path.src_chain().config().unwrap().r#type == ChainType::Near {
+                        vec![]
+                    } else {
+                        relay_path.build_update_client_on_dst(update_height)?
                     }
                 }
             }
