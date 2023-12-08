@@ -63,8 +63,8 @@ rpc_timeout = '15s'
 account_prefix = 'otto'
 key_name = 'wallet'
 store_prefix = 'ibc'
-gas_price = { price = 0, denom = 'ibc/86EDA6ABA44A1A5DF3B5A032592F8C0CCA2F8D25240664A440E647E5F46A9AD8' }
-max_gas = 10000000
+gas_price = { price = 20000000000, denom = 'ibc/86EDA6ABA44A1A5DF3B5A032592F8C0CCA2F8D25240664A440E647E5F46A9AD8' }
+max_gas = 40000000
 clock_drift = '5s'
 trusting_period = '5days'
 trust_threshold = { numerator = '1', denominator = '3' }
