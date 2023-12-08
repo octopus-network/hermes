@@ -46,12 +46,12 @@ trust_threshold = { numerator = '1', denominator = '3' }
 [chains.packet_filter]
 policy = 'allow'
 list = [
-  ['provider', 'channel-23'],
-  ['transfer', 'channel-24'],
+  ['provider', 'channel-25'],
+  ['transfer', 'channel-26'],
 ]
 
 [[chains]]
-id = 'otto_9111-1'
+id = 'otto_9112-1'
 ic_endpoint = "https://ic0.app"
 canister_id = "pcf3v-6iaaa-aaaag-qcuka-cai"
 canister_pem = ".hermes/keys/ic.pem"
