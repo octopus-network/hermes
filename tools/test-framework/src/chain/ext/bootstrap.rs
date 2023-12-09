@@ -125,6 +125,7 @@ pub trait ChainBootstrapMethodsExt {
        Copy validator key pair.
     */
     fn copy_validator_key_pair(&self, provider_chain_driver: &ChainDriver) -> Result<(), Error>;
+    fn near_generate(&self, prefix: &str) -> Result<String, Error>;
 }
 
 impl ChainBootstrapMethodsExt for ChainDriver {
@@ -336,5 +337,96 @@ impl ChainBootstrapMethodsExt for ChainDriver {
         )?;
 
         Ok(())
+    }
+
+    fn near_generate(&self, prefix: &str) -> Result<String, Error> {
+        let output = simple_exec(self.chain_id.as_str(), "near", &["generate-key"])?;
+        let line = output.stdout;
+        let start_bytes = line.find('"').unwrap_or(0);
+        let end_bytes = line.rfind('"').unwrap_or(line.len());
+        let result = &line[start_bytes + 1..end_bytes];
+
+        let _output = simple_exec(
+            self.chain_id.as_str(),
+            "mkdir",
+            &[
+                "-p",
+                &format!("{}/../hermes_keyring/near-0/keyring-test", self.home_path),
+            ],
+        )?;
+
+        let home_dir = std::env::var("HOME").unwrap();
+
+        let _output = simple_exec(
+            self.chain_id.as_str(),
+            "cp",
+            &[
+                &format!("{}/.near-credentials/testnet/{}.json", home_dir, result),
+                &format!(
+                    "{}/../hermes_keyring/near-0/keyring-test/{}.json",
+                    self.home_path, prefix,
+                ),
+            ],
+        )?;
+
+        let path_str = format!(
+            "{}/../hermes_keyring/near-0/keyring-test/{}.json",
+            self.home_path, prefix
+        );
+
+        #[cfg(target_os = "macos")]
+        let mut sed_args = vec!["-i", "s/private_key/secret_key/", &path_str];
+        #[cfg(target_os = "linux")]
+        let sed_args = vec!["-i", "s/private_key/secret_key/", &path_str];
+
+        #[cfg(target_os = "macos")]
+        sed_args.insert(1, "''");
+
+        let _output = simple_exec(self.chain_id.as_str(), "sed", &sed_args)?;
+
+        let _output = simple_exec(
+            self.chain_id.as_str(),
+            "near",
+            &["send", "v5.nearibc.testnet", result, "1"],
+        )?;
+
+        let _output = simple_exec(
+            self.chain_id.as_str(),
+            "near",
+            &[
+                "call",
+                "oct.beta_oct_relay.testnet",
+                "storage_deposit",
+                &format!(
+                    "{{\"account_id\":\"{}\",\"registration_only\":false}}",
+                    result
+                ),
+                "--accountId",
+                "v5.nearibc.testnet",
+                "--gas",
+                "200000000000000",
+                "--amount",
+                "0.00125",
+            ],
+        )?;
+        let _output = simple_exec(
+            self.chain_id.as_str(),
+            "near",
+            &[
+                "call",
+                "oct.beta_oct_relay.testnet",
+                "ft_transfer",
+                &format!(
+                    "{{\"receiver_id\":\"{}\",\"amount\":\"10000000000000000000\"}}",
+                    result
+                ),
+                "--accountId",
+                "v5.nearibc.testnet",
+                "--amount",
+                "0.000000000000000000000001",
+            ],
+        )?;
+
+        Ok(result.to_string())
     }
 }

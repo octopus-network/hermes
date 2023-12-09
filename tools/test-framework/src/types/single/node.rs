@@ -9,6 +9,8 @@ use eyre::Report as Error;
 use ibc_relayer::chain::ChainType;
 use ibc_relayer::config;
 use ibc_relayer::config::gas_multiplier::GasMultiplier;
+use ibc_relayer::config::CanisterIdConfig;
+use ibc_relayer::config::NearIbcContractAddress;
 use ibc_relayer::keyring::Store;
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
 use std::sync::{Arc, RwLock};
@@ -136,8 +138,70 @@ impl FullNode {
 
         Ok(config::ChainConfig {
             id: self.chain_driver.chain_id.clone(),
+            ic_endpoint: test_config.ic_endpoint.clone(),
+            canister_pem: test_config.canister_pem.clone(),
+            near_ibc_address: NearIbcContractAddress::from_str(&test_config.near_ibc_address)
+                .unwrap(),
+            canister_id: CanisterIdConfig::from_str(&test_config.canister_id).unwrap(),
             r#type: ChainType::CosmosSdk,
             rpc_addr: Url::from_str(&self.chain_driver.rpc_address())?,
+            grpc_addr: Url::from_str(&self.chain_driver.grpc_address())?,
+            event_source: config::EventSourceMode::Push {
+                url: WebSocketClientUrl::from_str(&self.chain_driver.websocket_address())?,
+                batch_delay: config::default::batch_delay(),
+            },
+            rpc_timeout: config::default::rpc_timeout(),
+            trusted_node: false,
+            genesis_restart: None,
+            account_prefix: self.chain_driver.account_prefix.clone(),
+            key_name: self.wallets.relayer.id.0.clone(),
+            key_store_type: Store::Test,
+            key_store_folder: Some(hermes_keystore_dir.into()),
+            store_prefix: "ibc".to_string(),
+            default_gas: None,
+            max_gas: Some(3000000),
+            gas_adjustment: None,
+            gas_multiplier: Some(GasMultiplier::unsafe_new(1.2)),
+            fee_granter: None,
+            max_msg_num: Default::default(),
+            max_tx_size: Default::default(),
+            max_grpc_decoding_size: config::default::max_grpc_decoding_size(),
+            max_block_time: Duration::from_secs(30),
+            clock_drift: Duration::from_secs(5),
+            trusting_period: Some(Duration::from_secs(14 * 24 * 3600)),
+            ccv_consumer_chain: false,
+            trust_threshold: Default::default(),
+            gas_price: config::GasPrice::new(0.003, "stake".to_string()),
+            packet_filter: Default::default(),
+            address_type: chain_type.address_type(),
+            memo_prefix: Default::default(),
+            proof_specs: Default::default(),
+            extension_options: Default::default(),
+            sequential_batch_tx: false,
+        })
+    }
+
+    pub fn generate_near_chain_config(
+        &self,
+        chain_type: &TestedChainType,
+        test_config: &TestConfig,
+    ) -> Result<config::ChainConfig, Error> {
+        let hermes_keystore_dir = test_config
+            .chain_store_dir
+            .join("hermes_keyring")
+            .as_path()
+            .display()
+            .to_string();
+
+        Ok(config::ChainConfig {
+            id: ChainId::from_str("near-0").unwrap(),
+            ic_endpoint: test_config.ic_endpoint.clone(),
+            canister_pem: test_config.canister_pem.clone(),
+            near_ibc_address: NearIbcContractAddress::from_str(&test_config.near_ibc_address)
+                .unwrap(),
+            canister_id: CanisterIdConfig::from_str(&test_config.canister_id).unwrap(),
+            r#type: ChainType::Near,
+            rpc_addr: Url::from_str(&test_config.near_rpc_endpoint)?,
             grpc_addr: Url::from_str(&self.chain_driver.grpc_address())?,
             event_source: config::EventSourceMode::Push {
                 url: WebSocketClientUrl::from_str(&self.chain_driver.websocket_address())?,

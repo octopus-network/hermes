@@ -296,6 +296,9 @@ memo_prefix = ''
 # the account specified in `key_name` will pay the tx fees for all transactions
 # submitted to this chain.
 # fee_granter = ''
+ic_endpoint = "http://localhost:4943"
+canister_id = "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+canister_pem = "/home/boern/.config/dfx/identity/default/identity.pem"
 
 [[chains]]
 id = 'ibc-1'
@@ -317,3 +320,28 @@ max_block_time = '30s'
 trusting_period = '14days'
 trust_threshold = { numerator = '1', denominator = '3' }
 address_type = { derivation = 'cosmos' }
+ic_endpoint = "http://localhost:4943"
+canister_id = "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+canister_pem = "/home/boern/.config/dfx/identity/default/identity.pem"
+
+[[chains]]
+type = 'near'
+id = 'near-0'
+near_ibc_address = "v5.nearibc.testnet"
+rpc_addr = 'https://near-testnet.infura.io/v3/272532ecf0b64d7782a03db0cbcf3c30'
+# rpc_addr = 'http://localhost:27030'
+grpc_addr = 'http://localhost:27032'
+event_source = { mode = 'push', url = 'ws://localhost:27030/websocket', batch_delay = '500ms' }
+rpc_timeout = '15s'
+account_prefix = 'cosmos'
+key_name = 'wallet'
+store_prefix = 'ibc'
+gas_price = { price = 0.001, denom = 'stake' }
+max_gas = 10000000
+clock_drift = '5s'
+trusting_period = '14days'
+trust_threshold = { numerator = '1', denominator = '3' }
+
+[chains.packet_filter]
+policy = 'allow'
+list = [['transfer', "channel-263"]]
