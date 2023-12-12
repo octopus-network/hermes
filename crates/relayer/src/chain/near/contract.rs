@@ -568,12 +568,14 @@ pub async fn test123() -> anyhow::Result<()> {
                 .into_bytes(),
         )
         .await
-        .map_err(|e| NearError::custom_error(e.to_string()))?;
+        .map_err(|e| {
+            NearError::custom_error(e.to_string(), std::panic::Location::caller().to_string())
+        })?;
 
     let result_raw: serde_json::value::Value = result.json().unwrap();
     dbg!(&result_raw);
-    let connection_end: ConnectionEnd =
-        serde_json::from_value(result_raw).map_err(NearError::serde_json_error)?;
+    let connection_end: ConnectionEnd = serde_json::from_value(result_raw)
+        .map_err(|e| NearError::serde_json_error(std::panic::Location::caller().to_string(), e))?;
     dbg!(&connection_end);
     Ok(())
 }
