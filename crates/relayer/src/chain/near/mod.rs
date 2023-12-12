@@ -216,7 +216,11 @@ impl NearChain {
                 }
             }
         })
-        .map_err(|_| Error::near_chain_error(NearError::deliver_error()))
+        .map_err(|_| {
+            Error::near_chain_error(NearError::deliver_error(
+                std::panic::Location::caller().to_string(),
+            ))
+        })
     }
 
     fn init_signing_key_pair(&mut self) {
@@ -412,9 +416,12 @@ impl NearChain {
         }?;
         let proofs: Vec<Vec<u8>> = state.proof.iter().map(|proof| proof.to_vec()).collect();
 
-        NearProofs(proofs)
-            .try_to_vec()
-            .map_err(|e| Error::near_chain_error(NearError::build_near_proofs_failed(e)))
+        NearProofs(proofs).try_to_vec().map_err(|e| {
+            Error::near_chain_error(NearError::build_near_proofs_failed(
+                std::panic::Location::caller().to_string(),
+                e,
+            ))
+        })
     }
 }
 
@@ -509,8 +516,12 @@ impl ChainEndpoint for NearChain {
             .get_contract_version()
             .map_err(Error::near_chain_error)?;
 
-        let str_version = String::from_utf8(version)
-            .map_err(|e| Error::near_chain_error(NearError::decode_string_error(e)))?;
+        let str_version = String::from_utf8(version).map_err(|e| {
+            Error::near_chain_error(NearError::decode_string_error(
+                std::panic::Location::caller().to_string(),
+                e,
+            ))
+        })?;
 
         let version = Version::parse(&str_version)
             .map_err(|e| Error::report_error(e.to_string()))
@@ -1155,7 +1166,10 @@ impl ChainEndpoint for NearChain {
                         consensus_height: request.consensus_height,
                     })),
                     height: Height::new(0, 9).map_err(|e| {
-                        Error::near_chain_error(NearError::build_ibc_height_error(e))
+                        Error::near_chain_error(NearError::build_ibc_height_error(
+                            std::panic::Location::caller().to_string(),
+                            e,
+                        ))
                     })?,
                 }])
             }
@@ -1676,17 +1690,35 @@ pub fn collect_ibc_event_by_outcome(
         for log in receipt_outcome.outcome.logs {
             if log.starts_with("EVENT_JSON:") {
                 let event = log.replace("EVENT_JSON:", "");
-                let event_value = serde_json::value::Value::from_str(event.as_str())
-                    .map_err(|e| Error::near_chain_error(NearError::serde_json_error(e)))?;
+                // NOTE: ERROR
+                let event_value =
+                    serde_json::value::Value::from_str(event.as_str()).map_err(|e| {
+                        Error::near_chain_error(NearError::serde_json_error(
+                            std::panic::Location::caller().to_string(),
+                            e,
+                        ))
+                    })?;
                 if "near-ibc" == event_value["standard"] {
-                    let ibc_event: IbcEvent =
-                        serde_json::from_value(event_value["raw-ibc-event"].clone())
-                            .map_err(|e| Error::near_chain_error(NearError::serde_json_error(e)))?;
+                    // NOTE: ERROR
+                    let ibc_event: IbcEvent = serde_json::from_value(
+                        event_value["raw-ibc-event"].clone(),
+                    )
+                    .map_err(|e| {
+                        Error::near_chain_error(NearError::serde_json_error(
+                            std::panic::Location::caller().to_string(),
+                            e,
+                        ))
+                    })?;
                     debug!("collect_ibc_event_by_outcome ibc event: {:?} ", ibc_event);
                     let block_height = u64::from_str(event_value["block_height"].as_str().ok_or(
                         Error::report_error("Failed to get block_height field".to_string()),
                     )?)
-                    .map_err(|e| Error::near_chain_error(NearError::parse_int_error(e)))?;
+                    .map_err(|e| {
+                        Error::near_chain_error(NearError::parse_int_error(
+                            std::panic::Location::caller().to_string(),
+                            e,
+                        ))
+                    })?;
 
                     match ibc_event {
                         IbcEvent::Message(_) => continue,
@@ -1694,7 +1726,10 @@ pub fn collect_ibc_event_by_outcome(
                             event: convert_ibc_event_to_hermes_ibc_event(&ibc_event)
                                 .map_err(Error::near_chain_error)?,
                             height: Height::new(0, block_height).map_err(|e| {
-                                Error::near_chain_error(NearError::build_ibc_height_error(e))
+                                Error::near_chain_error(NearError::build_ibc_height_error(
+                                    std::panic::Location::caller().to_string(),
+                                    e,
+                                ))
                             })?,
                         }),
                     }
@@ -1741,7 +1776,9 @@ pub fn produce_light_client_block(
             next_bps: Some(
                 view.next_bps
                     .as_ref()
-                    .ok_or(Error::near_chain_error(NearError::next_bps_empty()))?
+                    .ok_or(Error::near_chain_error(NearError::next_bps_empty(
+                        std::panic::Location::caller().to_string(),
+                    )))?
                     .iter()
                     .map(|f| match f {
                         NearValidatorStakeView::V1(v) => {

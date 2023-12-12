@@ -62,7 +62,9 @@ pub trait NearIbcContract {
         // As we use solomachine client, we set the revision number to 0
         // TODO: ibc height reversion number is chainid version
         Height::new(0, height.revision_height())
-            .map_err(NearError::build_ibc_height_error)
+            .map_err(|e| {
+                NearError::build_ibc_height_error(std::panic::Location::caller().to_string(), e)
+            })
             .map_err(Into::into)
     }
 
@@ -185,7 +187,10 @@ pub trait NearIbcContract {
             client_id,
             std::panic::Location::caller()
         );
-        let client_id = serde_json::to_string(client_id).map_err(NearError::serde_json_error)?;
+
+        let client_id = serde_json::to_string(client_id).map_err(|e| {
+            NearError::serde_json_error(std::panic::Location::caller().to_string(), e)
+        })?;
 
         self.view(
             self.get_contract_id(),
@@ -235,7 +240,9 @@ pub trait NearIbcContract {
             std::panic::Location::caller()
         );
 
-        let request = serde_json::to_string(&request).map_err(NearError::serde_json_error)?;
+        let request = serde_json::to_string(&request).map_err(|e| {
+            NearError::serde_json_error(std::panic::Location::caller().to_string(), e)
+        })?;
 
         self.view(
             self.get_contract_id(),
@@ -256,7 +263,9 @@ pub trait NearIbcContract {
             std::panic::Location::caller()
         );
 
-        let request = serde_json::to_string(&request).map_err(NearError::serde_json_error)?;
+        let request = serde_json::to_string(&request).map_err(|e| {
+            NearError::serde_json_error(std::panic::Location::caller().to_string(), e)
+        })?;
 
         self.view(
             self.get_contract_id(),
@@ -277,7 +286,9 @@ pub trait NearIbcContract {
             std::panic::Location::caller()
         );
 
-        let request = serde_json::to_string(&request).map_err(NearError::serde_json_error)?;
+        let request = serde_json::to_string(&request).map_err(|e| {
+            NearError::serde_json_error(std::panic::Location::caller().to_string(), e)
+        })?;
 
         self.view(
             self.get_contract_id(),

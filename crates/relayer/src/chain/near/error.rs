@@ -12,112 +12,111 @@ use std::string::FromUtf8Error;
 define_error! {
     NearError {
         SerdeJsonError
+            { line: String }
             [ TraceError<serde_json::Error>]
-            |_| {
-                let caller = std::panic::Location::caller();
-                format!("serde json failure \n{}", caller)
+            |line| {
+                format!("serde json failure \n{}", line)
             },
 
         CustomError
-            { reason: String }
+            { reason: String, line: String }
             |e| {
-                let caller = std::panic::Location::caller();
-                format!("Custom error: {} \n{}", e.reason, caller)
+                format!("Custom error: {} \n{}", e.reason, e.line)
             },
 
         RpcQueryError
+            { line: String }
             [ TraceError<JsonRpcError<RpcQueryError>> ]
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("near rpc query error \n{}", caller)
+            |e| {
+                format!("near rpc query error \n{}", e.line)
             },
 
         RpcTransactionError
+            { line: String }
             [ TraceError<JsonRpcError<RpcTransactionError>>]
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("near rpc transaction error \n{}", caller)
+            | e | {
+                format!("near rpc transaction error \n{}", e.line)
             },
 
         RpcBlockError
+            { line: String }
             [ TraceError<JsonRpcError<RpcBlockError>>]
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("near rpc block error \n{}", caller)
+            | e | {
+                format!("near rpc block error \n{}", e.line)
             },
 
         RpcStateChangesError
+            { line: String }
             [ TraceError<JsonRpcError<RpcStateChangesError>>]
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("near rpc state changes error \n{}", caller)
+            | e | {
+                format!("near rpc state changes error \n{}", e.line)
             },
 
         DeliverError
-            |_| {
-                let caller = std::panic::Location::caller();
-                format!("near chain Deliver failed \n{}", caller)
+            { line: String }
+            |e| {
+                format!("near chain Deliver failed \n{}", e.line)
             },
 
         VpDeliverError
+            { line: String }
             [ TraceError<VpError>]
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("call vp deliver error, \n{}", caller)
+            | e | {
+                format!("call vp deliver error, \n{}", e.line)
             },
 
         DecodeVpDeliverResultFailed
+            { line: String }
             [ TraceError<prost::DecodeError>]
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("decode vp deliver result failed, \n{}", caller)
+            | e | {
+                format!("decode vp deliver result failed, \n{}", e.line)
             },
 
         BuildVpClientError
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("near chain bootstrap build VpClientFailed \n{}", caller)
+            { line: String }
+            | e | {
+                format!("near chain bootstrap build VpClientFailed \n{}", e.line)
             },
 
         BuildIbcHeightError
+            { line: String }
             [ TraceError<Ics02Error>]
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("build ibc height failed \n{}", caller)
+            | e | {
+                format!("build ibc height failed \n{}", e.line)
             },
 
         VpError
+            { line: String }
             [ TraceError<VpError> ]
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("vp error \n{}", caller)
+            | e | {
+                format!("vp error \n{}", e.line)
             },
 
         NextBpsEmpty
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("next bps empty \n{}", caller)
+            { line: String }
+            | e | {
+                format!("next bps empty \n{}", e.line)
             },
 
         ParseIntError
+            { line: String }
             [ TraceError<ParseIntError> ]
-            |_ | {
-                let caller = std::panic::Location::caller();
-                format!("parse int error \n{}", caller)
+            | e | {
+                format!("parse int error \n{}", e.line)
             },
 
         DecodeStringError
+            { line: String }
             [ TraceError<FromUtf8Error> ]
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("decode string error \n{}", caller)
+            | e | {
+                format!("decode string error \n{}", e.line)
             },
 
         BuildNearProofsFailed
+            { line: String }
             [ TraceError<std::io::Error>]
-            | _ | {
-                let caller = std::panic::Location::caller();
-                format!("build near proofs failed \n{}", caller)
+            | e | {
+                format!("build near proofs failed \n{}", e.line)
             }
     }
 }

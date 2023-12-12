@@ -210,7 +210,8 @@ impl ViewResultDetails {
     /// the internal state does not meet up with [`serde::de::DeserializeOwned`]'s
     /// requirements.
     pub fn json<T: serde::de::DeserializeOwned>(&self) -> Result<T, NearError> {
-        serde_json::from_slice(&self.result).map_err(NearError::serde_json_error)
+        serde_json::from_slice(&self.result)
+            .map_err(|e| NearError::serde_json_error(std::panic::Location::caller().to_string(), e))
     }
 
     /// Deserialize an instance of type `T` from bytes sourced from this view call's

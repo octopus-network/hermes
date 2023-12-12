@@ -176,11 +176,16 @@ impl NearRpcClient {
                 },
             })
             .await
-            .map_err(NearError::rpc_query_error)?;
+            .map_err(|e| {
+                NearError::rpc_query_error(std::panic::Location::caller().to_string(), e)
+            })?;
 
         match query_resp.kind {
             QueryResponseKind::CallResult(result) => Ok(result.into()),
-            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
+            _ => Err(NearError::custom_error(
+                ERR_INVALID_VARIANT.to_string(),
+                std::panic::Location::caller().to_string(),
+            )),
         }
     }
 
@@ -204,11 +209,16 @@ impl NearRpcClient {
                 },
             })
             .await
-            .map_err(NearError::rpc_query_error)?;
+            .map_err(|e| {
+                NearError::rpc_query_error(std::panic::Location::caller().to_string(), e)
+            })?;
 
         match query_resp.kind {
             QueryResponseKind::ViewState(state) => Ok(state),
-            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
+            _ => Err(NearError::custom_error(
+                ERR_INVALID_VARIANT.to_string(),
+                std::panic::Location::caller().to_string(),
+            )),
         }
     }
 
@@ -229,7 +239,9 @@ impl NearRpcClient {
                 },
             })
             .await
-            .map_err(NearError::rpc_state_changes_error)?;
+            .map_err(|e| {
+                NearError::rpc_state_changes_error(std::panic::Location::caller().to_string(), e)
+            })?;
 
         Ok(query_resp.changes)
     }
@@ -249,11 +261,16 @@ impl NearRpcClient {
                 request: QueryRequest::ViewAccount { account_id },
             })
             .await
-            .map_err(NearError::rpc_query_error)?;
+            .map_err(|e| {
+                NearError::rpc_query_error(std::panic::Location::caller().to_string(), e)
+            })?;
 
         match query_resp.kind {
             QueryResponseKind::ViewAccount(account) => Ok(account),
-            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
+            _ => Err(NearError::custom_error(
+                ERR_INVALID_VARIANT.to_string(),
+                std::panic::Location::caller().to_string(),
+            )),
         }
     }
 
@@ -272,11 +289,16 @@ impl NearRpcClient {
                 request: QueryRequest::ViewCode { account_id },
             })
             .await
-            .map_err(NearError::rpc_query_error)?;
+            .map_err(|e| {
+                NearError::rpc_query_error(std::panic::Location::caller().to_string(), e)
+            })?;
 
         match query_resp.kind {
             QueryResponseKind::ViewCode(code) => Ok(code),
-            _ => Err(NearError::custom_error(ERR_INVALID_VARIANT.to_string())),
+            _ => Err(NearError::custom_error(
+                ERR_INVALID_VARIANT.to_string(),
+                std::panic::Location::caller().to_string(),
+            )),
         }
     }
 
@@ -288,7 +310,9 @@ impl NearRpcClient {
         let block_view = self
             .query(&methods::block::RpcBlockRequest { block_reference })
             .await
-            .map_err(NearError::rpc_block_error)?;
+            .map_err(|e| {
+                NearError::rpc_block_error(std::panic::Location::caller().to_string(), e)
+            })?;
 
         Ok(block_view)
     }
@@ -299,7 +323,9 @@ impl NearRpcClient {
     ) -> Result<FinalExecutionOutcomeView, NearError> {
         self.query(&methods::tx::RpcTransactionStatusRequest { transaction_info })
             .await
-            .map_err(NearError::rpc_transaction_error)
+            .map_err(|e| {
+                NearError::rpc_transaction_error(std::panic::Location::caller().to_string(), e)
+            })
     }
 
     pub async fn deploy(
@@ -480,12 +506,13 @@ pub async fn access_key(
             },
         })
         .await
-        .map_err(NearError::rpc_query_error)?;
+        .map_err(|e| NearError::rpc_query_error(std::panic::Location::caller().to_string(), e))?;
 
     match query_resp.kind {
         QueryResponseKind::AccessKey(access_key) => Ok((access_key, query_resp.block_hash)),
         _ => Err(NearError::custom_error(
             "Could not retrieve access key".to_string(),
+            std::panic::Location::caller().to_string(),
         )),
     }
 }
@@ -511,7 +538,9 @@ pub async fn send_tx(
             signed_transaction: tx,
         })
         .await
-        .map_err(NearError::rpc_transaction_error)
+        .map_err(|e| {
+            NearError::rpc_transaction_error(std::panic::Location::caller().to_string(), e)
+        })
 }
 
 pub async fn send_tx_and_retry<T, F>(

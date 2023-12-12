@@ -2664,6 +2664,6 @@ mod tests {
         };
 
         let res = inner_query_consensus_state_heights(rt, vp_client, cansiter_id, request);
-        dbg!(res);
+        // dbg!(res);
     }
 }
