@@ -1079,7 +1079,6 @@ impl ChainEndpoint for CosmosSdkChain {
                             e, position
                         ))
                     })?;
-                assert!(!res.is_empty());
                 if !res.is_empty() {
                     msgs.push(Any::decode(&res[..]).map_err(|e| {
                         let position = std::panic::Location::caller();
@@ -1137,7 +1136,6 @@ impl ChainEndpoint for CosmosSdkChain {
                             e, position
                         ))
                     })?;
-                assert!(!res.is_empty());
                 if !res.is_empty() {
                     msgs.push(Any::decode(&res[..]).map_err(|e| {
                         let position = std::panic::Location::caller();
