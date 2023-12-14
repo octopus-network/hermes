@@ -8,6 +8,7 @@ use core::{
     time::Duration,
 };
 use futures::future::join_all;
+use ibc_proto::google::protobuf::Any;
 use num_bigint::BigInt;
 use prost::Message;
 use std::{cmp::Ordering, thread};
@@ -1058,46 +1059,49 @@ impl ChainEndpoint for CosmosSdkChain {
             tracked_msgs.tracking_id,
             std::panic::Location::caller()
         );
-        use ibc_proto::google::protobuf::Any;
-
-        let mut tracked_msgs = tracked_msgs.clone();
-        if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let canister_id = self.config.canister_id.id.as_str();
-            let mut msgs: Vec<Any> = Vec::new();
-            for msg in tracked_msgs.messages() {
-                let res = self
-                    .block_on(self.vp_client.deliver(canister_id, msg.encode_to_vec()))
-                    .map_err(|e| {
-                        let position = std::panic::Location::caller();
-                        Error::report_error(format!(
-                            "call vp deliver failed Error({}) \n{}",
-                            e, position
-                        ))
-                    })?;
-                if !res.is_empty() {
-                    msgs.push(Any::decode(&res[..]).map_err(|e| {
-                        let position = std::panic::Location::caller();
-                        Error::report_error(format!(
-                            "decode call vp deliver result failed Error({}) \n{}",
-                            e, position
-                        ))
-                    })?);
-                }
-            }
-            tracked_msgs.msgs = msgs;
-            info!(
-                "got proto_msgs from ic: {:?} \n{}",
-                tracked_msgs
-                    .msgs
-                    .iter()
-                    .map(|msg| msg.type_url.clone())
-                    .collect::<Vec<_>>(),
-                std::panic::Location::caller()
-            );
-        }
-
         let rt = self.rt.clone();
-        rt.block_on(self.do_send_messages_and_wait_commit(tracked_msgs))
+        let closure = async {
+            let mut tracked_msgs = tracked_msgs.clone();
+            if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
+                let canister_id = self.config.canister_id.id.as_str();
+                let mut msgs: Vec<Any> = Vec::new();
+                for msg in tracked_msgs.messages() {
+                    let res = self
+                        .vp_client
+                        .deliver(canister_id, msg.encode_to_vec())
+                        .await
+                        .map_err(|e| {
+                            let position = std::panic::Location::caller();
+                            Error::report_error(format!(
+                                "call vp deliver failed Error({}) \n{}",
+                                e, position
+                            ))
+                        })?;
+                    if !res.is_empty() {
+                        msgs.push(Any::decode(&res[..]).map_err(|e| {
+                            let position = std::panic::Location::caller();
+                            Error::report_error(format!(
+                                "decode call vp deliver result failed Error({}) \n{}",
+                                e, position
+                            ))
+                        })?);
+                    }
+                }
+                tracked_msgs.msgs = msgs;
+                info!(
+                    "got proto_msgs from ic: {:?} \n{}",
+                    tracked_msgs
+                        .msgs
+                        .iter()
+                        .map(|msg| msg.type_url.clone())
+                        .collect::<Vec<_>>(),
+                    std::panic::Location::caller()
+                );
+            }
+            self.do_send_messages_and_wait_commit(tracked_msgs).await
+        };
+
+        rt.block_on(closure)
     }
 
     fn send_messages_and_wait_check_tx(
@@ -1114,47 +1118,50 @@ impl ChainEndpoint for CosmosSdkChain {
             tracked_msgs.tracking_id,
             std::panic::Location::caller()
         );
-        use ibc_proto::google::protobuf::Any;
-
-        let mut tracked_msgs = tracked_msgs.clone();
-        if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let canister_id = self.config.canister_id.id.as_str();
-
-            let mut msgs: Vec<Any> = Vec::new();
-            for msg in tracked_msgs.messages() {
-                let res = self
-                    .block_on(self.vp_client.deliver(canister_id, msg.encode_to_vec()))
-                    .map_err(|e| {
-                        let position = std::panic::Location::caller();
-                        Error::report_error(format!(
-                            "call icp deliver failed Error({}) \n{}",
-                            e, position
-                        ))
-                    })?;
-                if !res.is_empty() {
-                    msgs.push(Any::decode(&res[..]).map_err(|e| {
-                        let position = std::panic::Location::caller();
-                        Error::report_error(format!(
-                            "deliver result decode failed Error({}) \n{}",
-                            e, position
-                        ))
-                    })?);
-                }
-            }
-            tracked_msgs.msgs = msgs;
-            info!(
-                "got proto_msgs from ic: {:?} \n{}",
-                tracked_msgs
-                    .msgs
-                    .iter()
-                    .map(|msg| msg.type_url.clone())
-                    .collect::<Vec<_>>(),
-                std::panic::Location::caller()
-            );
-        }
-
         let rt = self.rt.clone();
-        rt.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs))
+        let closure = async {
+            let mut tracked_msgs = tracked_msgs.clone();
+            if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
+                let canister_id = self.config.canister_id.id.as_str();
+
+                let mut msgs: Vec<Any> = Vec::new();
+                for msg in tracked_msgs.messages() {
+                    let res = self
+                        .vp_client
+                        .deliver(canister_id, msg.encode_to_vec())
+                        .await
+                        .map_err(|e| {
+                            let position = std::panic::Location::caller();
+                            Error::report_error(format!(
+                                "call icp deliver failed Error({}) \n{}",
+                                e, position
+                            ))
+                        })?;
+                    if !res.is_empty() {
+                        msgs.push(Any::decode(&res[..]).map_err(|e| {
+                            let position = std::panic::Location::caller();
+                            Error::report_error(format!(
+                                "deliver result decode failed Error({}) \n{}",
+                                e, position
+                            ))
+                        })?);
+                    }
+                }
+                tracked_msgs.msgs = msgs;
+                info!(
+                    "got proto_msgs from ic: {:?} \n{}",
+                    tracked_msgs
+                        .msgs
+                        .iter()
+                        .map(|msg| msg.type_url.clone())
+                        .collect::<Vec<_>>(),
+                    std::panic::Location::caller()
+                );
+            }
+            self.do_send_messages_and_wait_check_tx(tracked_msgs).await
+        };
+
+        rt.block_on(closure)
     }
 
     /// Get the account for the signer
@@ -2693,6 +2700,6 @@ mod tests {
         };
 
         let res = inner_query_consensus_state_heights(rt, vp_client, cansiter_id, request);
-        dbg!(res);
+        assert!(res.is_ok());
     }
 }
