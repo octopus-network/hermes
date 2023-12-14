@@ -1,5 +1,6 @@
 use core::mem;
 
+use crate::chain::ic::VpClient;
 use ibc_proto::google::protobuf::Any;
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
 use ibc_relayer_types::events::IbcEvent;
@@ -66,6 +67,8 @@ pub async fn send_batched_messages_and_wait_commit(
    are committed in the wrong order due to interference from priority mempool.
 */
 pub async fn sequential_send_batched_messages_and_wait_commit(
+    vp_client: &VpClient,
+    canister_id: &str,
     rpc_client: &HttpClient,
     config: &TxConfig,
     key_pair: &Secp256k1KeyPair,
@@ -78,7 +81,14 @@ pub async fn sequential_send_batched_messages_and_wait_commit(
     }
 
     let tx_sync_results = sequential_send_messages_as_batches(
-        rpc_client, config, key_pair, account, tx_memo, messages,
+        vp_client,
+        canister_id,
+        rpc_client,
+        config,
+        key_pair,
+        account,
+        tx_memo,
+        messages,
     )
     .await?;
 
@@ -91,6 +101,8 @@ pub async fn sequential_send_batched_messages_and_wait_commit(
 }
 
 pub async fn send_batched_messages_and_wait_check_tx(
+    vp_client: &VpClient,
+    canister_id: &str,
     rpc_client: &HttpClient,
     config: &TxConfig,
     key_pair: &Secp256k1KeyPair,
@@ -107,8 +119,36 @@ pub async fn send_batched_messages_and_wait_check_tx(
     let mut responses = Vec::new();
 
     for batch in batches {
+        let mut inner_batch = vec![];
+        for msg in batch.iter() {
+            let res = vp_client
+                .deliver(canister_id, msg.encode_to_vec())
+                .await
+                .map_err(|e| {
+                    let position = std::panic::Location::caller();
+                    Error::report_error(format!(
+                        "call vp deliver failed Error({}) \n{}",
+                        e, position
+                    ))
+                })?;
+            if !res.is_empty() {
+                inner_batch.push(Any::decode(&res[..]).map_err(|e| {
+                    let position = std::panic::Location::caller();
+                    Error::report_error(format!(
+                        "decode call vp deliver result failed Error({}) \n{}",
+                        e, position
+                    ))
+                })?);
+            }
+        }
+
         let response = send_tx_with_account_sequence_retry(
-            rpc_client, config, key_pair, account, tx_memo, &batch,
+            rpc_client,
+            config,
+            key_pair,
+            account,
+            tx_memo,
+            &inner_batch,
         )
         .await?;
 
@@ -160,6 +200,8 @@ async fn send_messages_as_batches(
 }
 
 async fn sequential_send_messages_as_batches(
+    vp_client: &VpClient,
+    canister_id: &str,
     rpc_client: &HttpClient,
     config: &TxConfig,
     key_pair: &Secp256k1KeyPair,
@@ -186,9 +228,36 @@ async fn sequential_send_messages_as_batches(
 
     for batch in batches {
         let message_count = batch.len();
+        let mut inner_batch = vec![];
+        for msg in batch.iter() {
+            let res = vp_client
+                .deliver(canister_id, msg.encode_to_vec())
+                .await
+                .map_err(|e| {
+                    let position = std::panic::Location::caller();
+                    Error::report_error(format!(
+                        "call vp deliver failed Error({}) \n{}",
+                        e, position
+                    ))
+                })?;
+            if !res.is_empty() {
+                inner_batch.push(Any::decode(&res[..]).map_err(|e| {
+                    let position = std::panic::Location::caller();
+                    Error::report_error(format!(
+                        "decode call vp deliver result failed Error({}) \n{}",
+                        e, position
+                    ))
+                })?);
+            }
+        }
 
         let response = send_tx_with_account_sequence_retry(
-            rpc_client, config, key_pair, account, tx_memo, &batch,
+            rpc_client,
+            config,
+            key_pair,
+            account,
+            tx_memo,
+            &inner_batch,
         )
         .await?;
 
