@@ -67,8 +67,8 @@ impl AnyClientState {
     pub fn chain_id(&self) -> ChainId {
         match self {
             AnyClientState::Tendermint(tm_state) => tm_state.chain_id(),
-            AnyClientState::Solomachine(_sm_state) => todo!(),
-            AnyClientState::Near(_near_state) => todo!(),
+            AnyClientState::Solomachine(sm_state) => sm_state.chain_id(),
+            AnyClientState::Near(near_state) => near_state.chain_id(),
 
             #[cfg(test)]
             AnyClientState::Mock(mock_state) => mock_state.chain_id(),
