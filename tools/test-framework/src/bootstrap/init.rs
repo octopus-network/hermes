@@ -7,6 +7,8 @@ use eyre::Report as Error;
 use ibc_relayer_cli::components::enable_ansi;
 use std::env;
 use std::fs;
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Once;
 use tracing_subscriber::{
     self as ts,
@@ -65,6 +67,23 @@ pub fn init_test() -> Result<TestConfig, Error> {
         .map(|val| val == "1")
         .unwrap_or(false);
 
+    let ic_endpoint =
+        env::var("IC_ENDPOINT").unwrap_or_else(|_| "http://localhost:4943".to_string());
+
+    let home_dir = std::env::var("HOME").unwrap();
+
+    let canister_pem = PathBuf::from_str(&format!(
+        "{}/.config/dfx/identity/default/identity.pem",
+        home_dir
+    ))
+    .unwrap();
+
+    //TODO: need update(davirain)
+    let near_ibc_address = "v5.nearibc.testnet".to_string();
+    let canister_id = "bkyz2-fmaaa-aaaaa-qaaaq-cai".to_string();
+    let near_rpc_endpoint =
+        "https://near-testnet.infura.io/v3/272532ecf0b64d7782a03db0cbcf3c30".to_string();
+
     Ok(TestConfig {
         chain_command_paths,
         chain_store_dir,
@@ -73,6 +92,11 @@ pub fn init_test() -> Result<TestConfig, Error> {
         bootstrap_with_random_ids: false,
         native_tokens,
         compat_modes,
+        ic_endpoint,
+        canister_pem,
+        near_ibc_address,
+        canister_id,
+        near_rpc_endpoint,
     })
 }
 
