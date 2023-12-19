@@ -1179,6 +1179,7 @@ impl ChainEndpoint for NearChain {
         request.height = request.height.map(|height| match height {
             QueryHeight::Latest => QueryHeight::Latest,
             QueryHeight::Specific(value) => QueryHeight::Specific(
+                // TODO(davirina): why +10?
                 Height::new(value.revision_number(), value.revision_height() + 10)
                     .expect("failed construct ibc height"),
             ),
