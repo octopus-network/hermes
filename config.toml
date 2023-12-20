@@ -4,7 +4,7 @@ log_level = 'info'
 [mode]
 
 [mode.clients]
-enabled = true
+enabled = false
 refresh = true
 misbehaviour = false
 
@@ -16,12 +16,12 @@ enabled = false
 
 [mode.packets]
 enabled = true
-clear_interval = 600
+clear_interval = 100
 clear_on_start = true
 tx_confirmation = true
 
 [telemetry]
-enabled = true
+enabled = false
 host = '127.0.0.1'
 port = 3001
 
@@ -29,9 +29,9 @@ port = 3001
 id = 'near-0'
 type = 'near'
 near_ibc_address = 'v1.near-ibc.near'
-rpc_addr = 'https://nd-756-246-956.p2pify.com/86d605911b462ca45c959e9040478b21'
+rpc_addr = 'https://rpc.mainnet.near.org'
 grpc_addr = 'http://localhost:27032'
-event_source = { mode = 'push', url = 'ws://localhost:27030/websocket', batch_delay = '500ms' }
+event_source = { mode = 'pull', interval = '1000ms' }
 rpc_timeout = '15s'
 trusted_node = true
 account_prefix = 'cosmos'
@@ -57,9 +57,6 @@ list = [
 
 [[chains]]
 id = 'otto_8900-1'
-ic_endpoint = 'https://ic0.app'
-canister_id = 'qzoox-ziaaa-aaaam-ab3aa-cai'
-canister_pem = '.hermes/keys/ic.pem'
 address_type = { derivation = 'ethermint', proto_type = { pk_type = '/ethermint.crypto.v1.ethsecp256k1.PubKey' } }
 rpc_addr = 'https://gateway.mainnet.octopus.network/rpc/otto/andk2nmw198f7on2'
 grpc_addr = 'https://andk2nmw198f7on2.otto.gateway.mainnet.octopus.network'
@@ -69,7 +66,7 @@ trusted_node = true
 account_prefix = 'otto'
 key_name = 'wallet'
 store_prefix = 'ibc'
-gas_price = { price = 0, denom = 'ibc/10FA9ADE4B0166E72C9AB4BB4ABB8BC81E41B8A198460D21139E3E1D052EF057' }
+gas_price = { price = 20000000000, denom = 'ibc/10FA9ADE4B0166E72C9AB4BB4ABB8BC81E41B8A198460D21139E3E1D052EF057' }
 gas_multiplier = 1.2
 default_gas = 1000000
 max_gas = 40000000
