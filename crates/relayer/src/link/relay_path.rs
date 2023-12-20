@@ -334,7 +334,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     fn build_chan_close_confirm_from_event(
         &self,
         event: &IbcEventWithHeight,
-    ) -> Result<Option<Vec<Any>>, LinkError> {
+    ) -> Result<Option<Any>, LinkError> {
         // Build the `MsgChannelCloseConfirm` only from `Timeout` or `CloseInitChannel` event types
         if event.event.event_type() != IbcEventType::Timeout
             && event.event.event_type() != IbcEventType::CloseInitChannel
@@ -364,7 +364,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             signer: self.dst_signer()?,
         };
 
-        Ok(Some(vec![new_msg.to_any()]))
+        Ok(Some(new_msg.to_any()))
     }
 
     /// Determines if the events received are relevant and should be processed.
@@ -609,15 +609,13 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             };
 
             // Collect messages to be sent to the destination chain (e.g., RecvPacket)
-            if let Some(msgs) = dst_msg {
-                msgs.iter().for_each(|msg| {
-                    trace!(%msg.type_url, event = %event_with_height, "collected event");
+            if let Some(msg) = dst_msg {
+                trace!(%msg.type_url, event = %event_with_height, "collected event");
 
-                    dst_od.batch.push(TransitMessage {
-                        event_with_height: event_with_height.clone(),
-                        msg: msg.clone(),
-                    });
-                })
+                dst_od.batch.push(TransitMessage {
+                    event_with_height: event_with_height.clone(),
+                    msg: msg.clone(),
+                });
             }
 
             // Collect timeout messages, to be sent to the source chain
@@ -1206,13 +1204,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         Ok(())
     }
 
-    fn build_recv_packet(
-        &self,
-        packet: &Packet,
-        height: Height,
-    ) -> Result<Option<Vec<Any>>, LinkError> {
-        let mut msgs: Vec<Any> = Vec::new();
-
+    fn build_recv_packet(&self, packet: &Packet, height: Height) -> Result<Option<Any>, LinkError> {
         if self
             .src_chain()
             .config()
@@ -1222,7 +1214,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             .r#type
             == ChainType::Near
         {
-            msgs = self.build_update_client_on_dst(height)?;
+            let msgs = self.build_update_client_on_dst(height)?;
             assert!(!msgs.is_empty());
             let msg_update_client = msgs.last().ok_or(LinkError::custom_error(
                 "[in connection: build_recv_packet msgs.last() is none]".into(),
@@ -1256,7 +1248,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
             let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
-            msgs.push(msg.to_any());
+            trace!(packet = %packet, height = %proofs.height(), "built recv_packet msg");
+            Ok(Some(msg.to_any()))
         } else {
             let proofs = self
                 .src_chain()
@@ -1270,21 +1263,17 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
             let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
-            msgs.push(msg.to_any());
             trace!(packet = %packet, height = %proofs.height(), "built recv_packet msg");
+            Ok(Some(msg.to_any()))
         }
-
-        Ok(Some(msgs))
     }
 
     fn build_ack_from_recv_event(
         &self,
         event: &WriteAcknowledgement,
         height: Height,
-    ) -> Result<Option<Vec<Any>>, LinkError> {
+    ) -> Result<Option<Any>, LinkError> {
         let packet = event.packet.clone();
-
-        let mut msgs: Vec<Any> = Vec::new();
 
         if self
             .src_chain()
@@ -1295,7 +1284,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             .r#type
             == ChainType::Near
         {
-            msgs = self.build_update_client_on_dst(height)?;
+            let msgs = self.build_update_client_on_dst(height)?;
             assert!(!msgs.is_empty());
             let msg_update_client = msgs.last().ok_or(LinkError::custom_error(
                 "[in connection: build_recv_packet msgs.last() is none]".into(),
@@ -1334,7 +1323,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 proofs.clone(),
                 self.dst_signer()?,
             );
-            msgs.push(msg.to_any());
+            trace!(packet = %msg.packet, height = %proofs.height(), "built acknowledgment msg");
+            Ok(Some(msg.to_any()))
         } else {
             let proofs = self
                 .src_chain()
@@ -1354,10 +1344,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 self.dst_signer()?,
             );
             trace!(packet = %msg.packet, height = %proofs.height(), "built acknowledgment msg");
-            msgs.push(msg.to_any());
+            Ok(Some(msg.to_any()))
         }
-
-        Ok(Some(msgs))
     }
 
     fn build_timeout_packet(
@@ -1482,7 +1470,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         event: &SendPacket,
         dst_info: &ChainStatus,
         height: Height,
-    ) -> Result<(Option<Vec<Any>>, Option<Any>), LinkError> {
+    ) -> Result<(Option<Any>, Option<Any>), LinkError> {
         let timeout = self.build_timeout_from_send_packet_event(event, dst_info)?;
         if timeout.is_some() {
             Ok((None, timeout))
