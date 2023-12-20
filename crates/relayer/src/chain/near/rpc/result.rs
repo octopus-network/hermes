@@ -216,7 +216,7 @@ impl ViewResultDetails {
             warn!("serde deserilize error: {:?}", self.result);
         }
 
-        res.map_err(NearError::serde_json_error)
+        res.map_err(|e| NearError::serde_json_error(std::panic::Location::caller().to_string(), e))
     }
 
     /// Deserialize an instance of type `T` from bytes sourced from this view call's
