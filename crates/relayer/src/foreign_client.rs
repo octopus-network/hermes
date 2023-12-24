@@ -34,6 +34,7 @@ use crate::chain::client::ClientSettings;
 use crate::chain::handle::ChainHandle;
 use crate::chain::requests::*;
 use crate::chain::tracking::TrackedMsgs;
+use crate::chain::ChainType;
 use crate::client_state::AnyClientState;
 use crate::consensus_state::AnyConsensusState;
 use crate::error::Error as RelayerError;
@@ -1267,7 +1268,11 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             )
         })?;
 
-        self.wait_for_header_validation_delay(&client_state, &header)?;
+        if self.src_chain().config().unwrap().r#type == ChainType::Near {
+            warn!("skip wait_for_header_validation_delay for near->appchain");
+        } else {
+            self.wait_for_header_validation_delay(&client_state, &header)?;
+        }
 
         let mut msgs = vec![];
 
