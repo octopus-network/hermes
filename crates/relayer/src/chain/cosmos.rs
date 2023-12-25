@@ -107,6 +107,7 @@ use crate::util::pretty::{
 };
 
 use self::types::app_state::GenesisAppState;
+use ibc::core::handler::types::msgs::MsgEnvelope;
 
 pub mod batch;
 pub mod client;
@@ -1048,6 +1049,8 @@ impl ChainEndpoint for CosmosSdkChain {
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
+        let runtime = self.rt.clone();
+
         info!(
             "tracked_msgs: {:?}, tracking_id: {:?}, \n{}",
             tracked_msgs
@@ -1058,15 +1061,24 @@ impl ChainEndpoint for CosmosSdkChain {
             tracked_msgs.tracking_id,
             std::panic::Location::caller()
         );
-        use ibc_proto::google::protobuf::Any;
 
-        let mut tracked_msgs = tracked_msgs.clone();
+        use ibc_proto::google::protobuf::Any;
+        let canister_id = self.config.canister_id.id.clone();
+
+        let mut result = vec![];
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let canister_id = self.config.canister_id.id.as_str();
-            let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
+                let near_msg_envelope: MsgEnvelope = msg.clone().try_into().map_err(|e| {
+                    let position = std::panic::Location::caller();
+                    Error::report_error(format!(
+                        "try_into msg_envelope failed Error({}) \n{}",
+                        e, position
+                    ))
+                })?;
+
+                info!("near msg envelope: {near_msg_envelope:?}");
                 let res = self
-                    .block_on(self.vp_client.deliver(canister_id, msg.encode_to_vec()))
+                    .block_on(self.vp_client.deliver(&canister_id, msg.encode_to_vec()))
                     .map_err(|e| {
                         let position = std::panic::Location::caller();
                         Error::report_error(format!(
@@ -1075,35 +1087,40 @@ impl ChainEndpoint for CosmosSdkChain {
                         ))
                     })?;
                 if !res.is_empty() {
-                    msgs.push(Any::decode(&res[..]).map_err(|e| {
+                    let sm_msg = Any::decode(&res[..]).map_err(|e| {
                         let position = std::panic::Location::caller();
                         Error::report_error(format!(
                             "decode call vp deliver result failed Error({}) \n{}",
                             e, position
                         ))
-                    })?);
+                    })?;
+
+                    let solomachine_msg_envelope: MsgEnvelope =
+                        sm_msg.clone().try_into().map_err(|e| {
+                            let position = std::panic::Location::caller();
+                            Error::report_error(format!(
+                                "try_into msg_envelope failed Error({}) \n{}",
+                                e, position
+                            ))
+                        })?;
+                    info!("solomachine msg envelope: {solomachine_msg_envelope:?}");
+
+                    let tm = TrackedMsgs::new(vec![sm_msg], tracked_msgs.tracking_id);
+                    let res = runtime.block_on(self.do_send_messages_and_wait_commit(tm))?;
+                    result.extend(res);
                 }
             }
-            tracked_msgs.msgs = msgs;
-            info!(
-                "got proto_msgs from ic: {:?} \n{}",
-                tracked_msgs
-                    .msgs
-                    .iter()
-                    .map(|msg| msg.type_url.clone())
-                    .collect::<Vec<_>>(),
-                std::panic::Location::caller()
-            );
         }
 
-        let rt = self.rt.clone();
-        rt.block_on(self.do_send_messages_and_wait_commit(tracked_msgs))
+        Ok(result)
     }
 
     fn send_messages_and_wait_check_tx(
         &mut self,
         tracked_msgs: TrackedMsgs,
     ) -> Result<Vec<Response>, Error> {
+        let runtime = self.rt.clone();
+
         info!(
             "tracked_msgs: {:?}, tracking_id: {:?} \n{}",
             tracked_msgs
@@ -1114,16 +1131,24 @@ impl ChainEndpoint for CosmosSdkChain {
             tracked_msgs.tracking_id,
             std::panic::Location::caller()
         );
+
         use ibc_proto::google::protobuf::Any;
+        let canister_id = self.config.canister_id.id.clone();
 
-        let mut tracked_msgs = tracked_msgs.clone();
+        let mut result = vec![];
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-            let canister_id = self.config.canister_id.id.as_str();
-
-            let mut msgs: Vec<Any> = Vec::new();
             for msg in tracked_msgs.messages() {
+                let near_msg_envelope: MsgEnvelope = msg.clone().try_into().map_err(|e| {
+                    let position = std::panic::Location::caller();
+                    Error::report_error(format!(
+                        "try_into msg_envelope failed Error({}) \n{}",
+                        e, position
+                    ))
+                })?;
+
+                info!("near msg envelope: {near_msg_envelope:?}");
                 let res = self
-                    .block_on(self.vp_client.deliver(canister_id, msg.encode_to_vec()))
+                    .block_on(self.vp_client.deliver(&canister_id, msg.encode_to_vec()))
                     .map_err(|e| {
                         let position = std::panic::Location::caller();
                         Error::report_error(format!(
@@ -1132,29 +1157,32 @@ impl ChainEndpoint for CosmosSdkChain {
                         ))
                     })?;
                 if !res.is_empty() {
-                    msgs.push(Any::decode(&res[..]).map_err(|e| {
+                    let sm_msg = Any::decode(&res[..]).map_err(|e| {
                         let position = std::panic::Location::caller();
                         Error::report_error(format!(
                             "deliver result decode failed Error({}) \n{}",
                             e, position
                         ))
-                    })?);
+                    })?;
+
+                    let solomachine_msg_envelope: MsgEnvelope =
+                        sm_msg.clone().try_into().map_err(|e| {
+                            let position = std::panic::Location::caller();
+                            Error::report_error(format!(
+                                "try_into msg_envelope failed Error({}) \n{}",
+                                e, position
+                            ))
+                        })?;
+                    info!("solomachine msg envelope: {solomachine_msg_envelope:?}");
+
+                    let tm = TrackedMsgs::new(vec![sm_msg], tracked_msgs.tracking_id);
+                    let res = runtime.block_on(self.do_send_messages_and_wait_check_tx(tm))?;
+                    result.extend(res);
                 }
             }
-            tracked_msgs.msgs = msgs;
-            info!(
-                "got proto_msgs from ic: {:?} \n{}",
-                tracked_msgs
-                    .msgs
-                    .iter()
-                    .map(|msg| msg.type_url.clone())
-                    .collect::<Vec<_>>(),
-                std::panic::Location::caller()
-            );
         }
 
-        let rt = self.rt.clone();
-        rt.block_on(self.do_send_messages_and_wait_check_tx(tracked_msgs))
+        Ok(result)
     }
 
     /// Get the account for the signer

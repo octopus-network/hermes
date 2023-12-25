@@ -1294,8 +1294,15 @@ impl ChainEndpoint for NearChain {
             std::panic::Location::caller()
         );
 
+        let real_trusted_height =
+            if client_state.latest_height().revision_height() > trusted_height.revision_height() {
+                client_state.latest_height().revision_height()
+            } else {
+                trusted_height.revision_height()
+            };
+
         let trusted_block = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let result = self.view_block(Some(BlockId::Height(trusted_height.revision_height())));
+            let result = self.view_block(Some(BlockId::Height(real_trusted_height)));
             match result {
                 Ok(bv) => RetryResult::Ok(bv),
                 Err(e) => {
@@ -1310,40 +1317,48 @@ impl ChainEndpoint for NearChain {
         })
         .map_err(|_| Error::report_error("build_header get trusted_block failed".to_string()))?;
 
+        let trusted_block_epoch_id = trusted_block.header.epoch_id;
+        let trusted_block_next_epoch_id = trusted_block.header.next_epoch_id;
         warn!(
             "trusted block height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
             trusted_block.header.height,
-            trusted_block.header.epoch_id,
-            trusted_block.header.next_epoch_id,
+            trusted_block_epoch_id,
+            trusted_block_next_epoch_id,
             std::panic::Location::caller()
         );
 
-        let target_block = retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let result = self.view_block(Some(BlockId::Height(target_height.revision_height())));
-            match result {
-                Ok(bv) => RetryResult::Ok(bv),
-                Err(e) => {
-                    warn!(
-                        "retry get target_block_view(header) with error: {} \n{}",
-                        e,
-                        std::panic::Location::caller()
-                    );
-                    RetryResult::Retry(())
+        let real_target_block = if target_height.revision_height() > real_trusted_height {
+            let target_block = retry_with_index(retry_strategy::default_strategy(), |_index| {
+                let result =
+                    self.view_block(Some(BlockId::Height(target_height.revision_height())));
+                match result {
+                    Ok(bv) => RetryResult::Ok(bv),
+                    Err(e) => {
+                        warn!(
+                            "retry get target_block_view(header) with error: {} \n{}",
+                            e,
+                            std::panic::Location::caller()
+                        );
+                        RetryResult::Retry(())
+                    }
                 }
-            }
-        })
-        .map_err(|_| Error::report_error("build_header get target_block failed".to_string()))?;
+            })
+            .map_err(|_| Error::report_error("build_header get target_block failed".to_string()))?;
+            target_block
+        } else {
+            trusted_block
+        };
 
         warn!(
             "target block height: {:?}, epoch: {:?}, next_epoch_id: {:?} \n{}",
-            target_block.header.height,
-            target_block.header.epoch_id,
-            target_block.header.next_epoch_id,
+            real_target_block.header.height,
+            real_target_block.header.epoch_id,
+            real_target_block.header.next_epoch_id,
             std::panic::Location::caller()
         );
 
         let header = self
-            .next_light_client_block(target_block.header.hash, true)
+            .next_light_client_block(real_target_block.header.hash, true)
             .map_err(|_| Error::report_error("build_header call header failed".to_string()))?;
 
         warn!(
@@ -1356,8 +1371,8 @@ impl ChainEndpoint for NearChain {
 
         let mut epoch_id = header.light_client_block.inner_lite.epoch_id.clone();
         let mut hs = Vec::new();
-        while epoch_id.0 .0 != trusted_block.header.epoch_id.0
-            && epoch_id.0 .0 != trusted_block.header.next_epoch_id.0
+        while epoch_id.0 .0 != trusted_block_epoch_id.0
+            && epoch_id.0 .0 != trusted_block_next_epoch_id.0
         {
             let hash = near_primitives::hash::CryptoHash(epoch_id.0 .0);
             let h = self

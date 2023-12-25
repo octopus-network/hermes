@@ -34,6 +34,7 @@ use crate::chain::client::ClientSettings;
 use crate::chain::handle::ChainHandle;
 use crate::chain::requests::*;
 use crate::chain::tracking::TrackedMsgs;
+use crate::chain::ChainType;
 use crate::client_state::AnyClientState;
 use crate::consensus_state::AnyConsensusState;
 use crate::error::Error as RelayerError;
@@ -961,6 +962,7 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             // Potential optimization: cache the list of consensus heights
             // so that subsequent fetches can be fast.
             let cs_heights = self.fetch_consensus_state_heights()?;
+            warn!("fetch_consensus_state_heights: {:?}", cs_heights);
 
             // Iterate through the available consesnsus heights and find one
             // that is lower than the target height.
@@ -1210,6 +1212,11 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         };
 
         if trusted_height != client_state.latest_height() {
+            warn!(
+                "ys-debug: trusted_height != client_state.latest_height() {:?}!={:?}",
+                trusted_height,
+                client_state.latest_height()
+            );
             // If we're using a trusted height that is different from the client latest height,
             // then check if the consensus state at `trusted_height` is within trusting period
             if let ConsensusStateTrusted::NotTrusted {
@@ -1261,7 +1268,11 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             )
         })?;
 
-        self.wait_for_header_validation_delay(&client_state, &header)?;
+        if self.src_chain().config().unwrap().r#type == ChainType::Near {
+            warn!("skip wait_for_header_validation_delay for near->appchain");
+        } else {
+            self.wait_for_header_validation_delay(&client_state, &header)?;
+        }
 
         let mut msgs = vec![];
 
