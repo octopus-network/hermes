@@ -25,6 +25,7 @@ telemetry   = ["ibc-relayer/telemetry", "ibc-telemetry"]
 rest-server = ["ibc-relayer-rest"]
 
 [dependencies]
+ibc-proto         = { version = "0.38.0", features = ["serde"] }
 ibc-relayer-types  = { version = "0.26.3", path = "../relayer-types" }
 ibc-relayer        = { version = "0.26.3", path = "../relayer" }
 ibc-telemetry      = { version = "0.26.3", path = "../telemetry", optional = true }
@@ -55,6 +56,9 @@ tokio                    = { version = "1.0", features = ["full"] }
 tracing                  = "0.1.36"
 tracing-subscriber       = { version = "0.3.14", features = ["fmt", "env-filter", "json"]}
 time                     = "0.3"
+prost = { version = "0.12" }
+ic-agent = { version = "0.29.0", features = ["pem"] }
+
 [dependencies.tendermint]
 version = "0.34.0"
 features = ["secp256k1"]
