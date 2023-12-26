@@ -13,7 +13,6 @@ use crate::foreign_client::CreateOptions;
 pub enum ClientSettings {
     Tendermint(cosmos::client::Settings),
     Near(near::client::Settings),
-    Vp,
 }
 
 impl ClientSettings {
@@ -41,7 +40,6 @@ impl ClientSettings {
                 src_chain_config,
                 dst_chain_config,
             )),
-            ChainType::Vp => ClientSettings::Vp,
         }
     }
 
