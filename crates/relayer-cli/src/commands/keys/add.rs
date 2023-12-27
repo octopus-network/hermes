@@ -43,10 +43,10 @@ use crate::conclude::Output;
 #[derive(Clone, Command, Debug, Parser, PartialEq, Eq)]
 #[clap(override_usage = "Add a key from a Comet keyring file:
         hermes keys add [OPTIONS] --chain <CHAIN_ID> --key-file <KEY_FILE>
-    
+
     Add a key from a file containing its mnemonic:
         hermes keys add [OPTIONS] --chain <CHAIN_ID> --mnemonic-file <MNEMONIC_FILE>
-    
+
     On *nix platforms, both flags also accept `/dev/stdin` as a value, which will read the key or the mnemonic from stdin.")]
 pub struct KeysAddCmd {
     #[clap(
@@ -205,7 +205,7 @@ pub fn add_key(
     overwrite: bool,
 ) -> eyre::Result<AnySigningKeyPair> {
     let key_pair = match config.r#type {
-        ChainType::CosmosSdk | ChainType::Vp => {
+        ChainType::CosmosSdk => {
             let mut keyring = KeyRing::new_secp256k1(
                 Store::Test,
                 &config.account_prefix,
@@ -256,7 +256,7 @@ pub fn restore_key(
         fs::read_to_string(mnemonic).map_err(|_| eyre!("error reading the mnemonic file"))?;
 
     let key_pair = match config.r#type {
-        ChainType::CosmosSdk | ChainType::Vp => {
+        ChainType::CosmosSdk => {
             let mut keyring = KeyRing::new_secp256k1(
                 Store::Test,
                 &config.account_prefix,

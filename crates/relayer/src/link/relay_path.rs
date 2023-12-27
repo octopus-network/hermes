@@ -617,7 +617,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                         event_with_height: event_with_height.clone(),
                         msg: msg.clone(),
                     });
-                })
+                });
             }
 
             // Collect timeout messages, to be sent to the source chain
@@ -1211,8 +1211,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         packet: &Packet,
         height: Height,
     ) -> Result<Option<Vec<Any>>, LinkError> {
-        let mut msgs: Vec<Any> = Vec::new();
-
         if self
             .src_chain()
             .config()
@@ -1222,7 +1220,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             .r#type
             == ChainType::Near
         {
-            msgs = self.build_update_client_on_dst(height)?;
+            let mut msgs = self.build_update_client_on_dst(height)?;
             assert!(!msgs.is_empty());
             let msg_update_client = msgs.last().ok_or(LinkError::custom_error(
                 "[in connection: build_recv_packet msgs.last() is none]".into(),
@@ -1256,7 +1254,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
             let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
+            trace!(packet = %packet, height = %proofs.height(), "built recv_packet msg");
             msgs.push(msg.to_any());
+            Ok(Some(msgs))
         } else {
             let proofs = self
                 .src_chain()
@@ -1270,11 +1270,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 .map_err(|e| LinkError::packet_proofs_constructor(self.src_chain().id(), e))?;
 
             let msg = MsgRecvPacket::new(packet.clone(), proofs.clone(), self.dst_signer()?);
-            msgs.push(msg.to_any());
             trace!(packet = %packet, height = %proofs.height(), "built recv_packet msg");
+            Ok(Some(vec![msg.to_any()]))
         }
-
-        Ok(Some(msgs))
     }
 
     fn build_ack_from_recv_event(
@@ -1283,8 +1281,6 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         height: Height,
     ) -> Result<Option<Vec<Any>>, LinkError> {
         let packet = event.packet.clone();
-
-        let mut msgs: Vec<Any> = Vec::new();
 
         if self
             .src_chain()
@@ -1295,7 +1291,7 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
             .r#type
             == ChainType::Near
         {
-            msgs = self.build_update_client_on_dst(height)?;
+            let mut msgs = self.build_update_client_on_dst(height)?;
             assert!(!msgs.is_empty());
             let msg_update_client = msgs.last().ok_or(LinkError::custom_error(
                 "[in connection: build_recv_packet msgs.last() is none]".into(),
@@ -1334,7 +1330,9 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 proofs.clone(),
                 self.dst_signer()?,
             );
+            trace!(packet = %msg.packet, height = %proofs.height(), "built acknowledgment msg");
             msgs.push(msg.to_any());
+            Ok(Some(msgs))
         } else {
             let proofs = self
                 .src_chain()
@@ -1354,10 +1352,8 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
                 self.dst_signer()?,
             );
             trace!(packet = %msg.packet, height = %proofs.height(), "built acknowledgment msg");
-            msgs.push(msg.to_any());
+            Ok(Some(vec![msg.to_any()]))
         }
-
-        Ok(Some(msgs))
     }
 
     fn build_timeout_packet(

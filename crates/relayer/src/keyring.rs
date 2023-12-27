@@ -302,7 +302,7 @@ impl KeyRing<NearKeyPair> {
 
 pub fn list_keys(config: &ChainConfig) -> Result<Vec<(String, AnySigningKeyPair)>, Error> {
     let keys = match config.r#type {
-        ChainType::CosmosSdk | ChainType::Vp => {
+        ChainType::CosmosSdk => {
             let keyring = KeyRing::new_secp256k1(
                 Store::Test,
                 &config.account_prefix,

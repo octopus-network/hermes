@@ -2,24 +2,47 @@ use core::{
     fmt::{Display, Error as FmtError, Formatter},
     time::Duration,
 };
+use ibc_proto::google::protobuf::Any;
+use ibc_relayer_types::core::ics02_client::msgs::create_client::MsgCreateClient;
+use ibc_relayer_types::tx_msg::Msg;
+use std::sync::Arc;
 use std::thread;
 
 use abscissa_core::clap::Parser;
 use abscissa_core::{Command, Runnable};
-
+use core::future::Future;
+use ibc_proto::Protobuf;
+use ibc_relayer::chain::client::ClientSettings;
+use ibc_relayer::chain::ic::VpClient;
 use ibc_relayer::chain::requests::{
     IncludeProof, PageRequest, QueryClientStateRequest, QueryClientStatesRequest, QueryHeight,
 };
+use ibc_relayer::chain::tracking::TrackedMsgs;
+use ibc_relayer::client_state::AnyClientState;
+use ibc_relayer::config::ChainConfig;
 use ibc_relayer::config::Config;
+use ibc_relayer::error::Error as RelayerError;
 use ibc_relayer::event::IbcEventWithHeight;
+use ibc_relayer::foreign_client::ForeignClientError;
 use ibc_relayer::foreign_client::{CreateOptions, ForeignClient};
 use ibc_relayer::{chain::handle::ChainHandle, config::GenesisRestart};
+use ibc_relayer_types::core::ics02_client::client_type::ClientType;
+use ibc_relayer_types::core::ics02_client::events::Attributes;
+use ibc_relayer_types::core::ics02_client::events::CreateClient;
 use ibc_relayer_types::core::ics24_host::identifier::{ChainId, ClientId};
 use ibc_relayer_types::events::IbcEvent;
+use ibc_relayer_types::events::IbcEvent as IbcRelayerTypeEvent;
+use ibc_relayer_types::signer::Signer;
 use ibc_relayer_types::Height;
+use ibc_relayer_types::Height as ICSHeight;
+use ic_agent::identity::Secp256k1Identity;
+use ic_agent::Identity;
+use prost::Message;
+use std::str::FromStr;
 use tendermint::block::Height as BlockHeight;
 use tendermint_light_client_verifier::types::TrustThreshold;
 use tendermint_rpc::Url;
+use tokio::runtime::Runtime as TokioRuntime;
 use tracing::debug;
 
 use crate::application::app_config;
@@ -72,6 +95,10 @@ pub struct TxCreateClientCmd {
     /// and trusted validator set is sufficient for a commit to be accepted going forward.
     #[clap(long = "trust-threshold", value_name = "TRUST_THRESHOLD", parse(try_from_str = parse_trust_threshold))]
     trust_threshold: Option<TrustThreshold>,
+
+    /// Only initialize the verification package for the client, do not create the client.
+    #[clap(long = "only-init-vp", value_name = "ONLY_INIT_VP")]
+    only_init_vp: Option<bool>,
 }
 
 /// Sample to run this tx:
@@ -84,28 +111,341 @@ impl Runnable for TxCreateClientCmd {
             Output::error("source and destination chains must be different".to_string()).exit()
         }
 
-        let chains = match ChainHandlePair::spawn(&config, &self.src_chain_id, &self.dst_chain_id) {
-            Ok(chains) => chains,
-            Err(e) => Output::error(e).exit(),
-        };
+        if self.only_init_vp.unwrap_or(false) {
+            run_only_init_vp(
+                &config,
+                &self.src_chain_id,
+                &self.dst_chain_id,
+                self.clock_drift,
+                self.trusting_period,
+                self.trust_threshold,
+            );
+        } else {
+            run_create_client(
+                &config,
+                &self.src_chain_id,
+                &self.dst_chain_id,
+                self.clock_drift,
+                self.trusting_period,
+                self.trust_threshold,
+            );
+        }
+    }
+}
 
-        let client = ForeignClient::restore(ClientId::default(), chains.dst, chains.src);
+fn run_create_client(
+    config: &Config,
+    src_chain_id: &ChainId,
+    dst_chain_id: &ChainId,
+    clock_drift: Option<humantime::Duration>,
+    trusting_period: Option<humantime::Duration>,
+    trust_threshold: Option<TrustThreshold>,
+) {
+    let chains = match ChainHandlePair::spawn(&config, &src_chain_id, dst_chain_id) {
+        Ok(chains) => chains,
+        Err(e) => Output::error(e).exit(),
+    };
 
-        let options = CreateOptions {
-            max_clock_drift: self.clock_drift.map(Into::into),
-            trusting_period: self.trusting_period.map(Into::into),
-            trust_threshold: self.trust_threshold.map(Into::into),
-        };
+    let client = ForeignClient::restore(ClientId::default(), chains.dst, chains.src);
 
-        // Trigger client creation via the "build" interface, so that we obtain the resulting event
-        let res: Result<IbcEventWithHeight, Error> = client
-            .build_create_client_and_send(options)
+    let options = CreateOptions {
+        max_clock_drift: clock_drift.map(Into::into),
+        trusting_period: trusting_period.map(Into::into),
+        trust_threshold: trust_threshold.map(Into::into),
+    };
+
+    // Trigger client creation via the "build" interface, so that we obtain the resulting event
+    let res: Result<IbcEventWithHeight, Error> = client
+        .build_create_client_and_send(options)
+        .map_err(Error::foreign_client);
+
+    match res {
+        Ok(receipt) => Output::success(receipt.event).exit(),
+        Err(e) => Output::error(e).exit(),
+    }
+}
+
+fn run_only_init_vp(
+    config: &Config,
+    src_chain_id: &ChainId,
+    _dst_chain_id: &ChainId,
+    clock_drift: Option<humantime::Duration>,
+    trusting_period: Option<humantime::Duration>,
+    trust_threshold: Option<TrustThreshold>,
+) {
+    let chain_config = config
+        .find_chain(src_chain_id)
+        .expect("not found src chain Config");
+    let src_chain = match spawn_chain_runtime(&config, src_chain_id) {
+        Ok(handle) => handle,
+        Err(e) => Output::error(e).exit(),
+    };
+
+    let options = CreateOptions {
+        max_clock_drift: clock_drift.map(Into::into),
+        trusting_period: trusting_period.map(Into::into),
+        trust_threshold: trust_threshold.map(Into::into),
+    };
+
+    let rt = Arc::new(TokioRuntime::new().unwrap());
+
+    let vp_client = match VpChain::new(src_chain_id.clone(), chain_config.clone(), rt) {
+        Ok(client) => client,
+        Err(e) => Output::error(e).exit(),
+    };
+
+    // Trigger client creation via the "build" interface, so that we obtain the resulting event
+    let res: Result<IbcEventWithHeight, Error> =
+        build_and_create_client_and_send(src_chain, vp_client, options)
             .map_err(Error::foreign_client);
 
-        match res {
-            Ok(receipt) => Output::success(receipt.event).exit(),
-            Err(e) => Output::error(e).exit(),
+    match res {
+        Ok(receipt) => Output::success(receipt.event).exit(),
+        Err(e) => Output::error(e).exit(),
+    }
+}
+
+/// Lower-level interface for preparing a message to create a client.
+pub fn build_create_client(
+    src_chain: impl ChainHandle,
+    vp_client: VpChain,
+    options: CreateOptions,
+) -> Result<MsgCreateClient, ForeignClientError> {
+    // Get signer
+    let signer = vp_client.get_signer().map_err(|e| {
+        ForeignClientError::client_create(
+            src_chain.id(),
+            format!(
+                "failed while fetching the dst chain ({}) signer",
+                vp_client.chain_id(),
+            ),
+            e,
+        )
+    })?;
+
+    // Build client create message with the data from source chain at latest height.
+    let latest_height = src_chain.query_latest_height().map_err(|e| {
+        ForeignClientError::client_create(
+            src_chain.id(),
+            "failed while querying src chain for latest height".to_string(),
+            e,
+        )
+    })?;
+
+    // Calculate client state settings from the chain configurations and
+    // optional user overrides.
+    let src_config = src_chain.config().map_err(|e| {
+        ForeignClientError::client_create(
+            src_chain.id(),
+            "failed while querying the source chain for configuration".to_string(),
+            e,
+        )
+    })?;
+
+    //NOTE:(davirain) this use a src_chain config, but this conif not use in this create vp client
+    let dst_config = src_chain.config().map_err(|e| {
+        ForeignClientError::client_create(
+            src_chain.id(),
+            "failed while querying the source chain for configuration".to_string(),
+            e,
+        )
+    })?;
+    let settings = ClientSettings::for_create_command(options, &src_config, &dst_config);
+
+    let client_state: AnyClientState = src_chain
+        .build_client_state(latest_height, settings)
+        .map_err(|e| {
+            ForeignClientError::client_create(
+                src_chain.id(),
+                "failed when building client state".to_string(),
+                e,
+            )
+        })?;
+
+    let consensus_state = src_chain
+        .build_consensus_state(
+            client_state.latest_height(),
+            latest_height,
+            client_state.clone(),
+        )
+        .map_err(|e| {
+            ForeignClientError::client_create(
+                src_chain.id(),
+                "failed while building client consensus state from src chain".to_string(),
+                e,
+            )
+        })?;
+
+    //TODO Get acct_prefix
+    let msg = MsgCreateClient::new(client_state.into(), consensus_state.into(), signer)
+        .map_err(|e| ForeignClientError::client(e))?;
+
+    Ok(msg)
+}
+
+/// Returns the identifier of the newly created client.
+fn build_and_create_client_and_send(
+    src_chain: impl ChainHandle,
+    vp_client: VpChain,
+    options: CreateOptions,
+) -> Result<IbcEventWithHeight, ForeignClientError> {
+    let new_msg = build_create_client(src_chain, vp_client.clone(), options)?;
+
+    let res = vp_client
+        .send_messages_and_wait_commit(TrackedMsgs::new_single(new_msg.to_any(), "create client"))
+        .map_err(|e| {
+            ForeignClientError::client_create(
+                vp_client.chain_id().clone(),
+                "failed sending message to dst chain ".to_string(),
+                e,
+            )
+        })?;
+
+    assert!(!res.is_empty());
+    Ok(res[0].clone())
+}
+
+#[derive(Debug, Clone)]
+pub struct VpChain {
+    chain_id: ChainId,
+    config: ChainConfig,
+    rt: Arc<TokioRuntime>,
+    vp_client: VpClient,
+    signer: String,
+}
+
+impl VpChain {
+    pub fn new(
+        chain_id: ChainId,
+        chain_config: ChainConfig,
+        rt: Arc<TokioRuntime>,
+    ) -> Result<Self, RelayerError> {
+        let canister_pem_path = if chain_config.canister_pem.is_absolute() {
+            chain_config.canister_pem.clone()
+        } else {
+            let current_dir =
+                std::env::current_dir().map_err(|e| RelayerError::report_error(e.to_string()))?;
+            current_dir.join(chain_config.canister_pem.clone())
+        };
+
+        let signer = Secp256k1Identity::from_pem_file(canister_pem_path.clone()).map_err(|e| {
+            let position = std::panic::Location::caller();
+            RelayerError::report_error(format!(
+                "build vp client failed Error({:?}) \n{}",
+                e, position
+            ))
+        })?;
+
+        let sender = signer
+            .sender()
+            .map_err(|e| {
+                let position = std::panic::Location::caller();
+                RelayerError::report_error(format!(
+                    "build vp client failed Error({:?}) \n{}",
+                    e, position
+                ))
+            })?
+            .to_text();
+
+        let vp_client = rt
+            .block_on(VpClient::new(&chain_config.ic_endpoint, &canister_pem_path))
+            .map_err(|e| {
+                let position = std::panic::Location::caller();
+                RelayerError::report_error(format!(
+                    "build vp client failed Error({:?}) \n{}",
+                    e, position
+                ))
+            })?;
+        // Retrieve the version specification of this chain
+
+        Ok(Self {
+            chain_id,
+            config: chain_config.clone(),
+            vp_client,
+            rt,
+            signer: sender,
+        })
+    }
+
+    /// Run a future to completion on the Tokio runtime.
+    fn block_on<F: Future>(&self, f: F) -> F::Output {
+        self.rt.block_on(f)
+    }
+
+    /// Get the account for the signer
+    fn get_signer(&self) -> Result<Signer, RelayerError> {
+        Signer::from_str(self.signer.as_str())
+            .map_err(|e| RelayerError::report_error(e.to_string()))
+    }
+
+    fn chain_id(&self) -> &ChainId {
+        &self.chain_id
+    }
+
+    fn send_messages_and_wait_commit(
+        &self,
+        tracked_msgs: TrackedMsgs,
+    ) -> Result<Vec<IbcEventWithHeight>, RelayerError> {
+        // let mut tracked_msgs = tracked_msgs.clone();
+        // if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
+        let canister_id = self.config.canister_id.id.as_str();
+        let mut msgs: Vec<Any> = Vec::new();
+        for msg in tracked_msgs.messages() {
+            let res = self
+                .block_on(self.vp_client.deliver(canister_id, msg.encode_to_vec()))
+                .map_err(|e| {
+                    let position = std::panic::Location::caller();
+                    RelayerError::report_error(format!(
+                        "call vp deliver failed Error({}) \n{}",
+                        e, position
+                    ))
+                })?;
+            assert!(!res.is_empty());
+            if !res.is_empty() {
+                msgs.push(Any::decode(&res[..]).map_err(|e| {
+                    let position = std::panic::Location::caller();
+                    RelayerError::report_error(format!(
+                        "decode call vp deliver result failed Error({}) \n{}",
+                        e, position
+                    ))
+                })?);
+            }
         }
+        assert_eq!(msgs.len(), 1);
+        let create_client_msg = msgs.remove(0);
+        let domain_msg: MsgCreateClient = MsgCreateClient::decode_vec(&create_client_msg.value)
+            .map_err(|e| {
+                let position = std::panic::Location::caller();
+                RelayerError::report_error(format!(
+                    "decode call vp deliver result failed Error({}) \n{}",
+                    e, position
+                ))
+            })?;
+
+        let client_state =
+            ibc_relayer_types::clients::ics06_solomachine::client_state::ClientState::try_from(
+                domain_msg.client_state,
+            )
+            .unwrap();
+        println!("new solomachine client state created: {:?}", client_state);
+        let serialized_pub_key =
+            serde_json::to_string(&client_state.consensus_state.public_key.0).unwrap();
+        println!("pubkey: {:?}", serialized_pub_key);
+        println!(
+            "timestamp: {:?}",
+            client_state.consensus_state.timestamp.nanoseconds()
+        );
+        // todo: maybe need to check the response from ic
+        let create_client_event = CreateClient::from(Attributes {
+            client_id: ClientId::new(ClientType::Solomachine, 0).unwrap(),
+            client_type: ClientType::Solomachine,
+            consensus_height: ICSHeight::new(0, 1).unwrap(),
+        });
+        let create_event_with_height = IbcEventWithHeight {
+            event: IbcRelayerTypeEvent::CreateClient(create_client_event),
+            height: ICSHeight::new(0, 1).unwrap(),
+        };
+        Ok(vec![create_event_with_height])
     }
 }
 
@@ -629,7 +969,8 @@ mod tests {
                 src_chain_id: ChainId::from_string("reference_chain"),
                 clock_drift: None,
                 trusting_period: None,
-                trust_threshold: None
+                trust_threshold: None,
+                only_init_vp: None,
             },
             TxCreateClientCmd::parse_from([
                 "test",
@@ -649,7 +990,8 @@ mod tests {
                 src_chain_id: ChainId::from_string("reference_chain"),
                 clock_drift: Some("5s".parse::<Duration>().unwrap()),
                 trusting_period: None,
-                trust_threshold: None
+                trust_threshold: None,
+                only_init_vp: None,
             },
             TxCreateClientCmd::parse_from([
                 "test",
@@ -667,7 +1009,8 @@ mod tests {
                 src_chain_id: ChainId::from_string("reference_chain"),
                 clock_drift: Some("3s".parse::<Duration>().unwrap()),
                 trusting_period: None,
-                trust_threshold: None
+                trust_threshold: None,
+                only_init_vp: None
             },
             TxCreateClientCmd::parse_from([
                 "test",
@@ -689,7 +1032,8 @@ mod tests {
                 src_chain_id: ChainId::from_string("reference_chain"),
                 clock_drift: None,
                 trusting_period: Some("5s".parse::<Duration>().unwrap()),
-                trust_threshold: None
+                trust_threshold: None,
+                only_init_vp: None,
             },
             TxCreateClientCmd::parse_from([
                 "test",
@@ -707,7 +1051,8 @@ mod tests {
                 src_chain_id: ChainId::from_string("reference_chain"),
                 clock_drift: None,
                 trusting_period: Some("3s".parse::<Duration>().unwrap()),
-                trust_threshold: None
+                trust_threshold: None,
+                only_init_vp: None
             },
             TxCreateClientCmd::parse_from([
                 "test",
@@ -729,7 +1074,8 @@ mod tests {
                 src_chain_id: ChainId::from_string("reference_chain"),
                 clock_drift: None,
                 trusting_period: None,
-                trust_threshold: Some(TrustThreshold::new(1, 2).unwrap())
+                trust_threshold: Some(TrustThreshold::new(1, 2).unwrap()),
+                only_init_vp: None,
             },
             TxCreateClientCmd::parse_from([
                 "test",
@@ -751,7 +1097,8 @@ mod tests {
                 src_chain_id: ChainId::from_string("reference_chain"),
                 clock_drift: Some("5s".parse::<Duration>().unwrap()),
                 trusting_period: Some("3s".parse::<Duration>().unwrap()),
-                trust_threshold: Some(TrustThreshold::new(1, 2).unwrap())
+                trust_threshold: Some(TrustThreshold::new(1, 2).unwrap()),
+                only_init_vp: None,
             },
             TxCreateClientCmd::parse_from([
                 "test",
