@@ -176,7 +176,7 @@ fn run_only_init_vp(
     // this config use dst chain config to init vp
     let chain_config = config
         .find_chain(dst_chain_id)
-        .expect("not found src chain Config");
+        .expect("not found dst chain Config");
     let src_chain = match spawn_chain_runtime(&config, src_chain_id) {
         Ok(handle) => handle,
         Err(e) => Output::error(e).exit(),
