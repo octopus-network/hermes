@@ -168,13 +168,14 @@ fn run_create_client(
 fn run_only_init_vp(
     config: &Config,
     src_chain_id: &ChainId,
-    _dst_chain_id: &ChainId,
+    dst_chain_id: &ChainId,
     clock_drift: Option<humantime::Duration>,
     trusting_period: Option<humantime::Duration>,
     trust_threshold: Option<TrustThreshold>,
 ) {
+    // this config use dst chain config to init vp
     let chain_config = config
-        .find_chain(src_chain_id)
+        .find_chain(dst_chain_id)
         .expect("not found src chain Config");
     let src_chain = match spawn_chain_runtime(&config, src_chain_id) {
         Ok(handle) => handle,
