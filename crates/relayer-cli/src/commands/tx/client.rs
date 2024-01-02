@@ -7,6 +7,7 @@ use ibc_relayer_types::core::ics02_client::msgs::create_client::MsgCreateClient;
 use ibc_relayer_types::tx_msg::Msg;
 use std::sync::Arc;
 use std::thread;
+use std::{env, path::PathBuf};
 
 use abscissa_core::clap::Parser;
 use abscissa_core::{Command, Runnable};
@@ -19,7 +20,6 @@ use ibc_relayer::chain::requests::{
 };
 use ibc_relayer::chain::tracking::TrackedMsgs;
 use ibc_relayer::client_state::AnyClientState;
-use ibc_relayer::config::ChainConfig;
 use ibc_relayer::config::Config;
 use ibc_relayer::error::Error as RelayerError;
 use ibc_relayer::event::IbcEventWithHeight;
@@ -168,15 +168,12 @@ fn run_create_client(
 fn run_only_init_vp(
     config: &Config,
     src_chain_id: &ChainId,
-    dst_chain_id: &ChainId,
+    _dst_chain_id: &ChainId,
     clock_drift: Option<humantime::Duration>,
     trusting_period: Option<humantime::Duration>,
     trust_threshold: Option<TrustThreshold>,
 ) {
     // this config use dst chain config to init vp
-    let chain_config = config
-        .find_chain(dst_chain_id)
-        .expect("not found dst chain Config");
     let src_chain = match spawn_chain_runtime(&config, src_chain_id) {
         Ok(handle) => handle,
         Err(e) => Output::error(e).exit(),
@@ -190,7 +187,7 @@ fn run_only_init_vp(
 
     let rt = Arc::new(TokioRuntime::new().unwrap());
 
-    let vp_client = match VpChain::new(src_chain_id.clone(), chain_config.clone(), rt) {
+    let vp_client = match VpChain::new(src_chain_id.clone(), rt) {
         Ok(client) => client,
         Err(e) => Output::error(e).exit(),
     };
@@ -309,24 +306,28 @@ fn build_and_create_client_and_send(
 #[derive(Debug, Clone)]
 pub struct VpChain {
     chain_id: ChainId,
-    config: ChainConfig,
     rt: Arc<TokioRuntime>,
     vp_client: VpClient,
     signer: String,
+    canister_id: String,
 }
 
 impl VpChain {
-    pub fn new(
-        chain_id: ChainId,
-        chain_config: ChainConfig,
-        rt: Arc<TokioRuntime>,
-    ) -> Result<Self, RelayerError> {
-        let canister_pem_path = if chain_config.canister_pem.is_absolute() {
-            chain_config.canister_pem.clone()
+    pub fn new(chain_id: ChainId, rt: Arc<TokioRuntime>) -> Result<Self, RelayerError> {
+        let canister_pem_path: PathBuf = env::var("CANISTER_PEM_PATH")
+            .map_err(|_| RelayerError::report_error("cann't read cansiter pem path env".into()))?
+            .into();
+        let ic_endpoint = env::var("IC_ENDPOINT")
+            .map_err(|_| RelayerError::report_error("cann't read ic endpoint env".into()))?;
+        let canister_id = env::var("CANISTER_ID")
+            .map_err(|_| RelayerError::report_error("cann't read cansiter id env".into()))?;
+
+        let canister_pem_path = if canister_pem_path.is_absolute() {
+            canister_pem_path.clone()
         } else {
             let current_dir =
                 std::env::current_dir().map_err(|e| RelayerError::report_error(e.to_string()))?;
-            current_dir.join(chain_config.canister_pem.clone())
+            current_dir.join(canister_pem_path.clone())
         };
 
         let signer = Secp256k1Identity::from_pem_file(canister_pem_path.clone()).map_err(|e| {
@@ -349,7 +350,7 @@ impl VpChain {
             .to_text();
 
         let vp_client = rt
-            .block_on(VpClient::new(&chain_config.ic_endpoint, &canister_pem_path))
+            .block_on(VpClient::new(&ic_endpoint, &canister_pem_path))
             .map_err(|e| {
                 let position = std::panic::Location::caller();
                 RelayerError::report_error(format!(
@@ -361,10 +362,10 @@ impl VpChain {
 
         Ok(Self {
             chain_id,
-            config: chain_config.clone(),
             vp_client,
             rt,
             signer: sender,
+            canister_id,
         })
     }
 
@@ -389,11 +390,13 @@ impl VpChain {
     ) -> Result<Vec<IbcEventWithHeight>, RelayerError> {
         // let mut tracked_msgs = tracked_msgs.clone();
         // if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
-        let canister_id = self.config.canister_id.id.as_str();
         let mut msgs: Vec<Any> = Vec::new();
         for msg in tracked_msgs.messages() {
             let res = self
-                .block_on(self.vp_client.deliver(canister_id, msg.encode_to_vec()))
+                .block_on(
+                    self.vp_client
+                        .deliver(&self.canister_id, msg.encode_to_vec()),
+                )
                 .map_err(|e| {
                     let position = std::panic::Location::caller();
                     RelayerError::report_error(format!(

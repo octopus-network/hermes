@@ -167,10 +167,6 @@ impl NearChain {
         &self.config
     }
 
-    pub fn canister_id(&self) -> &str {
-        &self.config.canister_id.id
-    }
-
     /// Subscribe Events
     /// todo near don't have events subscription
     pub fn subscribe_ibc_events(&self) -> Result<Vec<IbcRelayerTypeEvent>, Error> {
