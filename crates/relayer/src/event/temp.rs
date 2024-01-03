@@ -1,3 +1,5 @@
+pub mod rpc;
+
 use super::{error::Error, source::EventBatch, IbcEventWithHeight};
 use crate::chain::{
     handle::Subscription,

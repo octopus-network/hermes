@@ -1,6 +1,7 @@
 use super::client::ClientSettings;
 use crate::chain::near::constants::*;
 use crate::chain::near::error::NearError;
+use crate::event::near_source::{EventSource, TxEventSourceCmd};
 use crate::util::retry::{retry_with_index, RetryResult};
 use crate::{
     account::Balance,
@@ -31,10 +32,7 @@ use crate::{
     consensus_state::AnyConsensusState,
     denom::DenomTrace,
     error::Error,
-    event::{
-        near_event_monitor::{NearEventMonitor, TxMonitorCmd},
-        IbcEventWithHeight,
-    },
+    event::IbcEventWithHeight,
     keyring::{KeyRing, NearKeyPair, SigningKeyPair},
     misbehaviour::MisbehaviourEvidence,
 };
@@ -125,7 +123,7 @@ pub struct NearChain {
     keybase: KeyRing<NearKeyPair>,
     near_ibc_contract: AccountId,
     rt: Arc<TokioRuntime>,
-    tx_monitor_cmd: Option<TxMonitorCmd>,
+    tx_monitor_cmd: Option<TxEventSourceCmd>,
     signing_key_pair: Option<NearKeyPair>,
 }
 
@@ -150,15 +148,20 @@ impl NearChain {
         info!("initializing event monitor");
         crate::time!("init_event_source");
 
-        let (event_monitor, monitor_tx) = NearEventMonitor::new(
-            self.config.id.clone(),
-            self.config.near_ibc_address.clone().into(),
-            self.config.rpc_addr.to_string(),
-            self.rt.clone(),
-        )
-        .map_err(Error::event_monitor)?;
+        use crate::config::EventSourceMode as Mode;
 
-        thread::spawn(move || event_monitor.run());
+        let (event_source, monitor_tx) = match &self.config.event_source {
+            Mode::Push { url, batch_delay } => panic!("not support"),
+            Mode::Pull { interval } => EventSource::rpc(
+                self.config.id.clone(),
+                self.rpc_client.clone(),
+                *interval,
+                self.rt.clone(),
+            ),
+        }
+        .map_err(Error::event_source)?;
+
+        thread::spawn(move || event_source.run());
 
         Ok(monitor_tx)
     }
