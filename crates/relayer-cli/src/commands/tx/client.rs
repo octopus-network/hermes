@@ -314,7 +314,7 @@ pub struct VpChain {
 
 impl VpChain {
     pub fn new(chain_id: ChainId, rt: Arc<TokioRuntime>) -> Result<Self, RelayerError> {
-        let canister_pem_path: PathBuf = env::var("CANISTER_PEM_PATH")
+        let canister_pem_path: PathBuf = env::var("CANISTER_PEM")
             .map_err(|_| RelayerError::report_error("cann't read cansiter pem path env".into()))?
             .into();
         let ic_endpoint = env::var("IC_ENDPOINT")

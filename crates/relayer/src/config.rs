@@ -157,21 +157,10 @@ pub mod default {
         ChainType::CosmosSdk
     }
 
-    pub fn default_canister_id() -> CanisterIdConfig {
-        CanisterIdConfig::default()
-    }
-
-    pub fn default_canister_pem_path() -> PathBuf {
-        PathBuf::from(".config/dfx/identity/default/identity.pem")
-    }
-
     pub fn near_ibc_contract_address() -> NearIbcContractAddress {
         NearIbcContractAddress::default()
     }
 
-    pub fn default_ic_endpoint() -> String {
-        "http://localhost:4943".to_string()
-    }
     pub fn ccv_consumer_chain() -> bool {
         false
     }
@@ -570,32 +559,6 @@ pub enum EventSourceMode {
         #[serde(default = "default::poll_interval", with = "humantime_serde")]
         interval: Duration,
     },
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
-#[serde(from = "String", into = "String")]
-pub struct CanisterIdConfig {
-    pub id: String,
-}
-
-impl FromStr for CanisterIdConfig {
-    type Err = String;
-
-    fn from_str(id: &str) -> Result<Self, Self::Err> {
-        Ok(Self::from(id.to_string()))
-    }
-}
-
-impl From<CanisterIdConfig> for String {
-    fn from(value: CanisterIdConfig) -> Self {
-        value.id
-    }
-}
-
-impl From<String> for CanisterIdConfig {
-    fn from(value: String) -> Self {
-        Self { id: value }
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]

@@ -120,7 +120,7 @@ struct NearProofs(Vec<Vec<u8>>);
 #[derive(Debug)]
 pub struct NearChain {
     client: NearRpcClient,
-    lcb_client: NearRpcClient,
+    viewstate_client: NearRpcClient,
     config: ChainConfig,
     keybase: KeyRing<NearKeyPair>,
     near_ibc_contract: AccountId,
@@ -237,13 +237,13 @@ impl NearChain {
         self.block_on(self.client.query(method))
     }
 
-    fn query_by_lcb_client<M>(&self, method: &M) -> MethodCallResult<M::Response, M::Error>
+    fn query_by_viewstate_client<M>(&self, method: &M) -> MethodCallResult<M::Response, M::Error>
     where
         M: methods::RpcMethod + Debug,
         M::Response: Debug,
         M::Error: Debug,
     {
-        self.block_on(self.lcb_client.query(method))
+        self.block_on(self.viewstate_client.query(method))
     }
 
     fn next_light_client_block(
@@ -252,8 +252,7 @@ impl NearChain {
         test_proof: bool,
     ) -> Result<NearHeader, retry::Error<()>> {
         retry_with_index(retry_strategy::default_strategy(), |_index| {
-            let result =
-                self.query_by_lcb_client(&RpcLightClientNextBlockRequest { last_block_hash });
+            let result = self.query(&RpcLightClientNextBlockRequest { last_block_hash });
 
             let light_client_block_view = match result {
                 Ok(lcb) => lcb,
@@ -292,7 +291,7 @@ impl NearChain {
 
                 let block_reference: BlockReference = BlockId::Height(proof_height).into();
                 let prefix = StoreKey::from("version".as_bytes().to_vec());
-                let result = self.query(&RpcQueryRequest {
+                let result = self.query_by_viewstate_client(&RpcQueryRequest {
                     block_reference,
                     request: QueryRequest::ViewState {
                         account_id: self.near_ibc_contract.clone(),
@@ -371,7 +370,7 @@ impl NearChain {
         let query_response = retry_with_index(retry_strategy::default_strategy(), |_index| {
             let block_reference: BlockReference = BlockId::Height(height).into();
             let prefix = StoreKey::from(store_key.clone().into_bytes());
-            let result = self.query(&RpcQueryRequest {
+            let result = self.query_by_viewstate_client(&RpcQueryRequest {
                 block_reference,
                 request: QueryRequest::ViewState {
                     account_id: self.near_ibc_contract.clone(),
@@ -440,6 +439,8 @@ impl ChainEndpoint for NearChain {
     // todo init NearChain
     fn bootstrap(config: ChainConfig, rt: Arc<TokioRuntime>) -> Result<Self, Error> {
         trace!("[bootstrap] : {}", config.id);
+
+        let viewstate_near_endpoint = std::env::var("VIEWSTATE_NEAR_ENDPOINT").unwrap();
         // Initialize key store and load key
         let keybase = KeyRing::new_near_keypair(
             config.key_store_type,
@@ -449,19 +450,9 @@ impl ChainEndpoint for NearChain {
         )
         .map_err(Error::key_base)?;
 
-        let lcb_client_rpc_url = if config
-            .near_ibc_address
-            .account_id
-            .to_string()
-            .contains("testnet")
-        {
-            NEAR_TESTNET_RPC_URL
-        } else {
-            NEAR_MAINNET_RPC_URL
-        };
         let mut new_instance = NearChain {
             client: NearRpcClient::new(config.rpc_addr.to_string().as_str()),
-            lcb_client: NearRpcClient::new(lcb_client_rpc_url),
+            viewstate_client: NearRpcClient::new(&viewstate_near_endpoint),
             config: config.clone(),
             keybase,
             near_ibc_contract: config.near_ibc_address.into(),
@@ -1181,7 +1172,7 @@ impl ChainEndpoint for NearChain {
         &self,
         request: QueryPacketEventDataRequest,
     ) -> Result<Vec<IbcEventWithHeight>, Error> {
-        trace!(
+        warn!(
             "request: {:?} \n{}",
             request,
             std::panic::Location::caller()
@@ -1199,6 +1190,10 @@ impl ChainEndpoint for NearChain {
         let original_result = self
             .get_packet_events(request)
             .map_err(Error::near_chain_error)?;
+        warn!(
+            "query_packet_events: original_result: {:?}",
+            original_result
+        );
         let mut result: Vec<IbcEventWithHeight> = vec![];
         for (height, ibc_events) in original_result {
             for ibc_event in ibc_events.iter() {
@@ -1209,6 +1204,7 @@ impl ChainEndpoint for NearChain {
                 });
             }
         }
+        warn!("query_packet_events: result: {:?}", result);
         Ok(result)
     }
 

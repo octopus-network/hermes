@@ -3,7 +3,7 @@ use std::ops::Add;
 use std::time::{Duration, Instant};
 
 use ibc_proto::google::protobuf::Any;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use ibc_relayer_types::core::ics02_client::client_state::ClientState;
 use ibc_relayer_types::Height;
@@ -171,19 +171,16 @@ impl OperationalData {
             // Vector may be empty if the client already has the header for the requested height.
             match self.target {
                 OperationalDataTarget::Source => {
-                    info!(
-                        "OperationalDataTarget::Source should skip update {:?} for {:?}",
-                        update_height,
-                        relay_path.src_chain().config().unwrap().r#type
-                    );
                     if relay_path.src_chain().config().unwrap().r#type == ChainType::Near {
                         relay_path.build_update_client_on_src(update_height)?
                     } else {
+                        warn!("skip build_update_client_on_src for appchain->near");
                         vec![]
                     }
                 }
                 OperationalDataTarget::Destination => {
                     if relay_path.src_chain().config().unwrap().r#type == ChainType::Near {
+                        warn!("skip build_update_client_on_dst for near->appchain");
                         vec![]
                     } else {
                         relay_path.build_update_client_on_dst(update_height)?

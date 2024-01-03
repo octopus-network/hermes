@@ -962,7 +962,6 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             // Potential optimization: cache the list of consensus heights
             // so that subsequent fetches can be fast.
             let cs_heights = self.fetch_consensus_state_heights()?;
-            warn!("fetch_consensus_state_heights: {:?}", cs_heights);
 
             // Iterate through the available consesnsus heights and find one
             // that is lower than the target height.
@@ -1203,50 +1202,51 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
         // Get the latest client state on destination.
         let (client_state, _) = self.validated_client_state()?;
 
-        let trusted_height = match maybe_trusted_height {
-            Some(trusted_height) => {
-                self.validate_trusted_height(trusted_height, &client_state)?;
-                trusted_height
-            }
-            None => self.solve_trusted_height(target_height, &client_state)?,
-        };
+        let mut trusted_height = client_state.latest_height();
 
-        if trusted_height != client_state.latest_height() {
-            warn!(
-                "ys-debug: trusted_height != client_state.latest_height() {:?}!={:?}",
-                trusted_height,
-                client_state.latest_height()
-            );
-            // If we're using a trusted height that is different from the client latest height,
-            // then check if the consensus state at `trusted_height` is within trusting period
-            if let ConsensusStateTrusted::NotTrusted {
-                elapsed,
-                consensus_state_timestmap,
-                network_timestamp,
-            } = self.check_consensus_state_trusting_period(&client_state, &trusted_height)?
-            {
-                error!(
-                    %trusted_height,
-                    %network_timestamp,
-                    %consensus_state_timestmap,
-                    ?elapsed,
-                    "cannot build client update message because the provided trusted height is outside of trusting period!",
+        if self.src_chain().config().unwrap().r#type != ChainType::Near {
+            trusted_height = match maybe_trusted_height {
+                Some(trusted_height) => {
+                    self.validate_trusted_height(trusted_height, &client_state)?;
+                    trusted_height
+                }
+                None => self.solve_trusted_height(target_height, &client_state)?,
+            };
+
+            if trusted_height != client_state.latest_height() {
+                // If we're using a trusted height that is different from the client latest height,
+                // then check if the consensus state at `trusted_height` is within trusting period
+                if let ConsensusStateTrusted::NotTrusted {
+                    elapsed,
+                    consensus_state_timestmap,
+                    network_timestamp,
+                } = self.check_consensus_state_trusting_period(&client_state, &trusted_height)?
+                {
+                    error!(
+                        %trusted_height,
+                        %network_timestamp,
+                        %consensus_state_timestmap,
+                        ?elapsed,
+                        "cannot build client update message because the provided trusted height is outside of trusting period!",
+                    );
+
+                    return Err(ForeignClientError::consensus_state_not_trusted(
+                        trusted_height,
+                        elapsed,
+                    ));
+                }
+            }
+
+            if trusted_height >= target_height {
+                warn!(
+                    "skipping update: trusted height ({}) >= chain target height ({})",
+                    trusted_height, target_height
                 );
 
-                return Err(ForeignClientError::consensus_state_not_trusted(
-                    trusted_height,
-                    elapsed,
-                ));
+                return Ok(vec![]);
             }
-        }
-
-        if trusted_height >= target_height {
-            warn!(
-                "skipping update: trusted height ({}) >= chain target height ({})",
-                trusted_height, target_height
-            );
-
-            return Ok(vec![]);
+        } else {
+            warn!("skip solve trusted height for near->appchain");
         }
 
         let (header, support) = self
@@ -1268,10 +1268,10 @@ impl<DstChain: ChainHandle, SrcChain: ChainHandle> ForeignClient<DstChain, SrcCh
             )
         })?;
 
-        if self.src_chain().config().unwrap().r#type == ChainType::Near {
-            warn!("skip wait_for_header_validation_delay for near->appchain");
-        } else {
+        if self.src_chain().config().unwrap().r#type != ChainType::Near {
             self.wait_for_header_validation_delay(&client_state, &header)?;
+        } else {
+            warn!("skip wait_for_header_validation_delay for near->appchain");
         }
 
         let mut msgs = vec![];

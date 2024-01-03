@@ -19,7 +19,7 @@ use near_primitives::transaction::{
     Action, AddKeyAction, CreateAccountAction, DeleteAccountAction, DeployContractAction,
     FunctionCallAction, SignedTransaction, TransferAction,
 };
-use near_primitives::types::{AccountId, Balance, BlockId, Finality, Gas, StoreKey};
+use near_primitives::types::{AccountId, Balance, BlockId, Finality, Gas};
 use near_primitives::views::{
     AccessKeyView, AccountView, BlockView, ContractCodeView, FinalExecutionOutcomeView,
     QueryRequest, StateChangeWithCauseView, StateChangesRequestView, StatusResponse,
@@ -182,39 +182,6 @@ impl NearRpcClient {
 
         match query_resp.kind {
             QueryResponseKind::CallResult(result) => Ok(result.into()),
-            _ => Err(NearError::custom_error(
-                ERR_INVALID_VARIANT.to_string(),
-                std::panic::Location::caller().to_string(),
-            )),
-        }
-    }
-
-    pub async fn view_state(
-        &self,
-        contract_id: AccountId,
-        prefix: Option<&[u8]>,
-        block_id: Option<BlockId>,
-    ) -> Result<near_primitives::views::ViewStateResult, NearError> {
-        let block_reference = block_id
-            .map(Into::into)
-            .unwrap_or_else(|| Finality::None.into());
-
-        let query_resp = self
-            .query(&RpcQueryRequest {
-                block_reference,
-                request: QueryRequest::ViewState {
-                    account_id: contract_id,
-                    prefix: StoreKey::from(prefix.map(Vec::from).unwrap_or_default()),
-                    include_proof: false,
-                },
-            })
-            .await
-            .map_err(|e| {
-                NearError::rpc_query_error(std::panic::Location::caller().to_string(), e)
-            })?;
-
-        match query_resp.kind {
-            QueryResponseKind::ViewState(state) => Ok(state),
             _ => Err(NearError::custom_error(
                 ERR_INVALID_VARIANT.to_string(),
                 std::panic::Location::caller().to_string(),
