@@ -10,7 +10,6 @@ use ibc_relayer::chain::ChainType;
 use ibc_relayer::config;
 use ibc_relayer::config::compat_mode::CompatMode;
 use ibc_relayer::config::gas_multiplier::GasMultiplier;
-use ibc_relayer::config::CanisterIdConfig;
 use ibc_relayer::config::NearIbcContractAddress;
 use ibc_relayer::keyring::Store;
 use ibc_relayer_types::core::ics24_host::identifier::ChainId;
@@ -147,11 +146,9 @@ impl FullNode {
         Ok(config::ChainConfig {
             id: self.chain_driver.chain_id.clone(),
             r#type: ChainType::CosmosSdk,
-            ic_endpoint: test_config.ic_endpoint.clone(),
-            canister_pem: test_config.canister_pem.clone(),
+
             near_ibc_address: NearIbcContractAddress::from_str(&test_config.near_ibc_address)
                 .unwrap(),
-            canister_id: CanisterIdConfig::from_str(&test_config.canister_id).unwrap(),
             rpc_addr: Url::from_str(&self.chain_driver.rpc_address())?,
             grpc_addr: Url::from_str(&self.chain_driver.grpc_address())?,
             event_source: config::EventSourceMode::Push {

@@ -146,9 +146,9 @@ impl NearIbcContract for NearChain {
 }
 
 impl NearChain {
-    fn init_event_monitor(&self) -> Result<TxMonitorCmd, Error> {
+    fn init_event_source(&self) -> Result<TxMonitorCmd, Error> {
         info!("initializing event monitor");
-        crate::time!("init_event_monitor");
+        crate::time!("init_event_source");
 
         let (event_monitor, monitor_tx) = NearEventMonitor::new(
             self.config.id.clone(),
@@ -165,10 +165,6 @@ impl NearChain {
 
     pub fn config(&self) -> &ChainConfig {
         &self.config
-    }
-
-    pub fn canister_id(&self) -> &str {
-        &self.config.canister_id.id
     }
 
     /// Subscribe Events
@@ -1653,7 +1649,7 @@ impl ChainEndpoint for NearChain {
         let tx_monitor_cmd = match &self.tx_monitor_cmd {
             Some(tx_monitor_cmd) => tx_monitor_cmd,
             None => {
-                let tx_monitor_cmd = self.init_event_monitor()?;
+                let tx_monitor_cmd = self.init_event_source()?;
                 self.tx_monitor_cmd = Some(tx_monitor_cmd);
                 self.tx_monitor_cmd.as_ref().ok_or(Error::report_error(
                     "subscribe tx_monitor_cmd is None".to_string(),

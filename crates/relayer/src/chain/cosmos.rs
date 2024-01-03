@@ -10,7 +10,8 @@ use core::{
 use futures::future::join_all;
 use num_bigint::BigInt;
 use prost::Message;
-use std::{cmp::Ordering, thread};
+use std::env;
+use std::{cmp::Ordering, path::PathBuf, thread};
 
 use tokio::runtime::Runtime as TokioRuntime;
 use tonic::codegen::http::Uri;
@@ -154,6 +155,9 @@ pub struct CosmosSdkChain {
     account: Option<Account>,
 
     tx_monitor_cmd: Option<TxEventSourceCmd>,
+
+    /// config for icp config
+    canister_id: String,
 }
 
 impl CosmosSdkChain {
@@ -898,16 +902,24 @@ impl ChainEndpoint for CosmosSdkChain {
 
         let tx_config = TxConfig::try_from(&config)?;
 
-        let canister_pem_path = if config.canister_pem.is_absolute() {
-            config.canister_pem.clone()
+        let canister_pem_path: PathBuf = env::var("CANISTER_PEM_PATH")
+            .map_err(|_| Error::report_error("cann't read cansiter pem path env".into()))?
+            .into();
+        let ic_endpoint = env::var("IC_ENDPOINT")
+            .map_err(|_| Error::report_error("cann't read ic endpoint env".into()))?;
+        let canister_id = env::var("CANISTER_ID")
+            .map_err(|_| Error::report_error("cann't read cansiter id env".into()))?;
+
+        let canister_pem_path = if canister_pem_path.is_absolute() {
+            canister_pem_path.clone()
         } else {
             let current_dir =
                 std::env::current_dir().map_err(|e| Error::report_error(e.to_string()))?;
-            current_dir.join(config.canister_pem.clone())
+            current_dir.join(canister_pem_path.clone())
         };
 
         let vp_client = rt
-            .block_on(VpClient::new(&config.ic_endpoint, &canister_pem_path))
+            .block_on(VpClient::new(&ic_endpoint, &canister_pem_path))
             .map_err(|e| {
                 let position = std::panic::Location::caller();
                 Error::report_error(format!(
@@ -929,6 +941,7 @@ impl ChainEndpoint for CosmosSdkChain {
             tx_config,
             account: None,
             tx_monitor_cmd: None,
+            canister_id,
         };
 
         Ok(chain)
@@ -1063,7 +1076,6 @@ impl ChainEndpoint for CosmosSdkChain {
         );
 
         use ibc_proto::google::protobuf::Any;
-        let canister_id = self.config.canister_id.id.clone();
 
         let mut result = vec![];
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
@@ -1078,7 +1090,10 @@ impl ChainEndpoint for CosmosSdkChain {
 
                 info!("near msg envelope: {near_msg_envelope:?}");
                 let res = self
-                    .block_on(self.vp_client.deliver(&canister_id, msg.encode_to_vec()))
+                    .block_on(
+                        self.vp_client
+                            .deliver(&self.canister_id, msg.encode_to_vec()),
+                    )
                     .map_err(|e| {
                         let position = std::panic::Location::caller();
                         Error::report_error(format!(
@@ -1133,7 +1148,6 @@ impl ChainEndpoint for CosmosSdkChain {
         );
 
         use ibc_proto::google::protobuf::Any;
-        let canister_id = self.config.canister_id.id.clone();
 
         let mut result = vec![];
         if tracked_msgs.tracking_id().to_string() != "ft-transfer" {
@@ -1148,7 +1162,10 @@ impl ChainEndpoint for CosmosSdkChain {
 
                 info!("near msg envelope: {near_msg_envelope:?}");
                 let res = self
-                    .block_on(self.vp_client.deliver(&canister_id, msg.encode_to_vec()))
+                    .block_on(
+                        self.vp_client
+                            .deliver(&self.canister_id, msg.encode_to_vec()),
+                    )
                     .map_err(|e| {
                         let position = std::panic::Location::caller();
                         Error::report_error(format!(
@@ -1352,8 +1369,6 @@ impl ChainEndpoint for CosmosSdkChain {
         crate::telemetry!(query, self.id(), "query_client_state");
 
         if matches!(include_proof, IncludeProof::No) {
-            let canister_id = self.config.canister_id.id.as_str();
-
             let serialized_request = serde_json::to_vec(&request).map_err(|e| {
                 let position = std::panic::Location::caller();
                 Error::report_error(format!(
@@ -1364,7 +1379,7 @@ impl ChainEndpoint for CosmosSdkChain {
             let res = self
                 .block_on(
                     self.vp_client
-                        .query_client_state(canister_id, serialized_request),
+                        .query_client_state(&self.canister_id, serialized_request),
                 )
                 .map_err(|e| {
                     let position = std::panic::Location::caller();
@@ -1463,11 +1478,10 @@ impl ChainEndpoint for CosmosSdkChain {
         );
 
         crate::telemetry!(query, self.id(), "query_consensus_state_heights");
-        let canister_id = self.config.canister_id.id.as_str();
         inner_query_consensus_state_heights(
             self.rt.clone(),
             self.vp_client.clone(),
-            canister_id,
+            &self.canister_id,
             request,
         )
     }
@@ -1488,8 +1502,6 @@ impl ChainEndpoint for CosmosSdkChain {
         assert!(matches!(include_proof, IncludeProof::No));
         assert!(request.client_id.to_string().starts_with("06-solomachine"));
 
-        let canister_id = self.config.canister_id.id.as_str();
-
         let serialized_request = serde_json::to_vec(&request).map_err(|e| {
             let position = std::panic::Location::caller();
             Error::report_error(format!(
@@ -1501,7 +1513,7 @@ impl ChainEndpoint for CosmosSdkChain {
         let res = self
             .block_on(
                 self.vp_client
-                    .query_consensus_state(canister_id, serialized_request),
+                    .query_consensus_state(&self.canister_id, serialized_request),
             )
             .map_err(|e| {
                 let position = std::panic::Location::caller();

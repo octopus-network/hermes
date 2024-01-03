@@ -654,15 +654,6 @@ pub struct ChainConfig {
     /// The chain's network identifier
     pub id: ChainId,
 
-    #[serde(default = "default::default_canister_id")]
-    pub canister_id: CanisterIdConfig,
-
-    #[serde(default = "default::default_canister_pem_path")]
-    pub canister_pem: PathBuf,
-
-    #[serde(default = "default::default_ic_endpoint")]
-    pub ic_endpoint: String,
-
     /// The chain type
     #[serde(default = "default::near_ibc_contract_address")]
     pub near_ibc_address: NearIbcContractAddress,
