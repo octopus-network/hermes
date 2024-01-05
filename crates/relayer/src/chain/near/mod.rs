@@ -145,7 +145,7 @@ impl NearIbcContract for NearChain {
 }
 
 impl NearChain {
-    fn init_event_source(&self) -> Result<TxMonitorCmd, Error> {
+    fn init_event_source(&self) -> Result<TxEventSourceCmd, Error> {
         info!("initializing event monitor");
         crate::time!("init_event_source");
 
