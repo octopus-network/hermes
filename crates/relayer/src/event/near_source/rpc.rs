@@ -361,22 +361,42 @@ impl EventSource {
                 ))
                 .map(|result| {
                     let ibc_events: Vec<ibc::core::handler::types::events::IbcEvent> =
-                        result.json().expect("near event to json failed");
+                        result.json().map_err(|e| {
+                            Error::custom_error(format!(
+                                "failed to parse ibc events: {}",
+                                e.to_string()
+                            ))
+                        })?;
                     let events = ibc_events
                         .iter()
-                        .map(|event| IbcEventWithHeight {
-                            height: *height,
-                            event: convert_ibc_event_to_hermes_ibc_event(event)
-                                .expect("convert ibc event to hermes ibc event failed"),
+                        .map(|event| {
+                            let event =
+                                convert_ibc_event_to_hermes_ibc_event(event).map_err(|e| {
+                                    Error::custom_error(format!(
+                                        "failed to convert ibc event: {}",
+                                        e
+                                    ))
+                                })?;
+                            Ok(IbcEventWithHeight {
+                                height: *height,
+                                event,
+                            })
                         })
-                        .collect::<Vec<_>>();
+                        .collect::<Result<Vec<_>>>()?;
 
-                    EventBatch {
+                    Ok(EventBatch {
                         height: *height,
                         events,
                         chain_id: self.chain_id.clone(),
                         tracking_id: TrackingId::new_uuid(),
-                    }
+                    })
+                })
+                .map_err(|e| {
+                    Error::custom_error(format!(
+                        "failed to query events at height {}: Error({})",
+                        height.revision_height(),
+                        e
+                    ))
                 });
 
             match events_result {
@@ -396,7 +416,7 @@ impl EventSource {
                 "failed to query events at height {}",
                 height.revision_height()
             ))
-        })
+        })?
     }
 }
 
