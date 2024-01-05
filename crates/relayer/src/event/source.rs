@@ -77,7 +77,7 @@ pub type EventSender = channel::Sender<Result<EventBatch>>;
 pub type EventReceiver = channel::Receiver<Result<EventBatch>>;
 
 #[derive(Clone, Debug)]
-pub struct TxEventSourceCmd(channel::Sender<EventSourceCmd>);
+pub struct TxEventSourceCmd(pub channel::Sender<EventSourceCmd>);
 
 impl TxEventSourceCmd {
     pub fn shutdown(&self) -> Result<()> {

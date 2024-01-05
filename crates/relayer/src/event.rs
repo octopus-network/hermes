@@ -27,7 +27,7 @@ use ibc_relayer_types::{
 
 pub mod bus;
 pub mod error;
-pub mod near_event_monitor;
+pub mod near_source;
 pub mod source;
 
 #[derive(Clone, Debug, Serialize)]
