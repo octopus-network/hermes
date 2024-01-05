@@ -1,12 +1,13 @@
 use super::client::ClientSettings;
+use crate::chain::handle::Subscription;
 use crate::chain::near::constants::*;
 use crate::chain::near::error::NearError;
-use crate::event::near_source::{EventSource, TxEventSourceCmd};
+use crate::event::near_source::EventSource;
+use crate::event::source::TxEventSourceCmd;
 use crate::util::retry::{retry_with_index, RetryResult};
 use crate::{
     account::Balance,
     chain::endpoint::{ChainEndpoint, ChainStatus, HealthCheck},
-    chain::handle::Subscription,
     chain::near::{
         contract::NearIbcContract,
         rpc::{client::NearRpcClient, tool::convert_ibc_event_to_hermes_ibc_event},
@@ -151,10 +152,14 @@ impl NearChain {
         use crate::config::EventSourceMode as Mode;
 
         let (event_source, monitor_tx) = match &self.config.event_source {
-            Mode::Push { url, batch_delay } => panic!("not support"),
+            Mode::Push {
+                url: _,
+                batch_delay: _,
+            } => panic!("push mode is not support"),
             Mode::Pull { interval } => EventSource::rpc(
                 self.config.id.clone(),
-                self.rpc_client.clone(),
+                self.near_ibc_contract.clone(),
+                self.client.clone(),
                 *interval,
                 self.rt.clone(),
             ),

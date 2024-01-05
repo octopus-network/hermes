@@ -1,17 +1,18 @@
 use std::sync::Arc;
 
+use crate::chain::near::contract::NearIbcContract;
+use crate::chain::near::error::NearError;
 use crate::chain::near::rpc::client::NearRpcClient;
+use crate::chain::near::rpc::tool::convert_ibc_event_to_hermes_ibc_event;
+use crate::util::retry::{retry_with_index, RetryResult};
 use crossbeam_channel as channel;
 use near_primitives::types::AccountId;
+use serde_json::json;
 use tokio::{
     runtime::Runtime as TokioRuntime,
     time::{sleep, Duration, Instant},
 };
-use tracing::{debug, error, error_span, trace};
-
-use tendermint::abci;
-use tendermint::block::Height as BlockHeight;
-use tendermint_rpc::{Client, HttpClient};
+use tracing::{debug, error, error_span, trace, warn};
 
 use ibc_relayer_types::{
     core::{
@@ -28,7 +29,7 @@ use crate::{
     util::retry::ConstantGrowth,
 };
 
-use super::{EventBatch, EventSourceCmd, TxEventSourceCmd};
+use crate::event::source::{EventBatch, EventSourceCmd, TxEventSourceCmd};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -56,7 +57,23 @@ pub struct EventSource {
     rt: Arc<TokioRuntime>,
 
     /// Last fetched block height
-    last_fetched_height: BlockHeight,
+    last_fetched_height: Height,
+}
+
+impl NearIbcContract for EventSource {
+    type Error = NearError;
+
+    fn get_contract_id(&self) -> AccountId {
+        self.near_ibc_address.clone()
+    }
+
+    fn get_client(&self) -> &NearRpcClient {
+        &self.rpc_client
+    }
+
+    fn get_rt(&self) -> &Arc<TokioRuntime> {
+        &self.rt
+    }
 }
 
 impl EventSource {
@@ -78,7 +95,7 @@ impl EventSource {
             poll_interval,
             event_bus,
             rx_cmd,
-            last_fetched_height: BlockHeight::from(0_u32),
+            last_fetched_height: Height::new(0, 1).unwrap(), // ibc height starts from 1 height is not zero
         };
 
         Ok((source, TxEventSourceCmd(tx_cmd)))
@@ -95,7 +112,7 @@ impl EventSource {
             let mut backoff = poll_backoff(self.poll_interval);
 
             // Initialize the latest fetched height
-            if let Ok(latest_height) = latest_height(&self.rpc_client).await {
+            if let Ok(latest_height) = self.get_latest_height() {
                 self.last_fetched_height = latest_height;
             }
 
@@ -143,7 +160,9 @@ impl EventSource {
             return Ok(Next::Abort);
         }
 
-        let latest_height = self.rpc_client. .await?;
+        let latest_height = self
+            .get_latest_height()
+            .map_err(|e| Error::custom_error(e.to_string()))?;
 
         let batches = if latest_height > self.last_fetched_height {
             trace!(
@@ -195,10 +214,38 @@ impl EventSource {
         Next::Continue
     }
 
-    async fn fetch_batches(&mut self, latest_height: BlockHeight) -> Result<Vec<EventBatch>> {
-        let start_height = self.last_fetched_height.increment();
+    async fn fetch_batches(&mut self, latest_height: Height) -> Result<Vec<EventBatch>> {
+        let mut latest_height = latest_height;
+        let mut start_height = self.last_fetched_height.increment();
 
         trace!("fetching blocks from {start_height} to {latest_height}");
+
+        let mut heights = self.get_ibc_events_heights();
+        heights.sort();
+
+        if &start_height
+            < heights.first().ok_or(Error::custom_error(
+                "get_ibc_events_heights first event is empty".into(),
+            ))?
+            || &latest_height
+                < heights.last().ok_or(Error::custom_error(
+                    "get_ibc_events_heights last event is empty".into(),
+                ))?
+        {
+            start_height = heights
+                .first()
+                .ok_or(Error::custom_error(
+                    "get_ibc_events_heights first event is empty".into(),
+                ))?
+                .clone();
+
+            latest_height = heights
+                .last()
+                .ok_or(Error::custom_error(
+                    "get_ibc_events_heights last event is empty".into(),
+                ))?
+                .clone();
+        }
 
         let heights = HeightRangeInclusive::new(start_height, latest_height);
         let mut batches = Vec::with_capacity(heights.len());
@@ -206,7 +253,7 @@ impl EventSource {
         for height in heights {
             trace!("collecting events at height {height}");
 
-            let result = collect_events(&self.rpc_client, &self.chain_id, height).await;
+            let result = self.collect_events(&self.chain_id, height).await;
 
             match result {
                 Ok(batch) => {
@@ -240,6 +287,117 @@ impl EventSource {
 
         self.event_bus.broadcast(Arc::new(Ok(batch)));
     }
+
+    /// Collect the IBC events from an RPC event
+    async fn collect_events(
+        &self,
+        chain_id: &ChainId,
+        latest_block_height: Height,
+    ) -> Result<Option<EventBatch>> {
+        if latest_block_height.revision_height() % 100 == 0 {
+            let batch = EventBatch {
+                chain_id: chain_id.clone(),
+                tracking_id: TrackingId::new_uuid(),
+                height: latest_block_height,
+                events: vec![IbcEventWithHeight {
+                    event: IbcEvent::NewBlock(NewBlock::new(latest_block_height)),
+                    height: latest_block_height,
+                }],
+            };
+            trace!("Send batch: {:?}", batch);
+            return Ok(Some(batch));
+        } else {
+            match self.query_events_at_height(&latest_block_height) {
+                Ok(batch) => {
+                    if !batch.events.is_empty() {
+                        let filtered_events: Vec<IbcEventWithHeight> = batch
+                            .clone()
+                            .events
+                            .into_iter()
+                            .filter(|e| {
+                                matches!(
+                                    e.event,
+                                    IbcEvent::CloseInitChannel(_)
+                                        | IbcEvent::TimeoutPacket(_)
+                                        | IbcEvent::SendPacket(_)
+                                        | IbcEvent::AcknowledgePacket(_)
+                                )
+                            })
+                            .collect();
+                        let mut batch = batch.clone();
+                        batch.events = filtered_events;
+                    }
+                    return Ok(Some(batch));
+                }
+                Err(e) => {
+                    error!(%latest_block_height, "failed to query events: {e}");
+                    return Ok(None);
+                }
+            }
+        }
+    }
+
+    fn get_ibc_events_heights(&self) -> Vec<Height> {
+        self.get_rt()
+            .block_on(self.get_client().view(
+                self.get_contract_id(),
+                "get_ibc_events_heights".to_string(),
+                json!({}).to_string().into_bytes(),
+            ))
+            .map_or_else(
+                |_| vec![],
+                |result| result.json().expect("get ibc events height failed"),
+            )
+    }
+
+    fn query_events_at_height(&self, height: &Height) -> Result<EventBatch> {
+        retry_with_index(retry_strategy::default_strategy(), |_| {
+            let events_result = self
+                .get_rt()
+                .block_on(self.get_client().view(
+                    self.get_contract_id(),
+                    "get_ibc_events_at".to_string(),
+                    json!({ "height": height }).to_string().into_bytes(),
+                ))
+                .map(|result| {
+                    let ibc_events: Vec<ibc::core::handler::types::events::IbcEvent> =
+                        result.json().expect("near event to json failed");
+                    let events = ibc_events
+                        .iter()
+                        .map(|event| IbcEventWithHeight {
+                            height: *height,
+                            event: convert_ibc_event_to_hermes_ibc_event(event)
+                                .expect("convert ibc event to hermes ibc event failed"),
+                        })
+                        .collect::<Vec<_>>();
+
+                    EventBatch {
+                        height: *height,
+                        events,
+                        chain_id: self.chain_id.clone(),
+                        tracking_id: TrackingId::new_uuid(),
+                    }
+                });
+
+            match events_result {
+                Ok(outcome) => RetryResult::Ok(outcome),
+                Err(e) => {
+                    warn!(
+                        "retry deliver with error: {} \n{}",
+                        e,
+                        std::panic::Location::caller()
+                    );
+                    RetryResult::Retry(())
+                }
+            }
+        })
+        .map_err(|_| {
+            Error::custom_error(format!(
+                "failed to query events at height {}",
+                height.revision_height()
+            ))
+        })
+    }
 }
 
 fn poll_backoff(poll_interval: Duration) -> impl Iterator<Item = Duration> {
@@ -253,12 +411,12 @@ pub enum Next {
 }
 
 pub struct HeightRangeInclusive {
-    current: BlockHeight,
-    end: BlockHeight,
+    current: Height,
+    end: Height,
 }
 
 impl HeightRangeInclusive {
-    pub fn new(start: BlockHeight, end: BlockHeight) -> Self {
+    pub fn new(start: Height, end: Height) -> Self {
         Self {
             current: start,
             end,
@@ -267,7 +425,7 @@ impl HeightRangeInclusive {
 }
 
 impl Iterator for HeightRangeInclusive {
-    type Item = BlockHeight;
+    type Item = Height;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current > self.end {
@@ -280,9 +438,24 @@ impl Iterator for HeightRangeInclusive {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.end.value() - self.current.value() + 1;
+        let size = self.end.revision_height() - self.current.revision_height() + 1;
         (size as usize, Some(size as usize))
     }
 }
 
 impl ExactSizeIterator for HeightRangeInclusive {}
+
+mod retry_strategy {
+    use crate::util::retry::clamp_total;
+    use core::time::Duration;
+    use retry::delay::Fibonacci;
+
+    // Default parameters for the retrying mechanism
+    const MAX_DELAY: Duration = Duration::from_secs(10); // 10 seconds
+    const MAX_TOTAL_DELAY: Duration = Duration::from_secs(60); // 1 minutes
+    const INITIAL_DELAY: Duration = Duration::from_secs(2); // 2 seconds
+
+    pub fn default_strategy() -> impl Iterator<Item = Duration> {
+        clamp_total(Fibonacci::from(INITIAL_DELAY), MAX_DELAY, MAX_TOTAL_DELAY)
+    }
+}

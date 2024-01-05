@@ -32,6 +32,7 @@ pub const DEFAULT_CALL_DEPOSIT: Balance = 0;
 const ERR_INVALID_VARIANT: &str =
     "Incorrect variant retrieved while querying: maybe a bug in RPC code?";
 
+#[derive(Clone)]
 /// A client that wraps around [`JsonRpcClient`], and provides more capabilities such
 /// as retry w/ exponential backoff and utility functions for sending transactions.
 pub struct NearRpcClient {
