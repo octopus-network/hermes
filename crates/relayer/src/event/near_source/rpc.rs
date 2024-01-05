@@ -4,7 +4,6 @@ use crate::chain::near::contract::NearIbcContract;
 use crate::chain::near::error::NearError;
 use crate::chain::near::rpc::client::NearRpcClient;
 use crate::chain::near::rpc::tool::convert_ibc_event_to_hermes_ibc_event;
-use crate::util::retry::{retry_with_index, RetryResult};
 use crossbeam_channel as channel;
 use near_primitives::types::AccountId;
 use serde_json::json;
@@ -12,7 +11,7 @@ use tokio::{
     runtime::Runtime as TokioRuntime,
     time::{sleep, Duration, Instant},
 };
-use tracing::{debug, error, error_span, trace, warn};
+use tracing::{debug, error, error_span, trace};
 
 use ibc_relayer_types::{
     core::{
@@ -112,7 +111,7 @@ impl EventSource {
             let mut backoff = poll_backoff(self.poll_interval);
 
             // Initialize the latest fetched height
-            if let Ok(latest_height) = self.get_latest_height() {
+            if let Ok(latest_height) = self.latest_height().await {
                 self.last_fetched_height = latest_height;
             }
 
@@ -160,9 +159,7 @@ impl EventSource {
             return Ok(Next::Abort);
         }
 
-        let latest_height = self
-            .get_latest_height()
-            .map_err(|e| Error::custom_error(e.to_string()))?;
+        let latest_height = self.latest_height().await?;
 
         let batches = if latest_height > self.last_fetched_height {
             trace!(
@@ -215,37 +212,9 @@ impl EventSource {
     }
 
     async fn fetch_batches(&mut self, latest_height: Height) -> Result<Vec<EventBatch>> {
-        let mut latest_height = latest_height;
-        let mut start_height = self.last_fetched_height.increment();
+        let start_height = self.last_fetched_height.increment();
 
         trace!("fetching blocks from {start_height} to {latest_height}");
-
-        let mut heights = self.get_ibc_events_heights();
-        heights.sort();
-
-        if &start_height
-            < heights.first().ok_or(Error::custom_error(
-                "get_ibc_events_heights first event is empty".into(),
-            ))?
-            || &latest_height
-                < heights.last().ok_or(Error::custom_error(
-                    "get_ibc_events_heights last event is empty".into(),
-                ))?
-        {
-            start_height = heights
-                .first()
-                .ok_or(Error::custom_error(
-                    "get_ibc_events_heights first event is empty".into(),
-                ))?
-                .clone();
-
-            latest_height = heights
-                .last()
-                .ok_or(Error::custom_error(
-                    "get_ibc_events_heights last event is empty".into(),
-                ))?
-                .clone();
-        }
 
         let heights = HeightRangeInclusive::new(start_height, latest_height);
         let mut batches = Vec::with_capacity(heights.len());
@@ -294,129 +263,102 @@ impl EventSource {
         chain_id: &ChainId,
         latest_block_height: Height,
     ) -> Result<Option<EventBatch>> {
-        if latest_block_height.revision_height() % 100 == 0 {
-            let batch = EventBatch {
-                chain_id: chain_id.clone(),
-                tracking_id: TrackingId::new_uuid(),
-                height: latest_block_height,
-                events: vec![IbcEventWithHeight {
-                    event: IbcEvent::NewBlock(NewBlock::new(latest_block_height)),
-                    height: latest_block_height,
-                }],
-            };
-            trace!("Send batch: {:?}", batch);
-            return Ok(Some(batch));
-        } else {
-            match self.query_events_at_height(&latest_block_height) {
-                Ok(batch) => {
-                    if !batch.events.is_empty() {
-                        let filtered_events: Vec<IbcEventWithHeight> = batch
-                            .clone()
-                            .events
-                            .into_iter()
-                            .filter(|e| {
-                                matches!(
-                                    e.event,
-                                    IbcEvent::CloseInitChannel(_)
-                                        | IbcEvent::TimeoutPacket(_)
-                                        | IbcEvent::SendPacket(_)
-                                        | IbcEvent::AcknowledgePacket(_)
-                                )
-                            })
-                            .collect();
-                        let mut batch = batch.clone();
-                        batch.events = filtered_events;
-                    }
-                    return Ok(Some(batch));
-                }
-                Err(e) => {
-                    error!(%latest_block_height, "failed to query events: {e}");
-                    return Ok(None);
-                }
-            }
-        }
+        let near_events = self.query_events_at_height(&latest_block_height).await?;
+        let mut block_events: Vec<IbcEventWithHeight> = near_events
+            .into_iter()
+            .filter(|e| {
+                matches!(
+                    e.event,
+                    IbcEvent::CloseInitChannel(_)
+                        | IbcEvent::TimeoutPacket(_)
+                        | IbcEvent::SendPacket(_)
+                        | IbcEvent::AcknowledgePacket(_)
+                )
+            })
+            .collect();
+
+        let new_block_event = IbcEventWithHeight::new(
+            IbcEvent::NewBlock(NewBlock::new(latest_block_height)),
+            latest_block_height,
+        );
+
+        let mut events = Vec::with_capacity(block_events.len() + 1);
+        events.push(new_block_event);
+        events.append(&mut block_events);
+
+        trace!(
+            "collected {events_len} events at height {height}: {events:#?}",
+            events_len = events.len(),
+            height = latest_block_height,
+        );
+
+        Ok(Some(EventBatch {
+            chain_id: chain_id.clone(),
+            tracking_id: TrackingId::new_uuid(),
+            height: latest_block_height,
+            events,
+        }))
     }
 
-    fn get_ibc_events_heights(&self) -> Vec<Height> {
-        self.get_rt()
-            .block_on(self.get_client().view(
+    async fn query_events_at_height(&self, height: &Height) -> Result<Vec<IbcEventWithHeight>> {
+        let events_result = self
+            .get_client()
+            .view(
                 self.get_contract_id(),
-                "get_ibc_events_heights".to_string(),
-                json!({}).to_string().into_bytes(),
-            ))
-            .map_or_else(
-                |_| vec![],
-                |result| result.json().expect("get ibc events height failed"),
+                "get_ibc_events_at".to_string(),
+                json!({ "height": height }).to_string().into_bytes(),
             )
+            .await
+            .map(|result| {
+                let ibc_events: Vec<ibc::core::handler::types::events::IbcEvent> =
+                    result.json().map_err(|e| {
+                        Error::custom_error(format!(
+                            "failed to parse ibc events: {}",
+                            e.to_string()
+                        ))
+                    })?;
+                let events = ibc_events
+                    .iter()
+                    .map(|event| {
+                        let event = convert_ibc_event_to_hermes_ibc_event(event).map_err(|e| {
+                            Error::custom_error(format!("failed to convert ibc event: {}", e))
+                        })?;
+                        Ok(IbcEventWithHeight {
+                            height: *height,
+                            event,
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+
+                Ok(events)
+            })
+            .map_err(|e| {
+                Error::custom_error(format!(
+                    "failed to query events at height {}: Error({})",
+                    height.revision_height(),
+                    e
+                ))
+            })?;
+        events_result
     }
 
-    fn query_events_at_height(&self, height: &Height) -> Result<EventBatch> {
-        retry_with_index(retry_strategy::default_strategy(), |_| {
-            let events_result = self
-                .get_rt()
-                .block_on(self.get_client().view(
-                    self.get_contract_id(),
-                    "get_ibc_events_at".to_string(),
-                    json!({ "height": height }).to_string().into_bytes(),
-                ))
-                .map(|result| {
-                    let ibc_events: Vec<ibc::core::handler::types::events::IbcEvent> =
-                        result.json().map_err(|e| {
-                            Error::custom_error(format!(
-                                "failed to parse ibc events: {}",
-                                e.to_string()
-                            ))
-                        })?;
-                    let events = ibc_events
-                        .iter()
-                        .map(|event| {
-                            let event =
-                                convert_ibc_event_to_hermes_ibc_event(event).map_err(|e| {
-                                    Error::custom_error(format!(
-                                        "failed to convert ibc event: {}",
-                                        e
-                                    ))
-                                })?;
-                            Ok(IbcEventWithHeight {
-                                height: *height,
-                                event,
-                            })
-                        })
-                        .collect::<Result<Vec<_>>>()?;
-
-                    Ok(EventBatch {
-                        height: *height,
-                        events,
-                        chain_id: self.chain_id.clone(),
-                        tracking_id: TrackingId::new_uuid(),
-                    })
-                })
-                .map_err(|e| {
-                    Error::custom_error(format!(
-                        "failed to query events at height {}: Error({})",
-                        height.revision_height(),
-                        e
-                    ))
-                });
-
-            match events_result {
-                Ok(outcome) => RetryResult::Ok(outcome),
-                Err(e) => {
-                    warn!(
-                        "retry deliver with error: {} \n{}",
-                        e,
-                        std::panic::Location::caller()
-                    );
-                    RetryResult::Retry(())
-                }
-            }
-        })
-        .map_err(|_| {
-            Error::custom_error(format!(
-                "failed to query events at height {}",
-                height.revision_height()
-            ))
-        })?
+    async fn latest_height(&self) -> Result<Height> {
+        self.get_client()
+            .view(
+                self.get_contract_id(),
+                "get_latest_height".to_string(),
+                json!({}).to_string().into_bytes(),
+            )
+            .await
+            .map(|result| {
+                let height: Height = result.json().map_err(|e| {
+                    Error::custom_error(format!("failed to parse ibc events: {}", e.to_string()))
+                })?;
+                Ok(height)
+            })
+            .map_err(|e| {
+                Error::custom_error(format!("failed to get latest height: Error({})", e))
+            })?
     }
 }
 
@@ -464,18 +406,3 @@ impl Iterator for HeightRangeInclusive {
 }
 
 impl ExactSizeIterator for HeightRangeInclusive {}
-
-mod retry_strategy {
-    use crate::util::retry::clamp_total;
-    use core::time::Duration;
-    use retry::delay::Fibonacci;
-
-    // Default parameters for the retrying mechanism
-    const MAX_DELAY: Duration = Duration::from_secs(10); // 10 seconds
-    const MAX_TOTAL_DELAY: Duration = Duration::from_secs(60); // 1 minutes
-    const INITIAL_DELAY: Duration = Duration::from_secs(2); // 2 seconds
-
-    pub fn default_strategy() -> impl Iterator<Item = Duration> {
-        clamp_total(Fibonacci::from(INITIAL_DELAY), MAX_DELAY, MAX_TOTAL_DELAY)
-    }
-}
