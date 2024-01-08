@@ -83,7 +83,7 @@ ic-agent = { version = "0.29.0", features = ["pem"] }
 ics12-proto = { version = "0.1.3", default-features = false }
 
 [dependencies.byte-unit]
-version = "4.0.19"
+version = "5.1.3"
 default-features = false
 features = ["serde"]
 
