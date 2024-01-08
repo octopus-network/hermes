@@ -71,7 +71,7 @@ tokio-stream = "0.1.14"
 once_cell = "1.17.1"
 
 ibc = "0.48.1"
-near-crypto = "0.17"
+near-crypto = "0.18"
 near-primitives = "0.17"
 near-jsonrpc-client = "0.6.0"
 near-jsonrpc-primitives = "0.17"
