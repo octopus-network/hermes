@@ -2605,7 +2605,7 @@ name = "ibc-relayer-cli"
 version = "1.7.3"
 dependencies = [
  "abscissa_core",
- "clap 3.2.25",
+ "clap 4.4.11",
  "clap_complete",
  "color-eyre",
  "console",
