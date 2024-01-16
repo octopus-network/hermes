@@ -24,6 +24,7 @@ use ibc_relayer_types::timestamp::Timestamp;
 use ibc_relayer_types::tx_msg::Msg;
 use ibc_relayer_types::Height;
 
+use crate::chain::counterparty::acknowledgements_on_chain1;
 use crate::chain::counterparty::unreceived_acknowledgements;
 use crate::chain::counterparty::unreceived_packets;
 use crate::chain::endpoint::ChainStatus;
@@ -1109,10 +1110,20 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         )
         .entered();
 
-        // Pull the s.n. of all packets that the destination chain has not yet received.
-        let (sequences, src_response_height) =
+        let (sequences, src_response_height) = if self.ordered_channel() {
+            if let Some((seqs, height)) =
+                acknowledgements_on_chain1(self.dst_chain(), self.src_chain(), &self.path_id)
+                    .map_err(LinkError::supervisor)?
+            {
+                (seqs, height)
+            } else {
+                return Ok(());
+            }
+        } else {
+            // Pull the s.n. of all packets that the destination chain has not yet received.
             unreceived_packets(self.dst_chain(), self.src_chain(), &self.path_id)
-                .map_err(LinkError::supervisor)?;
+                .map_err(LinkError::supervisor)?
+        };
 
         let query_height = opt_query_height.unwrap_or(src_response_height);
 
@@ -1211,33 +1222,30 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         packet: &Packet,
         height: Height,
     ) -> Result<Option<Vec<Any>>, LinkError> {
-        if self
-            .src_chain()
-            .config()
-            .map_err(|e| {
-                LinkError::custom_error(format!("[in connection: build_recv_packet decode src_chain get config failed] -> Error({})", e))
-            })?
-            .r#type
-            == ChainType::Near
-        {
+        if self.src_chain().config().unwrap().r#type == ChainType::Near {
             let mut msgs = self.build_update_client_on_dst(height)?;
-            assert!(!msgs.is_empty());
-            let msg_update_client = msgs.last().ok_or(LinkError::custom_error(
-                "[in connection: build_recv_packet msgs.last() is none]".into(),
-            ))?;
-            let domain_msg = MsgUpdateClient::decode_vec(&msg_update_client.value).map_err(|e| {
-                LinkError::custom_error(format!(
+            let proof_height = if msgs.is_empty() {
+                warn!("consensus state already exists at height {height}, skipping update");
+                height
+            } else {
+                let msg_update_client = msgs.last().ok_or(LinkError::custom_error(
+                    "[in connection: build_recv_packet msgs.last() is none]".into(),
+                ))?;
+                let domain_msg =
+                    MsgUpdateClient::decode_vec(&msg_update_client.value).map_err(|e| {
+                        LinkError::custom_error(format!(
                     "[in packet: build_recv_packet decode MsgUpdateClient failed] -> Error({})",
                     e
                 ))
-            })?;
-            let near_header = AnyHeader::try_from(domain_msg.header).map_err(|e| {
+                    })?;
+                let near_header = AnyHeader::try_from(domain_msg.header).map_err(|e| {
                     LinkError::custom_error(format!(
                         "[in packet: build_recv_packet decode ClientMessage to AnyHeader failed] -> Error({})",
                         e
                     ))
                 })?;
-            let proof_height = near_header.height();
+                near_header.height()
+            };
             warn!("new header for recv_packet: {:?}", proof_height);
 
             let proofs = self
@@ -1282,34 +1290,33 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
     ) -> Result<Option<Vec<Any>>, LinkError> {
         let packet = event.packet.clone();
 
-        if self
-            .src_chain()
-            .config()
-            .map_err(|e| {
-                LinkError::custom_error(format!("[in connection: build_ack_from_recv_event decode src_chain get config failed] -> Error({})", e))
-            })?
-            .r#type
-            == ChainType::Near
-        {
+        if self.src_chain().config().unwrap().r#type == ChainType::Near {
             let mut msgs = self.build_update_client_on_dst(height)?;
-            assert!(!msgs.is_empty());
-            let msg_update_client = msgs.last().ok_or(LinkError::custom_error(
-                "[in connection: build_recv_packet msgs.last() is none]".into(),
-            ))?;
-            let domain_msg = MsgUpdateClient::decode_vec(&msg_update_client.value).map_err(|e| {
+            let proof_height = if msgs.is_empty() {
+                warn!("consensus state already exists at height {height}, skipping update");
+                height
+            } else {
+                let msg_update_client = msgs.last().ok_or(LinkError::custom_error(
+                    "[in connection: build_recv_packet msgs.last() is none]".into(),
+                ))?;
+                let domain_msg = MsgUpdateClient::decode_vec(&msg_update_client.value).map_err(|e| {
                 LinkError::custom_error(format!(
                     "[in packet: build_ack_from_recv_event decode MsgUpdateClient failed] -> Error({})",
                     e
                 ))
             })?;
-            let near_header = AnyHeader::try_from(domain_msg.header).map_err(|e| {
+                let near_header = AnyHeader::try_from(domain_msg.header).map_err(|e| {
                     LinkError::custom_error(format!(
                         "[in packet: build_ack_from_recv_event decode ClientMessage to AnyHeader failed] -> Error({})",
                         e
                     ))
                 })?;
-            let proof_height = near_header.height();
-            warn!("new header for build_ack_from_recv_event: {:?}", proof_height);
+                near_header.height()
+            };
+            warn!(
+                "new header for build_ack_from_recv_event: {:?}",
+                proof_height
+            );
 
             let proofs = self
                 .src_chain()

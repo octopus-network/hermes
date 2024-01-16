@@ -1185,16 +1185,6 @@ impl ChainEndpoint for NearChain {
             request,
             std::panic::Location::caller()
         );
-        let mut request = request;
-        request.height = request.height.map(|height| match height {
-            QueryHeight::Latest => QueryHeight::Latest,
-            QueryHeight::Specific(value) => QueryHeight::Specific(
-                // TODO(davirina): why +10?
-                Height::new(value.revision_number(), value.revision_height() + 10)
-                    .expect("failed construct ibc height"),
-            ),
-            // todo(davirain) can improve this error handling
-        });
         let original_result = self
             .get_packet_events(request)
             .map_err(Error::near_chain_error)?;

@@ -7,7 +7,7 @@ use tokio::{
     runtime::Runtime as TokioRuntime,
     time::{sleep, Duration, Instant},
 };
-use tracing::{debug, error, error_span, trace};
+use tracing::{debug, error, error_span, info, trace};
 
 use tendermint::abci;
 use tendermint::block::Height as BlockHeight;
@@ -296,10 +296,10 @@ async fn collect_events(
     latest_block_height: BlockHeight,
 ) -> Result<Option<EventBatch>> {
     let abci_events = fetch_all_events(rpc_client, latest_block_height).await?;
-    trace!("Found {} ABCI events before dedupe", abci_events.len());
+    info!("Found {} ABCI events before dedupe", abci_events.len());
 
     let abci_events = dedupe(abci_events);
-    trace!("Found {} ABCI events after dedupe", abci_events.len());
+    info!("Found {} ABCI events after dedupe", abci_events.len());
 
     let height = Height::from_tm(latest_block_height, chain_id);
     let new_block_event =

@@ -269,10 +269,12 @@ impl EventSource {
             .filter(|e| {
                 matches!(
                     e.event,
-                    IbcEvent::CloseInitChannel(_)
-                        | IbcEvent::TimeoutPacket(_)
-                        | IbcEvent::SendPacket(_)
+                    IbcEvent::SendPacket(_)
+                        | IbcEvent::ReceivePacket(_)
+                        | IbcEvent::WriteAcknowledgement(_)
                         | IbcEvent::AcknowledgePacket(_)
+                        | IbcEvent::TimeoutPacket(_)
+                        | IbcEvent::TimeoutOnClosePacket(_)
                 )
             })
             .collect();
