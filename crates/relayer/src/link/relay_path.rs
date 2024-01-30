@@ -24,7 +24,6 @@ use ibc_relayer_types::timestamp::Timestamp;
 use ibc_relayer_types::tx_msg::Msg;
 use ibc_relayer_types::Height;
 
-use crate::chain::counterparty::acknowledgements_on_chain1;
 use crate::chain::counterparty::unreceived_acknowledgements;
 use crate::chain::counterparty::unreceived_packets;
 use crate::chain::endpoint::ChainStatus;
@@ -1110,20 +1109,14 @@ impl<ChainA: ChainHandle, ChainB: ChainHandle> RelayPath<ChainA, ChainB> {
         )
         .entered();
 
-        let (sequences, src_response_height) = if self.ordered_channel() {
-            if let Some((seqs, height)) =
-                acknowledgements_on_chain1(self.dst_chain(), self.src_chain(), &self.path_id)
-                    .map_err(LinkError::supervisor)?
-            {
-                (seqs, height)
-            } else {
-                return Ok(());
-            }
-        } else {
-            // Pull the s.n. of all packets that the destination chain has not yet received.
+        // Pull the s.n. of all packets that the destination chain has not yet received.
+        let (sequences, src_response_height) =
             unreceived_packets(self.dst_chain(), self.src_chain(), &self.path_id)
-                .map_err(LinkError::supervisor)?
-        };
+                .map_err(LinkError::supervisor)?;
+        warn!(
+            "ys-debug: unreceived_packets {:?} {:?}",
+            sequences, src_response_height
+        );
 
         let query_height = opt_query_height.unwrap_or(src_response_height);
 

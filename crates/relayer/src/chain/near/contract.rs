@@ -216,7 +216,7 @@ pub trait NearIbcContract {
 
         self.view(
             self.get_contract_id(),
-            "get_unreceipt_packet".into(),
+            "get_unreceived_packets".into(),
             json!({
                 "port_id": port_id,
                 "channel_id": channel_id,
