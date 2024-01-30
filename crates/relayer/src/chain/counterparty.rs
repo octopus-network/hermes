@@ -445,37 +445,6 @@ pub fn packet_acknowledgements(
     Ok(Some((acked_sequences, response_height)))
 }
 
-pub fn packet_acknowledgements1(
-    chain: &impl ChainHandle,
-    port_id: &PortId,
-    channel_id: &ChannelId,
-    mut commit_sequences: Vec<Sequence>,
-) -> Result<Option<(Vec<Sequence>, Height)>, Error> {
-    // If there aren't any sequences to query for, return early.
-    // Otherwise we end up with the full list of acknowledgements on chain,
-    // which is potentially huge and extremely costly.
-    if commit_sequences.is_empty() {
-        return Ok(None);
-    }
-
-    // Get the packet acknowledgments on counterparty/source chain
-    let (acked_sequences, response_height) = chain
-        .query_packet_acknowledgements(QueryPacketAcknowledgementsRequest {
-            port_id: port_id.clone(),
-            channel_id: channel_id.clone(),
-            pagination: Some(PageRequest::all()),
-            packet_commitment_sequences: commit_sequences.clone(),
-        })
-        .map_err(Error::relayer)?;
-
-    let acked_sequences_set = acked_sequences.iter().cloned().collect::<HashSet<_>>();
-
-    commit_sequences.retain(|s| !acked_sequences_set.contains(s));
-    commit_sequences.sort_unstable();
-
-    Ok(Some((commit_sequences, response_height)))
-}
-
 /// Returns the sequences of the packets that were sent on the chain and for which:
 ///  - `MsgRecvPacket`-s have been received on the counterparty chain but
 ///  - `MsgAcknowledgement`-s have NOT been received by the chain
@@ -537,27 +506,6 @@ pub fn unreceived_packets(
         unreceived_packets_sequences(chain, &path.port_id, &path.channel_id, commit_sequences)?;
 
     Ok((packet_seq_nrs, h))
-}
-
-pub fn acknowledgements_on_chain1(
-    chain: &impl ChainHandle,
-    counterparty_chain: &impl ChainHandle,
-    path: &PathIdentifiers,
-) -> Result<Option<(Vec<Sequence>, Height)>, Error> {
-    let (commitments_on_counterparty, _) = commitments_on_chain(
-        counterparty_chain,
-        &path.counterparty_port_id,
-        &path.counterparty_channel_id,
-    )?;
-
-    let sequences_and_height = packet_acknowledgements1(
-        chain,
-        &path.port_id,
-        &path.channel_id,
-        commitments_on_counterparty,
-    )?;
-
-    Ok(sequences_and_height)
 }
 
 pub fn acknowledgements_on_chain(
