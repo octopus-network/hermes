@@ -128,6 +128,7 @@ where
         canister_id: CanisterIdConfig::default(),
         canister_pem: PathBuf::new(),
         near_ibc_address: ibc_relayer::config::NearIbcContractAddress::default(),
+        filter_near_event_height: None,
         r#type: default::chain_type(),
         rpc_addr: rpc_data.rpc_address,
         grpc_addr: grpc_address,
